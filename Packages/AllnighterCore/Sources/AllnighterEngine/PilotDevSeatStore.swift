@@ -4,11 +4,11 @@ import AllnighterCore
 /// Per-project remembered dev seat for Pilot (`Pilot_DX.md §DX4`). Lives beside the
 /// project readiness cache — same `ProjectReadiness/` tree, separate file.
 public struct PilotDevSeatPreference: Codable, Sendable, Equatable {
-    public var devWorkerId: String
+    public var devModelId: String
     public var updatedAt: Date
 
-    public init(devWorkerId: String, updatedAt: Date) {
-        self.devWorkerId = devWorkerId
+    public init(devModelId: String, updatedAt: Date) {
+        self.devModelId = devModelId
         self.updatedAt = updatedAt
     }
 }
@@ -35,9 +35,9 @@ public final class PilotDevSeatStore: @unchecked Sendable {
         return pref
     }
 
-    public func save(projectId: String, devWorkerId: String, now: Date = Date()) throws {
+    public func save(projectId: String, devModelId: String, now: Date = Date()) throws {
         try fileManager.createDirectory(at: rootDirectory, withIntermediateDirectories: true)
-        let pref = PilotDevSeatPreference(devWorkerId: devWorkerId, updatedAt: now)
+        let pref = PilotDevSeatPreference(devModelId: devModelId, updatedAt: now)
         try CoreJSON.encode(pref).write(to: fileURL(projectId: projectId), options: .atomic)
     }
 }

@@ -103,12 +103,12 @@ final class RelayResumeControllerTests: XCTestCase {
     /// leaves behind (`RelayCoordinator.escalate`), written straight to the store so the
     /// test doesn't need a full round to reach it.
     private func seedEscalated(
-        id: String, root: URL, projectRoot: String, pmWorkerId: String, devWorkerId: String
+        id: String, root: URL, projectRoot: String, pmWorkerId: String, devModelId: String
     ) -> RelayStateStore {
         let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
         let state = RelayState(
             id: id, projectRoot: projectRoot, docPath: "docs/spec.md",
-            pmWorkerId: pmWorkerId, devWorkerId: devWorkerId, status: .escalated,
+            pmWorkerId: pmWorkerId, devModelId: devModelId, status: .escalated,
             createdAt: Date(), note: "76/77 or 88 — say which?"
         )
         try? stateStore.save(state)
@@ -126,7 +126,7 @@ final class RelayResumeControllerTests: XCTestCase {
         let root = tempRoot("eligibility")
         let stateStore = seedEscalated(
             id: "relay_a", root: root, projectRoot: repoRoot(),
-            pmWorkerId: "pm", devWorkerId: "dev")
+            pmWorkerId: "pm", devModelId: "dev")
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
             stateStore: stateStore
@@ -140,7 +140,7 @@ final class RelayResumeControllerTests: XCTestCase {
         let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
         let state = RelayState(
             id: "relay_done", projectRoot: repoRoot(), docPath: "docs/spec.md",
-            pmWorkerId: "pm", devWorkerId: "dev", status: .done, createdAt: Date())
+            pmWorkerId: "pm", devModelId: "dev", status: .done, createdAt: Date())
         try? stateStore.save(state)
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
@@ -155,7 +155,7 @@ final class RelayResumeControllerTests: XCTestCase {
         let root = tempRoot("empty")
         let stateStore = seedEscalated(
             id: "relay_b", root: root, projectRoot: repoRoot(),
-            pmWorkerId: "pm", devWorkerId: "dev")
+            pmWorkerId: "pm", devModelId: "dev")
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
             stateStore: stateStore
@@ -183,7 +183,7 @@ final class RelayResumeControllerTests: XCTestCase {
         let relayId = "relay_full_\(UUID().uuidString)"
         let stateStore = seedEscalated(
             id: relayId, root: root, projectRoot: repoRoot(),
-            pmWorkerId: seatable[0].id, devWorkerId: seatable[1].id)
+            pmWorkerId: seatable[0].id, devModelId: seatable[1].id)
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: seatable, registry: stubRegistry()),
             stateStore: stateStore
@@ -226,7 +226,7 @@ final class RelayResumeControllerTests: XCTestCase {
         let relayId = "relay_inflight_\(UUID().uuidString)"
         let stateStore = seedEscalated(
             id: relayId, root: root, projectRoot: repoRoot(),
-            pmWorkerId: "pm", devWorkerId: "dev")
+            pmWorkerId: "pm", devModelId: "dev")
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
             stateStore: stateStore

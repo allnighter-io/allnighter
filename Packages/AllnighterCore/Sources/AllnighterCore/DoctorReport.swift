@@ -80,7 +80,7 @@ public enum DoctorReport {
     /// Inputs for the `doctor.pilot` summary check (`Pilot_DX.md` §DX6).
     public struct PilotContext: Sendable, Equatable {
         public var projectLabel: String?
-        public var devWorkerId: String?
+        public var devModelId: String?
         public var devWorkerLabel: String?
         public var driverInstalled: Bool
         /// `nil` on the quota-free path — readiness not smoke-probed.
@@ -88,13 +88,13 @@ public enum DoctorReport {
 
         public init(
             projectLabel: String? = nil,
-            devWorkerId: String? = nil,
+            devModelId: String? = nil,
             devWorkerLabel: String? = nil,
             driverInstalled: Bool = false,
             driverReady: Bool? = nil
         ) {
             self.projectLabel = projectLabel
-            self.devWorkerId = devWorkerId
+            self.devModelId = devModelId
             self.devWorkerLabel = devWorkerLabel
             self.driverInstalled = driverInstalled
             self.driverReady = driverReady
@@ -335,7 +335,7 @@ public enum DoctorReport {
     }
 
     private static func pilotCheck(_ pilot: PilotContext, inputs: Inputs) -> DoctorResult.Check {
-        let seat = pilot.devWorkerLabel ?? pilot.devWorkerId ?? "(none remembered)"
+        let seat = pilot.devWorkerLabel ?? pilot.devModelId ?? "(none remembered)"
         let project = pilot.projectLabel ?? "(project not found)"
         if !inputs.configDirWritable || !inputs.runsDirWritable || !inputs.pendingDirWritable {
             return .init(
@@ -355,7 +355,7 @@ public enum DoctorReport {
                 requiresManual: true
             )
         }
-        if pilot.devWorkerId == nil {
+        if pilot.devModelId == nil {
             return .init(
                 name: "pilot",
                 status: .degraded,

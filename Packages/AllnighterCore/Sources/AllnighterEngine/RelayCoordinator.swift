@@ -20,7 +20,7 @@ public struct RelayCoordinator: Sendable {
         /// from disk each round (PM_Relay.md §2, "the doc is an anchor, not a payload").
         public var docPath: String
         public var pmWorkerId: String
-        public var devWorkerId: String
+        public var devModelId: String
         public var maxRounds: Int
         public var until: Date?
         /// Consecutive rounds with zero repo change AND verdict `continue` before the
@@ -50,7 +50,7 @@ public struct RelayCoordinator: Sendable {
             projectId: String? = nil,
             docPath: String,
             pmWorkerId: String,
-            devWorkerId: String,
+            devModelId: String,
             maxRounds: Int = 20,
             until: Date? = nil,
             stagnationRoundCap: Int = 3,
@@ -64,7 +64,7 @@ public struct RelayCoordinator: Sendable {
             self.projectId = projectId
             self.docPath = docPath
             self.pmWorkerId = pmWorkerId
-            self.devWorkerId = devWorkerId
+            self.devModelId = devModelId
             self.maxRounds = max(1, maxRounds)
             self.until = until
             self.stagnationRoundCap = max(1, stagnationRoundCap)
@@ -249,7 +249,7 @@ public struct RelayCoordinator: Sendable {
             projectRoot: config.projectRoot,
             docPath: config.docPath,
             pmWorkerId: config.pmWorkerId,
-            devWorkerId: config.devWorkerId,
+            devModelId: config.devModelId,
             status: .running,
             createdAt: now()
         )
@@ -307,7 +307,7 @@ public struct RelayCoordinator: Sendable {
             projectRoot: config.projectRoot,
             docPath: config.docPath,
             pmWorkerId: RelayState.externalPMWorkerId,
-            devWorkerId: config.devWorkerId,
+            devModelId: config.devModelId,
             status: .awaitingPM,
             pmMode: .external,
             createdAt: now(),
@@ -468,19 +468,19 @@ public struct RelayCoordinator: Sendable {
             state.status = .running
             persist(state)
 
-            let devDisplayName = await runService.workerDisplayName(forModelId: state.devWorkerId)
+            let devDisplayName = await runService.workerDisplayName(forModelId: state.devModelId)
             let devRequest = RunRequest(
                 message: RelayDevPrompt.assemble(context: .init(
                     handover: handover, docPath: state.docPath, roundNumber: roundNumber,
                     workerDisplayName: devDisplayName)),
                 repoRoot: state.projectRoot, projectId: projectId,
-                presetId: "build_slice", pinnedModelId: state.devWorkerId
+                presetId: "build_slice", pinnedModelId: state.devModelId
             )
             // No `--until` in Pilot — `dispatchTurn` only needs `config` for its
             // deadline plumbing, which is always inert here (`until: nil`).
             let dispatchConfig = Config(
                 projectRoot: state.projectRoot, projectId: projectId, docPath: state.docPath,
-                pmWorkerId: state.pmWorkerId, devWorkerId: state.devWorkerId,
+                pmWorkerId: state.pmWorkerId, devModelId: state.devModelId,
                 maxRounds: maxRounds, until: nil, stagnationRoundCap: stagnationCap,
                 devTurnIdleTimeoutSeconds: state.pilotDevTurnIdleTimeoutSeconds
             )
@@ -653,7 +653,7 @@ public struct RelayCoordinator: Sendable {
         adoptedConfig.projectRoot = state.projectRoot
         adoptedConfig.docPath = state.docPath
         adoptedConfig.pmWorkerId = pmWorkerId
-        adoptedConfig.devWorkerId = state.devWorkerId
+        adoptedConfig.devModelId = state.devModelId
 
         threadProjector?.started(state: state, projectId: config.projectId)
         do {
@@ -821,7 +821,7 @@ public struct RelayCoordinator: Sendable {
         resumedConfig.projectRoot = state.projectRoot
         resumedConfig.docPath = state.docPath
         resumedConfig.pmWorkerId = state.pmWorkerId
-        resumedConfig.devWorkerId = state.devWorkerId
+        resumedConfig.devModelId = state.devModelId
 
         state.founderNote = founderAnswer
         state.status = .running
@@ -1147,13 +1147,13 @@ public struct RelayCoordinator: Sendable {
                 }
             }
 
-            let devDisplayName = await runService.workerDisplayName(forModelId: config.devWorkerId)
+            let devDisplayName = await runService.workerDisplayName(forModelId: config.devModelId)
             let devRequest = RunRequest(
                 message: RelayDevPrompt.assemble(context: .init(
                     handover: handover, docPath: config.docPath, roundNumber: roundNumber,
                     workerDisplayName: devDisplayName)),
                 repoRoot: config.projectRoot, projectId: config.projectId,
-                presetId: config.presetId, pinnedModelId: config.devWorkerId
+                presetId: config.presetId, pinnedModelId: config.devModelId
             )
             let devResult = await dispatchDevTurn(
                 devRequest,

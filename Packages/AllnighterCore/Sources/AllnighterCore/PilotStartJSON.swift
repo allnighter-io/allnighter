@@ -7,7 +7,7 @@ public struct PilotStartJSON: Codable, Equatable, Sendable {
     public var nextCommand: String
     public var scaffoldPath: String
     /// The dev seat model id actually used (after alias resolution).
-    public var devWorkerId: String
+    public var devModelId: String
     /// Present when `--dev-model` was omitted and the last-used seat was recalled.
     public var rememberedDevWorker: Bool?
 
@@ -15,13 +15,13 @@ public struct PilotStartJSON: Codable, Equatable, Sendable {
         relay: RelayJSON,
         nextCommand: String,
         scaffoldPath: String,
-        devWorkerId: String,
+        devModelId: String,
         rememberedDevWorker: Bool? = nil
     ) {
         self.relay = relay
         self.nextCommand = nextCommand
         self.scaffoldPath = scaffoldPath
-        self.devWorkerId = devWorkerId
+        self.devModelId = devModelId
         self.rememberedDevWorker = rememberedDevWorker
     }
 }

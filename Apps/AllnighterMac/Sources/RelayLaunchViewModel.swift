@@ -15,7 +15,7 @@ import AllnighterEngine
 final class RelayLaunchViewModel {
     var docPath: String = ""
     var pmWorkerId: String?
-    var devWorkerId: String?
+    var devModelId: String?
     var maxRounds: Int = 20
     /// Optional `HH:MM` deadline. Empty = no deadline (`--max-rounds` is the only ceiling).
     var untilTime: String = ""
@@ -85,7 +85,7 @@ final class RelayLaunchViewModel {
     }
 
     static func validate(
-        docPath: String, pmWorkerId: String?, devWorkerId: String?, maxRounds: Int
+        docPath: String, pmWorkerId: String?, devModelId: String?, maxRounds: Int
     ) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -95,10 +95,10 @@ final class RelayLaunchViewModel {
         if pmWorkerId == nil {
             issues.append(.init(id: "pm", message: "Pick a PM seat."))
         }
-        if devWorkerId == nil {
+        if devModelId == nil {
             issues.append(.init(id: "dev", message: "Pick a dev seat."))
         }
-        if let pmWorkerId, let devWorkerId, pmWorkerId == devWorkerId {
+        if let pmWorkerId, let devModelId, pmWorkerId == devModelId {
             issues.append(.init(id: "same-seat", message: "PM and dev seats must be different models."))
         }
         if maxRounds < 1 {
@@ -108,7 +108,7 @@ final class RelayLaunchViewModel {
     }
 
     var validationIssues: [ValidationIssue] {
-        Self.validate(docPath: docPath, pmWorkerId: pmWorkerId, devWorkerId: devWorkerId, maxRounds: maxRounds)
+        Self.validate(docPath: docPath, pmWorkerId: pmWorkerId, devModelId: devModelId, maxRounds: maxRounds)
     }
 
     var canStart: Bool { validationIssues.isEmpty && !isStarting }
@@ -119,7 +119,7 @@ final class RelayLaunchViewModel {
     /// in a background Task. Returns the relay id on claim success, `nil` on refusal.
     @discardableResult
     func start(onEvent: (@Sendable (RelayCoordinator.RelayEvent) -> Void)? = nil) -> String? {
-        guard canStart, let pmWorkerId, let devWorkerId else { return nil }
+        guard canStart, let pmWorkerId, let devModelId else { return nil }
         startRefusalIssue = nil
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
 
@@ -129,7 +129,7 @@ final class RelayLaunchViewModel {
             projectId: projectId,
             docPath: trimmedDoc,
             pmWorkerId: pmWorkerId,
-            devWorkerId: devWorkerId,
+            devModelId: devModelId,
             maxRounds: maxRounds,
             until: RelayGUIRuntime.parseUntil(untilTime)
         )

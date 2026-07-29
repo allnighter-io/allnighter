@@ -73,13 +73,13 @@ public struct RunNotificationSnapshot: Sendable, Equatable {
 public struct RelayStreamNotificationSnapshot: Sendable, Equatable {
     public let relayId: String
     public let threadTitle: String
-    public let devWorkerId: String
+    public let devModelId: String
     public let streamSilenceWarning: Bool
 
-    public init(relayId: String, threadTitle: String, devWorkerId: String, streamSilenceWarning: Bool) {
+    public init(relayId: String, threadTitle: String, devModelId: String, streamSilenceWarning: Bool) {
         self.relayId = relayId
         self.threadTitle = threadTitle
-        self.devWorkerId = devWorkerId
+        self.devModelId = devModelId
         self.streamSilenceWarning = streamSilenceWarning
     }
 }
@@ -226,7 +226,7 @@ public enum NotificationCandidateDetection {
             return (relay.id, RelayStreamNotificationSnapshot(
                 relayId: relay.id,
                 threadTitle: title,
-                devWorkerId: relay.devWorkerId,
+                devModelId: relay.devModelId,
                 streamSilenceWarning: warning
             ))
         })
@@ -246,7 +246,7 @@ public enum NotificationCandidateDetection {
                 turnId: relayId,
                 event: .relayStreamStalled,
                 threadTitle: snap.threadTitle,
-                workerId: snap.devWorkerId,
+                workerId: snap.devModelId,
                 occurredAt: now
             ))
         }

@@ -20,7 +20,7 @@ enum PilotCLI {
     /// Resolved `pilot start` inputs after flag parsing, alias resolution, and optional recall.
     struct StartRequest {
         var config: RelayCoordinator.Config
-        var devWorkerId: String
+        var devModelId: String
         /// The raw `--dev-model` token when it differed from the resolved model id.
         var devWorkerAlias: String?
         var rememberedDevWorker: Bool
@@ -67,13 +67,13 @@ enum PilotCLI {
                 AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not write handover scaffold: \(error)")
             }
             do {
-                try PilotDevSeatStore().save(projectId: request.config.projectId ?? "", devWorkerId: request.devWorkerId)
+                try PilotDevSeatStore().save(projectId: request.config.projectId ?? "", devModelId: request.devModelId)
             } catch {
                 AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not remember dev seat: \(error)")
             }
             emitStartResult(
                 state,
-                devWorkerId: request.devWorkerId,
+                devModelId: request.devModelId,
                 devWorkerAlias: request.devWorkerAlias,
                 rememberedDevWorker: request.rememberedDevWorker,
                 scaffoldPath: scaffoldPath,
@@ -111,13 +111,13 @@ enum PilotCLI {
         let records = probeRecords
         let readySeats = PilotSeatResolver.readySeats(from: catalogModels, probeRecords: records)
 
-        let devWorkerId: String
+        let devModelId: String
         let devWorkerAlias: String?
         let remembered: Bool
         if let token = opts.value("dev-model") {
             switch PilotSeatResolver.resolve(alias: token, models: catalogModels) {
             case .success(let resolved):
-                devWorkerId = resolved
+                devModelId = resolved
                 // Exact-id only — alias echo is retired (MR-S04).
                 devWorkerAlias = nil
                 remembered = false
@@ -139,8 +139,8 @@ enum PilotCLI {
             case .failure(.noReadySeats):
                 throw PilotCLIError.noReadyDevSeats
             }
-        } else if let rememberedId = devSeatStore.load(projectId: project.id)?.devWorkerId {
-            devWorkerId = rememberedId
+        } else if let rememberedId = devSeatStore.load(projectId: project.id)?.devModelId {
+            devModelId = rememberedId
             devWorkerAlias = nil
             remembered = true
         } else {
@@ -154,13 +154,13 @@ enum PilotCLI {
             projectId: project.id,
             docPath: docPath,
             pmWorkerId: RelayState.externalPMWorkerId,
-            devWorkerId: devWorkerId,
+            devModelId: devModelId,
             maxRounds: maxRounds,
             devTurnIdleTimeoutSeconds: idleParsed.value
         )
         return StartRequest(
             config: config,
-            devWorkerId: devWorkerId,
+            devModelId: devModelId,
             devWorkerAlias: devWorkerAlias,
             rememberedDevWorker: remembered
         )
@@ -778,7 +778,7 @@ enum PilotCLI {
 
     private static func emitStartResult(
         _ state: RelayState,
-        devWorkerId: String,
+        devModelId: String,
         devWorkerAlias: String?,
         rememberedDevWorker: Bool,
         scaffoldPath: String,
@@ -791,17 +791,17 @@ enum PilotCLI {
                 relay: relayJSON,
                 nextCommand: nextCommand,
                 scaffoldPath: scaffoldPath,
-                devWorkerId: devWorkerId,
+                devModelId: devModelId,
                 rememberedDevWorker: rememberedDevWorker ? true : nil
             )))
         } else {
             print(RelayDispatch.humanRelaySummary(relayJSON))
             if let alias = devWorkerAlias {
-                print("dev seat: \(devWorkerId) (resolved from alias \"\(alias)\")")
+                print("dev seat: \(devModelId) (resolved from alias \"\(alias)\")")
             } else if rememberedDevWorker {
-                print("dev seat: \(devWorkerId) (remembered from last pilot start on this project)")
+                print("dev seat: \(devModelId) (remembered from last pilot start on this project)")
             } else {
-                print("dev seat: \(devWorkerId)")
+                print("dev seat: \(devModelId)")
             }
             print("scaffold: \(scaffoldPath)")
             print("next: \(nextCommand)")

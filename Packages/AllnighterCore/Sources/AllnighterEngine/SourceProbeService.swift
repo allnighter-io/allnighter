@@ -162,11 +162,11 @@ public struct SourceProbeService: Sendable {
 
     private static func pilotContext(projectToken: String?, records: [ToolProbeRecord], models: [Model], full: Bool) -> DoctorReport.PilotContext {
         let project = ProjectStore().resolveFresh(projectToken ?? ".")
-        let devWorkerId = project.flatMap { PilotDevSeatStore().load(projectId: $0.id)?.devWorkerId }
-        let model = devWorkerId.flatMap { id in models.first { $0.id == id } }
+        let devModelId = project.flatMap { PilotDevSeatStore().load(projectId: $0.id)?.devModelId }
+        let model = devModelId.flatMap { id in models.first { $0.id == id } }
         let record = model.flatMap { model in records.first { $0.driverId == model.driverId } }
         let installed = record.map { if case .notInstalled = $0.status { return false }; return true } ?? false
-        return .init(projectLabel: project.map { "\($0.displayName) (\($0.id))" }, devWorkerId: devWorkerId, devWorkerLabel: model.map { "\($0.id) (\($0.displayName))" }, driverInstalled: installed, driverReady: full ? record?.status.isSmokeReady : nil)
+        return .init(projectLabel: project.map { "\($0.displayName) (\($0.id))" }, devModelId: devModelId, devWorkerLabel: model.map { "\($0.id) (\($0.displayName))" }, driverInstalled: installed, driverReady: full ? record?.status.isSmokeReady : nil)
     }
 
     private static func ensureWritable(_ url: URL) -> Bool {

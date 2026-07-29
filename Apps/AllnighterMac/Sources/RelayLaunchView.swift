@@ -49,7 +49,7 @@ struct RelayLaunchView: View {
                         )
                         seatSection(
                             title: "Dev seat", subtitle: "Builds, commits, reports back.",
-                            selected: Binding(get: { viewModel.devWorkerId }, set: { viewModel.devWorkerId = $0 })
+                            selected: Binding(get: { viewModel.devModelId }, set: { viewModel.devModelId = $0 })
                         )
                         ceilingsSection(viewModel)
                         if !viewModel.validationIssues.isEmpty || viewModel.startRefusalIssue != nil {

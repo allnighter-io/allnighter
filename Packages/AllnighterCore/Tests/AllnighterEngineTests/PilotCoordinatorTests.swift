@@ -78,7 +78,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "ignored", devWorkerId: "model_dev", maxRounds: 7
+            pmWorkerId: "ignored", devModelId: "model_dev", maxRounds: 7
         )
         let result = coordinator.startPilot(config: config)
         guard case .success(let state) = result else { return XCTFail("expected success") }
@@ -86,7 +86,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(state.pmMode, .external)
         XCTAssertEqual(state.status, .awaitingPM)
         XCTAssertEqual(state.pmWorkerId, RelayState.externalPMWorkerId)
-        XCTAssertEqual(state.devWorkerId, "model_dev")
+        XCTAssertEqual(state.devModelId, "model_dev")
         XCTAssertTrue(state.rounds.isEmpty)
         XCTAssertEqual(state.pilotMaxRounds, 7)
 
@@ -104,7 +104,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "ignored", devWorkerId: "model_dev", until: Date().addingTimeInterval(3600)
+            pmWorkerId: "ignored", devModelId: "model_dev", until: Date().addingTimeInterval(3600)
         )
         let result = coordinator.startPilot(config: config)
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
@@ -122,7 +122,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_continue" })
 
         let started = coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"
         ))
         guard case .success = started else { return XCTFail("start failed") }
 
@@ -173,7 +173,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_idle_timeout" })
 
         let started = coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev",
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev",
             devTurnIdleTimeoutSeconds: 555
         ))
         guard case .success(let startedState) = started else { return XCTFail("start failed") }
@@ -199,7 +199,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_handover_file" })
 
         _ = coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"
         ))
 
         let handover = """
@@ -236,7 +236,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let (service, _) = makeService(devScripts: [.init(stdout: "Done.")], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_dirty" })
-        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"))
+        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"))
 
         let submission = "Go.\n\n" + verdictJSON("continue", handover: "Build it.")
         let result = await coordinator.runExternalRound(relayId: "relay_pilot_dirty", submission: submission)
@@ -252,7 +252,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let (service, runner) = makeService(devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_done" })
-        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"))
+        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"))
 
         let submission = "All acceptance criteria met.\n\n" + verdictJSON("done", note: "Shipped.")
         let result = await coordinator.runExternalRound(relayId: "relay_pilot_done", submission: submission)
@@ -272,7 +272,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let (service, runner) = makeService(devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_escalate" })
-        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"))
+        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"))
 
         let submission = "Need to know which env.\n\n" + verdictJSON("escalate", note: "staging or prod?")
         let result = await coordinator.runExternalRound(relayId: "relay_pilot_escalate", submission: submission)
@@ -291,7 +291,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let (service, runner) = makeService(devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_parse" })
-        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"))
+        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"))
 
         let result = await coordinator.runExternalRound(relayId: "relay_pilot_parse", submission: "No verdict tail here at all.")
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
@@ -309,7 +309,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let (service, runner) = makeService(devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_gate" })
-        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"))
+        _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"))
 
         let dangerousHandover = "Run git reset --hard on main to clean this up."
         let submission = "Reviewed.\n\n" + verdictJSON("continue", handover: dangerousHandover)
@@ -331,7 +331,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightBlocksCredentialTokenHandoverSameAsBlockingPath() throws {
         let state = RelayState(
             id: "relay_preflight_cred", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            pmWorkerId: RelayState.externalPMWorkerId, devModelId: "model_dev",
             status: .awaitingPM, pmMode: .external, createdAt: Date()
         )
         // Same shape as the founder detour / HandoverGateTests: imperative credential exposure.
@@ -357,7 +357,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightAllowsSafeContinueAndDone() throws {
         let state = RelayState(
             id: "relay_preflight_ok", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            pmWorkerId: RelayState.externalPMWorkerId, devModelId: "model_dev",
             status: .awaitingPM, pmMode: .external, createdAt: Date()
         )
         let continueOK = RelayCoordinator.preflightExternalRound(
@@ -376,7 +376,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightRefusesRoundInFlightAndUnparseable() throws {
         var running = RelayState(
             id: "relay_preflight_run", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            pmWorkerId: RelayState.externalPMWorkerId, devModelId: "model_dev",
             status: .running, pmMode: .external, createdAt: Date()
         )
         guard case .failure(.roundInFlight) = RelayCoordinator.preflightExternalRound(
@@ -410,7 +410,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let running = RelayState(
             id: "relay_pilot_inflight", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            pmWorkerId: RelayState.externalPMWorkerId, devModelId: "model_dev",
             status: .running, pmMode: .external, createdAt: Date()
         )
         try stateStore.save(running)
@@ -429,7 +429,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let done = RelayState(
             id: "relay_pilot_done_already", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            pmWorkerId: RelayState.externalPMWorkerId, devModelId: "model_dev",
             status: .done, pmMode: .external, createdAt: Date(), note: "Shipped."
         )
         try stateStore.save(done)
@@ -459,7 +459,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let spawned = RelayState(
             id: "relay_spawned_not_pilot", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated, createdAt: Date()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .escalated, createdAt: Date()
         )
         try stateStore.save(spawned)
 
@@ -477,7 +477,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let (service, runner) = makeService(devScripts: [.init(stdout: "Round 1 done.")], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_ceiling" })
         _ = coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev", maxRounds: 1
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev", maxRounds: 1
         ))
 
         let round1 = await coordinator.runExternalRound(
@@ -504,7 +504,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let (service, runner) = makeService(devScripts: [.init(stdout: "Tried again, nothing changed.")], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_stagnation" })
         _ = coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev",
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev",
             maxRounds: 20, stagnationRoundCap: 2
         ))
 
@@ -529,7 +529,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let legacyJSON = """
         {
           "id": "relay_legacy", "projectRoot": "/repo", "docPath": "docs/spec.md",
-          "pmWorkerId": "model_pm", "devWorkerId": "model_dev", "status": "done",
+          "pmWorkerId": "model_pm", "devModelId": "model_dev", "status": "done",
           "rounds": [], "createdAt": "2026-01-01T00:00:00Z"
         }
         """
@@ -545,7 +545,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let parked = RelayState(
             id: "relay_pilot_parked", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: RelayState.externalPMWorkerId, devWorkerId: "model_dev",
+            pmWorkerId: RelayState.externalPMWorkerId, devModelId: "model_dev",
             status: .awaitingPM, pmMode: .external, createdAt: Date()
         )
         try stateStore.save(parked)
@@ -579,7 +579,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
             runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pls_early" }
         )
         guard case .success = coordinator.startPilot(config: .init(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "ignored", devModelId: "model_dev"
         )) else { return XCTFail("start failed") }
 
         let submission = "Reviewed.\n\n" + verdictJSON("continue", handover: "Implement the thing.")

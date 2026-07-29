@@ -169,7 +169,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             projectRoot: repo.path,
             docPath: "docs/spec.md",
             pmWorkerId: "model_pm",
-            devWorkerId: "model_dev",
+            devModelId: "model_dev",
             maxRounds: 5
         )).get()
 
@@ -238,7 +238,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             projectRoot: repo.path,
             docPath: "docs/spec.md",
             pmWorkerId: "model_pm",
-            devWorkerId: "model_dev",
+            devModelId: "model_dev",
             maxRounds: 5
         )).get()
 
@@ -281,7 +281,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             projectRoot: "/r",
             docPath: "d",
             pmWorkerId: "pm",
-            devWorkerId: "dev",
+            devModelId: "dev",
             status: .awaitingPM,
             rounds: [r],
             createdAt: Date(timeIntervalSince1970: 1)

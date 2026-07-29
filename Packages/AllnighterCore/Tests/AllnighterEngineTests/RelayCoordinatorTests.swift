@@ -110,7 +110,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let state = try await coordinator.run(config: config).get()
 
@@ -148,7 +148,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             pmWorkerId: "model_pm",
             // Known catalog id but disabled on this service's bench (makeService only
             // registers model_dev enabled). Pass an unknown id to trip PO-F10.
-            devWorkerId: "model_does_not_exist",
+            devModelId: "model_does_not_exist",
             maxRounds: 5
         )
         let state = try await coordinator.run(config: config).get()
@@ -184,7 +184,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/Pilot_Defect_Fixes.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let state = try await coordinator.run(config: config).get()
         XCTAssertEqual(state.status, .done)
@@ -236,7 +236,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let state = try await coordinator.run(config: config).get()
 
@@ -273,7 +273,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 1,
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 1,
             devTurnIdleTimeoutSeconds: 555
         )
         _ = try await coordinator.run(config: config).get()
@@ -304,7 +304,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 1
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 1
         )
         _ = try await coordinator.run(config: config).get()
 
@@ -330,7 +330,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let state = try await coordinator.run(config: config).get()
 
@@ -359,7 +359,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 1
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 1
         )
         let state = try await coordinator.run(config: config).get()
 
@@ -387,7 +387,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let state = try await coordinator.run(config: config).get()
 
@@ -413,7 +413,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let state = try await coordinator.run(config: config).get()
 
@@ -440,7 +440,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev",
+            pmWorkerId: "model_pm", devModelId: "model_dev",
             maxRounds: 2, stagnationRoundCap: 10
         )
         let state = try await coordinator.run(config: config).get()
@@ -467,7 +467,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev",
+            pmWorkerId: "model_pm", devModelId: "model_dev",
             maxRounds: 20, stagnationRoundCap: 2
         )
         let state = try await coordinator.run(config: config).get()
@@ -494,7 +494,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         )
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let escalated = try await coordinator.run(config: config).get()
         XCTAssertEqual(escalated.status, .escalated)
@@ -505,7 +505,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         runner.enqueue(command: "pm_cli", .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")))
         let resumedConfig = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let resumedResult = await coordinator.resume(relayId: "relay_resume_test", founderAnswer: "use staging", config: resumedConfig)
         guard case .success(let resumed) = resumedResult else { return XCTFail("expected success") }
@@ -529,7 +529,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             idFactory: { "relay_done_test" }
         )
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let done = try await coordinator.run(config: config).get()
         XCTAssertEqual(done.status, .done)
@@ -557,7 +557,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         )
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
 
         let midRelayRoundCount = LockedBox<Int?>(nil)
@@ -590,7 +590,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     ) throws -> RelayState {
         var state = RelayState(
             id: id, projectRoot: projectRoot, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Self.flooredNow()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Self.flooredNow()
         )
         projector.started(state: state, projectId: nil)
         state.rounds.append(RelayRound(roundNumber: 1, baselineHead: "abc123", startedAt: Self.flooredNow()))
@@ -645,7 +645,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let config = RelayCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let resumedResult = await coordinator.resume(relayId: "relay_resume_after_kill", founderAnswer: "continue please", config: config)
         guard case .success(let resumed) = resumedResult else { return XCTFail("expected success") }
@@ -663,14 +663,14 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_done_never_resumable", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .done, createdAt: Date(), note: "Shipped."
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .done, createdAt: Date(), note: "Shipped."
         )
         try stateStore.save(state)
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
         let config = RelayCoordinator.Config(
-            projectRoot: "/repo", docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: "/repo", docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.resume(relayId: "relay_done_never_resumable", founderAnswer: "anything", config: config)
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
@@ -686,7 +686,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_ceiling_stopped", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .stopped, createdAt: Date(),
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .stopped, createdAt: Date(),
             stoppedReason: "reached --max-rounds (5)"
         )
         try stateStore.save(state)
@@ -697,7 +697,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(coordinator.status(relayId: "relay_ceiling_stopped")?.stoppedReason, "reached --max-rounds (5)", "untouched by reconciliation")
 
         let config = RelayCoordinator.Config(
-            projectRoot: "/repo", docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: "/repo", docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.resume(relayId: "relay_ceiling_stopped", founderAnswer: "anything", config: config)
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
@@ -715,7 +715,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_guard_resume", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Date(), note: "which env?"
         )
         try stateStore.save(state)
@@ -723,7 +723,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
 
         let guardResult = coordinator.resumeGuard(relayId: "relay_guard_resume", founderAnswer: "use staging", config: config)
@@ -745,7 +745,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_guard_locked", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Date(), note: "which env?"
         )
         try stateStore.save(state)
@@ -756,7 +756,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let guardResult = coordinator.resumeGuard(relayId: "relay_guard_locked", founderAnswer: "use staging", config: config)
         guard case .failure(let error) = guardResult else { return XCTFail("expected guard failure while the lock is held") }
@@ -777,14 +777,14 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         // owner.pid with THIS test process's own pid, so `isOwnerDead` reads it alive.
         let live = RelayState(
             id: "relay_legit_start", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(live)
 
         let (service, runner) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev", maxRounds: 5
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
 
         // A stray `pair relay --no-wait` duplicate start racing the same root+doc as
@@ -813,7 +813,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             idFactory: { "relay_from_factory_should_not_be_used" }
         )
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.run(config: config, id: "relay_preminted")
         guard case .success(let state) = result else { return XCTFail("expected success") }
@@ -849,7 +849,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_concurrent_resume", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Date(), note: "which env?"
         )
         try stateStore.save(state)
@@ -861,7 +861,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let racedResult = await coordinator.resume(relayId: "relay_concurrent_resume", founderAnswer: "use staging", config: config)
         guard case .failure(let error) = racedResult else { return XCTFail("expected failure while the lock is held") }
@@ -896,7 +896,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_stale_lock", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .escalated,
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Date(), note: "which env?"
         )
         try stateStore.save(state)
@@ -939,7 +939,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let blockedResult = await coordinator.resume(relayId: "relay_stale_lock", founderAnswer: "use staging", config: config)
         guard case .failure(let blockedError) = blockedResult else { return XCTFail("expected failure while the child holds the lock") }
@@ -976,7 +976,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         try stateStore.save(RelayState(
             id: "relay_live", projectRoot: "/repo/a", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         ))
 
         let liveMatch = RelayCoordinator.preflightStart(
@@ -1018,14 +1018,14 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         // save — `isOwnerDead` reads that as alive, exactly like a genuinely live relay.
         let existing = RelayState(
             id: "relay_first", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(existing)
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
         let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.run(config: config)
         guard case .failure(let refusal) = result else { return XCTFail("expected failure while a live relay is active") }
@@ -1054,7 +1054,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             idFactory: { "relay_new_after_orphan" }
         )
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.run(config: config)
         guard case .success(let state) = result else {
@@ -1072,7 +1072,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let existing = RelayState(
             id: "relay_doc_a", projectRoot: repo.path, docPath: "docs/a.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(existing)
 
@@ -1083,7 +1083,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             idFactory: { "relay_doc_b" }
         )
         let config = RelayCoordinator.Config(
-            projectRoot: repo.path, docPath: "docs/b.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+            projectRoot: repo.path, docPath: "docs/b.md", pmWorkerId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.run(config: config)
         guard case .success(let state) = result else {
@@ -1107,7 +1107,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             let parked = RelayState(
                 id: "relay_parked_\(label)", projectRoot: repo.path, docPath: "docs/spec.md",
                 pmWorkerId: pmMode == .external ? RelayState.externalPMWorkerId : "model_pm",
-                devWorkerId: "model_dev", status: status, pmMode: pmMode, createdAt: Date(),
+                devModelId: "model_dev", status: status, pmMode: pmMode, createdAt: Date(),
                 note: status == .escalated ? "which env?" : nil
             )
             try stateStore.save(parked)
@@ -1121,7 +1121,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
                 idFactory: { "relay_new_beside_\(label)" }
             )
             let config = RelayCoordinator.Config(
-                projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+                projectRoot: repo.path, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
             )
             let result = await coordinator.run(config: config)
             guard case .success(let state) = result else {
@@ -1141,7 +1141,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let existing = RelayState(
             id: "relay_canonical", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(existing)
 
@@ -1166,7 +1166,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
             let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
             let config = RelayCoordinator.Config(
-                projectRoot: spelling, docPath: "docs/spec.md", pmWorkerId: "model_pm", devWorkerId: "model_dev"
+                projectRoot: spelling, docPath: "docs/spec.md", pmWorkerId: "model_pm", devModelId: "model_dev"
             )
             let result = await coordinator.run(config: config)
             guard case .failure(let refusal) = result else {
@@ -1199,7 +1199,7 @@ final class RelayStateStoreTests: HermeticSupportTestCase {
         round.gate = RelayGateSummary(allowed: true)
         var state = RelayState(
             id: "relay_roundtrip", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running,
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running,
             rounds: [round], createdAt: fixedNow
         )
         try store.save(state)
@@ -1233,7 +1233,7 @@ final class RelayStateStoreTests: HermeticSupportTestCase {
         let ownerURL = tmp.appendingPathComponent("relay_owner").appendingPathComponent("owner.pid")
         var state = RelayState(
             id: "relay_owner", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try store.save(state)
         XCTAssertTrue(FileManager.default.fileExists(atPath: ownerURL.path), "a running relay records its owner pid")
@@ -1257,7 +1257,7 @@ final class RelayStateStoreTests: HermeticSupportTestCase {
         // A live owner (this test process) is not dead.
         let live = RelayState(
             id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmWorkerId: "model_pm", devWorkerId: "model_dev", status: .running, createdAt: Date()
+            pmWorkerId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try store.save(live)
         XCTAssertFalse(store.isOwnerDead(id: "relay_live"))

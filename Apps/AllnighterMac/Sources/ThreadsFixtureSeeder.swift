@@ -493,7 +493,7 @@ struct ThreadsFixtureSeeder {
         let pmWorkerId = models.first { $0.id == "model_claude_code" }?.id
             ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI }?.id
             ?? models.first?.id ?? "model_claude_code"
-        let devWorkerId = models.first { $0.id == "model_codex" }?.id
+        let devModelId = models.first { $0.id == "model_codex" }?.id
             ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI && $0.id != pmWorkerId }?.id
             ?? pmWorkerId
         let base = Date().addingTimeInterval(-600)
@@ -515,7 +515,7 @@ struct ThreadsFixtureSeeder {
             at: 0
         ), toThreadId: id, now: base)
         _ = try? store.appendTurn(turn(
-            "dev1", workerId: devWorkerId,
+            "dev1", workerId: devModelId,
             text: "Built the launch surface + escalation row. Committed 3f2a91c. Tests green (152/152).",
             at: 40
         ), toThreadId: id, now: base)

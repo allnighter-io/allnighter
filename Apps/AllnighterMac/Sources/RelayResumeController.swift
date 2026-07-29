@@ -81,7 +81,7 @@ final class RelayResumeController {
             projectId: projectId,
             docPath: prior.docPath,
             pmWorkerId: prior.pmWorkerId,
-            devWorkerId: prior.devWorkerId,
+            devModelId: prior.devModelId,
             maxRounds: maxRounds
         )
 

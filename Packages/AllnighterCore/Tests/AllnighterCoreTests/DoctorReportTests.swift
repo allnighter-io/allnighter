@@ -118,7 +118,7 @@ final class DoctorReportTests: XCTestCase {
         var base = inputs(full: false)
         base.pilot = .init(
             projectLabel: "Allnighter (prj_abc)",
-            devWorkerId: "model_sonnet",
+            devModelId: "model_sonnet",
             devWorkerLabel: "model_sonnet (Sonnet)",
             driverInstalled: true,
             driverReady: nil
@@ -135,7 +135,7 @@ final class DoctorReportTests: XCTestCase {
             ToolProbeRecord(driverId: "claude_code", status: .installedNotProbed(version: "1.2"), version: "1.2", lastProbeAt: t),
         ]
         var base = inputs(full: false)
-        base.pilot = .init(projectLabel: nil, devWorkerId: nil, driverInstalled: false)
+        base.pilot = .init(projectLabel: nil, devModelId: nil, driverInstalled: false)
         let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: base)
         XCTAssertEqual(check(r, "pilot")?.status, .critical)
     }

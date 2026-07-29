@@ -172,7 +172,7 @@ public struct RelayThreadProjector: Sendable {
         guard let existing = thread.turn(id: turnId) else {
             let turn = ThreadTurn(
                 id: turnId, threadId: thread.id, kind: .workerChat, status: .running,
-                createdAt: round.finishedAt ?? round.startedAt, author: .worker, workerId: state.devWorkerId
+                createdAt: round.finishedAt ?? round.startedAt, author: .worker, workerId: state.devModelId
             )
             if let updated = try? store.appendTurn(turn, toThreadId: thread.id, now: now) { thread = updated }
             return
@@ -182,7 +182,7 @@ public struct RelayThreadProjector: Sendable {
             var settled = existing
             settled.status = .done
             settled.text = text
-            settled.workerId = state.devWorkerId
+            settled.workerId = state.devModelId
             settled.runId = devRunId
             settled.completedAt = round.finishedAt ?? now
             if let updated = try? store.updateTurn(settled, inThreadId: thread.id, now: now) { thread = updated }

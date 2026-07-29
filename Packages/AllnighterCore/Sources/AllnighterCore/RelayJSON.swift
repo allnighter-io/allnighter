@@ -27,7 +27,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
     public var roundLog: [RelayRoundLogEntry]
     public var docPath: String
     public var pmWorkerId: String
-    public var devWorkerId: String
+    public var devModelId: String
     /// Set only when `status == "stopped"` — which ceiling fired and why.
     public var stoppedReason: String?
     /// PO-S03: present while this relay's dev turn holds a FIFO ticket on the
@@ -46,7 +46,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         roundLog: [RelayRoundLogEntry],
         docPath: String,
         pmWorkerId: String,
-        devWorkerId: String,
+        devModelId: String,
         stoppedReason: String? = nil,
         laneBlocked: ExecutionLaneTicket? = nil
     ) {
@@ -61,7 +61,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         self.roundLog = roundLog
         self.docPath = docPath
         self.pmWorkerId = pmWorkerId
-        self.devWorkerId = devWorkerId
+        self.devModelId = devModelId
         self.stoppedReason = stoppedReason
         self.laneBlocked = laneBlocked
     }
@@ -81,7 +81,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
             roundLog: state.rounds.map(RelayRoundLogEntry.init),
             docPath: state.docPath,
             pmWorkerId: state.pmWorkerId,
-            devWorkerId: state.devWorkerId,
+            devModelId: state.devModelId,
             stoppedReason: state.stoppedReason,
             laneBlocked: state.laneBlocked
         )

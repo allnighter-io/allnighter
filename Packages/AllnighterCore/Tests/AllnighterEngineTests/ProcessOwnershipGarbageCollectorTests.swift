@@ -196,7 +196,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
             projectRoot: "/repo",
             docPath: "docs/spec.md",
             pmWorkerId: "pm",
-            devWorkerId: "dev",
+            devModelId: "dev",
             status: .done,
             createdAt: .distantPast
         )
@@ -205,7 +205,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
             projectRoot: "/repo",
             docPath: "docs/spec.md",
             pmWorkerId: "pm",
-            devWorkerId: "dev",
+            devModelId: "dev",
             status: .escalated,
             createdAt: .distantPast
         )

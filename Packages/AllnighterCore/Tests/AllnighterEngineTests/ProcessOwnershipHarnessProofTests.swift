@@ -62,7 +62,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             projectRoot: repo.path,
             docPath: "docs/spec.md",
             pmWorkerId: "model_pm",
-            devWorkerId: "model_dev",
+            devModelId: "model_dev",
             maxRounds: 5,
             proofTimeoutSeconds: 1
         )).get()
@@ -253,7 +253,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             projectRoot: repo.path,
             docPath: "docs/spec.md",
             pmWorkerId: "model_pm",
-            devWorkerId: "model_dev",
+            devModelId: "model_dev",
             status: .escalated,
             rounds: [round],
             createdAt: Date(),
@@ -355,7 +355,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
         round.devRunId = "run_dev"
         let state = RelayState(
             id: "r1", projectRoot: "/r", docPath: "d", pmWorkerId: "pm",
-            devWorkerId: "dev", status: .done, rounds: [round],
+            devModelId: "dev", status: .done, rounds: [round],
             createdAt: Date(timeIntervalSince1970: 1)
         )
         let json = RelayJSON.project(state, contractVersion: "1.0.0")

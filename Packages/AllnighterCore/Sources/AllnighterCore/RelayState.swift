@@ -206,7 +206,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     public var projectRoot: String
     public var docPath: String
     public var pmWorkerId: String
-    public var devWorkerId: String
+    public var devModelId: String
     public var status: Status
     /// `spawned` (default) or `external` (Pilot). Legacy relays persisted before this
     /// field existed decode as `spawned` — the only mode that ever ran.
@@ -251,7 +251,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         projectRoot: String,
         docPath: String,
         pmWorkerId: String,
-        devWorkerId: String,
+        devModelId: String,
         status: Status,
         pmMode: PMMode = .spawned,
         rounds: [RelayRound] = [],
@@ -269,7 +269,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.projectRoot = projectRoot
         self.docPath = docPath
         self.pmWorkerId = pmWorkerId
-        self.devWorkerId = devWorkerId
+        self.devModelId = devModelId
         self.status = status
         self.pmMode = pmMode
         self.rounds = rounds
@@ -298,7 +298,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         projectRoot = try c.decode(String.self, forKey: .projectRoot)
         docPath = try c.decode(String.self, forKey: .docPath)
         pmWorkerId = try c.decode(String.self, forKey: .pmWorkerId)
-        devWorkerId = try c.decode(String.self, forKey: .devWorkerId)
+        devModelId = try c.decode(String.self, forKey: .devModelId)
         status = try c.decode(Status.self, forKey: .status)
         // Legacy decode: every relay persisted before Pilot existed only ever ran
         // `spawned` (Pilot_Relay.md §1 decision 1, PL-S01).

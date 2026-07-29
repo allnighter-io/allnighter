@@ -479,7 +479,7 @@ final class ProcessOwnershipScopedWriteLanesTests: XCTestCase {
             projectRoot: repo.path,
             docPath: "docs/spec.md",
             pmWorkerId: "model_pm",
-            devWorkerId: "model_dev",
+            devModelId: "model_dev",
             status: .awaitingPM,
             rounds: [round],
             createdAt: Date()

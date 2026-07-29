@@ -141,7 +141,7 @@ enum RelayCLI {
     /// `pair relay adopt --relay <id> --pm-model <id>` (docs/phases/Pilot_Relay.md
     /// §5, PL-S06) — adopt (unattended handover): hands a parked Pilot relay to a
     /// spawned PM, then lets the loop run to a terminal state exactly like `relay`/
-    /// `relay-resume`. `projectRoot`/`docPath`/`devWorkerId` are always read from the
+    /// `relay-resume`. `projectRoot`/`docPath`/`devModelId` are always read from the
     /// loaded relay (never from a flag here) — an adopt can never silently redirect a
     /// relay at a different doc or repo, same discipline `resume` already follows.
     static func runAdopt(_ args: [String], runtime: ToolRuntime) async {
@@ -160,7 +160,7 @@ enum RelayCLI {
         let projectId = AllnighterCLI.resolveProject(priorState.projectRoot, store: ProjectStore())?.id
         let config = RelayCoordinator.Config(
             projectRoot: priorState.projectRoot, projectId: projectId, docPath: priorState.docPath,
-            pmWorkerId: pmWorkerId, devWorkerId: priorState.devWorkerId,
+            pmWorkerId: pmWorkerId, devModelId: priorState.devModelId,
             maxRounds: maxRounds, until: untilParsed.value
         )
 
@@ -244,7 +244,7 @@ enum RelayCLI {
         guard let docPath = opts.value("doc") else { throw RelayCLIError.missingRequired("--doc <path>") }
         guard let projectToken = opts.value("project") else { throw RelayCLIError.missingRequired("--project <id|path>") }
         guard let pmWorkerId = opts.value("pm-model") else { throw RelayCLIError.missingRequired("--pm-model <modelId>") }
-        guard let devWorkerId = opts.value("dev-model") else { throw RelayCLIError.missingRequired("--dev-model <modelId>") }
+        guard let devModelId = opts.value("dev-model") else { throw RelayCLIError.missingRequired("--dev-model <modelId>") }
         // Empty `models` (the default) falls back to the live catalog for real
         // invocations; tests inject a hermetic fixture instead (mirrors PilotCLI's
         // `parseStartConfig(models:)` seam) — never reads live user config in tests.
@@ -252,7 +252,7 @@ enum RelayCLI {
         if case .failure(let failure) = ExactIdResolver.resolveWorker(pmWorkerId, flag: "--pm-model", models: catalogModels) {
             throw RelayCLIError.workerNotAvailable(failure)
         }
-        if case .failure(let failure) = ExactIdResolver.resolveWorker(devWorkerId, flag: "--dev-model", models: catalogModels) {
+        if case .failure(let failure) = ExactIdResolver.resolveWorker(devModelId, flag: "--dev-model", models: catalogModels) {
             throw RelayCLIError.workerNotAvailable(failure)
         }
         guard let project = AllnighterCLI.resolveProject(projectToken, store: projectStore) else {
@@ -271,7 +271,7 @@ enum RelayCLI {
             projectId: project.id,
             docPath: docPath,
             pmWorkerId: pmWorkerId,
-            devWorkerId: devWorkerId,
+            devModelId: devModelId,
             maxRounds: maxRounds,
             until: untilParsed.value,
             devTurnIdleTimeoutSeconds: idleParsed.value
@@ -302,7 +302,7 @@ enum RelayCLI {
         guard let maxRounds = parseMaxRounds(opts.value("max-rounds")) else {
             throw RelayCLIError.invalidMaxRounds(opts.value("max-rounds") ?? "")
         }
-        // The coordinator itself re-derives projectRoot/docPath/pmWorkerId/devWorkerId
+        // The coordinator itself re-derives projectRoot/docPath/pmWorkerId/devModelId
         // from the persisted state on resume (RelayCoordinator.resume) — resolving the
         // project here too only recovers a real `projectId` for the RunRequest;
         // `nil` degrades gracefully if the project entry can't be found.
@@ -314,7 +314,7 @@ enum RelayCLI {
             projectId: projectId,
             docPath: priorState.docPath,
             pmWorkerId: priorState.pmWorkerId,
-            devWorkerId: priorState.devWorkerId,
+            devModelId: priorState.devModelId,
             maxRounds: maxRounds,
             until: untilParsed.value
         )
