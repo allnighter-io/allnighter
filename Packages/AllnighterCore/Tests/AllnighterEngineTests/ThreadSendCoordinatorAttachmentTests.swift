@@ -305,7 +305,7 @@ final class ThreadSendCoordinatorAttachmentTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let file = root.appendingPathComponent("idem.json")
         let store = ThreadSendIdempotencyStore(fileURL: file)
-        let payload = ThreadSendCanonicalPayload(threadId: "t1", message: "generate an image", workerId: "img", imageHashes: [])
+        let payload = ThreadSendCanonicalPayload(threadId: "t1", message: "generate an image", modelId: "img", imageHashes: [])
         let entry = try store.record(
             key: "k1", payload: payload, userTurnId: "u1", workerTurnId: "w1",
             workerAttachmentIds: ["att-worker-1"]

@@ -9,20 +9,20 @@ import Crypto
 public struct ThreadSendCanonicalPayload: Codable, Sendable, Equatable {
     public var threadId: String
     public var message: String
-    public var workerId: String?
+    public var modelId: String?
     public var imageHashes: [String]
     public var fileReferences: [FileReferenceInput]
 
     public init(
         threadId: String,
         message: String,
-        workerId: String?,
+        modelId: String?,
         imageHashes: [String],
         fileReferences: [FileReferenceInput] = []
     ) {
         self.threadId = threadId
         self.message = message
-        self.workerId = workerId
+        self.modelId = modelId
         self.imageHashes = imageHashes
         self.fileReferences = fileReferences
     }

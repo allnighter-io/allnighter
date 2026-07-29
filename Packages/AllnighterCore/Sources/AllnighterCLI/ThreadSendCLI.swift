@@ -74,7 +74,7 @@ enum ThreadSendCLI {
         let canonical = ThreadSendCanonicalPayload(
             threadId: threadId,
             message: message,
-            workerId: workerId,
+            modelId: workerId,
             imageHashes: imageHashes,
             fileReferences: fileReferences
         )
