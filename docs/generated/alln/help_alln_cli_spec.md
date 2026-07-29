@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 5.2.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.0.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -248,7 +248,7 @@ Arguments:
 Flags:
 - `--image <path>` — Attach an image (repeatable).
 - `--ref <path[:start-end]>` — Reference a project file or line range (repeatable).
-- `--model <string>` — Requested worker/model id.
+- `--model <string>` — Requested model id.
 - `--idempotency-key <string>` — Idempotency key (24h).
 - `--json` — Structured send result.
 
@@ -611,7 +611,7 @@ Output schema: `ownershipGarbageCollectionJSON`.
 
 ### `alln run`
 
-Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.
+Unified run: message + optional Team + agent in the registered repository root. Research Teams are observational and execution Teams use one selected agent. TeamRunJSON reports agent terminal states and Git observation, never a correctness verdict.
 
 Arguments:
 - `message` (required) — The user's prompt.
@@ -619,7 +619,7 @@ Arguments:
 Flags:
 - `--project <id>` — Project id, name, or repo path. When omitted, walk to the git root and match a registered project (AE-S05).
 - `--team <id>` — Team preset id; omit for Default Team.
-- `--model <id>` — Override worker model id.
+- `--model <id>` — Override model id.
 - `--seat <id>` — Override one crew seat model id (repeatable, crew order; requires --team; judgment teams only).
 - `--message <string>` — Alias for the positional message.
 - `--effort <low|med|high>` — low | med | high.
@@ -953,9 +953,9 @@ Arguments:
 
 Flags:
 - `--file <path>` — Read prompt from a file.
-- `--model <id>` — Target worker model id.
+- `--model <id>` — Target model id.
 - `--team <id>` — Team preset id.
-- `--fallback <id>` — Fallback worker id.
+- `--fallback <id>` — Fallback model id.
 - `--when <when>` — ready | away | manual.
 - `--cwd <path>` — Working directory context.
 - `--submit` — Create directly as Pending.
@@ -1019,9 +1019,9 @@ Arguments:
 Flags:
 - `--prompt <string>` — Replacement prompt text.
 - `--file <path>` — Replacement prompt file.
-- `--model <id>` — Target worker model id.
+- `--model <id>` — Target model id.
 - `--team <id>` — Team preset id.
-- `--fallback <id>` — Fallback worker id.
+- `--fallback <id>` — Fallback model id.
 - `--when <when>` — ready | away | manual.
 - `--cwd <path>` — Working directory context.
 - `--json` — Emit one PendingItemJSON object.
@@ -1436,9 +1436,9 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `SOURCE_AUTH_EXPIRED` | yes | no | `operational` | Re-authenticate the named source. |
 | `SOURCE_KEYCHAIN_UNAVAILABLE` | yes | yes | `operational` | Open the provider app once, run its login command in Terminal, then `alln doctor --full --agent <source>`. |
 | `MODEL_UNAVAILABLE` | no | yes | `operational` | Run `alln models --json`; pick an on-Bench ready model or enable one. |
-| `WORKER_NOT_AVAILABLE` | yes | yes | `operational` | Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name. |
+| `AGENT_NOT_AVAILABLE` | yes | yes | `operational` | Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name. |
 | `DEFAULT_TEAM_INVALID` | yes | no | `operational` | Run `alln menu --json` / `alln teams show <id> --json`; fix unavailable workers. |
-| `WORKER_FAILED` | no | yes | `operational` | Inspect `workerId` and source error; failed worker remains visible. |
+| `AGENT_FAILED` | no | yes | `operational` | Inspect `workerId` and source error; failed worker remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |
 | `TEAM_RUN_TIMEOUT` | no | yes | `timeout` | Retry with lower effort or fewer workers. |
 | `STATUS_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop. |
@@ -1498,7 +1498,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `FILE_REFERENCE_LINE_RANGE_INVALID` | yes | no | `operational` | Choose a valid 1-based line range inside the file. |
 | `FILE_REFERENCE_CHANGED_BEFORE_INVOKE` | yes | no | `operational` | Refresh the reference and re-approve the changed file before running. |
 | `FILE_REFERENCE_CATALOG_STALE` | no | yes | `operational` | Refresh the Project file picker and retry. |
-| `FILE_REFERENCE_WORKER_UNSUPPORTED` | yes | no | `operational` | Choose a worker that can receive referenced file text or use a chat worker. |
+| `FILE_REFERENCE_AGENT_UNSUPPORTED` | yes | no | `operational` | Choose a worker that can receive referenced file text or use a chat worker. |
 | `THREAD_SEND_IDEMPOTENCY_CONFLICT` | no | no | `operational` | Use a new idempotency key or repeat the original payload. |
 | `THREAD_NOT_FOUND` | yes | no | `operational` | Run `alln history --json` (or create a thread); retry with a valid thread id. |
 | `TRY_FIX_PACKET_MISSING` | no | yes | `operational` | Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet. |
@@ -1532,13 +1532,13 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `PROJECT_ROOT_UNAVAILABLE` | yes | yes | `operational` | Restore the folder/permissions, then `alln project show <id>` to re-observe. |
 | `PROJECT_ARCHIVED` | yes | no | `operational` | Run `alln project unarchive <id>` before new runs. |
 | `THREAD_UNASSIGNED` | yes | no | `operational` | Assign the thread/pending item to a project, then retry. |
-| `WORKER_NOT_READY_IN_PROJECT` | yes | yes | `operational` | Run `alln project models <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
+| `AGENT_NOT_READY_IN_PROJECT` | yes | yes | `operational` | Run `alln project models <id> --json`; open the CLI in the project folder and complete its trust/login, then recheck. |
 | `RUN_WRITE_LOCK_BUSY` | no | yes | `laneBusy` | The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry. |
 | `EXECUTION_LANE_BUSY` | no | yes | `laneBusy` | Do not busy-loop or invent a private retry cadence. The harness owns the wait: poll relay/pilot status for laneBlocked (position, holder identity/kind/id, heldSinceSeconds) until the ticket clears, or let the harness grant the lane. Never start a second concurrent build-class turn on the same root. |
 | `WRITE_SCOPE_VIOLATION` | yes | no | `operational` | Inspect roundLog.scopeViolation (declared writeScope + outOfScopePaths). The harness rejected the turn's work fail-closed; endReason stays reported. Do not auto-revert — the PM decides whether to keep, amend, or reverse the commits. Next turn: stay inside the declared prefixes or re-declare a broader writeScope. |
 | `STANDING_INVARIANT_FAILED` | yes | no | `operational` | Inspect roundLog.standingFailed and proofResults entries with standing:true. For contractDrift: rebuild the turn tree, run `alln dev export-contracts` (regenerate docs/generated/alln/*), commit the artifacts, and re-run. The harness never auto-regenerates or auto-commits (Process_Ownership.md PO-F4). |
 | `NO_PROJECT_ROOT` | yes | yes | `operational` | Restore the project folder or pick an available project root, then retry. |
-| `WORKER_NOT_READY` | yes | yes | `operational` | Pick a ready worker or run setup health, then retry. |
+| `AGENT_NOT_READY` | yes | yes | `operational` | Pick a ready worker or run setup health, then retry. |
 | `EXECUTION_TEAM_MIXED_SOURCES` | yes | no | `operational` | Pick one execution source, run as non-mutating review/propose, or split into judgment then execution. |
 | `UTILIZATION_SOURCE_NOT_FOUND` | yes | no | `usage` | Run `alln models --json`; use a known driver id in appliesTo. |
 | `UTILIZATION_SOURCE_UNCONFIGURED` | yes | no | `usage` | Add the source to Boost window appliesTo, then retry. |
@@ -1637,7 +1637,7 @@ the selected CLI.
 
 Terminal `TeamRunJSON` projects observed clocks only — null means the driver did not report that observation. No forecasts or targets.
 
-Per-worker on `workerAnswers[]`:
+Per-worker on `answers[]`:
 
 - `queueMs` — run request accepted → this seat's CLI spawn (lock / lane / resolution / staging).
 - `ttftMs` — CLI spawn → first visible streamed delta (null off the streaming path).

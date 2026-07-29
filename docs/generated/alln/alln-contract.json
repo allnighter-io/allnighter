@@ -895,7 +895,7 @@
         },
         {
           "name" : "model",
-          "summary" : "Requested worker\/model id.",
+          "summary" : "Requested model id.",
           "takesValue" : true,
           "valueType" : "string"
         },
@@ -2182,7 +2182,7 @@
         },
         {
           "name" : "model",
-          "summary" : "Override worker model id.",
+          "summary" : "Override model id.",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -2387,8 +2387,8 @@
       "name" : "run",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : true,
-      "summary" : "Unified run: message + optional Team + worker in the registered repository root. Research Teams are observational and execution Teams use one selected worker. TeamRunJSON reports worker terminal states and Git observation, never a correctness verdict.",
-      "trigger" : "Use when the user wants one worker or team to answer or act in a project repo root (chat \/ named-model ask \/ Default Team \/ --no-wait to keep going after you step away).",
+      "summary" : "Unified run: message + optional Team + agent in the registered repository root. Research Teams are observational and execution Teams use one selected agent. TeamRunJSON reports agent terminal states and Git observation, never a correctness verdict.",
+      "trigger" : "Use when the user wants one agent or team to answer or act in a project repo root (chat \/ named-model ask \/ Default Team \/ --no-wait to keep going after you step away).",
       "visibility" : "public"
     },
     {
@@ -3485,7 +3485,7 @@
         },
         {
           "name" : "model",
-          "summary" : "Target worker model id.",
+          "summary" : "Target model id.",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -3497,7 +3497,7 @@
         },
         {
           "name" : "fallback",
-          "summary" : "Fallback worker id.",
+          "summary" : "Fallback model id.",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -3719,7 +3719,7 @@
         },
         {
           "name" : "model",
-          "summary" : "Target worker model id.",
+          "summary" : "Target model id.",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -3731,7 +3731,7 @@
         },
         {
           "name" : "fallback",
-          "summary" : "Fallback worker id.",
+          "summary" : "Fallback model id.",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -5139,7 +5139,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "5.2.0",
+  "contractVersion" : "6.0.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5190,11 +5190,11 @@
       "name" : "benchReadyCount"
     },
     {
-      "meaning" : "Default team has runnable workers.",
+      "meaning" : "Default team has runnable agents.",
       "name" : "defaultTeamValid"
     },
     {
-      "meaning" : "Default team has a ready plan worker.",
+      "meaning" : "Default team has a ready plan agent.",
       "name" : "planWriterReady"
     },
     {
@@ -5202,7 +5202,7 @@
       "name" : "coordinator"
     },
     {
-      "meaning" : "Async run journal persists worker\/status transitions incrementally.",
+      "meaning" : "Async run journal persists agent\/status transitions incrementally.",
       "name" : "journal.incrementalDurable"
     },
     {
@@ -5351,12 +5351,12 @@
     },
     {
       "agentAction" : "Run `alln menu --json` (or `alln menu show model:<id>`); pass a canonical model_* id. Never substitute a display name.",
-      "code" : "WORKER_NOT_AVAILABLE",
+      "code" : "AGENT_NOT_AVAILABLE",
       "exitClass" : "operational",
       "explain" : "An explicit `--model` \/ `--dev-model` request named a model that is disabled, notReady, unknown, or a display name. Allnighter never silently substitutes a different model behind an explicit worker id (Process_Ownership.md PO-F10 \/ Menu_Not_Router MR-S04).",
       "requiresManual" : true,
       "retryable" : true,
-      "ruleId" : "run.worker_not_available"
+      "ruleId" : "run.agent_not_available"
     },
     {
       "agentAction" : "Run `alln menu --json` \/ `alln teams show <id> --json`; fix unavailable workers.",
@@ -5369,12 +5369,12 @@
     },
     {
       "agentAction" : "Inspect `workerId` and source error; failed worker remains visible.",
-      "code" : "WORKER_FAILED",
+      "code" : "AGENT_FAILED",
       "exitClass" : "operational",
       "explain" : "One worker failed. The failure is shown, never hidden; other workers may still have answered. Retry the worker or proceed with partial results.",
       "requiresManual" : false,
       "retryable" : true,
-      "ruleId" : "worker.failed"
+      "ruleId" : "agent.failed"
     },
     {
       "agentAction" : "Retry with a ready plan writer or export worker answers.",
@@ -5909,12 +5909,12 @@
     },
     {
       "agentAction" : "Choose a worker that can receive referenced file text or use a chat worker.",
-      "code" : "FILE_REFERENCE_WORKER_UNSUPPORTED",
+      "code" : "FILE_REFERENCE_AGENT_UNSUPPORTED",
       "exitClass" : "operational",
       "explain" : "The selected route cannot accept Project file references.",
       "requiresManual" : true,
       "retryable" : false,
-      "ruleId" : "file.reference.worker_unsupported"
+      "ruleId" : "file.reference.agent_unsupported"
     },
     {
       "agentAction" : "Use a new idempotency key or repeat the original payload.",
@@ -6215,12 +6215,12 @@
     },
     {
       "agentAction" : "Run `alln project models <id> --json`; open the CLI in the project folder and complete its trust\/login, then recheck.",
-      "code" : "WORKER_NOT_READY_IN_PROJECT",
+      "code" : "AGENT_NOT_READY_IN_PROJECT",
       "exitClass" : "operational",
       "explain" : "The target worker's project readiness is not `ready` for this root. The run waits until the worker is ready here.",
       "requiresManual" : true,
       "retryable" : true,
-      "ruleId" : "project.worker_not_ready"
+      "ruleId" : "project.agent_not_ready"
     },
     {
       "agentAction" : "The active mutating run on this repo root looks stuck (the wait bound elapsed); wait for it to finish or stop it, then retry.",
@@ -6269,12 +6269,12 @@
     },
     {
       "agentAction" : "Pick a ready worker or run setup health, then retry.",
-      "code" : "WORKER_NOT_READY",
+      "code" : "AGENT_NOT_READY",
       "exitClass" : "operational",
       "explain" : "No runnable worker resolved for this run (missing CLI, wrong driver, or bench not ready).",
       "requiresManual" : true,
       "retryable" : true,
-      "ruleId" : "run.worker_not_ready"
+      "ruleId" : "run.agent_not_ready"
     },
     {
       "agentAction" : "Pick one execution source, run as non-mutating review\/propose, or split into judgment then execution.",

@@ -233,7 +233,7 @@
           ],
           "type" : "string"
         },
-        "producedByWorkerId" : {
+        "producedByAgentId" : {
           "type" : [
             "string",
             "null"
