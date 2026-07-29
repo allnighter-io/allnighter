@@ -873,10 +873,10 @@ final class AppModel {
                 current.status = status
             }
         case RunEventKind.workerStatusChanged:
-            if let workerId = event.payload["workerId"]?.stringValue,
+            if let agentId = event.payload["workerId"]?.stringValue,
                let to = event.payload["to"]?.stringValue,
                let status = WorkerAnswerStatus(rawValue: to),
-               let index = current.answers.firstIndex(where: { $0.memberId == workerId }) {
+               let index = current.answers.firstIndex(where: { $0.memberId == agentId }) {
                 current.answers[index].result.status = status
                 // Design runs ride the run-relative image path on the event so the
                 // board tile fills in progressively.
