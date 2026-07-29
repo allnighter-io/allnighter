@@ -267,7 +267,7 @@ public actor TeamService {
         return TeamToolResult(
             runId: run.id, origin: origin, preset: resolvedRequest.team.id, status: run.status, createdAt: run.createdAt,
             plan: run.plan, analysis: run.analysis,
-            partials: run.failedWorkerAnswers.map { WorkerFailure(workerId: $0.memberId, reason: $0.result.errorReason ?? $0.result.status.rawValue) },
+            partials: run.failedWorkerAnswers.map { WorkerFailure(agentId: $0.memberId, reason: $0.result.errorReason ?? $0.result.status.rawValue) },
             contextTruncated: contextTruncated, invocations: invocations, warnings: resolved.warnings
         )
     }

@@ -168,7 +168,7 @@
           "consensus": [
             {
               "statement": "Team accounts come first.",
-              "sourceWorkerIds": [
+              "sourceAgentIds": [
                 "model_opus#0",
                 "model_chatgpt#0",
                 "model_sonnet#0"
@@ -181,11 +181,11 @@
               "topic": "Analytics timing",
               "positions": [
                 {
-                  "workerId": "model_chatgpt#0",
+                  "agentId": "model_chatgpt#0",
                   "summary": "analytics can wait"
                 },
                 {
-                  "workerId": "model_sonnet#0",
+                  "agentId": "model_sonnet#0",
                   "summary": "ship a thin event schema now"
                 }
               ],
@@ -197,11 +197,11 @@
           "blindSpots": [],
           "failedWorkers": [
             {
-              "workerId": "model_gemini#0",
+              "agentId": "model_gemini#0",
               "reason": "auth_required"
             },
             {
-              "workerId": "model_grok#0",
+              "agentId": "model_grok#0",
               "reason": "no output for 120s"
             }
           ],

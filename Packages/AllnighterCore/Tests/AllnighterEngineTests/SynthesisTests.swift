@@ -32,7 +32,7 @@ final class SynthesisTests: XCTestCase {
 
     private let combinedOutput = """
     ```json
-    {"consensus":[{"statement":"Accounts first","sourceWorkerIds":["model_opus#0"],"strength":"strong"}],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":["migration"],"failedWorkers":[{"workerId":"model_gemini#0","reason":"no output for 120s"}]}
+    {"consensus":[{"statement":"Accounts first","sourceAgentIds":["model_opus#0"],"strength":"strong"}],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":["migration"],"failedWorkers":[{"agentId":"model_gemini#0","reason":"no output for 120s"}]}
     ```
     ===PLAN===
     # Plan

@@ -43,7 +43,7 @@ final class TeamServiceStreamTests: XCTestCase {
 
     private let combined = """
     ```json
-    {"consensus":[{"statement":"actor","sourceWorkerIds":["model_opus#0"]}],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":[],"failedWorkers":[]}
+    {"consensus":[{"statement":"actor","sourceAgentIds":["model_opus#0"]}],"contradictions":[],"partialCoverage":[],"uniqueInsights":[],"blindSpots":[],"failedWorkers":[]}
     ```
     ===PLAN===
     # Plan

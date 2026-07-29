@@ -17,7 +17,7 @@ public enum RunMarkdown {
             guard !items.isEmpty else { return }
             lines.append("## \(title)")
             for p in items {
-                let attrib = p.sourceWorkerIds.isEmpty ? "" : " _(\(p.sourceWorkerIds.joined(separator: ", ")))_"
+                let attrib = p.sourceAgentIds.isEmpty ? "" : " _(\(p.sourceAgentIds.joined(separator: ", ")))_"
                 lines.append("- \(p.statement)\(attrib)")
             }
             lines.append("")
@@ -29,7 +29,7 @@ public enum RunMarkdown {
             lines.append("## Conflicts")
             for c in a.contradictions {
                 lines.append("- **\(c.topic)**")
-                for pos in c.positions { lines.append("  - \(pos.workerId): \(pos.summary)") }
+                for pos in c.positions { lines.append("  - \(pos.agentId): \(pos.summary)") }
                 lines.append("  - → \(c.recommendedResolution)")
             }
             lines.append("")
@@ -45,7 +45,7 @@ public enum RunMarkdown {
 
         if !a.failedWorkers.isEmpty {
             lines.append("## Workers that did not answer")
-            for f in a.failedWorkers { lines.append("- \(f.workerId): \(f.reason)") }
+            for f in a.failedWorkers { lines.append("- \(f.agentId): \(f.reason)") }
             lines.append("")
         }
 

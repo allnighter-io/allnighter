@@ -162,7 +162,7 @@
           "consensus": [
             {
               "statement": "Team accounts should come before billing analytics.",
-              "sourceWorkerIds": [
+              "sourceAgentIds": [
                 "model_opus#0",
                 "model_chatgpt#0",
                 "model_grok#0"
@@ -175,7 +175,7 @@
           "uniqueInsights": [
             {
               "statement": "Accounts unblock per-seat billing later.",
-              "sourceWorkerIds": [
+              "sourceAgentIds": [
                 "model_sonnet#0"
               ],
               "strength": "moderate"

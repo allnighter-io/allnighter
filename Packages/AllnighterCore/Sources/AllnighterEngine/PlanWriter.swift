@@ -23,10 +23,10 @@ public enum SynthesisInstructions {
     to this schema (no prose before or after):
 
     {
-      "consensus":      [{ "statement": "...", "sourceWorkerIds": ["..."], "strength": "strong|moderate|weak" }],
+      "consensus":      [{ "statement": "...", "sourceAgentIds": ["..."], "strength": "strong|moderate|weak" }],
       "contradictions": [{ "topic": "...", "positions": [{ "workerId": "...", "summary": "..." }], "recommendedResolution": "..." }],
-      "partialCoverage":[{ "workerId": "...", "addressed": ["..."], "silentOn": ["..."] }],
-      "uniqueInsights": [{ "statement": "...", "sourceWorkerIds": ["..."], "strength": "strong|moderate|weak" }],
+      "partialCoverage":[{ "agentId": "...", "addressed": ["..."], "silentOn": ["..."] }],
+      "uniqueInsights": [{ "statement": "...", "sourceAgentIds": ["..."], "strength": "strong|moderate|weak" }],
       "blindSpots":     ["angles NO worker addressed"],
       "failedWorkers":    [{ "workerId": "...", "reason": "..." }],
       "confidenceNote": "optional calibration note"
