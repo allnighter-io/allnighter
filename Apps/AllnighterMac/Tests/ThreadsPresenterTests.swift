@@ -272,11 +272,11 @@ final class ThreadsPresenterTests: XCTestCase {
         grokTurn.modelId = "model_grok"
         var thread = thread("c", updatedAt: t0, turns: [grokTurn])
         thread.defaultModelId = "model_opus"
-        XCTAssertEqual(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: bench), "model_opus")
+        XCTAssertEqual(ThreadsPresenter.continuationModelId(for: thread, benchModelIds: bench), "model_opus")
 
         thread.defaultModelId = nil
-        XCTAssertEqual(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: bench), "model_grok")
+        XCTAssertEqual(ThreadsPresenter.continuationModelId(for: thread, benchModelIds: bench), "model_grok")
 
-        XCTAssertNil(ThreadsPresenter.continuationWorkerId(for: thread, benchModelIds: ["model_sonnet"]))
+        XCTAssertNil(ThreadsPresenter.continuationModelId(for: thread, benchModelIds: ["model_sonnet"]))
     }
 }

@@ -14,7 +14,7 @@ struct IOSComposerBar: View {
     var placeholder: String = "Start something - ask, order, or build..."
     var continuationAgentTitle: String? = nil
     var continuationDriverId: String? = nil
-    var continuationWorkerId: String? = nil
+    var continuationModelId: String? = nil
     var isSending: Bool = false
     var canSend: Bool = false
     var onSend: () async -> Void = {}
@@ -67,7 +67,7 @@ struct IOSComposerBar: View {
         }
         .sheet(isPresented: $showsModelPicker) {
             IOSComposerModelPickerSheet(
-                selectedModelId: draft.selectedModelId ?? continuationWorkerId
+                selectedModelId: draft.selectedModelId ?? continuationModelId
             ) { modelId in
                 draft.selectedModelId = modelId
             }

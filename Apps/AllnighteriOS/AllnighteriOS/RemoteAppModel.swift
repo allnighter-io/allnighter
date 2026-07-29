@@ -895,7 +895,7 @@ final class RemoteAppModel {
             lane: team.lane,
             effort: composerDraft.effort,
             modelId: composerDraft.modelIdForSend(
-                continuationWorkerId: composerContinuationAgent?.modelId
+                continuationModelId: composerContinuationAgent?.modelId
             )
         )
 
@@ -1002,7 +1002,7 @@ final class RemoteAppModel {
     private func appendOptimisticSend(prompt: String, threadId: String) -> String? {
         guard var snapshot = threadSnapshot, snapshot.id == threadId else { return nil }
         let workerId = composerDraft.workerIdForSend(
-            continuationWorkerId: composerContinuationAgent?.modelId
+            continuationModelId: composerContinuationAgent?.modelId
         )
         let suffix = UUID().uuidString.prefix(8)
         let userTurn = ConversationThreadTurn(
@@ -1113,7 +1113,7 @@ final class RemoteAppModel {
         let now = Date()
         let threadId = "preview-new-\(UUID().uuidString.prefix(8))"
         let title = Self.previewThreadTitle(from: prompt)
-        let workerId = composerDraft.workerIdForSend(continuationWorkerId: nil)
+        let workerId = composerDraft.workerIdForSend(continuationModelId: nil)
         let runId = "run_preview_\(threadId)"
 
         let summary = RemoteThreadSummary(

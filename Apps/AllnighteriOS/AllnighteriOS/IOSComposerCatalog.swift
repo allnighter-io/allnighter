@@ -37,20 +37,20 @@ struct IOSComposerDraft: Equatable, Sendable {
     }
 
     /// Bench model id for the sealed remote payload; nil leaves Auto resolution to the Mac.
-    func modelIdForSend(continuationWorkerId: String?) -> String? {
+    func modelIdForSend(continuationModelId: String?) -> String? {
         if let selectedModelId { return selectedModelId }
-        if let continuationWorkerId {
-            return ConversationAgentPresentation.modelId(fromWorkerId: continuationWorkerId)
+        if let continuationModelId {
+            return ConversationAgentPresentation.modelId(fromWorkerId: continuationModelId)
         }
         return nil
     }
 
     /// Agent instance id for optimistic transcript rows and display continuity.
-    func workerIdForSend(continuationWorkerId: String?) -> String {
-        if let modelId = modelIdForSend(continuationWorkerId: continuationWorkerId) {
+    func workerIdForSend(continuationModelId: String?) -> String {
+        if let modelId = modelIdForSend(continuationModelId: continuationModelId) {
             return ConversationAgentPresentation.workerInstanceId(for: modelId)
         }
-        return continuationWorkerId ?? ConversationAgentPresentation.previewWorkerId
+        return continuationModelId ?? ConversationAgentPresentation.previewWorkerId
     }
 }
 

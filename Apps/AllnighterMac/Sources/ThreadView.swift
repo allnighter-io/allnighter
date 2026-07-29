@@ -149,8 +149,8 @@ private struct ThreadDockedComposer: View {
     let thread: WorkThread
     var big: Bool = false
 
-    private var continuationWorkerId: String? {
-        ThreadsPresenter.continuationWorkerId(
+    private var continuationModelId: String? {
+        ThreadsPresenter.continuationModelId(
             for: thread,
             benchModelIds: Set(appModel.composeBench.map(\.id))
         )
@@ -159,7 +159,7 @@ private struct ThreadDockedComposer: View {
     var body: some View {
         RoutingComposer(
             big: big,
-            continuationWorkerId: continuationWorkerId,
+            continuationModelId: continuationModelId,
             onSend: { threads.sendRouting($0) }
         )
         .id(thread.id)
