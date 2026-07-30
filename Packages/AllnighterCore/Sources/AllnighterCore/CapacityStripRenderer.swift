@@ -494,16 +494,25 @@ public enum CapacityStripRenderer {
         let reason: CapacityUnknownReason?
     }
 
-    /// The short column reports the **short window's own** remaining — the number
-    /// the vendor prints for it, nothing else.
+    /// The short column reports **available** capacity in the short window.
     ///
-    /// It used to be floored by the row's tightest remaining ("effective
-    /// availability"): Kimi weekly 0% + 5h 100% rendered 0%. That made the cell
-    /// unreadable as what its header claims. Claude session 86% remaining under a
-    /// 47% weekly rendered 47%, so a column labeled `5h` never once showed the 5h
-    /// number while the weekly was tighter. The row-wide ceiling is already
-    /// carried by the weekly cell, `effectiveRemainingPercent`, and the row colour;
-    /// duplicating it here only cost us the one fact this column exists to state.
+    /// Two rules, because the old single rule conflated them:
+    ///
+    /// 1. **Between 0 and 100, report the short window's own number.** A weekly
+    ///    percentage and a 5h percentage have different denominators, so `min()`
+    ///    across them is not "effective availability" — it is a heuristic. It cost
+    ///    us the real number: Claude session 86% under a 47% weekly rendered 47%,
+    ///    so a column headed `5h` never once showed the 5h figure while the weekly
+    ///    was tighter. Whether spending a full 5h window would exhaust the weekly
+    ///    depends on relative allowance sizes no vendor publishes; we must not
+    ///    invent that arithmetic.
+    ///
+    /// 2. **Exhaustion is a hard gate, not a comparison.** A depleted weekly makes
+    ///    the 5h window unspendable regardless of what the vendor prints for it.
+    ///    Kimi prints `100%` on a 5h window sitting under an exhausted weekly;
+    ///    repeating that would invite seating a seat that fails on first dispatch.
+    ///    We claim to be more honest than the vendor surface, so 0 available reads
+    ///    as 0.
     private static func shortPresentation(
         pool: CapacityBenchPoolMetrics,
         row: CapacityBenchRow
@@ -514,7 +523,21 @@ public enum CapacityStripRenderer {
         case .unknown(let reason):
             return ShortPresentation(remaining: nil, isNone: false, reason: reason)
         case .known(let shortRemaining, _, _, _, _):
+            if isBlockedByExhaustedDashboard(row: row) {
+                return ShortPresentation(remaining: 0, isNone: false, reason: nil)
+            }
             return ShortPresentation(remaining: shortRemaining, isNone: false, reason: nil)
+        }
+    }
+
+    /// True when a weekly/monthly window on this row is spent. The short window
+    /// cannot be spent through an exhausted long window, and a weekly stays
+    /// exhausted for days — unlike a 5h window, which is transient by definition
+    /// and therefore never gates the dashboard cell in return.
+    private static func isBlockedByExhaustedDashboard(row: CapacityBenchRow) -> Bool {
+        row.pools.contains { pool in
+            guard let dashboard = pool.dashboardRemainingPercent else { return false }
+            return dashboard <= CapacityWindow.emptyRemainingThreshold
         }
     }
 
