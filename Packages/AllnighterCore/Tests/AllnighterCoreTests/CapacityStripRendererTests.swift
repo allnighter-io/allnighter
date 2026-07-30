@@ -121,6 +121,30 @@ final class CapacityStripRendererTests: XCTestCase {
         XCTAssertEqual(CapacityStripRenderer.color(for: projected[0], now: now), .red)
     }
 
+    /// A wholly-unknown Claude row (bare `alln capacity` never probes tier-3)
+    /// printed `-` in the 5h cell — indistinguishable from Grok, which has no
+    /// short limit at all. The seat's short limit does not stop existing because
+    /// we declined to look.
+    func testWhollyUnknownClaudeRowDoesNotClaimNoShortLimit() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .neverSampled,
+                source: "claude_code",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            ),
+        ]
+        let projected = rows(from: windows)
+        let line = CapacityStripRenderer.renderPlain(rows: projected, now: now)
+            .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
+        XCTAssertTrue(line.contains("unknown"), "expected unknown short cell: \(line)")
+
+        let jsonRow = CapacityStripRenderer.json(rows: projected, now: now).rows[0]
+        XCTAssertFalse(jsonRow.shortWindowNone)
+        XCTAssertNil(jsonRow.shortRemainingPercent)
+    }
+
     /// The founder-visible Claude case: session 86% remaining under a 47% weekly
     /// rendered `47%` in a column headed `5h`, so the 5h limit was never shown.
     func testClaudeSessionColumnShowsSessionNotWeekly() {

@@ -280,7 +280,12 @@ public enum CapacityStripRenderer {
 
             if let reason = row.unknownReason {
                 let weekly = pad(unknownCopy(reason), weeklyW)
-                let short = pad("-", shortW)
+                // A wholly-unknown row has no pools to consult, but "we know
+                // nothing about this seat" must not read as "this seat has no
+                // short limit" — that is the one thing `-` is reserved for.
+                let short = CapacityBenchProjection.sourcesWithShortWindow.contains(row.source)
+                    ? pad(unknownShortCopy(reason), shortW)
+                    : pad("-", shortW)
                 var line = "\(name) \(plan) \(weekly) \(short) \(age)"
                 if tty { line = ansi(line, color: color) }
                 lines.append(line)
@@ -341,7 +346,11 @@ public enum CapacityStripRenderer {
             dashboardScope: primary?.dashboardScope,
             dashboardResetAt: primary?.dashboardResetAt,
             shortRemainingPercent: short?.remaining,
-            shortWindowNone: short?.isNone ?? true,
+            // A wholly-unknown row has no pools to consult. Mirrors the text row:
+            // "we know nothing about this seat" must not serialize as "this seat
+            // has no short limit" — that is the one claim `true` is reserved for.
+            shortWindowNone: short?.isNone
+                ?? !CapacityBenchProjection.sourcesWithShortWindow.contains(row.source),
             effectiveRemainingPercent: row.effectiveRemainingPercent,
             observedAt: observed,
             observedAgeSeconds: age,
