@@ -236,10 +236,46 @@ Checked `~/.claude/cache`, `~/.claude/telemetry`, `~/.claude/sessions`,
 `~/.claude/daemon` — nothing. Claude is a genuine tier-3 case: the Usage pane is
 the only surface.
 
+### CAP-S00 results — driver matrix (spikes run 2026-07-29)
+
+Extractors are **pure, fail-closed, unwired**. None touch `CapacityWindow` /
+`CapacityObservation` / `SourceCapacityLedger` — that is CAP-S01.
+
+| Driver | Tier | Evidence | Extractor | Proof |
+| --- | --- | --- | --- | --- |
+| **Codex** | **1 — on disk** | `rate_limits` per turn in `~/.codex/sessions/**/rollout-*.jsonl`; 572 records over 6 weeks | not yet built | verified by inspection |
+| **Grok** | **1 — on disk** | `~/.grok/logs/unified.jsonl`, `msg == "billing: fetched credits config"`; 88 records over 2 weeks | `GrokCapacityLog.swift` (`5eab2ca6`) | 5/5 tests + real-file probe: 42.0%, reset `2026-07-31T18:11:40Z`, 4.96 MB parsed in 271 ms |
+| **agy** (Antigravity) | **3 — TUI only** | nothing on disk anywhere (`log/`, `cache/`, `brain/`, `implicit/`, `builtin/`, `conversations/`). The one `/usage` render found in `log/` was the founder's own paste echoed by `HandleUserInput` — **not** agy logging its pane | `AgyCapacityLog.swift` (`d5e17c8`) | 7/7 tests |
+| **Kimi Code** | **3 — TUI only** | `wire.jsonl` has per-turn tokens but no account window or reset; `kimi-code.log` has 403 strings without structured metrics; no usage flag | `KimiCapacityLog.swift` (`d387cf8`) | 8/8 tests |
+| **Claude Code** | **3 — TUI only** | `projects/**/*.jsonl` has `message.usage` tokens but no account window; `cache/`, `telemetry/`, `sessions/`, `daemon/` all empty of it | not built — no real fixture captured | audit only |
+| **Cursor Agent** | pending | spike dispatched 2026-07-29 | pending | pending |
+
+**Standing rule proven by the agy case: a vendor surface found inside a log is
+not automatically an acquisition source.** Check whether the CLI wrote it or
+whether a human pasted it. One grep for the input-handler prefix decides it, and
+getting this wrong would have promoted a fixture to a data source.
+
+### Dialect divergence is larger than expected
+
+Four drivers, four incompatible shapes. Any shared `CapacityWindow` must absorb
+all of these:
+
+| Axis | Observed values |
+| --- | --- |
+| Polarity | codex/grok/kimi/cursor `% used`; **agy `% remaining`** |
+| Reset encoding | codex epoch; grok ISO8601 with `+00:00` offset; **agy/kimi relative durations** (`164h 50m`, `1d 18h 3m`); **cursor bare month+day, no year, no time** (`Resets Aug 25`) |
+| Window scopes | weekly, 5-hour, **monthly** (cursor), plan-class |
+| Grouping | flat per-account (codex/grok/kimi); **pools sharing a limit** (agy: Gemini vs Claude+GPT); **nested parent/child** (cursor: Included → Auto, API) |
+| Paid spend | grok `onDemandCap/Used/prepaidBalance` as `{"val": N}`; codex `credits.balance`; **cursor as raw dollars** (`$0 / $1`) |
+
+Two consequences for CAP-S01: reset must be stored as an **absolute Date plus a
+precision marker** (cursor's day-only date cannot masquerade as minute-accurate),
+and every relative-duration parser must take `observedAt` as a parameter and
+never call `Date()` internally, or none of it is testable.
+
 ### Unaudited
 
-`~/.gemini/antigravity-cli/` (has `history.jsonl`, `settings.json`) — audit in
-CAP-S00. Grok, Cursor, Aider — unaudited.
+Aider, and any further seats.
 
 ### Why the ladder is what makes the launch screen possible
 
