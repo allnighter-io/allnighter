@@ -1,6 +1,9 @@
 # PM Turn Delivery
 
-Status: **OPEN — implementation-ready, founder law (2026-07-29)**
+Status: **Code Complete 2026-07-29 — PTD-1 + PTD-2 shipped** (orchestrated via
+pilot relay `relay_acfc834b`, dev seat Terra). Proof: focused PMTurn suite 108
+tests green; `alln dev export-contracts --check` green (contract 6.3.0).
+Archive after closeout.
 Owner: AllnighterEngine (`RelayCoordinator`, `RunService` / run completion) +
 AllnighterCLI (`RunCLI`, `PilotCLI`, `RelayCLI`, `AllnighterCLI.runTeamStatus`) +
 `ServeDaemon`

@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-28
+Updated: 2026-07-29
 
 ## Purpose
 
@@ -45,7 +45,6 @@ revive.
 | [`Observed_Usage_On_Receipts_And_Live_Status.md`](Observed_Usage_On_Receipts_And_Live_Status.md) | **OPEN — founder intake** | After AgentOS token capture: duration always + tokens when reported on every receipt; pilot/relay live status gets optional usage without coupling to liveness. Blame silent CLIs explicitly. Upstream: AgentOS `Observed_Token_Usage_Capture.md`. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — incident-driven** | When any seat dies, a recovery agent finds work in 30s (commits + uncommitted + resume commands), gets notified when dev lands, and can substitute PM model. WRC-S00–S04: workRecovery envelope, `relayAwaitingPM` notify, `--pm-model` on resume, `work scan`, relay guard. Origin: 2026-07-29 PM outage mid relay. |
-| [`PM_Turn_Delivery.md`](PM_Turn_Delivery.md) | **OPEN — incident-driven** | PM agent must always receive the PM Turn (report + next commands) on **every** delegation surface — `alln run`, pilot, and relay; attended and unattended. PTD-1–2: durable `pm-turn.json`, unified `status --wait-for`, teaching flip, serve wake hook. Supersedes deferred URN-S04. Origin: 2026-07-29 Opus pilot handoff notification failure. |
 | [`CLI_Capacity_TUI_Sampling.md`](CLI_Capacity_TUI_Sampling.md) | **OPEN — founder intake** | Headless CLIs rarely expose remaining quota; sample interactive status/usage TUIs (Codex `/status`, Claude Usage, `/usage`, …), own a ledger, feed dashboard + Boost same-tier harvest. Amends parked utilization “no quota %” for **vendor-printed** windows only. Orthogonal to receipt token usage. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
