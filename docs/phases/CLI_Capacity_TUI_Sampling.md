@@ -4,14 +4,16 @@
 > The packet is no longer "TUI sampling" — TUI probing is now **one tier** of an
 > acquisition ladder, not the architecture. See §Acquisition ladder.
 
-Status: **OPEN — founder intake packet, AMENDED 2026-07-29. Do not implement
-until slices are scoped. Product-law amendment below is explicit.**
+Status: **OPEN — intake FINAL 2026-07-29. Ready for slice scoping. Start at
+CAP-S00 (spike). Product-law amendment below is explicit and binding on the
+slices.**
 Owner: AllnighterCore (ledger + contract) + AllnighterEngine (acquisition,
 admission, Boost routing) + Mac app (launch surface); AgentOS may own per-driver
 PTY/spawn helpers if tier-3 probes live next to workers
-Created: 2026-07-29 · Amended: 2026-07-29 (ladder, waste ledger, launch screen)
-· Amended again 2026-07-29 (CLI strip, harvest posture, utilization tab,
-notifications, backfill; email scratched)
+Created: 2026-07-29 · Intake finalized: 2026-07-29 (three founder passes:
+ladder + launch screen; waste ledger + notifications; CLI strip + harvest
+posture + utilization tab). Founder rulings recorded inline — do not
+re-litigate scratched items without a standing instruction.
 
 ---
 
@@ -845,8 +847,23 @@ Most were resolved in the amended intake. Remaining:
    Maintainer, Bug Hunt, dep scan, doc drift, coverage gaps) and whether they
    are new `TeamPreset` entries or existing ones in a harvest posture.
    *Recommendation: existing presets, harvest posture — no new catalog rows.*
-5. **Does the parked Cost Advisor packet get absorbed here** now that the
-   retrospective framing clears the no-estimates law?
+
+**Resolved: Cost Advisor stays parked** (founder, 2026-07-29). It is a
+*routing-advice* product; this is a *measurement* product. Different things, and
+the name itself reads as forecasting what a run will cost — which this packet
+must never do. Do not absorb it, do not unpark it, and do not add work for it
+here.
+
+The boundary that actually matters is **not** the parked status of another doc.
+It is the rule already written into §Utilization tab: **report facts, never
+recommend.** The keep/cancel numbers sit one inch from advice, and the failure
+mode is someone quietly adding a "recommendation" column to the utilization tab
+and shipping an advisor inside this packet without noticing. That rule is the
+enforcement; treat it as binding.
+
+Note without action: this packet's retained history is the data an advisor of
+any kind would need. Keeping retention indefinite (decision 2) leaves that door
+open later at zero cost. That is a consequence, not a plan.
 
 ---
 
