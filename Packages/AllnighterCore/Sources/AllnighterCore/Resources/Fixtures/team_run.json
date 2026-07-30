@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "contractVersion": "6.12.0",
+  "contractVersion": "6.13.0",
   "teamRun": {
     "id": "run_20260720_1200",
     "status": "done",
@@ -10,7 +10,10 @@
     "type": null,
     "effort": null,
     "prompt": "Say success.",
-    "promptSource": { "kind": "positional", "path": null },
+    "promptSource": {
+      "kind": "positional",
+      "path": null
+    },
     "createdAt": "2026-07-20T12:00:00Z",
     "startedAt": "2026-07-20T12:00:01Z",
     "completedAt": "2026-07-20T12:00:05Z",
@@ -20,7 +23,7 @@
     "outputKind": null,
     "modelId": "model_sonnet",
     "writePolicy": "mutating",
-    "identitySummary": "model model_sonnet · lane code · mutating",
+    "identitySummary": "model model_sonnet \u00b7 lane code \u00b7 mutating",
     "planWriterAgentId": null,
     "reproduceCommand": "alln run --model model_sonnet \"Say success.\"",
     "endReason": "completed",
@@ -70,20 +73,40 @@
   "outcome": {
     "status": "completed",
     "committed": false,
-    "headline": "model model_sonnet · lane code · mutating · queue 1000ms · ttft 500ms · duration 4000ms · wall 5000ms",
+    "headline": "model model_sonnet \u00b7 lane code \u00b7 mutating \u00b7 queue 1000ms \u00b7 ttft 500ms \u00b7 duration 4000ms \u00b7 wall 5000ms",
     "commitMessageMatched": null,
     "proof": null,
     "usage": null,
-    "timing": { "wallMs": 5000 }
+    "timing": {
+      "wallMs": 5000
+    }
   },
-  "usage": { "cliCalls": 1 },
+  "usage": {
+    "cliCalls": 1
+  },
   "warnings": [],
   "errors": [],
   "nextActions": [
-    { "kind": "showArtifact", "command": "alln artifact show run_20260720_1200", "label": "Open team artifact" },
-    { "kind": "showRun", "command": "alln show run_20260720_1200", "label": "Show run" },
-    { "kind": "export", "command": "alln export run_20260720_1200 --format md", "label": "Export markdown" }
+    {
+      "kind": "showArtifact",
+      "command": "alln artifact show run_20260720_1200",
+      "label": "Open team artifact"
+    },
+    {
+      "kind": "showRun",
+      "command": "alln show run_20260720_1200",
+      "label": "Show run"
+    },
+    {
+      "kind": "export",
+      "command": "alln export run_20260720_1200 --format md",
+      "label": "Export markdown"
+    }
   ],
+  "artifact": {
+    "path": "/tmp/runs/run_20260720_1200/artifact/index.html",
+    "openCommand": "alln artifact show run_20260720_1200"
+  },
   "audit": {
     "traceId": "trace_run_20260720_1200",
     "runJournalPath": "~/.allnighter/Runs/run_20260720_1200/run.json"

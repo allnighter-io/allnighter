@@ -352,15 +352,28 @@ enum RunCLI {
     ) {
         if json {
             let store = RunStore()
-            let journalPath = (try? store.runDirectory(forRunId: run.id))?
-                .appendingPathComponent("run.json").path ?? ""
+            let runDir = try? store.runDirectory(forRunId: run.id)
+            let journalPath = runDir?.appendingPathComponent("run.json").path ?? ""
             let pmTurn = AllnighterCLI.pmTurnProjection(for: run, store: store)
+            let repro = reproduceCommand(run, project: project)
+            let artifactPath: String? = {
+                guard let runDir else { return nil }
+                return TeamRunJSONMapper.materializeArtifactPath(
+                    for: run,
+                    runDirectory: runDir,
+                    reproduceCommand: repro,
+                    models: runtime.models,
+                    manifests: runtime.registry.all
+                )
+            }()
             let context = TeamRunJSONMapper.Context(
                 promptSource: .init(kind: .positional, path: nil),
                 runJournalPath: journalPath,
-                reproduceCommand: reproduceCommand(run, project: project),
+                reproduceCommand: repro,
+                runDirectory: runDir,
                 pmTurn: pmTurn.pmTurn,
-                pmTurnNotes: pmTurn.notes
+                pmTurnNotes: pmTurn.notes,
+                artifactPath: artifactPath
             )
             let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
             print(AllnighterCLI.jsonString(trj))
@@ -669,7 +682,9 @@ enum RunCLI {
         func mapRun(_ run: TeamRun) -> TeamRunJSON {
             TeamRunJSONMapper.map(
                 run, models: runtime.models, manifests: runtime.registry.all,
-                context: AllnighterCLI.defaultRunContext(run))
+                context: AllnighterCLI.defaultRunContext(
+                    run, models: runtime.models, manifests: runtime.registry.all
+                ))
         }
         let status: TryFixChainJSON.Status =
             outcome.childRun != nil ? .fixAttempted

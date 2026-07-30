@@ -38,11 +38,38 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertGreaterThan(trj.usage.cliCalls, 0)
         XCTAssertEqual(trj.nextActions.map(\.kind), [.showArtifact, .showRun, .export])
         XCTAssertEqual(trj.nextActions.first?.command, "alln artifact show \(run.id)")
+        // Top-level artifact is the agent-primary finish (not buried nextActions).
+        let artifact = try XCTUnwrap(trj.artifact)
+        XCTAssertEqual(artifact.openCommand, "alln artifact show \(run.id)")
+        XCTAssertNil(artifact.path, "path only when CLI materializes HTML")
         // Catalog-free: no top-level models.
         let data = try CoreJSON.encode(trj)
         let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertNil(root["models"])
+        XCTAssertTrue(root.keys.contains("artifact"))
+        let artObj = try XCTUnwrap(root["artifact"] as? [String: Any])
+        XCTAssertEqual(artObj["openCommand"] as? String, "alln artifact show \(run.id)")
         XCTAssertEqual(try CoreJSON.decode(TeamRunJSON.self, from: data), trj)
+    }
+
+    func testArtifactPathSurfacedWhenContextProvidesIt() throws {
+        let run = try Fixtures.run(.runComplete)
+        let path = "/tmp/runs/\(run.id)/artifact/index.html"
+        let ctx = TeamRunJSONMapper.Context(runJournalPath: "/tmp/run.json", artifactPath: path)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx)
+        XCTAssertEqual(trj.artifact?.path, path)
+        XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(run.id)")
+    }
+
+    func testNonTerminalRunSerializesArtifactNull() throws {
+        var run = try Fixtures.run(.runComplete)
+        run.status = .running
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertNil(trj.artifact)
+        let data = try CoreJSON.encode(trj)
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertTrue(root.keys.contains("artifact"))
+        XCTAssertTrue(root["artifact"] is NSNull)
     }
 
     func testOneWorkerMovesMarkdownToAnswer() throws {

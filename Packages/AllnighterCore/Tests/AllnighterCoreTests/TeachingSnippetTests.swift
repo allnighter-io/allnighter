@@ -11,11 +11,15 @@ final class TeachingSnippetTests: XCTestCase {
     }
 
     func testBodyTeachesLiveMenuReflexAndDetachedDelivery() {
-        XCTAssertEqual(TeachingSnippet.schemaVersion, 6)
-        XCTAssertEqual(TeachingSnippet.reflexLines.count, 9)
+        XCTAssertEqual(TeachingSnippet.schemaVersion, 7)
+        XCTAssertEqual(TeachingSnippet.reflexLines.count, 10)
         XCTAssertTrue(
             TeachingSnippet.reflexLines.contains { $0.contains("pmTurn.report") },
             "agents must learn where the pilot dev report lives"
+        )
+        XCTAssertTrue(
+            TeachingSnippet.reflexLines.contains { $0.contains("artifact.path") },
+            "agents must surface the team artifact after a terminal run"
         )
         XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))

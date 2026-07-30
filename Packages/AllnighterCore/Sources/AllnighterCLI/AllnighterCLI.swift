@@ -1562,19 +1562,37 @@ struct AllnighterCLI {
     }
 
     /// Default projection context for a persisted run (journal path + reproduce
-    /// command derived from the run's own catalog facts).
-    static func defaultRunContext(_ run: TeamRun, full: Bool = false) -> TeamRunJSONMapper.Context {
+    /// command derived from the run's own catalog facts). Writes the polished
+    /// HTML artifact when the run is terminal so `--json` carries `artifact.path`.
+    static func defaultRunContext(
+        _ run: TeamRun,
+        full: Bool = false,
+        models: [Model] = [],
+        manifests: [DriverManifest] = []
+    ) -> TeamRunJSONMapper.Context {
         let store = RunStore()
         let runDir = try? store.runDirectory(forRunId: run.id)
         let path = runDir?.appendingPathComponent("run.json").path ?? ""
         let pmTurn = pmTurnProjection(for: run, store: store)
+        let repro = reproduceCommand(run)
+        let artifactPath: String? = {
+            guard let runDir else { return nil }
+            return TeamRunJSONMapper.materializeArtifactPath(
+                for: run,
+                runDirectory: runDir,
+                reproduceCommand: repro,
+                models: models,
+                manifests: manifests
+            )
+        }()
         return .init(
             runJournalPath: path,
-            reproduceCommand: reproduceCommand(run),
+            reproduceCommand: repro,
             includeWorkerPromptSnapshots: full,
             runDirectory: runDir,
             pmTurn: pmTurn.pmTurn,
-            pmTurnNotes: pmTurn.notes
+            pmTurnNotes: pmTurn.notes,
+            artifactPath: artifactPath
         )
     }
 
@@ -1631,7 +1649,10 @@ struct AllnighterCLI {
         if opts.flag("json") {
             print(jsonString(TeamRunJSONMapper.map(
                 run, models: runtime.models, manifests: runtime.registry.all,
-                context: defaultRunContext(run, full: opts.flag("full"))
+                context: defaultRunContext(
+                    run, full: opts.flag("full"),
+                    models: runtime.models, manifests: runtime.registry.all
+                )
             )))
         } else {
             print("Run \(run.id) · \(run.status.rawValue)")
@@ -1645,6 +1666,18 @@ struct AllnighterCLI {
                 // hand-off carries its reason here, and this is the command the
                 // hand-off tells the caller to come back to.
                 print("\n\(run.warnings.joined(separator: "\n"))")
+            }
+            if run.status.isTerminal, ArtifactProjector.canProject(run) {
+                let store = RunStore()
+                if let runDir = try? store.runDirectory(forRunId: run.id),
+                   let path = TeamRunJSONMapper.materializeArtifactPath(
+                    for: run, runDirectory: runDir,
+                    reproduceCommand: reproduceCommand(run),
+                    models: runtime.models, manifests: runtime.registry.all
+                   ) {
+                    print("\nArtifact: \(path)")
+                    print("Open:     alln artifact show \(run.id)")
+                }
             }
         }
     }

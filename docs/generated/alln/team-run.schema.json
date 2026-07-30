@@ -155,6 +155,24 @@
       ],
       "type" : "object"
     },
+    "Artifact" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "openCommand" : {
+          "type" : "string"
+        },
+        "path" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "openCommand"
+      ],
+      "type" : "object"
+    },
     "Audit" : {
       "additionalProperties" : false,
       "properties" : {
@@ -1402,6 +1420,16 @@
       },
       "type" : "array"
     },
+    "artifact" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/Artifact"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
     "audit" : {
       "$ref" : "#\/$defs\/Audit"
     },
@@ -1523,6 +1551,7 @@
     "warnings",
     "errors",
     "nextActions",
+    "artifact",
     "audit"
   ],
   "title" : "TeamRunJSON",

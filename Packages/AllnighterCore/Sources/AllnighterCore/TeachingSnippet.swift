@@ -13,7 +13,7 @@ import Foundation
 /// No filesystem writes — the CLI prints; the Mac app (ONB-S03) owns clicks.
 public enum TeachingSnippet {
     /// Marker schema version. Bump when the marker grammar or body contract changes.
-    public static let schemaVersion = 6
+    public static let schemaVersion = 7
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
@@ -33,6 +33,7 @@ public enum TeachingSnippet {
         "7. Parallel feedback: `alln run --read-only --model …` — not `--no-commit` (that still queues).",
         "8. One mutator per repo root; `running` is not progress — inspect queue ticket and progressStale.",
         "9. Pilot/relay dev report is `pmTurn.report` (not `devLeg` — that is settle/liveness only).",
+        "10. After a terminal team run, surface `artifact.path` / `artifact.openCommand` to the user — not only the lead answer.",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.

@@ -133,10 +133,13 @@ final class FixtureRoundTripTests: XCTestCase {
         // CAP-S09 bumps contract 6.9.0 → 6.10.0 (Claude Code `/usage` probe + capacity --refresh seat).
         // CAP-S09 bumps contract 6.10.0 → 6.11.0 (`alln capacity --refresh --source <id>` targeted probe).
         // AVQ-S04 bumps contract 6.11.0 → 6.12.0 (`alln run --read-only` write-policy flag). (`alln capacity --refresh --source <id>` targeted probe).
+        // Agent finish: contract 6.12.0 → 6.13.0 (top-level `artifact` on TeamRunJSON).
         // ATL-S01 completion registers those kickoff flags on the CommandSpec
         // (allowlist + mutex); contract 6.6.0 → 6.7.0.
         // CAP-S06 bumps contract 6.7.0 → 6.8.0 (`capacity` command + CapacityStripJSON).
-        XCTAssertEqual(trj.contractVersion, "6.12.0")
+        XCTAssertEqual(trj.contractVersion, "6.13.0")
+        XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
+        XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.agents.count, 1)

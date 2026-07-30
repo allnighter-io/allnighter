@@ -37,6 +37,10 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var warnings: [Warning]
     public var errors: [ErrorEnvelope]
     public var nextActions: [NextAction]
+    /// Polished HTML team artifact for terminal runs. Always serialized
+    /// (JSON `null` while non-terminal or not projectable). Agents should
+    /// surface `path` / `openCommand` to the user — not only `answer`.
+    public var artifact: Artifact?
     public var audit: Audit
 
     public init(
@@ -58,6 +62,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         warnings: [Warning] = [],
         errors: [ErrorEnvelope] = [],
         nextActions: [NextAction] = [],
+        artifact: Artifact? = nil,
         audit: Audit
     ) {
         self.schemaVersion = schemaVersion
@@ -78,13 +83,14 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.warnings = warnings
         self.errors = errors
         self.nextActions = nextActions
+        self.artifact = artifact
         self.audit = audit
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, teamRun, agents, answers, answer, pmTurn, notes
         case designBoard, repoDelta, researchGitObservation, outcome, stages, plan, usage, warnings, errors
-        case nextActions, audit
+        case nextActions, artifact, audit
     }
 
     public init(from decoder: Decoder) throws {
@@ -109,6 +115,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         warnings = try c.decode([Warning].self, forKey: .warnings)
         errors = try c.decode([ErrorEnvelope].self, forKey: .errors)
         nextActions = try c.decode([NextAction].self, forKey: .nextActions)
+        // Additive: pre-artifact payloads omit the key.
+        artifact = try c.decodeIfPresent(Artifact.self, forKey: .artifact)
         audit = try c.decode(Audit.self, forKey: .audit)
     }
 
@@ -133,6 +141,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         try c.encode(warnings, forKey: .warnings)
         try c.encode(errors, forKey: .errors)
         try c.encode(nextActions, forKey: .nextActions)
+        // Always serialize so agents can look for one key (null while non-terminal).
+        try c.encode(artifact, forKey: .artifact)
         try c.encode(audit, forKey: .audit)
     }
 
@@ -676,6 +686,19 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var label: String?
         public init(kind: Kind, command: String, label: String? = nil) {
             self.kind = kind; self.command = command; self.label = label
+        }
+    }
+
+    /// Top-level polished finish for terminal team runs (agent-primary path).
+    /// Prefer this over mining `nextActions` — path is pasteable without shell parsing.
+    public struct Artifact: Codable, Equatable, Sendable {
+        /// Absolute path to `artifact/index.html` when written; omit when unavailable.
+        public var path: String?
+        /// Exact CLI to open/regenerate the private HTML receipt.
+        public var openCommand: String
+        public init(path: String? = nil, openCommand: String) {
+            self.path = path
+            self.openCommand = openCommand
         }
     }
 

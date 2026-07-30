@@ -57,10 +57,11 @@ public enum ContractSchema {
             "outcome": nullableRef("Outcome"),
             "usage": ref("Usage"), "warnings": arr(ref("Warning")),
             "errors": arr(ref("ErrorEnvelope")), "nextActions": arr(ref("NextAction")),
+            "artifact": nullableRef("Artifact"),
             "audit": ref("Audit"),
         ], required: [
             "schemaVersion", "contractVersion", "teamRun", "agents",
-            "answers", "answer", "pmTurn", "notes", "stages", "plan", "usage", "warnings", "errors", "nextActions", "audit",
+            "answers", "answer", "pmTurn", "notes", "stages", "plan", "usage", "warnings", "errors", "nextActions", "artifact", "audit",
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
@@ -211,6 +212,10 @@ public enum ContractSchema {
             "NextAction": obj([
                 "kind": enumStr(["showArtifact", "showRun", "export", "showHistory"]), "command": str, "label": nullable("string"),
             ], required: ["kind", "command"]),
+            "Artifact": obj([
+                "path": nullable("string"),
+                "openCommand": str,
+            ], required: ["openCommand"]),
             "Audit": obj(["traceId": str, "runJournalPath": str], required: ["traceId", "runJournalPath"]),
         ]
         return schema

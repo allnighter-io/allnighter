@@ -23,6 +23,9 @@ public enum TeamRunJSONMapper {
         public var pmTurn: PMTurnJSON?
         /// Status/result-level notes associated with the delivery receipt.
         public var pmTurnNotes: [String]
+        /// Absolute path to written `artifact/index.html` (CLI write boundary).
+        /// Mapper never writes HTML — callers that own the run directory materialize it.
+        public var artifactPath: String?
         public init(
             promptSource: TeamRunJSON.PromptSource = .init(kind: .positional),
             lane: String? = nil, type: String? = nil, effort: String? = nil,
@@ -30,7 +33,8 @@ public enum TeamRunJSONMapper {
             includeWorkerPromptSnapshots: Bool = false,
             runDirectory: URL? = nil,
             pmTurn: PMTurnJSON? = nil,
-            pmTurnNotes: [String] = []
+            pmTurnNotes: [String] = [],
+            artifactPath: String? = nil
         ) {
             self.promptSource = promptSource; self.lane = lane; self.type = type
             self.effort = effort; self.runJournalPath = runJournalPath
@@ -39,6 +43,7 @@ public enum TeamRunJSONMapper {
             self.runDirectory = runDirectory
             self.pmTurn = pmTurn
             self.pmTurnNotes = pmTurnNotes
+            self.artifactPath = artifactPath
         }
     }
 
@@ -205,7 +210,18 @@ public enum TeamRunJSONMapper {
             stages: stages, plan: plan, usage: usage,
             warnings: runWarnings, errors: [],
             nextActions: terminalArtifactNextActions(for: run),
+            artifact: artifactRef(for: run, path: context.artifactPath),
             audit: .init(traceId: "trace_\(run.id)", runJournalPath: context.runJournalPath)
+        )
+    }
+
+    /// Top-level finish for terminal runs. `path` comes from the write boundary
+    /// (never from this pure map). `openCommand` always when projectable.
+    public static func artifactRef(for run: TeamRun, path: String? = nil) -> TeamRunJSON.Artifact? {
+        guard ArtifactProjector.canProject(run) else { return nil }
+        return TeamRunJSON.Artifact(
+            path: path,
+            openCommand: "alln artifact show \(run.id)"
         )
     }
 
@@ -454,7 +470,7 @@ public enum TeamRunJSONMapper {
     }
 
     /// Terminal runs lead with Open artifact — that is the polished finish, not
-    /// `show` / markdown export.
+    /// `show` / markdown export. Prefer top-level `artifact` for agents.
     static func terminalArtifactNextActions(for run: TeamRun) -> [TeamRunJSON.NextAction] {
         var actions: [TeamRunJSON.NextAction] = []
         if run.status.isTerminal {
@@ -471,6 +487,26 @@ public enum TeamRunJSONMapper {
             label: "Export markdown"
         ))
         return actions
+    }
+
+    /// Write `artifact/index.html` under the run journal when projectable.
+    /// Pure map callers must not use this — CLI / presenters only (avoids
+    /// recursion through `ArtifactProjector` → `TeamRunJSONMapper.map`).
+    public static func materializeArtifactPath(
+        for run: TeamRun,
+        runDirectory: URL,
+        reproduceCommand: String,
+        models: [Model] = [],
+        manifests: [DriverManifest] = []
+    ) -> String? {
+        guard ArtifactProjector.canProject(run) else { return nil }
+        let context = ArtifactProjector.Context(models: models, manifests: manifests)
+        return try? ArtifactWriter.writeHTML(
+            run: run,
+            runDirectory: runDirectory,
+            reproduceCommand: reproduceCommand,
+            context: context
+        ).path
     }
 
 }
