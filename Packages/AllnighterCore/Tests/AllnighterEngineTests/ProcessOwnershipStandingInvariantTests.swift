@@ -19,7 +19,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
     func testStaleContractsFailStandingInvariantWithMarkers() async throws {
         let tmp = makeTempRoot("po-f4-stale")
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let repo = try makeGitRepo(in: tmp)
+        let repo = try makeGitRepo(in: tmp, plantProductTree: true)
         let scratch = tmp.appendingPathComponent("scratch", isDirectory: true).path
         try FileManager.default.createDirectory(atPath: scratch, withIntermediateDirectories: true)
         try plantFakeAlln(scratchPath: scratch)
@@ -61,7 +61,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
     func testCleanContractsPassStandingInvariantNoFailed() async throws {
         let tmp = makeTempRoot("po-f4-clean")
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let repo = try makeGitRepo(in: tmp)
+        let repo = try makeGitRepo(in: tmp, plantProductTree: true)
         let scratch = tmp.appendingPathComponent("scratch", isDirectory: true).path
         try FileManager.default.createDirectory(atPath: scratch, withIntermediateDirectories: true)
         try plantFakeAlln(scratchPath: scratch)
@@ -87,10 +87,42 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         XCTAssertEqual(r.exitCode, 0)
     }
 
+    /// Foreign project roots must not run product-only contractDrift (silent N/A).
+    func testNonProductRootSkipsContractDriftSilently() async throws {
+        let tmp = makeTempRoot("po-f4-foreign")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let repo = try makeGitRepo(in: tmp, plantProductTree: false)
+        let scratch = tmp.appendingPathComponent("scratch", isDirectory: true).path
+        try FileManager.default.createDirectory(atPath: scratch, withIntermediateDirectories: true)
+
+        let runner = StandingProofScriptRunner(checkExitCode: 1, checkTail: "should not run")
+        let service = ProjectVerificationService(
+            commandRunner: runner,
+            perCommandTimeoutSeconds: 5
+        )
+
+        XCTAssertFalse(
+            StandingInvariants.isContractDriftApplicable(repoRoot: repo.path),
+            "fixture without Packages/AllnighterCore is not the product tree"
+        )
+        let outcome = await StandingInvariants.run(
+            service: service,
+            repoRoot: repo.path,
+            scratchPath: scratch
+        )
+
+        XCTAssertTrue(outcome.failed.isEmpty, "no standingFailed on foreign root")
+        XCTAssertTrue(outcome.results.isEmpty, "no proof row (silent N/A, not fake green/red)")
+        XCTAssertTrue(
+            runner.capturedShellCommands.isEmpty,
+            "must not invoke swift build / export-contracts: \(runner.capturedShellCommands)"
+        )
+    }
+
     func testMissingAllnProductBuildsThenChecks() async throws {
         let tmp = makeTempRoot("po-f4-build")
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let repo = try makeGitRepo(in: tmp)
+        let repo = try makeGitRepo(in: tmp, plantProductTree: true)
         let scratch = tmp.appendingPathComponent("scratch", isDirectory: true).path
         try FileManager.default.createDirectory(atPath: scratch, withIntermediateDirectories: true)
         // No alln planted — runner plants it on the first swift build.
@@ -133,7 +165,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         setenv("ALLNIGHTER_SUPPORT_DIR", support.path, 1)
         defer { unsetenv("ALLNIGHTER_SUPPORT_DIR") }
 
-        let repo = try makeGitRepo(in: tmp)
+        let repo = try makeGitRepo(in: tmp, plantProductTree: true)
         let scratch = ExecutionLaneFlock.ensuredScratchPath(repoRoot: repo.path)
         try plantFakeAlln(scratchPath: scratch)
 
@@ -141,7 +173,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let lane = ExecutionLaneRegistry()
 
-        // Zero declared proofCommands — standing must still run.
+        // Zero declared proofCommands — standing must still run on product tree.
         let report = "Implemented the registry change. Committed."
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Review.\n\n```json\n{\"verdict\": \"continue\", \"handover\": \"Ship it.\"}\n```"),
@@ -200,7 +232,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         setenv("ALLNIGHTER_SUPPORT_DIR", support.path, 1)
         defer { unsetenv("ALLNIGHTER_SUPPORT_DIR") }
 
-        let repo = try makeGitRepo(in: tmp)
+        let repo = try makeGitRepo(in: tmp, plantProductTree: true)
         // The dev-turn execution-lane run clears this per-root scratch, so a fake
         // alln planted up front is gone by the time the standing check runs. In
         // production the standing check's real `swift build` re-creates alln on the
@@ -318,7 +350,9 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             .appendingPathComponent("\(label)-\(UUID().uuidString)", isDirectory: true)
     }
 
-    private func makeGitRepo(in tmp: URL) throws -> URL {
+    /// - Parameter plantProductTree: When true, plants `Packages/AllnighterCore/Package.swift`
+    ///   so `contractDrift` applies (Allnighter dogfood tree). Foreign roots leave it absent.
+    private func makeGitRepo(in tmp: URL, plantProductTree: Bool = false) throws -> URL {
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         let dir = tmp.appendingPathComponent("repo")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -335,6 +369,16 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             git(a)
         }
         try "spec".write(to: dir.appendingPathComponent("README.md"), atomically: true, encoding: .utf8)
+        if plantProductTree {
+            let pkg = dir
+                .appendingPathComponent(StandingInvariants.defaultPackagePath, isDirectory: true)
+            try FileManager.default.createDirectory(at: pkg, withIntermediateDirectories: true)
+            try "// test product tree\n".write(
+                to: pkg.appendingPathComponent("Package.swift"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
         git(["add", "."]); git(["commit", "-q", "-m", "c1"])
         return dir
     }

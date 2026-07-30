@@ -4,11 +4,16 @@ import AllnighterCore
 /// Harness-owned **standing invariants** for the proof phase
 /// (`docs/phases/Process_Ownership.md` PO-F4).
 ///
-/// Distinct from the dev's declared `proofCommands`: the harness always injects
-/// this list after a delivered dev turn — even when the dev declared zero proofs.
-/// The agent cannot omit them. Failures mark the turn not-clean via
-/// `standingFailed` on the round; `endReason` is not rewritten (analogous to
-/// `scopeViolation`). Allnighter never auto-regenerates or auto-commits.
+/// Distinct from the dev's declared `proofCommands`: when the **product tree is
+/// present**, the harness injects this list after a delivered dev turn — even when
+/// the dev declared zero proofs. The agent cannot omit them. Failures mark the
+/// turn not-clean via `standingFailed` on the round; `endReason` is not rewritten
+/// (analogous to `scopeViolation`). Allnighter never auto-regenerates or
+/// auto-commits.
+///
+/// **Applicability:** `contractDrift` is an Allnighter product self-check. On
+/// foreign roots (no `Packages/AllnighterCore`), the gate is silent N/A — no
+/// proof row, no `standingFailed` (chdir noise is not a red standing proof).
 ///
 /// Extensible list — ship only contract-freshness for now.
 public enum StandingInvariants {
@@ -32,11 +37,26 @@ public enum StandingInvariants {
         }
     }
 
-    /// Run every standing invariant under the same bounded proof runner path
-    /// (`ProjectVerificationService` / process-group spawn, timeout, captured tail).
+    /// True when `repoRoot` is an Allnighter product tree that can run
+    /// `contractDrift` (buildable package present). Foreign projects → false.
+    public static func isContractDriftApplicable(
+        repoRoot: String,
+        packagePath: String = defaultPackagePath
+    ) -> Bool {
+        let packageDir = (repoRoot as NSString).appendingPathComponent(packagePath)
+        let packageSwift = (packageDir as NSString).appendingPathComponent("Package.swift")
+        return FileManager.default.fileExists(atPath: packageSwift)
+    }
+
+    /// Run every **applicable** standing invariant under the same bounded proof
+    /// runner path (`ProjectVerificationService` / process-group spawn, timeout,
+    /// captured tail).
     ///
     /// Uses the `alln` product built on the persistent per-root scratch — never the
     /// installed/global binary — so the check judges **this turn's tree**.
+    ///
+    /// When no invariant applies (e.g. non-product root), returns empty results
+    /// and empty failed — silent N/A.
     public static func run(
         service: ProjectVerificationService,
         repoRoot: String,
@@ -46,16 +66,18 @@ public enum StandingInvariants {
         var results: [HarnessProofResult] = []
         var failed: [String] = []
 
-        // Extensible: append further invariants here.
-        let drift = await runContractFreshness(
-            service: service,
-            repoRoot: repoRoot,
-            scratchPath: scratchPath,
-            packagePath: packagePath
-        )
-        results.append(drift)
-        if !drift.passed {
-            failed.append(contractDrift)
+        // Extensible: append further invariants here (each with its own gate).
+        if isContractDriftApplicable(repoRoot: repoRoot, packagePath: packagePath) {
+            let drift = await runContractFreshness(
+                service: service,
+                repoRoot: repoRoot,
+                scratchPath: scratchPath,
+                packagePath: packagePath
+            )
+            results.append(drift)
+            if !drift.passed {
+                failed.append(contractDrift)
+            }
         }
 
         return Outcome(results: results, failed: failed)
@@ -65,6 +87,7 @@ public enum StandingInvariants {
 
     /// Build (if needed) the turn tree's `alln` on the scratch, then run
     /// `<built alln> dev export-contracts --check` at the repo root.
+    /// Caller must only invoke when `isContractDriftApplicable` is true.
     private static func runContractFreshness(
         service: ProjectVerificationService,
         repoRoot: String,

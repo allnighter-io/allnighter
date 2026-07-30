@@ -1248,7 +1248,7 @@ enum PilotCLI {
                 return [
                     .init(
                         kind: "pilotHandoff",
-                        label: "Review dev report, then hand off the next order",
+                        label: "Review pmTurn.report (dev report), then hand off the next order",
                         command: "alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file order.md --json"
                     ),
                     .init(

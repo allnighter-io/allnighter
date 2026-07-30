@@ -73,18 +73,20 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             "harness kill of proof must stamp endReason=proofTimeout (never inferred)"
         )
         XCTAssertEqual(devRound.proofCommands, ["sleep 300"])
-        // PO-F4: standing invariants always append after declared proofs.
+        // Declared proofs only — fixture repo is not the Allnighter product tree,
+        // so contractDrift standing is silent N/A (no row, no standingFailed).
         let declared = devRound.proofResults.filter { !$0.standing }
-        XCTAssertEqual(declared.count, 1, "one declared proof (standing is separate)")
+        XCTAssertEqual(declared.count, 1, "one declared proof")
         let pr = try XCTUnwrap(declared.first)
         XCTAssertTrue(pr.timedOut)
         XCTAssertNil(pr.exitCode)
         XCTAssertGreaterThan(pr.durationMs, 0)
         XCTAssertTrue(pr.command.contains("sleep 300"))
-        XCTAssertTrue(
+        XCTAssertFalse(
             devRound.proofResults.contains { $0.standing },
-            "standing invariant result always present after delivered turn"
+            "foreign root: no standing proof row"
         )
+        XCTAssertNil(devRound.standingFailed)
 
         let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let logEntry = try XCTUnwrap(json.roundLog.first { $0.devRunId != nil })
