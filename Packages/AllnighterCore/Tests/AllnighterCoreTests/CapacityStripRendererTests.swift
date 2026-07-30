@@ -270,7 +270,10 @@ final class CapacityStripRendererTests: XCTestCase {
         XCTAssertTrue(line.contains("86%"), "expected session 86% in the 5h column: \(line)")
     }
 
-    func testGrokShortColumnIsDashNotBlank() {
+    /// A seat with no 5h limit says so. Never blank — blank already means "not
+    /// applicable to this line" on a pooled seat's continuation rows, and an empty
+    /// cell reads as a rendering failure rather than a claim.
+    func testGrokShortColumnSaysNotApplicableNotBlank() {
         let windows = [
             used(42, source: "grok", scope: .weekly,
                  resetAt: now.addingTimeInterval(41 * 3600), precision: .exact,
@@ -278,9 +281,30 @@ final class CapacityStripRendererTests: XCTestCase {
         ]
         let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
         let grokLine = table(plain).split(separator: "\n").first { $0.contains("Grok") }.map(String.init) ?? ""
-        XCTAssertTrue(grokLine.contains("-"), "no short window → dash: \(grokLine)")
+        XCTAssertTrue(grokLine.contains("n/a"), "no short window → n/a: \(grokLine)")
         XCTAssertTrue(grokLine.contains("X Premium+"), grokLine)
-        XCTAssertTrue(grokLine.contains("58%"), "remaining headroom: \(grokLine)")
+        XCTAssertTrue(grokLine.contains("58% left"), "remaining headroom: \(grokLine)")
+    }
+
+    /// Three states, three glyphs. `n/a` (no such limit) must never be confusable
+    /// with `unknown` (has one, unsampled) or a number.
+    func testNoShortLimitAndUnsampledShortLimitReadDifferently() {
+        let noLimit = [
+            used(42, source: "grok", scope: .weekly,
+                 resetAt: now.addingTimeInterval(41 * 3600), precision: .exact),
+        ]
+        let unsampled = [
+            used(53, source: "claude_code", scope: .weekly,
+                 resetAt: now.addingTimeInterval(4 * 86400)),
+        ]
+        let grokLine = table(CapacityStripRenderer.renderPlain(rows: rows(from: noLimit), now: now))
+            .split(separator: "\n").first { $0.contains("Grok") }.map(String.init) ?? ""
+        let claudeLine = table(CapacityStripRenderer.renderPlain(rows: rows(from: unsampled), now: now))
+            .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
+        XCTAssertTrue(grokLine.contains("n/a"), grokLine)
+        XCTAssertFalse(grokLine.contains("unknown"), grokLine)
+        XCTAssertTrue(claudeLine.contains("unknown"), claudeLine)
+        XCTAssertFalse(claudeLine.contains("n/a"), claudeLine)
     }
 
     // MARK: - Unknown reasons read differently

@@ -32,9 +32,11 @@ public struct CapacityStripJSONRow: Sendable, Equatable, Codable {
     public let dashboardRemainingPercent: Double?
     public let dashboardScope: CapacityWindowScope?
     public let dashboardResetAt: Date?
-    /// Short-window remaining after effective-availability floor, or nil when none.
+    /// The short window's own remaining, or nil when none/unknown. Not floored by
+    /// the row ceiling — that is `effectiveRemainingPercent`.
     public let shortRemainingPercent: Double?
-    /// `true` when the seat has no short window (render as `-`).
+    /// `true` when the seat has no short window at all (rendered `n/a`). Distinct
+    /// from a `nil` remaining with `false` here, which means "has one, unsampled".
     public let shortWindowNone: Bool
     public let effectiveRemainingPercent: Double?
     public let observedAt: Date?
@@ -291,7 +293,7 @@ public enum CapacityStripRenderer {
                 // short limit" — that is the one thing `-` is reserved for.
                 let short = CapacityBenchProjection.sourcesWithShortWindow.contains(row.source)
                     ? pad(unknownShortCopy(reason), shortW)
-                    : pad("-", shortW)
+                    : pad(noShortWindowCell, shortW)
                 var line = "\(name) \(plan) \(weekly) \(short) \(age)"
                 if tty { line = ansi(line, color: color) }
                 lines.append(line)
@@ -464,10 +466,19 @@ public enum CapacityStripRenderer {
     /// one at a time, and a header does not survive the trip.
     public static let remainingSuffix = "left"
 
+    /// Short cell for a seat that **has no** 5h/session limit (Grok, Cursor, Codex).
+    ///
+    /// Not blank: blank already means "not applicable to this line" on the
+    /// continuation rows of a pooled seat, and an empty cell reads as a rendering
+    /// failure — the same ambiguity `.none` vs `unknown` exists to remove. Not a
+    /// bare `-` either: the Plan column spends `-` on "no tier", so it degrades to
+    /// generic "nothing here" rather than the specific claim being made.
+    public static let noShortWindowCell = "n/a"
+
     /// Short column: effective availability when a short window exists; `-` when none.
     private static func shortCell(pool: CapacityBenchPoolMetrics, row: CapacityBenchRow) -> String {
         let pres = shortPresentation(pool: pool, row: row)
-        if pres.isNone { return "-" }
+        if pres.isNone { return noShortWindowCell }
         if let remaining = pres.remaining {
             return "\(formatPercent(remaining)) \(remainingSuffix)"
         }
