@@ -248,7 +248,10 @@ Extractors are **pure, fail-closed, unwired**. None touch `CapacityWindow` /
 | **agy** (Antigravity) | **3 — TUI only** | nothing on disk anywhere (`log/`, `cache/`, `brain/`, `implicit/`, `builtin/`, `conversations/`). The one `/usage` render found in `log/` was the founder's own paste echoed by `HandleUserInput` — **not** agy logging its pane | `AgyCapacityLog.swift` (`d5e17c8`) | 7/7 tests |
 | **Kimi Code** | **3 — TUI only** | `wire.jsonl` has per-turn tokens but no account window or reset; `kimi-code.log` has 403 strings without structured metrics; no usage flag | `KimiCapacityLog.swift` (`d387cf8`) | 8/8 tests |
 | **Claude Code** | **3 — TUI only** | `projects/**/*.jsonl` has `message.usage` tokens but no account window; `cache/`, `telemetry/`, `sessions/`, `daemon/` all empty of it | not built — no real fixture captured | audit only |
-| **Cursor Agent** | pending | spike dispatched 2026-07-29 | pending | pending |
+| **Cursor Agent** | **3 — TUI only** | nothing under `~/.cursor`, `~/.cursor-agent`, `~/.config/cursor*`, `~/Library/Application Support/Cursor*`, `~/Library/Caches/*cursor*`; no JSON surface on `cursor-agent status` | `CursorCapacityLog.swift` (`ba14add`) | 7/7 tests |
+
+**27 tests green across all four extractors together** (`swift test --filter
+CapacityLogTests`), verified independently of the authoring agents.
 
 **Standing rule proven by the agy case: a vendor surface found inside a log is
 not automatically an acquisition source.** Check whether the CLI wrote it or
@@ -272,6 +275,25 @@ Two consequences for CAP-S01: reset must be stored as an **absolute Date plus a
 precision marker** (cursor's day-only date cannot masquerade as minute-accurate),
 and every relative-duration parser must take `observedAt` as a parameter and
 never call `Date()` internally, or none of it is testable.
+
+### What CAP-S00 settles
+
+**Tier 3 is the common case, not the exception.** Four of six audited seats are
+TUI-only. The original packet's instinct was right for the bench as a whole; the
+ladder's value is that it saves the two seats where the data is already free —
+and those two (codex, grok) happen to be the ones that also carry **history**,
+which is what the utilization tab needs.
+
+**The PTY tier is now unavoidable and must be built well.** Earlier optimism
+that probing might collapse to Claude alone is dead: agy, Kimi, Claude, and
+Cursor all need it. That raises the priority of the CAP-S00 window-start
+question — *does opening the usage pane start the window it reports?* — from a
+per-driver detail to a gate on four of six seats.
+
+**Parser risk is real but bounded.** Four dialects were written and proven green
+in one session by delegated seats working in parallel. The fixture-plus-fail-
+closed pattern held for every one. Ongoing cost is a dialect-maintenance tax on
+infrastructure already maintained — the moat argument, now with evidence.
 
 ### Unaudited
 
