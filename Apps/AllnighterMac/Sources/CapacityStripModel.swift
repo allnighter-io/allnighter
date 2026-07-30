@@ -51,7 +51,7 @@ final class CapacityStripModel {
         notReadyOrParked = ids
     }
 
-    /// Live load: tier-1 disk, no PTY probes (same as bare `alln capacity`).
+    /// Live load: tier-1 disk + last-known hydrate, no PTY probes (bare `alln capacity`).
     func loadLive(
         notReadyOrParked: Set<String> = [],
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
@@ -60,7 +60,11 @@ final class CapacityStripModel {
         self.notReadyOrParked = notReadyOrParked
         let clock = Date()
         now = clock
-        windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: clock, refresh: false)
+        windows = CapacityDisplayAcquisition.windows(
+            homeRoot: homeRoot,
+            now: clock,
+            refresh: false
+        )
     }
 
     /// Fixture / proof path: inject Core windows directly. No IO.
@@ -93,7 +97,7 @@ final class CapacityStripModel {
                 refreshAllTask = nil
             }
             let clock = Date()
-            let acquired = CapacityAcquisition.windows(
+            let acquired = CapacityDisplayAcquisition.windows(
                 homeRoot: homeRoot,
                 now: clock,
                 refresh: true
@@ -101,7 +105,6 @@ final class CapacityStripModel {
             guard !Task.isCancelled else { return }
             now = clock
             windows = acquired
-            try? CapacityHistoryStore().record(acquired, now: clock)
         }
     }
 
@@ -123,10 +126,9 @@ final class CapacityStripModel {
                 refreshTasks[source] = nil
             }
             let clock = Date()
-            // Targeted refresh re-reads the full bench but only probes `source`.
-            // Merge so unprobed tier-3 seats keep their prior samples instead of
-            // collapsing to neverSampled and greying the strip.
-            let acquired = CapacityAcquisition.windows(
+            // Targeted refresh: probe one seat; display path hydrates siblings
+            // from history so they do not collapse to neverSampled (CAP-HF-00).
+            let acquired = CapacityDisplayAcquisition.windows(
                 homeRoot: homeRoot,
                 now: clock,
                 refresh: true,
@@ -135,10 +137,6 @@ final class CapacityStripModel {
             guard !Task.isCancelled else { return }
             now = clock
             windows = Self.merge(prior: windows, acquired: acquired, refreshedSource: source)
-            let forHistory = acquired.filter { $0.source == source }
-            if !forHistory.isEmpty {
-                try? CapacityHistoryStore().record(forHistory, now: clock)
-            }
         }
     }
 

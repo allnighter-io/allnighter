@@ -354,6 +354,61 @@ final class CapacityHistoryStoreTests: XCTestCase {
         )
     }
 
+    // MARK: CAP-HF-00 — last-known projection
+
+    func testLastKnownWindowsProjectsOpenRecordsWithRealAge() throws {
+        let observed = t0.addingTimeInterval(-3_600)
+        let openReset = t0.addingTimeInterval(86_400)
+        let closedReset = t0.addingTimeInterval(-86_400)
+        try store.record([
+            known(source: "cursor_agent", used: 28, resetAt: openReset, observedAt: observed, planTier: "Ultra"),
+            known(source: "cursor_agent", used: 90, resetAt: closedReset, observedAt: observed.addingTimeInterval(-10_000)),
+            known(source: "kimi", used: 100, resetAt: openReset, observedAt: observed),
+        ], now: t0)
+
+        let windows = store.lastKnownWindows(sourceIds: ["cursor_agent", "kimi"], now: t0)
+        let cursor = windows.filter { $0.source == "cursor_agent" }
+        XCTAssertEqual(cursor.count, 1, "closed cycle must drop")
+        XCTAssertEqual(cursor.first?.usedPercent, 28)
+        XCTAssertEqual(cursor.first?.planTier, "Ultra")
+        XCTAssertEqual(cursor.first?.observedAt, observed)
+        XCTAssertNil(cursor.first?.unknownReason)
+
+        let kimi = windows.filter { $0.source == "kimi" }
+        XCTAssertEqual(kimi.first?.remainingPercent, 0)
+        XCTAssertEqual(kimi.first?.observedAt, observed)
+    }
+
+    func testDisplayAcquisitionHydratesBareTier3FromHistory() throws {
+        let observed = t0.addingTimeInterval(-1_800)
+        let openReset = t0.addingTimeInterval(86_400)
+        try store.record([
+            known(
+                source: "agy",
+                used: 10,
+                resetAt: openReset,
+                observedAt: observed,
+                poolLabel: "GEMINI MODELS"
+            ),
+        ], now: t0)
+
+        let home = tempRoot.appendingPathComponent("empty-home", isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+
+        let windows = CapacityDisplayAcquisition.windows(
+            homeRoot: home,
+            now: t0,
+            refresh: false,
+            historyStore: store
+        )
+        let agy = windows.filter { $0.source == "agy" }
+        XCTAssertEqual(agy.count, 1)
+        XCTAssertEqual(agy.first?.usedPercent, 10)
+        XCTAssertEqual(agy.first?.observedAt, observed)
+        XCTAssertEqual(agy.first?.poolLabel, "GEMINI MODELS")
+        XCTAssertNil(agy.first?.unknownReason)
+    }
+
     // MARK: - Helpers
 
     private func known(

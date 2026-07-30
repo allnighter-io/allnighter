@@ -334,8 +334,8 @@ struct AllnighterCLI {
     }
 
     /// `alln capacity [--json] [--refresh [--source <id>]]` — vendor quota strip.
-    /// Bare call is tier-1 only (on-disk, no spawns). `--refresh` adds tier-3
-    /// PTY probes; `--source` with refresh targets one bench seat. Unknown
+    /// Live acquire (tier-1 disk; optional tier-3 PTY on `--refresh`), record
+    /// successes, then hydrate last-known for unknowns (CAP-HF-00). Unknown
     /// never blocks (exit 0). Non-TTY path is plain ASCII, zero ANSI.
     static func runCapacity(_ args: [String]) {
         let opts = Options(args)
@@ -347,16 +347,12 @@ struct AllnighterCLI {
         if let refreshSource, let message = CapacityAcquisition.validateRefreshSourceId(refreshSource) {
             fail(code: "CLI_USAGE_ERROR", message: message)
         }
-        let windows = CapacityAcquisition.windows(
+        // Single display path with Mac (`CapacityDisplayAcquisition`).
+        let windows = CapacityDisplayAcquisition.windows(
             now: now,
             refresh: refresh,
             refreshSource: refreshSource
         )
-        // CAP-S07 — record what acquisition already observed. Recording never
-        // re-acquires on its own (no probe, spawn, or vendor-dir scan beyond
-        // what the caller already did). Fail-soft: a history write must not
-        // break the strip.
-        try? CapacityHistoryStore().record(windows, now: now)
         let rows = CapacityBenchProjection.rows(from: windows, now: now)
         if opts.flag("json") {
             let payload = CapacityStripRenderer.json(

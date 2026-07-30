@@ -101,6 +101,24 @@ public struct CapacityHistoryStore: Sendable {
         return file.windows.sorted(by: Self.newestFirst)
     }
 
+    /// Open last-known windows for strip hydrate (CAP-HF-00).
+    ///
+    /// Projects durable peak facts into `CapacityWindow` with `lastObservedAt` as
+    /// `observedAt` so age stays honest. Closed cycles (`resetAt <= now`) are
+    /// dropped. Never probes, never invents a sample without a stored record.
+    public func lastKnownWindows(
+        sourceIds: [String] = CapacityAcquisition.benchSourceOrder,
+        now: Date
+    ) -> [CapacityWindow] {
+        var out: [CapacityWindow] = []
+        for sourceId in sourceIds {
+            for record in load(sourceId: sourceId) where !record.isClosed(at: now) {
+                out.append(record.asCapacityWindow())
+            }
+        }
+        return out
+    }
+
     /// Merge known windows into durable history. Skips `unknown` and windows
     /// without a used-% or `resetAt` (identity requires a reset boundary).
     /// Never acquires capacity — caller supplies what is already known.
@@ -211,5 +229,63 @@ public struct CapacityHistoryStore: Sendable {
     private struct FilePayload: Codable, Sendable, Equatable {
         var schemaVersion: Int
         var windows: [CapacityWindowRecord]
+    }
+}
+
+// MARK: - Strip projection
+
+extension CapacityWindowRecord {
+    /// Project a stored peak window into a strip `CapacityWindow`.
+    ///
+    /// Rate-limit windows are monotone within a cycle, so peak used ≈ last used
+    /// for display. `observedAt` is `lastObservedAt` — never "now".
+    public func asCapacityWindow() -> CapacityWindow {
+        let tier: CapacityAcquisitionTier =
+            CapacityAcquisition.tier3DisklessSources.contains(sourceId) ? .tuiProbe : .onDisk
+        return CapacityWindow(
+            used: peakUsedPercent,
+            source: sourceId,
+            scope: scope,
+            resetAt: resetAt,
+            resetPrecision: resetPrecision,
+            observedAt: lastObservedAt,
+            sourceTier: tier,
+            poolLabel: poolLabel,
+            planTier: planTier
+        )
+    }
+}
+
+// MARK: - Display acquisition (live + hydrate)
+
+/// Single display path for CLI and Mac strip (CAP-HF-00).
+///
+/// Records **live** successes only, then hydrates unknowns from history so bare
+/// `alln capacity` shows last-known + real age instead of lying `neverSampled`.
+public enum CapacityDisplayAcquisition {
+    public static func windows(
+        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        now: Date,
+        refresh: Bool = false,
+        refreshSource: String? = nil,
+        historyStore: CapacityHistoryStore = CapacityHistoryStore(),
+        probeExecutor: (any CapacityProbeExecuting)? = nil,
+        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
+    ) -> [CapacityWindow] {
+        let live = CapacityAcquisition.windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: refresh,
+            refreshSource: refreshSource,
+            probeExecutor: probeExecutor,
+            probeTimeout: probeTimeout
+        )
+        // Record live observations only — never re-count hydrated history.
+        try? historyStore.record(live, now: now)
+        let history = historyStore.lastKnownWindows(
+            sourceIds: CapacityAcquisition.benchSourceOrder,
+            now: now
+        )
+        return CapacityHydration.apply(live: live, history: history, now: now)
     }
 }
