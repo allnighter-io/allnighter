@@ -1,267 +1,205 @@
 # Observed Usage on Receipts and Live Status
 
-Status: **OPEN — founder intake packet. Presentation work is gated on AgentOS
-capture truth; do not invent token numbers in Alln.**
-Owner: AllnighterCore (TeamRunJSON / ArtifactProjector) + AllnighterEngine
-(pilot / relay status); AgentOS owns capture
-Created: 2026-07-29
-Origin: Founder brainstorm — Claude-style `duration · tokens` is high value for
-the **execution lane**; multi-CLI reality means tokens only when the driver
-reports them; missing tokens must **blame the CLI**, never a blank dash.
-**Upstream (required for tokens):** AgentOS
-[`docs/phases/Observed_Token_Usage_Capture.md`](../../../AgentOS/docs/phases/Observed_Token_Usage_Capture.md)
-(sibling repo path from this machine’s layout:
-`/Users/mike/Documents/GitHub/AgentOS/docs/phases/Observed_Token_Usage_Capture.md`).
-Related prior art (partial, not SSOT): `docs/phases/threads/04_Observed_Usage.md`
-(2026-06 open slices); FR14 / `ReportedTokenUsage` already on outcome + headline
-suffix when present.
+Status: **OPEN** — presentation only. Tokens come from AgentOS capture; Alln
+never invents numbers. Duration and liveness stay Alln-owned clocks.
+Owner: **AllnighterCore** (TeamRunJSON / mapper / ArtifactProjector) +
+**AllnighterEngine** (pilot / relay status). **AgentOS** owns capture.
+Version: **v2 (2026-07-30)** — doc review: same product law, tighter slices,
+sharper ownership. Origin: founder brainstorm (2026-07-29).
+Upstream (tokens): AgentOS
+`docs/phases/Observed_Token_Usage_Capture.md`
+(local: `/Users/mike/Documents/GitHub/AgentOS/docs/phases/Observed_Token_Usage_Capture.md`).
+Prior art (not SSOT for this path): `docs/phases/threads/04_Observed_Usage.md`.
+Already shipped partial: FR14 / `ReportedTokenUsage` on outcome + headline
+suffix when present; seat duration chips; **bug:** outcome usage maps
+**first worker only**.
 
-Phases are ephemeral. At closeout: promote product law into standing ops /
-vocabulary / help as needed; code remains SSOT for fields; archive this packet.
+Phases are ephemeral. Closeout: promote law into standing docs if needed;
+code stays field SSOT; archive this packet.
 
 ---
 
-## Founder intake (SSOT_Founder_Input_Workflow)
+## Intent (one paragraph)
 
-```text
-Founder intent:
-  Once AgentOS delivers reliable per-driver capture, surface observed duration
-  always and observed tokens when available on (1) every run receipt / artifact
-  and (2) live pilot / relay status — without usage theater. When a CLI is
-  silent, state that explicitly and put the blame on the CLI, not Alln.
-
-Product value:
-  Execution-lane steering (route vs inline, noisy seats, expensive rounds).
-  Receipt as lab notebook: wall time + tokens when real. Live status: alive
-  first, cost signal second when the dialect streams or has reported so far.
-
-Trusted workflow slice:
-  AgentOS capture green for a driver → map per-seat usage on TeamRunJSON →
-  project on artifact chips + outcome rollup → pilot/relay status line carries
-  liveness + optional observed usage → help teaches the honesty rule.
-
-Current state:
-  Duration: strong — seat durationMs / queueMs / ttftMs, outcome.timing.wallMs,
-  floor live elapsed, artifact seat chips show duration.
-  Tokens: partial — AgentOS extractors for claude_code / codex / cursor_agent;
-  outcome.usage + headline "· 12.4k tok" from first worker only; Grok often nil;
-  artifact HTML does not project tokens; no per-seat answer.usage; no pilot
-  status tok line. Product law already bans estimates ("no usage theater").
-
-Truth owner:
-  Capture: AgentOS ReportedTokenUsage on WorkerRunResult.
-  Contract projection: TeamRunJSONMapper / TeamRunJSON.
-  Receipt chrome: ArtifactProjector (+ ArtifactCLI).
-  Live status: PilotCLI / relay status surfaces + StreamLiveness (alive ≠ tokens).
-  Duration clocks: runner timing + Alln status — independent of usage events.
-
-CLI surface (target — refine at implementation):
-  - alln artifact show|export — seat chips: duration always; tokens or
-    "tokens not reported by <sourceId>"; optional footer wall + partial rollup.
-  - alln run / team JSON (TeamRunJSON): answers[]. duration*; answers[].usage?
-    or equivalent; outcome.usage rollup only from reported seats; never zero-fill.
-  - pair pilot status / relay status (and related ps/status): keep stream-primary
-    liveness; append observed usage when non-nil on the active seat.
-  Exit codes unchanged for missing usage (not an error).
-
-Help surface (topics / search / recovery):
-  - Teach: duration is Alln-measured; tokens only when the CLI reports;
-    "not reported by <cli>" means the dialect was silent.
-  - Search terms: tokens, usage, tok, cost, duration, receipt, pilot status.
-  - No dollar/quota claims. Update HelpTopicRegistry in the same slice as any
-    new JSON fields or status lines (ASF closeout questions).
-  - Recovery: help search miss → doctor / hello --for / models — not a fake
-    usage command.
-
-Proof scenario:
-  Multi-seat or single execution run: Claude (or fixture) seat shows duration +
-  tok; Grok (or silent fixture) shows duration + "tokens not reported by grok";
-  artifact export matches JSON; pilot status while running shows alive + elapsed
-  and tok only if already reported (terminal-only dialects get tok at settle).
-
-Blocking questions:
-  None on product posture (founder approved). Implementation may need contract
-  bump when adding per-seat usage fields.
-
-Next slice (after AgentOS OTU-S00 at least documents the matrix):
-  OUR-S01 — per-seat usage on TeamRunJSON + mapper (nil + never zero).
-```
+After AgentOS reports real per-driver usage (or honest nil), surface **observed
+duration always** and **observed tokens when present** on (1) every run receipt /
+artifact and (2) live pilot / relay status. Multi-CLI reality: many seats stay
+silent. Missing tokens **blame the CLI/source**, never a blank dash, zero, or
+Alln apology. No usage theater. Execution lane first.
 
 ---
 
-## Product law (presentation)
+## Product law
 
-**Always**
+| Rule | Detail |
+| --- | --- |
+| Duration | Always show when Alln measured it (seat and/or wall). |
+| Liveness | Stream / process primary. **Never** depend on token events. |
+| Tokens present | Compact observed counts from driver-reported ints only. |
+| Tokens absent | Explicit CLI blame. **Not** `—`, blank, omit-as-mystery, or `0`. |
+| Rollup | Sum / show only seats that reported. Partial rollup is honest; zero-fill is a lie. |
+| Estimates | Banned: token guesses, dollars, quota %, mid-run burn for terminal-only dialects. |
 
-- Show **observed duration** when Alln measured it (seat and/or wall).
-- **Liveness** (alive / stream silence / process) must **not** depend on token
-  events — StreamLiveness / process ownership stay primary.
-
-**When tokens exist**
-
-- Show compact observed counts (e.g. `41.2k tok` or in/out if useful).
-- Source is the driver-reported ints on the result — never estimate.
-
-**When tokens are missing**
-
-- Do **not** use `—`, blank, or `0`.
-- Explicit blame on the CLI/source, e.g.:
+Canonical chip shape (presentation owner must keep one form):
 
 ```text
 Opus    18.4s  ·  41.2k tok
-Codex   44.1s  ·  12.1k tok
 Grok    31.0s  ·  tokens not reported by grok
 ```
 
-Shorter chip form is fine: `31.0s · not reported by CLI` with sourceId in
-tooltip/JSON.
+Shorter OK (`31.0s · not reported by CLI`) if `sourceId` lives in tooltip/JSON.
+Priority: **execution** (mutating runs, pilot/relay). Judgment seats may reuse
+the same fields when free — no second chrome program.
 
-**Banned (unchanged)**
-
-- Estimated tokens, dollar cost, quota %, preflight tokenizer guesses.
-- Faking mid-run token burn when the dialect only reports at exit.
-
-Priority chrome: **execution lane** (mutating runs, pilot/relay workers) first;
-judgment seats can share the same fields when cheap.
+**Cutover vs `threads/04`:** that doc allowed “usage unavailable” / omit. For
+receipts + live status, **this packet wins**: CLI blame, no omit-as-mystery.
 
 ---
 
-## Dependency on AgentOS
+## Truth owners
 
-| AgentOS slice | Unblocks Alln |
+| Concern | Owner |
 | --- | --- |
-| OTU-S00 matrix | Honest “never” vs “unknown” copy; seat source labels |
-| OTU-S01 extractors | Real tokens on more seats without Alln parsers |
-| OTU-S02 mid-stream | Live pilot/relay tok updates mid-turn |
-| OTU-S03 warm parity | Tokens on warm/serve paths match cold |
+| Capture / extractors | AgentOS — `ReportedTokenUsage` on `WorkerRunResult` |
+| Per-seat + outcome contract | Alln — `TeamRunJSON` + `TeamRunJSONMapper` |
+| Receipt chrome | Alln — `ArtifactProjector` (+ ArtifactCLI); Floor reads same projection |
+| Live status line | Alln — PilotCLI / relay status; liveness: `StreamLiveness` + process ownership |
+| Duration clocks | Runner timing + Alln status (independent of usage events) |
+| Blame / chip string form | One presentation helper (pick at S01/S02; do not fork phrases) |
+| Help copy | `HelpTopicRegistry` in the same PR as user-visible fields/lines |
 
-Alln may ship **duration + explicit “not reported by …”** for nil usage **before**
-every driver is covered. Alln must **not** add local dialect parsers that fork
-AgentOS — extend AgentOS instead.
-
-Link (repo-relative from monorepo checkout of both trees):
-
-```text
-AgentOS: docs/phases/Observed_Token_Usage_Capture.md
-```
+Alln **must not** add local dialect parsers. Silent seat → extend AgentOS.
 
 ---
 
-## Once capture is delivered — how it lands on every run
+## Dependency on AgentOS (honest)
 
-### 1. Contract (`TeamRunJSON`)
+| AgentOS | Unblocks Alln |
+| --- | --- |
+| **Existing extractors** (claude_code / codex / cursor_agent) | Real tok on those seats **today** |
+| OTU-S00 matrix | Honest “never reports” vs “unknown / not probed” copy |
+| OTU-S01 more extractors | More seats with real ints, still no Alln parsers |
+| OTU-S02 mid-stream | Live tok updates mid-turn (only then) |
+| OTU-S03 warm parity | Warm/serve paths match cold |
 
-- **Per answer/seat:** keep `durationMs` (and queue/ttft); add optional
-  `usage: { inputTokens?, outputTokens? }` (or map existing result field) —
-  **absent when unreported**.
-- **Outcome:** rollup usage only from seats that reported; document partial
-  rollup (do not sum missing seats as zero). Prefer fixing today’s “first worker
-  only” mapping.
-- **Top-level `usage.cliCalls`:** leave as call count; do not overload with tokens.
+**Ship without full AgentOS:** duration + explicit “not reported by …” for nil
+usage. **Do not ship:** mid-run tok for a driver until OTU-S02 (or proven
+streaming events) for that driver. Terminal-only dialects: tok at settle or
+blame forever.
 
-### 2. Receipt / artifact (all terminal runs)
+---
+
+## Target surfaces (once)
+
+**Contract (`TeamRunJSON`)**
+
+- Per answer: keep duration fields; optional `usage` mirroring
+  `ReportedTokenUsage` (`inputTokens?`, `outputTokens?`) — **field absent when
+  unreported** (not zero).
+- Outcome: rollup **only reported seats**; document partial. **Fix**
+  first-worker-only mapping.
+- Top-level `usage.cliCalls` stays call count — do not overload with tokens.
+
+**Receipt / artifact (terminal)**
 
 - Seat chip: `status · duration · tokens | not reported by <sourceId>`.
-- Optional footer: wall clock + “N of M seats reported tokens”.
-- Same honesty string rules as today (attested multi-seat, not vendor-signed).
-- `alln artifact show|export` and Factory Floor reader share projection truth
-  (`ArtifactProjector`).
+- Optional footer: wall + “N of M seats reported tokens”.
+- `alln artifact show|export` and Floor share `ArtifactProjector`.
 
-### 3. Live runs (pilot / relay / floor)
+**Live (pilot / relay / status)**
 
-Ideal status line:
+- Keep stream-primary liveness + elapsed.
+- Append observed usage **only when non-nil**.
+- Nil usage: omit tok **or** show blame when the active seat is known silent —
+  never fake burn. Mid-stream only if AgentOS delivered it for that driver.
 
-```text
-alive  ·  stream 12s ago  ·  2m 40s  ·  89.1k tok (claude)
-alive  ·  stream 12s ago  ·  2m 40s  ·  tokens not reported by grok
-dead   ·  no stream 4m    ·  4m 10s  ·  …
-```
+**CLI / exit**
 
-| Signal | Meaning | Source |
-| --- | --- | --- |
-| Alive / stream silence | Still working? | StreamLiveness + process ownership |
-| Elapsed / duration | How long? | Alln / runner clocks |
-| Tokens | How chatty/expensive so far? | AgentOS reported usage if any |
+- Missing usage is **not** an error. Exit codes unchanged.
 
-**Do not** treat rising tokens as the sole heartbeat. Terminal-only dialects:
-tok appears at settle (or never + blame line).
+**Help**
 
-### 4. Help + vocabulary
-
-- Same slice as contract/status changes: HelpTopicRegistry + search aliases
-  (`tokens`, `usage`, `not reported`).
-- Closeout answers for teaching surface (founder workflow).
+- Teach: duration = Alln; tokens = CLI when reported; silence = CLI, not Alln.
+- Search: tokens, usage, tok, duration, receipt, pilot status.
+- No dollar/quota commands. No fake “usage” verb.
 
 ---
 
-## Ordered slices (Alln — after / alongside AgentOS)
+## Slices (Alln only)
 
-### OUR-S00 — Packet + gates (this doc)
+### OUR-S01 — Contract + mapper (do first)
 
-- Founder posture locked; AgentOS link; non-goals; no code.
-- **Works test:** docs committed; phases board lists both packets.
+Map `WorkerRunResult.reportedTokenUsage` onto **each** answer; fix outcome
+rollup to reported seats only; shared presentation helper for headline/chip
+strings if cheap. Contract regen if schema changes.
 
-### OUR-S01 — Per-seat usage on TeamRunJSON + mapper
+**Works test:** multi-seat fixture → reporting seat has ints; silent seat has
+**no** usage field; outcome partial rules unit-tested; no first-worker-only.
 
-- Map `WorkerRunResult.reportedTokenUsage` onto each answer; fix first-worker-only
-  outcome rollup to reported seats only.
-- Contract regenerate if schema changes; tests for present + absent.
-- **Works test:** fixture multi-seat run → JSON has tok on reporting seat, field
-  absent on silent seat; outcome.usage partial rules unit-tested.
+**Gate:** existing AgentOS extractors + honest nil. Does **not** wait on OTU-S00
+completion.
 
-### OUR-S02 — Artifact / receipt projection
+### OUR-S02 — Artifact / receipt + help
 
-- Seat chips + optional footer; no dash for missing tokens.
-- **Works test:** export HTML contains duration and either tok or “not reported
-  by …” for silent seat; no invented numbers.
+Project seat chips + optional footer; wire help topics/aliases in the same PR.
+
+**Works test:** export contains duration and either tok or `not reported by
+<sourceId>`; no invented numbers; `help search` hits for tokens/usage.
 
 ### OUR-S03 — Live pilot / relay status
 
-- Append observed usage when non-nil; always keep stream-primary liveness.
-- Mid-stream tok only if AgentOS OTU-S02 delivered for that driver.
-- **Works test:** status JSON/text fixtures; silent driver shows blame string;
-  hung stream without usage still shows silence age.
+Append non-nil usage; liveness stays stream/process-primary. Mid-stream tok only
+per AgentOS OTU-S02 for that driver.
 
-### OUR-S04 — Help + teaching closeout
+**Works test:** status fixtures — silent active seat shows blame or no tok (not
+zero); hung stream still shows silence age with nil usage; non-nil appends when
+present.
 
-- Topics, search, recovery; no cost theater.
-- **Works test:** help search hits; ASF-style closeout questions answered in PR.
+No OUR-S00 (packet is this file). No solo help slice.
 
 ---
 
 ## Non-goals
 
-- Dollar pricing, quota remaining UI.
-- Making liveness depend on usage events.
-- Parallel token parsers inside Allnighter.
-- Waiting for universal CLI support before shipping honest partial matrix.
+- Dollar pricing, quota remaining UI
+- Liveness from usage events
+- Parallel token parsers in Allnighter
+- Blocking ship on universal CLI coverage
+- Judgment-lane-only chrome or cost dashboards
 
 ---
 
-## Risk
+## Risks
 
-| Risk | Notes |
+| Risk | Mitigation |
 | --- | --- |
-| Partial matrix UX | Users may think Alln “missed” Grok — explicit CLI blame is the mitigation. |
-| Contract bump | Per-seat usage is additive; keep null = unreported. |
-| Live vs terminal | Document mid-stream vs settle so pilot is not accused of lying. |
+| User thinks Alln “missed” Grok | Explicit CLI blame string |
+| Contract bump noise | Additive optional fields; null/absent = unreported |
+| Pilot accused of lying on mid-run tok | Terminal-only dialects: settle or never; document |
+| Phrase drift across surfaces | One presentation helper |
 
 ---
 
-## Proof commands (implementation slices)
+## Proof (implementation)
 
 ```text
 swift test
 scripts/check.sh
-# artifact / pilot fixtures as added per slice
+# + mapper multi-seat fixture (present / absent / partial outcome)
+# + artifact export golden (tok vs blame)
+# + pilot/relay status fixtures (liveness ≠ tokens)
 ```
+
+Skeptical demo: one reporting seat + one silent seat; TeamRunJSON, artifact, and
+status agree; no zeros invented.
 
 ---
 
-## Relationship to older packets
+## Related docs
 
 | Doc | Role |
 | --- | --- |
-| `threads/04_Observed_Usage.md` | Earlier open slices; product law aligned; this packet is the **receipt + live status** execution path after AgentOS capture. Do not treat 04 as conflicting SSOT. |
-| Archived Team Run Receipt | Duration on chips already shipped; tokens are the gap. |
-| Pilot status liveness hotfixes | Stream-primary alive stays law; usage is additive. |
+| AgentOS `Observed_Token_Usage_Capture.md` | Capture SSOT; this packet consumes it |
+| `threads/04_Observed_Usage.md` | History; presentation path superseded here |
+| Team Run Receipt (archived) | Duration chips shipped; tokens are the gap |
+| Pilot liveness hotfixes | Stream-primary alive remains law; usage additive |
