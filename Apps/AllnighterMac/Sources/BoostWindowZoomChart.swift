@@ -58,7 +58,11 @@ struct BoostWindowZoomChart: View {
 
     private var chartCanvas: some View {
         GeometryReader { geo in
-            let trackW = max(0, geo.size.width - labelWidth)
+            // The right-hand "reset … · too late" chip is `.position`-centred on the
+            // end of the track, so half of it hangs past the track's right edge and the
+            // card clipped the text mid-word. Reserve half a chip's width of trailing
+            // room instead of letting the chip overflow the card.
+            let trackW = max(0, geo.size.width - labelWidth - resetChipAllowance)
             let wasteX = labelWidth + trackW
             let freshX = labelWidth + trackW * 0.5
 
@@ -246,6 +250,10 @@ struct BoostWindowZoomChart: View {
     // MARK: - Markers
 
     private enum ChipTone { case muted, fresh }
+
+    /// Half the width of the widest reset chip ("reset 1:00 PM · too late" at mono 10),
+    /// reserved as trailing room so a `.position`-centred chip cannot be clipped by the card.
+    private var resetChipAllowance: CGFloat { 64 }
 
     private func resetMarker(chip: String, tone: ChipTone, line: AnyView, x: CGFloat, y: CGFloat) -> some View {
         ZStack(alignment: .top) {

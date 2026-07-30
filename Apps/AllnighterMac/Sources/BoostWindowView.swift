@@ -142,9 +142,14 @@ struct BoostWindowView: View {
                     let seedX = CGFloat(vm.seedAt) / 1440 * w
                     Circle().fill(ALColor.accent).frame(width: 8, height: 8)
                         .offset(x: seedX - 4, y: -14)
+                    // A NEGATIVE offset put this label above the header and both strings
+                    // became unreadable. Enlarging the frame did not help: GeometryReader
+                    // top-aligns its content, so the ZStack keeps its natural 28pt height
+                    // at the origin and anything offset upward still escapes. Park the
+                    // label BELOW the track instead, where the taller frame gives it room.
                     Text("seed · \(BoostWindowTiming.formatMinutes(vm.seedAt))")
                         .font(ALFont.mono(9)).foregroundStyle(ALColor.accent)
-                        .offset(x: max(0, seedX - 20), y: -28)
+                        .offset(x: max(0, seedX - 20), y: 24)
                     // draggable window bracket — bright amber (mockup SSOT)
                     let startX = CGFloat(vm.windowStart) / 1440 * w
                     let bracketW = CGFloat(BoostWindowSettings.windowLengthMinutes) / 1440 * w
@@ -167,7 +172,9 @@ struct BoostWindowView: View {
                     )
                 }
             }
-            .frame(height: 44)
+            // 44 left no room above the 28pt track for the seed label, so it escaped the
+            // frame and collided with the header. 56 keeps the label inside its own bounds.
+            .frame(height: 56)
         }
         // The workspace enables text selection broadly; on this slider that hijacked the drag
         // (it highlighted the "10:00 AM – 3:00 PM" label instead of moving the bracket). Disable
