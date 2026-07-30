@@ -322,11 +322,16 @@ public enum HelpTopicRegistry {
             bodyMarkdown: """
             `alln capacity` reads what vendors already wrote on disk (tier-1: Codex, Grok). \
             Bare capacity is instant and **spawns nothing**. `alln capacity --refresh` adds \
-            tier-3 PTY one-shots into vendor `/usage` panes (agy, Kimi, Cursor, Claude). Capacity is \
+            tier-3 PTY one-shots into vendor `/usage` panes (agy, Kimi, Cursor, Claude). \
+            `alln capacity --refresh --source <id>` probes **only** that bench seat \
+            (`codex`, `claude_code`, `cursor_agent`, `grok`, `kimi`, `agy`); every other \
+            row still renders from disk or as never-sampled — the strip is never truncated. \
+            Tier-1 ids with `--source` are allowed and cheap (disk only, no spawn). \
+            `--source` without `--refresh` is a usage error. Capacity is \
             **vendor-printed when acquired** — Allnighter does not invent percentages. \
             `unknown` means the seat was not sampled, the probe timed out / failed, or the \
             parser could not read the capture. Missing data never blocks (exit 0) and never \
-            fabricates 0%. Claude Usage-tab probing is not shipped yet (tab navigation).
+            fabricates 0%.
 
             Per-run token usage on team receipts is a **different system** — do not confuse \
             receipt token counts with the capacity strip. Use `alln capacity --json` for the \

@@ -337,7 +337,7 @@
       "visibility" : "public"
     },
     {
-      "antiExample" : "Do NOT use this for per-run token usage on receipts — that is a different system.",
+      "antiExample" : "Do NOT use this for per-run token usage on receipts — that is a different system. Do NOT pass --source without --refresh.",
       "args" : [
 
       ],
@@ -348,12 +348,18 @@
         "repoWrite" : "never",
         "workerStart" : "never"
       },
-      "example" : "alln capacity --refresh",
+      "example" : "alln capacity --refresh --source cursor_agent",
       "exampleIds" : [
 
       ],
       "flagConstraints" : [
-
+        {
+          "kind" : "requires",
+          "peers" : [
+            "refresh"
+          ],
+          "subject" : "source"
+        }
       ],
       "flags" : [
         {
@@ -363,8 +369,14 @@
         },
         {
           "name" : "refresh",
-          "summary" : "Run tier-3 PTY probes (agy\/kimi\/cursor\/claude \/usage). Bare capacity never spawns.",
+          "summary" : "Run tier-3 PTY probes (agy\/kimi\/cursor\/claude \/usage). Bare capacity never spawns. Combine with --source to probe one seat.",
           "takesValue" : false
+        },
+        {
+          "name" : "source",
+          "summary" : "With --refresh only: probe one bench source (codex|claude_code|cursor_agent|grok|kimi|agy). Tier-1 is disk-only (no spawn). Full strip still renders.",
+          "takesValue" : true,
+          "valueType" : "sourceId"
         }
       ],
       "menuAction" : false,
@@ -375,8 +387,8 @@
       "name" : "capacity",
       "outputSchema" : "capacityStripJSON",
       "spendsQuota" : false,
-      "summary" : "Show vendor capacity\/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy\/kimi\/cursor\/claude). Unknown never blocks.",
-      "trigger" : "Before seating work when you need remaining weekly\/5-hour headroom, reset clocks, or which vendors expose nothing.",
+      "summary" : "Show vendor capacity\/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy\/kimi\/cursor\/claude); --refresh --source <id> probes one seat only. Unknown never blocks.",
+      "trigger" : "Before seating work when you need remaining weekly\/5-hour headroom, reset clocks, or which vendors expose nothing. Use --refresh --source <id> when about to dispatch to one seat.",
       "visibility" : "public"
     },
     {
@@ -5467,7 +5479,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "6.10.0",
+  "contractVersion" : "6.11.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -333,15 +333,25 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln capacity [--json] [--refresh]` — vendor quota strip.
+    /// `alln capacity [--json] [--refresh [--source <id>]]` — vendor quota strip.
     /// Bare call is tier-1 only (on-disk, no spawns). `--refresh` adds tier-3
-    /// PTY probes for agy / kimi / cursor. Unknown never blocks (exit 0).
-    /// Non-TTY path is plain ASCII, zero ANSI.
+    /// PTY probes; `--source` with refresh targets one bench seat. Unknown
+    /// never blocks (exit 0). Non-TTY path is plain ASCII, zero ANSI.
     static func runCapacity(_ args: [String]) {
         let opts = Options(args)
         let now = Date()
         let refresh = opts.flag("refresh")
-        let windows = CapacityAcquisition.windows(now: now, refresh: refresh)
+        // --source without --refresh is rejected by registry flagConstraints
+        // before this handler (CLI_USAGE_ERROR). Unknown ids fail closed here.
+        let refreshSource = opts.value("source")
+        if let refreshSource, let message = CapacityAcquisition.validateRefreshSourceId(refreshSource) {
+            fail(code: "CLI_USAGE_ERROR", message: message)
+        }
+        let windows = CapacityAcquisition.windows(
+            now: now,
+            refresh: refresh,
+            refreshSource: refreshSource
+        )
         // CAP-S07 — record what acquisition already observed. Recording never
         // re-acquires on its own (no probe, spawn, or vendor-dir scan beyond
         // what the caller already did). Fail-soft: a history write must not

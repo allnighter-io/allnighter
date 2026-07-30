@@ -408,6 +408,147 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertTrue(called.contains("claude_code"), "Claude /usage probe is shipped")
     }
 
+    // MARK: - CAP-S09 targeted --source refresh
+
+    /// `--source` without `--refresh` is a registry constraint (CLI_USAGE_ERROR).
+    func testSourceWithoutRefreshIsUsageError() {
+        let err = CLIUsage.validateFlagConstraints(
+            args: ["--source", "cursor_agent"],
+            commandName: "capacity"
+        )
+        XCTAssertNotNil(err, "--source alone must fail closed")
+        XCTAssertEqual(err?.subject, "source")
+        XCTAssertTrue(
+            err?.message.contains("refresh") == true,
+            "message must explain --source only applies with --refresh; got \(err?.message ?? "nil")"
+        )
+    }
+
+    /// Unknown / misspelled source id → CLI_USAGE_ERROR listing valid ids.
+    func testUnknownSourceIdIsUsageErrorListingValidIds() {
+        XCTAssertNil(CapacityAcquisition.validateRefreshSourceId("cursor_agent"))
+        XCTAssertNil(CapacityAcquisition.validateRefreshSourceId("codex"))
+        let message = CapacityAcquisition.validateRefreshSourceId("cursorr_agent")
+        XCTAssertNotNil(message)
+        XCTAssertTrue(message?.contains("unknown source") == true, message ?? "")
+        for id in CapacityAcquisition.validRefreshSourceIds {
+            XCTAssertTrue(
+                message?.contains(id) == true,
+                "error must list valid id \(id); got \(message ?? "nil")"
+            )
+        }
+        // Never a silent accept of garbage.
+        XCTAssertNotNil(CapacityAcquisition.validateRefreshSourceId("not_a_seat"))
+        XCTAssertNotNil(CapacityAcquisition.validateRefreshSourceId(""))
+    }
+
+    /// `--refresh --source X` spawns exactly one probe; strip stays complete.
+    func testRefreshSourceSpawnsExactlyOneProbeAndLeavesOtherRowsIntact() throws {
+        try writeCodexRollout(
+            year: "2026", month: "07", day: "28",
+            name: "rollout-2026-07-28T12-09-28-new.jsonl",
+            content: codexPlusLine + "\n",
+            mtime: now
+        )
+        try writeGrokLog(grokBillingLine + "\n")
+
+        let cursorWindows = CapacityProbe.parse(
+            source: "cursor_agent",
+            renderText: cursorUsageFixture,
+            now: now
+        )
+        XCTAssertFalse(cursorWindows.isEmpty)
+
+        let counter = CountingProbeExecutor()
+        let fixture = FixtureProbeExecutor(results: [
+            "cursor_agent": cursorWindows,
+        ])
+        // Compose: count every call, return fixture windows for the selected seat.
+        let countingFixture = CountingThenFixtureExecutor(
+            counter: counter,
+            fixture: fixture
+        )
+
+        let windows = CapacityAcquisition.windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: true,
+            refreshSource: "cursor_agent",
+            probeExecutor: countingFixture
+        )
+
+        XCTAssertEqual(counter.calls, ["cursor_agent"], "must probe only the named seat; calls=\(counter.calls)")
+
+        // Full bench still present — never truncated to one row.
+        let sources = Set(windows.map(\.source))
+        for expected in CapacityAcquisition.benchSourceOrder {
+            XCTAssertTrue(sources.contains(expected), "missing row \(expected)")
+        }
+
+        // Targeted seat carries real numbers from the probe.
+        XCTAssertEqual(
+            windows.first { $0.source == "cursor_agent" }?.usedPercent,
+            27.0
+        )
+
+        // Other tier-3 seats stay never-sampled (not probed, not zero-filled).
+        for source in CapacityAcquisition.tier3DisklessSources where source != "cursor_agent" {
+            let row = windows.first { $0.source == source }
+            XCTAssertEqual(row?.unknownReason, .neverSampled, source)
+            XCTAssertNil(row?.usedPercent, source)
+        }
+
+        // Tier-1 untouched (disk path).
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
+        XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
+    }
+
+    /// Tier-1 `--source` is allowed and cheap — no probe spawn.
+    func testRefreshSourceTier1DoesNotSpawnProbe() throws {
+        try writeCodexRollout(
+            year: "2026", month: "07", day: "28",
+            name: "rollout-2026-07-28T12-09-28-new.jsonl",
+            content: codexPlusLine + "\n",
+            mtime: now
+        )
+        let counter = CountingProbeExecutor()
+        let windows = CapacityAcquisition.windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: true,
+            refreshSource: "codex",
+            probeExecutor: counter
+        )
+        XCTAssertTrue(counter.calls.isEmpty, "tier-1 --source must not spawn; calls=\(counter.calls)")
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
+        for source in CapacityAcquisition.tier3DisklessSources {
+            XCTAssertEqual(
+                windows.first { $0.source == source }?.unknownReason,
+                .neverSampled,
+                source
+            )
+        }
+        // Full strip still present.
+        XCTAssertEqual(
+            Set(windows.map(\.source)).intersection(Set(CapacityAcquisition.benchSourceOrder)).count,
+            CapacityAcquisition.benchSourceOrder.count
+        )
+    }
+
+    /// Counting wrapper around a fixture executor for targeted-refresh tests.
+    private final class CountingThenFixtureExecutor: CapacityProbeExecuting, @unchecked Sendable {
+        private let counter: CountingProbeExecutor
+        private let fixture: FixtureProbeExecutor
+        init(counter: CountingProbeExecutor, fixture: FixtureProbeExecutor) {
+            self.counter = counter
+            self.fixture = fixture
+        }
+        func execute(_ request: CapacityProbeRequest) -> [CapacityWindow] {
+            _ = counter.execute(request)
+            return fixture.execute(request)
+        }
+    }
+
     func testClaudeUsageFixtureParsesSessionAndWeekly() {
         let windows = ClaudeCapacityLog.capacityWindows(
             fromRender: claudeUsageFixture,

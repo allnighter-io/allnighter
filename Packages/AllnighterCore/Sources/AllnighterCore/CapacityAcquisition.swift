@@ -9,6 +9,11 @@ import Foundation
 /// per-driver PTY probe for seats we can drive (agy, kimi, cursor, Claude Code).
 /// Probes are never idle-backgrounded; only explicit refresh starts them.
 ///
+/// **Targeted refresh** (`refresh: true` + `refreshSource:`) probes only that
+/// seat when it is tier-3 probeable. Tier-1 ids are allowed and cheap (disk
+/// only — no spawn). Every other seat still appears: tier-1 from disk, unprobed
+/// tier-3 as `neverSampled`. The strip is never truncated to one row.
+///
 /// Injectable `homeRoot` / `probeExecutor` keep tests off the real home and off
 /// real vendor CLIs.
 ///
@@ -39,6 +44,24 @@ public enum CapacityAcquisition {
     /// Tier-3 seats the PTY probe drives on `--refresh` (includes Claude Code).
     public static let tier3ProbeableSources: [String] = CapacityProbe.probeableSources
 
+    /// Valid bench source ids for `alln capacity --refresh --source <id>`.
+    /// Same set as `benchSourceOrder` — the product bench, not only probeable seats.
+    public static var validRefreshSourceIds: [String] { benchSourceOrder }
+
+    /// CLI_USAGE_ERROR message when `--source` is unknown / misspelled.
+    public static func unknownRefreshSourceMessage(_ id: String) -> String {
+        let valid = validRefreshSourceIds.joined(separator: ", ")
+        return "unknown source: \(id) (valid: \(valid))"
+    }
+
+    /// `nil` when `id` is a known bench source; otherwise the usage error message.
+    public static func validateRefreshSourceId(_ id: String) -> String? {
+        guard validRefreshSourceIds.contains(id) else {
+            return unknownRefreshSourceMessage(id)
+        }
+        return nil
+    }
+
     /// Acquire capacity windows for the fixed bench under `homeRoot`.
     ///
     /// - Parameters:
@@ -48,16 +71,20 @@ public enum CapacityAcquisition {
     ///   - refresh: When `true`, run tier-3 PTY probes (explicit refresh only).
     ///     When `false` (default), tier-3 seats are `neverSampled` and **no** probe
     ///     executor is invoked — bare `alln capacity` spawns nothing.
+    ///   - refreshSource: When non-nil with `refresh`, probe only this bench source
+    ///     if it is tier-3 probeable. Tier-1 ids are accepted and do not spawn.
+    ///     Ignored when `refresh` is false (caller must reject that combination).
     ///   - probeExecutor: Injectable probe seam. `nil` + `refresh` uses the live PTY
     ///     executor. Tests inject a counter / fixture runner.
     ///   - probeTimeout: Per-probe wall-clock budget (default 20s).
     /// - Returns: Windows for every bench source. Never empty for a known source;
     ///   never throws. Tier-1 seats are always acquired; a failed probe never
-    ///   degrades them.
+    ///   degrades them. The strip always covers the full bench — never one row only.
     public static func windows(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         now: Date,
         refresh: Bool = false,
+        refreshSource: String? = nil,
         probeExecutor: (any CapacityProbeExecuting)? = nil,
         probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
     ) -> [CapacityWindow] {
@@ -68,6 +95,7 @@ public enum CapacityAcquisition {
         result.append(contentsOf: acquireTier3(
             now: now,
             refresh: refresh,
+            refreshSource: refreshSource,
             probeExecutor: probeExecutor,
             probeTimeout: probeTimeout
         ))
@@ -79,6 +107,7 @@ public enum CapacityAcquisition {
     private static func acquireTier3(
         now: Date,
         refresh: Bool,
+        refreshSource: String?,
         probeExecutor: (any CapacityProbeExecuting)?,
         probeTimeout: TimeInterval
     ) -> [CapacityWindow] {
@@ -99,16 +128,43 @@ public enum CapacityAcquisition {
             }
         }
 
-        let executor = probeExecutor ?? LiveCapacityProbeExecutor()
         let probeable = Set(tier3ProbeableSources)
+        // Targeted refresh: only the named seat if probeable. Full refresh: all.
+        // Tier-1 / non-probeable --source → empty probe set (disk path already ran).
+        let sourcesToProbe: Set<String>
+        if let refreshSource {
+            if probeable.contains(refreshSource) {
+                sourcesToProbe = [refreshSource]
+            } else {
+                sourcesToProbe = []
+            }
+        } else {
+            sourcesToProbe = probeable
+        }
 
-        // Run probeable seats concurrently — each has its own timeout, so one
+        // No seats to probe (targeted tier-1, or empty filter) — neverSampled for
+        // every tier-3 row. Still return a complete strip.
+        if sourcesToProbe.isEmpty {
+            return tier3DisklessSources.map { source in
+                CapacityWindow.unknown(
+                    reason: .neverSampled,
+                    source: source,
+                    scope: .weekly,
+                    observedAt: now,
+                    sourceTier: .tuiProbe
+                )
+            }
+        }
+
+        let executor = probeExecutor ?? LiveCapacityProbeExecutor()
+
+        // Run selected seats concurrently — each has its own timeout, so one
         // slow CLI cannot block a sibling beyond its own budget.
         let lock = NSLock()
         var bySource: [String: [CapacityWindow]] = [:]
         let group = DispatchGroup()
 
-        for source in tier3DisklessSources where probeable.contains(source) {
+        for source in tier3DisklessSources where sourcesToProbe.contains(source) {
             group.enter()
             DispatchQueue.global(qos: .userInitiated).async {
                 defer { group.leave() }
@@ -152,7 +208,7 @@ public enum CapacityAcquisition {
 
         var result: [CapacityWindow] = []
         for source in tier3DisklessSources {
-            if probeable.contains(source) {
+            if sourcesToProbe.contains(source) {
                 if let windows = bySource[source] {
                     result.append(contentsOf: windows)
                 } else {
@@ -166,7 +222,7 @@ public enum CapacityAcquisition {
                     )
                 }
             } else {
-                // Future deferred seats only — every current tier-3 seat is probeable.
+                // Not selected for this refresh (targeted other seat, or deferred).
                 result.append(
                     CapacityWindow.unknown(
                         reason: .neverSampled,
