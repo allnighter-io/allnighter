@@ -819,13 +819,67 @@ This is the standing "allowlists are where gates die" lesson, and a Code Audit
 rubric-5 miss (proof must match the owner-visible claim, not a convenient
 helper). Worth carrying into ATL-S03/S04 review.
 
-### Not done, deliberately
+## B3) ATL-S03 + ATL-S04 SHIPPED (2026-07-30) — packet complete
 
-**ATL-S03 and ATL-S04 (Mac GUI) were held out of the unattended loop.** They
-require a surface brief plus the Visual Proof Gate — a sighted, human-reviewed
-check an unattended relay structurally cannot satisfy. The packet's own law is
-**CLI before GUI**, so this follows the packet rather than trimming it. Both
-remain open and need an attended session.
+Implemented by **Composer 2.5** via `alln run --model model_cursor_composer_25`,
+with the Visual Proof Gate run separately (the building agent may not be its own
+watcher). All four slices are now done; only optional ATL-S05 remains.
+
+| Commit | What |
+| --- | --- |
+| `6437bf94` | ATL-S03 — composer `Model \| Team \| Loop`, Kickoff sheet, `RelayDetachedLauncher`, project-header spinner retired |
+| `cfada75a` | ATL-S03 fixture fix (see below) |
+| `18a952e4` | ATL-S03 proof packet sealed |
+| `67f4b563` | ATL-S04 — relay thread Status + Stop chrome |
+| `e14947b1` | Two P1 layout fixes in Boost Window (unrelated surface, found by the sweep) |
+| `88ef7635` | ATL-S04 chrome + capture-path fixes |
+| `abfc89d8` | ATL-S04 + Boost Window proof packets sealed |
+
+**Proof:** `check_gui_proof.sh` ok (47 views), wall 2544 tests / 0 failures,
+`export-contracts --check` clean.
+
+Packet requirements verified directly in code, not from a report: no in-process
+`coordinator.complete` remains anywhere in the Mac app; `RelayDetachedLauncher`
+spawns the registered `alln pair relay … --no-wait` argv; Stop routes through
+`RelayCoordinator.stop` (never `ProcessOwnershipSurface.kill`); Status loads from
+`RelayStateStore` and projects `RelayJSON` rather than inferring lifecycle from
+thread prose; the word "Pilot" appears in no Loop UI string.
+
+### What the visual gate caught that nothing else did
+
+Three separate defects survived a green build, 2544 passing tests, and code
+review — and were only caught by looking at rendered pixels.
+
+1. **`compose-loop` proved nothing.** The fixture captured the route picker
+   *collapsed*, so Model | Team | Loop were never simultaneously visible. The
+   slice's core claim was unproven by its own fixture.
+2. **`RelayThreadChrome` never rendered — a real user-facing bug.** Its body was
+   a `Group` that produced nothing while `relayJSON` was nil, and the `.task` /
+   `.onAppear` that *populate* `relayJSON` were attached to that empty view. The
+   chrome could not escape its own initial state, so **Status and Stop would
+   never have appeared in production**, not merely in fixtures. Diagnosed by
+   confirming the state file existed and `alln pair relay-status --json` returned
+   a full envelope — data and load path were both fine.
+3. **`.confirmationDialog` is a child window** the in-process snapshot cannot
+   see, so the stop-confirm fixture captured a plain thread twice before the
+   fixture was routed to the window-list composite path.
+
+A fourth, on an unrelated surface swept at the same time: **Boost Window** had a
+clipped status pill and a slider label rendering on top of its own header. The
+first fix for the overlap **failed** — enlarging the container does not recentre
+content because `GeometryReader` top-aligns its child. Both the failure and the
+correction are recorded in `docs/qa/gui/boost-window/2026-07-30-p1-fixes/`.
+
+> Standing lesson for future GUI slices: **a fixture that does not actually show
+> the thing being proved is worse than no fixture**, because it manufactures
+> false confidence. Two of the three ATL failures were of exactly that shape.
+
+### Still open
+
+- **ATL-S05** (optional sidebar amber-dot quieting) — non-blocking, never started.
+- Closeout chores from §Proof: promote the **Loop** vocabulary row into
+  `docs/workflows/Product_Vocabulary.md`, add the help topic, and archive this
+  packet.
 
 ---
 
