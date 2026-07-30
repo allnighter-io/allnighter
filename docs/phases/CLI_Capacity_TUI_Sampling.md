@@ -302,6 +302,76 @@ infrastructure already maintained — the moat argument, now with evidence.
 
 Aider, and any further seats.
 
+---
+
+## CAP-S01 → S04 SHIPPED (pilot relay, 2026-07-29)
+
+Executed via `alln pair pilot` with **Grok 4.5** as the dev seat and this session
+as PM, six rounds, Execution-Playbook Orchestrated mode.
+
+| Commit | Slice | Ships |
+| --- | --- | --- |
+| `56322ca5` | CAP-S01 | `CapacityWindow` — polarity normalized at construction (`init(used:)`/`init(remaining:)`, no positional swap possible), reset precision enum (`exact`/`minute`/`day`), acquisition tier, buckets, `CapacityUnknownReason`, anchored decrement |
+| `17560ca0` | CAP-S02 | The four TUI extractors emit `CapacityWindow`; additive, existing APIs untouched |
+| `26be749c` | CAP-S03 | `CapacityBenchProjection` — one row per source, weekly/monthly dashboard window, **effective availability = tightest ceiling**, explicit no-short-window state, hero eligibility predicate |
+| `131619a0` | CAP-S03b | `CodexCapacityLog` — the fifth extractor, tier 1 |
+| `f514a9d5` | CAP-S04 | `CapacityAcquisition` — tier-1 disk reads, injectable roots, reverse-read from EOF |
+| `7dbe7126` | CAP-S04 | `CapacityStripRenderer` — fixed order, TTY / plain-ASCII / JSON |
+| `f1727e15` | closeout | Deslop |
+
+**Proof.** 86 capacity tests green (39 / 13 / 9 / 11 / 14). Full package suite:
+2514 tests, 7 failures, **none in capacity** — two are `CLI_Park`'s
+(`ContractExportTests` hash drift; `RetiredVocabularyTests` → `park_cli:
+unresolved 'alln detect'`) and two are flaky `AsyncTeamTests` liveness timers
+(9→7 across consecutive runs). Deslop `FIXED`, Code Audit **`CLEAN`**.
+
+**Live end-to-end**, real home directory, 142 ms:
+
+```text
+source=codex scope=weekly used=70.0% plan=plus        reset=2026-08-05T04:32:16Z
+source=grok  scope=weekly used=42.0% plan=X Premium+  reset=2026-07-31T18:11:40Z
+claude_code / cursor_agent / kimi / agy → vendorExposesNothing
+```
+
+### Blocked — not ours to unblock
+
+**The `alln capacity` CLI verb is deliberately unwired.** Registering it moves
+the contract hash, which is *already* red from `CLI_Park` shipping `alln
+drivers|park|unpark` without bumping `ContractRegistry.contractVersion`.
+Verified by reproduction: removing all capacity files rebuilds to the identical
+hash `37c03f0552c5`. Bumping now would publish another packet's in-flight
+surface under this one's commit. **Wire the verb once `CLI_Park` closes out** —
+the renderer and its JSON shape are already built and tested, so it is short.
+
+### Findings from execution
+
+- **Codex `pro` flips the slots.** Under `pro`, `primary` is the 5-hour window
+  (`window_minutes: 300`) and `secondary` is weekly (`10080`); under `plus`,
+  `primary` is weekly and `secondary` is null. Scope must be derived from
+  `window_minutes` alone — never from slot position. A free-plan `43200`
+  (monthly) also exists in the wild.
+- **`credits.balance` is a string** (`"0"`), and can be null. It is the field an
+  auto-spend gate would depend on, so a wrong `0` fails in the dangerous
+  direction; it fails closed instead.
+- **Grok's reset is 18:11 UTC** (11:11 PDT). Earlier notes in this packet said
+  11:11 UTC — wrong, corrected here.
+- **Money-only Cursor snapshots convert to no window.** A cursor sample with
+  dollars but no usable percent category yields `[]` rather than a fabricated
+  0%. Correct under the no-zero-fill law; revisit if the case turns out real.
+
+### Named follow-ups (not defects)
+
+- Five extractors independently reimplement ISO8601 parsing, numeric coercion,
+  ANSI stripping, duration parsing, and percent regex. Judged a follow-up slice,
+  explicitly **not** done under a deslop banner.
+- Bench display order is defined twice (`CapacityAcquisition.benchSourceOrder`
+  and `CapacityStripRenderer.displayOrder`). Same values, two owners — no
+  runtime lie today, but it can drift.
+- Persistence is still absent. `CapacityObservation` rides on run records
+  (`RunAttempt`, `TeamRun`, `PendingItem`); there is no standalone capacity
+  store. **The utilization tab and unused-at-reset both depend on one**, and
+  retention must be in its schema from day one.
+
 ### Why the ladder is what makes the launch screen possible
 
 If every seat were a PTY probe, launch would take ~20 seconds, spawn six
