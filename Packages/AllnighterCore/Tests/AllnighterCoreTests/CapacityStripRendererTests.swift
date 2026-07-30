@@ -9,6 +9,17 @@ final class CapacityStripRendererTests: XCTestCase {
 
     // MARK: - Helpers
 
+    /// The strip prints an "Expiring soon with headroom" banner above the table,
+    /// and those lines carry seat names too. Row assertions must read the table,
+    /// not the first line that happens to mention the seat.
+    private func table(_ rendered: String) -> String {
+        let lines = rendered.split(separator: "\n", omittingEmptySubsequences: false)
+        guard let separator = lines.firstIndex(where: { $0.hasPrefix("---") }) else {
+            return rendered
+        }
+        return lines[lines.index(after: separator)...].joined(separator: "\n")
+    }
+
     private func used(
         _ usedPercent: Double,
         source: String,
@@ -75,12 +86,99 @@ final class CapacityStripRendererTests: XCTestCase {
             used(0, source: "kimi", scope: .fiveHour,
                  resetAt: now.addingTimeInterval(3600)),
         ]
-        let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
+        let plain = table(CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now))
         let codexIdx = plain.range(of: "Codex/ChatGPT")!.lowerBound
         let grokIdx = plain.range(of: "Grok")!.lowerBound
         let kimiIdx = plain.range(of: "Kimi")!.lowerBound
         XCTAssertTrue(codexIdx < grokIdx, "Codex before Grok")
         XCTAssertTrue(grokIdx < kimiIdx, "Grok before Kimi")
+    }
+
+    // MARK: - Polarity is stated, not implied
+
+    /// Claude and Grok print used, Codex prints left. Normalizing six vendors into
+    /// one table means a bare number is unreadable without knowing which way we
+    /// normalized — and the header does not survive a screenshotted row.
+    func testEveryPercentCellStatesThatItIsCapacityLeft() {
+        let windows = [
+            used(53, source: "claude_code", scope: .weekly,
+                 resetAt: now.addingTimeInterval(4 * 86400)),
+            used(14, source: "claude_code", scope: .session,
+                 resetAt: now.addingTimeInterval(4 * 3600)),
+        ]
+        let line = table(CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now))
+            .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
+        XCTAssertTrue(line.contains("47% left"), "weekly must state polarity: \(line)")
+        XCTAssertTrue(line.contains("86% left"), "short must state polarity: \(line)")
+    }
+
+    /// The widest realistic weekly cell must not lose its reset clock to `pad`'s
+    /// hard cut — a silently clipped clock is the quiet lie this strip exists to
+    /// avoid.
+    func testWidestWeeklyCellKeepsItsResetClock() {
+        let windows = [
+            remaining(52.1, source: "agy", scope: .weekly,
+                      resetAt: now.addingTimeInterval(20 * 3600 + 47 * 60)),
+        ]
+        let line = table(CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now))
+            .split(separator: "\n").first { $0.contains("Antigravity") }.map(String.init) ?? ""
+        XCTAssertTrue(line.contains("52.1% left"), line)
+        XCTAssertTrue(line.contains("20h 47m"), "reset clock must survive padding: \(line)")
+    }
+
+    // MARK: - Expiring banner
+
+    /// Same number as the strip's `left`, opposite valence: headroom you cannot
+    /// reach before the reset is waste. Selection is `isHeroEligible`, so it stays
+    /// silent unless there is genuinely something to lose.
+    func testExpiringBannerNamesHeadroomOnASoonResettingWindow() {
+        let windows = [
+            // 30h out with 58% left → hero eligible.
+            used(42, source: "grok", scope: .weekly,
+                 resetAt: now.addingTimeInterval(30 * 3600), precision: .exact),
+        ]
+        let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
+        XCTAssertTrue(plain.hasPrefix("Expiring soon with headroom:"), plain)
+        XCTAssertTrue(plain.contains("58% unused · resets 1d 6h"), plain)
+        // The table below still speaks in `left`.
+        XCTAssertTrue(table(plain).contains("58% left"), plain)
+    }
+
+    /// A window nowhere near its reset is not at risk, and an exhausted one has
+    /// nothing left to lose. Neither earns a line.
+    func testExpiringBannerStaysSilentWithoutRealHeadroomOrDeadline() {
+        let distant = [
+            used(10, source: "codex", scope: .weekly,
+                 resetAt: now.addingTimeInterval(6 * 86400), precision: .exact),
+        ]
+        XCTAssertFalse(
+            CapacityStripRenderer.renderPlain(rows: rows(from: distant), now: now)
+                .contains("Expiring soon")
+        )
+
+        let exhausted = [
+            used(100, source: "kimi", scope: .weekly,
+                 resetAt: now.addingTimeInterval(20 * 3600)),
+        ]
+        XCTAssertFalse(
+            CapacityStripRenderer.renderPlain(rows: rows(from: exhausted), now: now)
+                .contains("Expiring soon")
+        )
+    }
+
+    /// Soonest reset first — that is the capacity you lose first.
+    func testExpiringBannerOrdersBySoonestReset() {
+        let windows = [
+            used(30, source: "codex", scope: .weekly,
+                 resetAt: now.addingTimeInterval(40 * 3600), precision: .exact),
+            used(30, source: "grok", scope: .weekly,
+                 resetAt: now.addingTimeInterval(20 * 3600), precision: .exact),
+        ]
+        let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
+        let banner = plain.split(separator: "\n").prefix { !$0.hasPrefix("CLI") }.joined(separator: "\n")
+        let grokIdx = banner.range(of: "Grok")!.lowerBound
+        let codexIdx = banner.range(of: "Codex")!.lowerBound
+        XCTAssertTrue(grokIdx < codexIdx, "soonest reset first: \(banner)")
     }
 
     func testNotReadyOrParkedSeatsLast() {
@@ -113,7 +211,7 @@ final class CapacityStripRendererTests: XCTestCase {
         ]
         let projected = rows(from: windows)
         let plain = CapacityStripRenderer.renderPlain(rows: projected, now: now)
-        let kimiLine = plain.split(separator: "\n").first { $0.contains("Kimi") }.map(String.init) ?? ""
+        let kimiLine = table(plain).split(separator: "\n").first { $0.contains("Kimi") }.map(String.init) ?? ""
         XCTAssertTrue(kimiLine.contains("0%"), "expected weekly 0% on Kimi line: \(kimiLine)")
         XCTAssertTrue(kimiLine.contains("100%"), "expected raw 5h 100% on Kimi line: \(kimiLine)")
         // The exhausted weekly still drives the row verdict.
@@ -136,7 +234,7 @@ final class CapacityStripRendererTests: XCTestCase {
             ),
         ]
         let projected = rows(from: windows)
-        let line = CapacityStripRenderer.renderPlain(rows: projected, now: now)
+        let line = table(CapacityStripRenderer.renderPlain(rows: projected, now: now))
             .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
         XCTAssertTrue(line.contains("unknown"), "expected unknown short cell: \(line)")
 
@@ -155,7 +253,7 @@ final class CapacityStripRendererTests: XCTestCase {
                  resetAt: now.addingTimeInterval(4 * 3600)),
         ]
         let projected = rows(from: windows)
-        let line = CapacityStripRenderer.renderPlain(rows: projected, now: now)
+        let line = table(CapacityStripRenderer.renderPlain(rows: projected, now: now))
             .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
         XCTAssertTrue(line.contains("47%"), "expected weekly 47% on Claude line: \(line)")
         XCTAssertTrue(line.contains("86%"), "expected session 86% in the 5h column: \(line)")
@@ -168,7 +266,7 @@ final class CapacityStripRendererTests: XCTestCase {
                  planTier: "X Premium+"),
         ]
         let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
-        let grokLine = plain.split(separator: "\n").first { $0.contains("Grok") }.map(String.init) ?? ""
+        let grokLine = table(plain).split(separator: "\n").first { $0.contains("Grok") }.map(String.init) ?? ""
         XCTAssertTrue(grokLine.contains("-"), "no short window → dash: \(grokLine)")
         XCTAssertTrue(grokLine.contains("X Premium+"), grokLine)
         XCTAssertTrue(grokLine.contains("58%"), "remaining headroom: \(grokLine)")
@@ -217,7 +315,7 @@ final class CapacityStripRendererTests: XCTestCase {
                  observedAt: now.addingTimeInterval(-120)),
         ]
         let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
-        let grokLine = plain.split(separator: "\n").first { $0.contains("Grok") }.map(String.init) ?? ""
+        let grokLine = table(plain).split(separator: "\n").first { $0.contains("Grok") }.map(String.init) ?? ""
         XCTAssertTrue(grokLine.contains("ago") || grokLine.contains("now"), "age required: \(grokLine)")
     }
 

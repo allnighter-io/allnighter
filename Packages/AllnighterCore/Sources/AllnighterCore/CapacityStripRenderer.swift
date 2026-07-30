@@ -258,14 +258,20 @@ public enum CapacityStripRenderer {
         let orderedRows = ordered(rows: rows, notReadyOrParked: notReadyOrParked)
 
         // Column budget (default 80):
-        // name 16 | plan 12 | weekly bar+pct+clock 28 | short 12 | age 10  ≈ 78
+        // name 16 | plan 12 | weekly bar+pct+left+clock 28 | short 11 | age 10  ≈ 78
+        //
+        // Weekly worst case is `-------- 52.1% left 20h 47m` = 27, so the column
+        // carries one spare char; `pad` hard-cuts, and a silently clipped reset
+        // clock is exactly the kind of quiet lie this strip exists to avoid.
+        // Short worst case is `52.1% left` / `parse fail` = 10.
         let nameW = min(16, max(10, cols / 5))
         let planW = min(12, max(6, cols / 7))
         let ageW = 10
-        let shortW = 12
+        let shortW = 11
         let weeklyW = max(18, cols - nameW - planW - shortW - ageW - 4)
 
         var lines: [String] = []
+        lines.append(contentsOf: expiringBanner(rows: orderedRows, now: now, nameW: nameW))
         let header = pad("CLI", nameW) + " " + pad("Plan", planW) + " "
             + pad("Weekly/monthly", weeklyW) + " " + pad("5h", shortW) + " "
             + pad("Age", ageW)
@@ -332,6 +338,59 @@ public enum CapacityStripRenderer {
         return lines.joined(separator: "\n") + "\n"
     }
 
+    // MARK: - Expiring banner
+
+    /// Lines above the strip naming capacity that is about to evaporate.
+    ///
+    /// This is not a second metric — it is the strip's own remaining number with
+    /// the opposite valence, which is why it reads `unused` here and `left` in the
+    /// table. Headroom you will not reach before the reset is waste; the same
+    /// headroom you can still spend is capacity. The reset clock is what decides
+    /// which one you are looking at, so it is never omitted.
+    ///
+    /// Selection is `isHeroEligible` — the already-tested "real headroom on a
+    /// window that expires soon" predicate that also paints the row amber. It is
+    /// deliberately restricted to dashboard (weekly/monthly) windows: a 5h window
+    /// always satisfies "expires soon", so including short windows would fire on
+    /// every attended session and mean nothing.
+    ///
+    /// Observed facts only — `N% unused` and a reset clock. Never a projection of
+    /// what will be wasted.
+    static func expiringBanner(
+        rows: [CapacityBenchRow],
+        now: Date,
+        nameW: Int
+    ) -> [String] {
+        var entries: [(name: String, remaining: Double, resetAt: Date)] = []
+        for row in rows where row.unknownReason == nil {
+            for pool in row.pools {
+                guard let remaining = pool.dashboardRemainingPercent,
+                      let resetAt = pool.dashboardResetAt,
+                      CapacityBenchProjection.isHeroEligible(
+                          remainingPercent: remaining,
+                          resetAt: resetAt,
+                          now: now
+                      )
+                else { continue }
+                let label = pool.poolLabel.map { "\(displayName(for: row.source)) \(compressPoolLabel($0))" }
+                    ?? displayName(for: row.source)
+                entries.append((label, remaining, resetAt))
+            }
+        }
+        guard !entries.isEmpty else { return [] }
+        // Soonest reset first — that is the one you lose first.
+        entries.sort { $0.resetAt < $1.resetAt }
+        var out = ["Expiring soon with headroom:"]
+        for entry in entries {
+            let name = pad(entry.name, nameW)
+            out.append(
+                "  \(name) \(formatPercent(entry.remaining)) unused · resets \(relativeClock(from: now, to: entry.resetAt))"
+            )
+        }
+        out.append("")
+        return out
+    }
+
     private static func jsonRow(from row: CapacityBenchRow, now: Date) -> CapacityStripJSONRow {
         let primary = row.pools.first
         let short = primary.map { shortPresentation(pool: $0, row: row) }
@@ -390,15 +449,22 @@ public enum CapacityStripRenderer {
             clock = "-"
         }
         let bar = barGlyph(remainingPercent: remaining, width: barWidth)
-        return "\(bar) \(pct) \(clock)"
+        return "\(bar) \(pct) \(remainingSuffix) \(clock)"
     }
+
+    /// Six vendors print capacity in three different polarities (Claude and Grok
+    /// print used, Codex prints left), so a bare number in a normalized table is
+    /// unreadable without knowing which way *we* normalized. The suffix rides on
+    /// the value rather than the header because rows get screenshotted and pasted
+    /// one at a time, and a header does not survive the trip.
+    public static let remainingSuffix = "left"
 
     /// Short column: effective availability when a short window exists; `-` when none.
     private static func shortCell(pool: CapacityBenchPoolMetrics, row: CapacityBenchRow) -> String {
         let pres = shortPresentation(pool: pool, row: row)
         if pres.isNone { return "-" }
         if let remaining = pres.remaining {
-            return formatPercent(remaining)
+            return "\(formatPercent(remaining)) \(remainingSuffix)"
         }
         if let reason = pres.reason {
             return unknownShortCopy(reason)
