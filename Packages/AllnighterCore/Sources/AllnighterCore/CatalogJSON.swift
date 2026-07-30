@@ -282,9 +282,9 @@ public struct TeamShowJSON: Codable, Sendable, Equatable {
             self.triangulate = triangulate; self.dissentPolicy = dissentPolicy
         }
 
-        public static func from(_ lead: TeamLeadSpec) -> LeadSeat {
+        public static func from(_ lead: TeamLeadSpec, count: Int = 1) -> LeadSeat {
             LeadSeat(
-                skillId: lead.skillId, preferredModelId: lead.preferredModelId,
+                skillId: lead.skillId, count: count, preferredModelId: lead.preferredModelId,
                 fallbackModelIds: lead.fallbackModelIds,
                 requiredCapabilityTags: lead.requiredCapabilityTags.map(\.rawValue),
                 dissentPolicy: lead.dissentPolicy.rawValue
@@ -341,7 +341,10 @@ public struct TeamShowJSON: Codable, Sendable, Equatable {
     ) -> TeamShowJSON {
         let scout = team.scout.map { CrewSeat.from($0, role: "scout") }
         let crew = team.agentSpecs.map { CrewSeat.from($0, role: "crew") }
-        let lead = LeadSeat.from(team.lead)
+        // Solo answer teams (`code_doc_review`, `default_chat`) run the lead's
+        // skill as the same seat as the one crew worker — no separate synthesis
+        // pass, so no extra lead seat (`TeamPreset.isSoloAnswerTeam`).
+        let lead = LeadSeat.from(team.lead, count: team.isSoloAnswerTeam ? 0 : 1)
         return TeamShowJSON(
             contractVersion: contractVersion,
             id: team.id, displayName: team.disclosedDisplayName, lane: team.lane.rawValue,
