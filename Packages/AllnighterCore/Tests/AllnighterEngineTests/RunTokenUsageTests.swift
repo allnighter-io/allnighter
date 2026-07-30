@@ -90,7 +90,8 @@ final class RunTokenUsageTests: XCTestCase {
 
     func testHeadlineFormatCompact() {
         XCTAssertEqual(ReportedTokenUsage(inputTokens: 12400, outputTokens: 0).headlineSuffix, "12.4k tok")
-        XCTAssertEqual(ReportedTokenUsage(outputTokens: 500).headlineSuffix, "500 tok")
+        // OUR-S01: partial side — do not assume the missing side is zero.
+        XCTAssertEqual(ReportedTokenUsage(outputTokens: 500).headlineSuffix, "output 500 tok")
         XCTAssertNil(ReportedTokenUsage().headlineSuffix)
     }
 }

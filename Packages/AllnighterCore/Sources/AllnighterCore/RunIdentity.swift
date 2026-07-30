@@ -81,7 +81,9 @@ public enum RunIdentity {
                 parts.append("PROOF FAILED")
             }
         }
-        if let suffix = run.answers.first?.result.reportedTokenUsage?.headlineSuffix {
+        // OUR-S01: headline tok only for single-seat reported usage (same rule as outcome.usage).
+        if let usage = ObservedUsagePresentation.singleSeatUsage(for: run),
+           let suffix = ObservedUsagePresentation.compactTok(usage) {
             parts.append(suffix)
         }
         parts.append(contentsOf: singleWorkerTimingSummary(run, wallMs: wallMs))

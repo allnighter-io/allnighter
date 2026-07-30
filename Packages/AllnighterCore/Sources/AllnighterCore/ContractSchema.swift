@@ -129,6 +129,7 @@ public enum ContractSchema {
                 "queueMs": nullable("integer"), "ttftMs": nullable("integer"),
                 "durationMs": nullable("integer"), "markdown": nullable("string"),
                 "error": nullableRef("ErrorEnvelope"),
+                "usage": nullableRef("OutcomeTokenUsage"),
             ], required: ["agentId", "status"]),
             "Answer": obj([
                 "status": runStatus,

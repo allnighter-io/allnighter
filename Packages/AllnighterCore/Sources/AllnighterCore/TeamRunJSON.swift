@@ -450,15 +450,52 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         /// Absolute path when `markdown` is a run-relative design image file.
         public var outputAbsolutePath: String?
         public var error: ErrorEnvelope?
+        /// OUR-S01: per-seat driver-reported tokens. Absent when empty/unreported (never zeros).
+        public var usage: Outcome.TokenUsage?
         public init(
             agentId: String, modelId: String? = nil, status: Status,
             queueMs: Int? = nil, ttftMs: Int? = nil, durationMs: Int? = nil,
-            markdown: String? = nil, outputAbsolutePath: String? = nil, error: ErrorEnvelope? = nil
+            markdown: String? = nil, outputAbsolutePath: String? = nil, error: ErrorEnvelope? = nil,
+            usage: Outcome.TokenUsage? = nil
         ) {
             self.agentId = agentId; self.modelId = modelId; self.status = status
             self.queueMs = queueMs; self.ttftMs = ttftMs; self.durationMs = durationMs
             self.markdown = markdown
             self.outputAbsolutePath = outputAbsolutePath; self.error = error
+            self.usage = usage
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case agentId, modelId, status, queueMs, ttftMs, durationMs
+            case markdown, outputAbsolutePath, error, usage
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            agentId = try c.decode(String.self, forKey: .agentId)
+            modelId = try c.decodeIfPresent(String.self, forKey: .modelId)
+            status = try c.decode(Status.self, forKey: .status)
+            queueMs = try c.decodeIfPresent(Int.self, forKey: .queueMs)
+            ttftMs = try c.decodeIfPresent(Int.self, forKey: .ttftMs)
+            durationMs = try c.decodeIfPresent(Int.self, forKey: .durationMs)
+            markdown = try c.decodeIfPresent(String.self, forKey: .markdown)
+            outputAbsolutePath = try c.decodeIfPresent(String.self, forKey: .outputAbsolutePath)
+            error = try c.decodeIfPresent(ErrorEnvelope.self, forKey: .error)
+            usage = try c.decodeIfPresent(Outcome.TokenUsage.self, forKey: .usage)
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(agentId, forKey: .agentId)
+            try c.encodeIfPresent(modelId, forKey: .modelId)
+            try c.encode(status, forKey: .status)
+            try c.encodeIfPresent(queueMs, forKey: .queueMs)
+            try c.encodeIfPresent(ttftMs, forKey: .ttftMs)
+            try c.encodeIfPresent(durationMs, forKey: .durationMs)
+            try c.encodeIfPresent(markdown, forKey: .markdown)
+            try c.encodeIfPresent(outputAbsolutePath, forKey: .outputAbsolutePath)
+            try c.encodeIfPresent(error, forKey: .error)
+            try c.encodeIfPresent(usage, forKey: .usage)
         }
     }
 

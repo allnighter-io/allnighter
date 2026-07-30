@@ -1,10 +1,10 @@
 import Foundation
 
 public extension ReportedTokenUsage {
-    /// Compact suffix for `outcome.headline`, e.g. `12.4k tok`. Nil when nothing to report.
+    /// Compact suffix for `outcome.headline`, e.g. `12.4k tok`.
+    /// Prefer `ObservedUsagePresentation.compactTok` for input-only / output-only honesty.
     var headlineSuffix: String? {
-        guard let total = totalTokens, total > 0 else { return nil }
-        return Self.formatCompact(total) + " tok"
+        ObservedUsagePresentation.compactTok(self)
     }
 
     static func formatCompact(_ count: Int) -> String {

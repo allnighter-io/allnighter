@@ -75,7 +75,8 @@ public enum TeamRunJSONMapper {
                 queueMs: a.queueMs, ttftMs: a.result.timing.ttftMs,
                 durationMs: a.result.timing.durationMs, markdown: a.output,
                 outputAbsolutePath: outputAbsolute,
-                error: errorEnvelope(for: a, runId: run.id)
+                error: errorEnvelope(for: a, runId: run.id),
+                usage: ObservedUsagePresentation.wireUsage(a.result.reportedTokenUsage)
             )
         }
 
@@ -294,12 +295,10 @@ public enum TeamRunJSONMapper {
             TeamRunJSON.Outcome.Proof(
                 command: $0.command, exitCode: $0.exitCode, passed: $0.passed, outputTail: $0.outputTail)
         }
-        let usage: TeamRunJSON.Outcome.TokenUsage? = run.answers.first?.result.reportedTokenUsage
-            .flatMap { reported in
-                guard !reported.isEmpty else { return nil }
-                return TeamRunJSON.Outcome.TokenUsage(
-                    inputTokens: reported.inputTokens, outputTokens: reported.outputTokens)
-            }
+        // OUR-S01: single non-skipped seat only — never first-answer copy / multi-seat sum.
+        let usage = ObservedUsagePresentation.wireUsage(
+            ObservedUsagePresentation.singleSeatUsage(for: run)
+        )
         let wallMs = observedWallMs(run)
         return TeamRunJSON.Outcome(
             status: mapOutcomeStatus(run),
