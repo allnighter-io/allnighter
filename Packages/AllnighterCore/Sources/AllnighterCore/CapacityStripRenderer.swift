@@ -477,8 +477,9 @@ public enum CapacityStripRenderer {
         case .vendorExposesNothing:
             return "unknown — no usage surface"
         case .parserFailed(let at):
-            let day = dayStamp(at)
-            return "unknown — parser failed \(day)"
+            // Compact day stamp so default 80-col weekly cell never mid-cuts the year
+            // ("unknown — parser failed 202…"). Full ISO lives in JSON/observedAt.
+            return "unknown — parser failed \(dayStampCompact(at))"
         case .neverSampled:
             return "unknown — never sampled"
         }
@@ -487,11 +488,12 @@ public enum CapacityStripRenderer {
     private static func unknownShortCopy(_ reason: CapacityUnknownReason) -> String {
         switch reason {
         case .vendorExposesNothing: return "unknown"
-        case .parserFailed: return "unknown"
+        case .parserFailed: return "parse fail"
         case .neverSampled: return "unknown"
         }
     }
 
+    /// Full ISO day for machine surfaces.
     private static func dayStamp(_ date: Date) -> String {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -500,6 +502,16 @@ public enum CapacityStripRenderer {
         let m = c.month ?? 0
         let d = c.day ?? 0
         return String(format: "%04d-%02d-%02d", y, m, d)
+    }
+
+    /// Short UTC stamp for the weekly column: `07-30` (year is already on Age / JSON).
+    private static func dayStampCompact(_ date: Date) -> String {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(secondsFromGMT: 0)!
+        let c = cal.dateComponents([.month, .day], from: date)
+        let m = c.month ?? 0
+        let d = c.day ?? 0
+        return String(format: "%02d-%02d", m, d)
     }
 
     private static func barGlyph(remainingPercent: Double, width: Int) -> String {

@@ -433,4 +433,44 @@ final class StalledWorkDetectorTests: XCTestCase {
             )
         )
     }
+
+    /// Mid-thread abandoned worker turns must not re-surface as stalls when later turns exist.
+    func testMuseumMidThreadWorkerTurnNotStalled() {
+        let ancient = Date(timeIntervalSince1970: 1_699_000_000)
+        let thread = WorkThread(
+            id: "relay_museum",
+            title: "PM Relay: museum",
+            createdAt: ancient,
+            updatedAt: old,
+            projectId: "projA",
+            turns: [
+                ThreadTurn(
+                    id: "relay_museum_dev2",
+                    threadId: "relay_museum",
+                    kind: .workerChat,
+                    status: .running,
+                    createdAt: ancient,
+                    author: .worker,
+                    modelId: "model_gemini"
+                ),
+                ThreadTurn(
+                    id: "relay_museum_pm3",
+                    threadId: "relay_museum",
+                    kind: .workerChat,
+                    status: .done,
+                    createdAt: old,
+                    author: .user
+                ),
+            ]
+        )
+        let input = StalledWorkScanInput(threads: [thread], runs: [], pendingItems: [], now: now)
+        let episodes = StalledWorkDetector.scan(
+            input: input,
+            thresholds: .init(workerChatSeconds: 60, teamRunSeconds: 60)
+        )
+        XCTAssertTrue(
+            episodes.filter { $0.targetId == "relay_museum_dev2" }.isEmpty,
+            "abandoned mid-thread turn must not stall: \(episodes.map(\.targetId))"
+        )
+    }
 }

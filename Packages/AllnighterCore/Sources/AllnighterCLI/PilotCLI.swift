@@ -872,7 +872,7 @@ enum PilotCLI {
     /// POSIX single-quote so the printed `next:` command survives copy-paste as ONE argument.
     /// The default scaffold path lives under "…/Application Support/Allnighter/…" — the space
     /// split the unquoted command and the first handoff failed on every default install.
-    /// (SR-13 / Sol F20.)
+    /// (SR-13 / Sol F20.) JSON consumers should use `scaffoldPath` / `nextCommandArgv`, not this.
     static func shellQuote(_ s: String) -> String {
         "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
@@ -887,11 +887,13 @@ enum PilotCLI {
     ) {
         let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let nextCommand = handoffNextCommand(relayId: state.id, scaffoldPath: scaffoldPath)
+        let nextArgv = PilotStartJSON.defaultHandoffArgv(relayId: state.id, scaffoldPath: scaffoldPath)
         if json {
             print(AllnighterCLI.jsonString(PilotStartJSON(
                 relay: relayJSON,
                 nextCommand: nextCommand,
                 scaffoldPath: scaffoldPath,
+                nextCommandArgv: nextArgv,
                 devModelId: devModelId,
                 rememberedDevWorker: rememberedDevWorker ? true : nil
             )))

@@ -3129,7 +3129,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit PilotStartJSON (relay + nextCommand + scaffoldPath).",
+          "summary" : "Emit PilotStartJSON (relay + shell-quoted nextCommand for paste + raw scaffoldPath + nextCommandArgv for programmatic handoff).",
           "takesValue" : false
         }
       ],

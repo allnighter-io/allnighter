@@ -61,6 +61,13 @@ public enum StalledWorkDetector {
             for turn in thread.turns where turn.kind == .workerChat {
                 guard turn.status == .queued || turn.status == .running else { continue }
                 if turn.requiresUserAttention { continue }
+                // Museum / projection lag: only the thread tip can be live stalled work.
+                // An abandoned mid-thread worker turn (later PM/dev/system turns exist)
+                // must not re-surface forever as runningNoProgress.
+                if let idx = thread.turns.firstIndex(where: { $0.id == turn.id }),
+                   idx + 1 < thread.turns.count {
+                    continue
+                }
                 if suppressedByWakeTicket(pending: input.pendingItems, threadId: thread.id, runId: turn.runId, now: input.now) {
                     continue
                 }

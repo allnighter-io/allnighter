@@ -613,7 +613,7 @@ public extension ContractRegistry {
                 FlagSpec("dev-model", takesValue: true, valueType: "id|alias", summary: "Dev seat model id or alias (optional when a seat was remembered for this project)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20)."),
                 FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout), set once here and re-read from durable state at every later `pilot handoff`. Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
-                FlagSpec("json", summary: "Emit PilotStartJSON (relay + nextCommand + scaffoldPath)."),
+                FlagSpec("json", summary: "Emit PilotStartJSON (relay + shell-quoted nextCommand for paste + raw scaffoldPath + nextCommandArgv for programmatic handoff)."),
             ],
             outputSchema: .relayJSON
         ),

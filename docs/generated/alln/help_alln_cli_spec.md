@@ -853,7 +853,7 @@ Flags:
 - `--dev-model <id|alias>` — Dev seat model id or alias (optional when a seat was remembered for this project).
 - `--max-rounds <integer>` — Round ceiling, set once here — Pilot has no long-lived process to re-supply it per handoff (default 20).
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout), set once here and re-read from durable state at every later `pilot handoff`. Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
-- `--json` — Emit PilotStartJSON (relay + nextCommand + scaffoldPath).
+- `--json` — Emit PilotStartJSON (relay + shell-quoted nextCommand for paste + raw scaffoldPath + nextCommandArgv for programmatic handoff).
 
 Output schema: `relayJSON`.
 

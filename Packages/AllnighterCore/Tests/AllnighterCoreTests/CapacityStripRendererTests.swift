@@ -159,6 +159,8 @@ final class CapacityStripRendererTests: XCTestCase {
         let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
         XCTAssertTrue(plain.contains("no usage surface"), plain)
         XCTAssertTrue(plain.contains("parser failed"), plain)
+        // Compact day stamp — never mid-cut year as "parser failed 202".
+        XCTAssertFalse(plain.contains("parser failed 202"), plain)
         XCTAssertTrue(plain.contains("never sampled"), plain)
     }
 

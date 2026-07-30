@@ -363,6 +363,9 @@ public enum CapacityProbe {
         }
 
         // 3) Drain until usage markers appear or budget expires.
+        // Claude paints the Usage tab progressively — a single "% used" flash is
+        // often a half-painted pane that fails the pure parser. Wait for a
+        // parse-stable capture (or deadline) instead of returning the first flash.
         let usageMarkers = [
             "weekly limit", "five hour", "5h limit", "plan usage",
             "models & quota", "% used", "% remaining", "on-demand",
@@ -374,9 +377,6 @@ public enum CapacityProbe {
             let lower = decodeAndStrip(buffer).lowercased()
             if usageMarkers.contains(where: { lower.contains($0) }) {
                 sawUsagePane = true
-                // Extra drain so multi-pool / multi-line panes finish.
-                _ = waitBrief(0.9)
-                appendAvailable(from: master, into: &buffer)
                 break
             }
             if childExited(pid) {
@@ -384,6 +384,36 @@ public enum CapacityProbe {
                 break
             }
             _ = waitBrief(0.08)
+        }
+
+        // 4) Stabilize Claude multi-pool pane: re-drain until the pure parser
+        // would accept at least one window, or the budget ends. Two consecutive
+        // equal non-empty parse results count as stable.
+        if sawUsagePane || usageSent {
+            var lastParseCount = -1
+            var stableHits = 0
+            while Date() < deadline {
+                _ = waitBrief(0.35)
+                appendAvailable(from: master, into: &buffer)
+                let text = decodeAndStrip(buffer)
+                let parsed = parse(source: source, renderText: text, now: Date())
+                if !parsed.isEmpty {
+                    if parsed.count == lastParseCount {
+                        stableHits += 1
+                        if stableHits >= 1 { break } // one confirm after first good parse
+                    } else {
+                        lastParseCount = parsed.count
+                        stableHits = 0
+                    }
+                }
+                if childExited(pid) {
+                    appendAvailable(from: master, into: &buffer)
+                    break
+                }
+            }
+            // Final settle for trailing reset lines.
+            _ = waitBrief(0.4)
+            appendAvailable(from: master, into: &buffer)
         }
 
         let finalText = decodeAndStrip(buffer)

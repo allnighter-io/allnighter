@@ -534,6 +534,36 @@ final class PilotCLITests: XCTestCase {
         XCTAssertTrue(cmd.hasSuffix("'\(path)'"), "cmd: \(cmd)")
     }
 
+    /// Programmatic consumers must use scaffoldPath / nextCommandArgv — not parse nextCommand.
+    func testPilotStartJSONExposesRawScaffoldPathAndArgv() throws {
+        let path = "/Users/x/Library/Application Support/Allnighter/relays/relay_9/round1.md"
+        let relay = RelayJSON.project(
+            RelayState(
+                id: "relay_9", projectRoot: "/repo", docPath: "d.md",
+                pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
+                status: .awaitingPM, pmMode: .external, createdAt: Date()
+            ),
+            contractVersion: ContractRegistry.contractVersion
+        )
+        let start = PilotStartJSON(
+            relay: relay,
+            nextCommand: PilotCLI.handoffNextCommand(relayId: "relay_9", scaffoldPath: path),
+            scaffoldPath: path,
+            nextCommandArgv: PilotStartJSON.defaultHandoffArgv(relayId: "relay_9", scaffoldPath: path),
+            devModelId: "model_dev"
+        )
+        XCTAssertEqual(start.scaffoldPath, path)
+        XCTAssertFalse(start.scaffoldPath.contains("'"))
+        XCTAssertTrue(start.nextCommand.contains("'\(path)'"))
+        XCTAssertEqual(start.nextCommandArgv.last, path)
+        XCTAssertFalse(start.nextCommandArgv.contains { $0.contains("'") })
+        let data = try JSONEncoder().encode(start)
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(obj["scaffoldPath"] as? String, path)
+        let argv = try XCTUnwrap(obj["nextCommandArgv"] as? [String])
+        XCTAssertEqual(argv.last, path)
+    }
+
     // MARK: - detached handoff launch (PLT-S01)
 
     /// Works Test intent: clean checkout without `<cwd>/alln` — bare `alln` from PATH must
