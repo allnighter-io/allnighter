@@ -2,28 +2,51 @@ import SwiftUI
 import AllnighterCore
 
 /// Shared rail row chrome for Home + legacy Threads (07). Unread light uses Core
-/// derivation only — never GUI-local unread flags.
+/// derivation only — never GUI-local unread flags. ATL-S05: pass store-backed
+/// `relayStatus` for relay threads so terminal loops never keep a stale amber.
 enum ThreadRailComponents {
 
     struct UnreadLight: View {
         let thread: WorkThread
+        /// `RelayState.status` from the store when this row is a relay; nil otherwise.
+        var relayStatus: RelayState.Status? = nil
 
         var body: some View {
-            if ThreadsPresenter.showsUnreadLight(thread) {
+            let attention = ThreadsPresenter.railAttention(thread, relayStatus: relayStatus)
+            if showsLight(attention) {
                 Circle()
-                    .fill(lightColor)
+                    .fill(lightColor(attention))
                     .frame(width: 7, height: 7)
                     .accessibilityLabel("Unread")
                     .accessibilityValue(
-                        ThreadsPresenter.unreadNeedsAttention(thread) ? "Unread, needs attention" : "Unread"
+                        attention == .needsYou || ThreadsPresenter.unreadNeedsAttention(thread, relayStatus: relayStatus)
+                            ? "Unread, needs attention"
+                            : "Unread"
                     )
             }
         }
 
-        private var lightColor: Color {
-            // Normal unread = the soft amber (#FFD79E, founder spec); a failed /
-            // blocking unread escalates to red.
-            ThreadsPresenter.unreadNeedsAttention(thread) ? ALColor.statusFailed : ALPalette.amber300
+        private func showsLight(_ attention: UnreadDerivation.RailAttention) -> Bool {
+            switch attention {
+            case .needsYou, .ordinaryUnread: return true
+            case .none:
+                // Relay terminal/running: no attention colour even with unread turns.
+                // Ordinary threads still use the plain unread light.
+                return relayStatus == nil && ThreadsPresenter.showsUnreadLight(thread)
+            }
+        }
+
+        private func lightColor(_ attention: UnreadDerivation.RailAttention) -> Color {
+            // Needs-you loop → reserved amber. Ordinary failed/blocking unread → red.
+            // Ordinary plain unread → soft amber (#FFD79E, founder spec).
+            switch attention {
+            case .needsYou:
+                return ALPalette.amber300
+            case .ordinaryUnread, .none:
+                return ThreadsPresenter.unreadNeedsAttention(thread, relayStatus: relayStatus)
+                    ? ALColor.statusFailed
+                    : ALPalette.amber300
+            }
         }
     }
 

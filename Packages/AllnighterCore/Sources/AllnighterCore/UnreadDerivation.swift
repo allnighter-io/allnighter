@@ -25,7 +25,23 @@ public struct ThreadReadCursor: Codable, Sendable, Equatable {
 
 /// Pure unread derivation from `WorkThread` turn truth plus the durable read
 /// cursor. One canonical algorithm — presenters format and sort only.
+///
+/// ATL-S05: rail attention colour for relay threads is gated by
+/// `RelayState.status` (same truth owner as `RelayStatusLoader`), never by
+/// turn prose or unread counts alone. Ordinary non-relay threads keep the
+/// pre-S05 unread → amber rule.
 public enum UnreadDerivation {
+    /// What the rail should paint for attention colour (amber).
+    /// - `none` — no attention colour
+    /// - `ordinaryUnread` — soft amber; loses to a live `.running` row
+    /// - `needsYou` — amber reserved for a loop waiting on the human; wins over
+    ///   a still-open escalation turn that would otherwise look "running"
+    public enum RailAttention: String, Sendable, Equatable {
+        case none
+        case ordinaryUnread
+        case needsYou
+    }
+
     public static func unreadTurnIds(thread: WorkThread) -> [String] {
         guard let cursor = thread.readCursor else { return [] }
         // Resolve the cursor's turn index ONCE (was an O(turns) firstIndex per candidate
@@ -48,13 +64,55 @@ public enum UnreadDerivation {
         !unreadTurnIds(thread: thread).isEmpty
     }
 
-    public static func unreadNeedsAttention(thread: WorkThread) -> Bool {
+    /// Whether a loop status is genuinely waiting on the human (amber "needs you").
+    public static func isLoopNeedingYou(_ status: RelayState.Status) -> Bool {
+        switch status {
+        case .escalated, .awaitingPM: return true
+        case .running, .done, .stopped: return false
+        }
+    }
+
+    /// Rail attention colour derivation. Pass `relayStatus` from `RelayState.status`
+    /// (store-backed) when the thread is a relay; omit/`nil` for ordinary threads.
+    public static func railAttention(
+        thread: WorkThread,
+        relayStatus: RelayState.Status? = nil
+    ) -> RailAttention {
+        if let relayStatus {
+            return isLoopNeedingYou(relayStatus) ? .needsYou : .none
+        }
+        return hasUnread(thread: thread) ? .ordinaryUnread : .none
+    }
+
+    /// Unread that also needs the human. Relay threads: only `escalated` /
+    /// `awaitingPM` (never running / done / stopped, even with unread turns).
+    /// Non-relay: today's failed/blocking-unread rule.
+    public static func unreadNeedsAttention(
+        thread: WorkThread,
+        relayStatus: RelayState.Status? = nil
+    ) -> Bool {
+        if let relayStatus {
+            return isLoopNeedingYou(relayStatus)
+        }
         guard let cursor = thread.readCursor else { return false }
         let cursorIndex = cursorTurnIndex(thread: thread, cursor: cursor)
         return candidateTurns(thread: thread).contains { turn, index in
             isUnread(turn: turn, index: index, cursorIndex: cursorIndex, cursor: cursor)
                 && turn.requiresUserAttention
         }
+    }
+
+    /// Project-level roll-up copy. Zero → `nil` (render nothing, never "0 loops").
+    public static func loopsNeedingYouLabel(count: Int) -> String? {
+        switch count {
+        case 1: return "1 loop needs you"
+        case 2...: return "\(count) loops need you"
+        default: return nil
+        }
+    }
+
+    public static func loopsNeedingYouCount(statuses: [RelayState.Status]) -> Int {
+        statuses.reduce(0) { $0 + (isLoopNeedingYou($1) ? 1 : 0) }
     }
 
     /// Whether a turn can create unread when it lands after the read cursor.
@@ -146,6 +204,8 @@ public enum UnreadDerivation {
 
 public extension WorkThread {
     var hasUnread: Bool { UnreadDerivation.hasUnread(thread: self) }
+    /// Non-relay path (no store lookup). Callers that know a relay's
+    /// `RelayState.status` must use `UnreadDerivation.unreadNeedsAttention(thread:relayStatus:)`.
     var unreadNeedsAttention: Bool { UnreadDerivation.unreadNeedsAttention(thread: self) }
     var firstUnreadTurnId: String? { UnreadDerivation.firstUnreadTurnId(thread: self) }
     var latestUnreadTurnId: String? { UnreadDerivation.latestUnreadTurnId(thread: self) }

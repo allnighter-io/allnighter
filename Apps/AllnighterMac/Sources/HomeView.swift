@@ -564,7 +564,7 @@ private struct ProjectThreadRow: View {
     }
 }
 
-/// A project section header: chevron · folder · name · aggregate unread dot · `+`.
+/// A project section header: chevron · folder · name · aggregate unread / loops roll-up · `+`.
 private struct ProjectGroupHeader: View {
     let group: ThreadsPresenter.ProjectRowGroup
     let collapsed: Bool
@@ -583,7 +583,14 @@ private struct ProjectGroupHeader: View {
                         // Folder names are structure, not content — dimmed (not bright white);
                         // hierarchy comes from the weight, not the brightness.
                         .font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textMuted).lineLimit(1)
-                    if group.hasUnread {
+                    // ATL-S05: one project-level "N loops need you" over per-row historical noise.
+                    // Zero renders nothing (never "0 loops"). Ordinary unread keeps the amber dot.
+                    if let loopsLabel = group.loopsNeedingYouLabel {
+                        Text(loopsLabel)
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(ALColor.accent)
+                            .lineLimit(1)
+                    } else if group.hasUnread {
                         Circle().fill(ALColor.accent).frame(width: 6, height: 6)
                     }
                 }

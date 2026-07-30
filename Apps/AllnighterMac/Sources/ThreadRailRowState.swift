@@ -16,6 +16,9 @@ struct ThreadRailRowState: Identifiable, Equatable {
     // state — an armed Pending item — so it's combined at render, not stored here).
     let isRunning: Bool
     let hasUnread: Bool
+    /// ATL-S05: precomputed rail attention (amber). Relay rows are gated by
+    /// store-backed `RelayState.status`, not unread turn counts alone.
+    let railAttention: UnreadDerivation.RailAttention
     let hasNeverRun: Bool
     let lane: ComposeLane?
     /// Lowercased title + turn text, precomputed once so search is a substring check
@@ -25,9 +28,11 @@ struct ThreadRailRowState: Identifiable, Equatable {
     /// The four-state row dot, combining the precomputed thread facts with the live
     /// armed-Pending GUI fact (same precedence as `ThreadStateDerivation`).
     func displayState(armedPending: Bool) -> ThreadDisplayState {
+        // Needs-you loops paint amber even when an open escalation turn is `.running`.
+        if railAttention == .needsYou { return .replied }
         if isRunning { return .running }
         if armedPending { return .pending }
-        if hasUnread { return .replied }
+        if railAttention == .ordinaryUnread { return .replied }
         if hasNeverRun { return .draft }
         return .idle
     }
@@ -40,7 +45,12 @@ struct ThreadRailRowState: Identifiable, Equatable {
 
 extension ThreadsPresenter {
     /// Build a rail-row summary from a full thread — the once-per-reload derivation point.
-    static func railRow(from thread: WorkThread) -> ThreadRailRowState {
+    /// `relayStatus` is `RelayState.status` from the store (same owner as
+    /// `RelayStatusLoader`); `nil` for ordinary non-relay threads.
+    static func railRow(
+        from thread: WorkThread,
+        relayStatus: RelayState.Status? = nil
+    ) -> ThreadRailRowState {
         var search = thread.title.lowercased()
         for turn in thread.turns where !(turn.text ?? "").isEmpty {
             search += "\n" + (turn.text ?? "").lowercased()
@@ -54,6 +64,7 @@ extension ThreadsPresenter {
             isArchived: thread.isArchived,
             isRunning: thread.isRunning,
             hasUnread: thread.hasUnread,
+            railAttention: UnreadDerivation.railAttention(thread: thread, relayStatus: relayStatus),
             hasNeverRun: thread.hasNeverRun,
             lane: lane(of: thread),
             searchText: search
@@ -65,7 +76,21 @@ extension ThreadsPresenter {
         let id: String
         let project: Project
         let rows: [ThreadRailRowState]
-        var hasUnread: Bool { rows.contains { $0.hasUnread } }
+        /// Aggregate unread/attention for the folder header. Terminal relays with
+        /// leftover unread turns do not contribute (ATL-S05 quieting).
+        var hasUnread: Bool {
+            rows.contains {
+                switch $0.railAttention {
+                case .ordinaryUnread, .needsYou: return true
+                case .none: return false
+                }
+            }
+        }
+        /// ATL-S05: count of loops genuinely waiting on the human (amber "needs you").
+        var loopsNeedingYou: Int { rows.filter { $0.railAttention == .needsYou }.count }
+        var loopsNeedingYouLabel: String? {
+            UnreadDerivation.loopsNeedingYouLabel(count: loopsNeedingYou)
+        }
         var title: String { project.displayName }
     }
 

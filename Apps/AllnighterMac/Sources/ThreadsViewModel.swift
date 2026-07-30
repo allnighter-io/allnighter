@@ -51,6 +51,9 @@ final class ThreadsViewModel {
     let models: [Model]
     private let store: ThreadStore
     private let runStore: RunStore
+    /// Store-backed relay lifecycle for ATL-S05 rail attention (same owner as
+    /// `RelayStatusLoader` — never inferred from thread turn prose).
+    private let relayStateStore: RelayStateStore
     private let coordinator: AgentChatCoordinator
     /// Shared sink for default-chat streaming flushes (PERF-S04a). Wired after init.
     private let chatLivePartialObserver = ThreadSendCoordinator.LivePartialObserver()
@@ -185,6 +188,7 @@ final class ThreadsViewModel {
     ) {
         self.store = store
         self.runStore = runStore
+        self.relayStateStore = RelayStateStore()
         self.registry = registry
         self.models = models
         self.toolStatuses = toolStatuses
@@ -303,7 +307,7 @@ final class ThreadsViewModel {
         let beforeSnapshots = notificationSnapshots
         threads = listed
         // Derive the rail summaries once here (PERF-S02/S03), not per render/per delta.
-        railRows = threads.map(ThreadsPresenter.railRow(from:))
+        railRows = threads.map(makeRailRow(from:))
         if let id = selectedThreadId, !threads.contains(where: { $0.id == id }) {
             selectedThreadId = threads.first?.id
         }
@@ -328,10 +332,17 @@ final class ThreadsViewModel {
             threads.insert(thread, at: 0)
         }
         if let rowIndex = railRows.firstIndex(where: { $0.id == thread.id }) {
-            railRows[rowIndex] = ThreadsPresenter.railRow(from: thread)
+            railRows[rowIndex] = makeRailRow(from: thread)
         } else {
-            railRows.insert(ThreadsPresenter.railRow(from: thread), at: 0)
+            railRows.insert(makeRailRow(from: thread), at: 0)
         }
+    }
+
+    /// Rail summary with store-backed relay lifecycle when this thread is a loop
+    /// (thread id == relay id). Same source as `RelayStatusLoader` / ATL-S04 chrome.
+    private func makeRailRow(from thread: WorkThread) -> ThreadRailRowState {
+        let relayStatus = relayStateStore.load(id: thread.id)?.status
+        return ThreadsPresenter.railRow(from: thread, relayStatus: relayStatus)
     }
 
     /// A live streaming partial for the selected running turn. Updates the published

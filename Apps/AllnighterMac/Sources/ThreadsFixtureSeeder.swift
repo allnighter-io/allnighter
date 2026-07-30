@@ -54,6 +54,11 @@ struct ThreadsFixtureSeeder {
             setSelectedThreadId(nil)
         case "home-rail-unr":
             seedFixtureUnreadMatrix()
+        case "home-rail-loops-attention":
+            // ATL-S05: mixed rail — escalated (amber), running (no amber),
+            // founder-stopped with unread (no amber), plus ordinary unread.
+            seedFixtureLoopsAttentionRail()
+            setSelectedThreadId(nil)
         case "projects-rail":
             seedFixtureProjectsRail()
             reload()
@@ -489,6 +494,171 @@ struct ThreadsFixtureSeeder {
         _ = try? store.appendTurn(mutatingRun, toThreadId: id, now: Date())
         reload()
         setSelectedThreadId(id)
+    }
+
+    /// ATL-S05 proof: one project rail with the three relay lifecycle states side by
+    /// side plus ordinary unread. Exactly 4 rows so the rail's default "show 4"
+    /// does not hide the founder-stopped case under "N more". Must actually paint:
+    /// - escalated → amber (needs you)
+    /// - running → blue / no amber
+    /// - founder-stopped WITH unread turns → no amber (the actual bug)
+    /// - ordinary unread → amber (regression guard)
+    private func seedFixtureLoopsAttentionRail() {
+        let base = Date()
+        let projectId = "prj_halo"
+        let (pmModelId, devModelId) = relayFixtureSeatIds()
+
+        func bind(_ id: String) {
+            _ = try? store.bindProject(threadId: id, projectId: projectId)
+        }
+
+        // 1) Escalated — waiting on the human (the only amber relay). Newest.
+        do {
+            let id = "fixture-loop-escalated"
+            let state = RelayState(
+                id: id,
+                projectRoot: "/Users/you/code/allnighter",
+                docPath: "docs/phases/SPEC.md",
+                pmModelId: pmModelId,
+                devModelId: devModelId,
+                status: .escalated,
+                rounds: [
+                    RelayRound(
+                        roundNumber: 1, baselineHead: "aaa", headAfterDev: "bbb",
+                        startedAt: base.addingTimeInterval(-400),
+                        finishedAt: base.addingTimeInterval(-300),
+                        outcome: .escalated
+                    )
+                ],
+                createdAt: base.addingTimeInterval(-500),
+                note: "Should seat labels show the driver name too?"
+            )
+            saveRelayFixtureState(state)
+            guard (try? store.create(
+                id: id, title: "PM Relay: SPEC", now: base.addingTimeInterval(-500),
+                workingDir: state.projectRoot
+            )) != nil else { return }
+            bind(id)
+            appendRelayFixtureTurns(
+                id: id, pmModelId: pmModelId, devModelId: devModelId, base: base.addingTimeInterval(-500),
+                pmText: "Reviewed — need a founder call on seat labels.",
+                devText: "Shipped status chrome."
+            )
+            let escalation = ThreadTurn(
+                id: "\(id)_escalate1", threadId: id, kind: .systemEvent, status: .running,
+                createdAt: base.addingTimeInterval(-280), author: .system,
+                text: state.note, systemEvent: .relayEscalated
+            )
+            // Final mutation sets updatedAt — control rail sort order here.
+            _ = try? store.appendTurn(escalation, toThreadId: id, now: base.addingTimeInterval(-1))
+        }
+
+        // 2) Running — live loop, no attention colour.
+        do {
+            let id = "fixture-loop-running"
+            let state = RelayState(
+                id: id,
+                projectRoot: "/Users/you/code/allnighter",
+                docPath: "docs/phases/Agent_Team_Loop.md",
+                pmModelId: pmModelId,
+                devModelId: devModelId,
+                status: .running,
+                rounds: [
+                    RelayRound(
+                        roundNumber: 1, baselineHead: "ccc", headAfterDev: "ddd",
+                        startedAt: base.addingTimeInterval(-200),
+                        finishedAt: base.addingTimeInterval(-100),
+                        outcome: .continued
+                    )
+                ],
+                createdAt: base.addingTimeInterval(-250),
+                note: "Round 1 complete — PM reviewing."
+            )
+            saveRelayFixtureState(state)
+            guard (try? store.create(
+                id: id, title: "PM Relay: Agent Team Loop", now: base.addingTimeInterval(-250),
+                workingDir: state.projectRoot
+            )) != nil else { return }
+            bind(id)
+            appendRelayFixtureTurns(
+                id: id, pmModelId: pmModelId, devModelId: devModelId, base: base.addingTimeInterval(-250),
+                pmText: "Continue with stop affordance wiring.",
+                devText: "Implementing now."
+            )
+            let live = ThreadTurn(
+                id: "\(id)_dev2", threadId: id, kind: .workerChat, status: .running,
+                createdAt: base.addingTimeInterval(-40), author: .worker,
+                text: "Working…", modelId: devModelId
+            )
+            _ = try? store.appendTurn(live, toThreadId: id, now: base.addingTimeInterval(-2))
+        }
+
+        // 3) Founder-stopped WITH unread turns — must NOT be amber (the bug).
+        do {
+            let id = "fixture-loop-stopped"
+            let finished = base.addingTimeInterval(-60)
+            let state = RelayState(
+                id: id,
+                projectRoot: "/Users/you/code/allnighter",
+                docPath: "docs/phases/SPEC.md",
+                pmModelId: pmModelId,
+                devModelId: devModelId,
+                status: .stopped,
+                rounds: [
+                    RelayRound(
+                        roundNumber: 1, baselineHead: "eee", headAfterDev: "fff",
+                        startedAt: base.addingTimeInterval(-900),
+                        finishedAt: base.addingTimeInterval(-800),
+                        outcome: .continued
+                    )
+                ],
+                createdAt: base.addingTimeInterval(-1000),
+                finishedAt: finished,
+                note: "Founder stopped the loop.",
+                stoppedReason: RelayState.founderStoppedReason
+            )
+            saveRelayFixtureState(state)
+            guard (try? store.create(
+                id: id, title: "PM Relay: SPEC (stopped)", now: base.addingTimeInterval(-1000),
+                workingDir: state.projectRoot
+            )) != nil else { return }
+            bind(id)
+            appendRelayFixtureTurns(
+                id: id, pmModelId: pmModelId, devModelId: devModelId, base: base.addingTimeInterval(-1000),
+                pmText: "Should we keep the copy-status affordance?",
+                devText: "Shipped status panel fields."
+            )
+            // Unread worker reply — hasUnread true, but railAttention stays `.none`.
+            let unread = ThreadTurn(
+                id: "\(id)_unread", threadId: id, kind: .workerChat, status: .done,
+                createdAt: finished, completedAt: finished, author: .worker,
+                text: "Final note you have not opened.", modelId: pmModelId
+            )
+            _ = try? store.appendTurn(unread, toThreadId: id, now: base.addingTimeInterval(-3))
+            let stopped = ThreadTurn(
+                id: "\(id)_stopped", threadId: id, kind: .systemEvent, status: .done,
+                createdAt: finished, completedAt: finished, author: .system,
+                text: RelayState.founderStoppedReason, systemEvent: .relayStopped
+            )
+            _ = try? store.appendTurn(stopped, toThreadId: id, now: base.addingTimeInterval(-3))
+        }
+
+        // 4) Ordinary unread — still amber (regression guard).
+        if (try? store.create(
+            id: "fixture-loop-ordinary-unread", title: "Unread worker reply",
+            now: base.addingTimeInterval(-120)
+        )) != nil {
+            bind("fixture-loop-ordinary-unread")
+            let t = ThreadTurn(
+                id: "fixture-loop-ordinary-unread-w", threadId: "fixture-loop-ordinary-unread",
+                kind: .workerChat, status: .done,
+                createdAt: base.addingTimeInterval(-100), completedAt: base.addingTimeInterval(-100),
+                author: .worker, text: "Ordinary unread still gets amber.", modelId: pmModelId
+            )
+            _ = try? store.appendTurn(t, toThreadId: "fixture-loop-ordinary-unread", now: base.addingTimeInterval(-4))
+        }
+
+        reload()
     }
 
     /// R-S08 proof: a PM Relay thread (id == relayId, `RelayThreadProjector`'s identity

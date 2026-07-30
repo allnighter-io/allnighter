@@ -91,6 +91,78 @@ final class ThreadsPresenterTests: XCTestCase {
         XCTAssertFalse(ThreadsPresenter.showsUnreadLight(runningNoUnread))
     }
 
+    // MARK: - ATL-S05 sidebar attention quieting
+
+    func testRailAttentionEscalatedIsNeedsYou() {
+        let t = thread("relay_esc", updatedAt: t0, readCursor: .empty(at: t0),
+                       turns: [turn(.workerChat, .done)])
+        let row = ThreadsPresenter.railRow(from: t, relayStatus: .escalated)
+        XCTAssertEqual(row.railAttention, .needsYou)
+        XCTAssertEqual(row.displayState(armedPending: false), .replied)
+        XCTAssertTrue(ThreadsPresenter.unreadNeedsAttention(t, relayStatus: .escalated))
+    }
+
+    func testRailAttentionRunningIsNone() {
+        let t = thread("relay_run", updatedAt: t0, readCursor: .empty(at: t0),
+                       turns: [turn(.workerChat, .running)])
+        let row = ThreadsPresenter.railRow(from: t, relayStatus: .running)
+        XCTAssertEqual(row.railAttention, .none)
+        XCTAssertEqual(row.displayState(armedPending: false), .running)
+        XCTAssertFalse(ThreadsPresenter.unreadNeedsAttention(t, relayStatus: .running))
+    }
+
+    func testRailAttentionStoppedWithUnreadIsNone() {
+        // The actual bug: founder-stopped historical SPEC rows stayed amber.
+        let t = thread("relay_stop", updatedAt: t0, readCursor: .empty(at: t0),
+                       turns: [turn(.workerChat, .done)])
+        XCTAssertTrue(t.hasUnread)
+        let row = ThreadsPresenter.railRow(from: t, relayStatus: .stopped)
+        XCTAssertEqual(row.railAttention, .none)
+        XCTAssertNotEqual(row.displayState(armedPending: false), .replied)
+        XCTAssertFalse(ThreadsPresenter.unreadNeedsAttention(t, relayStatus: .stopped))
+    }
+
+    func testRailAttentionNonRelayUnreadUnchanged() {
+        let t = thread("chat", updatedAt: t0, readCursor: .empty(at: t0),
+                       turns: [turn(.workerChat, .done)])
+        let row = ThreadsPresenter.railRow(from: t, relayStatus: nil)
+        XCTAssertEqual(row.railAttention, .ordinaryUnread)
+        XCTAssertEqual(row.displayState(armedPending: false), .replied)
+        XCTAssertTrue(ThreadsPresenter.showsUnreadLight(t))
+    }
+
+    func testProjectLoopsNeedingYouRollup() {
+        let esc = ThreadsPresenter.railRow(
+            from: thread("r1", updatedAt: t0, projectId: "p1", readCursor: .empty(at: t0),
+                         turns: [turn(.workerChat, .done)]),
+            relayStatus: .escalated
+        )
+        let stopped = ThreadsPresenter.railRow(
+            from: thread("r2", updatedAt: t0, projectId: "p1", readCursor: .empty(at: t0),
+                         turns: [turn(.workerChat, .done)]),
+            relayStatus: .stopped
+        )
+        let ordinary = ThreadsPresenter.railRow(
+            from: thread("c1", updatedAt: t0, projectId: "p1", readCursor: .empty(at: t0),
+                         turns: [turn(.workerChat, .done)])
+        )
+        let sections = ThreadsPresenter.projectSections(
+            [esc, stopped, ordinary], projects: [project("p1", name: "Halo")], search: ""
+        )
+        let group = try! XCTUnwrap(sections.groups.first)
+        XCTAssertEqual(group.loopsNeedingYou, 1)
+        XCTAssertEqual(group.loopsNeedingYouLabel, "1 loop needs you")
+        XCTAssertTrue(group.hasUnread)
+
+        let quiet = ThreadsPresenter.projectSections(
+            [stopped], projects: [project("p1")], search: ""
+        )
+        let quietGroup = try! XCTUnwrap(quiet.groups.first)
+        XCTAssertEqual(quietGroup.loopsNeedingYou, 0)
+        XCTAssertNil(quietGroup.loopsNeedingYouLabel)
+        XCTAssertFalse(quietGroup.hasUnread)
+    }
+
     // MARK: - Turn presentation
 
     func testPillKindMapping() {

@@ -185,6 +185,120 @@ final class UnreadDerivationTests: XCTestCase {
         XCTAssertTrue(thread.hasUnread)
     }
 
+    // MARK: - ATL-S05 relay attention quieting
+
+    func testRelayEscalatedNeedsAttention() {
+        let w1 = turn("w1", createdAt: t1, completedAt: t1)
+        let wt = thread(turns: [w1], cursor: .empty(at: t0))
+        XCTAssertEqual(
+            UnreadDerivation.railAttention(thread: wt, relayStatus: .escalated),
+            .needsYou
+        )
+        XCTAssertTrue(UnreadDerivation.unreadNeedsAttention(thread: wt, relayStatus: .escalated))
+        XCTAssertEqual(
+            ThreadStateDerivation.displayState(thread: wt, hasPendingItem: false, relayStatus: .escalated),
+            .replied
+        )
+    }
+
+    func testRelayAwaitingPMNeedsAttention() {
+        let wt = thread(turns: [turn("w1", createdAt: t1, completedAt: t1)], cursor: .empty(at: t0))
+        XCTAssertEqual(
+            UnreadDerivation.railAttention(thread: wt, relayStatus: .awaitingPM),
+            .needsYou
+        )
+        XCTAssertTrue(UnreadDerivation.unreadNeedsAttention(thread: wt, relayStatus: .awaitingPM))
+    }
+
+    func testRelayRunningHasNoAttentionColour() {
+        let w1 = turn("w1", status: .running, createdAt: t1)
+        let wt = thread(turns: [w1], cursor: .empty(at: t0))
+        XCTAssertEqual(
+            UnreadDerivation.railAttention(thread: wt, relayStatus: .running),
+            .none
+        )
+        XCTAssertFalse(UnreadDerivation.unreadNeedsAttention(thread: wt, relayStatus: .running))
+        XCTAssertEqual(
+            ThreadStateDerivation.displayState(thread: wt, hasPendingItem: false, relayStatus: .running),
+            .running
+        )
+    }
+
+    func testRelayDoneHasNoAttentionColour() {
+        let w1 = turn("w1", createdAt: t1, completedAt: t1)
+        let wt = thread(turns: [w1], cursor: .empty(at: t0))
+        XCTAssertTrue(UnreadDerivation.hasUnread(thread: wt))
+        XCTAssertEqual(
+            UnreadDerivation.railAttention(thread: wt, relayStatus: .done),
+            .none
+        )
+        XCTAssertFalse(UnreadDerivation.unreadNeedsAttention(thread: wt, relayStatus: .done))
+        XCTAssertEqual(
+            ThreadStateDerivation.displayState(thread: wt, hasPendingItem: false, relayStatus: .done),
+            .idle
+        )
+    }
+
+    /// The actual ATL-S05 bug: founder-stopped historical rows kept amber forever
+    /// because unread turns still lit the rail. Terminal status must win.
+    func testRelayStoppedWithUnreadTurnsHasNoAttentionColour() {
+        let w1 = turn("w1", createdAt: t1, completedAt: t1)
+        let openEscalation = turn(
+            "esc", kind: .systemEvent, status: .running, author: .system,
+            createdAt: t2, systemEvent: .relayEscalated
+        )
+        let wt = thread(turns: [w1, openEscalation], cursor: .empty(at: t0))
+        XCTAssertTrue(UnreadDerivation.hasUnread(thread: wt))
+        XCTAssertTrue(wt.needsAttention) // turn-level still true; rail must not follow it
+        XCTAssertEqual(
+            UnreadDerivation.railAttention(thread: wt, relayStatus: .stopped),
+            .none
+        )
+        XCTAssertFalse(UnreadDerivation.unreadNeedsAttention(thread: wt, relayStatus: .stopped))
+        // Open escalation would look "running" without the relay gate — product is quiet.
+        XCTAssertEqual(
+            ThreadStateDerivation.displayState(thread: wt, hasPendingItem: false, relayStatus: .stopped),
+            .running
+        )
+    }
+
+    func testNonRelayUnreadBehaviourUnchanged() {
+        let w1 = turn("w1", createdAt: t1, completedAt: t1)
+        let wt = thread(turns: [w1], cursor: .empty(at: t0))
+        XCTAssertEqual(UnreadDerivation.railAttention(thread: wt), .ordinaryUnread)
+        XCTAssertFalse(UnreadDerivation.unreadNeedsAttention(thread: wt))
+        XCTAssertEqual(
+            ThreadStateDerivation.displayState(thread: wt, hasPendingItem: false),
+            .replied
+        )
+
+        let failed = turn("f1", status: .failed, createdAt: t1, completedAt: t1)
+        let failedThread = thread(turns: [failed], cursor: .empty(at: t0))
+        XCTAssertTrue(UnreadDerivation.unreadNeedsAttention(thread: failedThread))
+        XCTAssertEqual(UnreadDerivation.railAttention(thread: failedThread), .ordinaryUnread)
+    }
+
+    func testNonRelayRunningBeatsOrdinaryUnread() {
+        let done = turn("w1", createdAt: t1, completedAt: t1)
+        let live = turn("w2", status: .running, createdAt: t2)
+        let wt = thread(turns: [done, live], cursor: .empty(at: t0))
+        XCTAssertEqual(UnreadDerivation.railAttention(thread: wt), .ordinaryUnread)
+        XCTAssertEqual(
+            ThreadStateDerivation.displayState(thread: wt, hasPendingItem: false),
+            .running
+        )
+    }
+
+    func testLoopsNeedingYouRollup() {
+        XCTAssertNil(UnreadDerivation.loopsNeedingYouLabel(count: 0))
+        XCTAssertEqual(UnreadDerivation.loopsNeedingYouLabel(count: 1), "1 loop needs you")
+        XCTAssertEqual(UnreadDerivation.loopsNeedingYouLabel(count: 3), "3 loops need you")
+        XCTAssertEqual(
+            UnreadDerivation.loopsNeedingYouCount(statuses: [.escalated, .running, .awaitingPM, .stopped, .done]),
+            2
+        )
+    }
+
     // MARK: - Eligibility matrix
 
     func testTeamRunDoneIsUnreadEligible() {

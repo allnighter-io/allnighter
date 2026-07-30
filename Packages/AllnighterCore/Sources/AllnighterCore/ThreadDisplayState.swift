@@ -15,13 +15,25 @@ public enum ThreadDisplayState: String, Codable, Sendable, CaseIterable {
 
 public enum ThreadStateDerivation {
     /// The row state for a thread. Precedence (most-urgent single state wins):
-    /// running → pending → replied(unread) → draft → idle. `hasPendingItem` = the thread
-    /// has an armed (`.pending`) Pending item queued. Attention (failed/blocked) is a
-    /// separate, independent axis (`WorkThread.needsAttention`), not folded in here.
-    public static func displayState(thread: WorkThread, hasPendingItem: Bool) -> ThreadDisplayState {
+    /// needsYou (relay waiting on human) → running → pending → ordinary unread →
+    /// draft → idle. `hasPendingItem` = the thread has an armed (`.pending`) Pending
+    /// item queued. Failed/blocking attention is a separate axis
+    /// (`WorkThread.needsAttention`), not folded in here.
+    ///
+    /// ATL-S05: pass store-backed `RelayState.status` for relay threads so terminal
+    /// loops never paint amber from stale unread turns.
+    public static func displayState(
+        thread: WorkThread,
+        hasPendingItem: Bool,
+        relayStatus: RelayState.Status? = nil
+    ) -> ThreadDisplayState {
+        let attention = UnreadDerivation.railAttention(thread: thread, relayStatus: relayStatus)
+        // Escalated / awaitingPM is "needs you", not a live run — even when an open
+        // `relayEscalated` system turn is still `.running` on the timeline.
+        if attention == .needsYou { return .replied }
         if thread.isRunning { return .running }
         if hasPendingItem { return .pending }
-        if thread.hasUnread { return .replied }
+        if attention == .ordinaryUnread { return .replied }
         if thread.hasNeverRun { return .draft }
         return .idle
     }

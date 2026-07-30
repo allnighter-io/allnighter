@@ -142,6 +142,7 @@ enum GUIFixture {
         return name.hasPrefix("home-") || name.hasPrefix("thread-") || name.hasPrefix("relay-thread-")
             || name.hasPrefix("capacity-")
             || name == "command-palette" || name == "projects-rail"
+            || name == "home-rail-loops-attention"
     }
 
     /// CAP-S10: seed Core capacity windows into the launch strip (no live acquire).
@@ -181,7 +182,11 @@ enum GUIFixture {
     /// Deep-link: open the Factory Floor reader over a completed sample team run.
     static var opensFloorReader: Bool { active == "floor-reader" }
     /// Deep-link: seed the project-grouped sidebar (PRJ-S14) with sample projects.
-    static var opensProjectsRail: Bool { active == "projects-rail" }
+    static var opensProjectsRail: Bool {
+        // ATL-S05 needs the project-grouped rail so "1 loop needs you" + mixed
+        // relay rows are visible (same sample projects as projects-rail).
+        active == "projects-rail" || active == "home-rail-loops-attention"
+    }
     /// R-S08: seed sample projects (same as `opensProjectsRail`) so the relay launch
     /// sheet's doc/seat pickers have a real project + bench to render against.
     static var opensRelayLaunch: Bool {
@@ -353,6 +358,7 @@ enum GUIFixture {
         ("home-rail", "Home — grouped/filtered rail (CR4e)"),
         ("home-rail-th2", "Home — TH2 triage pin/unread/archive"),
         ("home-rail-unr", "Home — UNR unread matrix (S07)"),
+        ("home-rail-loops-attention", "Home — ATL-S05 loop attention quieting"),
         ("thread-empty", "Thread — empty run"),
         ("thread-with-turns", "Thread — user message turn"),
         ("thread-chat", "Thread — chat reply from a model"),

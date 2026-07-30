@@ -136,8 +136,21 @@ enum ThreadsPresenter {
     }
 
     /// Unread anchor that also requires user attention (failed/blocking system).
-    static func unreadNeedsAttention(_ thread: WorkThread) -> Bool {
-        thread.unreadNeedsAttention
+    /// Relay threads must pass store-backed `relayStatus` (ATL-S05) — never infer
+    /// lifecycle from turn prose.
+    static func unreadNeedsAttention(
+        _ thread: WorkThread,
+        relayStatus: RelayState.Status? = nil
+    ) -> Bool {
+        UnreadDerivation.unreadNeedsAttention(thread: thread, relayStatus: relayStatus)
+    }
+
+    /// Rail attention colour (amber). Relay rows are gated by `RelayState.status`.
+    static func railAttention(
+        _ thread: WorkThread,
+        relayStatus: RelayState.Status? = nil
+    ) -> UnreadDerivation.RailAttention {
+        UnreadDerivation.railAttention(thread: thread, relayStatus: relayStatus)
     }
 
     static func firstUnreadTurnId(_ thread: WorkThread) -> String? {
