@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.11.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.12.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -686,7 +686,8 @@ Flags:
 - `--retry-of <id>` — Intentional retry of a prior run id (new key). Requires prior tree verified stopped, or --accept-survivors.
 - `--accept-survivors` — Allow --retry-of when the prior run still has identity-alive recorded workers.
 - `--commit-message <string>` — Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git).
-- `--no-commit` — Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message).
+- `--no-commit` — Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message). Still mutating and still takes the per-root write lock — does not skip the queue. For parallel feedback use --read-only --model.
+- `--read-only` — Lock policy only: same one-model chat as --model, with writePolicy readOnly and no write-lock queue. Requires --model. Not a team path; not FS isolation. Mutually exclusive with --team and mutator-only flags (--no-commit, --commit-message, --try-fix, --proof).
 - `--proof <string>` — Run a bounded proof command after the worker settles; surface pass/fail (never blocks git).
 - `--try-fix` — Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt.
 - `--executor <id>` — Mutating executor team id (default build_slice).
@@ -716,6 +717,16 @@ Mutually exclusive: `--no-wait`, `--dry-run`.
 
 Mutually exclusive: `--no-wait`, `--try-fix`.
 
+Mutually exclusive: `--read-only`, `--team`.
+
+Mutually exclusive: `--read-only`, `--no-commit`.
+
+Mutually exclusive: `--read-only`, `--commit-message`.
+
+Mutually exclusive: `--read-only`, `--try-fix`.
+
+Mutually exclusive: `--read-only`, `--proof`.
+
 Only with: `--executor` only with `--try-fix`.
 
 Requires: `--accept-survivors` requires `--retry-of`.
@@ -723,6 +734,8 @@ Requires: `--accept-survivors` requires `--retry-of`.
 Requires: `--seat` requires `--team`.
 
 Requires: `--delivery` requires `--no-wait`.
+
+Requires: `--read-only` requires `--model`.
 
 Output schema: `teamRunJSON`.
 

@@ -32,7 +32,7 @@ final class HandoffPayloadFidelityTests: XCTestCase {
             "advisoryReview", "workerTimeoutSeconds", "handshakeTimeoutSeconds",
             "firstActivityTimeoutSeconds", "wallTimeoutSeconds", "spawnConcurrencyLimit",
             "commitMessage", "noCommit", "proofCommand", "proofTimeoutSeconds",
-            "retryOf", "acceptSurvivors", "explicitSeatModelIds",
+            "retryOf", "acceptSurvivors", "explicitSeatModelIds", "readOnly",
         ]
         let omittedOnPurpose: [String: String] = [
             "timing": "a caller-seeded clock ladder for the CALLER's process; the "
