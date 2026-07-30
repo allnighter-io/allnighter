@@ -763,6 +763,72 @@ no `pair loop`.
 
 ---
 
+## B2) ATL-S01 + ATL-S02 SHIPPED (2026-07-30)
+
+Built by an **unattended relay** — the first real dogfood of this packet's own
+machine. PM seat **Sonnet 5** (Claude Code), dev seat **Grok 4.5**, three rounds,
+terminal `done`. `alln pair relay --doc docs/phases/atl/ATL_S01_S02_execution.md
+--pm-model model_sonnet --dev-model model_grok --no-wait`.
+
+There is a pleasing recursion here: the loop's first task was to build
+`--message`, the kickoff flag the relay that built it could not use.
+
+| Commit | Slice |
+| --- | --- |
+| `0be33988` | ATL-S01 — kickoff brief: Config → RelayState → PM prompt, `--message` / `--message-file`, mutex, empty-refuse, consume-once, detach argv preservation |
+| `517f0ef3` | ATL-S02 — `pair relay stop` + `RelayCoordinator.stop`, founder settlement, PM Turn on transition, `RELAY_STOP_FAILED` |
+| `9ceec486` | ATL-S01 fix — register the kickoff FlagSpecs (see below) |
+
+Contract 6.4.0 → 6.5.0 → 6.6.0 → 6.7.0. Wall: **2544 tests, 0 failures**;
+`export-contracts --check` clean.
+
+### Live acceptance (run against the real binary)
+
+```text
+pair relay --help                     → lists --message, --message-file
+                                        "Mutually exclusive: --message, --message-file."
+--message ""                          → CLI_USAGE_ERROR
+--message a --message-file b          → CLI_USAGE_ERROR
+start --message "PROBE2 kickoff text" → relay.json kickoffMessage = "PROBE2 kickoff text"
+                                        (durable through the DETACHED path)
+pair relay stop --relay <id>          → status=stopped, stoppedReason="founder stopped",
+                                        pmTurn present, reason=stopped
+pair relay stop --relay relay_nope    → RELAY_NOT_FOUND
+```
+
+Consume-once confirmed by accident and then on purpose: a relay read *after* its
+first PM turn shows `kickoffMessage` absent; read immediately after start it is
+present. That is the specified behaviour, not a loss.
+
+### The gap the loop shipped, and why the tests missed it
+
+`0be33988` built the entire Engine half correctly — Config, `RelayState`, prompt
+section, consume-once, mutex, empty-refuse, and a passing test that detach
+preserves the flags in child argv. But it never added `FlagSpec`s for
+`--message` / `--message-file` to the `pair relay` `CommandSpec`. The
+registry-driven allowlist therefore rejected both with `UNKNOWN_FLAG` **before**
+`parseStartConfig` ran. The feature was unreachable from the CLI while its own
+`usage()` string advertised it.
+
+The tests passed because they exercised the parse helper directly, bypassing the
+allowlist. **A helper-level test cannot catch an unreachable flag.**
+`9ceec486` adds `testKickoffFlagsPassCommandEntryAllowlist` on the command-entry
+path so the class of gap cannot recur.
+
+This is the standing "allowlists are where gates die" lesson, and a Code Audit
+rubric-5 miss (proof must match the owner-visible claim, not a convenient
+helper). Worth carrying into ATL-S03/S04 review.
+
+### Not done, deliberately
+
+**ATL-S03 and ATL-S04 (Mac GUI) were held out of the unattended loop.** They
+require a surface brief plus the Visual Proof Gate — a sighted, human-reviewed
+check an unattended relay structurally cannot satisfy. The packet's own law is
+**CLI before GUI**, so this follows the packet rather than trimming it. Both
+remain open and need an attended session.
+
+---
+
 ## C) Open questions — resolved
 
 | # | Question | Resolution |
