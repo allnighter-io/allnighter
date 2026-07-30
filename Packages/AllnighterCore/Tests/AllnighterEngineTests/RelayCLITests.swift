@@ -561,6 +561,53 @@ final class RelayCLITests: XCTestCase {
         }
     }
 
+    /// ATL-S01 completion: kickoff flags must clear the registry allowlist that
+    /// `AllnighterCLI.main` runs *before* `RelayCLI.parseStartConfig`. A pure
+    /// parse-helper test cannot catch this class of unreachable-flag gap.
+    func testKickoffFlagsPassCommandEntryAllowlist() {
+        let cmd = "pair relay"
+        let registry = ContractRegistry.milestone1
+        let spec = registry.commands.first { $0.name == cmd && $0.milestone == .m1 }
+        XCTAssertNotNil(spec, "missing CommandSpec for \(cmd)")
+        XCTAssertTrue(spec?.flags.contains { $0.name == "message" && $0.takesValue } == true)
+        XCTAssertTrue(spec?.flags.contains { $0.name == "message-file" && $0.takesValue } == true)
+        let groups = Set(spec?.mutuallyExclusiveFlags.map { Set($0) } ?? [])
+        XCTAssertTrue(groups.contains(["message", "message-file"]))
+
+        let resolved = CLIUsage.resolveCommandName(
+            rootCommand: "pair",
+            args: ["relay", "--doc", "d", "--project", ".", "--pm-model", "a", "--dev-model", "b",
+                   "--message", "brief", "--json"],
+            registry: registry
+        )
+        XCTAssertEqual(resolved, cmd)
+
+        // Same gate AllnighterCLI runs: known flags must not raise UNKNOWN_FLAG.
+        XCTAssertNil(CLIUsage.validateFlags(
+            args: ["relay", "--doc", "d", "--project", ".", "--pm-model", "a", "--dev-model", "b",
+                   "--message", "brief", "--json"],
+            commandName: cmd,
+            registry: registry
+        ))
+        XCTAssertNil(CLIUsage.validateFlags(
+            args: ["relay", "--doc", "d", "--project", ".", "--pm-model", "a", "--dev-model", "b",
+                   "--message-file", "brief.md", "--json"],
+            commandName: cmd,
+            registry: registry
+        ))
+
+        // Registry mutex (same path as AllnighterCLI.validateFlagConstraints) —
+        // both present → CLI_USAGE_ERROR, not UNKNOWN_FLAG.
+        let mutex = CLIUsage.validateFlagConstraints(
+            args: ["relay", "--doc", "d", "--project", ".", "--pm-model", "a", "--dev-model", "b",
+                   "--message", "a", "--message-file", "b", "--json"],
+            commandName: cmd,
+            registry: registry
+        )
+        XCTAssertNotNil(mutex)
+        XCTAssertTrue(mutex?.message.contains("mutually exclusive") == true)
+    }
+
     /// RSC-S03's detached-child continuation verbs (`pair relay-continue`,
     /// `pair relay-start-continue`) are deliberately NOT registered in
     /// `ContractRegistry` — no help entry, no public flag surface, no documented

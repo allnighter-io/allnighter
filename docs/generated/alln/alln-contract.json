@@ -2671,6 +2671,18 @@
           "valueType" : "id"
         },
         {
+          "name" : "message",
+          "summary" : "Kickoff brief body (one-shot, first PM assemble only). Mutually exclusive with --message-file.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "message-file",
+          "summary" : "Read a UTF-8 file as the kickoff brief (one-shot, first PM assemble only). Mutually exclusive with --message.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
           "name" : "until",
           "summary" : "Hard stop HH:MM (local).",
           "takesValue" : true,
@@ -2713,7 +2725,10 @@
       "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
-
+        [
+          "message",
+          "message-file"
+        ]
       ],
       "name" : "pair relay",
       "outputSchema" : "relayJSON",
@@ -5409,7 +5424,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "6.6.0",
+  "contractVersion" : "6.7.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.6.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.7.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -743,6 +743,8 @@ Flags:
 - `--project <id>` — Project id, name, or repo path (required).
 - `--pm-model <id>` — PM seat model id (required).
 - `--dev-model <id>` — Dev seat model id (required).
+- `--message <string>` — Kickoff brief body (one-shot, first PM assemble only). Mutually exclusive with --message-file.
+- `--message-file <path>` — Read a UTF-8 file as the kickoff brief (one-shot, first PM assemble only). Mutually exclusive with --message.
 - `--until <time>` — Hard stop HH:MM (local).
 - `--max-rounds <integer>` — Round ceiling (default 20).
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
@@ -750,6 +752,8 @@ Flags:
 - `--no-wait` — Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+
+Mutually exclusive: `--message`, `--message-file`.
 
 Requires: `--delivery` requires `--no-wait`.
 

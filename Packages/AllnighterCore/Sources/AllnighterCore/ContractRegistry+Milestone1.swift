@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "6.6.0"
+    static let contractVersion = "6.7.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -518,6 +518,8 @@ public extension ContractRegistry {
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
                 FlagSpec("pm-model", takesValue: true, valueType: "id", summary: "PM seat model id (required)."),
                 FlagSpec("dev-model", takesValue: true, valueType: "id", summary: "Dev seat model id (required)."),
+                FlagSpec("message", takesValue: true, valueType: "string", summary: "Kickoff brief body (one-shot, first PM assemble only). Mutually exclusive with --message-file."),
+                FlagSpec("message-file", takesValue: true, valueType: "path", summary: "Read a UTF-8 file as the kickoff brief (one-shot, first PM assemble only). Mutually exclusive with --message."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling (default 20)."),
                 FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
@@ -526,6 +528,7 @@ public extension ContractRegistry {
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
+            mutuallyExclusiveFlags: [["message", "message-file"]],
             flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON
         ),
