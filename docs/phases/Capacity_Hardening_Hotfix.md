@@ -1,8 +1,17 @@
 # Capacity hardening — hot fix
 
-Status: **OPEN** · Live dogfood 2026-07-30T20:15Z · Method and proof: `alln capacity` only  
-Not SSOT. Code is SSOT when closed.  
-Doc review: `code_doc_review` · `model_gpt_terra` · run `752A997F-F0E1-4B2E-895E-FA2D6A704C53` (2026-07-30).
+Status: **SHIPPED (code)** · Proof 2026-07-30T20:32Z · Method: `alln capacity` only  
+Code SSOT: `CapacityDisplayAcquisition`, `CapacityHydration`, `CapacityHistoryStore`, `CapacityProbe`.  
+Doc review: `code_doc_review` · `model_gpt_terra` · run `752A997F-F0E1-4B2E-895E-FA2D6A704C53`.  
+Commits: `2143e9d0` HF-00 · `19b227c3` HF-claude.
+
+### Closeout proof (after HF-00 + HF-claude)
+
+**Full `alln capacity --refresh`:** codex 9% · claude **52% last-known** (live still parse-fails → dump under `Capacity/debug/`) · cursor 72% Ultra · grok 6% · kimi 0% · agy 52% effective / 2 pools.
+
+**Bare `alln capacity` immediately after:** all six seats show numbers + honest ages (tier-3 from history when not re-probed). **NeverSampled lie fixed.**
+
+Open residual: Claude live PTY parse still intermittent (dump + distinct reasons landed); strip correctly falls back to last-known instead of blanking.
 
 ## Core promise
 
