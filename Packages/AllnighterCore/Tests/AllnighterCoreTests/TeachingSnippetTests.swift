@@ -12,7 +12,7 @@ final class TeachingSnippetTests: XCTestCase {
 
     func testBodyTeachesLiveMenuReflexAndDetachedDelivery() {
         XCTAssertEqual(TeachingSnippet.schemaVersion, 5)
-        XCTAssertEqual(TeachingSnippet.reflexLines.count, 6)
+        XCTAssertEqual(TeachingSnippet.reflexLines.count, 7)
         XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
         XCTAssertTrue(TeachingSnippet.body.contains("useWhen"))
@@ -24,6 +24,9 @@ final class TeachingSnippetTests: XCTestCase {
         // CD-S03: relay aggregate ≠ dev leg.
         XCTAssertTrue(TeachingSnippet.body.contains("devRunId"))
         XCTAssertTrue(TeachingSnippet.body.contains("Relay running"))
+        // AVQ-S04: parallel feedback lock policy.
+        XCTAssertTrue(TeachingSnippet.body.contains("--read-only"))
+        XCTAssertTrue(TeachingSnippet.body.contains("--no-commit"))
         XCTAssertFalse(TeachingSnippet.body.contains("team hello"))
         XCTAssertFalse(TeachingSnippet.body.contains("route --for"))
         XCTAssertFalse(TeachingSnippet.body.contains("resolve --for"))

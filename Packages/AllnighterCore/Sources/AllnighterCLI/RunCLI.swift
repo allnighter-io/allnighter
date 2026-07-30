@@ -120,6 +120,9 @@ enum RunCLI {
         // gated in `AllnighterCLI.main` via `CLIUsage.validateFlagConstraints`.
         let noCommit = opts.flag("no-commit")
         let commitMessage = opts.value("commit-message")
+        // AVQ-S04: lock-policy only; constraints (requires --model; mutex team/no-commit/…)
+        // are registry-owned. Child argv keeps `--read-only` for detached spawn.
+        let readOnly = opts.flag("read-only")
 
         let store = ProjectStore()
         let project: Project
@@ -204,7 +207,8 @@ enum RunCLI {
             idempotencyKey: opts.value("idempotency-key"),
             retryOf: opts.value("retry-of"),
             acceptSurvivors: opts.flag("accept-survivors"),
-            explicitSeatModelIds: seatModelIds.isEmpty ? nil : seatModelIds
+            explicitSeatModelIds: seatModelIds.isEmpty ? nil : seatModelIds,
+            readOnly: readOnly
         )
         let service = RunService(
             models: runtime.models,
@@ -454,7 +458,8 @@ enum RunCLI {
             explicitSeatModelIds: {
                 let seats = opts.valuesList("seat")
                 return seats.isEmpty ? nil : seats
-            }()
+            }(),
+            readOnly: opts.flag("read-only")
         )
         let service = RunService(
             models: runtime.models,

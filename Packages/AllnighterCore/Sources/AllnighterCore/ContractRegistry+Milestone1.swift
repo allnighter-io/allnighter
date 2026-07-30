@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "6.11.0"
+    static let contractVersion = "6.12.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -482,7 +482,8 @@ public extension ContractRegistry {
                 FlagSpec("retry-of", takesValue: true, valueType: "id", summary: "Intentional retry of a prior run id (new key). Requires prior tree verified stopped, or --accept-survivors."),
                 FlagSpec("accept-survivors", summary: "Allow --retry-of when the prior run still has identity-alive recorded workers."),
                 FlagSpec("commit-message", takesValue: true, valueType: "string", summary: "Exact commit message for the worker (FR12 instruct + verify; Allnighter does no git)."),
-                FlagSpec("no-commit", summary: "Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message)."),
+                FlagSpec("no-commit", summary: "Instruct the worker to leave work uncommitted for PM review (mutually exclusive with --commit-message). Still mutating and still takes the per-root write lock — does not skip the queue. For parallel feedback use --read-only --model."),
+                FlagSpec("read-only", summary: "Lock policy only: same one-model chat as --model, with writePolicy readOnly and no write-lock queue. Requires --model. Not a team path; not FS isolation. Mutually exclusive with --team and mutator-only flags (--no-commit, --commit-message, --try-fix, --proof)."),
                 FlagSpec("proof", takesValue: true, valueType: "string", summary: "Run a bounded proof command after the worker settles; surface pass/fail (never blocks git)."),
                 FlagSpec("try-fix", summary: "Bug Hunt diagnosis → danger-not-doubt gate → one bounded fix attempt."),
                 FlagSpec("executor", takesValue: true, valueType: "id", summary: "Mutating executor team id (default build_slice)."),
@@ -505,12 +506,18 @@ public extension ContractRegistry {
                 ["no-wait", "stream"],
                 ["no-wait", "dry-run"],
                 ["no-wait", "try-fix"],
+                ["read-only", "team"],
+                ["read-only", "no-commit"],
+                ["read-only", "commit-message"],
+                ["read-only", "try-fix"],
+                ["read-only", "proof"],
             ],
             flagConstraints: [
                 FlagConstraint(.onlyWith, "executor", "try-fix"),
                 FlagConstraint(.requires, "accept-survivors", "retry-of"),
                 FlagConstraint(.requires, "seat", "team"),
                 FlagConstraint(.requires, "delivery", "no-wait"),
+                FlagConstraint(.requires, "read-only", "model"),
             ],
             outputSchema: .teamRunJSON,
             exampleIds: ["run_foreground_json"],

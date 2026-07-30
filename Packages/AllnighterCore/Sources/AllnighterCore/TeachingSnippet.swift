@@ -30,6 +30,7 @@ public enum TeachingSnippet {
         "4. Re-read the live menu in a new session; never trust a pasted catalog.",
         "5. After `--no-wait`, run the returned delivery command once; never poll or use resume for terminal delivery.",
         "6. Relay running ≠ dev running — check devRunId.",
+        "7. Parallel feedback: `alln run --read-only --model …` — not `--no-commit` (that still queues).",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.

@@ -59,6 +59,8 @@ public struct SandboxHandoffSpool: Sendable {
         public var acceptSurvivors: Bool
         /// RSO-S01 — ordered explicit `--seat` ids; must survive sandbox hand-off.
         public var explicitSeatModelIds: [String]?
+        /// AVQ-S04 — force read-only write policy across sandbox hand-off.
+        public var readOnly: Bool
 
         public var createdAt: Date
         /// Absent in requests written before pings existed — decoded as `.run`.
@@ -103,6 +105,7 @@ public struct SandboxHandoffSpool: Sendable {
             retryOf: String? = nil,
             acceptSurvivors: Bool = false,
             explicitSeatModelIds: [String]? = nil,
+            readOnly: Bool = false,
             createdAt: Date = Date(),
             kind: Kind = .run,
             claimedAt: Date? = nil,
@@ -137,6 +140,7 @@ public struct SandboxHandoffSpool: Sendable {
             self.retryOf = retryOf
             self.acceptSurvivors = acceptSurvivors
             self.explicitSeatModelIds = explicitSeatModelIds
+            self.readOnly = readOnly
             self.createdAt = createdAt
             self.kind = kind
             self.claimedAt = claimedAt
@@ -155,7 +159,7 @@ public struct SandboxHandoffSpool: Sendable {
             case executorTeamId, advisoryReview, workerTimeoutSeconds
             case handshakeTimeoutSeconds, firstActivityTimeoutSeconds, wallTimeoutSeconds
             case spawnConcurrencyLimit, commitMessage, noCommit, proofCommand
-            case proofTimeoutSeconds, retryOf, acceptSurvivors, explicitSeatModelIds
+            case proofTimeoutSeconds, retryOf, acceptSurvivors, explicitSeatModelIds, readOnly
             case createdAt, kind, claimedAt, claimedBy, claimantPid, claimantStartTimeTicks
         }
 
@@ -189,6 +193,7 @@ public struct SandboxHandoffSpool: Sendable {
             retryOf = try c.decodeIfPresent(String.self, forKey: .retryOf)
             acceptSurvivors = try c.decodeIfPresent(Bool.self, forKey: .acceptSurvivors) ?? false
             explicitSeatModelIds = try c.decodeIfPresent([String].self, forKey: .explicitSeatModelIds)
+            readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly) ?? false
             createdAt = try c.decode(Date.self, forKey: .createdAt)
             kind = try c.decodeIfPresent(Kind.self, forKey: .kind) ?? .run
             claimedAt = try c.decodeIfPresent(Date.self, forKey: .claimedAt)
@@ -226,6 +231,7 @@ public struct SandboxHandoffSpool: Sendable {
             try c.encodeIfPresent(retryOf, forKey: .retryOf)
             try c.encode(acceptSurvivors, forKey: .acceptSurvivors)
             try c.encodeIfPresent(explicitSeatModelIds, forKey: .explicitSeatModelIds)
+            try c.encode(readOnly, forKey: .readOnly)
             try c.encode(createdAt, forKey: .createdAt)
             try c.encode(kind, forKey: .kind)
             try c.encodeIfPresent(claimedAt, forKey: .claimedAt)

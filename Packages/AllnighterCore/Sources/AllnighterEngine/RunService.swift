@@ -65,6 +65,9 @@ public struct RunRequest: Sendable, Equatable {
     public var acceptSurvivors: Bool
     /// RSO-S01 — ordered `--seat` model ids for one-off crew staffing on a judgment team.
     public var explicitSeatModelIds: [String]? = nil
+    /// AVQ-S04 — force `writePolicy: readOnly` / no per-root write lock (CLI `--read-only`).
+    /// Same chat as bare `--model`; does not join the mutator FIFO. Not a team path.
+    public var readOnly: Bool = false
 
     public init(
         message: String,
@@ -93,7 +96,8 @@ public struct RunRequest: Sendable, Equatable {
         idempotencyKey: String? = nil,
         retryOf: String? = nil,
         acceptSurvivors: Bool = false,
-        explicitSeatModelIds: [String]? = nil
+        explicitSeatModelIds: [String]? = nil,
+        readOnly: Bool = false
     ) {
         self.message = message
         self.repoRoot = repoRoot
@@ -122,6 +126,7 @@ public struct RunRequest: Sendable, Equatable {
         self.retryOf = retryOf
         self.acceptSurvivors = acceptSurvivors
         self.explicitSeatModelIds = explicitSeatModelIds
+        self.readOnly = readOnly
     }
 }
 
@@ -1064,7 +1069,9 @@ public actor RunService {
                 proofCommand: request.proofCommand, proofTimeoutSeconds: request.proofTimeoutSeconds,
                 retryLinks: retryLinks,
                 clockBudgets: clockBudgets,
-                initialSelectionOrigin: initialSelectionOrigin
+                initialSelectionOrigin: initialSelectionOrigin,
+                // AVQ-S04: stamp journal mutating from resolved write policy (not always true).
+                mutating: invocation.writePolicy == .mutating
             )
             // Parking must release the write lock before the parked journal is
             // returned to the caller; an un-awaited defer could freeze this repo.
@@ -1121,9 +1128,13 @@ public actor RunService {
         // Only a mutating run needs the live write-lock probe. Resolve the provisional
         // write policy from the same team catalog the resolver uses so the probe input
         // matches the resolved plan — write-lock REASONING lives here, never in the CLI.
-        let provisionalMutating = teamsForResolution.first(where: { $0.id == (request.presetId ?? "") })?.mutating
-            ?? (request.presetId == nil ? TeamCatalog.defaultRunTeam()?.mutating : nil)
-            ?? false
+        // AVQ-S04: `--read-only` never takes the lock, even when Default Team is mutating.
+        let provisionalMutating: Bool = {
+            if request.readOnly { return false }
+            return teamsForResolution.first(where: { $0.id == (request.presetId ?? "") })?.mutating
+                ?? (request.presetId == nil ? TeamCatalog.defaultRunTeam()?.mutating : nil)
+                ?? false
+        }()
         var writeLockHeld: Bool?
         if provisionalMutating {
             writeLockHeld = await writeLock.isHeld(RunWriteLock.key(repoRoot: root))
@@ -1155,7 +1166,8 @@ public actor RunService {
                 threadId: request.threadId,
                 conversationId: conversationId,
                 messageId: messageId,
-                agent: agent
+                agent: agent,
+                readOnly: request.readOnly
             )
         )
         let resolved = RunInvocationResolver.resolve(
@@ -1222,7 +1234,8 @@ public actor RunService {
         existingRun: TeamRun? = nil,
         resumeSelectionOrigin: String? = nil,
         initialSelectionOrigin: String? = nil,
-        substitutionOfAttempt: Int? = nil
+        substitutionOfAttempt: Int? = nil,
+        mutating: Bool = true
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
@@ -1427,7 +1440,8 @@ public actor RunService {
                 outputKind: preset.outputKind,
                 // The run's source is where the worker ACTUALLY ran — the chosen
                 // model's driver, including Auto overrides.
-                mutating: true, executionSourceId: model.driverId,
+                // AVQ-S04: `--read-only` stamps mutating false (same chat, no lock).
+                mutating: mutating, executionSourceId: model.driverId,
                 threadId: threadId, repoRoot: repoRoot,
                 laneContextOnly: laneContextOnly ? true : nil,
                 explicitModelIds: explicitModelIds,

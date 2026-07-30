@@ -119,7 +119,9 @@ public enum HelpTopicRegistry {
 
             Verb tree:
             - `alln run` — single agent / chat / named-model ask in the project root \
-            (Default Team). One message; optional `--model` or `--team`.
+            (Default Team). One message; optional `--model` or `--team`. Mutating by default; queues FIFO.
+            - `alln run --read-only --model <id>` — parallel feedback: same chat, no write-lock queue \
+            (lock policy only — not a team, not FS isolation). Do **not** use `--no-commit` for this.
             - `alln run --team <id>` — multi-seat team in the project root.
             - `alln run` — foreground Team run in the registered repository by default; \
             with `--no-wait`, run the returned `delivery.command` once to wait for its terminal pmTurn.
@@ -135,10 +137,13 @@ public enum HelpTopicRegistry {
                       "run vs team", "thread send", "command selection", "first contact",
                       "when to use run", "when to use team",
                       "ask a model", "which model", "resolve intent", "route", "resolve",
-                      "intent", "ask sonnet", "which model"],
+                      "intent", "ask sonnet", "which model",
+                      "read-only", "readonly", "no commit", "write lock", "queue",
+                      "parallel", "feedback", "parallel feedback"],
             sections: [
                 .init("when-unsure", "When unsure", "Call `alln menu --json` before picking a verb."),
-                .init("run", "alln run", "Single agent / chat / named-model ask in the project root."),
+                .init("run", "alln run", "Single agent / chat / named-model ask in the project root (mutating; queues)."),
+                .init("read-only", "alln run --read-only --model", "Parallel feedback without the mutator queue. `--no-commit` does not skip the queue."),
                 .init("run-team", "alln run --team", "Run the selected Team in the registered repository."),
                 .init("thread", "alln thread send", "Continue a work thread with `alln thread send`."),
                 .init("pending", "Pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
@@ -184,6 +189,7 @@ public enum HelpTopicRegistry {
             subscription CLIs; use `--effort`, `--model`, and each driver's supported controls.
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt",
+                      "read-only", "readonly", "no commit", "write lock", "queue", "parallel", "feedback",
                       "custom seats", "staff models once", "one-off team", "temporary team",
                       // Spec review is a Team run like any other. These phrases used to
                       // resolve to the deleted `panel` surface; they must keep landing on
@@ -203,6 +209,7 @@ public enum HelpTopicRegistry {
                 .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--model`, and the selected subscription CLI's own supported flags."),
                 .init("delivery", "Terminal delivery", "Use one `alln team status <run-id> --wait-for terminal --timeout 7200 --json` call to receive the terminal pmTurn; do not poll or use run resume for terminal delivery."),
                 .init("no-wait", "Detached runs", "`alln run --no-wait` returns delivery.path=wait and an exact delivery.command. Do other work, then run that command once; its status JSON includes the terminal pmTurn. `--idempotency-key` is the explicit, deliberate retry-safety contract — it is opt-in, not derived, so two intentionally identical runs are never silently collapsed into one."),
+                .init("read-only", "Parallel feedback", "Doc/spec feedback without competing for the mutator: `alln run --read-only --model <id>`. Build work uses default mutating `alln run`. `--no-commit` is commit instruction only — it still takes the write lock and queues FIFO."),
             ],
             relatedCommandNames: ["run", "team status", "team result", "team cancel", "team reconcile", "floor show"],
             schemaRefs: ["teamStartResponse", "teamStatusResponse", "teamRunJSON"],

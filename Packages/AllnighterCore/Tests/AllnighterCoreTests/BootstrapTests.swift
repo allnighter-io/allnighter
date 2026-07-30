@@ -66,15 +66,15 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains("plain `alln` works everywhere"))
     }
 
-    /// Six-rule body + markers stays compact (CD-S03 added devRunId law).
+    /// Seven-rule body + markers stays compact (AVQ-S04 added --read-only law).
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(onPathLines.count, 10, "on-path snippet grew past ≤10 budget")
+        XCTAssertLessThanOrEqual(onPathLines.count, 11, "on-path snippet grew past ≤11 budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(offPathLines.count, 12, "off-path snippet grew past ≤12 budget")
+        XCTAssertLessThanOrEqual(offPathLines.count, 13, "off-path snippet grew past ≤13 budget")
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {

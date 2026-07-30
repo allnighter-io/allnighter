@@ -63,6 +63,8 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
     public var agent: String?
     /// RSO-S01 — ordered explicit `--seat` model ids accepted at resolve time.
     public var explicitSeatModelIds: [String]? = nil
+    /// AVQ-S04 — force read-only write policy / skip mutator lock.
+    public var readOnly: Bool = false
 
     public init(
         projectId: String? = nil,
@@ -88,7 +90,8 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
         conversationId: String? = nil,
         messageId: String? = nil,
         agent: String? = nil,
-        explicitSeatModelIds: [String]? = nil
+        explicitSeatModelIds: [String]? = nil,
+        readOnly: Bool = false
     ) {
         self.projectId = projectId
         self.teamId = teamId
@@ -114,6 +117,7 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
         self.messageId = messageId
         self.agent = agent
         self.explicitSeatModelIds = explicitSeatModelIds
+        self.readOnly = readOnly
     }
 }
 
@@ -166,7 +170,8 @@ public struct RunInvocationInput: Sendable, Equatable {
             retryOf: request.retryOf,
             threadId: request.threadId,
             agent: nil,
-            explicitSeatModelIds: request.explicitSeatModelIds
+            explicitSeatModelIds: request.explicitSeatModelIds,
+            readOnly: request.readOnly
         )
     }
 
@@ -349,7 +354,8 @@ public struct ResolvedRunInvocation: Sendable, Equatable {
     /// resolutions, or when the answer team can't be resolved read-only. This changes
     /// no routing, lanes, or write-policy — it only discloses (SH-S05 / Menu-Not-Router).
     func readOnlyAnswerTeamSteer() -> (warning: String, alternative: RunDryRunJSON.Alternative)? {
-        guard writePolicy == .mutating, !explicitTeamChosen else { return nil }
+        // AVQ-S04: explicit `--read-only` already chose lock policy — no team steer.
+        guard writePolicy == .mutating, !explicitTeamChosen, !normalizedFlags.readOnly else { return nil }
         guard let answerTeam = TeamCatalog.get(Self.readOnlyAnswerTeamId),
               answerTeam.writePolicy == .readOnly else { return nil }
 
@@ -528,12 +534,17 @@ public enum RunInvocationResolver {
                 explicitTeam: explicitTeamChosen, explicitWorker: explicitModelChosen
             )
         }
-        let writePolicy = preset.writePolicy
+        // AVQ-S04: `--read-only` forces lock policy only — not a team, not FS isolation.
+        let writePolicy: RunWritePolicy = input.flags.readOnly ? .readOnly : preset.writePolicy
         let takesWriteLock = writePolicy == .mutating && !input.advisoryReview
         let lockKey = RunWriteLock.key(repoRoot: root)
         let writeLockHeld = takesWriteLock ? context.writeLockHeld : nil
         if writeLockHeld == true {
             warnings.append("repo write lock is currently held")
+        }
+        // When read-only while another mutator holds the root, surface observation only.
+        if input.flags.readOnly, context.writeLockHeld == true {
+            warnings.append("repo write lock is held by another run (observation only; this run does not queue)")
         }
 
         // --- Agent ---
