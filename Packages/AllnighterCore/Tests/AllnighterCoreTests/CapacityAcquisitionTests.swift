@@ -722,8 +722,8 @@ final class CapacityAcquisitionTests: XCTestCase {
         }
     }
 
-    func testLiveProbeMissingBinaryIsParserFailedNotZero() {
-        // Force a non-existent binary — spawn fails closed.
+    func testLiveProbeMissingBinaryIsSpawnFailedNotZero() {
+        // Force a non-existent binary — spawn fails closed with a distinct reason.
         let windows = CapacityProbe.windows(
             source: "agy",
             now: now,
@@ -731,10 +731,11 @@ final class CapacityAcquisitionTests: XCTestCase {
             executableOverride: "/tmp/alln-capacity-probe-missing-\(UUID().uuidString)"
         )
         XCTAssertEqual(windows.count, 1)
-        XCTAssertEqual(windows[0].unknownReason, .parserFailed(observedAt: now))
+        XCTAssertEqual(windows[0].unknownReason, .spawnFailed(observedAt: now))
         XCTAssertNil(windows[0].usedPercent)
         XCTAssertNil(windows[0].remainingPercent)
         XCTAssertNotEqual(windows[0].unknownReason, .vendorExposesNothing)
+        XCTAssertNotEqual(windows[0].unknownReason, .parserFailed(observedAt: now))
     }
 
     #if os(macOS)

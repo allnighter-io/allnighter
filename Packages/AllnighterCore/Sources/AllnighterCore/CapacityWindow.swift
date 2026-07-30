@@ -49,8 +49,14 @@ public enum CapacityUnknownReason: Sendable, Equatable, Codable {
     case vendorExposesNothing
     /// A surface exists but the parser could not read it; `observedAt` is when we tried.
     case parserFailed(observedAt: Date)
-    /// We have not attempted acquisition yet.
+    /// We have not attempted acquisition yet (and have no durable last-known).
     case neverSampled
+    /// Vendor binary missing / spawn failed (CAP-HF-claude).
+    case spawnFailed(observedAt: Date)
+    /// PTY probe hit the wall-clock budget before a usable screen.
+    case probeTimeout(observedAt: Date)
+    /// Probe ran but capture was empty (no usage pane text).
+    case emptyCapture(observedAt: Date)
 }
 
 /// Paid spend that is **not** a percentage — cursor dollars, grok on-demand

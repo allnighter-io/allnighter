@@ -115,6 +115,9 @@ public enum CapacityStripUnknownKind: String, Sendable, Equatable, Codable {
     case vendorExposesNothing
     case parserFailed
     case neverSampled
+    case spawnFailed
+    case probeTimeout
+    case emptyCapture
 }
 
 // MARK: - Renderer
@@ -482,6 +485,12 @@ public enum CapacityStripRenderer {
             return "unknown — parser failed \(dayStampCompact(at))"
         case .neverSampled:
             return "unknown — never sampled"
+        case .spawnFailed(let at):
+            return "unknown — spawn failed \(dayStampCompact(at))"
+        case .probeTimeout(let at):
+            return "unknown — probe timeout \(dayStampCompact(at))"
+        case .emptyCapture(let at):
+            return "unknown — empty capture \(dayStampCompact(at))"
         }
     }
 
@@ -490,6 +499,9 @@ public enum CapacityStripRenderer {
         case .vendorExposesNothing: return "unknown"
         case .parserFailed: return "parse fail"
         case .neverSampled: return "unknown"
+        case .spawnFailed: return "spawn fail"
+        case .probeTimeout: return "timeout"
+        case .emptyCapture: return "empty"
         }
     }
 
@@ -551,6 +563,9 @@ public enum CapacityStripRenderer {
         case .vendorExposesNothing: return .vendorExposesNothing
         case .parserFailed: return .parserFailed
         case .neverSampled: return .neverSampled
+        case .spawnFailed: return .spawnFailed
+        case .probeTimeout: return .probeTimeout
+        case .emptyCapture: return .emptyCapture
         }
     }
 

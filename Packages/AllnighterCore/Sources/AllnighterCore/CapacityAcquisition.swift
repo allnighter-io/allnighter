@@ -164,12 +164,24 @@ public enum CapacityAcquisition {
         var bySource: [String: [CapacityWindow]] = [:]
         let group = DispatchGroup()
 
+        // Group wait must cover the slowest seat (Claude 35s) when using defaults.
+        let effectiveTimeouts = sourcesToProbe.map { source -> TimeInterval in
+            if probeTimeout == CapacityProbe.defaultTimeout {
+                return CapacityProbe.timeout(for: source)
+            }
+            return probeTimeout
+        }
+        let maxProbeTimeout = effectiveTimeouts.max() ?? probeTimeout
+
         for source in tier3DisklessSources where sourcesToProbe.contains(source) {
             group.enter()
             DispatchQueue.global(qos: .userInitiated).async {
                 defer { group.leave() }
+                let seatTimeout = probeTimeout == CapacityProbe.defaultTimeout
+                    ? CapacityProbe.timeout(for: source)
+                    : probeTimeout
                 let windows = executor.execute(
-                    CapacityProbeRequest(source: source, now: now, timeout: probeTimeout)
+                    CapacityProbeRequest(source: source, now: now, timeout: seatTimeout)
                 )
                 let safe: [CapacityWindow]
                 if windows.isEmpty {
@@ -200,10 +212,10 @@ public enum CapacityAcquisition {
             }
         }
 
-        // Wait for every probe: each is internally bounded by probeTimeout, plus
-        // a small reaping margin so terminate can finish.
-        let margin = max(2.0, probeTimeout * 0.1)
-        let groupTimeout = probeTimeout + margin
+        // Wait for every probe: each is internally bounded by its seat timeout,
+        // plus a small reaping margin so terminate can finish.
+        let margin = max(2.0, maxProbeTimeout * 0.1)
+        let groupTimeout = maxProbeTimeout + margin
         _ = group.wait(timeout: .now() + groupTimeout)
 
         var result: [CapacityWindow] = []

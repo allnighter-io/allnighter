@@ -32,10 +32,14 @@ public struct LiveCapacityProbeExecutor: CapacityProbeExecuting, Sendable {
     public init() {}
 
     public func execute(_ request: CapacityProbeRequest) -> [CapacityWindow] {
-        CapacityProbe.windows(
+        // Prefer per-source budget when caller left the default (20s).
+        let budget = request.timeout == CapacityProbe.defaultTimeout
+            ? CapacityProbe.timeout(for: request.source)
+            : request.timeout
+        return CapacityProbe.windows(
             source: request.source,
             now: request.now,
-            timeout: request.timeout
+            timeout: budget
         )
     }
 }
@@ -57,6 +61,23 @@ public enum CapacityProbe {
 
     /// Per-probe wall-clock budget. One slow CLI must not hang the strip.
     public static let defaultTimeout: TimeInterval = 20
+
+    /// Claude Usage pane often paints slower than agy/kimi/cursor (CAP-HF-claude).
+    public static let claudeTimeout: TimeInterval = 35
+
+    /// Wall-clock budget for a source. Claude gets a longer readiness window.
+    public static func timeout(for source: String) -> TimeInterval {
+        source == "claude_code" ? claudeTimeout : defaultTimeout
+    }
+
+    /// Fail-soft dump directory for unreadable captures (inspectable, no PII required).
+    public static var debugDumpDirectory: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(
+                "Library/Application Support/Allnighter/Capacity/debug",
+                isDirectory: true
+            )
+    }
 
     /// Tier-3 seats this probe knows how to drive today.
     /// Claude Code: `/usage` opens the Usage pane directly (no tab navigation).
@@ -103,13 +124,15 @@ public enum CapacityProbe {
     public static func windows(
         source: String,
         now: Date,
-        timeout: TimeInterval = defaultTimeout,
+        timeout: TimeInterval? = nil,
         workingDirectory: String? = nil,
         pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
         homeDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
-        executableOverride: String? = nil
+        executableOverride: String? = nil,
+        dumpDirectory: URL? = nil
     ) -> [CapacityWindow] {
         #if os(macOS)
+        let budget = timeout ?? Self.timeout(for: source)
         guard probeableSources.contains(source) else {
             // Unknown seat — honest never-sampled.
             return [unknown(source: source, reason: .neverSampled, now: now)]
@@ -125,7 +148,7 @@ public enum CapacityProbe {
         ) {
             executable = resolved
         } else {
-            return [unknown(source: source, reason: .parserFailed(observedAt: now), now: now)]
+            return [unknown(source: source, reason: .spawnFailed(observedAt: now), now: now)]
         }
 
         let cwd = workingDirectory
@@ -133,16 +156,27 @@ public enum CapacityProbe {
         let capture = captureUsageRender(
             executable: executable,
             workingDirectory: cwd,
-            timeout: timeout,
+            timeout: budget,
             source: source
         )
 
         switch capture {
-        case .spawnFailed, .timeout, .empty:
-            return [unknown(source: source, reason: .parserFailed(observedAt: now), now: now)]
+        case .spawnFailed:
+            return [unknown(source: source, reason: .spawnFailed(observedAt: now), now: now)]
+        case .timeout:
+            return [unknown(source: source, reason: .probeTimeout(observedAt: now), now: now)]
+        case .empty:
+            return [unknown(source: source, reason: .emptyCapture(observedAt: now), now: now)]
         case .captured(let text):
             let parsed = parse(source: source, renderText: text, now: now)
             if parsed.isEmpty {
+                // CAP-HF-claude: keep last capture for fixture work (fail-soft).
+                writeDebugDump(
+                    source: source,
+                    text: text,
+                    tag: "parseFailed",
+                    directory: dumpDirectory ?? debugDumpDirectory
+                )
                 return [unknown(source: source, reason: .parserFailed(observedAt: now), now: now)]
             }
             return parsed
@@ -151,6 +185,26 @@ public enum CapacityProbe {
         // iOS / non-macOS: no PTY vendor CLIs. Fail closed, never invent.
         return [unknown(source: source, reason: .neverSampled, now: now)]
         #endif
+    }
+
+    /// Best-effort write of a failed capture for parser re-fixturing.
+    static func writeDebugDump(
+        source: String,
+        text: String,
+        tag: String,
+        directory: URL
+    ) {
+        let safeSource = source
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "..", with: "_")
+        let name = "\(safeSource)-\(tag).txt"
+        let url = directory.appendingPathComponent(name)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try text.write(to: url, atomically: true, encoding: .utf8)
+        } catch {
+            // Fail-soft: dumps never break the strip.
+        }
     }
 
     /// Parse already-captured render text through the driver's pure extractor.
