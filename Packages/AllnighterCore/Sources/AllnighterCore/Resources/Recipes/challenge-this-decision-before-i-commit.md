@@ -10,7 +10,7 @@ Session-led blind jury (Spec Review team). Spec Review is the common recipe — 
 
 ## Teaching (keep in sync with TeachingSnippet)
 
-<!-- ALLNIGHTER:TEACHING v5 hash=5d05c3b988357e0a225ac98e55d8297520efcc86ad175d824daac6da9e295210 -->
+<!-- ALLNIGHTER:TEACHING v7 hash=6f8ad38c77f208e59e87ec9bb43740c1839eb67c5687fe2c02c3a0630e0469da -->
 1. Before first Allnighter use in a session, read `alln menu --json`.
 2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.
 3. Before an unfamiliar agent-starting action, run its validation template.
@@ -19,6 +19,8 @@ Session-led blind jury (Spec Review team). Spec Review is the common recipe — 
 6. Relay running ≠ dev running — check devRunId.
 7. Parallel feedback: `alln run --read-only --model …` — not `--no-commit` (that still queues).
 8. One mutator per repo root; `running` is not progress — inspect queue ticket and progressStale.
+9. Pilot/relay dev report is `pmTurn.report` (not `devLeg` — that is settle/liveness only).
+10. After a terminal team run, surface `artifact.path` / `artifact.openCommand` to the user — not only the lead answer.
 <!-- ALLNIGHTER:TEACHING:END -->
 
 ## Recipe
