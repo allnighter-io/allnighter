@@ -1,309 +1,383 @@
 # Agent-Visible Status
 
-Status: **OPEN — incident-driven (2026-07-30)**
-Audience: **agents using `alln`** (humans are rare on this surface)
-Created: 2026-07-30
-Revised: 2026-07-30 (add running≠advancing / progressStale incident)
+Status: **OPEN — incident-driven (2026-07-30)**  
+Audience: **agents using `alln`** (humans are rare on this surface)  
+Created: 2026-07-30  
+Revised: 2026-07-30 (hardened for implementation — cut sprawl, one contract, PR-sized slices)  
 Origin:
-- **Queue:** An agent dispatched three mutating runs and had no idea they were
-  queued. Work appeared to "do nothing."
-- **Liveness:** The same agent polled `status: running` and `HB_AGE` for hours
-  while Grok was stalled. The answer was in `progressStale: true` and
-  `silenceStatus: "alive, no stream for 397s"` — fields it never read.
+- **Queue:** An agent dispatched three mutating runs and never learned they were FIFO-queued. Work looked idle.
+- **Liveness:** The same agent polled `status: running` and `HB_AGE` for hours while Grok was stalled. Truth was already present as `progressStale: true` and `silenceStatus: "alive, no stream for 397s"` — fields it never read.
 
-Phases are ephemeral. At closeout: promote agent law into `Bootstrap` /
-`TeachingSnippet`, contract help, and `AGENTS.md` routing; code remains SSOT
-for fields; archive this packet.
+Phases are ephemeral. At closeout: promote agent law into `TeachingSnippet` / `Bootstrap`, contract help, and `AGENTS.md` routing; **code remains SSOT for fields**; archive this packet.
 
-**Code SSOT (today):** `RunService.swift` (write lock + FIFO ticket),
-`RunWriteLockRegistry`, `ExecutionLaneRegistry`, `RelayCoordinator` (`laneBlocked`),
-`ProcessOwnershipSurface` (`alln ps`), `AsyncTeamService.status` (`progressStale`,
-`silenceStatus`), `RunActivity`, `OwnershipSilencePresentation`,
-`NotificationCandidateDetection`.
+**Code SSOT (today):**
+| Concern | Owner |
+| --- | --- |
+| One mutator + FIFO ticket | `RunService.swift`, `RunWriteLockRegistry`, `ExecutionLaneRegistry` |
+| Blocker journal + wire | `RunService.recordBlockerTicket`, `TeamRunJSONMapper`, `TeamRunJSON.BlockerJSON` |
+| Blocked human/agent notice | `RunService.blockedNotice`, `reportWaits` |
+| Detached dispatch ack | `RunCLI.emitDispatchAck`, `DetachedDispatchJSON` |
+| Live team status | `AsyncTeamService.status`, `AsyncTeamStatusMapper`, `TeamStatusResponse` |
+| Floor list / process rows | `ProcessOwnershipSurface` (`alln ps`), `OwnershipJSON` |
+| Stall derivation | `RunActivity.progressStale`, `OwnershipSilencePresentation`, `StreamLiveness` |
+| Pilot parity (already has scream) | `PilotCLI` (`streamSilenceWarning`) |
+| Agent teaching | `TeachingSnippet`, `Bootstrap` |
+| Notifications (optional later) | `NotificationCandidateDetection`, `NotificationScheduler` |
 
 ---
 
-## The two rules (first principles)
+## Core promise
 
-### Rule 1 — One mutator per repo
+```text
+An agent can answer, from one status read after dispatch:
+
+  Is my mutating work advancing, queued, or stalled —
+  and what do I do next?
+```
+
+That is the whole product. Not more surfaces. Not a smarter queue. **Honest status at the moment the agent decides.**
+
+**Truth owner:** the run journal + write-lock ticket + stream progress clock. CLI/GUI only project; they never invent “healthy.”
+
+---
+
+## Product law (two rules — orthogonal axes)
+
+### Rule 1 — One mutator per repo root
 
 ```text
 On a given repo root, at most ONE mutating run executes at a time.
-Every other mutating run queues behind it — FIFO — until the holder finishes
-or is stopped.
+Every other mutating run queues FIFO until the holder finishes or is stopped.
+Research / judgment teams (mutating: false) never take the lock.
 ```
+
+| Run kind | Competes for write lock? |
+| --- | --- |
+| Mutating team run / build-class turn | **Yes** |
+| Relay / pilot dev turn / harness proof | **Yes** (same lane) |
+| Read-only research / judgment team | **No** — parallel OK |
+
+**Corollary:** There are no “two parallel mutating chains” on one root. Planning around that always fails quietly today — the fix is honesty, not concurrency.
 
 ### Rule 2 — Running is not advancing
 
 ```text
-status: running means the run has not finished.
-It does NOT mean the worker is making progress.
-
-Process alive (identityAlive) means the OS process still exists.
-It does NOT mean the worker stream is moving.
-
-To know if work is advancing, read progressStale (or silenceStatus).
-When progressStale is true, treat the run as STALLED until proven otherwise.
+status: running  → lifecycle: not terminal
+identityAlive    → OS process still exists
+heartbeatAgeSeconds / HB_AGE → seconds since lastProgressAt (stream silence age), NOT health OK
+progressStale    → no stream activity past budget while owner alive → STALLED
+silenceStatus    → human line: "alive, no stream for Ns"
 ```
 
-These are orthogonal axes. A run can be **running + alive + stalled** — and
-block every other mutating run on the repo while doing nothing useful.
+A run can be **running + alive + stalled** and block the entire mutating floor while doing nothing useful.
 
-| Field | What it actually means |
+| Field agents must use | Meaning |
 | --- | --- |
-| `status: running` | Lifecycle: not terminal yet |
-| `identityAlive: yes` | PID still exists (may be wedged, auth-prompt, zombie child) |
-| `heartbeatAgeSeconds` / `HB_AGE` | Seconds since **last stream activity** (`lastProgressAt`) — not a health OK |
-| `progressStale: true` | No stream activity for >60s (default budget) while owner alive |
-| `silenceStatus` | Human line: `alive, no stream for Ns` (+ stall diagnosis when known) |
-
-Pilot status already has `streamSilenceWarning` for this. Team/run status has
-the facts but not the scream.
-
-This is not a Cursor bug, a Codex bug, or a driver bug. It is the project
-invariant: **exactly one mutating worker per canonical repo root**
-(`RunService.swift`, `RunWriteLockRegistry`, architecture policy).
-
-| Run kind | Competes for write lock? |
-| --- | --- |
-| Mutating team run / build-class turn | **Yes** — one at a time per root |
-| Read-only research / judgment team | **No** — parallel is fine |
-| Relay dev turn / harness proof | **Yes** — same lane as mutating runs |
-
-**Corollary agents must internalize:** You cannot run "two parallel mutating
-chains" on the same repo. The architecture forbids it. Planning around that
-assumption will always fail quietly.
+| `status` | Lifecycle only |
+| `progressStale` / `silenceStatus` | Stall truth (already derived) |
+| `blocker` / `laneBlocked` | Queue truth (already recorded) |
+| **`advancing`** (this packet) | One bool: work is moving now |
+| **`nextAction`** | What to do — must not say `waitForStatus` while stalled or purely queued without ticket |
 
 ---
 
-## What actually happened (corrected)
+## What actually happened (facts only)
 
-1. **Grok (CAP-S07) held the write lock** — correctly, as the active mutating
-   run on that repo root.
-2. **Every other mutating dispatch queued behind it** — including Codex and
-   Cursor runs. That is correct behavior, not a serialization bug.
-3. **The dispatching agent received no queue signal** — three runs were accepted
-   and looked "started" from the caller's perspective while they sat in FIFO.
-4. **The Cursor zombie was a red herring** for the queue story. Killing a
-   12-hour-idle process was still the right hygiene; it did not explain why
-   queued runs stayed queued while Grok remained holder.
-5. **Lower-priority queued work steals the slot** — cancelling slice S05 (and
-   any other queued mutating run not on the critical path) prevents a later
-   FIFO entrant from jumping ahead of work that matters.
+1. Grok held the write lock correctly.
+2. Codex/Cursor mutating dispatches queued FIFO correctly.
+3. Dispatch returned “accepted / dispatched” without queue state → agent assumed work started.
+4. Cursor zombie was hygiene, not the queue root cause.
+5. Queued lower-priority slices still occupy FIFO — cancel work you will not run.
+6. Holder was **stalled** (`progressStale`, long silence), not advancing.
+7. Agent polled `running` + `HB_AGE`; never branched on `progressStale`.
+8. `nextAction` stayed `waitForStatus` while stalled.
+9. Stalled holder = floor-wide mutating outage until kill/finish.
 
-### Liveness incident (same session)
-
-6. **Grok (holder) was stalled, not advancing** — `progressStale: true`,
-   `silenceStatus: "alive, no stream for 397s"`. Process existed; stream did not.
-7. **Agent polled the wrong signals** — `status: running` and `HB_AGE` looked
-   fine. Those fields do not answer "is it stuck?"
-8. **Stall truth was buried** — `progressStale` and `silenceStatus` are in JSON;
-   `silenceStatus` prints on a second line under `alln ps` human output. Easy to
-   miss. `nextAction` still said `waitForStatus` while stalled.
-9. **Queue behind a stalled holder** — FIFO runs cannot start until the holder
-   finishes or is killed. A stalled holder is a **floor-wide outage** for mutating
-   work, not a local Grok problem.
+**Defect class:** honesty at decision points (dispatch + every status poll), not missing telemetry and not the lock itself.
 
 ---
 
-## Why agents get surprised
+## Minimum honest contract (agent-facing)
 
-Allnighter already records FIFO facts on blocked runs (`blocker.holderId`,
-`ticketPosition`, `holderAcquiredAt` via `RunService.recordBlockerTicket`) and
-surfaces `laneBlocked` on relay/pilot status. Relay agents are told to poll for
-it. **Mutating `alln run` dispatch does not close the loop:**
+One mental model. Three states for a mutating intent:
 
-| Gap | Effect on agents |
+| State | How the agent knows | Correct next move |
+| --- | --- | --- |
+| **Advancing** | `status` non-terminal, `advancing: true` | Wait with `waitHintSeconds` |
+| **Queued** | `status: queued` **or** blocker/ticket present; not holder | Wait, cancel self, or kill holder if stuck — do not spawn more mutators |
+| **Stalled** | `progressStale: true` or `streamSilenceWarning: true` | Inspect (`alln ps --json`), kill/reconcile holder, escalate — **do not** keep waiting on `running` |
+
+Non-mutating research can always run in parallel; teach that as the escape hatch, not a second write lane.
+
+---
+
+## Gaps (only the ones that bite)
+
+| Gap | Why agents fail |
 | --- | --- |
-| Dispatch ack looks like "running" | Agent assumes work started; moves on |
-| Queue entry does not notify | `NotificationCandidateDetection` ignores `.queued` transitions |
-| Ticket not in bootstrap / teaching | Agent never learns to check `blocker` or `alln ps` |
-| `--no-wait` / detached handoff | Caller exits before `reportWaits` prints `blockedNotice` |
-| No single "floor status" command | Agent must know run vs relay vs pending surfaces |
+| `--no-wait` / detached ack says `dispatched` with no ticket | Caller exits before `reportWaits` / `blockedNotice` |
+| Blocking path has `blockedNotice`; not all accept paths do | Inconsistent truth by entry surface |
+| `TeamStatusResponse` has `progressStale` but no pilot-style scream | Agents branch on `status` only |
+| `nextAction` ignores stall | Harness tells agent to wait on a wedged lock |
+| `HB_AGE` name implies heartbeat health | Agents treat rising age as OK or misread it |
+| Teaching never states Rule 1 + Rule 2 | Every new host agent rediscovers the lie |
 
-The defect is **honesty at dispatch time**, not the lock itself.
-
-### Why agents think stalled runs are fine
-
-| Gap | Effect on agents |
-| --- | --- |
-| `running` reads as healthy | Agent keeps polling; assumes work continues |
-| `HB_AGE` sounds like heartbeat | Agent thinks low age = fine; it is stream-silence age |
-| `progressStale` is optional JSON | Agents never fetch it; no top-level warning |
-| `silenceStatus` is a sub-line in `alln ps` | Buried under the row; not in status summary |
-| `nextAction: waitForStatus` while stale | Harness tells agent to keep waiting |
-| No `streamSilenceWarning` on team status | Pilot has it; `alln team status` does not |
-| Stall diagnosis exists but is optional | `alln ps` may append it — if agent reads line 2 |
-
-The defect is **one-glance status honesty**, not missing telemetry.
+**Already true (do not rebuild):**
+- FIFO ticket on journal (`recordBlockerTicket`)
+- `TeamRunJSON.blocker` projection
+- `progressStale` / `silenceStatus` derivation
+- `alln ps --json` rows with stall fields
+- Pilot `streamSilenceWarning`
+- `--idempotency-key` (opt-in; not silent collapse)
+- Reconcile-on-read for dead owners (CLP) — verify lock release in AVQ-S03 only if still broken
 
 ---
 
-## Recommendations (simple list)
+## Recommendations (collapsed product law — implement as slices below)
 
-Ordered by leverage. Each item is one sentence of product law.
+Ordered by leverage. Each line is law, not a wishlist.
 
-### P0 — Dispatch must tell the truth
+### Must ship (P0)
 
-1. **Never return bare success when a mutating run is only queued.** Every accept
-   path (`alln run`, team start, relay dev turn) must include queue state in the
-   response: `status: queued`, `laneBlocked` or `blocker` ticket, holder id,
-   position, `heldSinceSeconds`.
+1. **Dispatch never looks like “started” when only queued.** Every accept path — blocking `alln run`, team start, `--no-wait` ack, relay/pilot mutating turn — returns machine-readable queue state: `status: queued` (or explicit `laneBlocked` / `blocker`), holder id, ticket position, `heldSinceSeconds`. Stderr prints `blockedNotice` when a TTY/human path exists; JSON always carries the ticket.
 
-2. **Print the ticket immediately on stderr** when blocked — same text as
-   `RunService.blockedNotice` today, but mandatory for all dispatch surfaces,
-   including `--no-wait` and detached handoff ack JSON.
+2. **Status never looks healthy when stalled.** Every live status surface agents poll (`team status`, `alln ps`, pilot/relay if not already) exposes:
+   - `advancing: bool` = non-terminal ∧ ¬queued-behind-lock ∧ ¬progressStale  
+   - `streamSilenceWarning: bool` (same semantics as pilot / `StreamLiveness`)  
+   - `nextAction` that is **not** `waitForStatus` when stalled → `inspectStall` (point at `alln ps --json` + kill/reconcile)
 
-3. **Teach the invariant in `alln bootstrap`.** One paragraph: one mutating run
-   per repo; check `alln ps` before spawning another; read `blocker.ticketPosition`
-   on status; do not expect parallel mutating chains.
+3. **Teach both rules once** in `TeachingSnippet` (bootstrap paste). Agents re-learn every session from live menu + teaching — not from archaeology.
 
-4. **Add `alln floor status --json`** (or extend `alln ps`) as the single agent
-   preflight: who holds the write lock on this root, queue depth, ids of queued
-   runs, oldest holder age.
+### Should ship (P1)
 
-### P1 — Agents can plan around the lock
+4. **One floor preflight on existing `alln ps --json`** (no new noun unless `ps` cannot carry it): root write-lock holder, queue depth / ticket positions, holder `advancing` / `progressStale` / `silenceStatus`. Prefer extend `ProcessOwnershipSurface` over inventing `alln floor status`.
 
-5. **Preflight before mutating dispatch:** `alln floor status` returns
-   `slotAvailable: false` + holder summary when busy; agents wait, kill holder,
-   or route read-only work — not blind enqueue.
+5. **Human table honesty:** rename `HB_AGE` → `STREAM_AGE`; add `STALE` column so the primary row screams.
 
-6. **Cancel queued runs you're not executing.** Queued mutating runs are real
-   FIFO entries. Drop S05-style slices so they do not take the slot when the
-   holder clears.
+### Later / optional (P2 — not in critical path)
 
-7. **Separate "research now" from "build now" in agent prompts.** Judgment /
-   Spec Review teams (`mutating: false`) do not wait on the write lock. Use them
-   for parallel investigation while one mutating run holds the lane.
+6. Peer notification when a run enters queue or holder goes stale while blocking others (`NotificationCandidateDetection` + serve). Agents-first; only after P0 is proven.
+7. Terminal receipt fields: `queueMs`, max stall while holder (observability, not decision path).
+8. Auto-fail stalled holders past a threshold — **out of scope** unless founder authorizes; project law is fail honestly when we kill, never fake progress. Default remains agent/operator kill.
 
-8. **Surface ticket on run status JSON always** — not only after a long wait.
-   `TeamRunJSON.blocker` should be populated on first queue, same as relay
-   `laneBlocked`.
+### Explicit non-goals
 
-### P0 — Running must not look healthy when stalled
-
-9. **Add `streamSilenceWarning` to `TeamStatusResponse`** — same semantics as
-   pilot status: true when silence exceeds 6×`waitHintSeconds`. One bool agents
-   can branch on.
-
-10. **Derive `advancing: bool` on every status surface** — `advancing = running
-    && !progressStale && !laneBlocked`. Agents read one field; humans read one
-    column. False means investigate, not keep polling `running`.
-
-11. **Rename `HB_AGE` → `STREAM_AGE` in `alln ps` human table** — stop implying
-    process heartbeat. The number is seconds since `lastProgressAt`.
-
-12. **Promote stall to the primary row** — `STALE yes/no` column on `alln ps`;
-    when stale, prefix stderr summary on `alln team status --json` with the
-    `silenceStatus` line (pilot already prints warnings on human status).
-
-13. **Change `nextAction` when stalled** — not `waitForStatus`. Emit
-    `inspectStall` with concrete steps: `alln ps --json`, read stall diagnosis,
-    kill/reconcile holder, or escalate. Same pattern as pilot `nextActions`.
-
-14. **Teach Rule 2 in bootstrap** — `running ≠ advancing`. Every status poll must
-    check `progressStale` or `streamSilenceWarning`. `STREAM_AGE` rising while
-    `running` is the stall smell test.
-
-### P1 — Floor status ties queue + stall together
-
-15. **`alln floor status` reports holder health** — not just who holds the lock,
-    but `progressStale`, `silenceStatus`, and `advancing` on the holder. A stalled
-    holder explains why the whole FIFO is frozen.
-
-16. **Auto-populate `warnings[]` when `progressStale`** — e.g.
-    `"holder stalled: alive, no stream for 397s — mutating queue blocked"`.
-
-17. **Notify peer agents on stall, not only on terminal** — `alln serve`:
-    "run X stalled 6min, holding write lock, N queued behind." Agents are the
-    audience.
-
-### P2 — Stuck holder hygiene (feeds both incidents)
-
-18. **When holder is stale past threshold, fail holder honestly** — never fake
-    progress. Frees the lock for the FIFO.
-
-19. **Reconcile must clear the lane** — killing a holder via `alln ps` /
-    `team reconcile` must release the write lock and wake the next queued run.
-
-20. **Notify peer agents when a run enters the queue** — optional `alln serve`
-    notification: "run X is #3 behind run Y (held 4h)."
-
-### P3 — Policy agents can follow without archaeology
-
-21. **Document the impossibility of parallel mutating chains** in agent teaching
-    and error `agentAction` strings.
-
-22. **Idempotency keys on `alln run`** — retries should not mint three queued runs
-    for one intent.
-
-23. **Queue + stall facts on terminal receipts** — `gateWaitMs`, `queueMs`,
-    `ticketPosition`, max stall duration while holder.
+- Raising mutating concurrency (architecture law).
+- Driver-specific spawn gates (e.g. Cursor process-wide) — separate from per-repo write lock.
+- Human GUI polish — follows JSON truth later.
+- Silent idempotent collapse of intentional duplicate runs — keep `--idempotency-key` opt-in.
+- New status microservices or “floor manager” product surface.
 
 ---
 
-## Agent playbook (today, before slices ship)
+## Agent playbook (valid today; slices only make it louder)
 
 ```text
-BEFORE a mutating dispatch on a repo root:
-  alln ps --json          # who holds the lane? any queued runs?
-  # Read progressStale + silenceStatus on the holder — not just status:running.
-  # If holder is stalled, kill/reconcile it BEFORE enqueueing more mutating work.
+BEFORE mutating dispatch on a repo root:
+  alln ps --json
+  # Read holder progressStale + silenceStatus, not status alone.
+  # If holder stalled → kill/reconcile BEFORE enqueueing more mutators.
 
 AFTER alln run / team start (especially --no-wait):
   alln team status <id> --json
-  # Queued? read blocker.ticketPosition, holderId.
-  # Running? read progressStale and silenceStatus — NOT status alone.
-  # progressStale:true → run is STALLED. Inspect (alln ps), kill holder, or escalate.
+  # Queued?  blocker.ticketPosition + holderId
+  # Running? progressStale / silenceStatus  (never status alone)
+  # progressStale:true → STALLED. Inspect, kill holder, or escalate.
 
-EVERY poll while status is running:
-  if progressStale == true OR silenceStatus contains "no stream for":
-    # Do NOT assume fine. Do NOT only check HB_AGE.
-    # Inspect stall diagnosis, kill wedged holder, or switch to read-only work.
+EVERY poll while non-terminal:
+  if progressStale OR silenceStatus contains "no stream for":
+    DO NOT keep waiting as if healthy.
 
-WHILE waiting in FIFO:
-  # Do not busy-loop. Harness owns the wait (EXECUTION_LANE_BUSY agentAction).
-  # If the holder is stalled, you are waiting on a wedged lock — kill holder first.
+WHILE in FIFO:
+  Harness owns the wait. Do not busy-loop. Do not spawn another mutator.
+  If holder stalled, you are blocked on a wedge — free the holder first.
 
-WHEN deprioritizing work:
-  alln run cancel <id>    # drop queued mutating runs not on the critical path
+WHEN deprioritizing:
+  cancel queued mutating runs not on the critical path (they still hold FIFO seats).
+
+PARALLEL work that is always legal:
+  judgment / research teams (mutating: false) while one mutator holds the root.
 ```
 
 ---
 
-## Suggested slices
+## Slices (dependency order — one PR each)
 
-| Slice | Delivers |
-| --- | --- |
-| **AVQ-S00** | Dispatch ack JSON + stderr always include queue ticket when `status: queued` |
-| **AVQ-S01** | `alln floor status --json` (write-lock holder + queue + holder `advancing`) |
-| **AVQ-S02** | Bootstrap + `TeachingSnippet`: Rule 1 (one mutator) + Rule 2 (running≠advancing) |
-| **AVQ-S03** | Reconcile/kill holder → release write lock → wake next FIFO entrant |
-| **AVQ-S04** | Peer-agent notification on queue admission (serve scheduler) |
-| **AVQ-S05** | `streamSilenceWarning` + `advancing` on `TeamStatusResponse`; stale changes `nextAction` |
-| **AVQ-S06** | `alln ps` human table: `STREAM_AGE` + `STALE` column; stall on primary row |
-| **AVQ-S07** | Peer-agent notification when holder goes `progressStale` while blocking queue |
+Start **AVQ-S00** and **AVQ-S01** first (queue honesty + stall honesty). Teaching can ship with either. Extend `ps` after the two fields exist. Notifications last.
 
-Start at **AVQ-S00** and **AVQ-S05** in parallel — queue honesty and stall honesty
-are the same product failure class.
+### AVQ-S00 — Dispatch ack tells the truth when queued
+
+**Delivers:** No accept path returns bare success/`dispatched` for a mutating run that is only waiting on the write lock without ticket facts.
+
+**Touches:**
+- `Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift` (`blockedNotice`, ticket recording path)
+- `Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift` (`emitDispatchAck`, `runNoWait`)
+- `DetachedDispatch` / `DetachedDispatchJSON` (ack envelope fields)
+- Team start path that accepts async runs (same ticket projection)
+- Relay/pilot mutating entry if it can ack before lane acquire (parity with `laneBlocked`)
+- Tests: extend `BlockedRunIsAnnouncedTests`; add no-wait ack fixture when lock held
+
+**Acceptance:**
+1. With a holder on root R, `alln run --no-wait --json …` ack includes queue ticket (holder id, position, heldSinceSeconds) or `status: queued` + `blocker` — not only `status: "dispatched"`.
+2. Blocking path still prints `blockedNotice` on stderr within first wait cycle.
+3. Read-only / non-mutating team start does **not** get a write-lock ticket.
+4. Contract schema / help mention the ack fields if wire shape changes.
+
+**Depends on:** nothing  
+**Works test:** hold lock with fixture run → second mutating `--no-wait --json` → assert ticket present.
 
 ---
 
-## Non-goals
+### AVQ-S01 — Status scream: `advancing` + stall `nextAction`
 
-- **Raising the mutating concurrency limit** — violates project law.
-- **Driver-specific queue UX** — `cursor_agent` serialization is a separate,
-  process-wide spawn gate; this packet is about **per-repo write lock** only.
-- **Human GUI polish** — agents are the customer; GUI may follow JSON truth.
+**Delivers:** One bool and one honest next action on team status (pilot already has `streamSilenceWarning`).
+
+**Touches:**
+- `AsyncTeamContracts.swift` (`TeamStatusResponse` fields)
+- `AsyncTeamStatusMapper.swift` (`nextAction` branches)
+- `AsyncTeamService.status` (populate `progressStale` path → also `advancing`, `streamSilenceWarning`)
+- `StreamLiveness.swift` (reuse; do not fork thresholds)
+- `ContractSchema.swift` + generated help if required
+- Tests: `AsyncTeamLifecycleTests`, status fixture with frozen `lastProgressAt`
+
+**Acceptance:**
+1. `advancing == true` only when non-terminal, not write-lock-queued, and not `progressStale`.
+2. When `progressStale == true`, `streamSilenceWarning == true` under pilot-equivalent budget (document multiplier; prefer shared `StreamLiveness`).
+3. Stalled → `nextAction.kind == inspectStall` (or equivalent), command points at `alln ps --json` / status inspect — **not** `waitForStatus`.
+4. Queued-behind-lock → next action is wait-or-inspect holder, not “fetch result.”
+5. Terminal runs: `advancing` false/absent; next action remains `fetchResult`.
+
+**Depends on:** none (parallel with S00)  
+**Works test:** fixture running + silence > budget → status JSON has `progressStale`, `advancing: false`, non-wait nextAction.
+
+---
+
+### AVQ-S02 — Teaching: Rule 1 + Rule 2 in the paste block
+
+**Delivers:** Every bootstrap/teaching install states the two rules and the poll fields.
+
+**Touches:**
+- `TeachingSnippet.swift` (schemaVersion bump; reflex lines — keep protocol-only, no model catalogs)
+- `Bootstrap.swift` if extra prose outside markers is needed (prefer inside teaching body)
+- Tests for hash/install state (`TeachingSnippet` parse tests)
+
+**Acceptance:**
+1. Teaching body includes: one mutator per root; `running ≠ advancing`; read `progressStale` / ticket / (after S01) `advancing`.
+2. Schema version + content hash update; doctor install states still work.
+3. No new CLI verbs; no embedded team/model lists.
+
+**Depends on:** can ship with S00 or S01; if S01 lands first, mention `advancing`.
+
+---
+
+### AVQ-S03 — `alln ps` primary-row honesty (+ floor preflight)
+
+**Delivers:** Human table and JSON make queue + stall obvious without a second command.
+
+**Touches:**
+- `ProcessOwnershipSurface.swift` (header `HB_AGE` → `STREAM_AGE`; `STALE` column; silence already on line 2 — promote)
+- `OwnershipJSON.swift` if aggregate floor summary fields needed
+- Prefer **extend** `alln ps --json` with optional root summary (`writeLockHolder`, `queueDepth`, holder advancing) over new `alln floor status`
+- Help: `ContractRegistry` / `HelpTopicRegistry` (“queued”, “stalled”, “write lock”)
+- Tests: `ProcessOwnershipSurfaceTests`
+
+**Acceptance:**
+1. Human table shows stream age under non-heartbeat name; STALE visible on primary row when `progressStale`.
+2. `alln ps --json` for a busy root answers: who holds, who is queued, is holder advancing — without reading a second tool.
+3. Default `ps` filter law from CLP preserved (`--all` for museum).
+
+**Depends on:** S01 fields ideal but can derive `progressStale` already present on rows.
+
+---
+
+### AVQ-S04 — Kill/reconcile frees the lane (proof, not redesign)
+
+**Delivers:** Proof that killing the holder releases the write lock and wakes the next FIFO entrant. Fix only if broken.
+
+**Touches (if fix needed):**
+- `KillSettlement.swift`, `ProcessOwnershipSurface` reconcile path, `RunWriteLock` / `ExecutionLaneRegistry`
+- Tests: kill holder → next queued run acquires
+
+**Acceptance:**
+1. Kill/reconcile terminal holder → lock free within one status poll.
+2. Next FIFO ticket becomes holder (or runs) without manual second reconcile on happy path.
+3. No fake “done” for stalled-but-alive without explicit kill (still operator/agent choice).
+
+**Depends on:** S00 useful for observing queue; not blocked by S01.
+
+---
+
+### AVQ-S05 — (Deferred) Peer notify on queue admit / holder stall
+
+**Delivers:** `alln serve` can notify when mutating queue depth > 0 or holder becomes stale while others wait.
+
+**Touches:** `NotificationCandidateDetection.swift`, serve scheduler  
+**Acceptance:** transition-edge only (not spam every poll); agents/founder are audience.  
+**Depends on:** S00 + S01 field stability. **Do not start until P0 proven in dogfood.**
+
+---
+
+## Implementation order
+
+```text
+AVQ-S00 ─┐
+         ├─→ AVQ-S02 (teaching) ─→ AVQ-S03 (ps row / floor summary)
+AVQ-S01 ─┘                              │
+                                        ↓
+                                   AVQ-S04 (lane free proof)
+                                        ↓
+                                   AVQ-S05 (notify, optional)
+```
+
+Parallel: S00 ∥ S01. S02 can pair with either PR. S03 after at least S01. S05 last.
+
+---
+
+## Moat (why this is not ChatGPT brainstorming)
+
+| Alternative | Why it loses here |
+| --- | --- |
+| Single-vendor IDE native queue | One CLI only; no cross-CLI write lock across Claude/Codex/Cursor/Grok |
+| Generic “listen to process” tools | No ownership of Allnighter FIFO ticket or run journal |
+| Chat brainstorming “just poll status” | Without field discipline, agents poll the lying fields forever |
+| Adding more agent features | Amplifies silent queue + silent stall |
+
+**Defensible loop this packet designs for (wire later OK):**
+
+```text
+dispatch → honest state (queued | advancing | stalled)
+        → agent action (wait | cancel | kill | research-parallel)
+        → throughput / fewer wedged floors
+        → teaching + nextAction encode the lesson for the next session
+```
+
+**Missing feedback paths (flag, do not fake):**
+- No per-host metric that “agent polled `running` for N minutes while `progressStale`” — product cannot yet auto-tune teaching per niche.
+- No closed loop from queue wait histograms → bootstrap copy.
+- P2 notifications are awareness only until an agent consumes them into action.
+
+Ship the decision contract first; measurement hooks (`queueMs`, stall duration on receipt) are optional fuel for a later loop — not a substitute for honesty.
+
+---
+
+## Hidden assumptions (call out)
+
+1. Agents will re-read status JSON fields if they are obvious and `nextAction` points correctly — teaching alone is insufficient; **nextAction is the harness lever**.
+2. Stream silence is a good stall proxy (project already chose this; do not invent CPU sampling here).
+3. One root = one lock domain (canonical repo root), not “project” abstraction drift.
+4. `--no-wait` is the common agent path — blocking `reportWaits` is not enough.
+5. Founder will not authorize auto-kill of stalled holders in this phase.
 
 ---
 
 ## Success criteria
 
-An agent operating on a busy root can answer, without human help:
+An agent on a busy root can answer **without human help**:
 
 1. How many mutating runs are queued vs actually advancing?
 2. Who holds the lock, are they stalled, and for how long?
-3. What to kill/cancel so critical path work can run?
-4. Whether parallel mutating work was ever possible (no).
-5. Whether `status: running` means work is moving (only when `advancing: true`).
+3. What to kill/cancel so critical-path work can run?
+4. Whether parallel mutating work was ever possible (**no**).
+5. Whether `status: running` means work is moving (**only if `advancing: true`**).
+
+**Closeout bar:** after S00–S03, a triple-dispatch dogfood cannot silently sit behind a stalled holder while the agent believes all three are “running fine.”
