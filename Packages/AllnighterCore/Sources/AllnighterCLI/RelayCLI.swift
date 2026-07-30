@@ -131,12 +131,49 @@ enum RelayCLI {
             runStore: runStore
         )
         json.waitOutcome = waitOutcome?.rawValue
+        // OUR-S02: same live usage hero as pilot status (active linked dev seat).
+        let liveUsage = ObservedUsagePresentation.liveDevUsage(state: state, runStore: runStore)
+        let startedAt = state.rounds.last?.startedAt
+        let elapsed = (state.status == .running)
+            ? startedAt.map { max(0, Int(Date().timeIntervalSince($0))) }
+            : nil
+        let lastProgress = StreamLiveness.relayStreamLastActivityAt(state: state, runStore: runStore)
+        let silence = lastProgress.map { max(0, Int(Date().timeIntervalSince($0))) }
+        let hero: String? = {
+            guard state.status == .running else { return nil }
+            return ObservedUsagePresentation.liveHeroLine(
+                ownerAlive: nil,
+                silenceAgeSeconds: silence,
+                elapsedSeconds: elapsed,
+                usagePresentation: liveUsage?.presentation
+            )
+        }()
         if opts.flag("json") {
-            print(AllnighterCLI.jsonString(json))
+            // Additive top-level keys for agents; durable RelayJSON stays status truth.
+            var envelope: [String: Any] = [:]
+            if let data = try? JSONEncoder().encode(json),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                envelope = obj
+            }
+            if let liveUsage {
+                if let data = try? JSONEncoder().encode(liveUsage),
+                   let obj = try? JSONSerialization.jsonObject(with: data) {
+                    envelope["observedUsage"] = obj
+                }
+                envelope["usagePresentation"] = liveUsage.presentation
+            }
+            if let hero { envelope["liveLine"] = hero }
+            if let data = try? JSONSerialization.data(withJSONObject: envelope),
+               let s = String(data: data, encoding: .utf8) {
+                print(s)
+            } else {
+                print(AllnighterCLI.jsonString(json))
+            }
         } else {
             print(RelayDispatch.humanRelaySummary(json))
             let log = RelayDispatch.humanRoundLog(json)
             if !log.isEmpty { print(log) }
+            if let hero { print(hero) }
             if let line = PilotCLI.humanDevLegLine(
                 StreamLiveness.devLegProjection(state: state, runStore: runStore)
             ) {

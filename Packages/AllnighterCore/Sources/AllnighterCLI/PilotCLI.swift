@@ -945,6 +945,11 @@ enum PilotCLI {
             print(RelayDispatch.humanRelaySummary(relayJSON))
             let log = RelayDispatch.humanRoundLog(relayJSON)
             if !log.isEmpty { print(log) }
+            // OUR-S02: human path must print hero live line (not JSON-only).
+            let status = makeStatusJSON(
+                state: state, recovery: recovery, stateStore: stateStore, runStore: runStore
+            )
+            if let live = status.liveLine { print(live) }
             if let line = humanDevLegLine(devLeg) { print(line) }
             if let recoveryLine { print(recoveryLine) }
             if let waitOutcome { print("wait outcome: \(waitOutcome.rawValue)") }
@@ -973,6 +978,21 @@ enum PilotCLI {
             runStore: runStore, gitObserver: gitObserver, now: now
         )
         let devLeg = StreamLiveness.devLegProjection(state: state, runStore: runStore)
+        // OUR-S02: observed usage for active linked dev seat (nil when no devRunId).
+        let liveUsage = ObservedUsagePresentation.liveDevUsage(
+            state: state, runStore: runStore
+        )
+        let usagePresentation = liveUsage?.presentation
+        let heroLine: String? = {
+            guard state.status == .running,
+                  longJob.elapsedSeconds != nil || liveUsage != nil else { return nil }
+            return ObservedUsagePresentation.liveHeroLine(
+                ownerAlive: longJob.ownerAlive,
+                silenceAgeSeconds: longJob.silenceAgeSeconds,
+                elapsedSeconds: longJob.elapsedSeconds,
+                usagePresentation: usagePresentation
+            )
+        }()
         let pmTurn = PMTurnStatusProjection.load(
             kind: .relay,
             subjectId: state.id,
@@ -1009,11 +1029,16 @@ enum PilotCLI {
             commitsSinceBaseline: longJob.commitsSinceBaseline,
             waitHintSeconds: longJob.waitHintSeconds,
             watcherDisposable: longJob.watcherDisposable,
-            devLeg: devLeg
+            devLeg: devLeg,
+            observedUsage: liveUsage,
+            usagePresentation: usagePresentation,
+            liveLine: heroLine
         )
     }
 
-    /// Stream-primary long-job fields (PLT-S02 + PLS-S01). Nil/omit when not `.running` with a live handoff.
+    /// Stream-primary long-job fields (PLT-S02 + PLS-S01 + OUR-S02).
+    /// Emit while `.running` with a live handoff **or** a linked `devRunId`
+    /// (dead-owner / silent-stream still need hero duration + usage segments).
     static func longJobStatusFields(
         state: RelayState,
         recovery: InFlightRecovery,
@@ -1031,7 +1056,8 @@ enum PilotCLI {
         waitHintSeconds: Double?,
         watcherDisposable: Bool?
     ) {
-        guard state.status == .running, recovery == .handoffAlive else {
+        let hasDevLeg = state.rounds.last?.devRunId != nil
+        guard state.status == .running, recovery == .handoffAlive || hasDevLeg else {
             return (nil, nil, nil, nil, nil, nil, nil, nil)
         }
         let startedAt = state.rounds.last?.startedAt
@@ -1041,15 +1067,16 @@ enum PilotCLI {
         let warnThreshold = Int(StreamLiveness.waitHintSeconds * StreamLiveness.warningMultiplier)
         let streamWarning = silence.map { $0 > warnThreshold } ?? false
         let commits = commitsSinceBaseline(state: state, gitObserver: gitObserver)
+        let alive = recovery == .handoffAlive
         return (
             elapsedSeconds: elapsed,
-            ownerAlive: true,
+            ownerAlive: alive,
             lastProgressAt: lastProgress,
             silenceAgeSeconds: silence,
             streamSilenceWarning: streamWarning,
             commitsSinceBaseline: commits,
-            waitHintSeconds: statusWaitHintSeconds,
-            watcherDisposable: true
+            waitHintSeconds: alive ? statusWaitHintSeconds : nil,
+            watcherDisposable: alive
         )
     }
 
@@ -1443,6 +1470,12 @@ struct PilotStatusJSON: Encodable {
     let watcherDisposable: Bool?
     var waitOutcome: String?
     let devLeg: RelayDevLegProjection?
+    /// OUR-S02: structured observed usage for the active linked dev seat.
+    let observedUsage: LiveUsageProjection?
+    /// OUR-S02: compact tok or blame string (human + JSON parity).
+    let usagePresentation: String?
+    /// OUR-S02: full hero line (`alive · stream … · duration · tok/blame`).
+    let liveLine: String?
 
     init(
         relay: RelayJSON,
@@ -1460,7 +1493,10 @@ struct PilotStatusJSON: Encodable {
         waitHintSeconds: Double? = nil,
         watcherDisposable: Bool? = nil,
         waitOutcome: String? = nil,
-        devLeg: RelayDevLegProjection? = nil
+        devLeg: RelayDevLegProjection? = nil,
+        observedUsage: LiveUsageProjection? = nil,
+        usagePresentation: String? = nil,
+        liveLine: String? = nil
     ) {
         self.relay = relay
         self.pmTurn = pmTurn
@@ -1478,6 +1514,9 @@ struct PilotStatusJSON: Encodable {
         self.watcherDisposable = watcherDisposable
         self.waitOutcome = waitOutcome
         self.devLeg = devLeg
+        self.observedUsage = observedUsage
+        self.usagePresentation = usagePresentation
+        self.liveLine = liveLine
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1498,13 +1537,16 @@ struct PilotStatusJSON: Encodable {
         try c.encodeIfPresent(watcherDisposable, forKey: .watcherDisposable)
         try c.encodeIfPresent(waitOutcome, forKey: .waitOutcome)
         try c.encodeIfPresent(devLeg, forKey: .devLeg)
+        try c.encodeIfPresent(observedUsage, forKey: .observedUsage)
+        try c.encodeIfPresent(usagePresentation, forKey: .usagePresentation)
+        try c.encodeIfPresent(liveLine, forKey: .liveLine)
     }
 
     private enum CodingKeys: String, CodingKey {
         case relay, pmTurn, notes, pmTurnDelivery, recovery, nextActions
         case elapsedSeconds, ownerAlive, lastProgressAt, silenceAgeSeconds
         case streamSilenceWarning, commitsSinceBaseline, waitHintSeconds, watcherDisposable
-        case waitOutcome, devLeg
+        case waitOutcome, devLeg, observedUsage, usagePresentation, liveLine
     }
 }
 
