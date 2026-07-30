@@ -105,8 +105,9 @@ public struct ProcessOwnershipSurface: Sendable {
             return "no owned process trees"
         }
         var lines: [String] = []
+        // AVQ-S02: STREAM_AGE is stream progress age (not process heartbeat).
         let header = pad("ID", 28) + pad("KIND", 8) + pad("ALIVE", 7)
-            + pad("WOULD_REAP", 11) + pad("END", 18) + pad("HB_AGE", 10) + "ROOT"
+            + pad("WOULD_REAP", 11) + pad("END", 18) + pad("STREAM_AGE", 12) + "ROOT"
         lines.append(header)
         lines.append(String(repeating: "-", count: min(header.count, 100)))
         for p in envelope.processes {
@@ -115,14 +116,16 @@ public struct ProcessOwnershipSurface: Sendable {
             let end = p.endReason ?? "-"
             let age: String
             if let s = p.heartbeatAgeSeconds {
-                age = String(format: "%.0fs", s)
+                let base = String(format: "%.0fs", s)
+                // Mark stale stream on the primary row (not only a secondary line).
+                age = p.progressStale == true ? "\(base)*STALE" : base
             } else {
-                age = "-"
+                age = p.progressStale == true ? "*STALE" : "-"
             }
             let root = p.projectRoot ?? "-"
             lines.append(
                 pad(p.id, 28) + pad(p.kind, 8) + pad(alive, 7)
-                    + pad(reap, 11) + pad(end, 18) + pad(age, 10) + root
+                    + pad(reap, 11) + pad(end, 18) + pad(age, 12) + root
             )
             if let silence = p.silenceStatus {
                 lines.append("  \(silence)")
