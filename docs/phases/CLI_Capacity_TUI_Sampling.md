@@ -609,12 +609,48 @@ retrospective ledger.
 Show the two numbers; do not compute a judgment. The pace comparison runs
 silently to decide who gets named — it never speaks.
 
+### Refresh — three affordances, three jobs (LOCKED 2026-07-30)
+
+Not one control. Three, each for a different moment:
+
+| Affordance | Who | When |
+| --- | --- | --- |
+| **Refresh all** (one control) | human | the routine glance — keeps every row contemporaneous so the strip stays *comparable*, which is the whole point |
+| **The age chip IS the per-row refresh button** | human | one row looks stale and you distrust it |
+| **`--refresh --source <id>`** | agent | a lead about to dispatch to one seat refreshes only that seat |
+| **Automatic pre-dispatch refresh** | nobody clicks it | the instant before work starts on a seat — when the number *must* be right |
+
+**Why the age chip and not a refresh icon column.** The age column is what
+*creates* the urge: a row reading `4h ago` provokes "refresh that one", while a
+row reading `now` does not. Putting the control on the staleness signal itself
+means it needs no explanation and adds no chrome to fresh rows. A separate icon
+column would sit there uselessly on every healthy row.
+
+```text
+Grok    X Premium+   46%  1d 2h        4h ago ↻     ← click the age
+```
+
+Behaviour: only that row spins. **Never grey or block the other rows** — one slow
+CLI must not make the whole bench look dead. Refresh-all remains the primary
+control so the routine path still produces a coherent snapshot.
+
+**Rejected: a per-row refresh icon on every row.** It rebuilds the per-CLI
+checking loop this product exists to kill, and encourages a habit of refreshing
+seats one at a time. Mixed row ages are acceptable — they already happen — and
+the age column keeps them honest.
+
 ### Still open
 
 - Calm-state hero height — does "Everything has room" earn 132px on a normal
   day, or shrink and accept a small shift?
 - Whether the hero CTA ships in the same slice as the strip (it is a real
   feature, not decoration).
+- **The Mac capacity surface does not exist yet.** Verified 2026-07-30: no file
+  under `Apps/AllnighterMac` references `CapacityStripRenderer`,
+  `CapacityBenchProjection` or `CapacityAcquisition`. The strip is **CLI-only**.
+  Everything in this §Launch surface — the hero, the row model, the age-chip
+  refresh — is designed and locked but unbuilt. That GUI slice is the largest
+  remaining piece of this packet.
 
 ---
 
