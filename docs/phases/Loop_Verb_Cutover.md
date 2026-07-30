@@ -1,6 +1,6 @@
 # Loop Verb Cutover — `alln loop delegate` / `alln loop pilot`
 
-Status: **Draft v2 — founder approved 2026-07-30; reviewed 2026-07-30 (Cursor Grok 4.5, Doc Review); not started**
+Status: **Draft v3 — founder approved 2026-07-30; reviewed 2026-07-30 (Cursor Grok 4.5, Doc Review); naming closed; not started**
 Owner: Founder ruling; implementer TBD
 Updated: 2026-07-30
 
@@ -28,6 +28,13 @@ sheet redesign is **§8 — a separate slice**, deliberately landed after the na
 > claim the gate cannot support. All three are corrected below, and v1's verb
 > map was missing five of Pilot's six subcommands. See §7 for the full review
 > disposition.
+>
+> **v3 note.** Naming is **closed** (§3). The review's Delegate-collision
+> objection is withdrawn on a false premise — `delegate` has zero occurrences in
+> the CLI. `autopilot | pilot` was proposed, seriously considered, and rejected:
+> a minimal pair is a closed set of two, and attendedness is orthogonal to type.
+> §3 now carries the law that protects the type slot, plus the known debt that
+> `pilot` — not `delegate` — is the misfit sitting in it.
 
 ---
 
@@ -167,49 +174,89 @@ reason for the rename; a real cleanup that falls out of it.
 
 ---
 
-## 3. Naming — `delegate`, and the standing objection
+## 3. Naming — the type slot holds *whats*, not postures
 
-**Delegation Loop** was approved because it lands on a word already locked in the
-vocabulary. Delegate is "hand intent to a team." The loop is: delegate, review
-the commits, delegate again, until delivered.
+**Ruling: `delegate`. Closed 2026-07-30.** The v2 "standing objection" is
+withdrawn on verified facts (below), and the `autopilot` alternative is rejected
+on the axis argument (below). Do not relitigate either.
 
-Rejected — **Pair Programming Loop**: pair programming is two people at one
-keyboard, synchronous, both present. This is one agent briefing another and
-reviewing its commits after the fact. It also hardcodes *programming* into a loop
-that should run Design and Copy work.
+### The law this section exists to protect
 
-Rejected — **`Loop` alone as the feature name**: burns the family name on one
-member.
+> **The type slot names what the loop DOES. Attendedness is a different axis and
+> must never be spent there.**
 
-### Standing objection (review, 2026-07-30) — founder may want to re-rule
+Every plausible future loop — research, review, migration, debug — differs by
+*what it does*, and each could run attended or unattended. Attendedness is
+therefore **orthogonal** to type. Burn the type slot on a posture and the day
+`alln loop research` ships it sits beside a sibling that answers a different
+question — a category error visible in `alln menu --json`, unfixable without
+another cutover.
 
-The reviewer argues `delegate` is not one act at two durations but **two
-different acts sharing a stem**:
+`delegate` passes: it names an act — this loop hands work to another agent, slice
+by slice — occupying the same slot a future `research` or `review` would.
 
-| Locked `Delegate` | Proposed `loop delegate` |
-| --- | --- |
-| One turn, judgment / send | Many turns, PM↔dev until done |
-| Team is the actor | Spawned PM + a mutating dev seat |
-| UI: Send to team | UI: Delegation Loop |
+### Rejected — `autopilot | pilot`
 
-`Delegate` is locked at `Product_Vocabulary.md:21` with a whole packet
-(`Team_Delegation_Surface.md`) and a composer Team tab built on that meaning. An
-agent reading `alln menu --json` sees `delegate` beside recipes that already mean
-Send-to-team. Proposed alternatives: **`unattended | pilot`** (matches how the
-loop is actually described) or **`spawned | pilot`** (mirrors on-disk
-`RelayState.pmMode`).
+Proposed 2026-07-30 and genuinely attractive: a minimal pair sharing a stem, one
+morpheme carrying the whole semantic difference, self-teaching for a cold agent,
+and it dissolves the Delegate collision by deleting the word.
 
-**Disposition — keep `delegate`, with a mitigation.** The family word does the
-disambiguating: `loop delegate` is never bare `delegate`, and no menu entry shows
-one without the other. `unattended` and `spawned` name a *posture*, not an act,
-and they degrade at the surface the founder actually cares about — "Unattended
-Loop" is a worse Mac label than "Delegation Loop." **Mitigation, required:** the
-`loop delegate` menu entry ships a `dontUseWhen` that names the collision
-explicitly ("not one-shot Send to team — that is `alln run --team`"). The menu
-format already supports this; it is the cheap fix for the real confusion.
+**Rejected because a minimal pair is a closed set of two.** `autopilot|pilot` is
+one axis with both values already spent — the property that makes it elegant is
+exactly what makes it unextendable. It also commits the family to the aviation
+metaphor, which a third type would have to satisfy or visibly break.
 
-This is recorded as an **open objection, not a closed one** (§9). It is the one
-item in the packet a founder re-ruling would change.
+Recorded here so it is not re-proposed. It is the best *wrong* answer in this
+section.
+
+### Rejected — `Pair Programming Loop`
+
+Pair programming is two people at one keyboard, synchronous, both present. This
+is one agent briefing another and reviewing its commits after the fact. It also
+hardcodes *programming* into a loop that should run Design and Copy work.
+
+### Rejected — `Loop` alone as the feature name
+
+Burns the family name on one member.
+
+### Withdrawn — the "Delegate collision" objection (false premise)
+
+v2 recorded a review objection that `loop delegate` collides with locked one-shot
+`Delegate`, and added a required `dontUseWhen` mitigation. **Both are withdrawn.**
+Grep, 2026-07-30 — `delegate` does not exist in the CLI:
+
+- `alln menu --json` — **zero** occurrences
+- No verb, no flag, no JSON key, no contract `CommandSpec`
+- `Product_Vocabulary.md:21` — a **doc-layer** word whose own entry states the UI
+  label is "Send to team"
+- `HelpTopicRegistry.swift:191` — **one search alias**, so `alln help search
+  delegate` finds the send-to-team topic
+
+So the "locked" word is one we use *about* the product in docs, not *in* the
+product. There is nothing in the agent-facing surface to collide with, and the
+mitigation is unnecessary.
+
+**One real consequence survives:** that help alias will point the wrong way once
+`alln loop delegate` ships. Re-point or disambiguate it in **LVC-S03**. One line,
+not a naming problem.
+
+### Known debt — `pilot` is the misfit, not `delegate`
+
+By this section's own law, `pilot` is attendedness wearing a type's clothes. It
+is grandfathered into the type slot because it is the shipped word and there is
+no second genuine *what* yet to force the issue.
+
+The forward-compatible grammar is almost certainly `alln loop <type>` with
+attendedness as a **modifier**. When a second real type arrives, re-home `pilot`
+then — do not pre-build that machinery now, and do not let an implementer
+pattern-match a third type onto the attendedness axis because `pilot` sits there.
+**This paragraph is the warning that prevents that.**
+
+### "Dev" has the craft problem too
+
+`--dev-model`, "Dev seat" — fine while the loop is code-first, but the label lies
+the moment Design or Copy runs through it. **Not solved here.** Do not promote
+`dev` into `Product_Vocabulary.md`, so a later rename stays free.
 
 ### "Dev" has the craft problem too
 
@@ -382,7 +429,7 @@ Driver/protocol impact: none. Auth/privacy/permissions impact: none.
 | Gate does not scan the docs v1 claimed (`check.sh:93-99`) | ✅ | **Accepted** — claim corrected, widening the gate added to S01 |
 | S00-before-binary teaches phantom verbs | ✅ | **Accepted** — S00–S05 now one merge unit |
 | Mac app keys off the verb (launcher argv, status loader) | ✅ | **Accepted** — §6 |
-| `delegate` collides with locked one-shot Delegate | ✅ collision real | **Partially accepted** — keeping `delegate`; `dontUseWhen` mitigation added; objection recorded standing (§3, §9) |
+| `delegate` collides with locked one-shot Delegate | ❌ **false premise** | **Rejected (v3).** `delegate` has zero occurrences in `alln menu --json` and no verb/flag/JSON key anywhere — it is a doc word whose UI label is "Send to team". Only real artifact is one help alias (`HelpTopicRegistry.swift:191`), re-pointed in LVC-S03. v2's `dontUseWhen` mitigation withdrawn. |
 | Version 7.0.0 / 0.11.0 correct | ✅ | No change |
 | Collapsing `relay-status` + `pilot status` is lie-prone | ✅ | **Accepted** — must be ruled in S00 |
 
@@ -465,8 +512,9 @@ Loop and no Pilot.
 
 ## 10. Open questions
 
-- **`delegate` vs `unattended` as the type id** (§3) — standing objection from
-  review. Founder re-ruling would change the packet; nobody else may re-decide it.
+- ~~`delegate` vs `unattended`/`autopilot` as the type id~~ — **CLOSED 2026-07-30**
+  (§3). The collision was a false premise and `autopilot` spends the type slot on
+  an orthogonal axis. Do not reopen.
 - **Two adopt directions** — two verbs or one verb with a direction flag. Must be
   ruled in LVC-S00.
 - **`relay-status` + `pilot status` collapse** — one verb needs one wait/mode law
