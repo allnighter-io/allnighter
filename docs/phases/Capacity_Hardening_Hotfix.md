@@ -11,7 +11,15 @@ Commits: `2143e9d0` HF-00 · `19b227c3` HF-claude.
 
 **Bare `alln capacity` immediately after:** all six seats show numbers + honest ages (tier-3 from history when not re-probed). **NeverSampled lie fixed.**
 
-Open residual: Claude live PTY parse still intermittent (dump + distinct reasons landed); strip correctly falls back to last-known instead of blanking.
+### Honest residual (2026-07-30T20:44Z)
+
+| Fact | Truth |
+| --- | --- |
+| Claude has **no 5h window** | Vendor shows **Current session** + **Current week**. Session is the short limit. |
+| Blank 5h cell before `9862df90` | **Bug:** projection only mapped `.fiveHour` → session dropped. **Fixed:** session → short column. |
+| Live Claude probe | **Still broken.** Dump is chat chrome (no `Current session` / `% used`). Falls back to history. |
+| Numbers vs your Usage screenshot | Screenshot: session **52% used**, week **51% used**. Strip history is **stale** (last good sample ~3h ago; weekly peak 48% used). Not live match until probe captures the Usage pane. |
+| Short cell value | Short is floored by weekly effective availability (same as Kimi). Not a second full vendor meter. |
 
 ## Core promise
 
