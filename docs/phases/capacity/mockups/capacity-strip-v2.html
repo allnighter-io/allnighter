@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Allnighter — Capacity Strip v2 (mockup)</title>
+<style>
+/* Tokens verbatim from docs/design-system/tokens/*.css */
+:root{
+  color-scheme:dark;
+  --ink-50:#F2F4FA;--ink-100:#E1E5F0;--ink-200:#AEB5C9;--ink-300:#7E869E;
+  --ink-400:#555C74;--ink-450:#454C62;--ink-500:#373D51;--ink-600:#252A39;
+  --ink-650:#1F2331;--ink-700:#1A1E2A;--ink-750s:#151822;--ink-800:#111420;
+  --ink-850:#0D101A;--ink-900:#090B13;--ink-950:#05060C;
+  --amber-300:#FFD79E;--amber-400:#FFC169;--amber-500:#FFA630;--amber-600:#F08D1C;
+  --green-500:#3FD18B;--red-500:#F76B6B;--red-400:#FF8585;--blue-500:#5B9DFF;--yellow-500:#F5C84B;
+  --bg-base:var(--ink-900);--bg-subtle:var(--ink-850);--bg-surface:var(--ink-800);
+  --bg-raised:var(--ink-750s);--bg-hover:var(--ink-700);
+  --border-subtle:rgba(255,255,255,.06);--border-default:rgba(255,255,255,.10);
+  --border-strong:rgba(255,255,255,.16);
+  --text-primary:var(--ink-100);--text-secondary:var(--ink-200);--text-muted:var(--ink-300);
+  --text-faint:var(--ink-400);--text-disabled:var(--ink-450);--text-on-amber:#1A1203;
+  --accent:var(--amber-500);--accent-text:var(--amber-400);
+  --accent-surface:rgba(255,166,48,.12);--accent-border:rgba(255,166,48,.32);
+  --danger:var(--red-500);--danger-surface:rgba(247,107,107,.12);
+  --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  --font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;
+  --font-mono:ui-monospace,"SF Mono","SFMono-Regular","JetBrains Mono",Menlo,monospace;
+  --r-sm:5px;--r-md:8px;--r-lg:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink-950);color:var(--text-primary);font-family:var(--font-sans);
+  font-size:13px;letter-spacing:-.006em;-webkit-font-smoothing:antialiased;
+  padding:28px 20px 64px;display:flex;flex-direction:column;align-items:center;gap:18px}
+
+.switch{display:flex;max-width:940px;width:100%;border:1px solid var(--border-default);
+  border-radius:var(--r-sm);overflow:hidden;background:var(--bg-raised)}
+.switch button{flex:1;padding:7px 10px;background:transparent;border:0;color:var(--text-muted);
+  font-family:var(--font-sans);font-size:12px;cursor:pointer}
+.switch button.on{background:var(--accent-surface);color:var(--amber-300)}
+
+.win{width:100%;max-width:940px;background:var(--bg-base);border:1px solid var(--border-default);
+  border-radius:var(--r-lg);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.titlebar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg-surface);
+  border-bottom:1px solid var(--border-subtle)}
+.dotmac{width:11px;height:11px;border-radius:50%;background:var(--ink-600)}
+.titlebar .who{margin-left:6px;font-size:11px;color:var(--text-faint);font-family:var(--font-mono)}
+
+.tabs{display:flex;gap:2px;padding:0 14px;background:var(--bg-surface);
+  border-bottom:1px solid var(--border-subtle)}
+.tab{padding:9px 14px 11px;font-size:12px;color:var(--text-muted);
+  border-bottom:2px solid transparent;cursor:default}
+.tab.on{color:var(--text-primary);border-bottom-color:var(--accent)}
+
+/* ============ HERO ============ */
+.hero{padding:26px 24px 24px;border-bottom:1px solid var(--border-subtle);min-height:132px;
+  display:flex;align-items:center;justify-content:space-between;gap:24px}
+.hero.live{background:
+  linear-gradient(180deg,rgba(255,166,48,.10) 0%,rgba(255,166,48,.02) 70%,transparent 100%)}
+.hero .lead{display:flex;gap:16px;align-items:flex-start;min-width:0}
+.hero .bolt{font-size:22px;line-height:1.1;color:var(--accent);flex:none}
+.hero .eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--accent-text);font-weight:600;margin-bottom:7px}
+.hero h1{font-family:var(--font-display);font-size:27px;font-weight:700;letter-spacing:-.018em;
+  line-height:1.15;color:var(--ink-50)}
+.hero h1 .num{color:var(--amber-400)}
+.hero .meta{margin-top:9px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted)}
+.hero .also{margin-top:11px;font-size:11px;color:var(--text-faint)}
+.cta{flex:none;padding:9px 15px;border-radius:var(--r-sm);background:var(--accent);
+  color:var(--text-on-amber);font-size:12px;font-weight:600;cursor:default;white-space:nowrap}
+/* calm variant */
+.hero.calm h1{font-size:20px;font-weight:600;color:var(--text-secondary)}
+.hero.calm .eyebrow{color:var(--text-disabled)}
+.hero.calm .bolt{color:var(--ink-500)}
+
+/* ============ STRIP HEADER ============ */
+.striphead{display:flex;align-items:baseline;justify-content:space-between;padding:16px 24px 10px}
+.striphead .t{font-size:11px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-disabled);font-weight:600}
+.striphead .obs{font-size:11px;color:var(--text-faint);display:flex;align-items:center;gap:12px}
+.refresh{padding:4px 10px;border-radius:var(--r-sm);border:1px solid var(--border-default);
+  background:var(--bg-raised);color:var(--text-secondary);font-size:11px;cursor:default}
+
+/* ============ TABLE ============ */
+.tbl{padding:0 24px 20px}
+.thead,.row{display:grid;
+  grid-template-columns:minmax(160px,1.1fr) minmax(215px,1.35fr) minmax(130px,.85fr) 80px;
+  align-items:center;gap:18px}
+.thead{padding:0 10px 8px;font-size:10px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text-disabled);font-weight:600;border-bottom:1px solid var(--border-subtle)}
+.row{padding:13px 10px;border-bottom:1px solid var(--border-subtle)}
+.row:hover{background:var(--bg-subtle)}
+.row.open{background:var(--bg-subtle)}
+.row.down{opacity:.42}
+
+.cli{display:flex;flex-direction:column;gap:3px;min-width:0}
+.cli .nm{font-size:13px;font-weight:500;color:var(--text-primary)}
+.cli .plan{font-size:10px;color:var(--text-faint)}
+
+.m{display:flex;align-items:center;gap:11px;min-width:0}
+.bar{flex:0 0 68px;height:5px;border-radius:3px;background:var(--ink-650);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:3px;background:var(--ink-300)}
+.bar i.amb{background:var(--accent)} .bar i.bad{background:var(--danger)}
+.pct{font-family:var(--font-mono);font-size:13px;color:var(--text-primary);min-width:40px;
+  text-align:right;font-variant-numeric:tabular-nums}
+.pct.amb{color:var(--amber-400)} .pct.bad{color:var(--red-400)}
+.clk{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);
+  font-variant-numeric:tabular-nums;white-space:nowrap}
+.clk.amb{color:var(--amber-300)} .clk.bad{color:var(--red-400)}
+.dash{color:var(--ink-500);font-family:var(--font-mono);font-size:13px;padding-left:2px}
+.unk{font-size:12px;color:var(--text-faint)}
+.reason{font-size:12px;color:var(--text-faint)}
+.extra{font-family:var(--font-mono);font-size:11px;color:var(--text-disabled);text-align:right;
+  font-variant-numeric:tabular-nums}
+
+.stack{display:flex;flex-direction:column;gap:10px;width:100%}
+.stack .ln{display:flex;align-items:center;gap:9px}
+.stack .lbl{font-size:10px;color:var(--text-faint);flex:0 0 62px}
+
+.detail{grid-column:1/-1;margin:11px 0 3px;padding:12px 15px;background:var(--ink-950);
+  border-left:2px solid var(--accent-border);border-radius:0 var(--r-sm) var(--r-sm) 0}
+.detail table{border-collapse:collapse}
+.detail td{padding:3px 18px 3px 0;font-size:11px;color:var(--text-muted);
+  font-family:var(--font-mono);white-space:nowrap}
+.detail td:first-child{color:var(--text-faint);width:120px}
+.detail .raw{color:var(--text-disabled)}
+
+.foot{padding:11px 24px 15px;border-top:1px solid var(--border-subtle);font-size:10px;
+  color:var(--text-disabled);display:flex;gap:20px;flex-wrap:wrap}
+.chip{display:inline-block;width:22px;height:4px;border-radius:2px;vertical-align:middle;
+  margin-right:5px}
+
+.note{max-width:940px;width:100%;color:var(--text-faint);font-size:11px;line-height:1.65}
+.note b{color:var(--text-muted);font-weight:500}
+.note code{font-family:var(--font-mono);color:var(--text-muted)}
+
+body.calmmode .hero.live{display:none}
+body:not(.calmmode) .hero.calm{display:none}
+</style>
+</head>
+<body>
+
+<div class="switch">
+  <button class="on" onclick="document.body.classList.remove('calmmode');sw(this)">Hero — something expiring (tonight's real state)</button>
+  <button onclick="document.body.classList.add('calmmode');sw(this)">Hero — calm state</button>
+</div>
+
+<div class="win">
+  <div class="titlebar">
+    <span class="dotmac"></span><span class="dotmac"></span><span class="dotmac"></span>
+    <span class="who">Allnighter</span>
+  </div>
+
+  <div class="tabs"><div class="tab on">Capacity</div><div class="tab">Utilization</div></div>
+
+  <!-- HERO — live -->
+  <div class="hero live">
+    <div class="lead">
+      <span class="bolt">⚡</span>
+      <div>
+        <div class="eyebrow">Use it before you lose it</div>
+        <h1>Grok — <span class="num">58%</span> of your week expires in <span class="num">41h</span></h1>
+        <div class="meta">X Premium+ · resets Fri Jul 31, 11:11 · no 5h throttle, so it is all reachable</div>
+      </div>
+    </div>
+    <div class="cta">Start a run on Grok</div>
+  </div>
+
+  <!-- HERO — calm -->
+  <div class="hero calm">
+    <div class="lead">
+      <span class="bolt">✓</span>
+      <div>
+        <div class="eyebrow">Nothing expiring</div>
+        <h1>Everything has room</h1>
+        <div class="meta">No seat drops below the 48h mark with headroom left · next reset Grok, Fri 11:11</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="striphead">
+    <div class="t">Your bench</div>
+    <div class="obs"><span>7 CLIs · 5 sampled · 1 unknown · 1 down · observed 2 min ago</span>
+      <span class="refresh">↻ Refresh</span></div>
+  </div>
+
+  <div class="tbl">
+    <div class="thead">
+      <div>CLI</div><div>Weekly headroom</div><div>5h window</div><div></div>
+    </div>
+
+    <div class="row">
+      <div class="cli"><span class="nm">Codex / ChatGPT</span><span class="plan">Plus</span></div>
+      <div class="m"><span class="bar"><i style="width:39%"></i></span>
+        <span class="pct">39%</span><span class="clk">6d 3h</span></div>
+      <div class="m"><span class="dash">—</span></div>
+      <div class="extra"></div>
+    </div>
+
+    <div class="row">
+      <div class="cli"><span class="nm">Claude Code</span><span class="plan">Max</span></div>
+      <div class="m"><span class="unk">unknown — not sampled yet</span></div>
+      <div class="m"><span class="unk">unknown</span></div>
+      <div class="extra"></div>
+    </div>
+
+    <div class="row">
+      <div class="cli"><span class="nm">Cursor Agent</span><span class="plan">Ultra · monthly</span></div>
+      <div class="m"><span class="bar"><i style="width:73%"></i></span>
+        <span class="pct">73%</span><span class="clk">26d</span></div>
+      <div class="m"><span class="dash">—</span></div>
+      <div class="extra">$0 / $1</div>
+    </div>
+
+    <div class="row open">
+      <div class="cli"><span class="nm">Grok Build CLI</span><span class="plan">X Premium+</span></div>
+      <div class="m"><span class="bar"><i class="amb" style="width:58%"></i></span>
+        <span class="pct amb">58%</span><span class="clk amb">1d 17h</span></div>
+      <div class="m"><span class="dash">—</span></div>
+      <div class="extra"></div>
+      <div class="detail"><table>
+        <tr><td>Weekly</td><td>58% left · resets Fri Jul 31, 11:11 (41h)</td></tr>
+        <tr><td>Short window</td><td class="raw">none — weekly is the only ceiling</td></tr>
+        <tr><td>On-demand</td><td class="raw">cap $0 · used $0 · prepaid $0</td></tr>
+        <tr><td>Plan</td><td class="raw">X Premium+</td></tr>
+        <tr><td>Source</td><td class="raw">on-disk log · ~/.grok/logs/unified.jsonl</td></tr>
+        <tr><td>Vendor said</td><td class="raw">creditUsagePercent 42.0 · observed 00:48</td></tr>
+      </table></div>
+    </div>
+
+    <div class="row">
+      <div class="cli"><span class="nm">Kimi Code CLI</span><span class="plan">Kimi Code</span></div>
+      <div class="m"><span class="bar"><i class="bad" style="width:2%"></i></span>
+        <span class="pct bad">0%</span><span class="clk bad">1d 18h</span></div>
+      <div class="m"><span class="pct bad">0%</span><span class="clk bad">1d 18h</span></div>
+      <div class="extra"></div>
+    </div>
+
+    <div class="row">
+      <div class="cli"><span class="nm">Antigravity</span><span class="plan">2 pools · Gemini, Claude/GPT</span></div>
+      <div class="m"><div class="stack">
+        <div class="ln"><span class="lbl">Gemini</span>
+          <span class="bar"><i style="width:93%"></i></span>
+          <span class="pct">93%</span><span class="clk">6d 20h</span></div>
+        <div class="ln"><span class="lbl">Claude/GPT</span>
+          <span class="bar"><i style="width:60%"></i></span>
+          <span class="pct">60%</span><span class="clk">2d 3h</span></div>
+      </div></div>
+      <div class="m"><div class="stack">
+        <div class="ln"><span class="pct">58%</span><span class="clk">3h 21m</span></div>
+        <div class="ln"><span class="unk">unknown</span></div>
+      </div></div>
+      <div class="extra"></div>
+    </div>
+
+    <div class="row down">
+      <div class="cli"><span class="nm">OpenCode</span><span class="plan">v1.18.4 · 0 models on</span></div>
+      <div class="m"><span class="reason">not ready — probe failed</span></div>
+      <div class="m"></div>
+      <div class="extra"></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span><i class="chip" style="background:var(--ink-300)"></i>room to work</span>
+    <span><i class="chip" style="background:var(--accent)"></i>headroom with a deadline</span>
+    <span><i class="chip" style="background:var(--danger)"></i>no headroom</span>
+    <span>— no 5h limit on this plan</span>
+    <span>dimmed = CLI not ready, no capacity to report</span>
+  </div>
+</div>
+
+<div class="note">
+  <b>All real, 2026-07-30 ~01:00 UTC.</b> Seven drivers straight from <code>alln drivers</code>,
+  including OpenCode genuinely failing its probe. Capacity from the CAP-S00 spikes. Claude is
+  really unsampled. Nothing invented.<br><br>
+  <b>What changed from v1.</b> Status dot gone — effective availability already carries it, so
+  the green-vs-amber contradiction on Grok disappears at the source. Colour now has exactly
+  three mutually exclusive meanings and never two on one row. Health is expressed as
+  <i>absence of numbers</i>, not colour, so a broken CLI can never compete with a capacity
+  signal. Nothing is green: quiet is good news, and the screen only speaks when it needs you.<br><br>
+  <b>Hero applies your thresholds live</b> (&lt;48h &amp; &gt;20%, or &lt;24h &amp; &gt;10%).
+  Only Grok qualifies at 41h — agy Claude/GPT sits at 51h and stays silent until tomorrow
+  evening, so there is no "also" line tonight. Toggle above shows the calm state: same height,
+  same position, quieter voice, so the layout never shifts under you.
+</div>
+
+<script>function sw(b){document.querySelectorAll('.switch button').forEach(x=>x.classList.remove('on'));b.classList.add('on')}</script>
+</body>
+</html>
