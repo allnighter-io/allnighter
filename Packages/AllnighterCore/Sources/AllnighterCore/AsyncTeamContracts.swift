@@ -93,6 +93,64 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
             command: "alln team status \(runId) --json",
             runId: runId)
     }
+
+    /// AVQ-S01: progress is stale — do not keep waiting as primary action.
+    public static func inspectStall(runId: String) -> AsyncTeamNextAction {
+        AsyncTeamNextAction(
+            kind: "inspectStall",
+            label: "Inspect stall (progressStale) — correlate with alln ps before waiting again",
+            command: "alln ps --json",
+            runId: runId)
+    }
+
+    /// AVQ-S01: run is behind the write lock — inspect the holder.
+    public static func inspectBlocker(runId: String) -> AsyncTeamNextAction {
+        AsyncTeamNextAction(
+            kind: "inspectBlocker",
+            label: "Inspect write-lock holder / FIFO ticket (this run does not hold the mutator)",
+            command: "alln ps --json",
+            runId: runId)
+    }
+}
+
+/// AVQ-S01: write-lock / FIFO ticket projection on team status (journal blocker).
+public struct TeamStatusBlocker: Codable, Equatable, Sendable {
+    public var resource: String
+    public var holderId: String?
+    public var holderKind: String?
+    public var ticketPosition: Int?
+    /// Seconds the current holder has held the lane (derived at read time).
+    public var heldSinceSeconds: Double?
+    public var scopeRoot: String?
+
+    public init(
+        resource: String,
+        holderId: String? = nil,
+        holderKind: String? = nil,
+        ticketPosition: Int? = nil,
+        heldSinceSeconds: Double? = nil,
+        scopeRoot: String? = nil
+    ) {
+        self.resource = resource
+        self.holderId = holderId
+        self.holderKind = holderKind
+        self.ticketPosition = ticketPosition
+        self.heldSinceSeconds = heldSinceSeconds
+        self.scopeRoot = scopeRoot
+    }
+
+    public init(_ blocker: RunBlocker, now: Date = Date()) {
+        self.resource = blocker.resource.rawValue
+        self.holderId = blocker.holderId
+        self.holderKind = blocker.holderKind
+        self.ticketPosition = blocker.ticketPosition
+        self.scopeRoot = blocker.scopeRoot
+        if let acquired = blocker.holderAcquiredAt {
+            self.heldSinceSeconds = max(0, now.timeIntervalSince(acquired))
+        } else {
+            self.heldSinceSeconds = nil
+        }
+    }
 }
 
 public struct TeamStartResponse: Codable, Equatable, Sendable {
@@ -193,6 +251,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public var notes: [String]
     /// Wake receiver acknowledgement/failure for the terminal PM turn.
     public var pmTurnDelivery: PMTurnDeliveryJSON?
+    /// AVQ-S01: FIFO / write-lock ticket when this run is blocked (never invents a holder).
+    public var blocker: TeamStatusBlocker?
 
     public init(
         schemaVersion: Int = 1,
@@ -219,7 +279,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         waitHintSeconds: Double? = nil,
         pmTurn: PMTurnJSON? = nil,
         notes: [String] = [],
-        pmTurnDelivery: PMTurnDeliveryJSON? = nil
+        pmTurnDelivery: PMTurnDeliveryJSON? = nil,
+        blocker: TeamStatusBlocker? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.runId = runId
@@ -246,13 +307,14 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.pmTurn = pmTurn
         self.notes = notes
         self.pmTurnDelivery = pmTurnDelivery
+        self.blocker = blocker
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, runId, status, lane, teamPresetId, effort, currentStage
         case workers, workersDone, workersTotal, warnings, resultAvailable, nextPollAfterMs
         case traceId, endReason, lastProgressAt, progressStale, killOutcome, contradiction
-        case silenceStatus, nextAction, waitHintSeconds, pmTurn, notes, pmTurnDelivery
+        case silenceStatus, nextAction, waitHintSeconds, pmTurn, notes, pmTurnDelivery, blocker
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -282,6 +344,7 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         try c.encode(pmTurn, forKey: .pmTurn)
         try c.encode(notes, forKey: .notes)
         try c.encodeIfPresent(pmTurnDelivery, forKey: .pmTurnDelivery)
+        try c.encodeIfPresent(blocker, forKey: .blocker)
     }
 }
 

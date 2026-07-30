@@ -1227,7 +1227,7 @@ struct AllnighterCLI {
             if target.matches(response.status) {
                 var matched = response
                 matched.waitHintSeconds = 0
-                matched.nextAction = AsyncTeamStatusMapper.nextAction(for: response.status, runId: runId)
+                matched.nextAction = AsyncTeamStatusMapper.nextAction(for: response)
                 outcome = .init(response: matched, timedOut: false, terminalMismatch: false)
                 break
             }

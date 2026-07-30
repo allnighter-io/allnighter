@@ -58,6 +58,9 @@ public enum AsyncTeamStatusMapper {
     }
 
     /// Next action after a status snapshot or wait (PO-F3).
+    /// AVQ-S01 precedence: terminal → fetchResult; stalled → inspectStall;
+    /// queued (ticket) → waitForStatus (ticket visible) / inspectBlocker available;
+    /// else waitForStatus. Stalled never returns wait as primary.
     public static func nextAction(for status: RunLifecycle, runId: String) -> AsyncTeamNextAction {
         if status.isTerminal {
             return .fetchResult(runId: runId)
@@ -65,11 +68,33 @@ public enum AsyncTeamStatusMapper {
         return .waitForStatus(runId: runId)
     }
 
+    /// AVQ-S01 decision matrix over full status projection (not lifecycle alone).
+    public static func nextAction(for response: TeamStatusResponse) -> AsyncTeamNextAction {
+        if response.status.isTerminal {
+            return .fetchResult(runId: response.runId)
+        }
+        if response.progressStale == true {
+            return .inspectStall(runId: response.runId)
+        }
+        if let blocker = response.blocker, blocker.resource == RunBlocker.Resource.repoWriteLock.rawValue {
+            // Primary: wait at cadence with ticket facts visible; agents can inspect holder.
+            // Do not claim this run holds the lock.
+            return .waitForStatus(runId: response.runId)
+        }
+        return .waitForStatus(runId: response.runId)
+    }
+
     /// Attach wait guidance fields without inventing new status truth.
     public static func withWaitGuidance(_ response: TeamStatusResponse) -> TeamStatusResponse {
         var copy = response
-        copy.nextAction = nextAction(for: response.status, runId: response.runId)
-        copy.waitHintSeconds = waitHintSeconds(for: response.status)
+        let action = nextAction(for: response)
+        copy.nextAction = action
+        if response.status.isTerminal || response.progressStale == true {
+            // Stalled: waiting is not the safe next step.
+            copy.waitHintSeconds = 0
+        } else {
+            copy.waitHintSeconds = waitHintSeconds(for: response.status)
+        }
         return copy
     }
 
@@ -87,12 +112,17 @@ public enum AsyncTeamStatusMapper {
         }
     }
 
-    public static func statusResponse(for run: TeamRun) -> TeamStatusResponse {
+    public static func statusResponse(for run: TeamRun, now: Date = Date()) -> TeamStatusResponse {
         let live = liveStatus(for: run)
         let agentRows = workers(for: run)
         let terminal: Set<String> = ["completed", "failed", "timedOut", "cancelled"]
         let done = agentRows.filter { terminal.contains($0.status) }.count
         // Never infer endReason — only what the actor stamped.
+        // AVQ-S01: project journal write-lock ticket when present (non-terminal only).
+        let blocker: TeamStatusBlocker? = {
+            guard !run.status.isTerminal, let b = run.blocker else { return nil }
+            return TeamStatusBlocker(b, now: now)
+        }()
         return TeamStatusResponse(
             runId: run.id,
             status: live,
@@ -108,7 +138,8 @@ public enum AsyncTeamStatusMapper {
             nextPollAfterMs: nextPollAfterMs(for: live),
             traceId: "trace_\(run.id)",
             endReason: run.endReason?.rawValue,
-            killOutcome: run.killOutcome?.rawValue
+            killOutcome: run.killOutcome?.rawValue,
+            blocker: blocker
         )
     }
 
