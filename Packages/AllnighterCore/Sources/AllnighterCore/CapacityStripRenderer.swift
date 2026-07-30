@@ -380,9 +380,14 @@ public enum CapacityStripRenderer {
         guard !entries.isEmpty else { return [] }
         // Soonest reset first — that is the one you lose first.
         entries.sort { $0.resetAt < $1.resetAt }
+        // Size to the widest label. The banner is not in the table's column
+        // budget, so borrowing the table's name width only bought a hard cut
+        // ("Antigravity Claude/GPT" → "Antigravity Clau") — a clipped seat name
+        // is the same quiet lie as a clipped reset clock.
+        let labelW = max(nameW, entries.map(\.name.count).max() ?? nameW)
         var out = ["Expiring soon with headroom:"]
         for entry in entries {
-            let name = pad(entry.name, nameW)
+            let name = pad(entry.name, labelW)
             out.append(
                 "  \(name) \(formatPercent(entry.remaining)) unused · resets \(relativeClock(from: now, to: entry.resetAt))"
             )

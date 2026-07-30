@@ -166,6 +166,17 @@ final class CapacityStripRendererTests: XCTestCase {
         )
     }
 
+    /// A pooled seat's banner label is longer than the table's name column, and
+    /// borrowing that width hard-cut it to "Antigravity Clau".
+    func testExpiringBannerDoesNotClipAPooledSeatLabel() {
+        let windows = [
+            used(48, source: "agy", scope: .weekly,
+                 resetAt: now.addingTimeInterval(29 * 3600), poolLabel: "Claude/GPT"),
+        ]
+        let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
+        XCTAssertTrue(plain.contains("Antigravity Claude/GPT"), plain)
+    }
+
     /// Soonest reset first — that is the capacity you lose first.
     func testExpiringBannerOrdersBySoonestReset() {
         let windows = [
