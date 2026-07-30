@@ -35,6 +35,21 @@
     "title" : "List model catalog and Bench state"
   },
   {
+    "command" : "alln drivers --json",
+    "id" : "drivers_json",
+    "title" : "List CLIs and park state"
+  },
+  {
+    "command" : "alln drivers park opencode",
+    "id" : "drivers_park",
+    "title" : "Park a CLI you are not using"
+  },
+  {
+    "command" : "alln drivers unpark opencode",
+    "id" : "drivers_unpark",
+    "title" : "Put a parked CLI back on the bench"
+  },
+  {
     "command" : "alln teams --lane code --json",
     "id" : "teams_code_json",
     "title" : "List Code teams"

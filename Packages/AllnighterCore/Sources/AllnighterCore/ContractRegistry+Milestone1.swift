@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "6.3.0"
+    static let contractVersion = "6.4.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -92,6 +92,10 @@ public extension ContractRegistry {
             milestone: .m1,
             flags: [FlagSpec("json", summary: "Structured RunJournalSilenceTelemetry.Report.")],
             outputSchema: .idleSilenceReportJSON
+        ),
+        CommandSpec(
+            "detect", summary: "Headless first-run CLI detection — probes sources, assembles the Bench/default team from ready ones, and persists the result.", milestone: .m1,
+            outputSchema: .none
         ),
         CommandSpec(
             "bootstrap", summary: "Print a paste-ready agent-activation snippet for a host's context file (never edits files).", milestone: .m1,

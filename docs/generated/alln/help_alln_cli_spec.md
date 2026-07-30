@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.3.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.4.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -91,6 +91,10 @@ Flags:
 
 Output schema: `idleSilenceReportJSON`.
 
+### `alln detect`
+
+Headless first-run CLI detection — probes sources, assembles the Bench/default team from ready ones, and persists the result.
+
 ### `alln bootstrap`
 
 Print a paste-ready agent-activation snippet for a host's context file (never edits files).
@@ -139,6 +143,41 @@ Flags:
 Output schema: `modelListJSON`.
 
 Examples: `models_json`.
+
+### `alln drivers`
+
+List headless CLIs and park state. Parked CLIs are ignored (no probe, no seats) until unparked.
+
+Flags:
+- `--json` — Structured DriverListJSON (parked listed last).
+
+Output schema: `driverListJSON`.
+
+Examples: `drivers_json`.
+
+### `alln drivers park`
+
+Park a CLI — stop probing it, hide it from Ready, and keep it out of seating until unparked.
+
+Arguments:
+- `driver-id` (required) — Driver id (see `alln drivers --json`).
+
+Flags:
+- `--json` — Return refreshed DriverListJSON.
+
+Output schema: `driverListJSON`.
+
+### `alln drivers unpark`
+
+Put a parked CLI back on the bench (does not auto-probe; run re-check or `alln detect`).
+
+Arguments:
+- `driver-id` (required) — Driver id (see `alln drivers --json`).
+
+Flags:
+- `--json` — Return refreshed DriverListJSON.
+
+Output schema: `driverListJSON`.
 
 ### `alln catalog validate`
 
@@ -1626,6 +1665,9 @@ the selected CLI.
 - `install_cli_json` — Install the running binary onto PATH: `alln install-cli --json`
 - `version_json` — Print binary and contract identity: `alln version --json`
 - `models_json` — List model catalog and Bench state: `alln models --json`
+- `drivers_json` — List CLIs and park state: `alln drivers --json`
+- `drivers_park` — Park a CLI you are not using: `alln drivers park opencode`
+- `drivers_unpark` — Put a parked CLI back on the bench: `alln drivers unpark opencode`
 - `teams_code_json` — List Code teams: `alln teams --lane code --json`
 - `teams_definition_json` — Full team definition for edit or novel new: `alln teams definition code_bug_hunt --json`
 - `teams_duplicate_json` — Deterministic Bug Hunt variant: `alln teams duplicate code_bug_hunt --id custom_code_my_bug_hunt --name "My Bug Hunt" --json`

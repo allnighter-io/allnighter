@@ -317,6 +317,37 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "detect",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Headless first-run CLI detection — probes sources, assembles the Bench\/default team from ready ones, and persists the result.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
         "bootstrap_json"
       ],
       "flagConstraints" : [
@@ -477,6 +508,119 @@
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
       "summary" : "List model catalog and Bench state (catalog ids). Prefer `alln menu --json` to discover selectable models.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+        "drivers_json"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured DriverListJSON (parked listed last).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : true,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "drivers",
+      "outputSchema" : "driverListJSON",
+      "spendsQuota" : false,
+      "summary" : "List headless CLIs and park state. Parked CLIs are ignored (no probe, no seats) until unparked.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "driver-id",
+          "required" : true,
+          "summary" : "Driver id (see `alln drivers --json`)."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Return refreshed DriverListJSON.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "drivers park",
+      "outputSchema" : "driverListJSON",
+      "spendsQuota" : false,
+      "summary" : "Park a CLI — stop probing it, hide it from Ready, and keep it out of seating until unparked.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "driver-id",
+          "required" : true,
+          "summary" : "Driver id (see `alln drivers --json`)."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Return refreshed DriverListJSON.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "drivers unpark",
+      "outputSchema" : "driverListJSON",
+      "spendsQuota" : false,
+      "summary" : "Put a parked CLI back on the bench (does not auto-probe; run re-check or `alln detect`).",
       "visibility" : "public"
     },
     {
@@ -5224,7 +5368,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "6.3.0",
+  "contractVersion" : "6.4.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -6612,6 +6756,21 @@
       "command" : "alln models --json",
       "id" : "models_json",
       "title" : "List model catalog and Bench state"
+    },
+    {
+      "command" : "alln drivers --json",
+      "id" : "drivers_json",
+      "title" : "List CLIs and park state"
+    },
+    {
+      "command" : "alln drivers park opencode",
+      "id" : "drivers_park",
+      "title" : "Park a CLI you are not using"
+    },
+    {
+      "command" : "alln drivers unpark opencode",
+      "id" : "drivers_unpark",
+      "title" : "Put a parked CLI back on the bench"
     },
     {
       "command" : "alln teams --lane code --json",
