@@ -16,7 +16,7 @@ final class BuiltInTeamsTests: XCTestCase {
     func testRequiredBuiltInIdsArePresent() {
         let required = [
             "code_plan", "code_bug_hunt_min", "code_bug_hunt", "code_bug_hunt_max", "code_gui_bug_hunt", "code_security_review",
-            "code_spec_review_min", "code_spec_review", "code_spec_review_max", "code_release_proof",
+            "code_spec_review_min", "code_doc_review", "code_spec_review", "code_spec_review_max", "code_release_proof",
             "code_growth_min", "code_growth", "code_growth_max",
             "default_chat", "build_slice",
             "design_design_min", "design_design", "design_design_max", "design_polish",
@@ -29,6 +29,18 @@ final class BuiltInTeamsTests: XCTestCase {
             XCTAssertTrue(BuiltInTeams.team(id)?.builtIn ?? false)
         }
         XCTAssertEqual(BuiltInTeams.all.count, required.count)
+    }
+
+    func testDocReviewIsSingleWorkerReadOnly() {
+        let team = BuiltInTeams.team("code_doc_review")
+        XCTAssertNotNil(team)
+        guard let team else { return }
+        XCTAssertEqual(team.displayName, "Doc Review")
+        XCTAssertEqual(team.outputKind, .specReview)
+        XCTAssertFalse(team.mutating)
+        XCTAssertEqual(team.agentSpecs.count, 1)
+        XCTAssertEqual(team.agentSpecs[0].skillId, "spec_first_principles_reviewer")
+        XCTAssertEqual(team.lead.skillId, "spec_review_writer")
     }
 
     func testSpecReviewDepthFamilyCarriesCuratedLineups() {

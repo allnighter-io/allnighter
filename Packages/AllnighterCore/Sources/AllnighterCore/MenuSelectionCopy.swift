@@ -200,6 +200,10 @@ public enum MenuSelectionCopy {
             useWhen: "Lean spec check before you build",
             dontUseWhen: "Review only, no edits"
         ),
+        "code_doc_review": Pair(
+            useWhen: "One-model doc/spec feedback, no mutator queue",
+            dontUseWhen: "Build or edit code; use Auto or Build a Slice"
+        ),
         "code_spec_review": Pair(
             useWhen: "Harden a spec before you build",
             dontUseWhen: "Review only, no edits"
