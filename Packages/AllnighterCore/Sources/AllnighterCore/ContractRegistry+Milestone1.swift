@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "6.7.0"
+    static let contractVersion = "6.8.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -96,6 +96,17 @@ public extension ContractRegistry {
         CommandSpec(
             "detect", summary: "Headless first-run CLI detection — probes sources, assembles the Bench/default team from ready ones, and persists the result.", milestone: .m1,
             outputSchema: .none
+        ),
+        CommandSpec(
+            "capacity",
+            summary: "Show vendor capacity/quota headroom from on-disk samples (Codex, Grok, and tier-3 seats). Unknown never blocks.",
+            milestone: .m1,
+            trigger: "Before seating work when you need remaining weekly/5-hour headroom, reset clocks, or which vendors expose nothing.",
+            example: "alln capacity --json",
+            antiExample: "Do NOT use this for per-run token usage on receipts — that is a different system.",
+            flags: [FlagSpec("json", summary: "Structured CapacityStripJSON (contractVersion + per-source rows).")],
+            outputSchema: .capacityStripJSON,
+            spendsQuota: false
         ),
         CommandSpec(
             "bootstrap", summary: "Print a paste-ready agent-activation snippet for a host's context file (never edits files).", milestone: .m1,

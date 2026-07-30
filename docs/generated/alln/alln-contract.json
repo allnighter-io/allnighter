@@ -337,6 +337,44 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT use this for per-run token usage on receipts — that is a different system.",
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln capacity --json",
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured CapacityStripJSON (contractVersion + per-source rows).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "capacity",
+      "outputSchema" : "capacityStripJSON",
+      "spendsQuota" : false,
+      "summary" : "Show vendor capacity\/quota headroom from on-disk samples (Codex, Grok, and tier-3 seats). Unknown never blocks.",
+      "trigger" : "Before seating work when you need remaining weekly\/5-hour headroom, reset clocks, or which vendors expose nothing.",
+      "visibility" : "public"
+    },
+    {
       "args" : [
 
       ],
@@ -5424,7 +5462,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "6.7.0",
+  "contractVersion" : "6.8.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

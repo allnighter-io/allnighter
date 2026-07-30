@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.7.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.8.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -94,6 +94,15 @@ Output schema: `idleSilenceReportJSON`.
 ### `alln detect`
 
 Headless first-run CLI detection — probes sources, assembles the Bench/default team from ready ones, and persists the result.
+
+### `alln capacity`
+
+Show vendor capacity/quota headroom from on-disk samples (Codex, Grok, and tier-3 seats). Unknown never blocks.
+
+Flags:
+- `--json` — Structured CapacityStripJSON (contractVersion + per-source rows).
+
+Output schema: `capacityStripJSON`.
 
 ### `alln bootstrap`
 

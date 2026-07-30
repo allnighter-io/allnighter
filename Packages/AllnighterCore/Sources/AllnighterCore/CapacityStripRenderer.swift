@@ -1,16 +1,23 @@
 import Foundation
 
-// MARK: - JSON shape (Core only — not ContractRegistry this round)
+// MARK: - JSON shape (`alln capacity --json` / CapacityStripJSON)
 
-/// Machine-readable capacity strip. CLI and GUI both consume this later;
-/// not registered in `ContractRegistry` until the verb is wired.
+/// Machine-readable capacity strip. Carries `contractVersion` like HistoryJSON /
+/// DriverListJSON so agents can detect a stale cached surface.
 public struct CapacityStripJSON: Sendable, Equatable, Codable {
     public let schemaVersion: Int
+    public let contractVersion: String
     public let generatedAt: Date
     public let rows: [CapacityStripJSONRow]
 
-    public init(schemaVersion: Int = 1, generatedAt: Date, rows: [CapacityStripJSONRow]) {
+    public init(
+        schemaVersion: Int = 1,
+        contractVersion: String,
+        generatedAt: Date,
+        rows: [CapacityStripJSONRow]
+    ) {
         self.schemaVersion = schemaVersion
+        self.contractVersion = contractVersion
         self.generatedAt = generatedAt
         self.rows = rows
     }
@@ -219,15 +226,20 @@ public enum CapacityStripRenderer {
         render(rows: rows, now: now, width: width, tty: false, notReadyOrParked: notReadyOrParked)
     }
 
-    /// JSON payload for CLI/GUI consumers. Not a contract registration.
+    /// JSON payload for `alln capacity --json` (and GUI consumers).
     public static func json(
         rows: [CapacityBenchRow],
         now: Date,
-        notReadyOrParked: Set<String> = []
+        notReadyOrParked: Set<String> = [],
+        contractVersion: String = ContractRegistry.contractVersion
     ) -> CapacityStripJSON {
         let orderedRows = ordered(rows: rows, notReadyOrParked: notReadyOrParked)
         let jsonRows = orderedRows.map { jsonRow(from: $0, now: now) }
-        return CapacityStripJSON(generatedAt: now, rows: jsonRows)
+        return CapacityStripJSON(
+            contractVersion: contractVersion,
+            generatedAt: now,
+            rows: jsonRows
+        )
     }
 
     // MARK: - Internals

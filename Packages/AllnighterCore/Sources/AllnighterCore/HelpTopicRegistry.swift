@@ -317,6 +317,30 @@ public enum HelpTopicRegistry {
             needsLiveCheck: false),
 
         HelpTopic(
+            id: "capacity", title: "Capacity & Quota", audience: .both,
+            summary: "`alln capacity` shows vendor-printed quota headroom when sampled; unknown means no surface / not recent / parse failed — never blocks.",
+            bodyMarkdown: """
+            `alln capacity` reads what vendors already wrote on disk (tier-1) and reports \
+            seats that expose no on-disk surface as `unknown` with a reason. Capacity is \
+            **vendor-printed when acquired** — Allnighter does not invent percentages. \
+            `unknown` means the vendor exposes no capacity surface, the seat was not sampled \
+            recently, or the parser failed. Missing data never blocks (exit 0) and never \
+            fabricates 0%.
+
+            Per-run token usage on team receipts is a **different system** — do not confuse \
+            receipt token counts with the capacity strip. Use `alln capacity --json` for the \
+            agent contract (contractVersion + per-source rows with weekly/5-hour remaining, \
+            reset clocks, and age).
+            """,
+            aliases: [
+                "capacity", "quota", "usage", "weekly limit", "5 hour", "5h",
+                "reset", "headroom", "rate limit", "remaining",
+            ],
+            relatedCommandNames: ["capacity", "drivers", "doctor", "models"],
+            schemaRefs: ["capacityStripJSON"],
+            needsLiveCheck: true),
+
+        HelpTopic(
             id: "park_cli", title: "Park a CLI", audience: .both,
             summary: "Park a CLI you are not using — no probe, no seats, no Needs attention — until you put it back on the bench.",
             bodyMarkdown: """

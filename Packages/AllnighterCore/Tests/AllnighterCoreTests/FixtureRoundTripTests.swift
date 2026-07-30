@@ -130,7 +130,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // ATL-S02 bumps contract 6.5.0 → 6.6.0 (`pair relay stop` + RELAY_STOP_FAILED).
         // ATL-S01 completion registers those kickoff flags on the CommandSpec
         // (allowlist + mutex); contract 6.6.0 → 6.7.0.
-        XCTAssertEqual(trj.contractVersion, "6.7.0")
+        // CAP-S06 bumps contract 6.7.0 → 6.8.0 (`capacity` command + CapacityStripJSON).
+        XCTAssertEqual(trj.contractVersion, "6.8.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.agents.count, 1)

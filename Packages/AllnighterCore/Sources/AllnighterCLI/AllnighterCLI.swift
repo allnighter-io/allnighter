@@ -1,6 +1,9 @@
 import Foundation
 import AllnighterCore
 import AllnighterEngine
+#if canImport(Darwin)
+import Darwin
+#endif
 
 /// `alln` — Team-as-Tool (RB6). The universal shell surface any terminal
 /// agent can call. Judgment only: links the team engine, never
@@ -82,6 +85,7 @@ struct AllnighterCLI {
         case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()), runtime)
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
+        case "capacity": runCapacity(args)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "drivers": await DriversCLI.run(args, runtime: runtime)
         case "catalog" where args.first == "validate": CatalogValidateCLI.run(Array(args.dropFirst()))
@@ -327,6 +331,38 @@ struct AllnighterCLI {
         } else {
             for h in hits { print("\(h.createdAt) · \(h.runId)\n  \(h.prompt)\n  \(h.planExcerpt.replacingOccurrences(of: "\n", with: " ").prefix(160))\n") }
         }
+    }
+
+    /// `alln capacity [--json]` — vendor quota strip from on-disk samples.
+    /// Unknown never blocks (exit 0). Non-TTY path is plain ASCII, zero ANSI.
+    static func runCapacity(_ args: [String]) {
+        let opts = Options(args)
+        let now = Date()
+        let windows = CapacityAcquisition.windows(now: now)
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        if opts.flag("json") {
+            let payload = CapacityStripRenderer.json(
+                rows: rows,
+                now: now,
+                contractVersion: ContractRegistry.contractVersion
+            )
+            print(jsonString(payload))
+            return
+        }
+        if capacityStdoutIsTTY() {
+            print(CapacityStripRenderer.renderTTY(rows: rows, now: now))
+        } else {
+            print(CapacityStripRenderer.renderPlain(rows: rows, now: now))
+        }
+    }
+
+    /// Local TTY probe for the capacity strip (mirrors PilotCLI — not shared).
+    private static func capacityStdoutIsTTY() -> Bool {
+        #if canImport(Darwin)
+        return isatty(STDOUT_FILENO) == 1
+        #else
+        return false
+        #endif
     }
 
     /// ADP-S05: single-sourced from `AllnighterVersionIdentity` (AllnighterCore) —

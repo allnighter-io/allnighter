@@ -219,6 +219,38 @@ final class CapacityStripRendererTests: XCTestCase {
         }
     }
 
+    /// CAP-S06: the CLI non-TTY path is project → renderPlain (never renderTTY).
+    /// Captured into other agents' context windows — zero ANSI is inviolable.
+    func testCLINonTTYPathCompositionEmitsNoANSIEscapes() {
+        let windows = [
+            used(70, source: "codex", scope: .weekly,
+                 resetAt: now.addingTimeInterval(6 * 86400), precision: .exact,
+                 planTier: "plus"),
+            used(42, source: "grok", scope: .weekly,
+                 resetAt: now.addingTimeInterval(41 * 3600), precision: .exact,
+                 planTier: "X Premium+"),
+            CapacityWindow.unknown(
+                reason: .vendorExposesNothing,
+                source: "claude_code",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            ),
+            CapacityWindow.unknown(
+                reason: .vendorExposesNothing,
+                source: "cursor_agent",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            ),
+        ]
+        // Same composition as `alln capacity` when stdout is not a TTY.
+        let projected = CapacityBenchProjection.rows(from: windows, now: now)
+        let plain = CapacityStripRenderer.renderPlain(rows: projected, now: now)
+        XCTAssertFalse(plain.contains("\u{1B}"), "CLI plain path must have zero ANSI: \(plain)")
+        XCTAssertFalse(plain.isEmpty)
+    }
+
     func testTTYMayContainANSIForAmberOrRed() {
         // Grok hero-eligible → amber → ANSI on TTY path.
         let windows = [
@@ -268,6 +300,7 @@ final class CapacityStripRendererTests: XCTestCase {
         ]
         let payload = CapacityStripRenderer.json(rows: rows(from: windows), now: now)
         XCTAssertEqual(payload.schemaVersion, 1)
+        XCTAssertEqual(payload.contractVersion, ContractRegistry.contractVersion)
         XCTAssertEqual(payload.generatedAt, now)
         // Order: codex absent, so claude, grok, kimi among present.
         XCTAssertEqual(payload.rows.map(\.source), ["claude_code", "grok", "kimi"])
