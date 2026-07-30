@@ -15,13 +15,18 @@ struct RelayThreadChrome: View {
     @State private var confirmStop = false
 
     var body: some View {
-        Group {
+        // Must never be an empty view. This was a `Group` whose content was empty
+        // while `relayJSON` was nil — so the lifecycle modifiers below, which are the
+        // only thing that ever POPULATES `relayJSON`, had nothing to attach to and the
+        // chrome could not escape its own empty state. Status and Stop never rendered,
+        // in fixtures or in production. The zero-size sentinel keeps the view real so
+        // `.task`/`.onAppear` reliably fire.
+        HStack(spacing: 8) {
+            Color.clear.frame(width: 0, height: 0)
             if let relayJSON {
-                HStack(spacing: 8) {
-                    statusControl(relayJSON)
-                    if relayStop.canStop(relayId: relayId) {
-                        stopButton
-                    }
+                statusControl(relayJSON)
+                if relayStop.canStop(relayId: relayId) {
+                    stopButton
                 }
             }
             if let error = relayStop.lastError[relayId] {

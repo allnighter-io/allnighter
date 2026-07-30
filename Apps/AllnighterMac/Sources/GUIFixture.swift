@@ -87,7 +87,12 @@ enum GUIFixture {
         // These render their panels inline (no NSPopover), so they capture in-process
         // like the other panel fixtures.
         let inlineComposeFixtures: Set<String> = ["compose-target-inline", "compose-file-reference"]
-        return (active ?? "").hasPrefix("compose-") && !inlineComposeFixtures.contains(active ?? "")
+        let id = active ?? ""
+        // `.confirmationDialog` presents as a CHILD window, which an in-process snapshot
+        // of the main window's content view cannot see — the dialog opened correctly but
+        // captured as a plain thread. Needs the window-list composite path.
+        if id == "relay-thread-stop-confirm" { return true }
+        return id.hasPrefix("compose-") && !inlineComposeFixtures.contains(id)
     }
 
     /// Deep-link: open the Team dropdown for `team-*` fixtures.
