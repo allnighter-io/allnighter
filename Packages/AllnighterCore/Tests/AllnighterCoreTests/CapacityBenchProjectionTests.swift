@@ -314,6 +314,32 @@ final class CapacityBenchProjectionTests: XCTestCase {
         XCTAssertEqual(rows.count, 2)
     }
 
+    // MARK: 8b — Claude session is the short column (not fiveHour-only)
+
+    func testClaudeSessionMapsToShortColumnNotNone() {
+        // Real Claude Usage pane: Current session + Current week (all models).
+        // Mapping only `.fiveHour` blanked the short column while session existed.
+        let sessionReset = now.addingTimeInterval(2 * 3600)
+        let weekReset = now.addingTimeInterval(4 * 24 * 3600)
+        let windows = [
+            used(52, source: "claude_code", scope: .session, resetAt: sessionReset),
+            used(51, source: "claude_code", scope: .weekly, resetAt: weekReset),
+        ]
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        XCTAssertEqual(rows.count, 1)
+        let row = rows[0]
+        XCTAssertEqual(row.pools.count, 1)
+        XCTAssertEqual(row.pools[0].dashboardScope, .weekly)
+        XCTAssertEqual(row.pools[0].dashboardRemainingPercent, 49)
+        guard case .known(let shortRem, let shortUsed, _, _, _) = row.pools[0].shortWindow else {
+            return XCTFail("Claude session must fill short column, got \(row.pools[0].shortWindow)")
+        }
+        XCTAssertEqual(shortUsed, 52)
+        XCTAssertEqual(shortRem, 48)
+        // Tightest ceiling across session + weekly.
+        XCTAssertEqual(row.effectiveRemainingPercent, 48)
+    }
+
     // MARK: 9 — Explicit fiveHour unknown is not none
 
     func testFiveHourUnknownIsDistinctFromNone() {

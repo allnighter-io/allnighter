@@ -400,19 +400,23 @@ public enum CapacityProbe {
         }
         _ = waitBrief(0.1)
 
-        // 2) Send /usage (all-at-once). Autocomplete menus accept Enter next.
+        // 2) Send usage command. Claude often needs slow typing so the slash
+        // menu resolves to /usage instead of leaving the chat chrome painted.
         if Date() < deadline, !childExited(pid) {
-            let cmd = Array("\(usageCommand)".utf8)
-            _ = cmd.withUnsafeBufferPointer { ptr in
-                write(master, ptr.baseAddress!, ptr.count)
-            }
+            sendUsageCommand(master: master, source: source)
             usageSent = true
-            _ = waitBrief(0.45)
+            _ = waitBrief(source == "claude_code" ? 0.8 : 0.45)
             appendAvailable(from: master, into: &buffer)
-            // Confirm selection / submit.
             let cr: [UInt8] = [0x0D]
             _ = cr.withUnsafeBufferPointer { ptr in
                 write(master, ptr.baseAddress!, ptr.count)
+            }
+            // Claude slash menus sometimes need a second Enter to open the pane.
+            if source == "claude_code" {
+                _ = waitBrief(0.35)
+                _ = cr.withUnsafeBufferPointer { ptr in
+                    write(master, ptr.baseAddress!, ptr.count)
+                }
             }
         }
 
@@ -425,11 +429,22 @@ public enum CapacityProbe {
             "models & quota", "% used", "% remaining", "on-demand",
             "monthly plan", "included", "resets ",
             "current session", "current week",
+            "settings", "status", "config", "usage", "stats", // Claude Usage tab chrome
         ]
         while Date() < deadline {
             appendAvailable(from: master, into: &buffer)
             let lower = decodeAndStrip(buffer).lowercased()
-            if usageMarkers.contains(where: { lower.contains($0) }) {
+            // Claude: chat chrome alone is not the usage pane.
+            let hasClaudeUsage =
+                lower.contains("current session") || lower.contains("current week")
+                || (lower.contains("% used") && lower.contains("resets"))
+            let hasOther = usageMarkers.contains(where: { lower.contains($0) })
+            if source == "claude_code" {
+                if hasClaudeUsage {
+                    sawUsagePane = true
+                    break
+                }
+            } else if hasOther {
                 sawUsagePane = true
                 break
             }
@@ -438,6 +453,41 @@ public enum CapacityProbe {
                 break
             }
             _ = waitBrief(0.08)
+        }
+
+        // Claude fallback: if /usage never painted bars, try /status then look again.
+        if source == "claude_code", !sawUsagePane, Date() < deadline, !childExited(pid) {
+            let clear: [UInt8] = [0x15]
+            _ = clear.withUnsafeBufferPointer { ptr in
+                write(master, ptr.baseAddress!, ptr.count)
+            }
+            _ = waitBrief(0.15)
+            let status = Array("/status".utf8)
+            for byte in status {
+                var b = byte
+                _ = write(master, &b, 1)
+                _ = waitBrief(0.03)
+            }
+            let cr: [UInt8] = [0x0D]
+            _ = cr.withUnsafeBufferPointer { ptr in
+                write(master, ptr.baseAddress!, ptr.count)
+            }
+            _ = waitBrief(0.5)
+            _ = cr.withUnsafeBufferPointer { ptr in
+                write(master, ptr.baseAddress!, ptr.count)
+            }
+            while Date() < deadline {
+                appendAvailable(from: master, into: &buffer)
+                let lower = decodeAndStrip(buffer).lowercased()
+                if lower.contains("current session") || lower.contains("current week")
+                    || (lower.contains("% used") && lower.contains("resets"))
+                {
+                    sawUsagePane = true
+                    break
+                }
+                if childExited(pid) { break }
+                _ = waitBrief(0.08)
+            }
         }
 
         // 4) Stabilize Claude multi-pool pane: re-drain until the pure parser
@@ -478,6 +528,23 @@ public enum CapacityProbe {
         // Even without marker match, hand text to the parser — fail closed there.
         _ = sawUsagePane
         return .captured(finalText)
+    }
+
+    /// Type the usage slash command. Claude needs per-keystroke delay so the
+    /// slash menu binds to `/usage` instead of leaving bare chat chrome.
+    private static func sendUsageCommand(master: Int32, source: String) {
+        let cmd = Array("\(usageCommand)".utf8)
+        if source == "claude_code" {
+            for byte in cmd {
+                var b = byte
+                _ = write(master, &b, 1)
+                _ = waitBrief(0.04)
+            }
+        } else {
+            _ = cmd.withUnsafeBufferPointer { ptr in
+                write(master, ptr.baseAddress!, ptr.count)
+            }
+        }
     }
 
     private static func spawnPTYChild(

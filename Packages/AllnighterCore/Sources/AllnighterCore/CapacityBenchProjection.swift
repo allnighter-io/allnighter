@@ -2,13 +2,14 @@ import Foundation
 
 // MARK: - Short-window column
 
-/// 5-hour column state for one source (or one pool inside a multi-pool source).
+/// Short-column state for one source (or one pool inside a multi-pool source).
 ///
-/// `none` is a product fact — Grok and Cursor have no short window — not missing
-/// data. Never model that as optional/nil; callers must not confuse it with
-/// `unknown`.
+/// The strip's short column is labeled `5h` but means **any short limit**:
+/// vendor 5-hour windows **or** Claude's rolling **session** window. Grok and
+/// Cursor have no short limit (`none`) — that is a product fact, not missing data.
+/// Never model that as optional/nil; callers must not confuse it with `unknown`.
 public enum CapacityShortWindowState: Sendable, Equatable, Codable {
-    /// Source/pool genuinely has no short (5h) limit.
+    /// Source/pool genuinely has no short (5h / session) limit.
     case none
     /// Short window sampled with known remaining (raw vendor value).
     case known(
@@ -263,8 +264,11 @@ public enum CapacityBenchProjection {
         return nil
     }
 
+    /// Short column: `fiveHour` (agy/kimi) **or** `session` (Claude).
+    /// Session is Claude's short limit — treating it as "no short window" blanked
+    /// the 5h column while the Usage pane showed Current session.
     private static func selectShortWindow(from windows: [CapacityWindow]) -> CapacityShortWindowState {
-        let shorts = windows.filter { $0.scope == .fiveHour }
+        let shorts = windows.filter { $0.scope == .fiveHour || $0.scope == .session }
         guard !shorts.isEmpty else { return .none }
 
         if let known = newestKnown(in: shorts),
