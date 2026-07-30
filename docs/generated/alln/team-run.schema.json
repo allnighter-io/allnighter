@@ -102,6 +102,16 @@
             "integer",
             "null"
           ]
+        },
+        "usage" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/OutcomeTokenUsage"
+            },
+            {
+              "type" : "null"
+            }
+          ]
         }
       },
       "required" : [

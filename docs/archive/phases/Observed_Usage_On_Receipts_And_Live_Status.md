@@ -1,9 +1,10 @@
 # Observed Usage on Receipts and Live Status
 
-Status: **OPEN** — presentation only. **Primary deliverable: live pilot / relay
+Status: **Complete (2026-07-30)** — OUR-S01/S02/S03 shipped. **Primary deliverable: live pilot / relay
 status** (duration + optional observed tokens while the turn is in flight).
 Tokens come from AgentOS capture; Alln never invents numbers. Liveness stays
-stream/process-primary — usage is additive, never a heartbeat.
+stream/process-primary — usage is additive, never a heartbeat.  
+Archived: **2026-07-30**
 
 Owner: **AllnighterCore** (contract + presentation + terminal projection) +
 **AllnighterCLI** (`PilotCLI` / `RelayCLI` live status surfaces). **AgentOS**

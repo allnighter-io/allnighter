@@ -42,15 +42,23 @@ revive.
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Worker_To_Agent_Migration.md`](Worker_To_Agent_Migration.md) | **CLOSED — optional hygiene only** | Ship line complete (2026-07-29): living contracts + teaching use `agentId` + `modelId`. **Do not start** unless founder allocates time. Backlog: journal rename, lying locals, S07. SSOT: `Product_Vocabulary.md`; history: [`archive`](../archive/phases/Worker_To_Agent_Migration.md). |
-| [`Completion_Delivery.md`](Completion_Delivery.md) | **OPEN — v2 (2026-07-30)** | **Agent completion notification** (CLI→CLI): honest dev-leg projection + existing waiters; CD-S01a fixture-first. Spec Review Min Ready. Not Mac banners. |
-| [`Observed_Usage_On_Receipts_And_Live_Status.md`](Observed_Usage_On_Receipts_And_Live_Status.md) | **OPEN — v5 (2026-07-30)** | **Live pilot/relay status** primary (S02 hero). v5 tech-gap pass: bugs table, `devRunId` active-seat selection, human `pilot status` parity, per-answer contract (S01), receipts (S03). AgentOS OTU. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
-| [`Agent_Visible_Queuing.md`](Agent_Visible_Queuing.md) | **OPEN — incident-driven** | Agent status honesty: AVQ-S04 **`alln run --read-only`** (ship first — no write-lock queue for feedback), S01–S03 honest status/ps/teaching. Origin: 2026-07-30 dogfood pain (silent FIFO, lying `running`, mutating default for read-only asks). |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — incident-driven** | When any seat dies, a recovery agent finds work in 30s (commits + uncommitted + resume commands), gets notified when dev lands, and can substitute PM model. WRC-S00–S04: workRecovery envelope, `relayAwaitingPM` notify, `--pm-model` on resume, `work scan`, relay guard. Origin: 2026-07-29 PM outage mid relay. |
 | [`CLI_Park.md`](CLI_Park.md) | **Implementing** | Park a CLI (ignore, not delete): skip probe, gray UI, out of Ready/pickers; `alln drivers park|unpark`; parked last for future capacity/status. Code SSOT `SetupStore.parkedDriverIds`. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
+> [`Completion_Delivery.md`](../archive/phases/Completion_Delivery.md)
+> (Complete 2026-07-30 — CD-S01a/S02/S03: shared dev-leg projection running/settling/parked,
+> detached-ack waiters, teaching `devRunId`; code SSOT `StreamLiveness.devLegProjection`,
+> `PilotCLI`/`RelayCLI` status);
+> [`Agent_Visible_Queuing.md`](../archive/phases/Agent_Visible_Queuing.md)
+> (Complete 2026-07-30 — AVQ-S04 `--read-only`, S01 status ticket/`inspectStall`, S02
+> `STREAM_AGE`, S03 teaching; code SSOT `RunRequest.readOnly`, `AsyncTeamStatusMapper`,
+> `ProcessOwnershipSurface.humanTable`);
+> [`Observed_Usage_On_Receipts_And_Live_Status.md`](../archive/phases/Observed_Usage_On_Receipts_And_Live_Status.md)
+> (Complete 2026-07-30 — OUR-S01–S03: per-answer usage, live pilot/relay tok/blame line,
+> receipt chips; code SSOT `ObservedUsagePresentation`, `TeamRunJSONMapper`, `PilotCLI.liveLine`);
 > [`Round_Survives_The_Caller.md`](../archive/phases/Round_Survives_The_Caller.md)
 > + [`Round_Survives_The_Caller_Hot_Fixes.md`](../archive/phases/Round_Survives_The_Caller_Hot_Fixes.md)
 > (Complete 2026-07-28 — S01–S05 + HF redesign: ack-after-accept, no hidden

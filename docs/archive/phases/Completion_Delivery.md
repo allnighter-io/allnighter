@@ -1,8 +1,9 @@
 # Completion Delivery
 
-Status: **OPEN — incident-driven (2026-07-30)**  
+Status: **Complete (2026-07-30)** — CD-S01a + CD-S03 + CD-S02 shipped; CD-S01b skipped (projection gap, not coordinator miss).  
 Audience: **agents dispatching work via `alln` CLI**  
-Version: **v2 (2026-07-30)** — Spec Review Min (`code_spec_review_min`, run `19C9113F`)
+Version: **v2 (2026-07-30)** — Spec Review Min (`code_spec_review_min`, run `19C9113F`)  
+Archived: **2026-07-30**
 
 Origin: PM agent (Opus) told the founder a dev worker was still running after
 `alln run` had already completed (`endReason: completed`, commit landed). The PM

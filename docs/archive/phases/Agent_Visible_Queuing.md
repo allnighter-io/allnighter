@@ -1,8 +1,9 @@
 # Agent-Visible Queuing and Stall Truth
 
-Status: **OPEN — incident-driven (2026-07-30)**  
+Status: **Complete (2026-07-30)** — AVQ-S04 → S01 → S02 → S03 shipped.  
 Audience: **agents using `alln`**  
-Revised: **v5 + S04 clarified (2026-07-30)** — `--read-only` is lock policy on `alln run`, not a team
+Revised: **v5 + S04 clarified (2026-07-30)** — `--read-only` is lock policy on `alln run`, not a team  
+Archived: **2026-07-30**
 
 ## Core promise
 
