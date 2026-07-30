@@ -94,6 +94,12 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Logs", isDirectory: true)
     }
 
+    /// `…/Allnighter/Capacity/` — per-source capacity window history (CAP-S05).
+    /// One JSON file per source id; never PII or raw vendor snippets.
+    public static var capacity: URL {
+        support.appendingPathComponent("Capacity", isDirectory: true)
+    }
+
     /// `…/Allnighter/Catalogs/` — custom team and skill definitions.
     public static var catalogs: URL {
         support.appendingPathComponent("Catalogs", isDirectory: true)
