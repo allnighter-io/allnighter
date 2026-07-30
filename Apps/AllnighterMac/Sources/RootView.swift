@@ -362,7 +362,10 @@ struct RootView: View {
                     threads.currentProjectId = "prj_halo"
                 }
                 if GUIFixture.opensRelayLaunch {
-                    relayLaunchRequest = RelayLaunchRequest(projectId: "prj_halo")
+                    relayLaunchRequest = RelayLaunchRequest(
+                        projectId: "prj_halo",
+                        kickoffMessage: GUIFixture.relayLaunchKickoffMessage ?? ""
+                    )
                 }
                 GUIFixture.captureAndExitIfRequested()
                 return

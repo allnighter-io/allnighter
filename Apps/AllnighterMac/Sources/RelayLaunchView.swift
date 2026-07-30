@@ -7,7 +7,25 @@ import AllnighterEngine
 /// `+` button right next to it).
 struct RelayLaunchRequest: Identifiable {
     let projectId: String
+    var kickoffMessage: String = ""
     var id: String { projectId }
+}
+
+/// Opens the Loop launch sheet from the composer (ATL-S03).
+struct OpenLoopLaunchAction: @unchecked Sendable {
+    let action: (_ kickoff: String, _ projectId: String) -> Void
+    func callAsFunction(kickoff: String, projectId: String) { action(kickoff, projectId) }
+}
+
+private struct OpenLoopLaunchKey: EnvironmentKey {
+    static let defaultValue = OpenLoopLaunchAction { _, _ in }
+}
+
+extension EnvironmentValues {
+    var openLoopLaunch: OpenLoopLaunchAction {
+        get { self[OpenLoopLaunchKey.self] }
+        set { self[OpenLoopLaunchKey.self] = newValue }
+    }
 }
 
 /// R-S08 — the Mac GUI's PM Relay launch surface (`docs/phases/PM_Relay.md` §6, the last
@@ -20,14 +38,13 @@ struct RelayLaunchView: View {
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(\.dismiss) private var dismiss
 
-    let projectId: String
+    let request: RelayLaunchRequest
 
     @State private var viewModel: RelayLaunchViewModel?
     @State private var docQuery = ""
     @State private var docCandidates: [ProjectFileCatalog.Candidate] = []
     @State private var docSnapshot: ProjectFileCatalog.Snapshot?
 
-    private var project: Project? { projects.projects.first { $0.id == projectId } }
     private var readySeats: [ComposeBenchModel] { appModel.composeBench.filter(\.ready) }
 
     var body: some View {
@@ -42,6 +59,7 @@ struct RelayLaunchView: View {
                 // scroll position or content length. No magic-number padding to keep in sync.
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
+                        kickoffSection(viewModel)
                         docSection(viewModel)
                         seatSection(
                             title: "PM seat", subtitle: "Reviews rounds, writes the handover.",
@@ -88,9 +106,10 @@ struct RelayLaunchView: View {
         guard viewModel == nil else { return }
         let root = project?.normalizedRootPath ?? ""
         viewModel = RelayLaunchViewModel(
-            projectId: projectId, projectRoot: root,
+            projectId: request.projectId, projectRoot: root,
             models: appModel.models, registry: appModel.registry,
-            readyModels: appModel.availableModels
+            readyModels: appModel.availableModels,
+            initialKickoffMessage: request.kickoffMessage
         )
         Task.detached(priority: .userInitiated) {
             let snapshot = ProjectFileCatalog().snapshot(rootPath: root)
@@ -109,10 +128,12 @@ struct RelayLaunchView: View {
 
     // MARK: - Header / footer
 
+    private var project: Project? { projects.projects.first { $0.id == request.projectId } }
+
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Start a relay").font(ALFont.h3).foregroundStyle(ALColor.textPrimary)
+                Text("Start a loop").font(ALFont.h3).foregroundStyle(ALColor.textPrimary)
                 Text(project?.displayName ?? "").font(ALFont.caption).foregroundStyle(ALColor.textFaint)
             }
             Spacer()
@@ -128,13 +149,14 @@ struct RelayLaunchView: View {
                 Text("PM ↔ dev, unattended — reviews the real commits each round.")
                     .font(ALFont.caption).foregroundStyle(ALColor.textFaint)
                 Spacer()
-                Button("Start") {
-                    guard let relayId = viewModel.start(onEvent: { _ in
-                        Task { @MainActor in threads.requestReload() }
-                    }) else { return }
-                    threads.reload()
-                    threads.select(threadId: relayId)
-                    dismiss()
+                Button("Start loop") {
+                    Task {
+                        guard let relayId = await viewModel.start() else { return }
+                        threads.reload()
+                        threads.select(threadId: relayId)
+                        threads.markLoopComposerCleared()
+                        dismiss()
+                    }
                 }
                 .buttonStyle(.alPrimary)
                 .disabled(!viewModel.canStart)
@@ -144,6 +166,25 @@ struct RelayLaunchView: View {
         // Opaque: this now lives in the ScrollView's reserved `.safeAreaInset` region, so
         // scroll-bounce content must never show through underneath it.
         .background(ALColor.surface)
+    }
+
+    // MARK: - Kickoff
+
+    private func kickoffSection(_ viewModel: RelayLaunchViewModel) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            sectionLabel("Kickoff")
+            Text("Brief the PM once — not a chat")
+                .font(ALFont.caption).foregroundStyle(ALColor.textFaint)
+            TextField("What should this loop deliver?", text: Binding(
+                get: { viewModel.kickoffMessage },
+                set: { viewModel.kickoffMessage = $0 }
+            ))
+            .textFieldStyle(.plain)
+            .font(ALFont.body)
+            .padding(.horizontal, 10).frame(minHeight: ALControl.height)
+            .background(ALColor.input, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+            .overlay { RoundedRectangle(cornerRadius: ALRadius.sm).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
+        }
     }
 
     // MARK: - Doc section

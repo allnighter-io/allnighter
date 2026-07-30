@@ -155,6 +155,7 @@ struct RoutingComposer: View {
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(CommandCenter.self) private var commands
+    @Environment(\.openLoopLaunch) private var openLoopLaunch
     @State var team: String?
     /// An EXPLICIT worker override. `nil` (with no team) = **Auto** — the run resolves
     /// the Default-model tier and substitutes across CLIs.
@@ -195,7 +196,7 @@ struct RoutingComposer: View {
     // Model is the default (the 95% case: chat with a model); Team is the deliberate
     // "delegate to a team" choice. "Model" reads clearer than the old "Agent".
     @State private var targetTab: TargetTab = .model
-    enum TargetTab { case model, team }
+    enum TargetTab: Hashable { case model, team, loop }
 
     @State private var composerFocused = false
     @State private var editorHeight = ComposeEditorMetrics.minHeight
@@ -270,6 +271,7 @@ struct RoutingComposer: View {
         .onAppear {
             #if DEBUG
             if GUIFixture.composeTargetInline { targetTab = .team }
+            if GUIFixture.composeLoopTab { targetTab = .loop }
             // Deterministically open the picker over the seeded fixture root (the @Com
             // text comes from ComposeSpecimen; this fixes the query + candidates so the
             // capture never depends on trigger/project-load timing).
@@ -326,7 +328,9 @@ struct RoutingComposer: View {
             if onSend != nil { targetOpen = true }
         }
         .onAppear { adoptContinuationModelIfNeeded() }
-        .onChange(of: continuationModelId) { _, _ in adoptContinuationModelIfNeeded() }
+        .onChange(of: threads.loopComposerClearTick) { _, _ in
+            if targetTab == .loop { text = "" }
+        }
     }
 
     /// Pin the bench model this thread last spoke through so the chip survives turn
@@ -338,7 +342,15 @@ struct RoutingComposer: View {
         targetTab = .model
     }
 
+    private var effectivePlaceholder: String {
+        if targetTab == .loop {
+            return "Brief the PM — what should this loop deliver?"
+        }
+        return placeholder
+    }
+
     private var canSend: Bool {
+        if targetTab == .loop { return true }
         // Image-only (or text-attachment-only) sends are valid — a pasted screenshot with
         // no typed text must enable Send.
         let hasBody = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -414,7 +426,7 @@ struct RoutingComposer: View {
         VStack(spacing: 0) {
             ZStack(alignment: .topLeading) {
                 if text.isEmpty {
-                    Text(placeholder).font(.system(size: 13)).foregroundStyle(ALColor.textFaint)
+                    Text(effectivePlaceholder).font(.system(size: 13)).foregroundStyle(ALColor.textFaint)
                         .padding(.horizontal, 14).padding(.top, 8).allowsHitTesting(false)
                 }
                 ALTextEditor(
@@ -754,7 +766,10 @@ struct RoutingComposer: View {
     }
 
     @ViewBuilder private var targetChipContent: some View {
-        if let id = team, let preset = TeamCatalog.get(id) {
+        if targetTab == .loop {
+            Image(systemName: "arrow.2.circlepath").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
+            Text("Loop").font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+        } else if let id = team, let preset = TeamCatalog.get(id) {
             Image(systemName: "person.2").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
             Text(preset.displayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
             Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
@@ -813,10 +828,18 @@ struct RoutingComposer: View {
         .buttonStyle(.plain)
         .disabled(!canSend)
         .keyboardShortcut(.return, modifiers: .command)
-        .accessibilityLabel("Send")
+        .accessibilityLabel(targetTab == .loop ? "Start loop" : "Send")
     }
 
     private func performSend() {
+        if targetTab == .loop {
+            let kickoff = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let projectId = projects.activeProjectId ?? threads.currentProjectId ?? projects.projects.first?.id
+            guard let projectId else { return }
+            openLoopLaunch(kickoff: kickoff, projectId: projectId)
+            targetOpen = false
+            return
+        }
         let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
         // Allow an attachment-only send (e.g. a pasted screenshot with no typed text).
         guard !body.isEmpty || !attachments.isEmpty else { return }
@@ -1012,10 +1035,12 @@ struct RoutingComposer: View {
                     // Auto = the default model, so it lives at the top of the Model tab.
                     defaultTeamRow
                     modelList()
-                } else {
+                } else if targetTab == .team {
                     // Team tab is just teams now — no Auto row → way cleaner.
                     teamSearchField
                     teamPickerBody
+                } else {
+                    popHeader("Loop", "Unattended PM ↔ dev — brief once, then Return opens the launch sheet.")
                 }
             }
         }
@@ -1055,8 +1080,14 @@ struct RoutingComposer: View {
             case .escape:
                 targetOpen = false
             case .tab:
-                // ⇥ toggles Model ⇄ Team (only when both tabs are shown).
-                if !locksTeam { targetTab = (targetTab == .model) ? .team : .model }
+                // ⇥ cycles Model → Team → Loop (only when tabs are shown).
+                if !locksTeam {
+                    switch targetTab {
+                    case .model: targetTab = .team
+                    case .team: targetTab = .loop
+                    case .loop: targetTab = .model
+                    }
+                }
             case .enter:
                 guard items.indices.contains(targetHighlight) else { return true }
                 switch items[targetHighlight] {
@@ -1080,10 +1111,10 @@ struct RoutingComposer: View {
     // an explicit `contentShape` only the glyph was tappable.
     private var targetTabs: some View {
         HStack(spacing: 4) {
-            ForEach([TargetTab.model, .team], id: \.self) { tab in
+            ForEach([TargetTab.model, .team, .loop], id: \.self) { tab in
                 let selected = tab == targetTab
                 Button { targetTab = tab } label: {
-                    Text(tab == .team ? "Team" : "Model")
+                    Text(tab == .team ? "Team" : (tab == .loop ? "Loop" : "Model"))
                         .font(.system(size: 12, weight: selected ? .semibold : .medium))
                         .foregroundStyle(selected ? ALColor.textPrimary : ALColor.textFaint)
                         .padding(.horizontal, 11).frame(height: 24)
@@ -1237,7 +1268,8 @@ struct RoutingComposer: View {
     private var targetItems: [TargetItem] {
         if locksTeam { return navigableModelIds.map { .model($0) } }
         if targetTab == .model { return [.auto] + navigableModelIds.map { .model($0) } }
-        return visibleTeams.map { .team($0.id) }
+        if targetTab == .team { return visibleTeams.map { .team($0.id) } }
+        return []
     }
 
     private var highlightedTargetItem: TargetItem? {

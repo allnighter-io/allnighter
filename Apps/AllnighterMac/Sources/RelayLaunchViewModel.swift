@@ -3,16 +3,16 @@ import Observation
 import AllnighterCore
 import AllnighterEngine
 
-/// R-S08 — the Mac GUI's PM Relay launch surface (`docs/phases/PM_Relay.md` §6). Owns the
-/// launch form's state (doc, seats, ceilings) and starts a relay via
-/// `RelayGUIRuntime.makeCoordinator` — construction-identical to `RelayDispatch.makeCoordinator`
-/// (CLI), so a GUI-launched relay is the exact same durable object the CLI produces.
+/// R-S08 / ATL-S03 — the Mac GUI's Loop launch surface. Owns the launch form's state
+/// (kickoff, doc, seats, ceilings) and starts a relay via detached `alln pair relay
+/// --no-wait` — the same survival contract as the CLI, not in-process `complete`.
 ///
 /// Validation is a pure static function (`validate`) so it is unit-testable without SwiftUI
 /// or a running app.
 @MainActor
 @Observable
 final class RelayLaunchViewModel {
+    var kickoffMessage: String = ""
     var docPath: String = ""
     var pmModelId: String?
     var devModelId: String?
@@ -20,42 +20,18 @@ final class RelayLaunchViewModel {
     /// Optional `HH:MM` deadline. Empty = no deadline (`--max-rounds` is the only ceiling).
     var untilTime: String = ""
     private(set) var isStarting = false
-    /// RSC-S02: set by `start()` when `RelayCoordinator.preflightStart` refuses a
-    /// duplicate live relay on this project root + doc. Deliberately NOT folded into
-    /// `validationIssues`/`canStart` — those gate the Start button on pure form
-    /// completeness; a duplicate-relay refusal is a dynamic, disk-backed fact that can
-    /// change the moment the existing relay settles, so blocking the button on it would
-    /// dead-end the form until the user edits an unrelated field. Cleared at the top of
-    /// every `start()` attempt so retrying re-checks fresh.
+    /// Set by `start()` when detached spawn refuses (e.g. `RELAY_ALREADY_ACTIVE`). Cleared
+    /// at the top of every `start()` attempt.
     private(set) var startRefusalIssue: ValidationIssue?
 
     let projectId: String
     let projectRoot: String
-    /// Full model roster (mirrors `RelayGUIRuntime.makeCoordinator`'s `RunService` — the
-    /// unfiltered catalog, matching the CLI; NOT `ThreadsViewModel.readyModels`). Seat
-    /// pickers still only OFFER ready models (below).
     let models: [Model]
     let registry: DriverRegistry
-    /// Only ready models are offered as seats — an unreachable seat can never be picked in
-    /// the GUI (the CLI still accepts any known worker id; the GUI is stricter by
-    /// construction, same as every other composer picker in the app).
     let readyModels: [Model]
 
-    private let makeCoordinator: (@escaping @Sendable () -> String) -> RelayCoordinator
-    /// RSC-S02: the store `preflightStart` scans. Defaults to production
-    /// (`RelayStateStore()`), the SAME default root `RelayGUIRuntime.makeCoordinator`'s
-    /// internal `RelayCoordinator` uses — a test-injected store must point at the SAME
-    /// root the injected `makeCoordinator` factory's coordinator was built against, or
-    /// the preflight would scan a different directory than the one `run()` persists to.
     private let stateStore: RelayStateStore
-    /// Builds the `RelayThreadProjector` used for the synchronous pre-seed in `start()`
-    /// (below). Defaults to the SAME default-store projector `RelayGUIRuntime.makeCoordinator`
-    /// builds internally — in production these are two instances over the identical default
-    /// `ThreadStore()`/`RunStore()` paths (the type carries no state of its own), so they're
-    /// interchangeable; a test that injects a `makeCoordinator` pointed at temp stores also
-    /// injects a matching `makeThreadProjector` so the pre-seed lands in the SAME store the
-    /// coordinator will read back.
-    private let makeThreadProjector: () -> RelayThreadProjector
+    private let detachedLaunch: (_ cwd: String, _ arguments: [String]) -> RelayDetachedLauncher.Outcome
 
     init(
         projectId: String,
@@ -63,18 +39,20 @@ final class RelayLaunchViewModel {
         models: [Model],
         registry: DriverRegistry,
         readyModels: [Model],
-        makeCoordinator: @escaping (@escaping @Sendable () -> String) -> RelayCoordinator = RelayGUIRuntime.makeCoordinator,
-        makeThreadProjector: @escaping () -> RelayThreadProjector = { RelayThreadProjector() },
-        stateStore: RelayStateStore = RelayStateStore()
+        initialKickoffMessage: String = "",
+        stateStore: RelayStateStore = RelayStateStore(),
+        detachedLaunch: @escaping (_ cwd: String, _ arguments: [String]) -> RelayDetachedLauncher.Outcome = {
+            RelayDetachedLauncher.launchAndAwaitAcceptance(cwd: $0, arguments: $1)
+        }
     ) {
         self.projectId = projectId
         self.projectRoot = projectRoot
         self.models = models
         self.registry = registry
         self.readyModels = readyModels
-        self.makeCoordinator = makeCoordinator
-        self.makeThreadProjector = makeThreadProjector
+        self.kickoffMessage = initialKickoffMessage
         self.stateStore = stateStore
+        self.detachedLaunch = detachedLaunch
     }
 
     // MARK: - Validation (pure, testable)
@@ -85,9 +63,16 @@ final class RelayLaunchViewModel {
     }
 
     static func validate(
-        docPath: String, pmModelId: String?, devModelId: String?, maxRounds: Int
+        kickoffMessage: String,
+        docPath: String,
+        pmModelId: String?,
+        devModelId: String?,
+        maxRounds: Int
     ) -> [ValidationIssue] {
         var issues: [ValidationIssue] = []
+        if kickoffMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            issues.append(.init(id: "kickoff", message: "Brief the PM — kickoff is required."))
+        }
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedDoc.isEmpty {
             issues.append(.init(id: "doc", message: "Pick a spec doc to relay against."))
@@ -108,59 +93,101 @@ final class RelayLaunchViewModel {
     }
 
     var validationIssues: [ValidationIssue] {
-        Self.validate(docPath: docPath, pmModelId: pmModelId, devModelId: devModelId, maxRounds: maxRounds)
+        Self.validate(
+            kickoffMessage: kickoffMessage,
+            docPath: docPath,
+            pmModelId: pmModelId,
+            devModelId: devModelId,
+            maxRounds: maxRounds
+        )
     }
 
     var canStart: Bool { validationIssues.isEmpty && !isStarting }
 
-    // MARK: - Start
+    // MARK: - Start (detached)
 
-    /// Seeds the relay thread only after a durable claim succeeds, then runs the loop
-    /// in a background Task. Returns the relay id on claim success, `nil` on refusal.
+    /// Spawns `alln pair relay --no-wait` and waits for durable accept. Returns the relay
+    /// id on success, `nil` on refusal. Does not pre-claim — the detached child owns claim.
     @discardableResult
-    func start(onEvent: (@Sendable (RelayCoordinator.RelayEvent) -> Void)? = nil) -> String? {
+    func start() async -> String? {
         guard canStart, let pmModelId, let devModelId else { return nil }
         startRefusalIssue = nil
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedKickoff = kickoffMessage.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        let relayId = RelayGUIRuntime.newRelayId()
-        let config = RelayCoordinator.Config(
-            projectRoot: projectRoot,
-            projectId: projectId,
+        if case .failure(let refusal) = RelayCoordinator.preflightStart(
+            projectRoot: projectRoot, docPath: trimmedDoc, stateStore: stateStore
+        ) {
+            mapPreflightRefusal(refusal)
+            return nil
+        }
+
+        let arguments = RelayDetachedLauncher.relayStartArguments(
             docPath: trimmedDoc,
+            projectId: projectId,
             pmModelId: pmModelId,
             devModelId: devModelId,
+            kickoffMessage: trimmedKickoff,
             maxRounds: maxRounds,
             until: RelayGUIRuntime.parseUntil(untilTime)
         )
 
-        let coordinator = makeCoordinator { relayId }
-        // RSC-HF: claim under the real start lock before seeding/navigating — never
-        // return an id from a lock-free preflight while ignoring the guarded result.
-        switch coordinator.claimStart(config: config, id: relayId) {
-        case .failure(let refusal):
-            if case .alreadyActive(let existingRelayId) = refusal {
-                startRefusalIssue = ValidationIssue(
-                    id: "already-active",
-                    message: "A relay is already running for this doc (id \(existingRelayId)) — open it, resume/adopt it, or wait instead of starting a second one."
-                )
-            } else if case .journalUnavailable = refusal {
-                startRefusalIssue = ValidationIssue(
-                    id: "journal-unavailable",
-                    message: "Could not claim the relay on disk."
-                )
-            }
+        isStarting = true
+        defer { isStarting = false }
+
+        switch detachedLaunch(projectRoot, arguments) {
+        case .accepted(let id, _):
+            return id
+        case .refused(let code, let message):
+            mapDetachedRefusal(code: code, message: message)
             return nil
-        case .success(let claimed):
-            makeThreadProjector().started(state: claimed, projectId: projectId)
-            isStarting = true
-            Task { @MainActor [weak self] in
-                await coordinator.complete(claimed, config: config) { event in
-                    Task { @MainActor in onEvent?(event) }
-                }
-                self?.isStarting = false
-            }
-            return claimed.id
+        case .timedOut:
+            startRefusalIssue = ValidationIssue(
+                id: "detached-timeout",
+                message: "The loop did not accept within the handoff window — try again."
+            )
+            return nil
+        case .unresolvedExecutable:
+            startRefusalIssue = ValidationIssue(
+                id: "unresolved-binary",
+                message: "Could not resolve `alln` on this Mac — install the CLI from Setup."
+            )
+            return nil
+        case .spawnFailed(let detail):
+            startRefusalIssue = ValidationIssue(
+                id: "spawn-failed",
+                message: "Could not start the loop process: \(detail)"
+            )
+            return nil
+        }
+    }
+
+    private func mapPreflightRefusal(_ refusal: RelayCoordinator.DispatchRefusal) {
+        switch refusal {
+        case .alreadyActive(let existingRelayId):
+            startRefusalIssue = ValidationIssue(
+                id: "already-active",
+                message: "A relay is already running for this doc (id \(existingRelayId)) — open it, resume/adopt it, or wait instead of starting a second one."
+            )
+        case .journalUnavailable:
+            startRefusalIssue = ValidationIssue(
+                id: "journal-unavailable",
+                message: "Could not claim the relay on disk."
+            )
+        case .relayNotFound, .notResumable, .roundInFlight:
+            startRefusalIssue = ValidationIssue(
+                id: "start-refused",
+                message: "Could not start the loop for this project and doc."
+            )
+        }
+    }
+
+    private func mapDetachedRefusal(code: String, message: String) {
+        switch code {
+        case "RELAY_ALREADY_ACTIVE":
+            startRefusalIssue = ValidationIssue(id: "already-active", message: message)
+        default:
+            startRefusalIssue = ValidationIssue(id: "start-refused", message: message)
         }
     }
 }

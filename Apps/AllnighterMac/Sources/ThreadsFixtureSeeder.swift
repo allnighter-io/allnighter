@@ -58,7 +58,7 @@ struct ThreadsFixtureSeeder {
             seedFixtureProjectsRail()
             reload()
             setSelectedThreadId(nil)
-        case "relay-launch":
+        case "relay-launch", "relay-launch-kickoff":
             // R-S08: same project-grouped sidebar as "projects-rail" — the launch sheet
             // (opened by RootView via GUIFixture.opensRelayLaunch) renders on top of it.
             seedFixtureProjectsRail()

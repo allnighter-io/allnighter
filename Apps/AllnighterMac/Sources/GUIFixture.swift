@@ -152,7 +152,22 @@ enum GUIFixture {
     static var opensProjectsRail: Bool { active == "projects-rail" }
     /// R-S08: seed sample projects (same as `opensProjectsRail`) so the relay launch
     /// sheet's doc/seat pickers have a real project + bench to render against.
-    static var opensRelayLaunch: Bool { active == "relay-launch" }
+    static var opensRelayLaunch: Bool {
+        active == "relay-launch" || active == "relay-launch-kickoff"
+    }
+
+    /// Proof: composer with the Loop tab selected (ATL-S03).
+    static var composeLoopTab: Bool { active == "compose-loop" }
+
+    /// Kickoff text seeded into the relay launch sheet for visual proof.
+    static var relayLaunchKickoffMessage: String? {
+        switch active {
+        case "relay-launch", "relay-launch-kickoff":
+            return "Ship the parser fix; PM reviews each round until done."
+        default:
+            return nil
+        }
+    }
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// Deep-link: open the Pending queue screen seeded with sample armed work.
@@ -334,7 +349,8 @@ enum GUIFixture {
         ("compose-team", "Compose — team target (name · workers, not fake model)"),
         ("compose-file-reference", "Compose — file reference picker"),
         ("compose-target-send-to-team", "Compose — team target popover (native popover)"),
-        ("tcc-probe", "TCC / Screen Recording grant probe (forces composite path)"),
+        ("compose-loop", "Compose — Loop tab (ATL-S03)"),
+        ("relay-launch-kickoff", "Loop launch sheet — Kickoff field populated (ATL-S03)"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture

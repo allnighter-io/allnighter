@@ -44,6 +44,10 @@ final class ThreadsViewModel {
     /// thread by default per the threads phase spec.
     var pendingQuickCaptureText: String?
 
+    /// Bumped after a successful Loop start so composers in Loop mode can clear kickoff text.
+    private(set) var loopComposerClearTick: Int = 0
+    func markLoopComposerCleared() { loopComposerClearTick += 1 }
+
     let models: [Model]
     private let store: ThreadStore
     private let runStore: RunStore

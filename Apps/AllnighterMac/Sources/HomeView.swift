@@ -32,6 +32,9 @@ struct HomeView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .environment(\.openFloor, OpenFloorAction { floorRun = $0 })
+        .environment(\.openLoopLaunch, OpenLoopLaunchAction { kickoff, projectId in
+            relayLaunchRequest = RelayLaunchRequest(projectId: projectId, kickoffMessage: kickoff)
+        })
         .overlay {
             if let floorRun {
                 FactoryFloorView(
@@ -52,7 +55,7 @@ struct HomeView: View {
         .overlay {
             if GUIFixture.opensRelayLaunch, let request = relayLaunchRequest {
                 ALColor.overlay.ignoresSafeArea()
-                RelayLaunchView(projectId: request.projectId)
+                RelayLaunchView(request: request)
                     .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.xxl))
                     .shadow(radius: 24)
             }
@@ -166,7 +169,7 @@ private struct HomeSidebar: View {
         .onAppear(perform: refreshArmedPending)
         .onChange(of: threads.railRows.count) { _, _ in refreshArmedPending() }
         .sheet(item: $relayLaunchRequest) { request in
-            RelayLaunchView(projectId: request.projectId)
+            RelayLaunchView(request: request)
         }
     }
 
@@ -211,8 +214,7 @@ private struct HomeSidebar: View {
                         group: group,
                         collapsed: collapsed.contains(group.id),
                         onToggle: { toggle(group.id) },
-                        onNewAgent: { newAgent(in: group.project.id) },
-                        onStartRelay: { relayLaunchRequest = RelayLaunchRequest(projectId: group.project.id) }
+                        onNewAgent: { newAgent(in: group.project.id) }
                     )
                     if !collapsed.contains(group.id) {
                         let shown = expanded.contains(group.id) ? group.rows : Array(group.rows.prefix(4))
@@ -568,9 +570,6 @@ private struct ProjectGroupHeader: View {
     let collapsed: Bool
     let onToggle: () -> Void
     let onNewAgent: (() -> Void)?
-    /// R-S08: launches the PM Relay sheet for this project. `nil` in contexts (fixtures)
-    /// that don't wire the affordance — no button renders.
-    var onStartRelay: (() -> Void)? = nil
 
     var body: some View {
         HStack(spacing: 7) {
@@ -592,10 +591,6 @@ private struct ProjectGroupHeader: View {
             }
             .buttonStyle(.plain)
             Spacer(minLength: 0)
-            if let onStartRelay {
-                IconButton(systemImage: "arrow.triangle.2.circlepath", accessibilityLabel: "Start relay", small: true, action: onStartRelay)
-                    .help("Start a PM ↔ dev relay against a spec doc")
-            }
             if let onNewAgent {
                 IconButton(systemImage: "plus", accessibilityLabel: "New agent in project", small: true, action: onNewAgent)
             }
