@@ -1,25 +1,44 @@
-# CLI Capacity TUI Sampling
+# Capacity Strip — cross-CLI headroom acquisition + launch surface
 
-Status: **OPEN — founder intake packet. Do not implement until slices are
-scoped and product-law amendment is explicit.**
-Owner: AllnighterCore (ledger + contract) + AllnighterEngine (probes, admission,
-Boost routing); AgentOS may own per-driver PTY/spawn helpers if probes live
-next to workers
-Created: 2026-07-29
-Origin: Founder brainstorm — multi-CLI weekly / 5-hour / session limits are
-real; headless CLIs generally do **not** expose remaining capacity as JSON.
-They *do* print it in interactive status/usage UIs (`codex` `/status`, Claude
-Usage pane, Antigravity-style `/usage`, etc.). Alln is flying blind until a
-seat dies. Sample those TUIs on a schedule, own a local ledger, feed dashboard
-+ Boost same-tier routing + harvest.
+> Filename kept (`CLI_Capacity_TUI_Sampling.md`) so existing links survive.
+> The packet is no longer "TUI sampling" — TUI probing is now **one tier** of an
+> acquisition ladder, not the architecture. See §Acquisition ladder.
+
+Status: **OPEN — founder intake packet, AMENDED 2026-07-29. Do not implement
+until slices are scoped. Product-law amendment below is explicit.**
+Owner: AllnighterCore (ledger + contract) + AllnighterEngine (acquisition,
+admission, Boost routing) + Mac app (launch surface); AgentOS may own per-driver
+PTY/spawn helpers if tier-3 probes live next to workers
+Created: 2026-07-29 · Amended: 2026-07-29 (ladder, waste ledger, launch screen)
+
+---
+
+## Demand evidence (why this is not speculative)
+
+Founder, 2026-07-29:
+
+> "I check usage across 6 CLIs 5 times per day."
+
+That is **~30 manual interactive TUI checks per day** — open a CLI, type
+`/status` or `/usage`, read a bar, close it, repeat, and hold six numbers and
+six reset clocks in your head. Then do it again in four hours because half the
+windows are 5-hour windows.
+
+This packet's real job description: **collapse 30 manual checks/day into one
+glance at launch.** Everything else (Boost routing, harvest, admission) is
+downstream of owning the numbers.
+
+Founder ruling: the capacity strip is the **main screen on app launch**, with a
+manual refresh control. See §Launch surface.
 
 Related (not SSOT; reconcile before build):
 
 | Doc | Relation |
 | --- | --- |
-| [`parked/Utilization_Admission_Control.md`](parked/Utilization_Admission_Control.md) | Parked admission control; sketched PTY probes as Utilization2, banned quota dashboard / fake %. **This packet amends:** vendor-printed remaining is observation, not theater; Boost utilization is in scope. |
+| [`parked/Utilization_Admission_Control.md`](parked/Utilization_Admission_Control.md) | Parked admission control; sketched PTY probes as Utilization2, banned quota dashboard / fake %. **This packet amends:** vendor-printed remaining is observation, not theater; Boost utilization is in scope. Guessed % stays banned. |
 | [`Observed_Usage_On_Receipts_And_Live_Status.md`](Observed_Usage_On_Receipts_And_Live_Status.md) | Per-run **token/duration** on receipts — orthogonal. Tokens ≠ account quota windows. |
-| [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) | Historical observed-usage law (fail closed, no estimates). |
+| [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) | Historical observed-usage law (fail closed, no estimates). Waste ledger (§) is compatible: it reports the past, it does not predict. |
+| `docs/gui/GUI_Workflow.md` | Launch-surface change needs a surface brief + Visual Proof Gate. |
 | Code today | Reactive only: `CapacityClassifier` → `CapacityObservation` → `SourceCapacityLedger` / `VendorBackoffPolicy` park-wake; `alln capacity` projects **cooldowns after failure**, not pre-flight headroom. |
 
 Phases are ephemeral. At closeout: promote product law into standing ops /
@@ -27,83 +46,101 @@ vocabulary / help; code remains SSOT for fields; archive this packet.
 
 ---
 
-## Founder intake (SSOT_Founder_Input_Workflow)
+## Founder intake (SSOT_Founder_Input_Workflow) — amended
 
 ```text
 Founder intent:
-  No CLI will reliably tell you remaining subscription capacity headless.
-  Each major CLI already shows capacity in an interactive terminal surface
-  (/status, Usage tab, /usage). Learn those shapes, sample on a schedule
-  (e.g. hourly) and before heavy dispatch, parse fail-closed, store a local
-  ledger. Build a dashboard. Use headroom for same-tier routing and Boost
-  utilization so paid seats are harvested instead of discovered only at death.
-  Occasional UI churn is an update tax, not a reason to skip the feature.
+  I check usage across 6 CLIs 5x/day by hand. Put the whole bench in one glance
+  on the launch screen with a refresh button. Vendors show capacity to humans in
+  interactive surfaces; most do NOT expose it headless. Read it wherever it is
+  cheapest to read, remember it, and spend what I already bought instead of
+  discovering limits when a run dies.
 
 Product value:
-  Quota harvesting is already mission language. Today the loop is try → fail →
-  park → wake → substitute. With TUI samples the loop becomes sample → know
-  windows → prefer fat same-tier seats → protect thin ones → park only when
-  truly empty/unknown. Boost stops being failure recovery only and becomes a
-  utilization control room. Multi-CLI 100% draw-down becomes tractable.
+  Three things, in order of felt value:
+    1. No dropped runs — a long mutating relay never starts on a seat about to
+       die, so no half-written repo at minute 35.
+    2. Less waste — quota does not roll over; expiring headroom is use-it-or-
+       lose-it. Spend the seat that is about to reset.
+    3. Utilize what you have — one glance replaces 30 manual TUI checks/day.
+  Strategic: no vendor will ever show you your BENCH, only themselves. A neutral
+  cross-vendor headroom ledger is knowledge no single CLI can hold. It is the
+  first alln feature that is not "orchestration I could have scripted."
 
 Trusted workflow slice:
-  Install CLIs on the Mac → alln (or serve) runs per-driver capacity probes
-  against interactive usage/status UIs → parsers emit CapacityWindow rows
-  (session / weekly / plan class, % used or left, resetAt, raw snippet) →
-  ledger + alln capacity JSON → Boost / floor strip → admission and same-tier
-  substitute policy read the ledger → optional local burn projection labeled
-  as local pace, never vendor truth.
+  Install CLIs on the Mac → alln acquires headroom per driver at the cheapest
+  available tier (on-disk log > structured stream > TUI probe > failure
+  classification) → parsers emit CapacityWindow rows (scope, used/left, resetAt,
+  source tier, raw snippet) → ledger + alln capacity JSON → launch screen strip
+  ordered by reset clock → pre-dispatch guard + Boost harvest read the ledger →
+  retrospective waste ledger reports headroom that expired unused.
 
 Current state:
   Strong: post-failure capacity classification, vendorBackoff park/wake,
   SourceCapacityLedger cooldowns, authorized substitution policy, alln capacity
   for cooling sources.
-  Missing: proactive sampling of vendor status/usage TUIs; pool-scoped remaining
-  % and reset clocks before dispatch; Boost headroom strip; harvest order;
-  same-tier auto-route from remaining (not only from 429).
+  Missing: proactive acquisition; pool-scoped remaining + reset clocks before
+  dispatch; launch strip; harvest order; same-tier routing from remaining (not
+  only from 429); any record of headroom wasted at reset.
 
 Truth owner (target):
-  Probe runners + driver grammars: Engine / AgentOS driver layer (TBD at slice).
+  Acquisition runners + driver grammars: Engine / AgentOS driver layer.
   Ledger + CapacityWindow model: AllnighterCore.
   Public contract: extend alln capacity (one JSON for CLI/GUI/iOS).
   Admission / Boost policy: Engine; never invent % when sample missing.
   GUI: renders ledger only; no parallel SwiftUI capacity store.
 
 CLI surface (target — refine at implementation):
-  - alln capacity          — cooling + known windows + unknown seats
-  - alln capacity sample   — force refresh (opt-in; rate-limited)
+  - alln capacity          — every seat: known windows, cooling, unknown+reason
+  - alln capacity sample   — force refresh (tier-aware; rate-limited)
+  - alln capacity waste    — retrospective headroom expired unused
   - alln capacity --json   — agent/dashboard contract
   Exit: missing sample = unknown, not error; parse fail = unknown + stale flag.
+  Unknown NEVER blocks dispatch (see §Fail-closed means proceed).
+
+GUI surface (target):
+  Capacity strip is the launch screen (founder ruling 2026-07-29) plus a
+  persistent band. Manual refresh control. Renders the ledger; owns no truth.
 
 Help surface:
-  Teach: capacity is vendor-printed when sampled; unknown means we have not
-  read a usage/status UI recently or parse failed; tokens on receipts are a
-  different system.
-  Search: capacity, quota, usage, weekly limit, 5 hour, boost, substitute.
+  Teach: capacity is vendor-printed when acquired; unknown means the vendor
+  exposes no surface, or we have not read one recently, or a parser failed;
+  tokens on receipts are a different system.
+  Search: capacity, quota, usage, weekly limit, 5 hour, reset, waste, boost,
+  substitute, headroom.
   Update HelpTopicRegistry in the same slice as the contract.
 
 Proof scenario (dogfood):
-  Codex /status shows weekly 52% left; Claude Usage shows session 37% used /
-  week 32% used. After sample, alln capacity and Boost strip match those
-  numbers with source + observedAt. Long work prefers the fatter same-tier
-  seat; near-floor preferred seat offers or auto-routes to authorized
-  same-tier substitute with headroom. After a vendor UI rename, parser fails
-  closed to unknown (fixture proves); reactive park path still works.
+  At launch, the strip shows all six seats without the founder opening a single
+  CLI. Codex weekly matches `/status` exactly (it is the same number — see
+  §Acquisition ladder tier 1). Claude session + week match the Usage pane after
+  a probe. Long relay refuses/warns on a near-floor seat and names a fatter
+  same-tier alternate. After a vendor UI rename, that seat degrades to
+  `unknown — parser failed`, the rest of the strip stays live, and dispatch
+  still works via the reactive park path.
 
-Blocking questions:
-  1. Probe host: PTY one-shot vs rare Terminal.app special-case — default PTY.
-  2. Auto same-tier substitute on headroom: default-on for Boost, or ask-first?
-  3. Sample cadence default (hourly?) and max probes/hour per source.
-  4. Whether local burn projection ships in v1 or dashboard+routing only.
-  5. Which drivers are v1 (Claude + Codex minimum?) vs later (Gemini, Grok, agy).
+Resolved decisions (were blocking):
+  1. Probe host → PTY one-shot. Never Terminal.app as system of record.
+  2. Auto same-tier substitute → OFFER-first in v1. Auto only when the seat is
+     already hard-blocked (existing reactive path). Rationale: auto-routing on a
+     possibly-stale scraped number produces "why did it silently use Sonnet".
+  3. Cadence → opportunistic, not scheduled. Tier 1 is free and per-turn; tier 3
+     samples at launch, on refresh press, and pre-long-dispatch if >30m stale.
+     No idle background PTY storms.
+  4. Local burn projection → KILLED. Replaced by anchored decrement (a strict
+     upper bound, §) + retrospective waste ledger (§). No predictions ship.
+  5. v1 driver set → prioritise by PAIN, not by parse ease. Evidence says the
+     seats that actually run out are Claude and agy/Gemini (5h windows).
+     Codex is free (tier 1) so it ships anyway. Target v1: Codex + Claude + agy.
 
-Next slice (after founder answers blocking where needed):
-  CAP-TUI-S00 — driver matrix + fixture corpus from real /status and Usage pastes
-  CAP-TUI-S01 — CapacityWindow model + ledger merge with existing observations
-  CAP-TUI-S02 — first two probes (Claude + Codex) + alln capacity fields
-  CAP-TUI-S03 — Boost / floor strip + pre-dispatch near-floor gate
-  CAP-TUI-S04 — same-tier harvest / substitute from headroom
-  CAP-TUI-S05 — optional local burn projection ("at current pace")
+Next slice:
+  CAP-S00 — acquisition audit + probe-starts-the-window spike
+  CAP-S01 — CapacityWindow + buckets + anchored decrement (no probes)
+  CAP-S02 — launch strip from tier-1 + failure data only
+  CAP-S03 — pre-dispatch relay guard (posture-differentiated)
+  CAP-S04 — tier-3 probes (Claude, agy) + refresh control
+  CAP-S05 — waste ledger
+  CAP-S06 — burn-to-reset harvest ordering + offer-substitute
 ```
 
 ---
@@ -111,127 +148,352 @@ Next slice (after founder answers blocking where needed):
 ## Problem
 
 Paid multi-CLI benches have multi-window limits (session / ~5h, weekly, plan
-class). Vendors put the useful numbers in **interactive** status/usage UIs, not
-in stable headless APIs.
+class). Vendors put the useful numbers where **humans** can see them, and most
+do not expose them headless. Alln today learns capacity mostly when work
+**fails**. That is survival, not harvest:
 
-Alln today learns capacity mostly when work **fails**. That is survival, not
-harvest:
-
-- long pilot/relay dies mid-flight near a floor
-- wrong seat burns first
+- long pilot/relay dies mid-flight near a floor, leaving a dirty tree
+- the wrong seat burns first
 - Boost recovers after the fact instead of steering utilization
+- headroom expires unused and nobody ever sees it happen
 
-### Founder proof (dogfood pastes)
+---
 
-**Codex `/status` (shape):** account, model, context window % left, **weekly
-limit** bar with **% left** and **resets** clock; also points at web usage URL.
+## Acquisition ladder (replaces "sample the TUI")
 
-**Claude Usage (shape):** session bar **% used** + reset; current week (all
-models) **% used** + reset; plan/class week (e.g. Fable); optional “what’s
-contributing” analytics; usage-credits toggle.
+The original packet assumed the interactive TUI is the only source. **That is
+false for at least one driver, and verifying it per driver is the single
+cheapest thing in this packet.** The TUI is a *render* of data the CLI already
+has; sometimes that data is already on your disk.
 
-**Antigravity-class `/usage` (shape):** model **groups** sharing weekly +
-five-hour limits with **% remaining** and refresh countdowns.
+Per driver, acquire from the highest tier available:
 
-Parsers must accept both “% left” and “% used” and normalize; group/pool scope
-beats per-marketing-model rows when the UI says models share a limit.
+| Tier | Source | Cost | Freshness |
+| --- | --- | --- | --- |
+| **1** | On-disk session/rollout log | free (file read) | per turn |
+| **2** | Structured stream on a run you were making anyway | free (piggyback) | per run |
+| **3** | Interactive TUI via PTY one-shot | seconds + spawn + risk | per probe |
+| **4** | Failure classification (exists today) | free | on 429 only |
+
+Same ledger, same contract, same strip. The tier is recorded on every row.
+
+### Tier-1 evidence: Codex (verified on this machine, 2026-07-29)
+
+`~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl`, every turn,
+`type: event_msg` → `payload.type: token_count`:
+
+```json
+"rate_limits": {
+  "limit_id": "codex",
+  "plan_type": "plus",
+  "primary":   { "used_percent": 52.0, "window_minutes": 10080, "resets_at": 1785904336 },
+  "secondary": null,
+  "credits":   { "has_credits": false, "unlimited": false, "balance": "0" },
+  "individual_limit": null,
+  "spend_control_reached": null,
+  "rate_limit_reached_type": null
+}
+```
+
+Observed moving 47.0 → 52.0 across two sessions the same evening.
+`window_minutes: 10080` = the weekly window; `secondary` is the slot for a
+shorter window; `resets_at` is a unix epoch. This is **richer than `/status`
+renders**, because `/status` is a view of this record.
+
+Consequence: Codex needs **no probe, no parser corpus, no PTY, no churn tax** —
+and is fresh per turn rather than per hour.
+
+### Tier-3 evidence: Claude (verified absent, 2026-07-29)
+
+`~/.claude/projects/**/*.jsonl` carries per-message `message.usage`
+(input/output/cache tokens, service tier) but **no account-window percentage**.
+Checked `~/.claude/cache`, `~/.claude/telemetry`, `~/.claude/sessions`,
+`~/.claude/daemon` — nothing. Claude is a genuine tier-3 case: the Usage pane is
+the only surface.
+
+### Unaudited
+
+`~/.gemini/antigravity-cli/` (has `history.jsonl`, `settings.json`) — audit in
+CAP-S00. Grok, Cursor, Aider — unaudited.
+
+### Why the ladder is what makes the launch screen possible
+
+If every seat were a PTY probe, launch would take ~20 seconds, spawn six
+processes, and possibly steal focus. With the ladder, tier-1 seats render
+**instantly from disk at launch**; tier-3 seats render last-known plus an age,
+and refresh on demand. The ladder is not just a cost saving — it is the
+difference between a launch screen and a loading screen.
+
+---
+
+## The three moments (design toward these, not toward a ledger)
+
+**1. The reveal.** First `alln capacity` / first launch. Six seats, one strip,
+six reset clocks. Nobody has ever seen their bench in one frame. This is the
+screenshot people post.
+
+**2. The save.** `held — codex weekly 4%, resets in 2h11m · starting on grok (61%)`.
+One line that visibly prevented a half-written repo. Phrase it as an **action
+taken**, not a warning shown.
+
+**3. The waste.** `your gemini 5h window reset with 61% unused — 11 times this week.`
+Loss aversion, from arithmetic on two observations. See §Waste ledger.
 
 ---
 
 ## Product law amendment
 
-Prior parked utilization law banned quota dashboards and “fake percentages.”
+Prior parked utilization law banned quota dashboards and "fake percentages."
 That stays for **guessed** remaining.
-
-**Allowed under this packet:**
 
 | Allowed | Banned |
 | --- | --- |
-| Vendor-printed % used/left from a sampled status/usage UI | Invented % when the sample is missing or parse failed |
-| Vendor-printed reset / refresh times | Pretending local projection is vendor truth |
-| Pool/group scopes as the UI groups them | Silent substitute outside authorized same-tier policy |
-| Optional local burn trajectory labeled “at current pace (local)” | Preflight token-cost estimates as hard gates |
+| Vendor-printed % used/left, acquired at any ladder tier | Invented % when acquisition is missing or parse failed |
+| Vendor-printed reset / refresh times | Pretending local accounting is vendor truth |
+| Pool/group scopes as the vendor groups them | Silent substitute outside authorized same-tier policy |
+| **Anchored decrement** — sample minus our own observed burn, as a strict upper bound | **Projection / "at current pace you will run out at X"** — KILLED |
+| **Retrospective waste** — headroom that provably expired unused | Preflight token-cost estimates as hard gates |
 | Fail closed → `unknown` + keep reactive park path | Zero-fill remaining to look complete |
 
-**Admission control remains the abstraction** — “can this seat take this
-attempt?” Headroom samples feed admission and harvest; they do not become a
-billing product.
+**Admission control remains the abstraction** — "can this seat take this
+attempt?" Headroom feeds admission and harvest; it does not become a billing
+product.
+
+### Projection is dead; two survivors do its job honestly
+
+Projection was banned because it **predicts**. Two mechanisms deliver the same
+value while only **reporting**:
+
+**Anchored decrement (forward, conservative).** Hourly sampling is useless for
+the only decision that matters — "should I start this 40-minute relay right
+now" — because a 5h window at 40% can be at 0% twenty minutes later. You do not
+need to re-sample: you own the runs.
+
+```
+remainingCeiling  =  sample.remaining − (our own burn since sample.observedAt)
+```
+
+Our burn is a subset of total burn (other devices spend the same account), so
+this is a strict **upper bound**. It errs only toward caution, which is the
+correct direction for admission. It is an observed anchor minus observed spend
+— not an estimate. Expose as `remainingCeiling`, distinct from
+`remainingObserved` + `observedAt`.
+
+**Waste ledger (backward, factual).** See below.
 
 ---
 
-## Why this is high leverage (especially Boost)
+## Buckets, not percentages
+
+Routing needs a **total order over seats** plus **is this seat above the floor
+for this posture**. It does not need `52.0`.
+
+Ship three states — `fat` / `thin` / `empty|unknown` — plus the reset clock.
+Every decision in this packet is expressible in those terms, and a parser can
+be wrong about the number while still right about the ordering. That is far more
+survivable across vendor churn.
+
+Keep the raw % in the JSON and on the strip for human reading. **Do not route on
+the number.** Exposing a percentage as the routing input invites the dashboard,
+invites "how many tasks do I have left", and invites the theater the parked
+packet correctly banned.
+
+Corollary: **perceived value scales with fraction of bench covered, not with
+parse precision.** Prioritise breadth of acquisition over depth of parsing.
+
+---
+
+## Launch surface (founder ruling 2026-07-29)
+
+The capacity strip is the **main screen on app launch**, with a manual refresh
+control.
+
+Design notes:
+
+- **Order by when headroom expires, not by vendor name.** The decision is always
+  "who do I spend right now," and the answer is usually "whoever is about to
+  reset with fuel in the tank." Reset clock is the primary sort key.
+- **Persistent band + full screen.** Full strip on launch; a compact always-
+  visible band thereafter so the numbers stay one glance away during work. This
+  keeps the strip from competing with chat/threads for the home surface while
+  honouring "main screen on launch."
+- **Refresh is tier-aware.** Tier-1 seats refresh instantly (file read). Tier-3
+  seats show `sampling…` and take seconds. Never present a tier-3 refresh as
+  instant; never block the whole strip on the slowest seat. Render per-row.
+- **Every row shows `observedAt` age.** A number without an age is a lie waiting
+  to happen.
+- **No parallel SwiftUI capacity store.** The strip renders `alln capacity`
+  output. Same contract as CLI and future iOS.
+- Launch-surface change needs a surface brief + Visual Proof Gate
+  (`docs/gui/GUI_Workflow.md`). Design system rules apply (`allnighter-design`).
+
+---
+
+## Unknown taxonomy (this is what makes or breaks perceived value)
+
+Half a strip reading `unknown` reads as **broken**, not honest. Three different
+unknowns produce three different feelings — never collapse them:
+
+| State | Copy | Feeling |
+| --- | --- | --- |
+| Vendor exposes nothing | `unknown — no usage surface exposed by this CLI` | honest; quietly credits alln for the seats it *did* cover |
+| Grammar drifted | `unknown — parser failed 2026-07-29, dialect update pending` | a maintenance state, not a defect |
+| Never acquired | `unknown — never sampled · alln capacity sample` | a call to action |
+
+Undifferentiated `unknown` is what makes someone close the window.
+
+### Fail-closed means proceed
+
+"Parse fail → fail closed" is ambiguous and a literalist implementer will read
+it as *refuse to dispatch* — a vendor UI rename would then brick the whole
+bench. State it explicitly in code and docs:
+
+> **Unknown never blocks.** Unknown means proceed, warn, and fall back to the
+> existing reactive park path.
+
+---
+
+## Waste ledger (replaces the killed projection slice)
+
+You will have timestamped samples. When a window's `resetAt` passes with
+headroom remaining, that headroom is **gone forever** and can be stated as
+arithmetic over two observations — no prediction involved.
+
+```text
+$ alln capacity waste --since 7d
+
+  Unused at reset, last 7 days
+    codex     weekly     1 window   ·  38% left when it wiped
+    gemini    5h        11 windows  ·  avg 61% left      ← most waste lives here
+    claude    weekly     1 window   ·  12% left
+```
+
+Why this is the sleeper feature:
+
+- It puts a **number on the gap between what you pay for and what you use** —
+  the most persuasive artifact possible for *"you already pay for the team."*
+- Short windows are where nearly all waste lives (eleven 5-hour resets a week =
+  eleven chances to waste) and each individual reset is invisible today.
+- It costs nothing beyond the ledger you are already keeping.
+- It is purely retrospective, so it clears the no-estimates law cleanly.
+
+---
+
+## Make "no dropped runs" countable
+
+You cannot prove the counterfactual for a run the guard held. You **can** count
+the thing that should go to zero: **reactive mid-relay 429 parks**.
+
+Instrument that counter **before** the guard ships, so there is a before. If it
+trends to near-zero afterwards, that is both the proof and the marketing line,
+and it is honest. Ship without the baseline and it can only ever be asserted.
+
+---
+
+## Why this is high leverage
 
 | Layer | Effect |
 | --- | --- |
-| **1. Pre-Flight Relay Guard** | Protect multi-round mutating pilot/relay runs (>3 turns) from mid-flight 429 crashes. Single-shot prompts stay fast/reactive; long relays check headroom before turn 1 to prevent dirty git states and context loss. |
-| **2. Burn-to-Reset Arbitrage** | Quotas do not roll over. If Model A resets in 15m with 40% remaining, aggressively prioritize heavy tasks on Model A before the clock wipes expiring headroom. Save Model B whose reset is hours away. |
-| **3. Role-Aware Admission** | Unbundle Lead (low token burn ~2-5k/turn) vs Mutating Worker (high token burn ~30k-100k/turn). A seat at 10% headroom can still steer 20 Lead turns, even if blocked from mutating work. |
-| **4. Same-tier harvest** | Prefer fat seats; protect thin preferred seats; authorized substitute when preferred is thin and alternate has room. |
+| **0. One glance** | Replaces ~30 manual TUI checks/day. Launch screen. This alone justifies the packet. |
+| **1. Pre-flight relay guard** | Protect multi-round mutating pilot/relay (>3 turns) from mid-flight 429. Single-shot prompts stay fast/reactive; long relays check headroom before turn 1 to prevent dirty git state and lost context. |
+| **2. Burn-to-reset arbitrage** | Quotas do not roll over. Model A resetting in 15m with 40% left is expiring inventory — spend it. Save Model B whose reset is hours away. Most original idea here; worthless unless you actually saturate, and the evidence says you do (agy two buckets, Gemini exact-5h resets). |
+| **3. Role-aware admission** | Unbundle Lead (~2–5k tok/turn) from mutating Worker (~30–100k/turn). A seat at 10% headroom can still steer 20 Lead turns even when blocked from mutating work. Converts "seat is dead" into "seat can still steer" — extends the pilot loop past a limit instead of parking it. Needs almost no precision. |
+| **4. Same-tier harvest** | Prefer fat seats; protect thin preferred seats; **offer** an authorized substitute when preferred is thin. |
 | **5. Reset clocks** | Queue heavy work after known resets; wake from sample clocks, not only from 429 text. |
-| **6. Dashboard** | One strip: every seat available / cooling / unknown + windows. |
+| **6. Waste ledger** | Quantifies the cost of not doing 1–5. |
 
-Without samples, Boost is **retry when dead**.  
-With samples, Boost is **run the bench at full draw without face-planting.**
+Without acquisition, Boost is **retry when dead**.
+With it, Boost is **run the bench at full draw without face-planting.**
+
+---
+
+## Strategy: the moat is defended by tedium
+
+Vendors render capacity for humans on purpose, and a vendor who shipped a quota
+API would still only cover **themselves** — which is the useless version. The
+only entity that can know your bench's headroom is a neutral tool that reads six
+human-facing surfaces and normalizes them.
+
+That work is defended by **tedium**, not cleverness. A competitor copies a
+feature demo in a weekend; they do not adopt an ongoing dialect-maintenance
+obligation across six vendors. Alln already runs exactly that muscle for CLI
+dialects — this is the same tax on infrastructure it already owns.
+
+It is also the first alln feature that is not orchestration-you-could-have-
+scripted. It is knowledge no single CLI can possess. **Put it at the top of the
+pitch, above teams and relay.**
+
+Framing discipline: stay on **"spend what you bought."** Reading your own usage
+screen on your own machine is unambiguously fine. Never build or describe
+anything as evasion (no auto-rotation across multiple accounts of one vendor,
+no circumvention language). Costs nothing, stays defensible forever.
 
 ---
 
 ## Architecture (target)
 
 ```text
-per-driver CapacityProbe
-  spawn interactive-capable session (PTY preferred; not Terminal.app as SSOT)
-  invoke vendor usage/status surface (/status, Usage, /usage, …)
+per-driver CapacityAcquirer  (tiered; see §Acquisition ladder)
+  tier 1  read vendor session/rollout log on disk        ← Codex today
+  tier 2  piggyback structured stream of a real run
+  tier 3  PTY one-shot into the vendor usage/status TUI  ← Claude today
+  tier 4  failure classification (exists)
   parse with fixtures → CapacityWindow[] | parseFailed
-  cadence: opportunistic (app launch, post-run piggyback, pre-relay gate if >30m stale) — no idle background PTY storms
+  cadence: launch, refresh press, post-run piggyback, pre-long-dispatch if
+           >30m stale. No idle background PTY storms.
 
 → CapacityObservation / CapacityWindow
-  source, confidence, observedAt, scope (session|weekly|planClass|…),
-  remainingPct? | usedPct?, resetAt?, rawSnippet (capped)
+  source, sourceTier, confidence, observedAt,
+  scope (session|fiveHour|weekly|planClass|pool),
+  remainingObserved? | usedPct?, remainingCeiling (anchored decrement),
+  bucket (fat|thin|empty|unknown), unknownReason?, resetAt?, rawSnippet (capped)
 
 → SourceCapacityLedger (extend)
-  merge probe windows with failure-derived cooldowns
-  unknown ≠ full; parseFailed fails closed strictly to unknown
+  merge acquired windows with failure-derived cooldowns
+  retain expired windows for the waste ledger
+  unknown ≠ full; parseFailed → unknown, never a number
 
-→ alln capacity (one contract)
-  CLI + Boost strip + future iOS
+→ alln capacity / capacity waste / --json   (one contract)
+  CLI + launch strip + future iOS
 
 → policy
-  pre-dispatch near-floor gate (differentiated by posture: Lead min 5%, Worker min 20%)
-  burn-to-reset prioritization (burn expiring headroom before reset wipe)
-  same-tier order / substitute from headroom
-  park/wake still from real limits when probes miss
+  pre-dispatch floor gate, differentiated by posture (Lead ~5%, Worker ~20%)
+  burn-to-reset prioritisation (spend expiring headroom first)
+  same-tier order; OFFER substitute (auto only when already hard-blocked)
+  park/wake still from real limits when acquisition misses
 ```
 
 ### Not the architecture
 
 - `osascript` + real Terminal.app windows as the system of record (fragile,
-  focus-stealing, bad for `alln serve`). PTY/driver one-shot is the same *idea*
-  (read the TUI humans already use) with a product-grade host.
-- Browser scraping of vendor billing consoles by default.
+  focus-stealing, bad for `alln serve`).
+- Browser scraping of vendor billing consoles.
 - Parallel GUI-only capacity stores.
+- A scheduled hourly background sampler. Opportunistic acquisition + anchored
+  decrement beats a cron that is stale exactly when it matters.
 
 ### Parser maintenance
 
-Vendor UIs will change. That is expected:
+Vendor surfaces will change. Expected, and priced in:
 
-- fixture corpus per driver from real pastes
-- fail closed on mismatch
+- fixture corpus per driver from real captures
+- fail closed on mismatch → `unknown — parser failed`, never a number
 - ship grammar updates like any other CLI dialect
 
-Partial coverage still wins: two sampled seats beat zero.
+Partial coverage still wins: two acquired seats beat zero.
 
 ---
 
 ## Relationship to existing systems
 
 ```text
-TUI capacity samples     →  account / pool headroom (this packet)
-Failure CapacityObservation → reactive park / cooldown (exists)
-Receipt token usage      → per-run cost signal when CLI reports (OUR packet)
+Acquired capacity windows    →  account / pool headroom (this packet)
+Failure CapacityObservation  →  reactive park / cooldown (exists)
+Receipt token usage          →  per-run cost signal when CLI reports (other packet)
 ```
 
-Do not collapse these into one “usage” blob. Agents and UI must not confuse
-**weekly limit 52% left** with **this run used 12.4k tok**.
+Do not collapse these into one "usage" blob. Agents and UI must not confuse
+**weekly limit 52% used** with **this run used 12.4k tok**.
 
 ---
 
@@ -239,23 +501,25 @@ Do not collapse these into one “usage” blob. Agents and UI must not confuse
 
 - Perfect multi-vendor dollar optimization
 - Estimating task token burn to invent remaining
+- **Any forward projection** (killed — see §Product law amendment)
 - Replacing write-lock / one-mutating-worker rules
 - Mandatory browser login scrapers
-- Claiming 100% accurate cross-device usage (Claude already notes local-only
+- Claiming 100% accurate cross-device usage (vendors already note local-only
   contribution analytics)
 
 ---
 
-## Suggested slices (ephemeral; reorder at build)
+## Slices (ephemeral; reorder at build)
 
 | ID | Intent | Works Test (sketch) |
 | --- | --- | --- |
-| CAP-TUI-S00 | Matrix of drivers + paste fixtures (Codex status, Claude Usage, …) | Fixture pack green; matrix lists probe command per source |
-| CAP-TUI-S01 | `CapacityWindow` + ledger merge; no live probes yet | Unit tests: used vs left normalization; pool scope; unknown |
-| CAP-TUI-S02 | Claude + Codex probes + `alln capacity` fields | Dogfood sample matches live TUI within tolerance; fail closed fixture |
-| CAP-TUI-S03 | Boost/floor strip + pre-dispatch near-floor warning/gate | Near-floor seat refused or warned for long work |
-| CAP-TUI-S04 | Same-tier harvest / authorized auto-substitute from headroom | Preferred thin + alt fat → routes or offers alt |
-| CAP-TUI-S05 | Optional local burn projection | Pace line labeled local; no hard block from projection alone |
+| **CAP-S00** | **Acquisition audit + window-start spike.** Per driver: where does the number actually live (tier 1/2/3/none)? And: **does opening the usage TUI start the window we are measuring, or consume a message?** If probing a 5h window starts that 5h window, tier 3 is self-defeating for that driver and must be launch/refresh-only. | Matrix: driver → tier, path/command, sample capture. Spike answers the window-start question for Claude + agy with evidence. |
+| CAP-S01 | `CapacityWindow` + buckets + anchored decrement + ledger merge. No probes. | Unit tests: used-vs-left normalization; pool scope; unknown taxonomy; ceiling is monotone and never exceeds last observation. |
+| CAP-S02 | Launch strip fed by tier-1 (Codex) + existing failure data only. Refresh control. Surface brief + Visual Proof Gate. | Founder launches the app and sees real Codex weekly + reset without opening a CLI. Unknown rows show their reason. |
+| CAP-S03 | Pre-dispatch relay guard, posture-differentiated. **Instrument the mid-relay-429 baseline counter here.** | Near-floor seat refuses/warns for long mutating work; Lead posture still allowed. Baseline counter recording. |
+| CAP-S04 | Tier-3 probes (Claude, agy) + `alln capacity sample`. | Probe output matches the live Usage pane within tolerance; renamed-UI fixture degrades that row to `unknown — parser failed` while the rest of the strip stays live. |
+| CAP-S05 | Waste ledger (`alln capacity waste`). | Expired windows with headroom are counted from real retained observations; zero fabricated rows. |
+| CAP-S06 | Burn-to-reset harvest ordering + offer-substitute. | Preferred thin + alternate fat → offers alternate; expiring-soon fat seat sorts first. |
 
 ---
 
@@ -263,34 +527,39 @@ Do not collapse these into one “usage” blob. Agents and UI must not confuse
 
 | Risk | Mitigation |
 | --- | --- |
-| TUI layout churn | Fixtures + fail closed + dialect updates |
-| Probe cost / ToS gray area | Own machine, own account UI, rate limits, opt-in aggressive sample |
-| Stale cache near floor | Shorter TTL for session windows; sample before long dispatch |
-| Shared pools mis-modeled as per-model | Parse group/pool labels from UI |
-| % remaining ≠ N tasks left | Coarse routing only; no fake task-count claims |
-| Probe confuses context-% with account quota | Separate fields (Codex context window vs weekly limit) |
+| **Probing starts the window it measures** | CAP-S00 spike gates tier 3 per driver; if true, launch/refresh-only, never automatic |
+| TUI layout churn | Fixtures + fail closed + dialect updates; tier 1 where available is immune |
+| Undifferentiated `unknown` reads as broken | Unknown taxonomy with reason + action per row |
+| Stale cache near floor | Anchored decrement + `observedAt` on every row + pre-long-dispatch refresh |
+| Fail-closed misread as refuse-to-dispatch | Stated law: unknown never blocks |
+| Shared pools mis-modeled as per-model | Parse group/pool labels; pool scope beats per-marketing-model rows |
+| % remaining ≠ N tasks left | Buckets for routing; no task-count claims anywhere |
+| Confusing context-window % with account quota | Separate fields (Codex `model_context_window` vs `rate_limits`) |
+| Probe cost / ToS optics | Own machine, own account surface, rate limits, "spend what you bought" framing, no multi-account rotation |
+| Launch screen competes with chat home | Full strip on launch + persistent compact band thereafter |
 
 ---
 
-## Open product decisions
+## Open decisions
 
-1. **Boost auto-route:** default automatic same-tier substitute when preferred
-   is below threshold and alternate has headroom, or always confirm?
-2. **v1 driver set:** Claude + Codex only vs include Gemini / Grok / agy / Cursor.
-3. **Cadence:** hourly background + on Boost open + pre long-dispatch — confirm.
-4. **Projection:** v1 or follow-on.
-5. **Unpark utilization packet?** Absorb admission scheduling here vs keep
-   parked and implement only sampling + Boost strip first.
+Most were resolved in the amended intake. Remaining:
+
+1. **Unpark `Utilization_Admission_Control.md`?** Absorb admission scheduling
+   here, or keep parked and ship acquisition + strip + guard first.
+   *Recommendation: keep parked; this packet ships the guard, not a scheduler.*
+2. **Waste ledger retention window** — how long to retain expired windows
+   (7d? 30d?) and where they live in the ledger file format.
+3. **Band placement** in the Mac shell — needs the GUI surface brief.
 
 ---
 
 ## User-visible claim (target)
 
 ```text
-Alln reads the same usage/status screens your CLIs already show, remembers
-them, and spends the fat seats first — so Boost can harvest your paid bench
-instead of learning limits only when a run dies.
+Alln reads the usage screens your CLIs already show you, remembers them, and
+puts your whole bench in one glance — so you spend the seats that are about to
+reset, and a long run never starts on a seat that is about to die.
 ```
 
-Never claim capacity we did not sample. Never blame Alln when a CLI is silent —
-show **unknown** and keep the reactive path.
+Never claim capacity we did not acquire. Never blame Alln when a CLI is silent —
+show **unknown**, say why, and keep the reactive path.
