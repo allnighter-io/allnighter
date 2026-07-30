@@ -98,6 +98,51 @@ final class CapacityHistoryStoreTests: XCTestCase {
 
     // MARK: 4 — Tolerance boundary (just inside / just outside 15 min)
 
+    /// Claude prints two weekly pools sharing one reset boundary. Keying identity
+    /// on `(source, scope, resetAt)` alone merged them into one record carrying
+    /// the worse peak under the last-painted label — the all-models pool vanished
+    /// and Fable reported all-models' number in the strip.
+    func testWeeklyPoolsSharingOneResetStayDistinctRecords() throws {
+        let allModels = known(
+            source: "claude_code",
+            used: 53,
+            resetAt: resetBase,
+            observedAt: t0,
+            poolLabel: nil
+        )
+        let fable = known(
+            source: "claude_code",
+            used: 10,
+            resetAt: resetBase,
+            observedAt: t0,
+            poolLabel: "Fable"
+        )
+        try store.record([allModels, fable], now: t0)
+
+        let records = store.load(sourceId: "claude_code")
+        XCTAssertEqual(records.count, 2)
+        XCTAssertEqual(records.first(where: { $0.poolLabel == nil })?.peakUsedPercent, 53)
+        XCTAssertEqual(records.first(where: { $0.poolLabel == "Fable" })?.peakUsedPercent, 10)
+    }
+
+    /// A v1 payload was written with pool-collapsed identity; serving it as
+    /// last-known would hand the strip a number we know is wrong.
+    func testPreviousSchemaVersionPayloadIsDiscardedOnLoad() throws {
+        let window = known(source: "claude_code", used: 53, resetAt: resetBase, observedAt: t0)
+        try store.record([window], now: t0)
+        XCTAssertEqual(store.load(sourceId: "claude_code").count, 1)
+
+        let url = store.fileURL(sourceId: "claude_code")
+        let stale = try String(contentsOf: url, encoding: .utf8)
+            .replacingOccurrences(
+                of: "\"schemaVersion\" : \(CapacityHistoryStore.currentSchemaVersion)",
+                with: "\"schemaVersion\" : 1"
+            )
+        try stale.write(to: url, atomically: true, encoding: .utf8)
+
+        XCTAssertTrue(store.load(sourceId: "claude_code").isEmpty)
+    }
+
     func testToleranceBoundary() throws {
         let tolerance = CapacityHistoryStore.resetAtMergeTolerance
         XCTAssertEqual(tolerance, 15 * 60)

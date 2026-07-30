@@ -79,7 +79,11 @@ public struct CapacityHistoryStore: Sendable {
     /// Fifteen minutes is the named merge window for one logical cycle.
     public static let resetAtMergeTolerance: TimeInterval = 15 * 60
 
-    public static let currentSchemaVersion = 1
+    /// v2 adds `poolLabel` to window identity. v1 files were written with
+    /// pool-collapsed records (a merged peak under a borrowed label) — that
+    /// damage cannot be unmixed after the fact, so v1 payloads are discarded
+    /// on read rather than migrated into a wrong-looking v2.
+    public static let currentSchemaVersion = 2
 
     public let rootDirectory: URL
 
@@ -92,11 +96,14 @@ public struct CapacityHistoryStore: Sendable {
         rootDirectory.appendingPathComponent("\(Self.safeFileStem(sourceId)).json")
     }
 
-    /// Records newest-first. Missing or unreadable file → empty, never throws.
+    /// Records newest-first. Missing, unreadable, or pre-`currentSchemaVersion`
+    /// file → empty, never throws. Dropping an older payload costs one refresh;
+    /// keeping it would serve a known-wrong number as last-known truth.
     public func load(sourceId: String) -> [CapacityWindowRecord] {
         let url = fileURL(sourceId: sourceId)
         guard let data = try? Data(contentsOf: url),
-              let file = try? CoreJSON.decode(FilePayload.self, from: data)
+              let file = try? CoreJSON.decode(FilePayload.self, from: data),
+              file.schemaVersion >= Self.currentSchemaVersion
         else { return [] }
         return file.windows.sorted(by: Self.newestFirst)
     }
@@ -157,10 +164,19 @@ public struct CapacityHistoryStore: Sendable {
         try CoreJSON.encode(payload).write(to: fileURL(sourceId: sourceId), options: .atomic)
     }
 
-    /// Same logical window: matching source + scope and `resetAt` within tolerance.
+    /// Same logical window: matching source + scope + **pool** and `resetAt`
+    /// within tolerance.
+    ///
+    /// The pool term is load-bearing, not decoration. Claude prints two weekly
+    /// pools ("Current week (all models)" and "Current week (Fable)") that share
+    /// one reset boundary; keying on `(source, scope, resetAt)` alone collapsed
+    /// them into a single record whose peak was the worse pool and whose label
+    /// was whichever painted last — so the all-models pool vanished and Fable
+    /// reported all-models' number.
     private static func sameWindow(_ a: CapacityWindowRecord, as b: CapacityWindowRecord) -> Bool {
         a.sourceId == b.sourceId
             && a.scope == b.scope
+            && a.poolLabel == b.poolLabel
             && abs(a.resetAt.timeIntervalSince(b.resetAt)) <= resetAtMergeTolerance
     }
 
