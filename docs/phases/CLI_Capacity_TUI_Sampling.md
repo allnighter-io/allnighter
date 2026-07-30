@@ -108,6 +108,9 @@ CLI surface (target — refine at implementation):
   is `alln capacity [--refresh]` — one command, existing `--flag` grammar,
   extends the command that already exists. Register "usage" as a help-search
   alias, do not create a second command (see §The CLI strip).
+  **Parked CLIs** (`SetupStore.parkedDriverIds` / `alln drivers`): list **last**
+  with status `parked` and do not sample them. Reuse `DriverListProjector` order
+  (active A→Z, then parked A→Z). See `docs/phases/CLI_Park.md`.
 
 GUI surface (target):
   Tab 1 — Capacity strip: the launch screen (founder ruling 2026-07-29) plus a
@@ -386,29 +389,139 @@ parse precision.** Prioritise breadth of acquisition over depth of parsing.
 
 ---
 
-## Launch surface (founder ruling 2026-07-29)
+## Launch surface — LOCKED 2026-07-29
 
-The capacity strip is the **main screen on app launch**, with a manual refresh
-control.
+Settled across a design pass with the founder against mockups v1 and v2
+(`docs/phases/capacity/mockups/`). These are decisions, not options. Reopen only
+by founder ruling.
 
-Design notes:
+### Placement in the app shell
 
-- **Order by when headroom expires, not by vendor name.** The decision is always
-  "who do I spend right now," and the answer is usually "whoever is about to
-  reset with fuel in the tank." Reset clock is the primary sort key.
-- **Persistent band + full screen.** Full strip on launch; a compact always-
-  visible band thereafter so the numbers stay one glance away during work. This
-  keeps the strip from competing with chat/threads for the home surface while
-  honouring "main screen on launch."
-- **Refresh is tier-aware.** Tier-1 seats refresh instantly (file read). Tier-3
-  seats show `sampling…` and take seconds. Never present a tier-3 refresh as
-  instant; never block the whole strip on the slowest seat. Render per-row.
-- **Every row shows `observedAt` age.** A number without an age is a lie waiting
-  to happen.
-- **No parallel SwiftUI capacity store.** The strip renders `alln capacity`
-  output. Same contract as CLI and future iOS.
-- Launch-surface change needs a surface brief + Visual Proof Gate
-  (`docs/gui/GUI_Workflow.md`). Design system rules apply (`allnighter-design`).
+| Decision | Detail |
+| --- | --- |
+| Capacity **replaces the "Start a run" empty state** in the main pane | Not a new destination, not a floating panel |
+| **Composer stays pinned** below it, unchanged | It is already independent chrome with its own repo/branch line. Starting a chat loses zero friction — no floating composer needed |
+| **Sidebar unchanged** | Navigation is orthogonal |
+| Cut **"6/7 CLIs ready"** from the empty state | Redundant once the strip is above it |
+| The existing **`6/7 ready` pill IS the persistent band** the packet asked for | Extend it with a capacity signal (`6/7 ready · 1 expiring`) and make clicking it return to the strip — that is the way back mid-session |
+| Height | Hero + 7 rows + composer is near the limit of a laptop window. Accepted: most users run 1–3 CLIs. Strip scrolls under a pinned hero and composer if needed |
+
+### Row model
+
+- **One row per CLI. Never two.** Antigravity carries its two pools as two bars
+  inside one row — one CLI, one position, one block.
+- **Fixed order, never auto-sorted.** Seeded by developer-market-share default:
+  Codex/ChatGPT, Claude, Cursor, Grok, Kimi, Antigravity. Not-ready and parked
+  seats last. Sorting destroys the positional memory that makes a 5×/day screen
+  feel instant; at seven rows there is nothing to sort *for*.
+- **Two columns.** Weekly/monthly headroom (**bars + % + clock**) and the 5h
+  window (**numbers only, no bars**). The asymmetry is deliberate: weekly is the
+  loud planning column, 5h the quiet one.
+- **`—` for seats with no short window.** Not an empty cell — for Grok and
+  Cursor it is a genuine advantage worth stating.
+- **Plan tier under the CLI name** (Plus, Max, Ultra, X Premium+).
+- **Detail is a disclosure triangle**, not click-anywhere-on-row, so the row
+  press stays free for a better action later. Four fields only: reset time,
+  source path, **what the vendor actually said**, observedAt. Provenance is
+  non-negotiable — a number with no origin cannot be checked, and `unknown` has
+  no way to explain itself without it.
+
+### Effective availability
+
+The 5h column shows the **tightest ceiling**, not the vendor's isolated meter.
+Kimi reads `0%` in both columns because its exhausted weekly makes a fresh 5h
+window unreachable. Its own TUI says `5h: 0% used`, which is true and useless.
+
+This is the first case where alln is **more honest than the source**. Guardrail:
+the disclosure always shows the raw vendor value, so we derive, never hide.
+
+### Colour — three states, mutually exclusive
+
+| Colour | Meaning |
+| --- | --- |
+| neutral | room to work |
+| **amber** | headroom with a deadline |
+| **red** | no headroom |
+
+Nothing is green. **Quiet is good news**; the screen speaks only when it needs
+you. The states cannot collide because a seat with 0% has nothing to expire and
+a seat that is expiring is by definition not empty.
+
+**No status dot.** v1 had one and it made Grok read green (available) and amber
+(expiring) simultaneously. Effective availability already carries the verdict,
+so the dot was a second opinion with nothing to add. Deleted, not recoloured.
+
+**Health is expressed as absence of numbers**, never colour: a not-ready or
+parked CLI is dimmed with a reason where its numbers would be (`not ready —
+probe failed`). Health and capacity can then never compete for the same pixel.
+
+> Standing rule: **if a glance surface needs a legend, the encoding is wrong.**
+
+### Hero zone
+
+Fixed height, always present — the layout must not shift day to day. Content
+changes, structure does not.
+
+**Eligibility thresholds** (founder, 2026-07-29):
+
+```text
+< 48h left  AND  > 20% headroom   → eligible
+< 24h left  AND  > 10% headroom   → eligible
+```
+
+These are not arbitrary. If a seat's 5h window is sized so continuous full use
+roughly consumes the weekly, the most anyone can physically burn in T hours is
+about `T/168` of the week — ~28% at 48h, ~14% at 24h. The thresholds mark the
+point where remaining headroom starts to become **physically unusable**.
+
+> A **burn ceiling is a physical constraint, not a forecast.** "You can use at
+> most X before this resets" is a fact about vendor limits and is allowed.
+> "You will use X" is a projection and stays banned. The 1:1 window-sizing
+> assumption is a hypothesis; the utilization history will eventually replace it
+> with each seat's observed peak burn rate.
+
+**Selection is two-stage** — gate, then rank. Thresholds decide who is eligible;
+**dollars at risk** decides which one is the hero. 25% of a $200 plan and 25% of
+a $20 plan are both honest percentages and wildly different value. Capacity has
+no common unit across vendors; **money does**.
+
+Ranking input, in order of preference: ordinal plan tier by default (zero setup,
+no invented data) → real dollars if the user optionally enters what they pay per
+seat. That optional field earns its keep twice, because it is also what gives
+the keep/cancel report teeth. **Never ship a built-in price table** — prices
+drift and vary by region and grandfathering, and guessing them is the invented
+data this packet bans.
+
+Everyone else eligible drops to one quiet "also" line. One thing shouting beats
+two things talking.
+
+**Hero CTA sets the seat and focuses the composer** — the model chip becomes
+Grok, the cursor lands in the input, the human types the task. It aims the
+existing flow rather than inventing one, and it is autonomy rung 2 (suggest),
+never rung 4 (auto-spend). Later it can offer harvest chips (Tech Audit, Bug
+Hunt) for one-click read-only work.
+
+### Language
+
+**Never "wasting."** It is accusatory and presumptuous — 58% with a day left is
+inventory with a deadline, not a failure. Banned everywhere including the
+retrospective ledger.
+
+| Use | Not |
+| --- | --- |
+| "Use it before you lose it" | "You are wasting capacity" |
+| "unused at reset" | "wasted" |
+| "58% of your week expires in 41h" | any verdict on the user's behaviour |
+
+Show the two numbers; do not compute a judgment. The pace comparison runs
+silently to decide who gets named — it never speaks.
+
+### Still open
+
+- Calm-state hero height — does "Everything has room" earn 132px on a normal
+  day, or shrink and accept a small shift?
+- Whether the hero CTA ships in the same slice as the strip (it is a real
+  feature, not decoration).
 
 ---
 
