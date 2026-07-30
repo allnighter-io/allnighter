@@ -286,6 +286,74 @@ final class CapacityHistoryStoreTests: XCTestCase {
         XCTAssertTrue(closed.isClosed(at: t0))
     }
 
+    // MARK: CAP-S07 — record never acquires
+
+    /// Standing founder ruling: recording must never trigger acquisition.
+    /// No probe, no spawn, no vendor-directory scan, no fan-out. Events record
+    /// from what is already known; they never go and ask.
+    func testRecordCallPerformsNoAcquisition() throws {
+        // Canary vendor tree that WOULD yield different facts if scanned.
+        // CapacityHistoryStore.record has no homeRoot and must not touch it.
+        let canaryHome = tempRoot.appendingPathComponent("canary-home", isDirectory: true)
+        let canarySessions = canaryHome
+            .appendingPathComponent(".codex/sessions/2026/07/30", isDirectory: true)
+        try FileManager.default.createDirectory(at: canarySessions, withIntermediateDirectories: true)
+        let canaryRollout = canarySessions.appendingPathComponent("rollout-canary.jsonl")
+        let canaryLine = #"""
+        {"timestamp":"2026-07-30T00:00:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"model_context_window":258400},"rate_limits":{"limit_id":"codex","primary":{"used_percent":99.0,"window_minutes":10080,"resets_at":1785904336},"plan_type":"plus"}}}
+        """#.trimmingCharacters(in: .whitespacesAndNewlines) + "\n"
+        try canaryLine.write(to: canaryRollout, atomically: true, encoding: .utf8)
+        let canaryAttrsBefore = try FileManager.default.attributesOfItem(atPath: canaryRollout.path)
+        let canaryMtimeBefore = canaryAttrsBefore[.modificationDate] as? Date
+
+        // Fabricated known windows — distinctive values, no live sample.
+        let fabricatedUsed: Double = 17
+        let window = known(
+            source: "codex",
+            used: fabricatedUsed,
+            resetAt: resetBase,
+            observedAt: t0,
+            planTier: "plus"
+        )
+        try store.record([window], now: t0)
+
+        // Stored facts match the caller-supplied window, not the canary 99%.
+        let loaded = store.load(sourceId: "codex")
+        XCTAssertEqual(loaded.count, 1)
+        XCTAssertEqual(loaded.first?.peakUsedPercent, fabricatedUsed)
+        XCTAssertNotEqual(loaded.first?.peakUsedPercent, 99)
+
+        // Only the store root gained a file — canary vendor tree untouched.
+        let storeFiles = try FileManager.default.contentsOfDirectory(
+            at: tempRoot,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        )
+        let names = Set(storeFiles.map(\.lastPathComponent))
+        XCTAssertTrue(names.contains("codex.json"))
+        XCTAssertTrue(names.contains("canary-home"))
+        XCTAssertEqual(names.count, 2, "record must not create vendor-side artifacts outside store files")
+
+        let canaryAttrsAfter = try FileManager.default.attributesOfItem(atPath: canaryRollout.path)
+        let canaryMtimeAfter = canaryAttrsAfter[.modificationDate] as? Date
+        XCTAssertEqual(canaryMtimeBefore, canaryMtimeAfter, "record must not open/scan vendor logs")
+
+        // Empty / unknown-only batch still performs no acquisition and writes nothing new.
+        let unknown = CapacityWindow.unknown(
+            reason: .neverSampled,
+            source: "grok",
+            scope: .weekly,
+            observedAt: t0,
+            sourceTier: .onDisk
+        )
+        try store.record([unknown], now: t0)
+        XCTAssertTrue(store.load(sourceId: "grok").isEmpty)
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: store.fileURL(sourceId: "grok").path),
+            "unknown-only record must not invent history files"
+        )
+    }
+
     // MARK: - Helpers
 
     private func known(

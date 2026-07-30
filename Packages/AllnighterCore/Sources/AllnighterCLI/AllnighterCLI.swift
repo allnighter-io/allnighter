@@ -339,6 +339,10 @@ struct AllnighterCLI {
         let opts = Options(args)
         let now = Date()
         let windows = CapacityAcquisition.windows(now: now)
+        // CAP-S07 — record what acquisition already observed. Recording never
+        // re-acquires (no probe, spawn, or vendor-dir scan). Fail-soft: a
+        // history write must not break the strip.
+        try? CapacityHistoryStore().record(windows, now: now)
         let rows = CapacityBenchProjection.rows(from: windows, now: now)
         if opts.flag("json") {
             let payload = CapacityStripRenderer.json(
