@@ -333,15 +333,19 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln capacity [--json]` — vendor quota strip from on-disk samples.
-    /// Unknown never blocks (exit 0). Non-TTY path is plain ASCII, zero ANSI.
+    /// `alln capacity [--json] [--refresh]` — vendor quota strip.
+    /// Bare call is tier-1 only (on-disk, no spawns). `--refresh` adds tier-3
+    /// PTY probes for agy / kimi / cursor. Unknown never blocks (exit 0).
+    /// Non-TTY path is plain ASCII, zero ANSI.
     static func runCapacity(_ args: [String]) {
         let opts = Options(args)
         let now = Date()
-        let windows = CapacityAcquisition.windows(now: now)
+        let refresh = opts.flag("refresh")
+        let windows = CapacityAcquisition.windows(now: now, refresh: refresh)
         // CAP-S07 — record what acquisition already observed. Recording never
-        // re-acquires (no probe, spawn, or vendor-dir scan). Fail-soft: a
-        // history write must not break the strip.
+        // re-acquires on its own (no probe, spawn, or vendor-dir scan beyond
+        // what the caller already did). Fail-soft: a history write must not
+        // break the strip.
         try? CapacityHistoryStore().record(windows, now: now)
         let rows = CapacityBenchProjection.rows(from: windows, now: now)
         if opts.flag("json") {

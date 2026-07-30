@@ -260,4 +260,344 @@ final class CapacityAcquisitionTests: XCTestCase {
             "no seat may claim the vendor exposes nothing while we ship a parser for it"
         )
     }
+
+    // MARK: - CAP-S08 tier-3 probe seam
+
+    /// Counting executor — proves bare capacity never invokes a probe.
+    private final class CountingProbeExecutor: CapacityProbeExecuting, @unchecked Sendable {
+        private let lock = NSLock()
+        private var _calls: [String] = []
+        var calls: [String] {
+            lock.lock(); defer { lock.unlock() }
+            return _calls
+        }
+        func execute(_ request: CapacityProbeRequest) -> [CapacityWindow] {
+            lock.lock(); _calls.append(request.source); lock.unlock()
+            return [
+                CapacityWindow.unknown(
+                    reason: .parserFailed(observedAt: request.now),
+                    source: request.source,
+                    scope: .weekly,
+                    observedAt: request.now,
+                    sourceTier: .tuiProbe
+                ),
+            ]
+        }
+    }
+
+    /// Fixture executor — returns canned windows per source (or empty / vendor-gap).
+    private struct FixtureProbeExecutor: CapacityProbeExecuting {
+        let results: [String: [CapacityWindow]]
+        func execute(_ request: CapacityProbeRequest) -> [CapacityWindow] {
+            results[request.source] ?? [
+                CapacityWindow.unknown(
+                    reason: .parserFailed(observedAt: request.now),
+                    source: request.source,
+                    scope: .weekly,
+                    observedAt: request.now,
+                    sourceTier: .tuiProbe
+                ),
+            ]
+        }
+    }
+
+    private let agyUsageFixture = """
+    Models & Quota
+
+      Account: emailmike@gmail.com
+
+    GEMINI MODELS
+      Models within this group: Gemini Flash, Gemini Pro
+
+      Weekly Limit
+        [██████████████████████████████████████████████░░░░] 92.67%
+        93% remaining · Refreshes in 164h 50m
+
+      Five Hour Limit
+        [█████████████████████████████░░░░░░░░░░░░░░░░░░░░░] 58.48%
+        58% remaining · Refreshes in 3h 21m
+    """
+
+    private let kimiUsageFixture = """
+    Plan usage
+      Weekly limit  ████████████████████  100% used  resets in 1d 4h 33m
+      5h limit      ░░░░░░░░░░░░░░░░░░░░  0% used    resets in 2h 33m
+    """
+
+    private let cursorUsageFixture = """
+    ────────────────────────────────────────────────────────────────────────────────
+     Usage • Ultra                                                  Resets Aug 25
+     Monthly plan and on-demand usage
+
+     Category        Current             Usage
+     Included        27% used            ███████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+       Auto          27% used            ███████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+       API           27% used            ███████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+     On-Demand       $0 / $1             ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+     $1 remaining
+
+     View in dashboard: cursor.com/dashboard?tab=usage
+    """
+
+    func testBareCapacityNeverInvokesProbeExecutor() throws {
+        try writeCodexRollout(
+            year: "2026", month: "07", day: "28",
+            name: "rollout-2026-07-28T12-09-28-new.jsonl",
+            content: codexPlusLine + "\n",
+            mtime: now
+        )
+        let counter = CountingProbeExecutor()
+        let windows = CapacityAcquisition.windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: false,
+            probeExecutor: counter
+        )
+        XCTAssertTrue(counter.calls.isEmpty, "bare capacity must spawn nothing; calls=\(counter.calls)")
+        // Tier-1 still real.
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
+        // Tier-3 still neverSampled.
+        for source in CapacityAcquisition.tier3DisklessSources {
+            let row = windows.first { $0.source == source }
+            XCTAssertEqual(row?.unknownReason, .neverSampled, source)
+        }
+    }
+
+    func testRefreshInvokesProbePerProbeableSourceNotClaude() {
+        let counter = CountingProbeExecutor()
+        _ = CapacityAcquisition.windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: true,
+            probeExecutor: counter
+        )
+        let called = Set(counter.calls)
+        XCTAssertEqual(called, Set(CapacityAcquisition.tier3ProbeableSources))
+        XCTAssertFalse(called.contains("claude_code"), "Claude tab navigation not shipped")
+    }
+
+    func testRefreshFixtureParsersProduceWindowsAndPreserveTier1() throws {
+        try writeCodexRollout(
+            year: "2026", month: "07", day: "28",
+            name: "rollout-2026-07-28T12-09-28-new.jsonl",
+            content: codexPlusLine + "\n",
+            mtime: now
+        )
+        try writeGrokLog(grokBillingLine + "\n")
+
+        // Works Test: each parser is fed a captured real render (fixture) via the
+        // probe seam — proving probe→parser wiring, not just the parsers alone.
+        let agyWindows = CapacityProbe.parse(source: "agy", renderText: agyUsageFixture, now: now)
+        let kimiWindows = CapacityProbe.parse(source: "kimi", renderText: kimiUsageFixture, now: now)
+        let cursorWindows = CapacityProbe.parse(source: "cursor_agent", renderText: cursorUsageFixture, now: now)
+        XCTAssertFalse(agyWindows.isEmpty)
+        XCTAssertFalse(kimiWindows.isEmpty)
+        XCTAssertFalse(cursorWindows.isEmpty)
+        // Agy prefers the high-precision bar float (92.67) over the rounded "93%".
+        XCTAssertEqual(agyWindows.first?.remainingPercent, Optional(92.67))
+        XCTAssertEqual(kimiWindows.first { $0.scope == .weekly }?.usedPercent, Optional(100.0))
+        XCTAssertEqual(cursorWindows.first?.usedPercent, Optional(27.0))
+
+        let executor = FixtureProbeExecutor(results: [
+            "agy": agyWindows,
+            "kimi": kimiWindows,
+            "cursor_agent": cursorWindows,
+        ])
+        let windows = CapacityAcquisition.windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: true,
+            probeExecutor: executor
+        )
+
+        // Tier-1 untouched by probe path.
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
+        XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
+
+        // Probeable seats carry real numbers.
+        XCTAssertNotNil(windows.first { $0.source == "agy" && $0.remainingPercent != nil })
+        XCTAssertNotNil(windows.first { $0.source == "kimi" && $0.usedPercent != nil })
+        XCTAssertNotNil(windows.first { $0.source == "cursor_agent" && $0.usedPercent != nil })
+
+        // Claude stays honest never-sampled (no tab probe yet).
+        XCTAssertEqual(
+            windows.first { $0.source == "claude_code" }?.unknownReason,
+            .neverSampled
+        )
+
+        // No seat may claim vendorExposesNothing.
+        XCTAssertTrue(
+            windows.allSatisfy { $0.unknownReason != .vendorExposesNothing },
+            "refresh path must never return vendorExposesNothing for parser-backed seats"
+        )
+    }
+
+    func testRefreshSpawnFailureIsUnknownAndDoesNotZeroFillOrTouchTier1() throws {
+        try writeCodexRollout(
+            year: "2026", month: "07", day: "28",
+            name: "rollout-2026-07-28T12-09-28-new.jsonl",
+            content: codexPlusLine + "\n",
+            mtime: now
+        )
+        try writeGrokLog(grokBillingLine + "\n")
+
+        // All probes fail closed as parserFailed — no percentages, no zeros.
+        let executor = FixtureProbeExecutor(results: [
+            "agy": [
+                CapacityWindow.unknown(
+                    reason: .parserFailed(observedAt: now),
+                    source: "agy",
+                    scope: .weekly,
+                    observedAt: now,
+                    sourceTier: .tuiProbe
+                ),
+            ],
+            "kimi": [
+                CapacityWindow.unknown(
+                    reason: .parserFailed(observedAt: now),
+                    source: "kimi",
+                    scope: .weekly,
+                    observedAt: now,
+                    sourceTier: .tuiProbe
+                ),
+            ],
+            "cursor_agent": [
+                CapacityWindow.unknown(
+                    reason: .parserFailed(observedAt: now),
+                    source: "cursor_agent",
+                    scope: .weekly,
+                    observedAt: now,
+                    sourceTier: .tuiProbe
+                ),
+            ],
+        ])
+        let windows = CapacityAcquisition.windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: true,
+            probeExecutor: executor
+        )
+
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
+        XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
+
+        for source in CapacityAcquisition.tier3ProbeableSources {
+            let row = windows.first { $0.source == source }
+            XCTAssertEqual(row?.unknownReason, .parserFailed(observedAt: now), source)
+            XCTAssertNil(row?.usedPercent, source)
+            XCTAssertNil(row?.remainingPercent, source)
+        }
+    }
+
+    func testProbeRejectsVendorExposesNothingFromExecutor() {
+        // Even a buggy executor claiming vendorExposesNothing is rewritten.
+        let executor = FixtureProbeExecutor(results: [
+            "agy": [
+                CapacityWindow.unknown(
+                    reason: .vendorExposesNothing,
+                    source: "agy",
+                    scope: .weekly,
+                    observedAt: now,
+                    sourceTier: .tuiProbe
+                ),
+            ],
+            "kimi": [
+                CapacityWindow.unknown(
+                    reason: .vendorExposesNothing,
+                    source: "kimi",
+                    scope: .weekly,
+                    observedAt: now,
+                    sourceTier: .tuiProbe
+                ),
+            ],
+            "cursor_agent": [
+                CapacityWindow.unknown(
+                    reason: .vendorExposesNothing,
+                    source: "cursor_agent",
+                    scope: .weekly,
+                    observedAt: now,
+                    sourceTier: .tuiProbe
+                ),
+            ],
+        ])
+        let windows = CapacityAcquisition.windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: true,
+            probeExecutor: executor
+        )
+        for source in CapacityAcquisition.tier3ProbeableSources {
+            let row = windows.first { $0.source == source }
+            XCTAssertNotEqual(row?.unknownReason, .vendorExposesNothing, source)
+            XCTAssertEqual(row?.unknownReason, .parserFailed(observedAt: now), source)
+        }
+    }
+
+    func testLiveProbeMissingBinaryIsParserFailedNotZero() {
+        // Force a non-existent binary — spawn fails closed.
+        let windows = CapacityProbe.windows(
+            source: "agy",
+            now: now,
+            timeout: 2,
+            executableOverride: "/tmp/alln-capacity-probe-missing-\(UUID().uuidString)"
+        )
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(windows[0].unknownReason, .parserFailed(observedAt: now))
+        XCTAssertNil(windows[0].usedPercent)
+        XCTAssertNil(windows[0].remainingPercent)
+        XCTAssertNotEqual(windows[0].unknownReason, .vendorExposesNothing)
+    }
+
+    #if os(macOS)
+    func testLiveProbeTimeoutTerminatesChildAndReturnsUnknown() throws {
+        // Long-sleep wrapper never paints a usage pane. Timeout must kill the
+        // child and return unknown — never a fabricated percentage.
+        let script = homeRoot.appendingPathComponent("cap-s08-sleeper.sh")
+        try """
+        #!/bin/sh
+        exec /bin/sleep 60
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes(
+            [.posixPermissions: 0o755],
+            ofItemAtPath: script.path
+        )
+
+        let started = Date()
+        let windows = CapacityProbe.windows(
+            source: "kimi",
+            now: now,
+            timeout: 1.5,
+            executableOverride: script.path
+        )
+        let elapsed = Date().timeIntervalSince(started)
+
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertNotNil(windows[0].unknownReason)
+        XCTAssertNil(windows[0].usedPercent)
+        XCTAssertNil(windows[0].remainingPercent)
+        XCTAssertNotEqual(windows[0].unknownReason, .vendorExposesNothing)
+        // Must not wait anywhere near the 60s sleep.
+        XCTAssertLessThan(elapsed, 8.0, "probe must time out and kill the sleeper")
+
+        // No orphan sleeper left behind (best-effort: script path in process list).
+        // Write to a file — never Pipe + waitUntilExit (large `ps` output deadlocks
+        // when the pipe buffer fills before the parent reads).
+        let psOut = homeRoot.appendingPathComponent("cap-s08-ps.txt")
+        FileManager.default.createFile(atPath: psOut.path, contents: nil)
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/bin/ps")
+        task.arguments = ["-ax", "-o", "command="]
+        task.standardOutput = try FileHandle(forWritingTo: psOut)
+        task.standardError = FileHandle.nullDevice
+        try task.run()
+        task.waitUntilExit()
+        try (task.standardOutput as? FileHandle)?.close()
+        let ps = (try? String(contentsOf: psOut, encoding: .utf8)) ?? ""
+        XCTAssertFalse(
+            ps.contains(script.path),
+            "sleeper child must be terminated after probe timeout"
+        )
+    }
+    #endif
 }

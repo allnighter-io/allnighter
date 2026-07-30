@@ -320,12 +320,13 @@ public enum HelpTopicRegistry {
             id: "capacity", title: "Capacity & Quota", audience: .both,
             summary: "`alln capacity` shows vendor-printed quota headroom when sampled; unknown means no surface / not recent / parse failed — never blocks.",
             bodyMarkdown: """
-            `alln capacity` reads what vendors already wrote on disk (tier-1) and reports \
-            seats that expose no on-disk surface as `unknown` with a reason. Capacity is \
+            `alln capacity` reads what vendors already wrote on disk (tier-1: Codex, Grok). \
+            Bare capacity is instant and **spawns nothing**. `alln capacity --refresh` adds \
+            tier-3 PTY one-shots into vendor `/usage` panes (agy, Kimi, Cursor). Capacity is \
             **vendor-printed when acquired** — Allnighter does not invent percentages. \
-            `unknown` means the vendor exposes no capacity surface, the seat was not sampled \
-            recently, or the parser failed. Missing data never blocks (exit 0) and never \
-            fabricates 0%.
+            `unknown` means the seat was not sampled, the probe timed out / failed, or the \
+            parser could not read the capture. Missing data never blocks (exit 0) and never \
+            fabricates 0%. Claude Usage-tab probing is not shipped yet (tab navigation).
 
             Per-run token usage on team receipts is a **different system** — do not confuse \
             receipt token counts with the capacity strip. Use `alln capacity --json` for the \

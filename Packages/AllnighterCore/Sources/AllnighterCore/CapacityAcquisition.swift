@@ -1,12 +1,20 @@
 import Foundation
 
-/// Tier-1 on-disk capacity acquisition.
+/// Capacity acquisition boundary: tier-1 on-disk reads + optional tier-3 PTY probes.
 ///
-/// Reads what is already on disk — no probes, no PTY, no process spawns.
-/// Injectable `homeRoot` keeps tests off the real home directory.
+/// **Bare call** (`refresh: false`, the default) reads what is already on disk —
+/// no probes, no PTY, no process spawns. Instant.
 ///
-/// Fail closed: missing directory, unreadable file, and empty file all return
-/// `unknown` with a reason — never throw, never invent 0%.
+/// **Refresh** (`refresh: true` / `alln capacity --refresh`) additionally runs a
+/// per-driver PTY probe for seats we can drive (agy, kimi, cursor). Probes are
+/// never idle-backgrounded; only explicit refresh starts them.
+///
+/// Injectable `homeRoot` / `probeExecutor` keep tests off the real home and off
+/// real vendor CLIs.
+///
+/// Fail closed: missing directory, unreadable file, spawn failure, timeout,
+/// empty capture, and parse failure all return `unknown` with a reason — never
+/// throw, never invent 0%.
 public enum CapacityAcquisition {
 
     /// Fixed product display order (source ids). Not-ready/parked seats are
@@ -20,7 +28,7 @@ public enum CapacityAcquisition {
         "agy",
     ]
 
-    /// Tier-3 seats with no on-disk capacity surface for this ladder step.
+    /// Tier-3 seats with no on-disk capacity surface.
     public static let tier3DisklessSources: [String] = [
         "claude_code",
         "cursor_agent",
@@ -28,38 +36,149 @@ public enum CapacityAcquisition {
         "agy",
     ]
 
+    /// Tier-3 seats the PTY probe drives on `--refresh`.
+    /// Claude is deferred: `/status` → Usage tab needs unreliable tab navigation.
+    public static let tier3ProbeableSources: [String] = CapacityProbe.probeableSources
+
     /// Acquire capacity windows for the fixed bench under `homeRoot`.
     ///
     /// - Parameters:
     ///   - homeRoot: Home directory root (default: real home). Tests inject a temp tree.
-    ///   - now: Wall clock for unknown stamps. Callers pass it — no `Date()` inside.
+    ///   - now: Wall clock for unknown stamps. Callers pass it — no wall-clock reads
+    ///     for observation stamps inside tier-1 paths.
+    ///   - refresh: When `true`, run tier-3 PTY probes (explicit refresh only).
+    ///     When `false` (default), tier-3 seats are `neverSampled` and **no** probe
+    ///     executor is invoked — bare `alln capacity` spawns nothing.
+    ///   - probeExecutor: Injectable probe seam. `nil` + `refresh` uses the live PTY
+    ///     executor. Tests inject a counter / fixture runner.
+    ///   - probeTimeout: Per-probe wall-clock budget (default 20s).
     /// - Returns: Windows for every bench source. Never empty for a known source;
-    ///   never throws.
+    ///   never throws. Tier-1 seats are always acquired; a failed probe never
+    ///   degrades them.
     public static func windows(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
-        now: Date
+        now: Date,
+        refresh: Bool = false,
+        probeExecutor: (any CapacityProbeExecuting)? = nil,
+        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
     ) -> [CapacityWindow] {
         var result: [CapacityWindow] = []
+        // Tier-1 first — always. Probe failures must not prevent these numbers.
         result.append(contentsOf: acquireCodex(homeRoot: homeRoot, now: now))
         result.append(contentsOf: acquireGrok(homeRoot: homeRoot, now: now))
-        for source in tier3DisklessSources {
-            result.append(
+        result.append(contentsOf: acquireTier3(
+            now: now,
+            refresh: refresh,
+            probeExecutor: probeExecutor,
+            probeTimeout: probeTimeout
+        ))
+        return result
+    }
+
+    // MARK: - Tier 3
+
+    private static func acquireTier3(
+        now: Date,
+        refresh: Bool,
+        probeExecutor: (any CapacityProbeExecuting)?,
+        probeTimeout: TimeInterval
+    ) -> [CapacityWindow] {
+        if !refresh {
+            // Bare path: never sample, never spawn. NOT `.vendorExposesNothing` —
+            // that claims the vendor has no usage surface, which is false for every
+            // seat in this list. agy, Kimi and Cursor all print `/usage`, and we ship
+            // tested parsers for all three; Claude has a Usage tab. Without an
+            // explicit `--refresh` we simply have not looked.
+            return tier3DisklessSources.map { source in
                 CapacityWindow.unknown(
-                    // NOT `.vendorExposesNothing` — that claims the vendor has no usage
-                    // surface, which is false for every seat in this list. agy, Kimi and
-                    // Cursor all print `/usage`, and we ship tested parsers for all three
-                    // (AgyCapacityLog, KimiCapacityLog, CursorCapacityLog); Claude has a
-                    // Usage tab. What is missing is the tier-3 PTY probe that would FEED
-                    // those parsers. The honest reason is that we never looked.
-                    // Blaming the vendor for our own gap is exactly the lie this
-                    // subsystem exists to avoid.
                     reason: .neverSampled,
                     source: source,
                     scope: .weekly,
                     observedAt: now,
                     sourceTier: .tuiProbe
                 )
-            )
+            }
+        }
+
+        let executor = probeExecutor ?? LiveCapacityProbeExecutor()
+        let probeable = Set(tier3ProbeableSources)
+
+        // Run probeable seats concurrently — each has its own timeout, so one
+        // slow CLI cannot block a sibling beyond its own budget.
+        let lock = NSLock()
+        var bySource: [String: [CapacityWindow]] = [:]
+        let group = DispatchGroup()
+
+        for source in tier3DisklessSources where probeable.contains(source) {
+            group.enter()
+            DispatchQueue.global(qos: .userInitiated).async {
+                defer { group.leave() }
+                let windows = executor.execute(
+                    CapacityProbeRequest(source: source, now: now, timeout: probeTimeout)
+                )
+                let safe: [CapacityWindow]
+                if windows.isEmpty {
+                    // Executor contract is "at least one"; belt-and-suspenders.
+                    safe = [
+                        CapacityProbe.unknown(
+                            source: source,
+                            reason: .parserFailed(observedAt: now),
+                            now: now
+                        ),
+                    ]
+                } else {
+                    // Never allow vendorExposesNothing for a seat we ship a parser for.
+                    safe = windows.map { window in
+                        if window.unknownReason == .vendorExposesNothing {
+                            return CapacityProbe.unknown(
+                                source: source,
+                                reason: .parserFailed(observedAt: now),
+                                now: now
+                            )
+                        }
+                        return window
+                    }
+                }
+                lock.lock()
+                bySource[source] = safe
+                lock.unlock()
+            }
+        }
+
+        // Wait for every probe: each is internally bounded by probeTimeout, plus
+        // a small reaping margin so terminate can finish.
+        let margin = max(2.0, probeTimeout * 0.1)
+        let groupTimeout = probeTimeout + margin
+        _ = group.wait(timeout: .now() + groupTimeout)
+
+        var result: [CapacityWindow] = []
+        for source in tier3DisklessSources {
+            if probeable.contains(source) {
+                if let windows = bySource[source] {
+                    result.append(contentsOf: windows)
+                } else {
+                    // Group timed out before this seat reported — fail closed.
+                    result.append(
+                        CapacityProbe.unknown(
+                            source: source,
+                            reason: .parserFailed(observedAt: now),
+                            now: now
+                        )
+                    )
+                }
+            } else {
+                // Claude (and any future deferred seat): honest never-sampled.
+                // Tab navigation for Claude Usage is not shipped yet.
+                result.append(
+                    CapacityWindow.unknown(
+                        reason: .neverSampled,
+                        source: source,
+                        scope: .weekly,
+                        observedAt: now,
+                        sourceTier: .tuiProbe
+                    )
+                )
+            }
         }
         return result
     }

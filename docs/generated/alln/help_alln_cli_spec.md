@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.8.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.9.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -97,10 +97,11 @@ Headless first-run CLI detection — probes sources, assembles the Bench/default
 
 ### `alln capacity`
 
-Show vendor capacity/quota headroom from on-disk samples (Codex, Grok, and tier-3 seats). Unknown never blocks.
+Show vendor capacity/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy/kimi/cursor). Unknown never blocks.
 
 Flags:
 - `--json` — Structured CapacityStripJSON (contractVersion + per-source rows).
+- `--refresh` — Run tier-3 PTY probes (agy/kimi/cursor /usage). Bare capacity never spawns.
 
 Output schema: `capacityStripJSON`.
 

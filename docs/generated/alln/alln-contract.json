@@ -348,7 +348,7 @@
         "repoWrite" : "never",
         "workerStart" : "never"
       },
-      "example" : "alln capacity --json",
+      "example" : "alln capacity --refresh",
       "exampleIds" : [
 
       ],
@@ -360,6 +360,11 @@
           "name" : "json",
           "summary" : "Structured CapacityStripJSON (contractVersion + per-source rows).",
           "takesValue" : false
+        },
+        {
+          "name" : "refresh",
+          "summary" : "Run tier-3 PTY probes (agy\/kimi\/cursor \/usage). Bare capacity never spawns.",
+          "takesValue" : false
         }
       ],
       "menuAction" : false,
@@ -370,7 +375,7 @@
       "name" : "capacity",
       "outputSchema" : "capacityStripJSON",
       "spendsQuota" : false,
-      "summary" : "Show vendor capacity\/quota headroom from on-disk samples (Codex, Grok, and tier-3 seats). Unknown never blocks.",
+      "summary" : "Show vendor capacity\/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy\/kimi\/cursor). Unknown never blocks.",
       "trigger" : "Before seating work when you need remaining weekly\/5-hour headroom, reset clocks, or which vendors expose nothing.",
       "visibility" : "public"
     },
@@ -5462,7 +5467,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "6.8.0",
+  "contractVersion" : "6.9.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
