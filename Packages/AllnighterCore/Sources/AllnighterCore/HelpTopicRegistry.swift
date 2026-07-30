@@ -190,6 +190,7 @@ public enum HelpTopicRegistry {
             """,
             aliases: ["send to team", "fan out", "delegate", "send this to a team", "bug hunt",
                       "read-only", "readonly", "no commit", "write lock", "queue", "parallel", "feedback",
+                      "tokens", "token usage", "usage", "duration", "pilot status", "observed usage",
                       "custom seats", "staff models once", "one-off team", "temporary team",
                       // Spec review is a Team run like any other. These phrases used to
                       // resolve to the deleted `panel` surface; they must keep landing on
@@ -210,6 +211,7 @@ public enum HelpTopicRegistry {
                 .init("delivery", "Terminal delivery", "Use one `alln team status <run-id> --wait-for terminal --timeout 7200 --json` call to receive the terminal pmTurn; do not poll or use run resume for terminal delivery."),
                 .init("no-wait", "Detached runs", "`alln run --no-wait` returns delivery.path=wait and an exact delivery.command. Do other work, then run that command once; its status JSON includes the terminal pmTurn. `--idempotency-key` is the explicit, deliberate retry-safety contract — it is opt-in, not derived, so two intentionally identical runs are never silently collapsed into one."),
                 .init("read-only", "Parallel feedback", "Doc/spec feedback without competing for the mutator: `alln run --read-only --model <id>`. Build work uses default mutating `alln run`. `--no-commit` is commit instruction only — it still takes the write lock and queues FIFO."),
+                .init("usage", "Observed tokens & duration", "Live `pilot status` / `relay-status` show elapsed + observed tokens (or CLI blame when unreported). Terminal receipts and TeamRunJSON answers carry per-seat duration and usage when the driver reported it — never invented totals."),
             ],
             relatedCommandNames: ["run", "team status", "team result", "team cancel", "team reconcile", "floor show"],
             schemaRefs: ["teamStartResponse", "teamStatusResponse", "teamRunJSON"],

@@ -26,6 +26,8 @@ public enum ArtifactProjector {
     public var sourceId: String
     public var status: String
     public var durationMs: Int?
+    /// OUR-S03: compact tok or CLI blame (never zeros / invented totals).
+    public var usageSegment: String?
     public var oneLiner: String?
     public var isLead: Bool
   }
@@ -249,6 +251,11 @@ public enum ArtifactProjector {
         agent: agent, answer: answer, hoistedAnswer: hoistedAnswer
       )
       let isLead = agent.purpose == .plan
+      let usageSegment = ObservedUsagePresentation.seatUsageSegment(
+        usage: answer?.result.reportedTokenUsage,
+        sourceId: context.sourceId(agent.modelId),
+        running: false
+      )
       return Seat(
         agentId: agent.id,
         roleLabel: roleLabel(for: agent, isLead: isLead),
@@ -256,6 +263,7 @@ public enum ArtifactProjector {
         sourceId: context.sourceId(agent.modelId),
         status: status,
         durationMs: durationMs,
+        usageSegment: usageSegment,
         oneLiner: isLead
           ? leadSeatOneLiner(hoistedAnswer: hoistedAnswer, markdown: markdown)
           : crewSeatOneLiner(from: markdown),
@@ -727,6 +735,8 @@ public enum ArtifactProjector {
     let glyph = String(seat.roleLabel.prefix(1)).uppercased()
     let duration = seat.durationMs.map { formatDuration(ms: $0) } ?? ""
     let durationHTML = duration.isEmpty ? "" : "<span class=\"duration\">\(escape(duration))</span>"
+    // OUR-S03: tok or CLI blame after duration.
+    let usageHTML = (seat.usageSegment.map { "<span class=\"usage\">\(escape($0))</span>" }) ?? ""
     let leadClass = seat.isLead ? " seat-lead" : ""
     let leadTag = seat.isLead ? "<span class=\"tag-lead\">Lead</span>" : ""
     let oneLiner = seat.oneLiner.map { "<div class=\"one-liner\">\(escape($0))</div>" } ?? ""
@@ -744,6 +754,7 @@ public enum ArtifactProjector {
         <span class="status-dot status-\(escape(seat.status))" aria-hidden="true"></span>
         <span class="status-word status-\(escape(seat.status))">\(escape(statusLabel))</span>
         \(durationHTML)
+        \(usageHTML)
       </div>
     </a>
     """
