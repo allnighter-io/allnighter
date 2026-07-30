@@ -40,6 +40,8 @@ struct RootView: View {
     /// ThreadView.swift). One shared instance so repeated resumes across relay threads
     /// share in-flight/error state, mirroring `commands`'s app-wide singleton shape.
     @State private var relayResume = RelayResumeController()
+    /// ATL-S04: founder Stop from relay thread chrome (`RelayThreadChrome`).
+    @State private var relayStop = RelayStopController()
     /// DEBUG GUI-proof only: render the Factory Floor reader over a sample run.
     @State private var showFloorReaderProof = false
     @State private var pairingPromptRequest: RemotePairRequest?
@@ -253,6 +255,7 @@ struct RootView: View {
         .environment(threads)
         .environment(commands)
         .environment(relayResume)
+        .environment(relayStop)
         .focusedSceneValue(\.appCommands, appCommands)
         .overlay {
             if commands.palettePresented {

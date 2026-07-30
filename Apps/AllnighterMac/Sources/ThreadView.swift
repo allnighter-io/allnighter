@@ -196,6 +196,7 @@ private struct ThreadPaneHeader: View {
             if let lane = inferredLane {
                 laneChip(lane)
             }
+            RelayThreadChrome(relayId: thread.id)
             Spacer(minLength: 8)
             if thread.isArchived {
                 Button("Unarchive") { threads.unarchiveThread(thread.id) }
@@ -663,8 +664,8 @@ private struct ThreadTurnRow: View {
             ThreadMutatingRunRow(turn: turn, isLastTurn: isLastTurn)
         case .systemEvent where turn.systemEvent == .relayEscalated && turn.status == .running:
             // R-S08: the ONE open, actionable system event — a PM Relay round asked the
-            // founder a real question and is waiting. Every other system event (including
-            // an already-resumed/settled relayEscalated turn) stays the plain stub below.
+            // founder a real question and is waiting. ATL-S04: resume gating reads
+            // `RelayState.isResumable` via `RelayResumeController` — never turn prose.
             RelayEscalationRow(turn: turn)
         default:
             stubTurn
@@ -808,9 +809,33 @@ private struct RelayEscalationRow: View {
 
     private var relayId: String { turn.threadId }
     private var isResuming: Bool { relayResume.isResuming(relayId) }
-    private var canSubmit: Bool { !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isResuming }
+    private var canResume: Bool { relayResume.canResume(relayId: relayId) }
+    private var canSubmit: Bool {
+        canResume && !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isResuming
+    }
 
     var body: some View {
+        if !canResume {
+            readOnlyEscalation
+        } else {
+            answerableEscalation
+        }
+    }
+
+    private var readOnlyEscalation: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "questionmark.circle").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
+            Text("PM Relay question (closed)")
+                .font(ALFont.caption).foregroundStyle(ALColor.textMuted)
+            if let note = turn.text, !note.isEmpty {
+                Text("— \(note)")
+                    .font(ALFont.caption).foregroundStyle(ALColor.textFaint).lineLimit(2)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private var answerableEscalation: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "questionmark.circle.fill").font(.system(size: 13)).foregroundStyle(ALPalette.amber400)

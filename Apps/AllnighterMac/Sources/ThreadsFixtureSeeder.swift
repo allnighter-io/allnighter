@@ -66,6 +66,10 @@ struct ThreadsFixtureSeeder {
             setSelectedThreadId(nil)
         case "thread-relay-escalated":
             seedFixtureRelayEscalated()
+        case "relay-thread-status", "relay-thread-stop-confirm":
+            seedFixtureRelayRunning()
+        case "relay-thread-stopped":
+            seedFixtureRelayFounderStopped()
         default:
             break
         }
@@ -529,6 +533,134 @@ struct ThreadsFixtureSeeder {
         _ = try? store.appendTurn(escalation, toThreadId: id, now: base)
         reload()
         setSelectedThreadId(id)
+    }
+
+    /// ATL-S04: running relay thread with store-backed status chrome (Status pill + Stop).
+    private func seedFixtureRelayRunning() {
+        let id = "fixture-relay-running"
+        let (pmModelId, devModelId) = relayFixtureSeatIds()
+        let base = Date().addingTimeInterval(-600)
+        let round = RelayRound(
+            roundNumber: 1,
+            baselineHead: "abc123",
+            headAfterDev: "def456",
+            startedAt: base.addingTimeInterval(30),
+            finishedAt: base.addingTimeInterval(120),
+            outcome: .continued
+        )
+        let state = RelayState(
+            id: id,
+            projectRoot: "/Users/you/code/allnighter",
+            docPath: "docs/phases/Agent_Team_Loop.md",
+            pmModelId: pmModelId,
+            devModelId: devModelId,
+            status: .running,
+            rounds: [round],
+            createdAt: base,
+            note: "Round 1 complete — PM reviewing dev report."
+        )
+        saveRelayFixtureState(state)
+
+        guard (try? store.create(
+            id: id, title: "PM Relay: Agent Team Loop", now: base, workingDir: state.projectRoot
+        )) != nil else { return }
+        appendRelayFixtureTurns(
+            id: id, pmModelId: pmModelId, devModelId: devModelId, base: base,
+            pmText: "Reviewed round 1 — continue with Stop affordance wiring.",
+            devText: "Implemented relay status chrome. Tests green."
+        )
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    /// ATL-S04: founder-stopped relay — open escalation turn exists but Answer & resume
+    /// is gated off by `RelayState.isResumable` (inference ban negative test).
+    private func seedFixtureRelayFounderStopped() {
+        let id = "fixture-relay-stopped"
+        let (pmModelId, devModelId) = relayFixtureSeatIds()
+        let base = Date().addingTimeInterval(-900)
+        let finished = Date().addingTimeInterval(-60)
+        let round = RelayRound(
+            roundNumber: 1,
+            baselineHead: "abc123",
+            headAfterDev: "def456",
+            startedAt: base.addingTimeInterval(30),
+            finishedAt: base.addingTimeInterval(120),
+            outcome: .continued
+        )
+        let state = RelayState(
+            id: id,
+            projectRoot: "/Users/you/code/allnighter",
+            docPath: "docs/phases/Agent_Team_Loop.md",
+            pmModelId: pmModelId,
+            devModelId: devModelId,
+            status: .stopped,
+            rounds: [round],
+            createdAt: base,
+            finishedAt: finished,
+            note: "Founder stopped the loop.",
+            stoppedReason: RelayState.founderStoppedReason
+        )
+        saveRelayFixtureState(state)
+        let pmTurn = PMTurnJSON(
+            kind: .relay,
+            subjectId: id,
+            sequence: 1,
+            round: 1,
+            createdAt: finished,
+            reason: "stopped",
+            lifecycleStatus: "stopped",
+            report: "Loop abandoned after round 1.",
+            nextCommands: [RelayStatusLoader.statusCommand(relayId: id)]
+        )
+        try? PMTurnStore().save(pmTurn)
+
+        guard (try? store.create(
+            id: id, title: "PM Relay: Agent Team Loop (stopped)", now: base, workingDir: state.projectRoot
+        )) != nil else { return }
+        appendRelayFixtureTurns(
+            id: id, pmModelId: pmModelId, devModelId: devModelId, base: base,
+            pmText: "Should we add a copy-status affordance?",
+            devText: "Shipped status panel fields."
+        )
+        let escalation = ThreadTurn(
+            id: "\(id)_escalate", threadId: id, kind: .systemEvent, status: .running,
+            createdAt: base.addingTimeInterval(200), author: .system,
+            text: "Should we add a copy-status affordance?",
+            systemEvent: .relayEscalated
+        )
+        _ = try? store.appendTurn(escalation, toThreadId: id, now: base)
+        reload()
+        setSelectedThreadId(id)
+    }
+
+    private func relayFixtureSeatIds() -> (pm: String, dev: String) {
+        let pmModelId = models.first { $0.id == "model_claude_code" }?.id
+            ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI }?.id
+            ?? models.first?.id ?? "model_claude_code"
+        let devModelId = models.first { $0.id == "model_codex" }?.id
+            ?? models.first { registry.manifest(for: $0)?.kind == .headlessCLI && $0.id != pmModelId }?.id
+            ?? pmModelId
+        return (pmModelId, devModelId)
+    }
+
+    private func saveRelayFixtureState(_ state: RelayState) {
+        try? RelayStateStore().save(state)
+    }
+
+    private func appendRelayFixtureTurns(
+        id: String, pmModelId: String, devModelId: String, base: Date,
+        pmText: String, devText: String
+    ) {
+        func turn(_ suffix: String, modelId: String, text: String, at offset: TimeInterval) -> ThreadTurn {
+            ThreadTurn(
+                id: "\(id)_\(suffix)", threadId: id, kind: .workerChat, status: .done,
+                createdAt: base.addingTimeInterval(offset), completedAt: base.addingTimeInterval(offset + 20),
+                author: .worker, text: text, modelId: modelId
+            )
+        }
+        _ = try? store.appendTurn(turn("pm1", modelId: pmModelId, text: pmText, at: 0), toThreadId: id, now: base)
+        _ = try? store.appendTurn(turn("dev1", modelId: devModelId, text: devText, at: 40), toThreadId: id, now: base)
     }
 
     private func seedFixtureUserImageAttachment() {

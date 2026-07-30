@@ -134,7 +134,8 @@ enum GUIFixture {
     /// Home / thread conversation fixtures stay on HomeView (not the specimen).
     static var opensHomeWorkspace: Bool {
         let name = active ?? ""
-        return name.hasPrefix("home-") || name.hasPrefix("thread-") || name == "command-palette" || name == "projects-rail"
+        return name.hasPrefix("home-") || name.hasPrefix("thread-") || name.hasPrefix("relay-thread-")
+            || name == "command-palette" || name == "projects-rail"
     }
 
     /// UNR proof: keep selected-unread below the fold for the rail matrix capture.
@@ -158,6 +159,9 @@ enum GUIFixture {
 
     /// Proof: composer with the Loop tab selected (ATL-S03).
     static var composeLoopTab: Bool { active == "compose-loop" }
+
+    /// Proof: relay thread Stop confirmation dialog open (ATL-S04).
+    static var opensRelayStopConfirm: Bool { active == "relay-thread-stop-confirm" }
 
     /// Kickoff text seeded into the relay launch sheet for visual proof.
     static var relayLaunchKickoffMessage: String? {
@@ -355,6 +359,9 @@ enum GUIFixture {
         ("compose-target-send-to-team", "Compose — team target popover (native popover)"),
         ("compose-loop", "Compose — Loop tab (ATL-S03)"),
         ("relay-launch-kickoff", "Loop launch sheet — Kickoff field populated (ATL-S03)"),
+        ("relay-thread-status", "Relay thread — Status pill + Stop (ATL-S04)"),
+        ("relay-thread-stop-confirm", "Relay thread — Stop confirmation (ATL-S04)"),
+        ("relay-thread-stopped", "Relay thread — founder stopped, no resume (ATL-S04)"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
@@ -749,6 +756,9 @@ enum GUIFixture {
     static var opensPending: Bool { false }
     static var opensPendingReview: Bool { false }
     static var opensHomeWorkspace: Bool { false }
+    static var opensRelayLaunch: Bool { false }
+    static var opensRelayStopConfirm: Bool { false }
+    static var composeLoopTab: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
     static func seededPendingService(models: [Model]) -> PendingService? { nil }
     static func readinessFocusDriverId(for scenario: String?) -> String? { nil }
