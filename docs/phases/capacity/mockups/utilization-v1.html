@@ -61,8 +61,9 @@ body{background:var(--ink-950);color:var(--text-primary);font-family:var(--font-
 
 .big{display:flex;align-items:baseline;gap:9px}
 .big .n{font-family:var(--font-display);font-size:34px;font-weight:700;letter-spacing:-.024em;
-  line-height:1;color:var(--ink-50);font-variant-numeric:tabular-nums}
-.big .n.hi{color:var(--amber-400)}
+  line-height:1;color:var(--ink-100);font-variant-numeric:tabular-nums}
+.big .n.good{color:var(--green-500)}      /* >=65% — strong value capture */
+.big .n.low{color:var(--text-faint)}      /* <35%  — money going unused */
 .big .cap{font-size:10px;color:var(--text-faint);line-height:1.3;max-width:112px}
 
 .facts{margin-top:auto;display:flex;flex-direction:column;gap:5px;
@@ -70,8 +71,11 @@ body{background:var(--ink-950);color:var(--text-primary);font-family:var(--font-
 .f{display:flex;justify-content:space-between;gap:10px;font-size:11px}
 .f .k{color:var(--text-faint)}
 .f .v{font-family:var(--font-mono);color:var(--text-muted);font-variant-numeric:tabular-nums}
-.f .v.up{color:var(--amber-300)} .f .v.dn{color:var(--text-muted)}
-.f .v.hit{color:var(--red-400)} .f .v.none{color:var(--text-disabled)}
+.f .v.up{color:var(--green-500)} .f .v.dn{color:var(--text-faint)}
+.f .v.harvest{color:var(--green-500)}     /* limit hit WITH a fallback = success */
+.f .v.blocked{color:var(--red-400)}       /* limit hit with nowhere to go = the only bad one */
+.f .v.none{color:var(--text-disabled)}
+.f .v.mult{color:var(--text-muted)} .f .v.mult.bad{color:var(--amber-300)}
 
 .wait{display:flex;flex-direction:column;gap:5px;margin:auto 0}
 .wait .w1{font-size:12px;color:var(--text-muted)}
@@ -109,11 +113,12 @@ body{background:var(--ink-950);color:var(--text-primary);font-family:var(--font-
     <!-- CODEX — real -->
     <div class="card">
       <div class="crow"><span class="cname">Codex / ChatGPT</span><span class="cplan">Plus</span></div>
-      <div class="big"><span class="n hi">82%</span>
+      <div class="big"><span class="n good">82%</span>
         <span class="cap">average allowance used<br>2 weeks observed</span></div>
       <div class="facts">
         <div class="f"><span class="k">Most recent week</span><span class="v up">100% · ↑ 22% more</span></div>
-        <div class="f"><span class="k">Hit limit</span><span class="v hit">1×</span></div>
+        <div class="f"><span class="k">Hit limit</span><span class="v">1× · fallback unknown</span></div>
+        <div class="f"><span class="k">Paying</span><span class="v mult">1.2× vs full use</span></div>
       </div>
     </div>
 
@@ -139,6 +144,7 @@ body{background:var(--ink-950);color:var(--text-primary);font-family:var(--font-
       <div class="facts">
         <div class="f"><span class="k">Most recent week</span><span class="v up">66% · ↑ 22% more</span></div>
         <div class="f"><span class="k">Hit limit</span><span class="v none">never</span></div>
+        <div class="f"><span class="k">Paying</span><span class="v mult">1.9× vs full use</span></div>
       </div>
     </div>
 
@@ -179,41 +185,45 @@ body{background:var(--ink-950);color:var(--text-primary);font-family:var(--font-
 
       <div class="card">
         <div class="crow"><span class="cname">Codex / ChatGPT</span><span class="cplan">Plus</span></div>
-        <div class="big"><span class="n hi">78%</span>
+        <div class="big"><span class="n good">91%</span>
           <span class="cap">3-month average<br>allowance used</span></div>
         <div class="facts">
-          <div class="f"><span class="k">Last month</span><span class="v up">91% · ↑ 17% more</span></div>
-          <div class="f"><span class="k">Hit limit</span><span class="v hit">6×</span></div>
+          <div class="f"><span class="k">Last month</span><span class="v up">96% · ↑ 5% more</span></div>
+          <div class="f"><span class="k">Hit limit</span><span class="v harvest">9× · always had a fallback</span></div>
+          <div class="f"><span class="k">Paying</span><span class="v mult">1.1× vs full use</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="crow"><span class="cname">Claude Code</span><span class="cplan">Max</span></div>
+        <div class="big"><span class="n good">88%</span>
+          <span class="cap">3-month average<br>allowance used</span></div>
+        <div class="facts">
+          <div class="f"><span class="k">Last month</span><span class="v up">94% · ↑ 7% more</span></div>
+          <div class="f"><span class="k">Hit limit</span><span class="v blocked">7× · blocked 4×</span></div>
+          <div class="f"><span class="k">Paying</span><span class="v mult">1.1× vs full use</span></div>
         </div>
       </div>
 
       <div class="card">
         <div class="crow"><span class="cname">Cursor Agent</span><span class="cplan">Ultra · monthly</span></div>
-        <div class="big"><span class="n">24%</span>
+        <div class="big"><span class="n low">24%</span>
           <span class="cap">3-month average<br>allowance used</span></div>
         <div class="facts">
           <div class="f"><span class="k">Last month</span><span class="v dn">11% · ↓ 54% less</span></div>
           <div class="f"><span class="k">Hit limit</span><span class="v none">never</span></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="crow"><span class="cname">Grok Build CLI</span><span class="cplan">X Premium+</span></div>
-        <div class="big"><span class="n">46%</span>
-          <span class="cap">3-month average<br>allowance used</span></div>
-        <div class="facts">
-          <div class="f"><span class="k">Last month</span><span class="v up">62% · ↑ 35% more</span></div>
-          <div class="f"><span class="k">Hit limit</span><span class="v hit">1×</span></div>
+          <div class="f"><span class="k">Paying</span><span class="v mult bad">4.2× vs full use</span></div>
         </div>
       </div>
 
       <div class="card">
         <div class="crow"><span class="cname">Kimi Code CLI</span><span class="cplan">Kimi Code</span></div>
-        <div class="big"><span class="n">6%</span>
+        <div class="big"><span class="n low">6%</span>
           <span class="cap">3-month average<br>allowance used</span></div>
         <div class="facts">
           <div class="f"><span class="k">Last month</span><span class="v dn">4% · ↓ lower</span></div>
           <div class="f"><span class="k">Hit limit</span><span class="v none">never</span></div>
+          <div class="f"><span class="k">Paying</span><span class="v mult bad">17× vs full use</span></div>
         </div>
       </div>
 
@@ -236,9 +246,25 @@ body{background:var(--ink-950);color:var(--text-primary);font-family:var(--font-
   0%, immediately after a reset. Counting those as "used nothing" would have pulled the
   average from 82% to 49% and inverted the conclusion from <i>upgrade</i> to <i>downgrade</i>.
   A window is only counted when it was observed close to its end.<br><br>
-  <b>Kimi's 4% and Cursor's ↓54% below are the cancel signal; Codex's 91% and six limit hits
-  are the upgrade signal.</b> Same card, opposite decisions, no verdict written anywhere —
-  just level and direction, as agreed.
+  <b>Hitting a limit is a win when the bench is deep.</b> With six seats, maxing one out and
+  moving to the next is full extraction — that is the target state, not a warning. The only
+  costly version is hitting a limit with <i>nowhere to go</i>. So the card splits them:
+  Codex's <span style="color:var(--green-500)">9× · always had a fallback</span> is a victory
+  lap, while Claude's <span style="color:var(--red-400)">7× · blocked 4×</span> is the upgrade
+  signal. "Blocked → 0" is precisely what Allnighter is for, which makes this the product's
+  own scorecard.<br><br>
+  <b>That split must be captured at the moment of the hit.</b> The ledger has to snapshot every
+  other seat's headroom when a limit event fires. Reconstructing it later from two independent
+  histories with different sampling times is not possible — which is why the real Codex card
+  above says <code>fallback unknown</code> rather than guessing. Cheap to record now, gone
+  forever if CAP-S01 skips it.<br><br>
+  <b>The efficiency multiple does the arguing.</b> 91% is 1.1× the cost of full use; 24% is
+  4.2×; 6% is 17×. It is a fact, not advice — and it is most eloquent at the bottom, where the
+  cancel case makes itself without anyone recommending anything.<br><br>
+  <b>Green is back on this tab, deliberately.</b> The capacity strip is an alerting surface
+  where silence means success, so nothing there is green. This is a scorecard, where the
+  achievement should be visible. Two different colour contracts on purpose — do not "fix" the
+  inconsistency later.
 </div>
 
 </body>
