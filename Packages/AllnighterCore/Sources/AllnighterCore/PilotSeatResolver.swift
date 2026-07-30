@@ -23,7 +23,12 @@ public enum PilotSeatResolver {
     }
 
     /// Models whose driver has a global `ready` probe — the seats `pilot start` can use.
-    public static func readySeats(from models: [Model], probeRecords: [ToolProbeRecord]) -> [Model] {
+    /// Parked CLIs never contribute seats.
+    public static func readySeats(
+        from models: [Model],
+        probeRecords: [ToolProbeRecord],
+        parkedDriverIds: Set<String> = []
+    ) -> [Model] {
         // SR-14 (Sol F28): `Dictionary(uniqueKeysWithValues:)` traps at runtime on a
         // duplicate driver id. No current path produces duplicates, but a hand-edited or
         // migrated `cli_setup.json` with two records for one driver would crash `pilot start`
@@ -32,7 +37,8 @@ public enum PilotSeatResolver {
             probeRecords.map { ($0.driverId, $0) },
             uniquingKeysWith: { _, latest in latest })
         return models.filter { m in
-            m.enabled && (recordsByDriver[m.driverId]?.status.isSmokeReady ?? false)
+            guard m.enabled, !parkedDriverIds.contains(m.driverId) else { return false }
+            return recordsByDriver[m.driverId]?.status.isSmokeReady ?? false
         }.sorted { $0.id < $1.id }
     }
 

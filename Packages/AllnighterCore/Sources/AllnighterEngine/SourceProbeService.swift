@@ -73,11 +73,28 @@ public struct SourceProbeService: Sendable {
         _ = ProcessOwnershipGarbageCollector().collect()
 
         let manifests = request.sourceId.map { id in registry.all.filter { $0.id == id } } ?? registry.all
+        let parked = SetupStore().load().parkedSet
+        // Parked CLIs are skipped entirely (no detect/smoke) unless the caller named
+        // that one source explicitly (doctor --agent / single-driver repair).
+        let probeManifests: [DriverManifest]
+        if let only = request.sourceId {
+            probeManifests = manifests.filter { $0.id == only }
+        } else {
+            probeManifests = manifests.filter { !parked.contains($0.id) }
+        }
         let allLabels = ModelCatalog.probeModelLabels(registry: registry)
         let labels = request.sourceId.map { sourceId in
             allLabels.filter { $0.key == sourceId }
-        } ?? allLabels
-        let records = await Self.probeRecords(manifests: manifests, labels: labels, full: request.full)
+        } ?? allLabels.filter { !parked.contains($0.key) }
+        let records = await Self.probeRecords(manifests: probeManifests, labels: labels, full: request.full)
+        // Merge parked drivers' cached records so doctor still knows they exist.
+        let cached = SetupStore().load()
+        var doctorRecords = records
+        if request.sourceId == nil {
+            for rec in cached.records where parked.contains(rec.driverId) {
+                DriverProbeRecords.upsert(rec, into: &doctorRecords)
+            }
+        }
         let inputs = DoctorReport.Inputs(
             binaryVersion: binaryVersion,
             contractVersion: ContractRegistry.contractVersion,
@@ -93,10 +110,10 @@ public struct SourceProbeService: Sendable {
             cursorProjectOverrideURL: nil,
             runningBinaryPath: runningBinaryPath,
             pathEnvironment: pathEnvironment,
-            pilot: request.pilot ? Self.pilotContext(projectToken: request.projectToken, records: records, models: models, full: request.full) : nil,
+            pilot: request.pilot ? Self.pilotContext(projectToken: request.projectToken, records: doctorRecords, models: models, full: request.full) : nil,
             teachingInputs: TeachingInstalledCheck.defaultInputs(homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
         )
-        var result = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: inputs)
+        var result = DoctorReport.build(models: models, manifests: manifests, records: doctorRecords, inputs: inputs)
         result.checks.append(RelayPersistenceDoctorCheck.doctorCheck(relaysRoot: AllnighterPaths.relays))
         if let sourceId = request.sourceId {
             let prefix = "source.\(sourceId)."
@@ -108,19 +125,28 @@ public struct SourceProbeService: Sendable {
     }
 
     public func detect() async -> SourceDetectionResult {
-        let labels = ModelCatalog.probeModelLabels(registry: registry)
-        let records = await Self.probeRecords(manifests: registry.all, labels: labels, full: true)
         let store = SetupStore()
+        let previous = store.load()
+        let parked = previous.parkedSet
+        let labels = ModelCatalog.probeModelLabels(registry: registry)
+            .filter { !parked.contains($0.key) }
+        let manifests = registry.all.filter { !parked.contains($0.id) }
+        let fresh = await Self.probeRecords(manifests: manifests, labels: labels, full: true)
+        // Keep last-known records for parked CLIs; never wipe park intent on detect.
+        var records = previous.records.filter { parked.contains($0.driverId) }
+        for rec in fresh {
+            DriverProbeRecords.upsert(rec, into: &records)
+        }
         let assembled = TeamAssembler.assemble(
             models: models,
-            readyDriverIds: TeamAssembler.readyDriverIds(from: records),
+            readyDriverIds: TeamAssembler.readyDriverIds(from: records, excludingParked: parked),
             now: Date()
         )
-        let previous = store.load()
         _ = try? store.save(.init(
-            records: records,
+            records: records.sorted { $0.driverId < $1.driverId },
             setupCompletedAt: previous.setupCompletedAt,
-            assembledTeam: assembled
+            assembledTeam: assembled,
+            parkedDriverIds: previous.parkedDriverIds
         ))
         return .init(records: records, assembledTeam: assembled)
     }
@@ -135,30 +161,45 @@ public struct SourceProbeService: Sendable {
         let runner = commandRunner ?? ProcessGroupCommandRunner(
             environmentPolicy: AllnighterSpawnEnvironmentPolicy(), spawnKind: .doctorProbe
         )
+        let previous = setupStore.load()
+        let parked = previous.parkedSet
+        // Callers that pass a full registry still skip parked (Re-check all).
+        // A single-driver repair passes one manifest — probe it even if parked so
+        // Unpark → Run works without a second gesture.
+        let activeManifests = manifests.count == 1
+            ? manifests
+            : manifests.filter { !parked.contains($0.id) }
+        let activeLabels = labels.filter { key, _ in
+            activeManifests.contains(where: { $0.id == key })
+        }
         if full {
             // Full means a real model smoke (and can spend quota), never an
             // interactive shell or setup flow.  A routine health request must
             // report a blocked source; it must not create TCC/Automation prompts.
             let records = await AllnighterCLIDetector.make(
                 commandRunner: runner, detectTimeout: .seconds(8), smokeTimeout: .seconds(60), interactive: false
-            ).probeAll(manifests, models: labels, now: Date(), smoke: true)
-            let previous = setupStore.load()
+            ).probeAll(activeManifests, models: activeLabels, now: Date(), smoke: true)
             let refreshed = Set(records.map(\.driverId))
             var merged = previous.records.filter { !refreshed.contains($0.driverId) }
             for rec in records {
                 DriverProbeRecords.upsert(rec, into: &merged)
             }
-            _ = try? setupStore.save(.init(records: merged.sorted { $0.driverId < $1.driverId }, setupCompletedAt: previous.setupCompletedAt, assembledTeam: previous.assembledTeam))
+            _ = try? setupStore.save(.init(
+                records: merged.sorted { $0.driverId < $1.driverId },
+                setupCompletedAt: previous.setupCompletedAt,
+                assembledTeam: previous.assembledTeam,
+                parkedDriverIds: previous.parkedDriverIds
+            ))
             return records
         }
-        let headlessIds = Set(manifests.filter { $0.kind == .headlessCLI }.map(\.id))
-        let cached = setupStore.load().records.filter { headlessIds.contains($0.driverId) }
+        let headlessIds = Set(activeManifests.filter { $0.kind == .headlessCLI }.map(\.id))
+        let cached = previous.records.filter { headlessIds.contains($0.driverId) }
         if cached.count == headlessIds.count, !cached.isEmpty { return cached.sorted { $0.driverId < $1.driverId } }
         return await AllnighterCLIDetector.make(
             commandRunner: runner,
             resolver: ShellResolver(commandRunner: runner, timeout: .seconds(2), workingDirectory: AllnighterPaths.ensuredProbeScratchPath(), interactive: false),
             detectTimeout: .seconds(2), smokeTimeout: .seconds(2), interactive: false
-        ).probeAll(manifests, models: labels, now: Date(), smoke: false)
+        ).probeAll(activeManifests, models: activeLabels, now: Date(), smoke: false)
     }
 
     private static func pilotContext(projectToken: String?, records: [ToolProbeRecord], models: [Model], full: Bool) -> DoctorReport.PilotContext {

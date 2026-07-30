@@ -51,7 +51,11 @@ public enum TeamAssembler {
     }
 
     /// Convenience: derive ready driver ids from probe records.
-    public static func readyDriverIds(from records: [ToolProbeRecord]) -> Set<String> {
-        Set(records.filter { $0.status.isSmokeReady }.map(\.driverId))
+    /// Parked CLIs are never ready (user ignored them).
+    public static func readyDriverIds(
+        from records: [ToolProbeRecord],
+        excludingParked parked: Set<String> = []
+    ) -> Set<String> {
+        Set(records.filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }.map(\.driverId))
     }
 }

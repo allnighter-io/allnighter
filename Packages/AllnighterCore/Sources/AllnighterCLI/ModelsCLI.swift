@@ -31,13 +31,15 @@ enum ModelsCLI {
             defs = defs.filter { enabled.contains($0.id) }
         }
         let records = SetupStore().load().records
+        let parked = SetupStore().load().parkedSet
         return ModelListProjector.build(
             registry: runtime.registry,
             definitions: defs,
             probeRecords: records,
             diagnostics: ModelCatalog.diagnostics(registry: runtime.registry),
             benchOnly: benchOnly,
-            driverId: driverId
+            driverId: driverId,
+            parkedDriverIds: parked
         )
     }
 

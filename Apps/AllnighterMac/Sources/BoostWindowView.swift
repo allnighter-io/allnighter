@@ -28,7 +28,12 @@ struct BoostWindowView: View {
         let boostDrivers = appModel.registry.all
             .filter { BoostWindowProviderBuilder.boostSourceIds.contains($0.id) }
             .map { ($0.id, $0.displayName) }
-        let ready = Set(appModel.toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
+        let parked = appModel.parkedDriverIds
+        let ready = Set(
+            appModel.toolStatuses
+                .filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }
+                .map(\.driverId)
+        )
         let kinds = Dictionary(uniqueKeysWithValues: appModel.toolStatuses.map { ($0.driverId, $0.status.kind) })
         let resets = UtilizationCapacityReader.lastObservedResetPerSource()
         let outcomes = UtilizationCapacityReader.recentSeedOutcomes()

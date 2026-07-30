@@ -145,6 +145,10 @@ public enum MenuSelectionCopy {
             useWhen: "List Bench models (catalog view)",
             dontUseWhen: "Not selection (`menu`) or spend (`run`)"
         ),
+        "drivers": Pair(
+            useWhen: "List CLIs; see parked vs ready",
+            dontUseWhen: "Not model pick (`menu`); park via drivers park"
+        ),
     ]
 
     private static let teams: [String: Pair] = [

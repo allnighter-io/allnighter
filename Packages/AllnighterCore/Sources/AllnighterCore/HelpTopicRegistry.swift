@@ -308,10 +308,30 @@ public enum HelpTopicRegistry {
                 "create a team", "make a team", "make a custom team", "new team",
                 "customize a team", "build a team", "build a custom team",
             ],
-            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams new", "teams edit", "teams restore", "skills", "skills show", "skills edit", "skills restore", "skills gc", "models", "menu"],
-            schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON"],
+            relatedCommandNames: ["teams", "teams show", "teams duplicate", "teams new", "teams edit", "teams restore", "skills", "skills show", "skills edit", "skills restore", "skills gc", "models", "drivers", "menu"],
+            schemaRefs: ["teamCatalogJSON", "skillCatalogJSON", "modelListJSON", "driverListJSON"],
             errorRefs: ["TEAM_NOT_FOUND", "TEAM_RESTORE_UNSUPPORTED", "TEAM_ID_COLLISION", "TEAM_INVALID", "CATALOG_ID_INVALID", "SKILL_NOT_FOUND", "SKILL_RESTORE_UNSUPPORTED", "SKILL_INVALID"],
             needsLiveCheck: false),
+
+        HelpTopic(
+            id: "park_cli", title: "Park a CLI", audience: .both,
+            summary: "Park a CLI you are not using — no probe, no seats, no Needs attention — until you put it back on the bench.",
+            bodyMarkdown: """
+            Park is ignore, not delete. A parked CLI stays in CLI setup under **Parked**, \
+            stays out of the Ready strip and model pickers, and is skipped on Re-check all \
+            / `alln detect`. Model on/off toggles are preserved so Unpark restores the same \
+            roster. CLI: `alln drivers park <driver-id>` and `alln drivers unpark <driver-id>`. \
+            List with `alln drivers --json` (parked rows last — same order future capacity/status \
+            strips should use).
+            """,
+            aliases: [
+                "park", "parked", "unpark", "ignore cli", "disable cli", "on bench",
+                "stop checking opencode", "hide cli", "drivers park",
+            ],
+            relatedCommandNames: ["drivers", "drivers park", "drivers unpark", "models", "doctor"],
+            schemaRefs: ["driverListJSON"],
+            errorRefs: ["SOURCE_NOT_FOUND"],
+            needsLiveCheck: true),
 
         HelpTopic(
             id: "default_model", title: "Default model (Auto)", audience: .both,

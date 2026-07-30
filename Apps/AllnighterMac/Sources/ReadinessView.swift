@@ -41,7 +41,7 @@ struct TeamReadinessView: View {
     private func seedSelection() {
         if let focus = focusDriverId, cards.contains(where: { $0.driverId == focus }) {
             selectedId = focus
-        } else if let first = (attentionCards.first ?? readyCards.first ?? dormantCards.first ?? cards.first)?.driverId {
+        } else if let first = (attentionCards.first ?? readyCards.first ?? dormantCards.first ?? parkedCards.first ?? cards.first)?.driverId {
             selectedId = first
         }
     }
@@ -122,6 +122,9 @@ struct TeamReadinessView: View {
     private var dormantCards: [SetupCardModel] {
         cards.filter { ($0.state == .ready && onModelNames(for: $0.driverId).isEmpty) || $0.state == .notChecked }
     }
+    private var parkedCards: [SetupCardModel] {
+        cards.filter { $0.state == .parked }
+    }
 
     private var bodyColumns: some View {
         HStack(alignment: .top, spacing: 24) {
@@ -129,6 +132,7 @@ struct TeamReadinessView: View {
                 cliGroup("Needs attention", attentionCards, .attention)
                 cliGroup("Ready", readyCards, .ready)
                 cliGroup("Dormant", dormantCards, .dormant)
+                cliGroup("Parked", parkedCards, .parked)
                 censusFallback
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
@@ -207,16 +211,19 @@ struct BenchRepairPanel: View {
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }
 
+    private var isParked: Bool { card.state == .parked }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 11) {
-                BrandGlyph(driverId: card.driverId)
+                BrandGlyph(driverId: card.driverId, muted: isParked)
                     .frame(width: 36, height: 36)
                     .clipShape(RoundedRectangle(cornerRadius: 9))
+                    .opacity(isParked ? 0.55 : 1)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(card.name)
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(ALColor.textPrimary)
+                        .foregroundStyle(isParked ? ALColor.textMuted : ALColor.textPrimary)
                     Text(metaLine)
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(ALColor.textFaint)
@@ -224,6 +231,7 @@ struct BenchRepairPanel: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 repairPill
+                    .opacity(isParked ? 0.55 : 1)
             }
             .padding(.horizontal, 16).padding(.top, 15).padding(.bottom, 13)
             .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
@@ -232,6 +240,8 @@ struct BenchRepairPanel: View {
                 if !modelDefs.isEmpty {
                     detailModels
                         .padding(.top, 4).padding(.bottom, 12)
+                        .opacity(isParked ? 0.45 : 1)
+                        .allowsHitTesting(!isParked)
                 }
 
                 Text(lead)
@@ -241,21 +251,61 @@ struct BenchRepairPanel: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, card.workers.isEmpty ? 9 : 0).padding(.bottom, 13)
 
-                if card.showsHeadlessTrustDisclosure, let trust = card.headlessTrust {
+                if !isParked, card.showsHeadlessTrustDisclosure, let trust = card.headlessTrust {
                     HeadlessTrustNotice(policy: trust)
                         .padding(.bottom, 13)
                 }
 
-                ForEach(Array(actions.enumerated()), id: \.offset) { idx, act in
-                    repairActionRow(act, first: idx == 0)
+                if !isParked {
+                    ForEach(Array(actions.enumerated()), id: \.offset) { idx, act in
+                        repairActionRow(act, first: idx == 0)
+                    }
+                    lastProof
                 }
 
-                lastProof
+                parkControl
+                    .padding(.top, 14)
             }
             .padding(.horizontal, 16).padding(.bottom, 16)
         }
         .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.xl))
         .overlay { RoundedRectangle(cornerRadius: ALRadius.xl).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+    }
+
+    private var parkControl: some View {
+        HStack(spacing: 0) {
+            parkSegment(title: "On bench", selected: !isParked) {
+                model.setParked(card.driverId, parked: false)
+            }
+            parkSegment(title: "Parked", selected: isParked) {
+                model.setParked(card.driverId, parked: true)
+            }
+        }
+        .background(ALColor.active, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay {
+            RoundedRectangle(cornerRadius: ALRadius.md)
+                .strokeBorder(ALColor.borderSubtle, lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("CLI mode")
+    }
+
+    private func parkSegment(title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(selected ? ALColor.textPrimary : ALColor.textFaint)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background {
+                    if selected {
+                        RoundedRectangle(cornerRadius: ALRadius.md - 1)
+                            .fill(ALColor.raised)
+                            .padding(2)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
     }
 
     private var metaLine: String {
@@ -359,6 +409,8 @@ struct BenchRepairPanel: View {
 
     private var lead: String {
         switch card.state {
+        case .parked:
+            return "Parked — won’t alert, won’t offer models, and won’t re-check until you put it back on the bench."
         case .reprobing:
             if card.driverId == "opencode" {
                 return "Starting OpenCode's local server, then running a smoke test through Featherless. First run can take 1–3 minutes — nothing else to install or start manually."

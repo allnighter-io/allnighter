@@ -450,6 +450,7 @@ public actor RunService {
             models: models,
             probeRecords: records,
             coolingDriverIds: cooling,
+            parkedDriverIds: SetupStore().load().parkedSet,
             knownDriverIds: Set(registry.all.map(\.id))
         ).map(\.id))
     }

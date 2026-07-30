@@ -126,6 +126,24 @@ public extension ContractRegistry {
             menuAction: true
         ),
         CommandSpec(
+            "drivers", summary: "List headless CLIs and park state. Parked CLIs are ignored (no probe, no seats) until unparked.", milestone: .m1,
+            flags: [FlagSpec("json", summary: "Structured DriverListJSON (parked listed last).")],
+            outputSchema: .driverListJSON, exampleIds: ["drivers_json"],
+            menuAction: true
+        ),
+        CommandSpec(
+            "drivers park", summary: "Park a CLI — stop probing it, hide it from Ready, and keep it out of seating until unparked.", milestone: .m1,
+            args: [ArgSpec("driver-id", required: true, summary: "Driver id (see `alln drivers --json`).")],
+            flags: [FlagSpec("json", summary: "Return refreshed DriverListJSON.")],
+            outputSchema: .driverListJSON
+        ),
+        CommandSpec(
+            "drivers unpark", summary: "Put a parked CLI back on the bench (does not auto-probe; run re-check or `alln detect`).", milestone: .m1,
+            args: [ArgSpec("driver-id", required: true, summary: "Driver id (see `alln drivers --json`).")],
+            flags: [FlagSpec("json", summary: "Return refreshed DriverListJSON.")],
+            outputSchema: .driverListJSON
+        ),
+        CommandSpec(
             "catalog validate", summary: "Validate bundled AgentOS catalog and Allnighter overlay (schema + effort consistency).", milestone: .m1,
             flags: [FlagSpec("json", summary: "Structured validation summary.")],
             outputSchema: .catalogValidateJSON
@@ -1264,6 +1282,9 @@ public extension ContractRegistry {
         ExampleRecipe("install_cli_json", title: "Install the running binary onto PATH", command: "alln install-cli --json"),
         ExampleRecipe("version_json", title: "Print binary and contract identity", command: "alln version --json"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
+        ExampleRecipe("drivers_json", title: "List CLIs and park state", command: "alln drivers --json"),
+        ExampleRecipe("drivers_park", title: "Park a CLI you are not using", command: "alln drivers park opencode"),
+        ExampleRecipe("drivers_unpark", title: "Put a parked CLI back on the bench", command: "alln drivers unpark opencode"),
         ExampleRecipe("teams_code_json", title: "List Code teams", command: "alln teams --lane code --json"),
         ExampleRecipe("teams_definition_json", title: "Full team definition for edit or novel new", command: "alln teams definition code_bug_hunt --json"),
         ExampleRecipe("teams_duplicate_json", title: "Deterministic Bug Hunt variant", command: "alln teams duplicate code_bug_hunt --id custom_code_my_bug_hunt --name \"My Bug Hunt\" --json"),

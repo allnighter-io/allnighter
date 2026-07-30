@@ -15,6 +15,8 @@ enum SetupCardState: Sendable {
     /// "we haven't looked yet" — shown so onboarding lists every supported CLI
     /// before the first scan, instead of a blank roster.
     case notChecked
+    /// User parked this CLI — ignored until put back on the bench.
+    case parked
 }
 
 extension SetupCardState {
@@ -32,6 +34,7 @@ extension SetupCardState {
         case .queued: SetupPill(kind: .muted, label: "Queued")
         case .waiting: SetupPill(kind: .check, label: "Waiting for sign-in…")
         case .notChecked: SetupPill(kind: .muted, label: "Not checked")
+        case .parked: SetupPill(kind: .muted, label: "Parked")
         }
     }
 
@@ -44,6 +47,7 @@ extension SetupCardState {
         case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
         case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
         case .detecting, .reprobing: SetupPill(kind: .check, label: "Re-checking…")
+        case .parked: SetupPill(kind: .muted, label: "Parked")
         default: SetupPill(kind: .muted, label: "Needs a step")
         }
     }
@@ -382,6 +386,8 @@ struct SetupCardView: View {
             return [MetaItem(text: "queued", color: ALColor.textFaint)]
         case .notChecked:
             return [route, MetaItem(text: "not checked yet", color: ALColor.textFaint)]
+        case .parked:
+            return [route, MetaItem(text: "parked", color: ALColor.textFaint)]
         }
     }
 
@@ -516,7 +522,7 @@ struct SetupCardView: View {
 
     // variant styling
     private var muted: Bool {
-        switch card.state { case .notInstalled, .queued, .detecting, .installedNotProbed, .notChecked: true; default: false }
+        switch card.state { case .notInstalled, .queued, .detecting, .installedNotProbed, .notChecked, .parked: true; default: false }
     }
     private var dashed: Bool {
         switch card.state { case .notInstalled, .queued, .detecting: true; default: false }
@@ -574,10 +580,10 @@ struct BenchHealthPopover: View {
 
     private var cards: [SetupCardModel] { model.setupCards }
 
-    // CLI-setup redesign §2: grouped CLI rows — Needs attention → Ready → Dormant.
+    // CLI-setup redesign §2: grouped CLI rows — Needs attention → Ready → Dormant → Parked.
     // Rows are tappable (opens CLI setup for that driver); no in-popover selection ring.
     // Ready = installed + signed in + ≥1 model ON; Dormant = ready CLI with 0 models on;
-    // Needs attention = genuinely broken.
+    // Needs attention = genuinely broken; Parked = user ignored (listed last).
     private var attentionCards: [SetupCardModel] {
         cards.filter { CLIStatusGroup.isAttention($0.state) }
     }
@@ -586,6 +592,9 @@ struct BenchHealthPopover: View {
     }
     private var dormantCards: [SetupCardModel] {
         cards.filter { ($0.state == .ready && onModelNames(for: $0.driverId).isEmpty) || $0.state == .notChecked }
+    }
+    private var parkedCards: [SetupCardModel] {
+        cards.filter { $0.state == .parked }
     }
 
     private func onModelNames(for driverId: String) -> [String] {
@@ -602,6 +611,7 @@ struct BenchHealthPopover: View {
                     group("Needs attention", cards: attentionCards, kind: .attention)
                     group("Ready", cards: readyCards, kind: .ready)
                     group("Dormant", cards: dormantCards, kind: .dormant)
+                    group("Parked", cards: parkedCards, kind: .parked)
                 }
                 .padding(.top, 4).padding(.horizontal, 13).padding(.bottom, 12)
             }
@@ -617,7 +627,7 @@ struct BenchHealthPopover: View {
 
     private var bodyHeight: CGFloat {
         var h: CGFloat = 16
-        for count in [attentionCards.count, readyCards.count, dormantCards.count] where count > 0 {
+        for count in [attentionCards.count, readyCards.count, dormantCards.count, parkedCards.count] where count > 0 {
             h += 26 + CGFloat(count) * 70
         }
         return min(max(h, 80), maxBodyHeight)
@@ -687,13 +697,13 @@ struct BenchHealthPopover: View {
 /// dormant dimming. Shared by the CLI dropdown (non-interactive) and the CLI setup
 /// page (selectable).
 enum CLIStatusGroup {
-    case attention, ready, dormant
+    case attention, ready, dormant, parked
 
-    /// A genuinely broken state (vs. dormant, which is not an error).
+    /// A genuinely broken state (vs. dormant/parked, which are not errors).
     static func isAttention(_ state: SetupCardState) -> Bool {
         switch state {
         case .needsLogin, .needsPath, .notInstalled, .probeFailed, .waiting: return true
-        case .ready, .notChecked, .installedNotProbed, .detecting, .reprobing, .queued: return false
+        case .ready, .notChecked, .installedNotProbed, .detecting, .reprobing, .queued, .parked: return false
         }
     }
 }
@@ -712,11 +722,11 @@ struct CLIStatusRow: View {
     var body: some View {
         HStack(spacing: 14) {
             DriverBrandGlyph(driverId: card.driverId, boxSize: 40, iconSize: 22, cornerRadius: 10)
-                .opacity(kind == .dormant ? 0.55 : 1)
+                .opacity(kind == .dormant || kind == .parked ? 0.55 : 1)
             VStack(alignment: .leading, spacing: 7) {
                 Text(card.name)
                     .font(.system(size: 14.5, weight: .bold))
-                    .foregroundStyle(kind == .dormant ? ALColor.textMuted : ALColor.textPrimary)
+                    .foregroundStyle(kind == .dormant || kind == .parked ? ALColor.textMuted : ALColor.textPrimary)
                 content
             }
             Spacer(minLength: 8)
@@ -727,7 +737,7 @@ struct CLIStatusRow: View {
         .background(rowBackground, in: RoundedRectangle(cornerRadius: ALRadius.lg))
         .overlay {
             RoundedRectangle(cornerRadius: ALRadius.lg)
-                .strokeBorder(selected ? ALColor.accentBorder : (kind == .dormant ? .clear : (hover ? ALColor.borderDefault : ALColor.borderSubtle)),
+                .strokeBorder(selected ? ALColor.accentBorder : (kind == .dormant || kind == .parked ? .clear : (hover ? ALColor.borderDefault : ALColor.borderSubtle)),
                               lineWidth: 1)
         }
         .overlay {
@@ -741,7 +751,7 @@ struct CLIStatusRow: View {
     }
 
     private var rowBackground: Color {
-        if kind == .dormant { return .clear }
+        if kind == .dormant || kind == .parked { return .clear }
         return hover && interactive ? ALColor.hover : ALColor.raised
     }
 
@@ -757,19 +767,23 @@ struct CLIStatusRow: View {
             Text("No models on — dormant")
                 .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(ALColor.textFaint)
+        case .parked:
+            Text("Parked — ignored until on bench")
+                .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(ALColor.textFaint)
         }
     }
 
     @ViewBuilder private var statusDot: some View {
         switch kind {
         case .ready: StatusDot(color: ALPalette.green500, halo: ALPalette.green500.opacity(0.15))
-        case .dormant: StatusDot(color: ALPalette.ink450, halo: nil)
+        case .dormant, .parked: StatusDot(color: ALPalette.ink450, halo: nil)
         case .attention: StatusDot(color: ALPalette.amber500, halo: ALPalette.amber500.opacity(0.18))
         }
     }
 
     private var attentionReason: String {
-        if let r = card.probeReason, !r.isEmpty { return r }
+        // Short category only — raw probeReason stays in Last proof / Copy log.
         switch card.state {
         case .needsLogin, .waiting: return "Installed but signed out — sign in to use its models."
         case .needsPath: return "Installed but not on PATH — locate it to use its models."

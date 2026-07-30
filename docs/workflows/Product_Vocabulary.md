@@ -44,6 +44,7 @@ product gates.
 | **Source** | How Allnighter reaches a model (CLI/runtime). Setup/internal. |
 | **Execution source** | The single source/driver that owns a mutating run. |
 | **Bench** | Models the user has available. |
+| **Parked** | A CLI the user has shelved — not probed, not seated, not in Needs attention, until put back **on the bench**. Not delete. CLI: `alln drivers park` / `unpark`. |
 | **Model** | Recognizable AI identity (Opus, Grok, …). CLI pin: `--model <model_id>`. |
 | **Agent** | A staffed roster row: one **model** wearing one **skill** on a team. Count plural: **agents** (not models — four Auto seats are four agents, not four models). |
 | **Skill** | Hat / instruction profile a model wears. Shared by `skillId` across teams; the editable body is **skill.md** (the `template` field in catalog JSON). Same-ID overrides edit in place; **Restore** drops the override. Mac drill-in: **Edit skill**. |

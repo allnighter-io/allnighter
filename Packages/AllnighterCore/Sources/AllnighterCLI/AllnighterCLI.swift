@@ -83,6 +83,7 @@ struct AllnighterCLI {
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "models": await ModelsCLI.run(args, runtime: runtime)
+        case "drivers": await DriversCLI.run(args, runtime: runtime)
         case "catalog" where args.first == "validate": CatalogValidateCLI.run(Array(args.dropFirst()))
         case "defaults": await DefaultsCLI.run(args, runtime: runtime)
         case "boost-window": await BoostWindowCLI.run(args, runtime: runtime)
@@ -1881,12 +1882,14 @@ struct ToolRuntime {
     var readyModels: [Model] {
         if let readyModelsOverride { return readyModelsOverride }
         let records = SetupStore().load().records
+        let parked = SetupStore().load().parkedSet
         let observations = BenchReadiness.recentObservations(from: RunStore().list())
         let cooling = BenchReadiness.coolingDriverIds(observations: observations)
         return BenchReadiness.readyModels(
             models: models,
             probeRecords: records,
             coolingDriverIds: cooling,
+            parkedDriverIds: parked,
             knownDriverIds: Set(registry.all.map(\.id))
         )
     }

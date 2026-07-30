@@ -2,18 +2,20 @@ import Foundation
 
 /// Shared honest-bench projector for team preflight, hello, and foreground runs.
 /// Ready ≠ "binary on PATH + stale SetupStore smoke." A model is bench-ready only
-/// when its driver probe says ready **and** the driver is not capacity-cooling.
+/// when its driver probe says ready, the driver is not capacity-cooling, and the
+/// driver is not **parked** (user ignored that CLI).
 public enum BenchReadiness {
     public static let capacityLookbackSeconds: TimeInterval = 12 * 60 * 60
 
-    /// Enabled models whose driver is probe-ready and not currently cooling.
+    /// Enabled models whose driver is probe-ready, not cooling, and not parked.
     public static func readyModels(
         models: [Model],
         probeRecords: [ToolProbeRecord],
         coolingDriverIds: Set<String> = [],
+        parkedDriverIds: Set<String> = [],
         knownDriverIds: Set<String>? = nil
     ) -> [Model] {
-        let readyDrivers = TeamAssembler.readyDriverIds(from: probeRecords)
+        let readyDrivers = TeamAssembler.readyDriverIds(from: probeRecords, excludingParked: parkedDriverIds)
         return models.filter { m in
             guard m.enabled, readyDrivers.contains(m.driverId) else { return false }
             if let known = knownDriverIds, !known.contains(m.driverId) { return false }

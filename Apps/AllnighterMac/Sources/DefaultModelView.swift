@@ -28,7 +28,12 @@ struct DefaultModelView: View {
     }
 
     private func reload() {
-        let readyDrivers = Set(appModel.toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
+        let parked = appModel.parkedDriverIds
+        let readyDrivers = Set(
+            appModel.toolStatuses
+                .filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }
+                .map(\.driverId)
+        )
         let readyIds = Set(appModel.models.filter { readyDrivers.contains($0.driverId) }.map(\.id))
         let names = Dictionary(appModel.models.map { ($0.driverId, appModel.driverName(for: $0)) },
                                uniquingKeysWith: { a, _ in a })

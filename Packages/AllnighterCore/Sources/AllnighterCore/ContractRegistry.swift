@@ -128,6 +128,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case boostWindowSettingsJSON
         case utilizationSeedEventJSON
         case utilizationObservationsClearJSON
+        case driverListJSON
         case helpSearchJSON, helpGetJSON, helpTopicsJSON
         case errorExplainJSON
         case handoffDoctorJSON

@@ -42,6 +42,8 @@ final class AppModel {
     private(set) var isDetecting = false
     /// When set, a live probe is running for this driver only (`nil` = all CLIs).
     private(set) var probingDriverId: String?
+    /// Parked driver ids — mirrored from SetupStore so @Observable views refresh on park/unpark.
+    private(set) var parkedDriverIds: Set<String> = []
     private let setupStore: SetupStore
 
     // Agent-powered tool discovery (the "census", tier 2): once ≥1 tool is ready,
@@ -72,6 +74,7 @@ final class AppModel {
 
     init(setupStore: SetupStore = SetupStore()) {
         self.setupStore = setupStore
+        self.parkedDriverIds = setupStore.load().parkedSet
         let config = AppConfig.loadConfiguration()
         self.bundledConfiguration = config
         self.models = config.models
@@ -432,25 +435,46 @@ final class AppModel {
 
     // MARK: - Detection (CLIDetector → canonical per-tool status)
 
-    var readyToolCount: Int { toolStatuses.filter { $0.status.isSmokeReady }.count }
-    var totalToolCount: Int { registry.all.filter { $0.kind == .headlessCLI }.count }
+    var readyToolCount: Int {
+        let parked = parkedDriverIds
+        return toolStatuses.filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }.count
+    }
+    var totalToolCount: Int {
+        let parked = parkedDriverIds
+        return registry.all.filter { $0.kind == .headlessCLI && !parked.contains($0.id) }.count
+    }
     /// Every supported tool is ready — used to keep setup affordances quiet when
     /// there is nothing to fix (Track B). False on a cold, unprobed launch.
+    /// Parked CLIs are excluded from both counts (they are ignored, not broken).
     var allToolsReady: Bool { totalToolCount > 0 && readyToolCount == totalToolCount }
     func toolStatus(for driverId: String) -> ToolProbeRecord? { toolStatuses.first { $0.driverId == driverId } }
 
+    /// Durable park intent from SetupStore (also mutated by `alln drivers park`).
+    func isParked(_ driverId: String) -> Bool { parkedDriverIds.contains(driverId) }
+
+    /// Park or unpark a CLI. Preserves probe cache and model toggles.
+    func setParked(_ driverId: String, parked: Bool) {
+        var state = setupStore.load()
+        if parked { state.park(driverId) } else { state.unpark(driverId) }
+        try? setupStore.save(state)
+        parkedDriverIds = state.parkedSet
+    }
+
     /// Workers (model seats) on tools that are ready — for the "· N workers" tally.
     var readyWorkerCount: Int {
-        let readyDrivers = Set(toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
+        let parked = parkedDriverIds
+        let readyDrivers = Set(toolStatuses.filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }.map(\.driverId))
         return models.filter { $0.enabled && readyDrivers.contains($0.driverId) }.count
     }
 
     /// The single source of truth for every model picker (CLI-setup redesign): a
     /// model is *available* only when it is ON (enabled — the default) AND its CLI is
-    /// ready. Sorted A→Z by display name. OFF or not-ready models never appear in the
-    /// Models dropdown or the title bar — they live only on the CLI setup page.
+    /// ready and not parked. Sorted A→Z by display name. OFF, parked, or not-ready
+    /// models never appear in the Models dropdown or the title bar — they live only
+    /// on the CLI setup page.
     var availableModels: [Model] {
-        let readyDrivers = Set(toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
+        let parked = parkedDriverIds
+        let readyDrivers = Set(toolStatuses.filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }.map(\.driverId))
         // A cooling source is not available right now — so Auto's preview and the run path
         // agree (the run already substitutes around it). Live filter; never stale on expiry.
         let cooling = coolingSources
@@ -472,6 +496,7 @@ final class AppModel {
     var setupCards: [SetupCardModel] {
         AppSetupModel.setupCards(
             registry: registry, toolStatuses: toolStatuses, models: models,
+            parkedDriverIds: parkedDriverIds,
             isDetecting: isDetecting, probingDriverId: probingDriverId)
     }
 
@@ -521,13 +546,17 @@ final class AppModel {
     /// disables it — an explicit pick would just fail, since substitution only applies to Auto.
     var composeBench: [ComposeBenchModel] {
         let cooling = coolingSources
+        let parked = parkedDriverIds
         return models.filter(\.enabled).map { m in
             let rec = toolStatus(for: m.driverId)
-            let probeReady = rec?.status.isSmokeReady ?? false
+            let isParked = parked.contains(m.driverId)
+            let probeReady = !isParked && (rec?.status.isSmokeReady ?? false)
             let isCooling = cooling.contains(m.driverId)
             let ready = probeReady && !isCooling
             let reason: String?
-            if !probeReady {
+            if isParked {
+                reason = "Parked"
+            } else if !probeReady {
                 switch rec?.status {
                 case .installedNotSignedIn?: reason = "Not signed in"
                 case .shimmedNeedsConfirm?: reason = "Needs a path"
@@ -657,6 +686,7 @@ final class AppModel {
     func loadCachedSetupState() {
         let cached = setupStore.load()
         if !cached.records.isEmpty { toolStatuses = cached.records }
+        parkedDriverIds = cached.parkedSet
     }
 
     /// Setup seen state (Track A): true once the user has been through setup at
@@ -705,18 +735,24 @@ final class AppModel {
     }
 
     /// Live detect + smoke. `onlyDriverId` re-probes one CLI (repair panel Run); `nil` = all.
+    /// Parked CLIs are skipped on re-check-all; a single-driver repair still probes
+    /// that one CLI (so Unpark → Run works).
     func runSetupProbe(userInitiated: Bool, onlyDriverId: String? = nil) {
         guard userInitiated else { loadCachedSetupState(); return }
         guard !isDetecting else { return }
         LoginShell.applyToProcessEnvironment()
         let cached = setupStore.load()
         if !cached.records.isEmpty { toolStatuses = cached.records }
+        parkedDriverIds = cached.parkedSet
         isDetecting = true
         probingDriverId = onlyDriverId
         let modelLabels = ModelCatalog.probeModelLabels(registry: registry)
         let registryCopy = registry
         let storeCopy = setupStore
         let completedAt = cached.setupCompletedAt
+        let parked = cached.parkedSet
+        let assembled = cached.assembledTeam
+        let parkedList = cached.parkedDriverIds
         Task { @MainActor [weak self] in
             let detector = AllnighterCLIDetector.make(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
             let records: [ToolProbeRecord]
@@ -726,8 +762,10 @@ final class AppModel {
                     manifest, model: modelLabels[onlyDriverId] ?? "", now: Date(), smoke: true)
                 records = [rec]
             } else {
+                let manifests = registryCopy.all.filter { !parked.contains($0.id) }
+                let labels = modelLabels.filter { !parked.contains($0.key) }
                 records = await detector.probeAll(
-                    registryCopy.all, models: modelLabels, now: Date(), smoke: true)
+                    manifests, models: labels, now: Date(), smoke: true)
             }
             guard let self else { return }
             if onlyDriverId != nil {
@@ -737,9 +775,20 @@ final class AppModel {
                 }
                 self.toolStatuses = merged
             } else {
-                self.toolStatuses = records
+                // Keep last-known rows for parked CLIs that were not re-probed.
+                var merged = cached.records.filter { parked.contains($0.driverId) }
+                for rec in records {
+                    DriverProbeRecords.upsert(rec, into: &merged)
+                }
+                self.toolStatuses = merged
             }
-            try? storeCopy.save(.init(records: self.toolStatuses, setupCompletedAt: completedAt))
+            try? storeCopy.save(.init(
+                records: self.toolStatuses,
+                setupCompletedAt: completedAt,
+                assembledTeam: assembled,
+                parkedDriverIds: parkedList
+            ))
+            self.parkedDriverIds = parked
             self.isDetecting = false
             self.probingDriverId = nil
         }

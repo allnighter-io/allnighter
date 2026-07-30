@@ -925,7 +925,12 @@ final class ThreadsViewModel {
     /// Models whose driver is confirmed ready (cached health) — the only bench the
     /// team resolver may draw from. Never probes.
     var readyModels: [Model] {
-        let readyDriverIds = Set(toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
+        let parked = SetupStore().load().parkedSet
+        let readyDriverIds = Set(
+            toolStatuses
+                .filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }
+                .map(\.driverId)
+        )
         return models.filter { $0.enabled && readyDriverIds.contains($0.driverId) }
     }
 

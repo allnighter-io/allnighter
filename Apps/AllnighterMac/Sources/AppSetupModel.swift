@@ -17,6 +17,7 @@ enum AppSetupModel {
         registry: DriverRegistry,
         toolStatuses: [ToolProbeRecord],
         models: [Model],
+        parkedDriverIds: Set<String> = [],
         isDetecting: Bool = false,
         probingDriverId: String? = nil
     ) -> [SetupCardModel] {
@@ -34,7 +35,9 @@ enum AppSetupModel {
             let state: SetupCardState
             var shim: String?
             var reason: String?
-            if isDetecting && (probingDriverId == nil || probingDriverId == manifest.id) {
+            if parkedDriverIds.contains(manifest.id) {
+                state = .parked
+            } else if isDetecting && (probingDriverId == nil || probingDriverId == manifest.id) {
                 state = .reprobing
             } else {
             switch rec?.status {

@@ -109,7 +109,10 @@ enum PilotCLI {
 
         let catalogModels = models.isEmpty ? ModelCatalog.resolvedModels(registry: DefaultConfig.registry) : models
         let records = probeRecords
-        let readySeats = PilotSeatResolver.readySeats(from: catalogModels, probeRecords: records)
+        let parked = SetupStore().load().parkedSet
+        let readySeats = PilotSeatResolver.readySeats(
+            from: catalogModels, probeRecords: records, parkedDriverIds: parked
+        )
 
         let devModelId: String
         let devWorkerAlias: String?

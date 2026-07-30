@@ -8,7 +8,8 @@ public enum ModelListProjector {
         probeRecords: [ToolProbeRecord],
         diagnostics: [ModelCatalogDiagnostic],
         benchOnly: Bool = false,
-        driverId: String? = nil
+        driverId: String? = nil,
+        parkedDriverIds: Set<String> = []
     ) -> ModelListJSON {
         let recordsByDriver = Dictionary(uniqueKeysWithValues: probeRecords.map { ($0.driverId, $0) })
         let manifestIDs = Set(registry.all.map(\.id))
@@ -17,11 +18,14 @@ public enum ModelListProjector {
         let entries = definitions.sorted { $0.id < $1.id }.map { def -> ModelListJSON.Entry in
             let enabled = enabledMap[def.id] ?? def.defaultEnabled
             let driverMissing = !manifestIDs.contains(def.driverId)
+            let parked = parkedDriverIds.contains(def.driverId)
             let record = recordsByDriver[def.driverId]
-            let ready = !driverMissing && (record?.status.isSmokeReady ?? false)
+            let ready = !driverMissing && !parked && (record?.status.isSmokeReady ?? false)
             let status: String
             if driverMissing {
                 status = "driverMissing"
+            } else if parked {
+                status = "parked"
             } else if let record {
                 status = record.status.isSmokeReady ? "ready" : "notReady"
             } else {

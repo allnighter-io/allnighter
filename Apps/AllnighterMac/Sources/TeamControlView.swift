@@ -455,6 +455,7 @@ extension AppModel {
         case .probeFailed: ("Probe failed", .danger)
         case .detecting, .reprobing, .queued: ("Checking…", .neutral)
         case .notChecked: ("Not checked", .neutral)
+        case .parked: ("Parked", .neutral)
         }
     }
 }
