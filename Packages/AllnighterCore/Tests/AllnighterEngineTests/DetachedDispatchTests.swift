@@ -154,7 +154,9 @@ final class DetachedDispatchTests: XCTestCase {
     // MARK: - DetachedDispatchJSON: one ack shape for every --no-wait verb
 
     func testDetachedDispatchJSONShape() throws {
-        let ack = DetachedDispatchJSON(kind: "relay", id: "relay_test", status: "dispatched", pid: 4242)
+        let ack = DetachedDispatchJSON(
+            kind: "relay", id: "relay_test", status: "dispatched", pid: 4242,
+            delivery: DetachedDispatch.waitDelivery(kind: "relay", id: "relay_test", commandPrefix: "alln"))
         let line = AllnighterCLI.jsonLine(ack)
         XCTAssertFalse(line.contains("\n"), "one-line NDJSON-style ack")
         let data = try XCTUnwrap(line.data(using: .utf8))
@@ -163,6 +165,23 @@ final class DetachedDispatchTests: XCTestCase {
         XCTAssertEqual(obj["id"] as? String, "relay_test")
         XCTAssertEqual(obj["status"] as? String, "dispatched")
         XCTAssertEqual(obj["pid"] as? Int, 4242)
+        let delivery = try XCTUnwrap(obj["delivery"] as? [String: Any])
+        XCTAssertEqual(delivery["path"] as? String, "wait")
+        XCTAssertEqual(
+            delivery["command"] as? String,
+            "alln pair relay-status --relay relay_test --wait-for terminal --timeout 7200 --json"
+        )
+    }
+
+    func testWaitDeliveryUsesExactSurfaceWaiters() {
+        XCTAssertEqual(
+            DetachedDispatch.waitDelivery(kind: "run", id: "run_test", commandPrefix: "/usr/local/bin/alln").command,
+            "/usr/local/bin/alln team status run_test --wait-for terminal --timeout 7200 --json"
+        )
+        XCTAssertEqual(
+            DetachedDispatch.waitDelivery(kind: "pilot", id: "relay_test", commandPrefix: "/usr/local/bin/alln").command,
+            "/usr/local/bin/alln pair pilot status --relay relay_test --wait-for parked --timeout 7200 --json"
+        )
     }
 
     // MARK: - Structural: exactly one "resolve binary, build Process" implementation

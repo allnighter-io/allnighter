@@ -124,8 +124,50 @@ enum DetachedDispatch {
 
 /// One dispatch ack shape for every detached verb (`kind`: `"relay"` | `"run"`).
 struct DetachedDispatchJSON: Encodable {
+    struct Delivery: Encodable, Equatable {
+        let path: String
+        let command: String
+
+        init(path: String = "wait", command: String) {
+            self.path = path
+            self.command = command
+        }
+    }
+
     let kind: String
     let id: String
     let status: String
     let pid: Int32
+    let delivery: Delivery
+}
+
+extension DetachedDispatch {
+    static let defaultPMTurnWaitTimeoutSeconds = 7_200
+
+    /// The detached child is this executable, so return its absolute path when
+    /// resolution can prove one. A bare `alln` remains the portable fallback.
+    static func commandPrefix(
+        argv0: String? = CommandLine.arguments.first,
+        pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
+        currentExecutablePath: () -> String? = ProcessOwnership.currentExecutablePath
+    ) -> String {
+        ProcessOwnership.resolveRunningExecutablePath(
+            argv0: argv0,
+            pathEnvironment: pathEnvironment,
+            currentExecutablePath: currentExecutablePath
+        ) ?? "alln"
+    }
+
+    static func waitDelivery(kind: String, id: String, commandPrefix: String) -> DetachedDispatchJSON.Delivery {
+        let command: String
+        switch kind {
+        case "run":
+            command = "\(commandPrefix) team status \(id) --wait-for terminal --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
+        case "pilot":
+            command = "\(commandPrefix) pair pilot status --relay \(id) --wait-for parked --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
+        default:
+            command = "\(commandPrefix) pair relay-status --relay \(id) --wait-for terminal --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
+        }
+        return .init(command: command)
+    }
 }

@@ -843,7 +843,7 @@ public actor AsyncTeamService {
             acceptedAt: acceptedAt,
             nextPollAfterMs: AsyncTeamStatusMapper.nextPollAfterMs(for: live),
             nextActions: [
-                .pollStatus(runId: run.id),
+                .waitForTerminal(runId: run.id),
                 .init(
                     kind: "result",
                     label: "Fetch result when terminal",

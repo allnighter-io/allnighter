@@ -70,11 +70,11 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
         self.kind = kind; self.label = label; self.command = command; self.runId = runId
     }
 
-    public static func pollStatus(runId: String) -> AsyncTeamNextAction {
+    public static func waitForTerminal(runId: String) -> AsyncTeamNextAction {
         AsyncTeamNextAction(
-            kind: "poll",
-            label: "Poll run status",
-            command: "alln team status \(runId) --json",
+            kind: "waitForTerminal",
+            label: "Wait for the terminal PM Turn",
+            command: "alln team status \(runId) --wait-for terminal --timeout 7200 --json",
             runId: runId)
     }
 
@@ -89,8 +89,8 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
     public static func waitForStatus(runId: String) -> AsyncTeamNextAction {
         AsyncTeamNextAction(
             kind: "waitForStatus",
-            label: "Wait, then re-check status",
-            command: "alln team status \(runId) --json",
+            label: "Wait for the terminal PM Turn",
+            command: "alln team status \(runId) --wait-for terminal --timeout 7200 --json",
             runId: runId)
     }
 }

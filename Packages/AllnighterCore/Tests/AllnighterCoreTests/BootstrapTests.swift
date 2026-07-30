@@ -41,6 +41,7 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains("canonical ids"), "must teach exact-id dispatch")
         XCTAssertTrue(s.contains("validation template"), "must teach validation twin")
         XCTAssertTrue(s.contains("never trust a pasted catalog"), "must teach session re-read")
+        XCTAssertTrue(s.contains("returned delivery command once"), "must teach detached delivery")
         XCTAssertFalse(s.contains("team hello"))
         XCTAssertFalse(s.contains("route --for"))
         XCTAssertFalse(s.contains("resolve --for"))
@@ -65,15 +66,15 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains("plain `alln` works everywhere"))
     }
 
-    /// Four-rule body + markers stays compact.
+    /// Five-rule body + markers stays compact.
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(onPathLines.count, 8, "on-path snippet grew past ≤8 budget")
+        XCTAssertLessThanOrEqual(onPathLines.count, 9, "on-path snippet grew past ≤9 budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(offPathLines.count, 10, "off-path snippet grew past ≤10 budget")
+        XCTAssertLessThanOrEqual(offPathLines.count, 11, "off-path snippet grew past ≤11 budget")
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {

@@ -162,7 +162,10 @@ final class TeamStartTests: XCTestCase {
             XCTAssertEqual(response.runId, "run-start-1")
             XCTAssertTrue([RunLifecycle.queued, .running].contains(response.status))
             XCTAssertGreaterThan(response.nextPollAfterMs, 0)
-            XCTAssertEqual(response.nextActions.first?.command, "alln team status run-start-1 --json")
+            XCTAssertEqual(
+                response.nextActions.first?.command,
+                "alln team status run-start-1 --wait-for terminal --timeout 7200 --json"
+            )
             XCTAssertEqual(
                 ContractRegistry.resolveCommandName(from: response.nextActions.first?.command ?? ""),
                 "team status")

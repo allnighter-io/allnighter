@@ -450,7 +450,9 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(actions.count, 2)
         XCTAssertEqual(actions[0].kind, "pilotStatus")
         XCTAssertTrue(actions[0].command.contains("pilot status"))
-        XCTAssertTrue(actions[0].label.contains("45"))
+        XCTAssertTrue(actions[0].command.contains("--wait-for parked"))
+        XCTAssertTrue(actions[0].command.contains("--timeout 7200"))
+        XCTAssertTrue(actions[0].label.lowercased().contains("wait"))
         XCTAssertTrue(actions[0].label.lowercased().contains("stream"))
         XCTAssertTrue(actions[0].label.lowercased().contains("supplementary"))
         XCTAssertEqual(actions[1].kind, "pilotWatch")
@@ -501,7 +503,8 @@ final class PilotCLITests: XCTestCase {
     func testHandoffDispatchAckJSONEncodesSingleLine() throws {
         let ack = PilotHandoffDispatchJSON(
             relayId: "relay_test", status: "dispatched", roundInFlight: false, pid: 4242,
-            serveAutoLaunch: "launched")
+            serveAutoLaunch: "launched",
+            delivery: DetachedDispatch.waitDelivery(kind: "pilot", id: "relay_test", commandPrefix: "alln"))
         let line = AllnighterCLI.jsonLine(ack)
         XCTAssertFalse(line.contains("\n"))
         let data = try XCTUnwrap(line.data(using: .utf8))
@@ -511,6 +514,12 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(json["roundInFlight"] as? Bool, false)
         XCTAssertEqual(json["pid"] as? Int, 4242)
         XCTAssertEqual(json["serveAutoLaunch"] as? String, "launched")
+        let delivery = try XCTUnwrap(json["delivery"] as? [String: Any])
+        XCTAssertEqual(delivery["path"] as? String, "wait")
+        XCTAssertEqual(
+            delivery["command"] as? String,
+            "alln pair pilot status --relay relay_test --wait-for parked --timeout 7200 --json"
+        )
     }
 
     /// SR-13 (Sol F20): the printed `next:` command must shell-quote the scaffold path — the
@@ -842,7 +851,7 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(json.watcherDisposable, true)
         XCTAssertEqual(json.streamSilenceWarning, false)
         XCTAssertEqual(json.nextActions.first?.kind, "pilotStatus")
-        XCTAssertTrue(json.nextActions.first?.label.contains("45") == true)
+        XCTAssertTrue(json.nextActions.first?.command.contains("--wait-for parked") == true)
     }
 
     /// PLS-S01: hot relay heartbeat / pgid_activity must not mask stale stream silence.

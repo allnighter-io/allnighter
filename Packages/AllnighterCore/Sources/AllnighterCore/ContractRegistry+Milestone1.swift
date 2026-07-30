@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "6.2.0"
+    static let contractVersion = "6.3.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -357,7 +357,7 @@ public extension ContractRegistry {
             exampleIds: ["skills_gc_json"]
         ),
         CommandSpec(
-            "team status", summary: "Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).", milestone: .m1,
+            "team status", summary: "Read resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for terminal, one bounded call delivers the terminal pmTurn; it never requires an external poll spin.", milestone: .m1,
             args: [ArgSpec("run-id", required: true, summary: "The run id of an accepted async run.")],
             flags: [
                 FlagSpec("json", summary: "Structured TeamStatusResponse."),
@@ -451,9 +451,9 @@ public extension ContractRegistry {
                 FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id."),
                 FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id."),
                 FlagSpec("dry-run", summary: "Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote."),
-                FlagSpec("json", summary: "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or DetachedDispatchJSON with --no-wait."),
+                FlagSpec("json", summary: "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait."),
                 FlagSpec("stream", summary: "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run."),
-                FlagSpec("no-wait", summary: "RSC-HF: hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts (DetachedDispatchJSON ack with the real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix."),
+                FlagSpec("no-wait", summary: "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix."),
             ],
             mutuallyExclusiveFlags: [
                 ["json", "stream"],
@@ -498,8 +498,8 @@ public extension ContractRegistry {
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling (default 20)."),
                 FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
-                FlagSpec("no-wait", summary: "RSC-HF: spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims (DetachedDispatchJSON). A refusal fails loud and spawns nothing."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack)."),
+                FlagSpec("no-wait", summary: "Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -521,8 +521,8 @@ public extension ContractRegistry {
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the resumed stretch."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the resumed stretch (default 20)."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
-                FlagSpec("no-wait", summary: "RSC-HF: spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack)."),
+                FlagSpec("no-wait", summary: "Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -534,8 +534,8 @@ public extension ContractRegistry {
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20)."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted stretch."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
-                FlagSpec("no-wait", summary: "RSC-HF: spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims. A refusal fails loud."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack)."),
+                FlagSpec("no-wait", summary: "Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -552,7 +552,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot handoff", summary: "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait then poll pilot status.", milestone: .m1,
+            "pair pilot handoff", summary: "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the full submission markdown from a file (verdict tail included; omit to read stdin)."),
@@ -560,9 +560,9 @@ public extension ContractRegistry {
                 FlagSpec("handover-file", takesValue: true, valueType: "path", summary: "Raw order markdown for the dev seat (mutually exclusive with --file)."),
                 FlagSpec("handover-stdin", summary: "Read the handover markdown from stdin (mutually exclusive with --file)."),
                 FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional closing note for done/escalate verdicts."),
-                FlagSpec("no-wait", summary: "Return immediately after dispatch; for long jobs poll `pilot status --json` until awaitingPM (do not treat a killed `pilot watch` as failure)."),
+                FlagSpec("no-wait", summary: "Return after dispatch with delivery.path=wait and an exact `pilot status --wait-for parked` command. Run it once for the parked PM Turn; a killed `pilot watch` is not failure."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (single-line)."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             mutuallyExclusiveFlags: [["file", "handover-file"], ["file", "handover-stdin"], ["handover-file", "handover-stdin"]],
             outputSchema: .relayJSON
@@ -1020,7 +1020,7 @@ public extension ContractRegistry {
         ErrorSpec("AGENT_FAILED", ruleId: "agent.failed", agentAction: "Inspect `agentId` and source error; failed agent remains visible.", requiresManual: false, retryable: true, explain: "One agent failed. The failure is shown, never hidden; other agents may still have answered. Retry the agent or proceed with partial results."),
         ErrorSpec("PLAN_WRITER_FAILED", ruleId: "plan_writer.failed", agentAction: "Retry with a ready plan writer or export worker answers.", requiresManual: false, retryable: true, explain: "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later."),
         ErrorSpec("TEAM_RUN_TIMEOUT", ruleId: "team.run.timeout", agentAction: "Retry with lower effort or fewer workers.", requiresManual: false, retryable: true, explain: "The team run exceeded its time budget. Reduce effort or the worker count and retry.", exitClass: .timeout),
-        ErrorSpec("STATUS_WAIT_TIMEOUT", ruleId: "team.status.wait_timeout", agentAction: "Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop.", requiresManual: false, retryable: true, explain: "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.", exitClass: .timeout),
+        ErrorSpec("STATUS_WAIT_TIMEOUT", ruleId: "team.status.wait_timeout", agentAction: "Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume.", requiresManual: false, retryable: true, explain: "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.", exitClass: .timeout),
         ErrorSpec("PM_TURN_WAIT_TIMEOUT", ruleId: "pm_turn.status.wait_timeout", agentAction: "Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command.", requiresManual: false, retryable: true, explain: "The relay PM boundary did not reach the requested target before --timeout. The status response carries waitOutcome: timedOut.", exitClass: .timeout),
         ErrorSpec("RELAY_WAIT_TIMEOUT", ruleId: "relay.status.wait_timeout", agentAction: "Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout.", requiresManual: false, retryable: true, explain: "Compatibility alias for PM_TURN_WAIT_TIMEOUT.", exitClass: .timeout),
         ErrorSpec("TEAM_RUN_FAILED", ruleId: "team.run.failed", agentAction: "Inspect failed workers and stages; retry or adjust the team.", requiresManual: false, retryable: true, explain: "The team run ended without a usable result (e.g. failed or cancelled). Inspect the failed workers/stages in the run, then retry or change the team."),
@@ -1033,7 +1033,7 @@ public extension ContractRegistry {
         ErrorSpec("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD", ruleId: "idempotency.key.reused", agentAction: "Generate a new key or reuse the original payload.", requiresManual: false, retryable: false, explain: "Legacy alias of IDEMPOTENCY_CONFLICT — same key reused with a different canonical payload."),
         ErrorSpec("IDEMPOTENCY_EXPIRED", ruleId: "idempotency.expired", agentAction: "Generate a new idempotency key.", requiresManual: false, retryable: false, explain: "The idempotency key's 24h replay window has elapsed. The key is a tombstone — never silently re-execute; mint a new key."),
         ErrorSpec("RETRY_OF_SURVIVORS", ruleId: "retryOf.survivors", agentAction: "Wait for verified stop, or pass --accept-survivors.", requiresManual: false, retryable: true, explain: "`--retry-of` refused because the prior run still has identity-alive recorded workers. Pass --accept-survivors to proceed anyway."),
-        ErrorSpec("RESULT_NOT_READY", ruleId: "result.not_ready", agentAction: "Poll team status using nextPollAfterMs, then call team result again.", requiresManual: false, retryable: true, explain: "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true."),
+        ErrorSpec("RESULT_NOT_READY", ruleId: "result.not_ready", agentAction: "Wait with `alln team status <id> --wait-for terminal --timeout <s> --json`, then read its pmTurn or call team result.", requiresManual: false, retryable: true, explain: "The run is not terminal yet. One bounded status waiter returns the terminal pmTurn when it settles."),
         ErrorSpec("RUN_NOT_TERMINAL", ruleId: "run.not_terminal", agentAction: "Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`.", requiresManual: true, retryable: true, explain: "The run has not finished and this process stopped waiting for it. Either nothing claimed the hand-off (open Allnighter) or the host that claimed it stopped without finishing. The run id stays valid; the answer is collectable if a host completes it."),
         ErrorSpec("RUN_NOT_FOUND", ruleId: "run.not_found", agentAction: "Run `alln history --json`.", requiresManual: true, retryable: false, explain: "No run matches the given id. List history and pick a valid run id or `latest`."),
         ErrorSpec(
@@ -1112,7 +1112,7 @@ public extension ContractRegistry {
         ErrorSpec("RELAY_HANDOVER_UNSAFE", ruleId: "relay.handover.unsafe", agentAction: "The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent.", requiresManual: true, retryable: false, explain: "HandoverGate blocked a PM handover before it reached the dev seat — danger blocks, doubt does not."),
         ErrorSpec("RELAY_ALREADY_ACTIVE", ruleId: "relay.already_active", agentAction: "Read it with `alln pair relay-status --relay <id> --json`, resume or adopt it, or wait — do not start a second relay on the same doc.", requiresManual: true, retryable: false, explain: "a relay is already running for this project + doc"),
         ErrorSpec("RELAY_JOURNAL_UNAVAILABLE", ruleId: "relay.journal.unavailable", agentAction: "The relay claim could not be written durably — check disk space and permissions under the support root, then retry the relay verb.", requiresManual: true, retryable: true, explain: "Relay dispatch could not persist its claim to the journal."),
-        ErrorSpec("RELAY_ROUND_IN_FLIGHT", ruleId: "relay.round.in_flight", agentAction: "Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed.", requiresManual: false, retryable: true, explain: "A relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (pilot handoff, or a resume/adopt racing another) on the same relay is refused rather than racing a second dev turn onto one repo root."),
+        ErrorSpec("RELAY_ROUND_IN_FLIGHT", ruleId: "relay.round.in_flight", agentAction: "Wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once parked, retry `pilot handoff` if still needed.", requiresManual: false, retryable: true, explain: "A relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (pilot handoff, or a resume/adopt racing another) on the same relay is refused rather than racing a second dev turn onto one repo root."),
         ErrorSpec("RUN_ID_IN_USE", ruleId: "run.id.in_use", agentAction: "Attach with `alln run resume <id> --json`, or omit an explicit id.", requiresManual: true, retryable: false, explain: "a run already exists with this id"),
         ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`pilot handoff` was called against a relay that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a Pilot relay's normal between-rounds state."),
         ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "Pilot's `pilot handoff` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the piloting session is live and just resubmits."),

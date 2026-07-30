@@ -13,23 +13,22 @@ import Foundation
 /// No filesystem writes — the CLI prints; the Mac app (ONB-S03) owns clicks.
 public enum TeachingSnippet {
     /// Marker schema version. Bump when the marker grammar or body contract changes.
-    public static let schemaVersion = 4
+    public static let schemaVersion = 5
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
     /// Close marker (exact).
     public static let closeMarker = "<!-- ALLNIGHTER:TEACHING:END -->"
 
-    /// Four-rule live-menu reflex (Menu_Not_Router.md §Bootstrap teaches a reflex).
+    /// Live-menu reflex plus the universal detached-delivery discipline.
     /// Protocol only — never embed models, teams, recipes, or command rows.
-    /// Pilot long-job status-first habit lives on recipe
-    /// `get-another-model-to-implement-this` + `PilotCLI` nextAction/recovery
-    /// (PLT-S03), not in this block.
+    /// Surface-specific commands remain in their acknowledgement and recipe.
     public static let reflexLines = [
         "1. Before first Allnighter use in a session, read `alln menu --json`.",
         "2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.",
         "3. Before an unfamiliar agent-starting action, run its validation template.",
         "4. Re-read the live menu in a new session; never trust a pasted catalog.",
+        "5. After `--no-wait`, run the returned delivery command once; never poll or use resume for terminal delivery.",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.

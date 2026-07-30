@@ -1865,7 +1865,7 @@
       "name" : "team status",
       "outputSchema" : "teamStatusResponse",
       "spendsQuota" : false,
-      "summary" : "Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).",
+      "summary" : "Read resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for terminal, one bounded call delivers the terminal pmTurn; it never requires an external poll spin.",
       "visibility" : "public"
     },
     {
@@ -2333,7 +2333,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or DetachedDispatchJSON with --no-wait.",
+          "summary" : "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait.",
           "takesValue" : false
         },
         {
@@ -2343,7 +2343,7 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "RSC-HF: hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts (DetachedDispatchJSON ack with the real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream \/ --dry-run \/ --try-fix.",
+          "summary" : "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream \/ --dry-run \/ --try-fix.",
           "takesValue" : false
         }
       ],
@@ -2532,12 +2532,12 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "RSC-HF: spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims (DetachedDispatchJSON). A refusal fails loud and spawns nothing.",
+          "summary" : "Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing.",
           "takesValue" : false
         },
         {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
           "takesValue" : false
         }
       ],
@@ -2654,12 +2654,12 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "RSC-HF: spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.",
+          "summary" : "Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.",
           "takesValue" : false
         },
         {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
           "takesValue" : false
         }
       ],
@@ -2723,12 +2723,12 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "RSC-HF: spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims. A refusal fails loud.",
+          "summary" : "Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.",
           "takesValue" : false
         },
         {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
           "takesValue" : false
         }
       ],
@@ -2868,7 +2868,7 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "Return immediately after dispatch; for long jobs poll `pilot status --json` until awaitingPM (do not treat a killed `pilot watch` as failure).",
+          "summary" : "Return after dispatch with delivery.path=wait and an exact `pilot status --wait-for parked` command. Run it once for the parked PM Turn; a killed `pilot watch` is not failure.",
           "takesValue" : false
         },
         {
@@ -2878,7 +2878,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (single-line).",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
           "takesValue" : false
         }
       ],
@@ -2901,7 +2901,7 @@
       "name" : "pair pilot handoff",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait then poll pilot status.",
+      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.",
       "visibility" : "public"
     },
     {
@@ -5163,7 +5163,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "6.2.0",
+  "contractVersion" : "6.3.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5428,7 +5428,7 @@
       "ruleId" : "team.run.timeout"
     },
     {
-      "agentAction" : "Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop.",
+      "agentAction" : "Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume.",
       "code" : "STATUS_WAIT_TIMEOUT",
       "exitClass" : "timeout",
       "explain" : "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.",
@@ -5545,10 +5545,10 @@
       "ruleId" : "retryOf.survivors"
     },
     {
-      "agentAction" : "Poll team status using nextPollAfterMs, then call team result again.",
+      "agentAction" : "Wait with `alln team status <id> --wait-for terminal --timeout <s> --json`, then read its pmTurn or call team result.",
       "code" : "RESULT_NOT_READY",
       "exitClass" : "operational",
-      "explain" : "The run is not terminal yet. Poll team status and retry team result when resultAvailable is true.",
+      "explain" : "The run is not terminal yet. One bounded status waiter returns the terminal pmTurn when it settles.",
       "requiresManual" : false,
       "retryable" : true,
       "ruleId" : "result.not_ready"
@@ -6067,7 +6067,7 @@
       "ruleId" : "relay.journal.unavailable"
     },
     {
-      "agentAction" : "Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed.",
+      "agentAction" : "Wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once parked, retry `pilot handoff` if still needed.",
       "code" : "RELAY_ROUND_IN_FLIGHT",
       "exitClass" : "operational",
       "explain" : "A relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (pilot handoff, or a resume\/adopt racing another) on the same relay is refused rather than racing a second dev turn onto one repo root.",

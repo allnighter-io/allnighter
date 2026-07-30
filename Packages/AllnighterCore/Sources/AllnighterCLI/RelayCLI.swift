@@ -412,14 +412,15 @@ enum RelayCLI {
         }
     }
 
-    /// RSC-S03: the `--no-wait` dispatch ack, shared by all three verbs — one
-    /// `DetachedDispatchJSON` shape, or a human line naming `relay-status` as the way
-    /// to attach.
+    /// Every detached Relay verb returns the one waiter for its terminal PM Turn.
     private static func emitDispatchAck(kind: String, id: String, pid: Int32, json: Bool) {
+        let delivery = DetachedDispatch.waitDelivery(
+            kind: kind, id: id, commandPrefix: DetachedDispatch.commandPrefix())
         if json {
-            print(AllnighterCLI.jsonLine(DetachedDispatchJSON(kind: kind, id: id, status: "dispatched", pid: pid)))
+            print(AllnighterCLI.jsonLine(DetachedDispatchJSON(
+                kind: kind, id: id, status: "dispatched", pid: pid, delivery: delivery)))
         } else {
-            print("dispatched (pid \(pid)) — poll with `alln pair relay-status --relay \(id) --json`")
+            print("dispatched (pid \(pid)) — wait for delivery with `\(delivery.command)`")
         }
     }
 
@@ -502,7 +503,7 @@ enum RelayCLI {
         case .notAdoptable(let status):
             return ("RELAY_INVALID_STATE", "relay is \(status), not adoptable — only a parked Pilot relay (awaitingPM or escalated) can be adopted")
         case .roundInFlight:
-            return ("RELAY_ROUND_IN_FLIGHT", "another process is already dispatching a round for this relay — poll `alln pair relay-status --relay <id> --json` and retry once it settles")
+            return ("RELAY_ROUND_IN_FLIGHT", "another process is already dispatching a round for this relay — wait with `alln pair relay-status --relay <id> --wait-for terminal --timeout 7200 --json` and retry once it settles")
         case .journalUnavailable:
             return ("RELAY_JOURNAL_UNAVAILABLE", "could not persist relay claim — journal write failed")
         }
@@ -527,7 +528,7 @@ enum RelayCLI {
         case .notResumable(let status):
             return ("RELAY_INVALID_STATE", "relay is \(status), not resumable — only an escalated relay, or one reconciled after its owner process died, can be resumed")
         case .roundInFlight:
-            return ("RELAY_ROUND_IN_FLIGHT", "another process is already dispatching a round for this relay — poll `alln pair relay-status --relay <id> --json` and retry once it settles")
+            return ("RELAY_ROUND_IN_FLIGHT", "another process is already dispatching a round for this relay — wait with `alln pair relay-status --relay <id> --wait-for terminal --timeout 7200 --json` and retry once it settles")
         case .alreadyActive(let existingRelayId):
             // Unreachable from `resume` — `.alreadyActive` is only ever produced by
             // `RelayCoordinator.run`'s start-time duplicate guard (RSC-S02). Kept for

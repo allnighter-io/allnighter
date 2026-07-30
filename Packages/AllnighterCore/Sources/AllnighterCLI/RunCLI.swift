@@ -320,14 +320,16 @@ enum RunCLI {
         }
     }
 
-    /// RSC-S04: the `--no-wait` dispatch ack — one `DetachedDispatchJSON` shape
-    /// (`kind: "run"`), mirroring `RelayCLI`'s own `emitDispatchAck`, or a human
-    /// line naming `alln run resume <id> --json` as the way to attach.
+    /// A detached run returns the one bounded waiter that delivers its terminal
+    /// PM Turn. `run resume` remains vendor-capacity recovery, not delivery.
     private static func emitDispatchAck(id: String, pid: Int32, json: Bool) {
+        let delivery = DetachedDispatch.waitDelivery(
+            kind: "run", id: id, commandPrefix: DetachedDispatch.commandPrefix())
         if json {
-            print(AllnighterCLI.jsonLine(DetachedDispatchJSON(kind: "run", id: id, status: "dispatched", pid: pid)))
+            print(AllnighterCLI.jsonLine(DetachedDispatchJSON(
+                kind: "run", id: id, status: "dispatched", pid: pid, delivery: delivery)))
         } else {
-            print("dispatched (pid \(pid)) — poll with `alln run resume \(id) --json`")
+            print("dispatched (pid \(pid)) — wait for delivery with `\(delivery.command)`")
         }
     }
 

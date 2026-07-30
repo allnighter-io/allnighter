@@ -100,14 +100,16 @@ final class AgentBootstrapTests: XCTestCase {
     }
 
     func testAsyncTeamNextActionJSONHasCommandNotTool() throws {
-        let poll = AsyncTeamNextAction.pollStatus(runId: "run-abc")
+        let wait = AsyncTeamNextAction.waitForTerminal(runId: "run-abc")
         let result = AsyncTeamNextAction.fetchResult(runId: "run-abc")
-        for action in [poll, result] {
+        for action in [wait, result] {
             let obj = try JSONSerialization.jsonObject(with: CoreJSON.encode(action)) as? [String: Any]
             XCTAssertNotNil(obj?["command"] as? String)
             XCTAssertNil(obj?["tool"])
             XCTAssertTrue((obj?["command"] as? String)?.hasPrefix("alln team ") ?? false)
             XCTAssertNotNil(ContractRegistry.resolveCommandName(from: action.command))
         }
+        XCTAssertEqual(wait.kind, "waitForTerminal")
+        XCTAssertEqual(wait.command, "alln team status run-abc --wait-for terminal --timeout 7200 --json")
     }
 }

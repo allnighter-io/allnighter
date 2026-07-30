@@ -10,15 +10,17 @@ final class TeachingSnippetTests: XCTestCase {
         XCTAssertEqual(TeachingSnippet.contentHash, a)
     }
 
-    func testBodyIsFourRuleReflexOnly() {
-        XCTAssertEqual(TeachingSnippet.schemaVersion, 4)
-        XCTAssertEqual(TeachingSnippet.reflexLines.count, 4)
+    func testBodyTeachesLiveMenuReflexAndDetachedDelivery() {
+        XCTAssertEqual(TeachingSnippet.schemaVersion, 5)
+        XCTAssertEqual(TeachingSnippet.reflexLines.count, 5)
         XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
         XCTAssertTrue(TeachingSnippet.body.contains("useWhen"))
         XCTAssertTrue(TeachingSnippet.body.contains("dontUseWhen"))
         XCTAssertTrue(TeachingSnippet.body.contains("validation template"))
         XCTAssertTrue(TeachingSnippet.body.contains("never trust a pasted catalog"))
+        XCTAssertTrue(TeachingSnippet.body.contains("returned delivery command once"))
+        XCTAssertTrue(TeachingSnippet.body.contains("never poll or use resume"))
         XCTAssertFalse(TeachingSnippet.body.contains("team hello"))
         XCTAssertFalse(TeachingSnippet.body.contains("route --for"))
         XCTAssertFalse(TeachingSnippet.body.contains("resolve --for"))

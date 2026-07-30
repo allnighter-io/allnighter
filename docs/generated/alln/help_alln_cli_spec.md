@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.2.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.3.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -522,7 +522,7 @@ Examples: `skills_gc_json`.
 
 ### `alln team status`
 
-Poll resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for, blocks in-process until the target live state (or any terminal when waiting for a non-matching state) or --timeout, then returns nextAction + waitHintSeconds (no external poll spin).
+Read resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for terminal, one bounded call delivers the terminal pmTurn; it never requires an external poll spin.
 
 Arguments:
 - `run-id` (required) — The run id of an accepted async run.
@@ -643,9 +643,9 @@ Flags:
 - `--conversation-id <id>` — Origin conversation id.
 - `--message-id <id>` — Origin message id.
 - `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote.
-- `--json` — Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or DetachedDispatchJSON with --no-wait.
+- `--json` — Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait.
 - `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run.
-- `--no-wait` — RSC-HF: hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts (DetachedDispatchJSON ack with the real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix.
+- `--no-wait` — Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix.
 
 Mutually exclusive: `--json`, `--stream`.
 
@@ -705,8 +705,8 @@ Flags:
 - `--max-rounds <integer>` — Round ceiling (default 20).
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
-- `--no-wait` — RSC-HF: spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims (DetachedDispatchJSON). A refusal fails loud and spawns nothing.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).
+- `--no-wait` — Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing.
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
 Output schema: `relayJSON`.
 
@@ -732,8 +732,8 @@ Flags:
 - `--until <time>` — Hard stop HH:MM (local) for the resumed stretch.
 - `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
-- `--no-wait` — RSC-HF: spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).
+- `--no-wait` — Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
 Output schema: `relayJSON`.
 
@@ -747,8 +747,8 @@ Flags:
 - `--max-rounds <integer>` — Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20).
 - `--until <time>` — Hard stop HH:MM (local) for the adopted stretch.
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
-- `--no-wait` — RSC-HF: spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims. A refusal fails loud.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single DetachedDispatchJSON ack).
+- `--no-wait` — Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
 Output schema: `relayJSON`.
 
@@ -768,7 +768,7 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot handoff`
 
-Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait then poll pilot status.
+Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.
 
 Flags:
 - `--relay <id>` — Relay id (required).
@@ -777,9 +777,9 @@ Flags:
 - `--handover-file <path>` — Raw order markdown for the dev seat (mutually exclusive with --file).
 - `--handover-stdin` — Read the handover markdown from stdin (mutually exclusive with --file).
 - `--note <string>` — Optional closing note for done/escalate verdicts.
-- `--no-wait` — Return immediately after dispatch; for long jobs poll `pilot status --json` until awaitingPM (do not treat a killed `pilot watch` as failure).
+- `--no-wait` — Return after dispatch with delivery.path=wait and an exact `pilot status --wait-for parked` command. Run it once for the parked PM Turn; a killed `pilot watch` is not failure.
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (single-line).
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
 Mutually exclusive: `--file`, `--handover-file`.
 
@@ -1446,7 +1446,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `AGENT_FAILED` | no | yes | `operational` | Inspect `agentId` and source error; failed agent remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |
 | `TEAM_RUN_TIMEOUT` | no | yes | `timeout` | Retry with lower effort or fewer workers. |
-| `STATUS_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run `alln team status <id> --wait-for <state> --timeout <s> --json` with a longer timeout, or poll with waitHintSeconds; do not busy-loop. |
+| `STATUS_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume. |
 | `PM_TURN_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command. |
 | `RELAY_WAIT_TIMEOUT` | no | yes | `timeout` | Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout. |
 | `TEAM_RUN_FAILED` | no | yes | `operational` | Inspect failed workers and stages; retry or adjust the team. |
@@ -1459,7 +1459,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | no | no | `operational` | Generate a new key or reuse the original payload. |
 | `IDEMPOTENCY_EXPIRED` | no | no | `operational` | Generate a new idempotency key. |
 | `RETRY_OF_SURVIVORS` | no | yes | `operational` | Wait for verified stop, or pass --accept-survivors. |
-| `RESULT_NOT_READY` | no | yes | `operational` | Poll team status using nextPollAfterMs, then call team result again. |
+| `RESULT_NOT_READY` | no | yes | `operational` | Wait with `alln team status <id> --wait-for terminal --timeout <s> --json`, then read its pmTurn or call team result. |
 | `RUN_NOT_TERMINAL` | yes | yes | `operational` | Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`. |
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
@@ -1517,7 +1517,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_HANDOVER_UNSAFE` | yes | no | `operational` | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
 | `RELAY_ALREADY_ACTIVE` | yes | no | `operational` | Read it with `alln pair relay-status --relay <id> --json`, resume or adopt it, or wait — do not start a second relay on the same doc. |
 | `RELAY_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | The relay claim could not be written durably — check disk space and permissions under the support root, then retry the relay verb. |
-| `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Poll `alln pair pilot status --relay <id> --json` until status is `awaitingPM`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once awaitingPM, retry `pilot handoff` if still needed. |
+| `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once parked, retry `pilot handoff` if still needed. |
 | `RUN_ID_IN_USE` | yes | no | `operational` | Attach with `alln run resume <id> --json`, or omit an explicit id. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |

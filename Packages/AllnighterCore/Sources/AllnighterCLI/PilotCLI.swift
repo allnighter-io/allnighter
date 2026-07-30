@@ -400,8 +400,8 @@ enum PilotCLI {
     /// `--no-wait`: re-invokes THIS SAME executable as a detached background process
     /// running the normal (blocking) `pilot handoff` against a staged copy of the
     /// submission — one dispatch path, no second in-process implementation to drift
-    /// from the default. The foreground call returns as soon as the child is launched;
-    /// agents then poll `pilot status --json` (status-first); `pilot watch` is optional.
+    /// from the default. The foreground call returns as soon as the child is launched
+    /// with one exact status waiter; `pilot watch` is optional.
     ///
     /// Preflight (status / verdict parse / HandoverGate) runs **before** the ack so a
     /// gate block cannot report `{"status":"dispatched"}` while the child dumps
@@ -482,9 +482,13 @@ enum PilotCLI {
         if jsonRequested {
             print(AllnighterCLI.jsonLine(PilotHandoffDispatchJSON(
                 relayId: relayId, status: "dispatched", roundInFlight: roundInFlight,
-                pid: process.processIdentifier, serveAutoLaunch: serveAutoLaunch.rawValue)))
+                pid: process.processIdentifier, serveAutoLaunch: serveAutoLaunch.rawValue,
+                delivery: DetachedDispatch.waitDelivery(
+                    kind: "pilot", id: relayId, commandPrefix: launch.executableURL.path))))
         } else {
-            print("dispatched (pid \(process.processIdentifier)) — poll with `alln pair pilot status --relay \(relayId) --json` (optional: `alln pair pilot watch --relay \(relayId)`)")
+            let delivery = DetachedDispatch.waitDelivery(
+                kind: "pilot", id: relayId, commandPrefix: launch.executableURL.path)
+            print("dispatched (pid \(process.processIdentifier)) — wait for delivery with `\(delivery.command)` (optional: `alln pair pilot watch --relay \(relayId)`)")
         }
     }
 
@@ -684,7 +688,7 @@ enum PilotCLI {
     }
 
     static func pilotStatusReattachCommand(relayId: String) -> String {
-        "alln pair pilot status --relay \(relayId) --json"
+        "alln pair pilot status --relay \(relayId) --wait-for parked --timeout 7200 --json"
     }
 
     static func watchGoodbyeNote(relayId: String, reason: WatchEndReason, stillRunning: Bool) -> String {
@@ -692,12 +696,12 @@ enum PilotCLI {
         switch reason {
         case .interrupted:
             if stillRunning {
-                return "watch ended (signal) — round still running; poll `\(statusCmd)` (a killed watch is not a failed round)."
+                return "watch ended (signal) — round still running; wait with `\(statusCmd)` (a killed watch is not a failed round)."
             }
             return "watch ended (signal) — inspect `\(statusCmd)` before any new handoff."
         case .maxWaitExpired:
             if stillRunning {
-                return "watch max-wait reached — round still running; poll `\(statusCmd)` (a killed watch is not a failed round)."
+                return "watch max-wait reached — round still running; wait with `\(statusCmd)` (a killed watch is not a failed round)."
             }
             return "watch max-wait reached — inspect `\(statusCmd)` before any new handoff."
         }
@@ -1107,7 +1111,7 @@ enum PilotCLI {
         case .none:
             return nil
         case .handoffAlive:
-            var line = "in flight — handoff process alive; poll `alln pair pilot status --relay \(state.id) --json` every \(Int(statusWaitHintSeconds))s until it settles (stream silence is primary liveness — matches `alln ps`; commitsSinceBaseline is supplementary only). Optional: `alln pair pilot watch --relay \(state.id)`. A killed watch is not a failed round."
+            var line = "in flight — handoff process alive; wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json` until it settles (stream silence is primary liveness — matches `alln ps`; commitsSinceBaseline is supplementary only). Optional: `alln pair pilot watch --relay \(state.id)`. A killed watch is not a failed round."
             if streamSilenceWarning == true {
                 line += " streamSilenceWarning: worker stream has been silent longer than \(Int(statusWaitHintSeconds * streamSilenceWarningMultiplier))s — inspect with `alln ps` (process tree may still be busy without worker output)."
             }
@@ -1129,8 +1133,8 @@ enum PilotCLI {
             var actions: [AgentSurfaceNextAction] = [
                 .init(
                     kind: "pilotStatus",
-                    label: "Poll durable status in ~\(Int(statusWaitHintSeconds))s until the round settles (stream silence primary; commits supplementary)",
-                    command: "alln pair pilot status --relay \(state.id) --json"
+                    label: "Wait for the parked PM Turn (stream silence primary; commits supplementary)",
+                    command: "alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json"
                 ),
                 .init(
                     kind: "pilotWatch",
@@ -1162,7 +1166,7 @@ enum PilotCLI {
         case .awaitingPM:
             return "next: write this round's order markdown, then `alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file <order.md>` (or `--file <md>` with a RelayVerdict tail for scripted PM output)."
         case .running:
-            return "a round is in flight — poll `alln pair pilot status --relay \(state.id) --json` until it settles; do not re-dispatch while running (optional: `alln pair pilot watch --relay \(state.id)`)."
+            return "a round is in flight — wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json`; do not re-dispatch while running (optional: `alln pair pilot watch --relay \(state.id)`)."
         case .done:
             return "relay done — nothing left to hand off."
         case .escalated:
@@ -1234,7 +1238,7 @@ enum PilotCLI {
         case .notPilotRelay:
             return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (pmMode != external) — use `alln pair relay`/`alln pair relay-resume` instead")
         case .roundInFlight:
-            return ("RELAY_ROUND_IN_FLIGHT", "a round is already dispatching for this relay — poll `pilot status --json` until awaitingPM; do not re-dispatch while running (optional: `pilot watch`)")
+            return ("RELAY_ROUND_IN_FLIGHT", "a round is already dispatching for this relay — wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running (optional: `pilot watch`)")
         case .notAwaitingPM(let status):
             return ("RELAY_NOT_AWAITING_PM", "relay is \(status), not awaitingPM — nothing to hand off to")
         case .verdictUnparseable(let parseError):
@@ -1296,6 +1300,7 @@ struct PilotHandoffDispatchJSON: Encodable {
     /// URN-S02: outcome of the `alln serve` auto-launch guarantee for this
     /// dispatch — `"alreadyRunning" | "launched" | "skipped" | "failed"`.
     let serveAutoLaunch: String
+    let delivery: DetachedDispatchJSON.Delivery
 }
 
 /// `pilot handoff --json` envelope: the same `RelayJSON` every other relay verb emits,
