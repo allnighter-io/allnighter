@@ -1,7 +1,7 @@
 # CAP-S05 — Capacity history store
 
 Slice packet per `docs/operations/Execution-Playbook.md`. Product truth:
-`docs/phases/CLI_Capacity_TUI_Sampling.md`. Read `AGENTS.md` first.
+`docs/archive/phases/CLI_Capacity_TUI_Sampling.md`. Read `AGENTS.md` first.
 
 ```text
 Slice:            CAP-S05 — durable per-window capacity history

@@ -1,7 +1,7 @@
 # CAP-S01 — CapacityWindow model + buckets + anchored decrement
 
 Slice packet per `docs/operations/Execution-Playbook.md`. Read `AGENTS.md` first.
-Product truth: `docs/phases/CLI_Capacity_TUI_Sampling.md` (intake FINAL, launch
+Product truth: `docs/archive/phases/CLI_Capacity_TUI_Sampling.md` (intake FINAL, launch
 surface LOCKED). This doc is process + scope only.
 
 ```text
