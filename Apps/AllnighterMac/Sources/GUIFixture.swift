@@ -208,9 +208,13 @@ enum GUIFixture {
         }
         return service
     }
-    /// `compose-target-*` seeds the target popover open.
+    /// `compose-target-*` seeds the target popover open. `compose-loop` needs the
+    /// same seeding: the whole point of that fixture is proving Model | Team | Loop
+    /// render together, which is invisible while the picker is collapsed to a chip.
     static var composeTargetOpen: Bool {
-        (active ?? "").hasPrefix("compose-target-") && active != "compose-target-inline"
+        let id = active ?? ""
+        if id == "compose-loop" { return true }
+        return id.hasPrefix("compose-target-") && id != "compose-target-inline"
     }
 
     /// `compose-team` pre-selects a team so the target chip renders in team mode
