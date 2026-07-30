@@ -715,18 +715,40 @@ public actor AsyncTeamService {
         // Explicit path: reconcile first under flock semantics, then cancel.
         _ = runStore.reconcileRun(runId: runId, models: models)
         guard let loaded = runStore.loadRaw(runId: runId) ?? runStore.load(runId: runId) else { return nil }
-        guard !loaded.status.isTerminal else {
-            return TeamCancelResponse(runId: runId, status: AsyncTeamStatusMapper.liveStatus(for: loaded), cancelledAt: now())
-        }
 
-        // Same-process ownership: we hold the run's task. Cancelling it stops the
-        // in-process work (and reaps any spawned worker group via the runner's own
-        // cancel handler) — an authoritative stop, no cross-process verify needed.
+        // Always drop the cooperative task if this process owns it. That is NOT
+        // a verified process-tree stop — detached workers / --no-wait trees must
+        // still pass KillSettlement (or force terminate on recovery).
         let inProcess = activeRuns.removeValue(forKey: runId)
         inProcess?.task.cancel()
         let directory = try? runStore.runDirectory(forRunId: runId)
         let models = self.models
         let runStore = self.runStore
+
+        // Recovery: journal already says cancelled/killed but ownership is still
+        // identity-alive (the cancel lie). Force-kill recorded trees; do not early-
+        // return "cancelled" while processes keep spending.
+        if loaded.status.isTerminal {
+            if let directory, ProcessOwnership.anyRecordedMemberIdentityAlive(in: directory) {
+                ProcessOwnership.withRunLock(in: directory) {
+                    _ = ProcessOwnership.forceTerminateAllRecorded(in: directory)
+                    if var run = runStore.loadRaw(runId: runId) {
+                        // Prefer stopped only when the tree is actually dead.
+                        if !ProcessOwnership.anyRecordedMemberIdentityAlive(in: directory) {
+                            run.killOutcome = .stopped
+                        } else {
+                            run.killOutcome = .partial
+                        }
+                        _ = try? runStore.save(run, models: models)
+                    }
+                }
+            }
+            let after = runStore.loadRaw(runId: runId) ?? loaded
+            return TeamCancelResponse(
+                runId: runId,
+                status: AsyncTeamStatusMapper.liveStatus(for: after),
+                cancelledAt: now())
+        }
 
         cancelledRuns.cancelAndSave(runId) {
             ProcessOwnership.withRunLock(in: directory ?? runStore.rootDirectory) {
@@ -734,17 +756,30 @@ public actor AsyncTeamService {
                 // Never clobber an existing terminal status.
                 guard !run.status.isTerminal else { return }
 
-                // RLR-S04b: `team cancel` routes through the ONE settlement. The
-                // same-process path is authoritative (we own the task → verified
-                // stop); a detached run is verified per recorded member (mode
-                // `.cancel` = bounded TERM grace then verdict). Terminal only on a
-                // verified `.stopped`; partial/refused/verificationUnavailable
-                // record `killOutcome` and leave the lifecycle non-terminal.
-                let outcome: KillOutcome
-                if inProcess != nil {
+                // RLR-S04b: always settle the recorded process tree when a run
+                // directory exists. Task.cancel alone is not a verified stop —
+                // that lie produced END=cancelled + ALIVE=yes + WOULD_REAP=no.
+                var outcome: KillOutcome
+                if let directory {
+                    var settlement = KillSettlement.settle(
+                        runDirectory: directory, mode: .cancel, run: run)
+                    // Operator cancel must stop spend. If TERM-only leave survivors,
+                    // escalate to full TERM→SIGKILL on every recorded member and
+                    // re-check identity-alive (still never invent pids).
+                    if settlement.outcome == .partial {
+                        _ = ProcessOwnership.forceTerminateAllRecorded(in: directory)
+                        if !ProcessOwnership.anyRecordedMemberIdentityAlive(in: directory) {
+                            settlement = KillSettlement.Result(
+                                outcome: .stopped,
+                                survivors: [],
+                                cleanupWarning: false,
+                                signalled: true)
+                        }
+                    }
+                    outcome = settlement.outcome
+                } else if inProcess != nil {
+                    // No durable directory (should be rare) — cooperative only.
                     outcome = .stopped
-                } else if let directory {
-                    outcome = KillSettlement.settle(runDirectory: directory, mode: .cancel, run: run).outcome
                 } else {
                     outcome = .verificationUnavailable
                 }

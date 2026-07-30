@@ -387,10 +387,14 @@ public struct RunStore: Sendable {
         return projected
     }
 
-    /// True when a non-terminal run is reclaimable under the F2 liveness lease.
+    /// True when reconcile would act: F2 reclaimable non-terminal, or terminal
+    /// with still identity-alive recorded ownership (cancel-lie recovery).
     public func wouldReconcile(runId: String) -> Bool {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
-        guard let raw = loadRaw(runId: runId), !raw.status.isTerminal else { return false }
+        guard let raw = loadRaw(runId: runId) else { return false }
+        if raw.status.isTerminal {
+            return ProcessOwnership.anyRecordedMemberIdentityAlive(in: directory)
+        }
         guard raw.phase != .waitingForVendor else { return false }
         return ProcessOwnership.isReclaimable(in: directory, runCreatedAt: raw.createdAt)
     }
@@ -414,10 +418,21 @@ public struct RunStore: Sendable {
         return ProcessOwnership.withRunLock(in: directory) {
             guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
                   var run = try? CoreJSON.decode(TeamRun.self, from: data) else { return nil }
-            // Never clobber an existing terminal status.
+
+            // Cancel lie recovery: journal terminal but recorded members still
+            // identity-alive → force-kill the tree. Never leave END=cancelled
+            // + ALIVE=yes as a dead-end (wouldReconcile was false before this).
             if run.status.isTerminal {
-                return ReconcileResult(run: run, reaped: false)
+                guard ProcessOwnership.anyRecordedMemberIdentityAlive(in: directory) else {
+                    return ReconcileResult(run: run, reaped: false)
+                }
+                _ = ProcessOwnership.forceTerminateAllRecorded(in: directory)
+                let stillLive = ProcessOwnership.anyRecordedMemberIdentityAlive(in: directory)
+                run.killOutcome = stillLive ? .partial : .stopped
+                _ = try? save(run, models: models)
+                return ReconcileResult(run: run, reaped: !stillLive)
             }
+
             // Vendor parks are ownerless and quiet by design. Only the resident
             // vendor wake reconciler may advance them.
             if run.phase == .waitingForVendor {

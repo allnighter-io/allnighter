@@ -826,6 +826,34 @@ public enum ProcessOwnership {
         return terminateOwnerIdentityIfSafe(identity)
     }
 
+    /// True when any recorded coordinator or worker is still identity-alive
+    /// (zombie-aware). Used by cancel recovery and `wouldReconcile` for
+    /// `terminalWithLiveOwnership`.
+    public static func anyRecordedMemberIdentityAlive(in directory: URL) -> Bool {
+        if let coordinator = readOwnerIdentity(in: directory),
+           isIdentityAlive(coordinator)
+        {
+            return true
+        }
+        for (_, identity) in readWorkerOwners(inRunDirectory: directory) {
+            if isIdentityAlive(identity) { return true }
+        }
+        return false
+    }
+
+    /// Force TERM→KILL every recorded PG-killable member (coordinator + workers).
+    /// Cancel recovery / contradiction reap — not the verified settlement path.
+    /// Returns true when at least one signal path was taken.
+    @discardableResult
+    public static func forceTerminateAllRecorded(in directory: URL) -> Bool {
+        var signalled = false
+        for (_, identity) in readWorkerOwners(inRunDirectory: directory) {
+            if terminateOwnerIdentityIfSafe(identity) { signalled = true }
+        }
+        if terminateRecordedOwnerIfSafe(in: directory) { signalled = true }
+        return signalled
+    }
+
     /// PO-S02: identity-checked kill of an in-flight dev-turn group recorded under
     /// a relay directory. Clears the turn-owner file after.
     @discardableResult

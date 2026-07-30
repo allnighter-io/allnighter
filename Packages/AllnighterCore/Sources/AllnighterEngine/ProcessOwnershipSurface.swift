@@ -222,8 +222,6 @@ public struct ProcessOwnershipSurface: Sendable {
             let alive = identity.map { ProcessOwnership.isIdentityAlive($0) } ?? false
             let terminal = run.status.isTerminal
             let quietVendorPark = run.phase == .waitingForVendor
-            let would = !terminal && !quietVendorPark
-                && ProcessOwnership.isReclaimable(in: dir, runCreatedAt: run.createdAt)
             // RLR-S03a / RLR-L6: activity truth is `run.json.lastActivityAt`, not
             // `heartbeat.json` (retired). `progressStale` is derived at read time —
             // absent before first activity, only meaningful while non-terminal.
@@ -244,6 +242,15 @@ public struct ProcessOwnershipSurface: Sendable {
                 coordinatorIdentityAlive: alive,
                 coordinatorIsProcessGroupKillable: coordPGKillable
             )?.rawValue
+            // Cancel lie recovery: terminal + live ownership must be would-reap.
+            // Identity-dead non-terminal still uses the F2 lease gate.
+            let would: Bool
+            if contradiction == RunContradiction.terminalWithLiveOwnership.rawValue {
+                would = true
+            } else {
+                would = !terminal && !quietVendorPark
+                    && ProcessOwnership.isReclaimable(in: dir, runCreatedAt: run.createdAt)
+            }
             rows.append(OwnershipProcessJSON(
                 id: run.id,
                 kind: "run",

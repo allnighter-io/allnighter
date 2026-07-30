@@ -35,8 +35,9 @@ public struct OwnershipProcessJSON: Codable, Sendable, Equatable {
     public var identity: ProcessOwnerRecord?
     /// pid alive AND startTimeTicks match. Recycled pids read false.
     public var identityAlive: Bool
-    /// True when explicit reconcile WOULD reap this tree (identity-dead owner,
-    /// non-terminal). `ps` never kills — this is the read-only would-reap report.
+    /// True when explicit reconcile WOULD act: identity-dead non-terminal (F2),
+    /// or terminal with still-live ownership (cancel-lie recovery). `ps` never
+    /// kills — this is the read-only would-reap report.
     public var wouldReconcile: Bool
     /// Lane snapshot for this root: held / ticket / none.
     public var lane: OwnershipLaneJSON?

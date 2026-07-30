@@ -296,4 +296,71 @@ final class KillSettlementTests: XCTestCase {
         XCTAssertNil(row.contradiction, "clean verified stop must not invent a contradiction")
         XCTAssertEqual(row.killOutcome, KillOutcome.stopped.rawValue)
     }
+
+    // MARK: - Cancel lie (END=cancelled + ALIVE=yes)
+
+    func testWouldReconcileTrueWhenTerminalWithLiveWorker() throws {
+        let (support, runs) = try tempStore(); defer { try? FileManager.default.removeItem(at: support) }
+
+        var r = run(id: "lie1", status: .cancelled)
+        r.endReason = .cancelled
+        r.killOutcome = .stopped // journal claimed verified stop
+        try runs.save(r, models: [])
+        try writeWorker(try liveSelfWorker(), workerId: "r1", runs: runs, runId: "lie1")
+
+        XCTAssertTrue(
+            runs.wouldReconcile(runId: "lie1"),
+            "cancelled + live ownership must be would-reap (cancel lie recovery)")
+        XCTAssertTrue(
+            ProcessOwnership.anyRecordedMemberIdentityAlive(
+                in: try runs.runDirectory(forRunId: "lie1")),
+            "fixture worker must be identity-alive")
+    }
+
+    func testReconcileForceKillsTerminalWithLiveOwnership() throws {
+        let (support, runs) = try tempStore(); defer { try? FileManager.default.removeItem(at: support) }
+
+        var r = run(id: "lie2", status: .cancelled)
+        r.endReason = .cancelled
+        try runs.save(r, models: [])
+        try writeWorker(try liveSelfWorker(), workerId: "r1", runs: runs, runId: "lie2")
+
+        var signalled: [Int32] = []
+        ProcessOwnership.terminateSignalHook = { signalled.append($0) }
+
+        let detail = try XCTUnwrap(runs.reconcileRunDetailed(runId: "lie2"))
+        // Hook suppresses real death; reaped is false while still "alive" under hook.
+        // Signal path must still fire (force terminate attempted).
+        XCTAssertFalse(signalled.isEmpty, "reconcile must signal recorded live members on cancel lie")
+        XCTAssertEqual(detail.run.status, .cancelled, "must not clobber terminal status")
+        XCTAssertNotNil(detail.run.killOutcome)
+    }
+
+    func testCancelDoesNotStampCancelledWhenWorkerSurvives() async throws {
+        // KillSettlement path (no inProcess shortcut): live worker + TERM suppressed
+        // → partial, lifecycle stays non-terminal. Never END=cancelled + ALIVE=yes.
+        let (support, runs) = try tempStore(); defer { try? FileManager.default.removeItem(at: support) }
+        let registry = DriverRegistry([])
+        let service = AsyncTeamService(
+            models: [],
+            registry: registry,
+            teams: [],
+            runStore: runs,
+            now: { Date() }
+        )
+        let r = run(id: "cx1", status: .running)
+        try runs.save(r, models: [])
+        try writeWorker(try liveSelfWorker(), workerId: "r1", runs: runs, runId: "cx1")
+        ProcessOwnership.terminateSignalHook = { _ in }
+
+        let response = await service.cancel(runId: "cx1")
+        XCTAssertNotNil(response)
+        let after = try XCTUnwrap(runs.loadRaw(runId: "cx1"))
+        XCTAssertFalse(
+            after.status.isTerminal,
+            "cancel must not stamp cancelled while a recorded worker is identity-alive")
+        XCTAssertEqual(after.killOutcome, .partial)
+        // Response mirrors journal — not a fake cancelled lifecycle.
+        XCTAssertNotEqual(after.endReason, .cancelled)
+    }
 }

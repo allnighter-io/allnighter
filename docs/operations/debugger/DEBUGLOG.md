@@ -82,6 +82,28 @@ What was the agent allowed to do that must never be allowed again: Close an
 unattended-wedge bug by shipping only GIT_/SSH_ askpass env vars and claiming
 runs are prompt-proof when Security.framework modals remain possible.
 
+## 2026-07-30 — `team cancel` stamps cancelled while process tree stays alive
+
+Tier: T3 Critical (destructive kill / spend continues after cancel)
+Symptom: `alln team cancel` → `{"status":"cancelled"}` then `alln ps` shows
+`END=cancelled` + `ALIVE=yes` + `WOULD_REAP=no`; reconcile reapedCount 0; worker
+keeps spending. Repro: `--no-wait` dispatch, cancel, ps.
+Bug fingerprint: `AsyncTeamService.cancel` inProcess→stopped shortcut + terminal
+early-return + wouldReconcile false on terminal
+Truth owner: `AsyncTeamService.cancel`, `KillSettlement`, `ProcessOwnershipSurface`
+list wouldReconcile, `RunStore.reconcileRunDetailed`
+Lie-prone layer: Task.cancel treated as verified process-tree stop; second cancel
+and reconcile refused because journal already terminal.
+RCA: (1) `if inProcess != nil { outcome = .stopped }` never called KillSettlement.
+(2) Already-terminal cancel returned without force-kill. (3) wouldReconcile
+required non-terminal so cancelled+alive was a dead end.
+Fix: always KillSettlement on cancel; escalate partial with forceTerminateAllRecorded;
+terminal+live recovery on cancel/reconcile; wouldReconcile true for
+terminalWithLiveOwnership.
+Proof: KillSettlementTests cancel/would/reconcile cases.
+Regression law: cancel never stamps cancelled while a recorded worker is
+identity-alive; cancelled+alive is would-reap.
+
 ## 2026-07-25 — false `capacity: authRequired` from stdout transcript scan
 
 Tier: T2 SSOT (capacity observation / kill-reason mislabel)
