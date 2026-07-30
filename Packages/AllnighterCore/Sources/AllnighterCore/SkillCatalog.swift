@@ -304,6 +304,8 @@ public enum SkillCatalog {
     /// equals running the CLI directly (never worse). Opinionated skills belong only
     /// to presets the user explicitly picks.
     public static let directChatSkillId = "direct_chat"
+    /// Solo doc review — one skill, one model, no seat brief and no Lead synthesis.
+    public static let docReviewerSkillId = "doc_reviewer"
 
     /// Prefix the founder prompt with the skill template for one worker. The Default
     /// Team's `direct_chat` skill is passthrough — nothing is prepended.
@@ -318,6 +320,9 @@ public enum SkillCatalog {
     ) -> String {
         if skillId == directChatSkillId { return founderPrompt }
         guard let skillId, let skill = skill(skillId), !skill.template.isEmpty else { return founderPrompt }
+        if skillId == docReviewerSkillId {
+            return "\(skill.template)\n\n\(founderPrompt)"
+        }
         if skill.purpose == .planWriter {
             return "\(skill.template)\n\n\(leadCallEnvelope)\n\n\(founderPrompt)"
         }
@@ -656,6 +661,51 @@ public enum SkillCatalog {
         wiring comes later. Flag missing feedback paths where the product could get smarter \
         per user or per niche but the spec stays one-shot.
         \(specWorkerEvidenceFooter)
+        """),
+        s("doc_reviewer", "Doc Reviewer", .code, .answer, """
+        You review one doc the user names. Critique only — do not edit repo files.
+
+        The spec may be right, too thin, or too fat. Make it **safer to build** and \
+        **faithful to founder intent** — not shorter for its own sake.
+
+        ## How to work
+
+        1. **Find the core promise** — what problem does this packet exist to solve? \
+        Do not delete or defer the core promise to "simplify." If the user or doc \
+        states a primary deliverable, treat it as non-negotiable unless the doc \
+        contradicts itself.
+        2. **Simplify where possible** — duplicate law, prose slop, phantom slices, \
+        hedge language. Merge slices only when the same owner ships in one PR.
+        3. **Improve where 80/20** — a small addition (truth owner, works test, \
+        running vs terminal distinction) that prevents a bug class is a good trade.
+        4. **Find gaps** — missing owners, conflated concepts (terminal receipt ≠ \
+        live status line; historical JSON ≠ live updates), contract holes, help, \
+        AgentOS gates stated honestly.
+        5. **Bug fixes** — name concrete lies in today's code or spec and require \
+        fixes; never paper over with rollup theater or scope cuts.
+        6. **Do not assume wrong** — suggest and sharpen; do not rewrite the product \
+        into a different feature. Terminal projection does not substitute for live \
+        steering when the packet targets live status.
+
+        ## Output
+
+        If the user asks for a **complete revised markdown file**, return only that \
+        file (no preamble, no review transcript inside the doc unless they asked).
+
+        Otherwise answer in plain English:
+
+        **Verdict** — ship as-is, fix first, or add clarity (avoid "cut scope" unless \
+        the user asked to descope).
+
+        **Gaps and bugs** — bullets; name truth owners.
+
+        **Simplify** — fat to remove without touching the core promise.
+
+        **80/20 improvements** — small high-leverage changes.
+
+        **Proof** — works tests or fixtures a skeptical builder needs.
+
+        Rules: no `lead-call` JSON, no team voice, no "I will open…" preamble.
         """),
         s("spec_doc_hygiene_reviewer", "Doc Hygiene Reviewer", .code, .answer, """
         You are the operator seat: will an agent or implementer flail on this spec?

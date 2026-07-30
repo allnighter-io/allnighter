@@ -58,6 +58,12 @@ final class SkillCatalogTests: XCTestCase {
         XCTAssertFalse(answerAssembled.contains("Lead Call envelope"))
         XCTAssertTrue(answerAssembled.contains("Seat brief"))
         XCTAssertTrue(answerAssembled.contains("```seat"))
+        let docAssembled = SkillCatalog.assemblePrompt(
+            skillId: SkillCatalog.docReviewerSkillId, founderPrompt: "Review docs/phases/Foo.md")
+        XCTAssertTrue(docAssembled.contains("core promise"))
+        XCTAssertTrue(docAssembled.contains("80/20"))
+        XCTAssertFalse(docAssembled.contains("Seat brief"))
+        XCTAssertFalse(docAssembled.contains("Lead Call envelope"))
     }
 
     func testSpecReviewWriterIsCraftBodyNotFullDocRewrite() throws {
