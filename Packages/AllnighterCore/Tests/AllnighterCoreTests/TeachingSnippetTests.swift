@@ -12,7 +12,7 @@ final class TeachingSnippetTests: XCTestCase {
 
     func testBodyTeachesLiveMenuReflexAndDetachedDelivery() {
         XCTAssertEqual(TeachingSnippet.schemaVersion, 5)
-        XCTAssertEqual(TeachingSnippet.reflexLines.count, 7)
+        XCTAssertEqual(TeachingSnippet.reflexLines.count, 8)
         XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
         XCTAssertTrue(TeachingSnippet.body.contains("useWhen"))
@@ -27,6 +27,9 @@ final class TeachingSnippetTests: XCTestCase {
         // AVQ-S04: parallel feedback lock policy.
         XCTAssertTrue(TeachingSnippet.body.contains("--read-only"))
         XCTAssertTrue(TeachingSnippet.body.contains("--no-commit"))
+        // AVQ-S03: one mutator + running ≠ progress.
+        XCTAssertTrue(TeachingSnippet.body.contains("One mutator"))
+        XCTAssertTrue(TeachingSnippet.body.contains("progressStale"))
         XCTAssertFalse(TeachingSnippet.body.contains("team hello"))
         XCTAssertFalse(TeachingSnippet.body.contains("route --for"))
         XCTAssertFalse(TeachingSnippet.body.contains("resolve --for"))

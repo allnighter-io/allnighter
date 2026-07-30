@@ -10,7 +10,7 @@ You hold the PM seat; Allnighter runs the crew (Pilot). Use when you want anothe
 
 ## Teaching (keep in sync with TeachingSnippet)
 
-<!-- ALLNIGHTER:TEACHING v5 hash=1a1a46aea6a98ac817c66b326cf9d283bcda65584dea7f74d2e5670fffcd853a -->
+<!-- ALLNIGHTER:TEACHING v5 hash=5d05c3b988357e0a225ac98e55d8297520efcc86ad175d824daac6da9e295210 -->
 1. Before first Allnighter use in a session, read `alln menu --json`.
 2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.
 3. Before an unfamiliar agent-starting action, run its validation template.
@@ -18,6 +18,7 @@ You hold the PM seat; Allnighter runs the crew (Pilot). Use when you want anothe
 5. After `--no-wait`, run the returned delivery command once; never poll or use resume for terminal delivery.
 6. Relay running ≠ dev running — check devRunId.
 7. Parallel feedback: `alln run --read-only --model …` — not `--no-commit` (that still queues).
+8. One mutator per repo root; `running` is not progress — inspect queue ticket and progressStale.
 <!-- ALLNIGHTER:TEACHING:END -->
 
 ## Recipe

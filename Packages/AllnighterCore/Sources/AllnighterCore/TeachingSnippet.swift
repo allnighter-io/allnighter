@@ -31,6 +31,7 @@ public enum TeachingSnippet {
         "5. After `--no-wait`, run the returned delivery command once; never poll or use resume for terminal delivery.",
         "6. Relay running ≠ dev running — check devRunId.",
         "7. Parallel feedback: `alln run --read-only --model …` — not `--no-commit` (that still queues).",
+        "8. One mutator per repo root; `running` is not progress — inspect queue ticket and progressStale.",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.
