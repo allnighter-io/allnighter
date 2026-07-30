@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Allnighter — Utilization tab (mockup v1)</title>
+<style>
+:root{
+  color-scheme:dark;
+  --ink-50:#F2F4FA;--ink-100:#E1E5F0;--ink-200:#AEB5C9;--ink-300:#7E869E;
+  --ink-400:#555C74;--ink-450:#454C62;--ink-500:#373D51;--ink-600:#252A39;
+  --ink-650:#1F2331;--ink-700:#1A1E2A;--ink-750s:#151822;--ink-800:#111420;
+  --ink-850:#0D101A;--ink-900:#090B13;--ink-950:#05060C;
+  --amber-300:#FFD79E;--amber-400:#FFC169;--amber-500:#FFA630;
+  --green-500:#3FD18B;--red-500:#F76B6B;--red-400:#FF8585;--blue-500:#5B9DFF;
+  --bg-base:var(--ink-900);--bg-surface:var(--ink-800);--bg-raised:var(--ink-750s);
+  --border-subtle:rgba(255,255,255,.06);--border-default:rgba(255,255,255,.10);
+  --text-primary:var(--ink-100);--text-secondary:var(--ink-200);--text-muted:var(--ink-300);
+  --text-faint:var(--ink-400);--text-disabled:var(--ink-450);--text-on-amber:#1A1203;
+  --accent:var(--amber-500);--accent-text:var(--amber-400);
+  --accent-surface:rgba(255,166,48,.12);--accent-border:rgba(255,166,48,.32);
+  --danger:var(--red-500);
+  --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter",system-ui,sans-serif;
+  --font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Inter",system-ui,sans-serif;
+  --font-mono:ui-monospace,"SF Mono","SFMono-Regular","JetBrains Mono",Menlo,monospace;
+  --r-sm:5px;--r-md:8px;--r-lg:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink-950);color:var(--text-primary);font-family:var(--font-sans);
+  font-size:13px;letter-spacing:-.006em;-webkit-font-smoothing:antialiased;
+  padding:28px 20px 64px;display:flex;flex-direction:column;align-items:center;gap:18px}
+
+.win{width:100%;max-width:940px;background:var(--bg-base);border:1px solid var(--border-default);
+  border-radius:var(--r-lg);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.titlebar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg-surface);
+  border-bottom:1px solid var(--border-subtle)}
+.dotmac{width:11px;height:11px;border-radius:50%;background:var(--ink-600)}
+.titlebar .who{margin-left:6px;font-size:11px;color:var(--text-faint);font-family:var(--font-mono)}
+.tabs{display:flex;gap:2px;padding:0 14px;background:var(--bg-surface);
+  border-bottom:1px solid var(--border-subtle)}
+.tab{padding:9px 14px 11px;font-size:12px;color:var(--text-muted);
+  border-bottom:2px solid transparent;cursor:default}
+.tab.on{color:var(--text-primary);border-bottom-color:var(--accent)}
+
+.head{padding:20px 24px 6px}
+.head h2{font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:-.012em}
+.head p{margin-top:5px;font-size:11px;color:var(--text-faint);max-width:640px;line-height:1.55}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(276px,1fr));gap:12px;
+  padding:16px 24px 22px}
+
+.card{background:var(--bg-raised);border:1px solid var(--border-subtle);
+  border-radius:var(--r-md);padding:15px 16px 14px;min-height:132px;
+  display:flex;flex-direction:column;gap:11px;cursor:default}
+.card:hover{border-color:var(--border-default)}
+.card.empty{background:transparent;border-style:dashed;border-color:var(--ink-600)}
+.card.down{opacity:.4;border-style:dashed;border-color:var(--ink-600);background:transparent}
+
+.crow{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.cname{font-size:12px;font-weight:500;color:var(--text-secondary)}
+.cplan{font-size:10px;color:var(--text-faint);white-space:nowrap}
+
+.big{display:flex;align-items:baseline;gap:9px}
+.big .n{font-family:var(--font-display);font-size:34px;font-weight:700;letter-spacing:-.024em;
+  line-height:1;color:var(--ink-50);font-variant-numeric:tabular-nums}
+.big .n.hi{color:var(--amber-400)}
+.big .cap{font-size:10px;color:var(--text-faint);line-height:1.3;max-width:112px}
+
+.facts{margin-top:auto;display:flex;flex-direction:column;gap:5px;
+  border-top:1px solid var(--border-subtle);padding-top:10px}
+.f{display:flex;justify-content:space-between;gap:10px;font-size:11px}
+.f .k{color:var(--text-faint)}
+.f .v{font-family:var(--font-mono);color:var(--text-muted);font-variant-numeric:tabular-nums}
+.f .v.up{color:var(--amber-300)} .f .v.dn{color:var(--text-muted)}
+.f .v.hit{color:var(--red-400)} .f .v.none{color:var(--text-disabled)}
+
+.wait{display:flex;flex-direction:column;gap:5px;margin:auto 0}
+.wait .w1{font-size:12px;color:var(--text-muted)}
+.wait .w2{font-size:10px;color:var(--text-disabled);font-family:var(--font-mono)}
+
+.illus{max-width:940px;width:100%}
+.illusbar{display:flex;align-items:center;gap:9px;padding:9px 14px;
+  background:rgba(91,157,255,.09);border:1px dashed rgba(91,157,255,.35);
+  border-radius:var(--r-md);font-size:11px;color:#9CC4FF;margin-bottom:12px}
+.illusbar b{color:#C4DBFF;font-weight:600}
+
+.note{max-width:940px;width:100%;color:var(--text-faint);font-size:11px;line-height:1.65}
+.note b{color:var(--text-muted);font-weight:500}
+.note code{font-family:var(--font-mono);color:var(--text-muted)}
+</style>
+</head>
+<body>
+
+<!-- ============ REAL, TODAY ============ -->
+<div class="win">
+  <div class="titlebar">
+    <span class="dotmac"></span><span class="dotmac"></span><span class="dotmac"></span>
+    <span class="who">Allnighter</span>
+  </div>
+  <div class="tabs"><div class="tab">Capacity</div><div class="tab on">Utilization</div></div>
+
+  <div class="head">
+    <h2>How much of what you pay for do you actually use?</h2>
+    <p>Average share of each plan's allowance consumed per window. Windows that ended while
+       Allnighter was not watching are excluded, never counted as zero.</p>
+  </div>
+
+  <div class="grid">
+
+    <!-- CODEX — real -->
+    <div class="card">
+      <div class="crow"><span class="cname">Codex / ChatGPT</span><span class="cplan">Plus</span></div>
+      <div class="big"><span class="n hi">82%</span>
+        <span class="cap">average allowance used<br>2 weeks observed</span></div>
+      <div class="facts">
+        <div class="f"><span class="k">Most recent week</span><span class="v up">100% · ↑ 22% more</span></div>
+        <div class="f"><span class="k">Hit limit</span><span class="v hit">1×</span></div>
+      </div>
+    </div>
+
+    <!-- CLAUDE — no data -->
+    <div class="card empty">
+      <div class="crow"><span class="cname">Claude Code</span><span class="cplan">Max</span></div>
+      <div class="wait"><span class="w1">Collecting</span>
+        <span class="w2">no window sampled yet</span></div>
+    </div>
+
+    <!-- CURSOR — no completed window -->
+    <div class="card empty">
+      <div class="crow"><span class="cname">Cursor Agent</span><span class="cplan">Ultra · monthly</span></div>
+      <div class="wait"><span class="w1">Collecting</span>
+        <span class="w2">first month completes Aug 25</span></div>
+    </div>
+
+    <!-- GROK — real -->
+    <div class="card">
+      <div class="crow"><span class="cname">Grok Build CLI</span><span class="cplan">X Premium+</span></div>
+      <div class="big"><span class="n">54%</span>
+        <span class="cap">average allowance used<br>2 weeks observed</span></div>
+      <div class="facts">
+        <div class="f"><span class="k">Most recent week</span><span class="v up">66% · ↑ 22% more</span></div>
+        <div class="f"><span class="k">Hit limit</span><span class="v none">never</span></div>
+      </div>
+    </div>
+
+    <!-- KIMI -->
+    <div class="card empty">
+      <div class="crow"><span class="cname">Kimi Code CLI</span><span class="cplan">Kimi Code</span></div>
+      <div class="wait"><span class="w1">Collecting</span>
+        <span class="w2">first week completes Fri 19:03</span></div>
+    </div>
+
+    <!-- ANTIGRAVITY -->
+    <div class="card empty">
+      <div class="crow"><span class="cname">Antigravity</span><span class="cplan">2 pools</span></div>
+      <div class="wait"><span class="w1">Collecting</span>
+        <span class="w2">first week completes Wed 21:50</span></div>
+    </div>
+
+    <!-- OPENCODE -->
+    <div class="card down">
+      <div class="crow"><span class="cname">OpenCode</span><span class="cplan">v1.18.4</span></div>
+      <div class="wait"><span class="w1">Not ready</span>
+        <span class="w2">probe failed — no allowance to measure</span></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ ILLUSTRATIVE ============ -->
+<div class="illus">
+  <div class="illusbar">
+    <b>Illustrative — not your data.</b>
+    Nobody has three months of history yet. This is the same card once it matures, so the
+    grown-up state can be judged. Every card above is real; every card below is invented.
+  </div>
+
+  <div class="win">
+    <div class="grid" style="padding:16px 24px 20px">
+
+      <div class="card">
+        <div class="crow"><span class="cname">Codex / ChatGPT</span><span class="cplan">Plus</span></div>
+        <div class="big"><span class="n hi">78%</span>
+          <span class="cap">3-month average<br>allowance used</span></div>
+        <div class="facts">
+          <div class="f"><span class="k">Last month</span><span class="v up">91% · ↑ 17% more</span></div>
+          <div class="f"><span class="k">Hit limit</span><span class="v hit">6×</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="crow"><span class="cname">Cursor Agent</span><span class="cplan">Ultra · monthly</span></div>
+        <div class="big"><span class="n">24%</span>
+          <span class="cap">3-month average<br>allowance used</span></div>
+        <div class="facts">
+          <div class="f"><span class="k">Last month</span><span class="v dn">11% · ↓ 54% less</span></div>
+          <div class="f"><span class="k">Hit limit</span><span class="v none">never</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="crow"><span class="cname">Grok Build CLI</span><span class="cplan">X Premium+</span></div>
+        <div class="big"><span class="n">46%</span>
+          <span class="cap">3-month average<br>allowance used</span></div>
+        <div class="facts">
+          <div class="f"><span class="k">Last month</span><span class="v up">62% · ↑ 35% more</span></div>
+          <div class="f"><span class="k">Hit limit</span><span class="v hit">1×</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="crow"><span class="cname">Kimi Code CLI</span><span class="cplan">Kimi Code</span></div>
+        <div class="big"><span class="n">6%</span>
+          <span class="cap">3-month average<br>allowance used</span></div>
+        <div class="facts">
+          <div class="f"><span class="k">Last month</span><span class="v dn">4% · ↓ lower</span></div>
+          <div class="f"><span class="k">Hit limit</span><span class="v none">never</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="note">
+  <b>The real cards are computed, not typed.</b> Codex 82% is the mean peak of its two
+  well-observed completed windows (64% and 100%, from 665 and 1,858 readings). Grok 54% is
+  the mean of two completed weeks (41% and 66%). Everything else genuinely has no completed
+  window yet.<br><br>
+  <b>Codex's week re-bases rather than repeating.</b> Its <code>resets_at</code> drifts
+  every cycle — the 7-day clock restarts on first use after the previous window closes, so
+  its weeks never align to calendar weeks. Grok's are fixed Thu→Thu. This is the strongest
+  argument yet for cards over a chart: an average over "windows" does not care when they
+  happened, and a time axis would have had to reconcile floating boundaries against fixed
+  ones.<br><br>
+  <b>Coverage filtering is load-bearing.</b> Several Codex windows were seen only once, at
+  0%, immediately after a reset. Counting those as "used nothing" would have pulled the
+  average from 82% to 49% and inverted the conclusion from <i>upgrade</i> to <i>downgrade</i>.
+  A window is only counted when it was observed close to its end.<br><br>
+  <b>Kimi's 4% and Cursor's ↓54% below are the cancel signal; Codex's 91% and six limit hits
+  are the upgrade signal.</b> Same card, opposite decisions, no verdict written anywhere —
+  just level and direction, as agreed.
+</div>
+
+</body>
+</html>
