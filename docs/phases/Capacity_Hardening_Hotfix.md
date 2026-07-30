@@ -11,7 +11,7 @@ Commits: `2143e9d0` HF-00 · `19b227c3` HF-claude.
 
 **Bare `alln capacity` immediately after:** all six seats show numbers + honest ages (tier-3 from history when not re-probed). **NeverSampled lie fixed.**
 
-### Honest residual (2026-07-30T20:44Z)
+### Honest residual (2026-07-30T20:44Z) — superseded, see below
 
 | Fact | Truth |
 | --- | --- |
@@ -20,6 +20,30 @@ Commits: `2143e9d0` HF-00 · `19b227c3` HF-claude.
 | Live Claude probe | **Still broken.** Dump is chat chrome (no `Current session` / `% used`). Falls back to history. |
 | Numbers vs your Usage screenshot | Screenshot: session **52% used**, week **51% used**. Strip history is **stale** (last good sample ~3h ago; weekly peak 48% used). Not live match until probe captures the Usage pane. |
 | Short cell value | Short is floored by weekly effective availability (same as Kimi). Not a second full vendor meter. |
+
+### Claude truth batch (2026-07-30T21:40Z) — `285bc29a` `b9c086f8` `0ad6b8dd` `c5a98977` `c6fc59a3`
+
+The 20:44Z residual mis-diagnosed the remaining failure as a broken probe. The
+probe works (3/3 live captures, ~5s each). Three separate layers were each
+dropping or overwriting a Claude fact after a successful parse.
+
+| Layer | Lie | Fix |
+| --- | --- | --- |
+| `CapacityHistoryStore.sameWindow` | Claude's two weekly pools share one reset boundary; identity keyed on `(source, scope, resetAt)` merged them into one record carrying `max` peak under the last-painted label. All-models vanished; **Fable reported all-models' 53%**. | `poolLabel` joins window identity. v1 payloads carry unrecoverable damage → discarded on read (schema 2). |
+| `CapacityStripRenderer.shortPresentation` | Short number floored by the row's tightest remaining, so session **86% rendered as 47%** — a column headed `5h` never showed the 5h number while the weekly was tighter. | Short column reports the short window's own remaining. The ceiling stays in the weekly cell, `effectiveRemainingPercent`, and row colour. |
+| `CapacityBenchProjection.selectShortWindow` | `.none` ("seat has no short limit" — a product fact) was derived from whether *this batch* carried a short window. Claude's session closes every ~5h, so once the sample aged out of open history the cell printed the same `-` as Grok. | `sourcesWithShortWindow` roster; a declared limit with no sample is `unknown`, never `.none`. Secondary weekly pools stay `.none` — a short limit belongs to the seat, not a sub-pool. |
+
+**Live proof (21:40Z).** Usage pane: session `16% used` · week (all models) `53% used` ·
+week (Fable) `10% used`. `alln capacity --refresh --source claude_code`: `47%` weekly,
+`84%` 5h, Fable `90%`. Exact match. Bare `alln capacity` immediately after hydrates
+the same numbers at age `1m`.
+
+**Cost paid once:** discarding v1 history blanked cursor / kimi / agy last-known
+until their next `--refresh`. Codex and Grok are tier-1 disk and were unaffected.
+
+**Open:** the probe failed once at 13:44 (dump was chat chrome — `sawReady` fires on
+the boot banner, possibly before the input accepts keystrokes). Not reproduced since.
+Left as-is rather than hardened on a single unreproduced sample.
 
 ## Core promise
 
