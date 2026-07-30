@@ -367,10 +367,33 @@ the renderer and its JSON shape are already built and tested, so it is short.
 - Bench display order is defined twice (`CapacityAcquisition.benchSourceOrder`
   and `CapacityStripRenderer.displayOrder`). Same values, two owners — no
   runtime lie today, but it can drift.
-- Persistence is still absent. `CapacityObservation` rides on run records
-  (`RunAttempt`, `TeamRun`, `PendingItem`); there is no standalone capacity
-  store. **The utilization tab and unused-at-reset both depend on one**, and
-  retention must be in its schema from day one.
+- ~~Persistence is still absent.~~ **Shipped as CAP-S05** — see below.
+
+---
+
+## CAP-S05 SHIPPED — capacity history store (`cea122c3`)
+
+Second pilot relay, Grok 4.5 dev seat. 11 new tests; all five prior gates
+unchanged (39 / 13 / 9 / 11 / 14).
+
+`CapacityWindowRecord` + `CapacityHistoryStore` in **AllnighterEngine** (file IO
+belongs there; the five capacity types stay Core-pure). Per-source files at
+`Capacity/<sourceId>.json` via a new `AllnighterPaths.capacity`.
+
+Design decisions, made deliberately and now enforced in code:
+
+| Decision | Why |
+| --- | --- |
+| One record **per window**, not per observation | Codex produced 28,909 readings in six weeks; the same six weeks is ~16 windows. The maths only needs peak-per-window. |
+| Identity `(sourceId, scope, resetAt ± 15 min)` | **Codex re-bases.** `resets_at` drifts by seconds within a cycle and days between cycles. Exact keying shatters one window into many and silently destroys every average. |
+| Store raw coverage facts, filter at **read** time | Coverage filtering moved Codex 49% → 82% and flipped downgrade to upgrade. That threshold will be tuned; baking it into storage would invalidate all history on every tuning pass. |
+| Monotone merge (peak/count only rise) | Gives concurrency safety with no new lock — a lost update loses at most a slightly higher peak, and the next observation heals it. Documented rather than pretending writes serialize. |
+| Never store PII or `rawSnippet` | History outlives any log line. Test 10 asserts an account string cannot reach the encoded JSON. |
+| Carry `planTier` per window | Yields the plan timeline free — the `pro` → `plus` change is already in your Codex history. |
+| Derive `isClosed`, never store it | A stored bool goes stale the moment it is written. |
+
+The store is write-capable but **not yet called from acquisition** — wiring it is
+a later slice, and it must not introduce a new acquisition trigger when it lands.
 
 ### Why the ladder is what makes the launch screen possible
 
