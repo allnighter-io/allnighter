@@ -32,6 +32,28 @@ public struct AgyCapacityWindow: Sendable, Equatable {
         self.observedAt = observedAt
         self.resetAt = resetAt
     }
+
+    /// Normalize into the shared `CapacityWindow` surface.
+    ///
+    /// Agy is remaining-polarity; relative duration → minute precision; TUI probe tier.
+    /// `poolLabel` must carry the pool heading — two pools is why the label exists.
+    public func asCapacityWindow(poolLabel: String) -> CapacityWindow {
+        let scope: CapacityWindowScope
+        switch kind {
+        case .weekly: scope = .weekly
+        case .fiveHour: scope = .fiveHour
+        }
+        return CapacityWindow(
+            remaining: remainingPercent,
+            source: "agy",
+            scope: scope,
+            resetAt: resetAt,
+            resetPrecision: .minute,
+            observedAt: observedAt,
+            sourceTier: .tuiProbe,
+            poolLabel: poolLabel
+        )
+    }
 }
 
 /// A group/pool of models in agy (e.g., "GEMINI MODELS") sharing quota limits.
@@ -57,6 +79,11 @@ public struct AgyPoolCapacity: Sendable, Equatable {
         self.memberModels = memberModels
         self.windows = windows
     }
+
+    /// Normalize every window in this pool; pool `name` becomes `poolLabel`.
+    public func asCapacityWindows() -> [CapacityWindow] {
+        windows.map { $0.asCapacityWindow(poolLabel: name) }
+    }
 }
 
 /// Extractor for agy (Antigravity driver) TUI `/usage` renders.
@@ -71,6 +98,11 @@ public enum AgyCapacityLog {
     /// - Returns: Array of parsed `AgyPoolCapacity` structs.
     public static func parse(renderText: String, observedAt: Date) -> [AgyPoolCapacity] {
         parsePools(fromRender: renderText, observedAt: observedAt)
+    }
+
+    /// Parse then normalize every pool window into shared `CapacityWindow` values.
+    public static func capacityWindows(fromRender renderText: String, observedAt: Date) -> [CapacityWindow] {
+        parse(renderText: renderText, observedAt: observedAt).flatMap { $0.asCapacityWindows() }
     }
 
     /// Parses model pools and capacity windows from raw `/usage` render text.

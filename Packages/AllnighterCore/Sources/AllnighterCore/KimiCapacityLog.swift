@@ -36,6 +36,26 @@ public struct KimiCapacityWindow: Sendable, Equatable {
         self.observedAt = observedAt
         self.resetAt = resetAt
     }
+
+    /// Normalize into the shared `CapacityWindow` surface.
+    ///
+    /// Kimi is used-polarity; relative duration → minute precision; TUI probe tier.
+    public func asCapacityWindow() -> CapacityWindow {
+        let scope: CapacityWindowScope
+        switch kind {
+        case .weekly: scope = .weekly
+        case .fiveHour: scope = .fiveHour
+        }
+        return CapacityWindow(
+            used: usedPercent,
+            source: "kimi",
+            scope: scope,
+            resetAt: resetAt,
+            resetPrecision: .minute,
+            observedAt: observedAt,
+            sourceTier: .tuiProbe
+        )
+    }
 }
 
 /// Parsed snapshot of Kimi Code plan usage capacity.
@@ -56,11 +76,22 @@ public struct KimiPlanCapacity: Sendable, Equatable {
         self.model = model
         self.windows = windows
     }
+
+    /// Normalize every plan window into shared `CapacityWindow` values.
+    public func asCapacityWindows() -> [CapacityWindow] {
+        windows.map { $0.asCapacityWindow() }
+    }
 }
 
 /// Extractor for Kimi Code TUI `/usage` and `/status` renders.
 /// Pure parser — fail closed. Never throws, never calls `Date()`.
 public enum KimiCapacityLog {
+
+    /// Parse then normalize plan windows into shared `CapacityWindow` values.
+    /// Returns `[]` when the render yields no valid windows (same fail-closed rule as parse).
+    public static func capacityWindows(fromRender renderText: String, observedAt: Date) -> [CapacityWindow] {
+        parseWindows(fromRender: renderText, observedAt: observedAt).map { $0.asCapacityWindow() }
+    }
 
     /// Parses plan capacity windows and metadata from raw `/usage` or `/status` render text.
     ///

@@ -2,8 +2,8 @@ import Foundation
 
 /// One weekly billing window extracted from the grok CLI's unified log
 /// (`~/.grok/logs/unified.jsonl`, msg == "billing: fetched credits config").
-/// Pure surface for a later capacity slice — not wired to `CapacityWindow` /
-/// `CapacityObservation` / `SourceCapacityLedger` yet.
+/// Pure surface — converts to `CapacityWindow` via `asCapacityWindow()`.
+/// Not wired to `CapacityObservation` / `SourceCapacityLedger` yet.
 public struct GrokWeeklyCapacity: Sendable, Equatable {
     /// `creditUsagePercent` — fraction of the weekly allowance already used (0…100+).
     public let usedPercent: Double
@@ -41,6 +41,32 @@ public struct GrokWeeklyCapacity: Sendable, Equatable {
         self.onDemandUsed = onDemandUsed
         self.prepaidBalance = prepaidBalance
     }
+
+    /// Normalize into the shared `CapacityWindow` surface.
+    ///
+    /// Grok is used-polarity, weekly scope, exact ISO8601 reset, on-disk tier.
+    /// On-demand and prepaid are dimensionless vendor units (`unit == nil`), never dollars.
+    public func asCapacityWindow() -> CapacityWindow {
+        let cap = Double(onDemandCap)
+        let used = Double(onDemandUsed)
+        return CapacityWindow(
+            used: usedPercent,
+            source: "grok",
+            scope: .weekly,
+            resetAt: periodEnd,
+            resetPrecision: .exact,
+            observedAt: observedAt,
+            sourceTier: .onDisk,
+            planTier: subscriptionTier,
+            onDemand: CapacityPaidAmount(
+                used: used,
+                cap: cap,
+                remaining: max(0.0, cap - used),
+                unit: nil
+            ),
+            prepaidBalance: Double(prepaidBalance)
+        )
+    }
 }
 
 /// Read-only extractor for grok CLI billing snapshots written to unified.jsonl.
@@ -66,6 +92,11 @@ public enum GrokCapacityLog {
             }
         }
         return best
+    }
+
+    /// Parse then normalize the latest weekly window into a shared `CapacityWindow`.
+    public static func capacityWindow(fromLogContent content: String) -> CapacityWindow? {
+        latestWeeklyWindow(fromLogContent: content)?.asCapacityWindow()
     }
 
     // MARK: - Line parse (fail closed)

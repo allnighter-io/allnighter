@@ -97,11 +97,72 @@ public struct CursorCapacitySnapshot: Sendable, Equatable {
         self.percentCategories = percentCategories
         self.onDemandSpend = onDemandSpend
     }
+
+    /// Normalize into shared `CapacityWindow` values.
+    ///
+    /// Cursor is used-polarity, **monthly** scope, **day** reset precision, TUI probe tier.
+    /// Dollar spend lands in `onDemand` with `unit == "$"` — never coerced into a percentage.
+    ///
+    /// Emits one monthly window from the primary percent category (parent "Included" when
+    /// present, else the first category with a known percent). Child category rows share the
+    /// same parent limit and are not re-emitted as separate windows. Categories without a
+    /// percent are skipped (never zero-filled). Money-only snapshots with no usable percent
+    /// yield `[]` — `CapacityWindow` cannot carry paid spend without a polarity constructor,
+    /// and inventing 0% is banned (report, do not widen).
+    public func asCapacityWindows() -> [CapacityWindow] {
+        let paid = onDemandSpend.map { spend in
+            CapacityPaidAmount(
+                used: spend.usedDollars,
+                cap: spend.capDollars,
+                remaining: spend.remainingDollars,
+                unit: spend.currency
+            )
+        }
+
+        // Prefer parent "Included", then any parent, then first known percent.
+        let primary: CursorPercentCategory? =
+            percentCategories.first(where: {
+                if case .parent = $0.hierarchy, $0.name.lowercased() == "included", $0.usedPercent != nil {
+                    return true
+                }
+                return false
+            })
+            ?? percentCategories.first(where: {
+                if case .parent = $0.hierarchy { return $0.usedPercent != nil }
+                return false
+            })
+            ?? percentCategories.first(where: { $0.usedPercent != nil })
+
+        guard let primary, let used = primary.usedPercent else {
+            return []
+        }
+
+        return [
+            CapacityWindow(
+                used: used,
+                source: "cursor_agent",
+                scope: .monthly,
+                resetAt: resetAt,
+                resetPrecision: .day,
+                observedAt: observedAt,
+                sourceTier: .tuiProbe,
+                poolLabel: primary.name,
+                planTier: planTier,
+                onDemand: paid
+            )
+        ]
+    }
 }
 
 /// Extractor for Cursor Agent TUI `/usage` renders.
 /// Pure parser — fail closed. Never throws, never calls `Date()`.
 public enum CursorCapacityLog {
+
+    /// Parse then normalize into shared `CapacityWindow` values.
+    /// Returns `[]` when the render yields no convertible snapshot.
+    public static func capacityWindows(fromRender renderText: String, observedAt: Date) -> [CapacityWindow] {
+        parse(renderText: renderText, observedAt: observedAt)?.asCapacityWindows() ?? []
+    }
 
     /// Parses capacity snapshot from raw `/usage` render text.
     ///

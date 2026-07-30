@@ -351,4 +351,258 @@ final class CapacityWindowTests: XCTestCase {
         XCTAssertEqual(grokBack.onDemand?.used, 0)
         XCTAssertNil(grokBack.onDemand?.unit)
     }
+
+    // MARK: CAP-S02 — extractor → CapacityWindow conversion
+
+    func testGrokConversionWeeklyExactOnDiskAndPaidUnits() {
+        let periodStart = Date(timeIntervalSince1970: 1_721_844_700)
+        let periodEnd = Date(timeIntervalSince1970: 1_722_449_500)
+        let observed = Date(timeIntervalSince1970: 1_722_300_000)
+        let grok = GrokWeeklyCapacity(
+            usedPercent: 42.0,
+            periodStart: periodStart,
+            periodEnd: periodEnd,
+            observedAt: observed,
+            subscriptionTier: "X Premium+",
+            onDemandCap: 500,
+            onDemandUsed: 12,
+            prepaidBalance: 3
+        )
+
+        let window = grok.asCapacityWindow()
+        XCTAssertEqual(window.source, "grok")
+        XCTAssertEqual(window.scope, .weekly)
+        XCTAssertEqual(window.usedPercent, 42.0)
+        XCTAssertEqual(window.remainingPercent, 58.0)
+        XCTAssertEqual(window.resetAt, periodEnd)
+        XCTAssertEqual(window.resetPrecision, .exact)
+        XCTAssertEqual(window.observedAt, observed)
+        XCTAssertEqual(window.sourceTier, .onDisk)
+        XCTAssertEqual(window.planTier, "X Premium+")
+        XCTAssertEqual(window.onDemand?.used, 12)
+        XCTAssertEqual(window.onDemand?.cap, 500)
+        XCTAssertEqual(window.onDemand?.remaining, 488)
+        XCTAssertNil(window.onDemand?.unit, "Grok paid units are dimensionless, not dollars")
+        XCTAssertEqual(window.prepaidBalance, 3)
+        XCTAssertNil(window.unknownReason)
+    }
+
+    func testAgyConversionFourWindowsAcrossTwoLabelledPools() {
+        let observed = Date(timeIntervalSince1970: 1_770_000_000)
+        let gemini = AgyPoolCapacity(
+            account: "emailmike@gmail.com",
+            name: "GEMINI MODELS",
+            memberModels: ["Gemini Flash", "Gemini Pro"],
+            windows: [
+                AgyCapacityWindow(
+                    kind: .weekly,
+                    remainingPercent: 92.67,
+                    observedAt: observed,
+                    resetAt: observed.addingTimeInterval(593_400)
+                ),
+                AgyCapacityWindow(
+                    kind: .fiveHour,
+                    remainingPercent: 58.48,
+                    observedAt: observed,
+                    resetAt: observed.addingTimeInterval(12_060)
+                ),
+            ]
+        )
+        let claudeGpt = AgyPoolCapacity(
+            account: "emailmike@gmail.com",
+            name: "CLAUDE AND GPT MODELS",
+            memberModels: ["Claude Opus", "Claude Sonnet", "GPT-OSS"],
+            windows: [
+                AgyCapacityWindow(
+                    kind: .weekly,
+                    remainingPercent: 60.11,
+                    observedAt: observed,
+                    resetAt: observed.addingTimeInterval(186_480)
+                ),
+                AgyCapacityWindow(
+                    kind: .fiveHour,
+                    remainingPercent: 40.0,
+                    observedAt: observed,
+                    resetAt: observed.addingTimeInterval(7_200)
+                ),
+            ]
+        )
+
+        let windows = gemini.asCapacityWindows() + claudeGpt.asCapacityWindows()
+        XCTAssertEqual(windows.count, 4)
+
+        XCTAssertEqual(windows.map(\.poolLabel), [
+            "GEMINI MODELS", "GEMINI MODELS",
+            "CLAUDE AND GPT MODELS", "CLAUDE AND GPT MODELS",
+        ])
+        XCTAssertEqual(windows.map(\.scope), [.weekly, .fiveHour, .weekly, .fiveHour])
+        XCTAssertTrue(windows.allSatisfy { $0.source == "agy" })
+        XCTAssertTrue(windows.allSatisfy { $0.sourceTier == .tuiProbe })
+        XCTAssertTrue(windows.allSatisfy { $0.resetPrecision == .minute })
+        XCTAssertTrue(windows.allSatisfy { $0.onDemand == nil })
+        XCTAssertTrue(windows.allSatisfy { $0.prepaidBalance == nil })
+
+        // Remaining polarity → consistent usedPercent.
+        XCTAssertEqual(windows[0].remainingPercent, 92.67)
+        XCTAssertEqual(windows[0].usedPercent!, 100.0 - 92.67, accuracy: 0.000_1)
+        XCTAssertEqual(windows[2].remainingPercent, 60.11)
+        XCTAssertEqual(windows[2].usedPercent!, 100.0 - 60.11, accuracy: 0.000_1)
+    }
+
+    func testKimiConversionUsedPolarityMinuteTuiProbe() {
+        let observed = Date(timeIntervalSince1970: 1_770_000_000)
+        let weekly = KimiCapacityWindow(
+            kind: .weekly,
+            usedPercent: 100.0,
+            observedAt: observed,
+            resetAt: observed.addingTimeInterval(151_380)
+        )
+        let fiveHour = KimiCapacityWindow(
+            kind: .fiveHour,
+            usedPercent: 0.0,
+            observedAt: observed,
+            resetAt: observed.addingTimeInterval(3_780)
+        )
+
+        let windows = KimiPlanCapacity(windows: [weekly, fiveHour]).asCapacityWindows()
+        XCTAssertEqual(windows.count, 2)
+
+        XCTAssertEqual(windows[0].source, "kimi")
+        XCTAssertEqual(windows[0].scope, .weekly)
+        XCTAssertEqual(windows[0].usedPercent, 100.0)
+        XCTAssertEqual(windows[0].remainingPercent, 0.0)
+        XCTAssertEqual(windows[0].resetPrecision, .minute)
+        XCTAssertEqual(windows[0].sourceTier, .tuiProbe)
+        XCTAssertNil(windows[0].poolLabel)
+        XCTAssertNil(windows[0].onDemand)
+
+        XCTAssertEqual(windows[1].scope, .fiveHour)
+        XCTAssertEqual(windows[1].usedPercent, 0.0)
+        XCTAssertEqual(windows[1].remainingPercent, 100.0)
+        XCTAssertEqual(windows[1].sourceTier, .tuiProbe)
+    }
+
+    func testKimiUsedAndAgyRemainingPolaritiesAgreeOnUsedPercent() {
+        let observed = Date(timeIntervalSince1970: 1_770_000_000)
+        let reset = observed.addingTimeInterval(3_600)
+
+        // Same real window: 39% used / 61% remaining.
+        let kimi = KimiCapacityWindow(
+            kind: .weekly,
+            usedPercent: 39.0,
+            observedAt: observed,
+            resetAt: reset
+        ).asCapacityWindow()
+        let agy = AgyCapacityWindow(
+            kind: .weekly,
+            remainingPercent: 61.0,
+            observedAt: observed,
+            resetAt: reset
+        ).asCapacityWindow(poolLabel: "GEMINI MODELS")
+
+        XCTAssertEqual(kimi.usedPercent, agy.usedPercent)
+        XCTAssertEqual(kimi.remainingPercent, agy.remainingPercent)
+        XCTAssertEqual(kimi.usedPercent, 39.0)
+        XCTAssertEqual(agy.poolLabel, "GEMINI MODELS")
+        XCTAssertEqual(kimi.sourceTier, .tuiProbe)
+        XCTAssertEqual(agy.sourceTier, .tuiProbe)
+    }
+
+    func testCursorConversionMonthlyDayPrecisionAndDollarsNotPercent() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var observedComponents = DateComponents()
+        observedComponents.year = 2026
+        observedComponents.month = 7
+        observedComponents.day = 29
+        observedComponents.hour = 18
+        let observed = calendar.date(from: observedComponents)!
+
+        let fixture = """
+        Usage • Ultra                                                  Resets Aug 25
+         Monthly plan and on-demand usage
+
+         Category        Current             Usage
+         Included        27% used            ███████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+           Auto          27% used            ███████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+           API           27% used            ███████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+         On-Demand       $0 / $1             ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░
+
+         $1 remaining
+        """
+
+        let windows = CursorCapacityLog.capacityWindows(fromRender: fixture, observedAt: observed)
+        XCTAssertEqual(windows.count, 1)
+
+        let window = windows[0]
+        XCTAssertEqual(window.source, "cursor_agent")
+        XCTAssertEqual(window.scope, .monthly)
+        XCTAssertEqual(window.resetPrecision, .day)
+        XCTAssertNotEqual(window.resetPrecision, .exact)
+        XCTAssertEqual(window.sourceTier, .tuiProbe)
+        XCTAssertEqual(window.usedPercent, 27.0)
+        XCTAssertEqual(window.remainingPercent, 73.0)
+        XCTAssertEqual(window.planTier, "Ultra")
+        XCTAssertEqual(window.poolLabel, "Included")
+
+        // Dollars stay in paid-amount, never become a percentage.
+        XCTAssertEqual(window.onDemand?.used, 0.0)
+        XCTAssertEqual(window.onDemand?.cap, 1.0)
+        XCTAssertEqual(window.onDemand?.remaining, 1.0)
+        XCTAssertEqual(window.onDemand?.unit, "$")
+        XCTAssertNotEqual(window.usedPercent, window.onDemand?.used)
+
+        var expectedReset = DateComponents()
+        expectedReset.year = 2026
+        expectedReset.month = 8
+        expectedReset.day = 25
+        expectedReset.hour = 0
+        expectedReset.minute = 0
+        expectedReset.second = 0
+        XCTAssertEqual(window.resetAt, calendar.date(from: expectedReset))
+    }
+
+    func testAcquisitionTierOnDiskForGrokTuiProbeForOthers() {
+        let observed = Date(timeIntervalSince1970: 1_770_000_000)
+        let reset = observed.addingTimeInterval(3_600)
+
+        let grok = GrokWeeklyCapacity(
+            usedPercent: 10,
+            periodStart: observed,
+            periodEnd: reset,
+            observedAt: observed,
+            subscriptionTier: "X Premium+",
+            onDemandCap: 0,
+            onDemandUsed: 0,
+            prepaidBalance: 0
+        ).asCapacityWindow()
+        let agy = AgyCapacityWindow(
+            kind: .weekly,
+            remainingPercent: 90,
+            observedAt: observed,
+            resetAt: reset
+        ).asCapacityWindow(poolLabel: "GEMINI MODELS")
+        let kimi = KimiCapacityWindow(
+            kind: .weekly,
+            usedPercent: 10,
+            observedAt: observed,
+            resetAt: reset
+        ).asCapacityWindow()
+        let cursor = CursorCapacitySnapshot(
+            planTier: "Ultra",
+            scope: .monthly,
+            resetAt: reset,
+            resetPrecision: .dayPrecision,
+            observedAt: observed,
+            percentCategories: [
+                CursorPercentCategory(name: "Included", usedPercent: 27, hierarchy: .standalone)
+            ],
+            onDemandSpend: CursorMoneySpend(usedDollars: 0, capDollars: 1)
+        ).asCapacityWindows()
+
+        XCTAssertEqual(grok.sourceTier, .onDisk)
+        XCTAssertEqual(agy.sourceTier, .tuiProbe)
+        XCTAssertEqual(kimi.sourceTier, .tuiProbe)
+        XCTAssertEqual(cursor.first?.sourceTier, .tuiProbe)
+    }
 }

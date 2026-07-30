@@ -82,7 +82,9 @@ public struct CapacityPaidAmount: Sendable, Equatable, Codable {
 /// `init(used:)` / `init(remaining:)` so no call site can pass the wrong
 /// polarity positionally — both fields are always derived together.
 ///
-/// Not wired to the four extractors yet (CAP-S02). Fields are sized so each
+/// Conversion surfaces: `GrokWeeklyCapacity.asCapacityWindow()`,
+/// `AgyPoolCapacity.asCapacityWindows()`, `KimiCapacityWindow.asCapacityWindow()`,
+/// `CursorCapacitySnapshot.asCapacityWindows()` (CAP-S02). Fields sized so each
 /// extractor maps without loss: agy pools + remaining polarity, cursor
 /// day-precision reset + dollar spend, grok on-demand/prepaid, kimi used polarity.
 public struct CapacityWindow: Sendable, Equatable, Codable {
