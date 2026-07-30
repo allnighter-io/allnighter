@@ -123,7 +123,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // detachedDispatchJSON output schema; ack-after-accept `--no-wait`).
         // WTA-S03 bumps contract 5.2.0 → 6.0.0 (TeamRunJSON worker→agent wire keys).
         // PTD-1f adds detached delivery acknowledgements in 6.3.0.
-        XCTAssertEqual(trj.contractVersion, "6.3.0")
+        // CLI_Park bumps contract 6.3.0 → 6.4.0 (`drivers`/`drivers park`/
+        // `drivers unpark` additions, plus registering the existing `detect`).
+        XCTAssertEqual(trj.contractVersion, "6.4.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.agents.count, 1)
