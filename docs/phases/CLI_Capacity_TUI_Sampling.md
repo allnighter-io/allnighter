@@ -10,6 +10,8 @@ Owner: AllnighterCore (ledger + contract) + AllnighterEngine (acquisition,
 admission, Boost routing) + Mac app (launch surface); AgentOS may own per-driver
 PTY/spawn helpers if tier-3 probes live next to workers
 Created: 2026-07-29 · Amended: 2026-07-29 (ladder, waste ledger, launch screen)
+· Amended again 2026-07-29 (CLI strip, harvest posture, utilization tab,
+notifications, backfill; email scratched)
 
 ---
 
@@ -91,16 +93,25 @@ Truth owner (target):
   GUI: renders ledger only; no parallel SwiftUI capacity store.
 
 CLI surface (target — refine at implementation):
-  - alln capacity          — every seat: known windows, cooling, unknown+reason
-  - alln capacity sample   — force refresh (tier-aware; rate-limited)
-  - alln capacity waste    — retrospective headroom expired unused
-  - alln capacity --json   — agent/dashboard contract
+  - alln capacity              — the strip: every seat, windows, resets,
+                                 cooling, unknown+reason. Neatly formatted,
+                                 readable inside ANY other CLI session.
+  - alln capacity --refresh    — force re-acquire (tier-aware; rate-limited)
+  - alln capacity --history    — this week / last N weeks utilization
+  - alln capacity waste        — retrospective headroom expired unused
+  - alln capacity --json       — agent contract
   Exit: missing sample = unknown, not error; parse fail = unknown + stale flag.
   Unknown NEVER blocks dispatch (see §Fail-closed means proceed).
+  Grammar note: founder sketched `alln cli -usage` / `-refresh`. Canonical form
+  is `alln capacity [--refresh]` — one command, existing `--flag` grammar,
+  extends the command that already exists. Register "usage" as a help-search
+  alias, do not create a second command (see §The CLI strip).
 
 GUI surface (target):
-  Capacity strip is the launch screen (founder ruling 2026-07-29) plus a
-  persistent band. Manual refresh control. Renders the ledger; owns no truth.
+  Tab 1 — Capacity strip: the launch screen (founder ruling 2026-07-29) plus a
+  persistent band. Manual refresh control.
+  Tab 2 — Utilization: this week, then last N weeks as data accrues.
+  Both render the ledger; the GUI owns no truth.
 
 Help surface:
   Teach: capacity is vendor-printed when acquired; unknown means the vendor
@@ -132,15 +143,27 @@ Resolved decisions (were blocking):
   5. v1 driver set → prioritise by PAIN, not by parse ease. Evidence says the
      seats that actually run out are Claude and agy/Gemini (5h windows).
      Codex is free (tier 1) so it ships anyway. Target v1: Codex + Claude + agy.
+  6. Email weekly report → SCRATCHED (founder, 2026-07-29). It is the only idea
+     in this packet that needs a server, an account, a sender domain, and your
+     usage data leaving the machine. Notification + in-app digest is the same
+     value at ~1% of the cost. Do not re-litigate without a standing reason.
+  7. Pricing → the capacity surface is FREE, forever, no account. See §Free tier.
+  8. "Never advise" scope → corrected by founder. Do not advise on SPEND
+     ("cancel this subscription"). DO offer WORK ("spend it on a Tech Audit").
+     See §Harvest posture.
 
 Next slice:
   CAP-S00 — acquisition audit + probe-starts-the-window spike
-  CAP-S01 — CapacityWindow + buckets + anchored decrement (no probes)
-  CAP-S02 — launch strip from tier-1 + failure data only
-  CAP-S03 — pre-dispatch relay guard (posture-differentiated)
-  CAP-S04 — tier-3 probes (Claude, agy) + refresh control
-  CAP-S05 — waste ledger
-  CAP-S06 — burn-to-reset harvest ordering + offer-substitute
+  CAP-S01 — CapacityWindow + buckets + anchored decrement + RETENTION (no probes)
+  CAP-S02 — `alln capacity` CLI strip from tier-1 + failure data
+  CAP-S03 — launch screen tab 1 (renders the same contract)
+  CAP-S04 — pre-dispatch relay guard (posture-differentiated) + 429 baseline
+  CAP-S05 — tier-3 probes (Claude, agy) + --refresh
+  CAP-S06 — waste ledger + tier-1 history backfill
+  CAP-S07 — utilization tab / --history (progressive weeks)
+  CAP-S08 — weekly-rollover notification (whole bench, one alert, actionable)
+  CAP-S09 — burn-to-reset harvest ordering + offer-substitute
+  CAP-S10 — harvest posture (read-only exploratory teams for expiring headroom)
 ```
 
 ---
@@ -379,6 +402,255 @@ Why this is the sleeper feature:
 
 ---
 
+## The CLI strip (`alln capacity`) — the primary wedge
+
+Founder framing: *"a nicely formatted CLI command that prints your capacity by
+CLI, in any CLI."*
+
+The point is not that it is a command. The point is **it goes where the work
+is**. You are three hours into a Codex session; you or your agent runs
+`alln capacity` and the whole bench appears without leaving the terminal, the
+session, or the train of thought.
+
+Why this outranks the launch screen as the wedge:
+
+- **No app switch, no install of a GUI.** Consistent with the standing law that
+  the CLI is the product and apps are optional.
+- **Five-second demo.** A terminal screenshot is pasteable; an app is a
+  download. This is the shareable artifact (see §Distribution).
+- **Agents can read it.** See below — this is bigger than it looks.
+
+### Format rules
+
+| Audience | Rule |
+| --- | --- |
+| Human, TTY | Aligned bars, color, **relative** reset clocks (`resets in 2h11m`), sorted by expiry |
+| Not a TTY (piped, captured by another agent, in a transcript) | **Plain aligned ASCII. No ANSI color, no box-drawing.** Escape codes in another agent's context window are garbage that costs tokens and readability |
+| Agent | `--json`, the same contract the GUI renders |
+
+Default width 80 cols, degrade gracefully. Never emit a number without its
+`observedAt` age. Sort by expiry, not by vendor name.
+
+### The agent angle (underrated)
+
+A lead agent steering a relay can run `alln capacity --json` and make its **own**
+routing decision — read headroom, pick the seat, dispatch. That means
+capacity-aware routing can ship as **information** long before it ships as
+**policy**, with zero Engine changes.
+
+This is also exactly consistent with the settled front-door design: there is no
+intent router; `alln` **discloses** and the caller LLM **chooses**. Capacity JSON
+is disclosure. It slots into `alln menu --json` / `alln bootstrap` as one more
+input to selection. No new policy layer is required for v1 — and that is a
+feature, not a shortcut.
+
+---
+
+## Harvest posture — the answer to expiring capacity
+
+Founder pushback, accepted: *"Good idea to have teams such as a tech audit ready
+to run, or code maintainer, that are exploratory. Better than having things go
+to waste."*
+
+This corrects an over-broad rule from the earlier amendment. Two different
+things were conflated:
+
+- **Advising on someone's money** ("cancel Grok") — conflict of interest, since
+  alln's mission wants a full bench. Still banned; report facts only.
+- **Offering work for headroom that is about to vanish** — no conflict, and it
+  is the entire point of the product. **Do this.**
+
+### What makes a good harvest task (first principles)
+
+Expiring headroom is the ideal budget for **speculative read-only work**,
+because the value bar is near zero (the tokens vanish regardless) and the risk
+bar must also be near zero (you are not watching).
+
+| Rule | Why |
+| --- | --- |
+| **Read-only / non-mutating** | One mutating worker per root is inviolable, and an unattended mutating run is how you get a surprise dirty tree |
+| **Interruptible** | Dies at 80% → you lose only tokens that were expiring anyway |
+| **Produces findings, never diffs** | Output is a reviewable queue, not a change to your repo |
+| **Needs no attention right now** | Capacity is expiring *because* you are not there |
+| **Genuinely useful** | Noise gets muted fast, and a muted harvest is the same waste one layer up |
+
+Natural fits: Tech Audit, Code Maintainer, Bug Hunt, dependency/security scan,
+doc drift check, test-coverage gaps. They are all exploratory + read-only +
+finding-producing. Not a coincidence — that is the shape the constraints force.
+
+**Implementation note:** harvest is a **posture** on the existing one
+`team.run` primitive (posture + `mutating: false`), not a new primitive. It must
+not become a parallel run path.
+
+### Autonomy ladder — never skip a rung
+
+| Rung | Behavior | Ships |
+| --- | --- | --- |
+| 1. **Notify** | "38% expiring in 6h" | v1 |
+| 2. **Suggest** | "38% expiring — run Tech Audit on Codex?" one click | v1.5 |
+| 3. **Queue** | You pre-authorize a harvest team; alln offers when the window closes; you confirm | v2 |
+| 4. **Auto** | alln runs it unattended | v3, hard-gated |
+
+Founder's "a PM run that auto-runs before credits run out" is rung 4. Hazards to
+gate it with:
+
+- **NEVER auto-spend into paid credits.** "Free" quota is only free inside a
+  subscription window that resets. The Codex payload literally carries
+  `credits: { has_credits, unlimited, balance }` and `spend_control_reached` —
+  read them. Auto-harvest is permitted **only** within a resetting subscription
+  window, never against a credit balance or metered overage. This is a
+  billing-behavior stop under project law.
+- **Contention.** An auto-run holding the write lock when you sit down is
+  infuriating — another reason harvest is read-only and takes no lock.
+- **Unread-output decay.** Six vendors × weekly = six auto-audits a week. If the
+  last N harvest outputs went unread, **stop queueing them.** A system that
+  notices you are ignoring it is the difference between a tool and a nag.
+
+---
+
+## Utilization tab — "nobody captures this data"
+
+Founder: second tab on the main screen. This week; then last week; then last 8
+weeks as data accrues.
+
+### Why this is the strongest moat in the packet
+
+Time-to-value is **inverted** from every other feature. Most features are best
+on day 1 and stay flat. This one is near-worthless on day 1 and **compounds
+forever**. Eight weeks of cross-vendor history cannot be copied by shipping a
+feature — a competitor would have to have shipped it eight weeks earlier. The
+data *is* the moat, and it accrues to whoever installs first.
+
+Two hard consequences:
+
+1. **Start collecting before the tab exists.** Retention is a **CAP-S01 schema
+   requirement**, not a later feature. Ship a current-state-only ledger and both
+   this tab and the notifications need a migration.
+2. **This is the rigorous argument for free.** Free maximizes installs; installs
+   start clocks; the moat is proportional to install-base × elapsed time.
+   Charging for the strip would literally slow moat accumulation.
+
+### Day-one backfill (verified 2026-07-29)
+
+Tier-1 sources are already historical. On this machine, right now:
+
+```text
+~/.codex/sessions/**/rollout-*.jsonl
+  623 rollout files · 572 carrying timestamped rate_limits
+  2026-06-17  →  2026-07-30   (six weeks, unread)
+  earliest:  2.0% used · window_minutes 300   · plan "pro"
+  latest:   61.0% used · window_minutes 10080 · plan "plus"
+```
+
+The plan change (5-hour/pro → weekly/plus) is *visible in the data*. So the
+utilization tab can light up with **six weeks of real history on first launch**,
+before alln has observed anything itself. That is the reveal moment for tab 2 —
+install alln, immediately see two months of your own utilization you did not
+know was being recorded.
+
+Backfill is tier-1-only by nature. Tier-3 seats start at zero and grow.
+
+### Tab design
+
+- **Progressive and honest.** Week 1 shows one week. Never render an empty
+  8-week frame implying missing data. Label with weeks actually observed.
+- **Per vendor:** avg %, peak %, **times capped**, times wasted at reset.
+  "Times you hit the ceiling" is more decision-relevant than the average —
+  40% avg with 3 ceiling hits means spiky, and spiky needs headroom.
+- **Observation coverage is mandatory.** If alln was closed for three days, an
+  average over partial observation *understates* usage and becomes a lie. Show
+  `4/7 days observed` per week, and never average across gaps silently.
+
+### What it unlocks: the keep/cancel decision
+
+```text
+8 weeks observed
+  claude   94% avg   capped 6/8 weeks   ← load-bearing
+  codex    34% avg   peak 61%, never capped
+  grok      3% avg   2 runs total
+```
+
+A $20–200/mo quarterly decision currently made on vibes, because nobody
+aggregates across vendors. **Report the numbers; never recommend cancelling.**
+And guard the under-use paradox: low utilization may mean "I don't need this" or
+"alln never routed there." Show utilization next to *what alln routed to that
+seat*, so the user can tell whose behavior produced the number.
+
+This is the same waste-ledger machinery over a longer window — one mechanism,
+two products. It is also the honest, retrospective form of the parked Cost
+Advisor idea, which was parked for violating the no-estimates law; facts about
+the past do not.
+
+---
+
+## Notifications
+
+Approved (founder, 2026-07-29). The strip only helps when you look; waste
+happens when you are **not** looking. The alert is what converts a dashboard
+into something that saved you while you were doing other work.
+
+Hard rules — **actionable, rare, timed to the last moment action is possible**:
+
+- **Never notify on short windows by default.** 5-hour windows × 6 CLIs is up to
+  30 alerts/day. That is an instant mute and a dead feature.
+- **Weekly rollovers are the trigger.** Once per vendor per week, unrecoverable,
+  enough runway to act.
+- **One notification for the whole bench, not one per vendor.**
+  `3 weekly windows reset tomorrow — codex 38% unused, claude 51%, gemini 22%`
+- **The notification does something.** Not "open your dashboard" —
+  `Run Tech Audit on Codex now (38% expiring)`. The alert becomes a dispatch
+  surface, which is the honest bridge from free monitoring to the paid product.
+
+Cost is near zero: `alln serve` is already a background scheduler doing
+wake/seed/continuation work, and `NotificationScheduler.swift` exists. A
+weekly-rollover check is the same shape.
+
+---
+
+## Free tier
+
+**Watching is free. Spending is the product.**
+
+| Free forever, no account | Paid |
+| --- | --- |
+| Capacity strip (CLI + app) | Teams, relay, pilot |
+| Waste ledger | Harvest routing / auto-substitute |
+| Utilization history | Orchestration generally |
+| Notifications | |
+
+Rationale — this is not a loss leader (those cost money per user). Capacity
+monitoring has **zero marginal cost** (local file reads and PTY probes on the
+user's own machine; no server, no account) and a **fixed cost shared across all
+users** (dialect maintenance). Free is not a sacrifice here, it is correct
+pricing for a zero-marginal-cost good.
+
+Strategic function: every other alln feature is **episodic** (I have a task → I
+run a team). The strip is **daily** — the founder checks 6 CLIs 5×/day. Whatever
+you open five times a day is the window you leave open, and that app gets free
+distribution for everything else it does. Alln currently has no reason to be
+open when you are not dispatching. This gives it one.
+
+And the free surface is an honest advertisement for the paid one: *"Codex 38%
+expiring in 6h"* is literally a pitch for running something on Codex right now.
+
+---
+
+## Distribution
+
+The strip is **shareable** in a way orchestration is not. "Here's my bench" is a
+screenshot. "I wasted 61% of my Gemini quota this week" is a hook. A dev with
+six CLI subscriptions posting their strip is organic reach into exactly the
+target audience.
+
+Ship a copy-as-text / copy-as-image affordance early, **with account
+identifiers, org names, and emails redacted by default**.
+
+Vendor risk is low: reading your own usage surface on your own machine is
+unremarkable. If a vendor responds by shipping a headless usage endpoint, that
+upgrades them to tier 1 and makes the product better.
+
+---
+
 ## Make "no dropped runs" countable
 
 You cannot prove the counterfactual for a run the guard held. You **can** count
@@ -506,6 +778,12 @@ Do not collapse these into one "usage" blob. Agents and UI must not confuse
 - Mandatory browser login scrapers
 - Claiming 100% accurate cross-device usage (vendors already note local-only
   contribution analytics)
+- **Email reports** — scratched 2026-07-29; needs a server, an account, a sender
+  domain, and usage data leaving the machine. Notification + in-app digest is
+  the same value at ~1% of cost
+- **Unattended auto-harvest (rung 4)** — v1 ships rungs 1–2 only
+- **Subscription cancel/keep recommendations** — report utilization facts; the
+  advice is the user's to draw
 
 ---
 
@@ -514,12 +792,16 @@ Do not collapse these into one "usage" blob. Agents and UI must not confuse
 | ID | Intent | Works Test (sketch) |
 | --- | --- | --- |
 | **CAP-S00** | **Acquisition audit + window-start spike.** Per driver: where does the number actually live (tier 1/2/3/none)? And: **does opening the usage TUI start the window we are measuring, or consume a message?** If probing a 5h window starts that 5h window, tier 3 is self-defeating for that driver and must be launch/refresh-only. | Matrix: driver → tier, path/command, sample capture. Spike answers the window-start question for Claude + agy with evidence. |
-| CAP-S01 | `CapacityWindow` + buckets + anchored decrement + ledger merge. No probes. | Unit tests: used-vs-left normalization; pool scope; unknown taxonomy; ceiling is monotone and never exceeds last observation. |
-| CAP-S02 | Launch strip fed by tier-1 (Codex) + existing failure data only. Refresh control. Surface brief + Visual Proof Gate. | Founder launches the app and sees real Codex weekly + reset without opening a CLI. Unknown rows show their reason. |
-| CAP-S03 | Pre-dispatch relay guard, posture-differentiated. **Instrument the mid-relay-429 baseline counter here.** | Near-floor seat refuses/warns for long mutating work; Lead posture still allowed. Baseline counter recording. |
-| CAP-S04 | Tier-3 probes (Claude, agy) + `alln capacity sample`. | Probe output matches the live Usage pane within tolerance; renamed-UI fixture degrades that row to `unknown — parser failed` while the rest of the strip stays live. |
-| CAP-S05 | Waste ledger (`alln capacity waste`). | Expired windows with headroom are counted from real retained observations; zero fabricated rows. |
-| CAP-S06 | Burn-to-reset harvest ordering + offer-substitute. | Preferred thin + alternate fat → offers alternate; expiring-soon fat seat sorts first. |
+| CAP-S01 | `CapacityWindow` + buckets + anchored decrement + ledger merge. **Retention of expired windows is part of the schema.** No probes. | Unit tests: used-vs-left normalization; pool scope; unknown taxonomy; ceiling monotone and never exceeds last observation; expired windows survive in the ledger with observation coverage. |
+| CAP-S02 | `alln capacity` CLI strip from tier-1 (Codex) + existing failure data. TTY vs non-TTY formatting; `--json`. | Real Codex weekly + reset printed in a terminal; piped output contains zero ANSI escapes; `--json` validates against the contract. |
+| CAP-S03 | Launch screen tab 1 rendering the same contract. Surface brief + Visual Proof Gate. | App launches to the strip; rows sorted by expiry; unknown rows show their reason; no parallel SwiftUI store. |
+| CAP-S04 | Pre-dispatch relay guard, posture-differentiated. **Instrument the mid-relay-429 baseline counter here.** | Near-floor seat refuses/warns for long mutating work; Lead posture still allowed. Baseline counter recording. |
+| CAP-S05 | Tier-3 probes (Claude, agy) + `alln capacity --refresh`. | Probe output matches the live Usage pane within tolerance; renamed-UI fixture degrades that row to `unknown — parser failed` while the rest of the strip stays live. |
+| CAP-S06 | Waste ledger + **tier-1 history backfill** from existing on-disk logs. | `alln capacity waste` counts only real retained observations; backfill reconstructs ≥6 weeks of Codex history from `~/.codex/sessions` on a machine that has never run alln's acquirer. |
+| CAP-S07 | Utilization tab / `--history`, progressive weeks. | Week 1 shows one week and says so; per-week observation coverage rendered; no averaging across gaps. |
+| CAP-S08 | Weekly-rollover notification via `serve` + `NotificationScheduler`. | One alert for the whole bench, fired only on weekly windows, carrying an action that dispatches. Short windows never fire by default. |
+| CAP-S09 | Burn-to-reset harvest ordering + offer-substitute. | Preferred thin + alternate fat → offers alternate; expiring-soon fat seat sorts first. |
+| CAP-S10 | Harvest posture: read-only exploratory teams for expiring headroom (rungs 1–2 only). | Suggested harvest run is non-mutating, takes no write lock, produces findings; refuses to run against a credit balance. |
 
 ---
 
@@ -537,6 +819,13 @@ Do not collapse these into one "usage" blob. Agents and UI must not confuse
 | Confusing context-window % with account quota | Separate fields (Codex `model_context_window` vs `rate_limits`) |
 | Probe cost / ToS optics | Own machine, own account surface, rate limits, "spend what you bought" framing, no multi-account rotation |
 | Launch screen competes with chat home | Full strip on launch + persistent compact band thereafter |
+| **Auto-harvest spends real money** | Never auto-spend against `credits.balance` / metered overage — resetting subscription windows only. Billing-behavior stop under project law |
+| Auto-harvest holds the write lock when the user sits down | Harvest is read-only by rule and takes no lock |
+| Harvest output nobody reads = waste one layer up | Stop queueing harvests when the last N outputs went unread |
+| Notification fatigue kills the feature | Weekly windows only; one alert for the whole bench; short windows never fire by default |
+| Averages over partial observation understate usage | Per-week observation coverage rendered; never average silently across gaps |
+| ANSI escapes pollute another agent's context | Non-TTY output is plain ASCII, no color, no box-drawing |
+| Shared strip leaks account identifiers | Redact accounts/orgs/emails by default in copy-as-text/image |
 
 ---
 
@@ -547,9 +836,17 @@ Most were resolved in the amended intake. Remaining:
 1. **Unpark `Utilization_Admission_Control.md`?** Absorb admission scheduling
    here, or keep parked and ship acquisition + strip + guard first.
    *Recommendation: keep parked; this packet ships the guard, not a scheduler.*
-2. **Waste ledger retention window** — how long to retain expired windows
-   (7d? 30d?) and where they live in the ledger file format.
+2. **Retention window** — how long to keep expired windows. Note the utilization
+   tab wants ≥8 weeks, so 7d/30d is too short.
+   *Recommendation: retain indefinitely; the rows are tiny and the history is
+   the moat. Cap `rawSnippet` instead.*
 3. **Band placement** in the Mac shell — needs the GUI surface brief.
+4. **Which harvest teams ship as ready-to-run presets** (Tech Audit, Code
+   Maintainer, Bug Hunt, dep scan, doc drift, coverage gaps) and whether they
+   are new `TeamPreset` entries or existing ones in a harvest posture.
+   *Recommendation: existing presets, harvest posture — no new catalog rows.*
+5. **Does the parked Cost Advisor packet get absorbed here** now that the
+   retrospective framing clears the no-estimates law?
 
 ---
 
