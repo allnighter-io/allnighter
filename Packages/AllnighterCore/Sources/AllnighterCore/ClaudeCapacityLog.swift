@@ -46,7 +46,7 @@ public struct ClaudeCapacityWindow: Sendable, Equatable {
     }
 
     /// Normalize into the shared `CapacityWindow` surface.
-    public func asCapacityWindow() -> CapacityWindow {
+    public func asCapacityWindow(planTier: String? = nil) -> CapacityWindow {
         let scope: CapacityWindowScope
         switch kind {
         case .session: scope = .session
@@ -60,7 +60,8 @@ public struct ClaudeCapacityWindow: Sendable, Equatable {
             resetPrecision: resetPrecision,
             observedAt: observedAt,
             sourceTier: .tuiProbe,
-            poolLabel: poolLabel
+            poolLabel: poolLabel,
+            planTier: planTier
         )
     }
 }
@@ -72,7 +73,56 @@ public enum ClaudeCapacityLog {
     /// Parse then normalize into shared `CapacityWindow` values.
     /// Returns `[]` when the render yields no valid windows.
     public static func capacityWindows(fromRender renderText: String, observedAt: Date) -> [CapacityWindow] {
-        parseWindows(fromRender: renderText, observedAt: observedAt).map { $0.asCapacityWindow() }
+        let tier = planTier(fromRender: renderText)
+        return parseWindows(fromRender: renderText, observedAt: observedAt)
+            .map { $0.asCapacityWindow(planTier: tier) }
+    }
+
+    /// Plan tier from a Claude Code render, or nil when the render does not say.
+    ///
+    /// Two surfaces carry it and the probe already captures the first for free:
+    ///
+    /// - the boot banner every session paints — `Opus 5 (1M context) · Claude Max`
+    /// - the `/status` pane — `Login method:  Claude Max account`
+    ///
+    /// `/status` wins when present because it is a labeled field rather than a
+    /// banner suffix, but the probe only visits it on the `/usage` fallback path,
+    /// so the banner is what normally answers.
+    ///
+    /// Returns the bare tier (`Max`, `Pro`) to match the other seats — the row is
+    /// already labeled Claude, so "Claude Max" would stutter next to Cursor's
+    /// "Ultra".
+    public static func planTier(fromRender renderText: String) -> String? {
+        let clean = stripANSI(renderText)
+        // Labeled field first.
+        if let tier = firstMatch(
+            pattern: #"Login\s+method:\s*Claude\s+(Max|Pro|Team|Enterprise|Free)(\s+\d+x)?"#,
+            in: clean
+        ) {
+            return tier
+        }
+        return firstMatch(
+            pattern: #"·\s*Claude\s+(Max|Pro|Team|Enterprise|Free)(\s+\d+x)?"#,
+            in: clean
+        )
+    }
+
+    /// Tier word plus any multiplier suffix (`Max 20x`), joined and whitespace-normalized.
+    private static func firstMatch(pattern: String, in text: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else {
+            return nil
+        }
+        let ns = text as NSString
+        guard let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: ns.length)),
+              match.numberOfRanges >= 2
+        else { return nil }
+        var tier = ns.substring(with: match.range(at: 1))
+        if match.numberOfRanges >= 3, match.range(at: 2).location != NSNotFound {
+            let suffix = ns.substring(with: match.range(at: 2))
+                .trimmingCharacters(in: .whitespaces)
+            if !suffix.isEmpty { tier += " \(suffix)" }
+        }
+        return tier
     }
 
     /// Parses capacity windows from a Claude Usage render.

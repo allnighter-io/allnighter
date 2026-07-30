@@ -341,6 +341,12 @@ final class CapacityAcquisitionTests: XCTestCase {
     """
 
     /// Real Claude Code `/usage` render (founder capture 2026-07-30, pyte-normalized).
+    /// Real boot banner, ANSI-stripped, as it lands in the probe buffer ahead of
+    /// the Usage pane.
+    private let claudeBannerFixture = """
+       ▐▛███▜▌Claude Codev2.1.220▝▜█████▛▘Opus 5 (1M context) with high effort · Claude Max  ▘▘ ▝▝  ~/Documents/GitHub/Allnighter
+    """
+
     private let claudeUsageFixture = """
        Settings  Status   Config   Usage   Stats
 
@@ -564,6 +570,44 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertEqual(fable?.usedPercent, 7.0)
         // Promo line "+50% weekly limits" must not become a window.
         XCTAssertFalse(windows.contains { $0.usedPercent == 50.0 })
+    }
+
+    /// The Plan column read `-` for Claude while the vendor stated the tier twice.
+    /// The boot banner is already in every successful capture, so no extra pane
+    /// navigation is needed to fill it.
+    func testClaudePlanTierComesFromTheBootBanner() {
+        let render = claudeBannerFixture + "\n" + claudeUsageFixture
+        XCTAssertEqual(ClaudeCapacityLog.planTier(fromRender: render), "Max")
+        let windows = ClaudeCapacityLog.capacityWindows(fromRender: render, observedAt: now)
+        XCTAssertFalse(windows.isEmpty)
+        XCTAssertTrue(windows.allSatisfy { $0.planTier == "Max" })
+    }
+
+    /// `/status` states it as a labeled field, which beats a banner suffix when
+    /// the probe took the fallback path and captured both.
+    func testClaudePlanTierPrefersTheLabeledStatusField() {
+        let render = """
+           Settings  Status   Config   Usage   Stats
+
+           Version:          2.1.220
+           Login method:     Claude Max account
+           Organization:     emailmike@gmail.com's Organization
+        """
+        XCTAssertEqual(ClaudeCapacityLog.planTier(fromRender: render), "Max")
+    }
+
+    /// A Max multiplier is part of the tier, not noise to be trimmed off.
+    func testClaudePlanTierKeepsAMaxMultiplier() {
+        XCTAssertEqual(
+            ClaudeCapacityLog.planTier(fromRender: "Opus 5 · Claude Max 20x  ~/repo"),
+            "Max 20x"
+        )
+    }
+
+    /// Fail closed: a render with no tier statement must not invent one, and the
+    /// promo line's `· clau.de/cc-50-promo` must not read as a plan.
+    func testClaudePlanTierIsNilWhenTheRenderDoesNotSayIt() {
+        XCTAssertNil(ClaudeCapacityLog.planTier(fromRender: claudeUsageFixture))
     }
 
     func testRefreshFixtureParsersProduceWindowsAndPreserveTier1() throws {
