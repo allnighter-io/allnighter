@@ -403,8 +403,16 @@ public struct RunStore: Sendable {
     /// pgid (if any), one atomic terminal write, never clobber existing terminal.
     /// Returns the run and whether this call performed a new reap.
     @discardableResult
-    public func reconcileRun(runId: String, models: [Model] = []) -> TeamRun? {
-        reconcileRunDetailed(runId: runId, models: models)?.run
+    public func reconcileRun(
+        runId: String,
+        models: [Model] = [],
+        recoverTerminalLiveOwnership: Bool = false
+    ) -> TeamRun? {
+        reconcileRunDetailed(
+            runId: runId,
+            models: models,
+            recoverTerminalLiveOwnership: recoverTerminalLiveOwnership
+        )?.run
     }
 
     public struct ReconcileResult: Sendable {
@@ -412,8 +420,19 @@ public struct RunStore: Sendable {
         public var reaped: Bool
     }
 
+    /// - Parameter recoverTerminalLiveOwnership: opt in to cancel-lie recovery —
+    ///   force-kill a recorded tree that is still identity-alive under a terminal
+    ///   journal. **Only an explicit operator reconcile may pass `true`.** The
+    ///   read paths (`ps` reconcile-on-read, `status`, `result`) sweep through
+    ///   here too, and `ps` is contractually read-only: "`ps` never kills."
+    ///   Defaulting this on made a bare `alln ps` TERM→SIGKILL the recorded pgid
+    ///   of every terminal run — including a foreground `alln run`'s own group.
     @discardableResult
-    public func reconcileRunDetailed(runId: String, models: [Model] = []) -> ReconcileResult? {
+    public func reconcileRunDetailed(
+        runId: String,
+        models: [Model] = [],
+        recoverTerminalLiveOwnership: Bool = false
+    ) -> ReconcileResult? {
         let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
         return ProcessOwnership.withRunLock(in: directory) {
             guard let data = try? Data(contentsOf: directory.appendingPathComponent("run.json")),
@@ -421,9 +440,11 @@ public struct RunStore: Sendable {
 
             // Cancel lie recovery: journal terminal but recorded members still
             // identity-alive → force-kill the tree. Never leave END=cancelled
-            // + ALIVE=yes as a dead-end (wouldReconcile was false before this).
+            // + ALIVE=yes as a dead-end (wouldReconcile reports it either way;
+            // only the explicit path is allowed to act on it).
             if run.status.isTerminal {
-                guard ProcessOwnership.anyRecordedMemberIdentityAlive(in: directory) else {
+                guard recoverTerminalLiveOwnership,
+                      ProcessOwnership.anyRecordedMemberIdentityAlive(in: directory) else {
                     return ReconcileResult(run: run, reaped: false)
                 }
                 _ = ProcessOwnership.forceTerminateAllRecorded(in: directory)
@@ -471,8 +492,16 @@ public struct RunStore: Sendable {
     /// runs whose `repoRoot` canonicalizes to the caller's project root are
     /// eligible. Fail closed — a run whose root can't be resolved is skipped,
     /// never swept. `nil` is the explicit machine-wide fleet sweep.
+    ///
+    /// `recoverTerminalLiveOwnership` follows `reconcileRunDetailed`: default off
+    /// so the `ps` reconcile-on-read sweep stays read-only; the explicit
+    /// `alln team reconcile` sweep opts in.
     @discardableResult
-    public func reconcileAll(models: [Model] = [], scopeRoot: String? = nil) -> [TeamRun] {
+    public func reconcileAll(
+        models: [Model] = [],
+        scopeRoot: String? = nil,
+        recoverTerminalLiveOwnership: Bool = false
+    ) -> [TeamRun] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: rootDirectory,
             includingPropertiesForKeys: nil
@@ -486,7 +515,11 @@ public struct RunStore: Sendable {
                !ProjectScope.matches(scopeRoot: scopeRoot, recordRoot: loadRaw(runId: id)?.repoRoot) {
                 continue
             }
-            if let detail = reconcileRunDetailed(runId: id, models: models), detail.reaped {
+            if let detail = reconcileRunDetailed(
+                runId: id,
+                models: models,
+                recoverTerminalLiveOwnership: recoverTerminalLiveOwnership
+            ), detail.reaped {
                 results.append(detail.run)
             }
         }

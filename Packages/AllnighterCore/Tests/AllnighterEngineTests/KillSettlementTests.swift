@@ -328,12 +328,68 @@ final class KillSettlementTests: XCTestCase {
         var signalled: [Int32] = []
         ProcessOwnership.terminateSignalHook = { signalled.append($0) }
 
-        let detail = try XCTUnwrap(runs.reconcileRunDetailed(runId: "lie2"))
+        let detail = try XCTUnwrap(runs.reconcileRunDetailed(
+            runId: "lie2", recoverTerminalLiveOwnership: true))
         // Hook suppresses real death; reaped is false while still "alive" under hook.
         // Signal path must still fire (force terminate attempted).
         XCTAssertFalse(signalled.isEmpty, "reconcile must signal recorded live members on cancel lie")
         XCTAssertEqual(detail.run.status, .cancelled, "must not clobber terminal status")
         XCTAssertNotNil(detail.run.killOutcome)
+    }
+
+    func testReconcileOnReadNeverSignalsTerminalWithLiveOwnership() throws {
+        // `ps` reconciles on read and is contractually read-only ("ps never
+        // kills"). Cancel-lie recovery is opt-in, so the default sweep must
+        // report the contradiction without signalling. Regression: recovery-by-
+        // default made a bare `alln ps` TERM→SIGKILL every terminal run's
+        // recorded pgid — including the caller's own group.
+        let (support, runs) = try tempStore(); defer { try? FileManager.default.removeItem(at: support) }
+        let surface = ProcessOwnershipSurface(runStore: runs)
+
+        var r = run(id: "ro1", status: .cancelled)
+        r.endReason = .cancelled
+        r.killOutcome = .stopped
+        try runs.save(r, models: [])
+        try writeWorker(try liveSelfWorker(), workerId: "r1", runs: runs, runId: "ro1")
+
+        var signalled: [Int32] = []
+        ProcessOwnership.terminateSignalHook = { signalled.append($0) }
+
+        let row = try XCTUnwrap(surface.list(includeHistory: true).processes.first {
+            $0.id == "ro1" && $0.kind == "run"
+        })
+        XCTAssertTrue(signalled.isEmpty, "ps reconcile-on-read must never signal a recorded tree")
+        XCTAssertEqual(
+            row.contradiction, RunContradiction.terminalWithLiveOwnership.rawValue,
+            "ps still names the cancel lie it refuses to act on")
+        XCTAssertTrue(row.wouldReconcile, "read-only WOULD_REAP report stays yes")
+        // Sweep must not rewrite the journal either.
+        let after = try XCTUnwrap(runs.loadRaw(runId: "ro1"))
+        XCTAssertEqual(after.killOutcome, .stopped, "read path must not restamp killOutcome")
+    }
+
+    func testInProcessCoordinatorIsNotLiveOwnership() throws {
+        // An `inProcess` coordinator is the reader itself. Counting it as live
+        // ownership makes every completed in-process run a permanent cancel lie:
+        // WOULD_REAP forever, and cancel stamps `.partial` over a stopped tree.
+        // Must match `RunContradictionSurface.contradiction`'s documented rule.
+        let (support, runs) = try tempStore(); defer { try? FileManager.default.removeItem(at: support) }
+
+        var r = run(id: "ip1", status: .complete)
+        r.killOutcome = .stopped
+        try runs.save(r, models: [])
+        let dir = try runs.runDirectory(forRunId: "ip1")
+        let selfPid = ProcessInfo.processInfo.processIdentifier
+        let ticks = try XCTUnwrap(ProcessOwnership.processStartTimeTicks(selfPid))
+        try ProcessOwnership.writeOwnerIdentity(
+            .init(pid: selfPid, pgid: nil, startTimeTicks: ticks, kind: .inProcess), in: dir)
+
+        XCTAssertFalse(
+            ProcessOwnership.anyRecordedMemberIdentityAlive(in: dir),
+            "the reading process is not a live worker tree")
+        XCTAssertFalse(
+            runs.wouldReconcile(runId: "ip1"),
+            "a completed in-process run is not reapeable")
     }
 
     func testCancelDoesNotStampCancelledWhenWorkerSurvives() async throws {

@@ -675,13 +675,19 @@ public actor AsyncTeamService {
     /// is scoped to the caller's canonical project root (`scopeRoot`) — pass
     /// nil only for the explicit machine-wide fleet sweep.
     public func reconcile(runId: String?, scopeRoot: String? = nil) -> [TeamRun] {
+        // The one path allowed to act on a cancel lie (terminal journal + still
+        // identity-alive tree). Read paths — `ps`, `status`, `result` — reconcile
+        // through the same store with recovery OFF and never signal.
         if let runId {
-            if let detail = runStore.reconcileRunDetailed(runId: runId, models: models), detail.reaped {
+            if let detail = runStore.reconcileRunDetailed(
+                runId: runId, models: models, recoverTerminalLiveOwnership: true
+            ), detail.reaped {
                 return [detail.run]
             }
             return []
         }
-        return runStore.reconcileAll(models: models, scopeRoot: scopeRoot)
+        return runStore.reconcileAll(
+            models: models, scopeRoot: scopeRoot, recoverTerminalLiveOwnership: true)
     }
 
     public enum ResultOutcome: Sendable, Equatable {

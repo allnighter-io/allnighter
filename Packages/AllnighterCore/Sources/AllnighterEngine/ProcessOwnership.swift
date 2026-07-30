@@ -829,8 +829,16 @@ public enum ProcessOwnership {
     /// True when any recorded coordinator or worker is still identity-alive
     /// (zombie-aware). Used by cancel recovery and `wouldReconcile` for
     /// `terminalWithLiveOwnership`.
+    ///
+    /// Same rule as `RunContradictionSurface.contradiction`, and it must stay in
+    /// sync: only a PG-killable (detached) coordinator counts as live ownership.
+    /// An `inProcess` coordinator is the reader/app itself — counting it would
+    /// make every completed in-process run look like a live tree forever, so the
+    /// caller stamps `.partial` over a genuinely stopped run and `ps` reports
+    /// WOULD_REAP on the very process doing the reading.
     public static func anyRecordedMemberIdentityAlive(in directory: URL) -> Bool {
         if let coordinator = readOwnerIdentity(in: directory),
+           coordinator.kind.isProcessGroupKillable,
            isIdentityAlive(coordinator)
         {
             return true
