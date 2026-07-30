@@ -127,7 +127,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // `drivers unpark` additions, plus registering the existing `detect`).
         // ATL-S01 bumps contract 6.4.0 → 6.5.0 (`pair relay --message` /
         // `--message-file` kickoff brief flags).
-        XCTAssertEqual(trj.contractVersion, "6.5.0")
+        // ATL-S02 bumps contract 6.5.0 → 6.6.0 (`pair relay stop` + RELAY_STOP_FAILED).
+        XCTAssertEqual(trj.contractVersion, "6.6.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.agents.count, 1)

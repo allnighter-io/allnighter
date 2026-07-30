@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 6.5.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 6.6.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -803,6 +803,16 @@ Requires: `--delivery` requires `--no-wait`.
 
 Output schema: `relayJSON`.
 
+### `alln pair relay stop`
+
+Founder stop of a PM Relay Loop: identity-checked teardown, durable stopped status with reason "founder stopped", and a PM Turn on transition. Idempotent on already done/stopped.
+
+Flags:
+- `--relay <id>` — Relay id (required).
+- `--json` — Emit RelayJSON (status=stopped, stoppedReason="founder stopped" on transition).
+
+Output schema: `relayJSON`.
+
 ### `alln pair pilot start`
 
 Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM.
@@ -1569,11 +1579,12 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `TRY_FIX_EXECUTOR_INVALID` | yes | no | `operational` | Pass --executor a single mutating team that is runnable on this bench (default build_slice). |
 | `RELAY_NOT_FOUND` | yes | no | `operational` | Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`. |
 | `RELAY_STATE_DECODE_FAILED` | yes | no | `operational` | The relay folder exists but relay.json cannot be read by this binary — rebuild from the current branch (`swift build --package-path Packages/AllnighterCore` + `alln install-cli`). If the file uses retired devWorkerId/pmWorkerId keys, delete the relay folder or rewrite seat keys to devModelId/pmModelId. |
-| `RELAY_INVALID_STATE` | yes | no | `operational` | Only an `escalated` relay can be resumed; check status first with `pair relay-status`. |
+| `RELAY_INVALID_STATE` | yes | no | `operational` | Check status with `pair relay-status` (or `pair pilot status`); only resume/adopt-eligible statuses accept those transitions. Founder stop uses `pair relay stop` and does not use this code. |
 | `RELAY_HANDOVER_UNSAFE` | yes | no | `operational` | The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent. |
 | `RELAY_ALREADY_ACTIVE` | yes | no | `operational` | Read it with `alln pair relay-status --relay <id> --json`, resume or adopt it, or wait — do not start a second relay on the same doc. |
 | `RELAY_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | The relay claim could not be written durably — check disk space and permissions under the support root, then retry the relay verb. |
 | `RELAY_ROUND_IN_FLIGHT` | no | yes | `operational` | Wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once parked, retry `pilot handoff` if still needed. |
+| `RELAY_STOP_FAILED` | yes | yes | `operational` | Inspect with `alln ps --json`; retry `alln pair relay stop --relay <id> --json`. Do not invent resume while live trees remain. |
 | `RUN_ID_IN_USE` | yes | no | `operational` | Attach with `alln run resume <id> --json`, or omit an explicit id. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs. |

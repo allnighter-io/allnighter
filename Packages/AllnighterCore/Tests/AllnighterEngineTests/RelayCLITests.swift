@@ -507,6 +507,43 @@ final class RelayCLITests: XCTestCase {
         XCTAssertEqual(RelayDispatch.progressJSON(.stopped(reason: "ceiling")).reason, "ceiling")
     }
 
+    // MARK: - ATL-S02: pair relay stop CLI surface
+
+    func testStopCommandRegisteredWithRelayFlag() {
+        let registry = ContractRegistry.milestone1
+        let spec = registry.commands.first { $0.name == "pair relay stop" && $0.milestone == .m1 }
+        XCTAssertNotNil(spec, "pair relay stop must be registered (ATL-S02)")
+        XCTAssertTrue(spec?.flags.contains { $0.name == "relay" && $0.takesValue } ?? false)
+        XCTAssertTrue(spec?.flags.contains { $0.name == "json" } ?? false)
+        XCTAssertFalse(
+            spec?.flags.contains { $0.name == "no-wait" } ?? true,
+            "stop is synchronous settlement, not a detached dispatch verb"
+        )
+        XCTAssertNotNil(registry.errors.first { $0.code == "RELAY_STOP_FAILED" })
+    }
+
+    func testStopErrorEnvelopeMapsNotFoundAndStopFailed() {
+        let notFound = RelayCLI.stopErrorEnvelope(.relayNotFound, relayId: "relay_x")
+        XCTAssertEqual(notFound.code, "RELAY_NOT_FOUND")
+        XCTAssertTrue(notFound.message.contains("relay_x"))
+
+        let failed = RelayCLI.stopErrorEnvelope(
+            .stopFailed(detail: "turn still alive"), relayId: "relay_y"
+        )
+        XCTAssertEqual(failed.code, "RELAY_STOP_FAILED")
+        XCTAssertTrue(failed.message.contains("relay_y"))
+        XCTAssertTrue(failed.message.contains("turn still alive"))
+    }
+
+    func testStopNestedVerbResolvesInCLIUsage() {
+        // Grammar is space-separated nested verb like adopt — never relay-stop.
+        XCTAssertEqual(
+            CLIUsage.resolveCommandName(rootCommand: "pair", args: ["relay", "stop", "--relay", "x"]),
+            "pair relay stop"
+        )
+        XCTAssertNil(CLIUsage.resolveCommandName(rootCommand: "pair", args: ["relay-stop", "--relay", "x"]))
+    }
+
     // MARK: - RSC-S03: --no-wait CLI surface
 
     /// The three relay verbs' `CommandSpec`s must all carry `--no-wait`

@@ -704,6 +704,157 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(error, .notResumable(status: "stopped"))
     }
 
+    // MARK: - ATL-S02: founder stop
+
+    func testFounderStopOnRunningWithDeadOwnerStampsReasonAndPMTurn() throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmTurnStore = PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
+        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        try makeOrphanedRunningRelay(
+            id: "relay_founder_stop", projectRoot: tmp.path, stateStore: stateStore, projector: projector
+        )
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            pmTurnStore: pmTurnStore, threadProjector: projector
+        )
+
+        let result = coordinator.stop(relayId: "relay_founder_stop")
+        guard case .success(let state) = result else { return XCTFail("expected stop success, got \(result)") }
+        XCTAssertEqual(state.status, .stopped)
+        XCTAssertEqual(state.stoppedReason, RelayState.founderStoppedReason)
+        XCTAssertFalse(state.isResumable, "founder stop is never resumable")
+        XCTAssertEqual(state.rounds.last?.outcome, .stopped)
+
+        let durable = try XCTUnwrap(stateStore.load(id: "relay_founder_stop"))
+        XCTAssertEqual(durable.status, .stopped)
+        XCTAssertEqual(durable.stoppedReason, RelayState.founderStoppedReason)
+
+        let turn = try XCTUnwrap(pmTurnStore.load(kind: .relay, subjectId: "relay_founder_stop"))
+        XCTAssertEqual(turn.reason, "stopped")
+        XCTAssertEqual(turn.lifecycleStatus, "stopped")
+        XCTAssertTrue(turn.nextCommands.contains { $0.contains("pair relay-status") })
+    }
+
+    func testFounderStopIdempotentOnDoneAndStoppedDoesNotRewriteReasonOrSecondPMTurn() throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmTurnStore = PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore, pmTurnStore: pmTurnStore
+        )
+
+        let done = RelayState(
+            id: "relay_stop_done", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev", status: .done,
+            createdAt: Self.flooredNow(), note: "shipped"
+        )
+        try stateStore.save(done)
+        let doneAgain = try coordinator.stop(relayId: "relay_stop_done").get()
+        XCTAssertEqual(doneAgain.status, .done)
+        XCTAssertNil(doneAgain.stoppedReason)
+        XCTAssertNil(try pmTurnStore.load(kind: .relay, subjectId: "relay_stop_done"), "no PM Turn on idempotent done")
+
+        let ceiling = RelayState(
+            id: "relay_stop_ceiling", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev", status: .stopped,
+            createdAt: Self.flooredNow(), stoppedReason: "reached --max-rounds (3)"
+        )
+        try stateStore.save(ceiling)
+        // Pre-seed a ceiling PM Turn so we can assert sequence does not advance.
+        try pmTurnStore.save(PMTurnJSON(
+            kind: .relay, subjectId: "relay_stop_ceiling", sequence: 1,
+            createdAt: Self.flooredNow(), reason: "stopped", lifecycleStatus: "stopped",
+            nextCommands: ["alln pair relay-status --relay relay_stop_ceiling --json"]
+        ))
+        let ceilingAgain = try coordinator.stop(relayId: "relay_stop_ceiling").get()
+        XCTAssertEqual(ceilingAgain.stoppedReason, "reached --max-rounds (3)", "leave existing reason alone")
+        let turnAfter = try XCTUnwrap(pmTurnStore.load(kind: .relay, subjectId: "relay_stop_ceiling"))
+        XCTAssertEqual(turnAfter.sequence, 1, "no second PM Turn on idempotent stopped")
+    }
+
+    func testFounderStopOnEscalatedAbandonsAndIsNotResumable() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmTurnStore = PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore, pmTurnStore: pmTurnStore
+        )
+        let escalated = RelayState(
+            id: "relay_stop_escalated", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev", status: .escalated,
+            createdAt: Self.flooredNow(), note: "which env?"
+        )
+        try stateStore.save(escalated)
+
+        let stopped = try coordinator.stop(relayId: "relay_stop_escalated").get()
+        XCTAssertEqual(stopped.status, .stopped)
+        XCTAssertEqual(stopped.stoppedReason, RelayState.founderStoppedReason)
+        XCTAssertFalse(stopped.isResumable)
+
+        let config = RelayCoordinator.Config(
+            projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev"
+        )
+        let resume = await coordinator.resume(
+            relayId: "relay_stop_escalated", founderAnswer: "staging", config: config
+        )
+        guard case .failure(let error) = resume else { return XCTFail("resume must refuse founder-stopped") }
+        XCTAssertEqual(error, .notResumable(status: "stopped"))
+        XCTAssertNotNil(try pmTurnStore.load(kind: .relay, subjectId: "relay_stop_escalated"))
+    }
+
+    func testFounderStopNotFound() throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let result = coordinator.stop(relayId: "relay_nope")
+        XCTAssertEqual(result, .failure(.relayNotFound))
+    }
+
+    func testFounderStopRefusesToLieWhenTurnOwnerStillAlive() throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let pmTurnStore = PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
+        let coordinator = RelayCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore, pmTurnStore: pmTurnStore
+        )
+
+        var state = RelayState(
+            id: "relay_stop_live_turn", projectRoot: tmp.path, docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev", status: .running,
+            createdAt: Self.flooredNow()
+        )
+        state.rounds.append(RelayRound(
+            roundNumber: 1, baselineHead: "abc", startedAt: Self.flooredNow()
+        ))
+        try stateStore.save(state)
+        // Dead owner so step 3 is a no-op; live turn-owner forces honesty fail at step 4.
+        let dir = try stateStore.directory(for: state.id)
+        try Data("2000000".utf8).write(to: dir.appendingPathComponent("owner.pid"))
+        let live = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .devTurn))
+        try ProcessOwnership.writeTurnOwner(live, in: dir)
+
+        var signals: [Int32] = []
+        ProcessOwnership.terminateSignalHook = { pgid in signals.append(pgid) }
+        defer { ProcessOwnership.terminateSignalHook = nil }
+
+        let result = coordinator.stop(relayId: "relay_stop_live_turn")
+        guard case .failure(let error) = result else { return XCTFail("must not stamp stopped over live work") }
+        if case .stopFailed = error {} else { return XCTFail("expected stopFailed, got \(error)") }
+        XCTAssertFalse(signals.isEmpty, "must attempt identity-checked terminate")
+        let durable = try XCTUnwrap(stateStore.load(id: "relay_stop_live_turn"))
+        XCTAssertEqual(durable.status, .running, "left non-terminal")
+        XCTAssertNil(durable.stoppedReason)
+        XCTAssertNil(try pmTurnStore.load(kind: .relay, subjectId: "relay_stop_live_turn"))
+    }
+
     // MARK: - RSC-HF: guard flips durable state
 
     /// `resumeGuard` must flip + persist EXACTLY what `resume` itself would before

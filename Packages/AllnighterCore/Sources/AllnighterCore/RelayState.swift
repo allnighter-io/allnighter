@@ -332,6 +332,11 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// look at `status`/`stoppedReason` already see everything they need.
     public static let orphanReconciledReason = "owner process died mid-round (reconciled)"
 
+    /// ATL-S02: stamped as `stoppedReason` when the founder stops a Loop via
+    /// `RelayCoordinator.stop` / `pair relay stop`. Distinct from ceiling /
+    /// orphan / ownership-kill reasons so resume eligibility and teaching stay honest.
+    public static let founderStoppedReason = "founder stopped"
+
     /// True for a relay reconciled by `reconcileIfOrphaned` rather than a ceiling
     /// (`--max-rounds`/`--until`/stagnation) firing — the ONLY kind of `.stopped` relay
     /// `relay-resume` accepts (PM_Relay.md works-test hazard #1: "escalated-only was

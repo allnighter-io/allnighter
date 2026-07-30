@@ -1,4 +1,9 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 import AllnighterCore
 
 /// PM Relay control plane (docs/phases/PM_Relay.md §2) — the turn-based, unattended
@@ -874,6 +879,163 @@ public struct RelayCoordinator: Sendable {
     public func status(relayId: String) -> RelayState? {
         guard let state = stateStore.load(id: relayId) else { return nil }
         return reconcileIfOrphaned(state)
+    }
+
+    // MARK: - Founder stop (ATL-S02 / docs/phases/Agent_Team_Loop.md §Stop settlement)
+
+    /// `pair relay stop` failure. Never maps escalated abandon to invalid-state —
+    /// stop is allowed on `escalated`/`awaitingPM`/`running`. `RELAY_ROUND_IN_FLIGHT`
+    /// is a start/resume/adopt guard only; stop never returns it.
+    public enum StopRefusal: Swift.Error, Sendable, Equatable {
+        case relayNotFound
+        /// Could not honestly settle: a signalled owner/turn tree is still
+        /// identity-alive (or legacy `owner.pid` still alive). State left non-terminal.
+        case stopFailed(detail: String)
+    }
+
+    /// Founder abandonment of a Loop (`pair relay stop`). Follows the packet's
+    /// exact ten-step settlement order. Reuses Process Ownership identity-checked
+    /// terminate helpers inside this path — never calls `ProcessOwnershipSurface.kill`
+    /// as the whole product path (that path lacks PM Turn + founder reason + escalated abandon).
+    public func stop(
+        relayId: String,
+        reason: String = RelayState.founderStoppedReason
+    ) -> Result<RelayState, StopRefusal> {
+        // Prefer the per-id dispatch flock so stop cannot race a concurrent
+        // resume/adopt claim. Blocking acquire: stop must win over in-flight
+        // dispatch, not refuse with RELAY_ROUND_IN_FLIGHT.
+        let lockURL = RelayDispatchLock.lockURL(relayId: relayId, relaysRoot: stateStore.rootDirectory)
+        var lockHandle: ThreadFlockLock.Handle?
+        do {
+            try FileManager.default.createDirectory(
+                at: lockURL.deletingLastPathComponent(), withIntermediateDirectories: true
+            )
+            lockHandle = try ThreadFlockLock.acquire(lockURL: lockURL)
+        } catch {
+            // Directory/lock failure is not a stop refusal by itself — proceed;
+            // identity-checked settlement still runs, and persist will fail loud if needed.
+            lockHandle = nil
+        }
+        defer { lockHandle = nil }
+
+        // 1. Load durable state.
+        guard let loaded = stateStore.load(id: relayId) else {
+            return .failure(.relayNotFound)
+        }
+
+        // 2. Already terminal → idempotent success (no kill storm, no second PM Turn).
+        switch loaded.status {
+        case .done, .stopped:
+            return .success(loaded)
+        case .running, .escalated, .awaitingPM:
+            break
+        }
+
+        var state = loaded
+        let relayDir = try? stateStore.directory(for: state.id)
+        var turnWasSignalled = false
+
+        // 3. Signal relay owner process (identity-checked when owner.json exists;
+        //    legacy owner.pid is a raw-pid marker — never invent a full identity).
+        if let relayDir {
+            if let ownerIdentity = ProcessOwnership.readOwnerIdentity(in: relayDir) {
+                if ProcessOwnership.isIdentityAlive(ownerIdentity) {
+                    _ = ProcessOwnership.terminateOwnerIdentityIfSafe(ownerIdentity)
+                    if ProcessOwnership.isIdentityAlive(ownerIdentity) {
+                        return .failure(.stopFailed(
+                            detail: "relay owner identity still alive after signal"
+                        ))
+                    }
+                }
+            } else if !stateStore.isOwnerDead(id: state.id) {
+                // Legacy owner.pid: best-effort TERM→grace→KILL on the recorded pid
+                // when it is not this process (stop is called from a separate CLI).
+                if let rawPid = Self.readLegacyOwnerPid(in: relayDir),
+                   rawPid > 0,
+                   rawPid != ProcessInfo.processInfo.processIdentifier {
+                    _ = kill(rawPid, SIGTERM)
+                    usleep(ProcessOwnership.processGroupKillGraceMicroseconds)
+                    if ProcessOwnership.processAlive(rawPid) {
+                        _ = kill(rawPid, SIGKILL)
+                        usleep(50_000)
+                    }
+                    if ProcessOwnership.processAlive(rawPid) {
+                        return .failure(.stopFailed(
+                            detail: "relay owner.pid still alive after signal"
+                        ))
+                    }
+                }
+            }
+        }
+
+        // 4. Signal in-flight turn trees (turn-owner file, then last-round owner).
+        if let relayDir {
+            if let turnOwner = ProcessOwnership.readTurnOwner(in: relayDir) {
+                if ProcessOwnership.isIdentityAlive(turnOwner) {
+                    let signalled = ProcessOwnership.terminateOwnerIdentityIfSafe(turnOwner)
+                    turnWasSignalled = signalled || turnWasSignalled
+                    if ProcessOwnership.isIdentityAlive(turnOwner) {
+                        return .failure(.stopFailed(
+                            detail: "dev-turn owner identity still alive after signal"
+                        ))
+                    }
+                } else {
+                    // Dead but present: still count as a turn that needs endReason=killed.
+                    turnWasSignalled = true
+                }
+            } else if let lastIndex = state.rounds.indices.last,
+                      let record = state.rounds[lastIndex].devTurnOwner,
+                      let identity = ProcessOwnership.OwnerIdentity.fromRecord(record) {
+                if ProcessOwnership.isIdentityAlive(identity) {
+                    let signalled = ProcessOwnership.terminateOwnerIdentityIfSafe(identity)
+                    turnWasSignalled = signalled || turnWasSignalled
+                    if ProcessOwnership.isIdentityAlive(identity) {
+                        return .failure(.stopFailed(
+                            detail: "last-round turn owner identity still alive after signal"
+                        ))
+                    }
+                }
+            }
+        }
+
+        // 5. Clear turn-owner file + laneBlocked.
+        if let relayDir {
+            ProcessOwnership.clearTurnOwner(in: relayDir)
+        }
+        state.laneBlocked = nil
+
+        // 6. Stamp round in flight if open.
+        if let lastIndex = state.rounds.indices.last {
+            if state.rounds[lastIndex].outcome == nil {
+                state.rounds[lastIndex].outcome = .stopped
+                state.rounds[lastIndex].finishedAt = now()
+            }
+            if turnWasSignalled, state.rounds[lastIndex].devTurnEndReason == nil {
+                state.rounds[lastIndex].devTurnEndReason = .killed
+            }
+        }
+
+        // 7. Stamp relay founder stop (transitioning only — never overwrites terminal).
+        state.status = .stopped
+        state.stoppedReason = reason
+        state.finishedAt = now()
+
+        // 8–9. Write PM Turn via the same persistPMBoundary path as ceiling stop,
+        // then persist state + threadProjector.sync.
+        persistPMBoundary(state)
+
+        // 10. Return projected state.
+        return .success(state)
+    }
+
+    /// Reads the legacy raw-pid marker under a relay directory. Never a full identity.
+    private static func readLegacyOwnerPid(in directory: URL) -> Int32? {
+        let url = directory.appendingPathComponent("owner.pid")
+        guard let raw = try? String(contentsOf: url, encoding: .utf8),
+              let pid = Int32(raw.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return nil
+        }
+        return pid
     }
 
     /// Reconciles a `.running` relay whose owner process died mid-round back to a durable

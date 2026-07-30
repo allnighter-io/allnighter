@@ -13,11 +13,15 @@ import AllnighterEngine
 /// subprocess; only the thin `run*` entry points touch `exit()`.
 enum RelayCLI {
     static func runRelay(_ args: [String], runtime: ToolRuntime) async {
-        // "pair relay adopt" is a nested verb (mirrors "pair pilot start|handoff|…"),
-        // not a flag on "pair relay" — every other flag here starts with "--", so this
-        // check can never misfire against a real start invocation.
+        // Nested verbs (mirrors "pair pilot start|handoff|…"), not flags on
+        // "pair relay" — every other flag here starts with "--", so these checks
+        // can never misfire against a real start invocation.
         if args.first == "adopt" {
             await runAdopt(Array(args.dropFirst()), runtime: runtime)
+            return
+        }
+        if args.first == "stop" {
+            runStop(Array(args.dropFirst()), runtime: runtime)
             return
         }
         guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-model <modelId> --dev-model <modelId> [--message <text> | --message-file <path>] [--until HH:MM] [--max-rounds N] [--idle-timeout <seconds>] [--no-wait] [--json]") }
@@ -210,6 +214,23 @@ enum RelayCLI {
         _ = (relayId, founderAnswer, runtime) // parsed/validated above; child re-runs the real path
         await awaitDetachedAcceptance(
             cwd: config.projectRoot, json: opts.flag("json"), wakeDelivery: wakeDelivery)
+    }
+
+    /// ATL-S02: `pair relay stop --relay <id>` — founder abandonment of a Loop.
+    /// Settlement lives in `RelayCoordinator.stop` (exact ten-step order). Exit 0 on
+    /// transition or idempotent terminal; never exits 1 just because status is stopped
+    /// (that exit class is for ceiling/escalate endings of run/resume, not stop).
+    static func runStop(_ args: [String], runtime: ToolRuntime) {
+        guard !args.isEmpty else { usage("relay stop --relay <id> [--json]") }
+        let opts = Options(args)
+        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
+        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
+        switch coordinator.stop(relayId: relayId) {
+        case .success(let state):
+            emitStopSuccess(state, json: opts.flag("json"))
+        case .failure(let error):
+            failStop(error, relayId: relayId)
+        }
     }
 
     /// `pair relay adopt --relay <id> --pm-model <id>` (docs/phases/Pilot_Relay.md
@@ -486,6 +507,18 @@ enum RelayCLI {
     /// from either. `running` never reaches here: `run`/`resume` only return once the
     /// loop hits a terminal `RelayState`.
     private static func emitTerminal(_ state: RelayState, json: Bool) {
+        emitRelayJSON(state, json: json)
+        if state.status == .escalated || state.status == .stopped { exit(1) }
+    }
+
+    /// ATL-S02: founder stop always exits 0 on success (including idempotent
+    /// done/stopped) — the founder asked to stop; status=stopped is the success case.
+    private static func emitStopSuccess(_ state: RelayState, json: Bool) {
+        emitRelayJSON(state, json: json)
+        exit(0)
+    }
+
+    private static func emitRelayJSON(_ state: RelayState, json: Bool) {
         let pmTurn = PMTurnStatusProjection.load(
             kind: .relay,
             subjectId: state.id,
@@ -504,7 +537,6 @@ enum RelayCLI {
         } else {
             print(RelayDispatch.humanRelaySummary(relayJSON))
         }
-        if state.status == .escalated || state.status == .stopped { exit(1) }
     }
 
     // MARK: - Exit funnel
@@ -555,6 +587,26 @@ enum RelayCLI {
         let (code, message) = adoptErrorEnvelope(error)
         DetachedHandoff.reportRefused(code: code, message: message)
         AllnighterCLI.fail(code: code, message: message)
+    }
+
+    private static func failStop(_ error: RelayCoordinator.StopRefusal, relayId: String) -> Never {
+        let (code, message) = stopErrorEnvelope(error, relayId: relayId)
+        DetachedHandoff.reportRefused(id: relayId, code: code, message: message)
+        AllnighterCLI.fail(code: code, message: message)
+    }
+
+    static func stopErrorEnvelope(
+        _ error: RelayCoordinator.StopRefusal, relayId: String
+    ) -> (code: String, message: String) {
+        switch error {
+        case .relayNotFound:
+            return ("RELAY_NOT_FOUND", "relay not found: \(relayId)")
+        case .stopFailed(let detail):
+            return (
+                "RELAY_STOP_FAILED",
+                "could not settle founder stop for \(relayId): \(detail) — inspect with `alln ps --json` and retry; do not invent resume"
+            )
+        }
     }
 
     static func adoptErrorEnvelope(_ error: RelayCoordinator.AdoptError) -> (code: String, message: String) {

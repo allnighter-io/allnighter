@@ -225,8 +225,10 @@ public enum HelpTopicRegistry {
             repeated no-progress rounds) — never by inference. Drive it with CLI verbs: \
             `alln pair relay` starts a new relay, `alln pair relay-status` reads durable state, \
             `alln pair relay-resume` injects the founder's answer into an escalated relay and \
-            continues. A spawned PM with repo access may complete small mechanical work itself \
-            rather than dispatching another dev round — by design (PM-may-fix), not a defect.
+            continues, and `alln pair relay stop` is the founder stop for a Loop (durable \
+            stopped + PM Turn — not ownership kill). A spawned PM with repo access may complete \
+            small mechanical work itself rather than dispatching another dev round — by design \
+            (PM-may-fix), not a defect.
 
             Pilot is the sibling mode on the SAME substrate: instead of Allnighter spawning \
             a PM model, YOUR live CLI session holds the PM seat. `alln pair pilot start` \
@@ -257,6 +259,7 @@ public enum HelpTopicRegistry {
                 .init("gate", "Handover safety", "Every continue verdict's handover passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
                 .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the relay always ends on done, escalate, or a ceiling."),
                 .init("resume", "Escalation is not failure", "An escalated relay is a real question for the founder, not an error. `alln pair relay-resume` injects the answer and the loop continues from there."),
+                .init("stop", "Founder stop of a Loop", "`alln pair relay stop --relay <id>` abandons the Loop: identity-checked teardown, durable `stopped` with reason founder stopped, and a PM Turn on transition. Idempotent on already done/stopped. Not ownership kill."),
                 .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-model` (there is no PM model) and no `--until` (no clock). Long jobs: `handoff --no-wait`, then run its returned `pilot status --wait-for parked` command once (watch optional/disposable). Orphan owner → inspect, never blind retry. `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
                 .init("adopt", "Adopt: hand the SAME relay to a spawned PM (unattended)", "Pilot the first rounds yourself while context is hot, then `alln pair relay adopt --relay <id> --pm-model <id>` converts a parked Pilot relay (`awaitingPM` or `escalated`) to a spawned PM relay and keeps going from the durable round log — same id, same rounds, same thread; the first spawned turn is told, once, that earlier rounds were externally piloted. `--max-rounds`/`--until` behave like a spawned run, and the round ceiling counts the piloted rounds too — an honest total, not a fresh budget. The reverse flip, `alln pair pilot adopt --relay <id>`, hands a parked spawned relay (escalated, or ceiling-stopped) back to Pilot — a plain state flip, no dispatch."),
                 .init("golden", "Golden paths (day one)", "Attended: `alln menu --json` → `alln run` → `alln artifact show`. Unattended: `alln pair relay --doc …` → `alln pair relay-status --relay <id> --json` (or wait for a macOS notification). Status reads reconcile dead owners automatically — no manual `team reconcile` on the happy path. Default `alln ps` shows the alive floor; `alln ps --all` is history."),
@@ -264,13 +267,13 @@ public enum HelpTopicRegistry {
                 .init("survive", "The round outlives your session", "`--no-wait` on `pair relay` / `pair relay-resume` / `pair relay adopt` dispatches, then returns delivery.path=wait and one exact `relay-status --wait-for terminal` command. A killed caller is not a killed relay: the round keeps advancing under its own process. A second dispatch against an already-active relay is refused with `RELAY_ALREADY_ACTIVE`, not raced onto the same doc."),
             ],
             relatedCommandNames: [
-                "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt", "project add", "project show",
+                "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt", "pair relay stop", "project add", "project show",
                 "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
             ],
             schemaRefs: ["relayJSON"],
             errorRefs: [
                 "RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "RELAY_HANDOVER_UNSAFE", "PROJECT_NOT_FOUND",
-                "RELAY_ROUND_IN_FLIGHT", "RELAY_NOT_AWAITING_PM", "RELAY_VERDICT_UNPARSEABLE",
+                "RELAY_ROUND_IN_FLIGHT", "RELAY_STOP_FAILED", "RELAY_NOT_AWAITING_PM", "RELAY_VERDICT_UNPARSEABLE",
                 "EXECUTION_LANE_BUSY", "WRITE_SCOPE_VIOLATION", "STANDING_INVARIANT_FAILED",
                 "RELAY_ALREADY_ACTIVE",
             ],
