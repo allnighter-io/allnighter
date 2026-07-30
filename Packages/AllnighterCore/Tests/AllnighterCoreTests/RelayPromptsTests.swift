@@ -185,6 +185,58 @@ final class RelayPromptsTests: XCTestCase {
         XCTAssertFalse(prompt.contains("Founder note"))
     }
 
+    // MARK: - Kickoff brief (ATL-S01)
+
+    func testKickoffBriefAppearsWhenSet() throws {
+        let brief = "Ship the parser fix; do not touch UI"
+        let context = RelayPMPrompt.Context(
+            docPath: "docs/phases/Agent_Team_Loop.md",
+            roundNumber: 1,
+            baselineHead: "abc123",
+            kickoffMessage: brief,
+            maxRounds: 20,
+            roundsRemaining: 20
+        )
+        let prompt = RelayPMPrompt.assemble(context: context)
+        XCTAssertTrue(prompt.contains("## Kickoff brief (founder)"), prompt)
+        XCTAssertTrue(prompt.contains(brief), prompt)
+        // Placement: after rounds-remaining line, before founderNote / dev-report blocks.
+        let kickoffIdx = try XCTUnwrap(prompt.range(of: "## Kickoff brief (founder)")).lowerBound
+        let roundsIdx = try XCTUnwrap(prompt.range(of: "rounds left before this relay stops")).lowerBound
+        XCTAssertLessThan(roundsIdx, kickoffIdx)
+    }
+
+    func testKickoffBriefAbsentWhenNilAsAfterConsume() {
+        // Simulated second-round assemble: coordinator clears kickoffMessage after first PM turn.
+        let context = RelayPMPrompt.Context(
+            docPath: "docs/phases/Agent_Team_Loop.md",
+            roundNumber: 2,
+            baselineHead: "abc123",
+            currentHead: "def456",
+            devReport: "Dev delivered the parser fix.",
+            kickoffMessage: nil,
+            maxRounds: 20,
+            roundsRemaining: 19
+        )
+        let prompt = RelayPMPrompt.assemble(context: context)
+        XCTAssertFalse(prompt.contains("Kickoff brief"), prompt)
+        XCTAssertFalse(prompt.contains("## Kickoff brief (founder)"), prompt)
+    }
+
+    func testKickoffBriefVerbatimNotParaphrased() {
+        let brief = "Ship X exactly;\n  keep  indentation\nand newlines."
+        let context = RelayPMPrompt.Context(
+            docPath: "docs/spec.md",
+            roundNumber: 1,
+            baselineHead: "abc",
+            kickoffMessage: brief,
+            maxRounds: 5,
+            roundsRemaining: 5
+        )
+        let prompt = RelayPMPrompt.assemble(context: context)
+        XCTAssertTrue(prompt.contains("## Kickoff brief (founder)\n\(brief)"), prompt)
+    }
+
     // MARK: - Ceiling awareness
 
     func testRoundsRemainingRendered() {

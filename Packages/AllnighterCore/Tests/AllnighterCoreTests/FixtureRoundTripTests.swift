@@ -125,7 +125,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // PTD-1f adds detached delivery acknowledgements in 6.3.0.
         // CLI_Park bumps contract 6.3.0 → 6.4.0 (`drivers`/`drivers park`/
         // `drivers unpark` additions, plus registering the existing `detect`).
-        XCTAssertEqual(trj.contractVersion, "6.4.0")
+        // ATL-S01 bumps contract 6.4.0 → 6.5.0 (`pair relay --message` /
+        // `--message-file` kickoff brief flags).
+        XCTAssertEqual(trj.contractVersion, "6.5.0")
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
         XCTAssertEqual(trj.teamRun.origin, .cli)
         XCTAssertEqual(trj.agents.count, 1)

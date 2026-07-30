@@ -44,6 +44,10 @@ public struct RelayCoordinator: Sendable {
         /// (`RunRequest.workerTimeoutSeconds`, reusing PO-F5's field + runner plumbing).
         /// `nil` (default) leaves the driver manifest's idle timeout untouched.
         public var devTurnIdleTimeoutSeconds: Int?
+        /// ATL-S01: founder kickoff brief for the first PM turn only. Optional;
+        /// when set, persisted on claim and consume-once cleared after the first
+        /// PM prompt assemble. Never written into `founderNote` (resume-only).
+        public var kickoffMessage: String?
 
         public init(
             projectRoot: String,
@@ -58,7 +62,8 @@ public struct RelayCoordinator: Sendable {
             proofTimeoutSeconds: Int = ProjectVerificationService.defaultTimeoutSeconds,
             executionLaneWaitTimeout: Duration = .seconds(1800),
             proofLaneWaitTimeout: Duration = .seconds(1800),
-            devTurnIdleTimeoutSeconds: Int? = nil
+            devTurnIdleTimeoutSeconds: Int? = nil,
+            kickoffMessage: String? = nil
         ) {
             self.projectRoot = projectRoot
             self.projectId = projectId
@@ -73,6 +78,7 @@ public struct RelayCoordinator: Sendable {
             self.executionLaneWaitTimeout = executionLaneWaitTimeout
             self.proofLaneWaitTimeout = proofLaneWaitTimeout
             self.devTurnIdleTimeoutSeconds = devTurnIdleTimeoutSeconds
+            self.kickoffMessage = kickoffMessage
         }
     }
 
@@ -258,7 +264,8 @@ public struct RelayCoordinator: Sendable {
             pmModelId: config.pmModelId,
             devModelId: config.devModelId,
             status: .running,
-            createdAt: now()
+            createdAt: now(),
+            kickoffMessage: config.kickoffMessage
         )
         threadProjector?.started(state: state, projectId: config.projectId)
         do {
@@ -1024,6 +1031,7 @@ public struct RelayCoordinator: Sendable {
         let previousRound = roundNumber > 1 ? state.rounds[state.rounds.count - 2] : nil
         let devReport = previousRound?.devRunId.flatMap { devReportText(runId: $0) }
         let founderNote = state.founderNote
+        let kickoffMessage = state.kickoffMessage
         let pmContext = RelayPMPrompt.Context(
             docPath: config.docPath,
             roundNumber: roundNumber,
@@ -1032,12 +1040,18 @@ public struct RelayCoordinator: Sendable {
             devReport: devReport,
             founderNote: founderNote,
             adoptionNote: adoptionNote,
+            kickoffMessage: kickoffMessage,
             maxRounds: config.maxRounds,
             roundsRemaining: max(0, config.maxRounds - roundNumber + 1)
         )
         if founderNote != nil {
             // One-time injection into "the next PM turn" (brief) — never restated.
             state.founderNote = nil
+            persist(state)
+        }
+        if kickoffMessage != nil {
+            // ATL-S01: consume-once after first PM assemble — later rounds never re-inject.
+            state.kickoffMessage = nil
             persist(state)
         }
 

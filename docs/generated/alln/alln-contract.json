@@ -5368,7 +5368,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "6.4.0",
+  "contractVersion" : "6.5.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

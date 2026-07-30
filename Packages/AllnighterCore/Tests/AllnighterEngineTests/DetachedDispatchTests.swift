@@ -110,6 +110,32 @@ final class DetachedDispatchTests: XCTestCase {
         XCTAssertEqual(DetachedDispatch.childArguments(from: argv), ["run", "work", "--json"])
     }
 
+    /// ATL-S01: detach strips only `--no-wait` / `--delivery`; kickoff flags must
+    /// reach the child argv unchanged so the first PM turn still sees the brief.
+    func testChildArgumentsPreservesMessageAndMessageFile() {
+        let withMessage = [
+            "pair", "relay", "--doc", "docs/spec.md", "--project", ".",
+            "--pm-model", "model_pm", "--dev-model", "model_dev",
+            "--message", "Ship the parser fix", "--no-wait", "--json",
+        ]
+        XCTAssertEqual(
+            DetachedDispatch.childArguments(from: withMessage),
+            [
+                "pair", "relay", "--doc", "docs/spec.md", "--project", ".",
+                "--pm-model", "model_pm", "--dev-model", "model_dev",
+                "--message", "Ship the parser fix", "--json",
+            ]
+        )
+        let withFile = [
+            "pair", "relay", "--doc", "docs/spec.md",
+            "--message-file", "/tmp/kickoff.md", "--no-wait", "--delivery", "wake",
+        ]
+        XCTAssertEqual(
+            DetachedDispatch.childArguments(from: withFile),
+            ["pair", "relay", "--doc", "docs/spec.md", "--message-file", "/tmp/kickoff.md"]
+        )
+    }
+
     func testLaunchAndAwaitAcceptanceAccepted() throws {
         let script = tmp.appendingPathComponent("accept.sh")
         // Child writes runner_ready.json into $ALLNIGHTER_DETACHED_HANDOFF then exits.

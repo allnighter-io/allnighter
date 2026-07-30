@@ -20,7 +20,7 @@ enum RelayCLI {
             await runAdopt(Array(args.dropFirst()), runtime: runtime)
             return
         }
-        guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-model <modelId> --dev-model <modelId> [--until HH:MM] [--max-rounds N] [--idle-timeout <seconds>] [--no-wait] [--json]") }
+        guard !args.isEmpty else { usage("relay --doc <path> --project <id|path> --pm-model <modelId> --dev-model <modelId> [--message <text> | --message-file <path>] [--until HH:MM] [--max-rounds N] [--idle-timeout <seconds>] [--no-wait] [--json]") }
         let opts = Options(args)
         let config: RelayCoordinator.Config
         do {
@@ -312,6 +312,12 @@ enum RelayCLI {
         /// instead of losing that detail through the generic `errorEnvelope` mapping
         /// (mirrors `PilotSeatResolver.Error.exactId`).
         case workerNotAvailable(ExactIdResolver.Failure)
+        /// ATL-S01: both `--message` and `--message-file` present.
+        case kickoffMessageMutex
+        /// ATL-S01: `--message-file` path missing or unreadable.
+        case kickoffMessageFileUnreadable(String)
+        /// ATL-S01: either flag present but body empty after trim.
+        case kickoffMessageEmpty
     }
 
     static func parseStartConfig(
@@ -345,6 +351,7 @@ enum RelayCLI {
         // PO-F7: reuses PO-F5's `alln run --idle-timeout` parse helper — no second idle system.
         let idleParsed = RunCLI.parseIdleTimeoutSeconds(opts.value("idle-timeout"))
         if let error = idleParsed.error { throw RelayCLIError.invalidIdleTimeout(error) }
+        let kickoffMessage = try parseKickoffMessage(opts)
         return RelayCoordinator.Config(
             projectRoot: project.normalizedRootPath,
             projectId: project.id,
@@ -353,8 +360,37 @@ enum RelayCLI {
             devModelId: devModelId,
             maxRounds: maxRounds,
             until: untilParsed.value,
-            devTurnIdleTimeoutSeconds: idleParsed.value
+            devTurnIdleTimeoutSeconds: idleParsed.value,
+            kickoffMessage: kickoffMessage
         )
+    }
+
+    /// ATL-S01: optional kickoff brief from `--message` or `--message-file`.
+    /// Neither flag → `nil` (back-compat). Both → mutex error. Flag present but
+    /// empty-after-trim → refuse. File missing/unreadable → refuse. No silent truncation.
+    static func parseKickoffMessage(_ opts: Options) throws -> String? {
+        let inline = opts.value("message")
+        let filePath = opts.value("message-file")
+        switch (inline, filePath) {
+        case (nil, nil):
+            return nil
+        case (.some, .some):
+            throw RelayCLIError.kickoffMessageMutex
+        case (.some(let text), nil):
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw RelayCLIError.kickoffMessageEmpty
+            }
+            return text
+        case (nil, .some(let path)):
+            guard let data = FileManager.default.contents(atPath: path),
+                  let text = String(data: data, encoding: .utf8) else {
+                throw RelayCLIError.kickoffMessageFileUnreadable(path)
+            }
+            guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                throw RelayCLIError.kickoffMessageEmpty
+            }
+            return text
+        }
     }
 
     static func parseResumeRequest(
@@ -506,6 +542,12 @@ enum RelayCLI {
             return ("RELAY_STATE_DECODE_FAILED", detail.agentMessage)
         case .relayNotEscalated(let status):
             return ("RELAY_INVALID_STATE", "relay is \(status), not resumable — only an escalated relay, or one reconciled after its owner process died, can be resumed")
+        case .kickoffMessageMutex:
+            return ("CLI_USAGE_ERROR", "--message and --message-file are mutually exclusive")
+        case .kickoffMessageFileUnreadable(let path):
+            return ("CLI_USAGE_ERROR", "--message-file unreadable: \(path)")
+        case .kickoffMessageEmpty:
+            return ("CLI_USAGE_ERROR", "kickoff brief is required when --message/--message-file is set")
         }
     }
 

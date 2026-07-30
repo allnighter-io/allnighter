@@ -114,6 +114,95 @@ final class RelayCLITests: XCTestCase {
         XCTAssertEqual(config.maxRounds, 20)   // default
         XCTAssertNil(config.until)
         XCTAssertNil(config.devTurnIdleTimeoutSeconds)   // default: no override
+        XCTAssertNil(config.kickoffMessage)   // ATL-S01: CLI-optional back-compat
+    }
+
+    // MARK: - Kickoff brief (ATL-S01)
+
+    func testParseStartConfigMessageThreadsIntoKickoffMessage() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let config = try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--pm-model", "model_pm", "--dev-model", "model_dev",
+             "--message", "Ship the parser fix; do not touch UI"],
+            projectStore: store,
+            models: testModels
+        )
+        XCTAssertEqual(config.kickoffMessage, "Ship the parser fix; do not touch UI")
+    }
+
+    func testParseStartConfigMessageFileThreadsFullBodyNoTruncation() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let file = tmp.appendingPathComponent("kickoff.md")
+        // Long body — must survive intact (negative: silent truncation fails the slice).
+        let body = String(repeating: "Ship ATL-S01 kickoff. ", count: 200) + "END_MARKER"
+        try body.write(to: file, atomically: true, encoding: .utf8)
+        let config = try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id, "--pm-model", "model_pm", "--dev-model", "model_dev",
+             "--message-file", file.path],
+            projectStore: store,
+            models: testModels
+        )
+        XCTAssertEqual(config.kickoffMessage, body)
+        XCTAssertTrue(config.kickoffMessage?.hasSuffix("END_MARKER") == true)
+    }
+
+    func testParseStartConfigMessageAndMessageFileMutexThrows() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev",
+             "--message", "x", "--message-file", "y"],
+            projectStore: store,
+            models: testModels
+        )) { error in
+            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .kickoffMessageMutex)
+        }
+    }
+
+    func testParseStartConfigEmptyMessageThrows() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        for empty in ["", "   ", "\n\t"] {
+            XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+                ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev",
+                 "--message", empty],
+                projectStore: store,
+                models: testModels
+            )) { error in
+                XCTAssertEqual(error as? RelayCLI.RelayCLIError, .kickoffMessageEmpty, "empty=\(empty.debugDescription)")
+            }
+        }
+    }
+
+    func testParseStartConfigEmptyMessageFileThrows() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        let file = tmp.appendingPathComponent("empty-kickoff.md")
+        try "   \n".write(to: file, atomically: true, encoding: .utf8)
+        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev",
+             "--message-file", file.path],
+            projectStore: store,
+            models: testModels
+        )) { error in
+            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .kickoffMessageEmpty)
+        }
+    }
+
+    func testParseStartConfigMissingMessageFileThrows() throws {
+        let store = makeProjectStore()
+        try addProject(store)
+        let missing = tmp.appendingPathComponent("no-such-kickoff.md").path
+        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev",
+             "--message-file", missing],
+            projectStore: store,
+            models: testModels
+        )) { error in
+            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .kickoffMessageFileUnreadable(missing))
+        }
     }
 
     func testParseStartConfigCustomMaxRoundsAndUntil() throws {
@@ -322,6 +411,9 @@ final class RelayCLITests: XCTestCase {
                 code: "AGENT_NOT_AVAILABLE", kind: .worker, flag: "--pm-model", provided: "model_ghost",
                 message: "unknown worker id 'model_ghost'", candidates: [], discoveryCommand: "alln menu --json"
             )),
+            .kickoffMessageMutex,
+            .kickoffMessageFileUnreadable("/tmp/missing.md"),
+            .kickoffMessageEmpty,
         ]
         for c in cases {
             let (code, message) = RelayCLI.errorEnvelope(c)

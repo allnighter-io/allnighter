@@ -225,6 +225,10 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// next PM turn's prompt context (`RelayPMPrompt.Context.founderNote`), then cleared
     /// once consumed.
     public var founderNote: String?
+    /// ATL-S01: founder kickoff brief from `pair relay --message` / `--message-file`.
+    /// Set once at `claimStart`, injected into the first PM prompt assemble, then
+    /// cleared (consume-once). Never written into `founderNote` (resume-only).
+    public var kickoffMessage: String?
     /// Pilot only (`pmMode == .external`): the round ceiling set once at `pilot start`
     /// and re-read at every later `pilot handoff`. A spawned relay gets its ceiling
     /// fresh from `RelayCoordinator.Config` on every `run`/`resume` call (one
@@ -260,6 +264,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         note: String? = nil,
         stoppedReason: String? = nil,
         founderNote: String? = nil,
+        kickoffMessage: String? = nil,
         pilotMaxRounds: Int? = nil,
         pilotStagnationRoundCap: Int? = nil,
         pilotDevTurnIdleTimeoutSeconds: Int? = nil,
@@ -278,6 +283,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.note = note
         self.stoppedReason = stoppedReason
         self.founderNote = founderNote
+        self.kickoffMessage = kickoffMessage
         self.pilotMaxRounds = pilotMaxRounds
         self.pilotStagnationRoundCap = pilotStagnationRoundCap
         self.pilotDevTurnIdleTimeoutSeconds = pilotDevTurnIdleTimeoutSeconds
@@ -309,6 +315,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         note = try c.decodeIfPresent(String.self, forKey: .note)
         stoppedReason = try c.decodeIfPresent(String.self, forKey: .stoppedReason)
         founderNote = try c.decodeIfPresent(String.self, forKey: .founderNote)
+        kickoffMessage = try c.decodeIfPresent(String.self, forKey: .kickoffMessage)
         pilotMaxRounds = try c.decodeIfPresent(Int.self, forKey: .pilotMaxRounds)
         pilotStagnationRoundCap = try c.decodeIfPresent(Int.self, forKey: .pilotStagnationRoundCap)
         pilotDevTurnIdleTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .pilotDevTurnIdleTimeoutSeconds)

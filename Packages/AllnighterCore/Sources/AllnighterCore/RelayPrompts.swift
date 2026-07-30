@@ -24,6 +24,9 @@ public enum RelayPMPrompt {
         /// the round log as its own relay's history rather than a stranger's. `nil` on
         /// every other round, including later rounds of the same adopted relay.
         public var adoptionNote: String?
+        /// ATL-S01: founder kickoff brief for the first PM turn only — verbatim,
+        /// never paraphrased. Cleared on the coordinator after first assemble.
+        public var kickoffMessage: String?
         public var maxRounds: Int
         public var roundsRemaining: Int
 
@@ -35,6 +38,7 @@ public enum RelayPMPrompt {
             devReport: String? = nil,
             founderNote: String? = nil,
             adoptionNote: String? = nil,
+            kickoffMessage: String? = nil,
             maxRounds: Int,
             roundsRemaining: Int
         ) {
@@ -45,6 +49,7 @@ public enum RelayPMPrompt {
             self.devReport = devReport
             self.founderNote = founderNote
             self.adoptionNote = adoptionNote
+            self.kickoffMessage = kickoffMessage
             self.maxRounds = maxRounds
             self.roundsRemaining = roundsRemaining
         }
@@ -62,6 +67,13 @@ public enum RelayPMPrompt {
             memoryPointerLine(),
             "You have \(context.roundsRemaining) of \(context.maxRounds) rounds left before this relay stops itself. Plan the remaining work with that ceiling in mind — escalate rather than let it run out silently.",
         ]
+
+        // ATL-S01: after rounds-remaining, before founderNote / dev-report blocks.
+        // Emptiness uses trim; the body is the stored string verbatim (never paraphrased).
+        if let kickoffMessage = context.kickoffMessage,
+           !kickoffMessage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            parts.append("## Kickoff brief (founder)\n\(kickoffMessage)")
+        }
 
         if let founderNote = context.founderNote, !founderNote.isEmpty {
             parts.append("## Founder note (injected on resume)\n\(founderNote)")
