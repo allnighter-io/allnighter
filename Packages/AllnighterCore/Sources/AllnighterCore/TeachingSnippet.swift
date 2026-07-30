@@ -29,6 +29,7 @@ public enum TeachingSnippet {
         "3. Before an unfamiliar agent-starting action, run its validation template.",
         "4. Re-read the live menu in a new session; never trust a pasted catalog.",
         "5. After `--no-wait`, run the returned delivery command once; never poll or use resume for terminal delivery.",
+        "6. Relay running ≠ dev running — check devRunId.",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.

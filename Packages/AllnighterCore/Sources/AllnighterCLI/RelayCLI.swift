@@ -80,7 +80,8 @@ enum RelayCLI {
     static func runStatus(
         _ args: [String],
         stateStore: RelayStateStore = RelayStateStore(),
-        threadProjector: RelayThreadProjector? = RelayThreadProjector()
+        threadProjector: RelayThreadProjector? = RelayThreadProjector(),
+        runStore: RunStore = RunStore()
     ) {
         guard !args.isEmpty else { usage("relay-status --relay <id> [--wait-for parked|terminal --timeout <seconds>] [--json]") }
         let opts = Options(args)
@@ -126,7 +127,8 @@ enum RelayCLI {
             contractVersion: ContractRegistry.contractVersion,
             pmTurn: pmTurn.pmTurn,
             notes: pmTurn.notes,
-            pmTurnDelivery: pmTurn.pmTurnDelivery
+            pmTurnDelivery: pmTurn.pmTurnDelivery,
+            runStore: runStore
         )
         json.waitOutcome = waitOutcome?.rawValue
         if opts.flag("json") {
@@ -135,6 +137,11 @@ enum RelayCLI {
             print(RelayDispatch.humanRelaySummary(json))
             let log = RelayDispatch.humanRoundLog(json)
             if !log.isEmpty { print(log) }
+            if let line = PilotCLI.humanDevLegLine(
+                StreamLiveness.devLegProjection(state: state, runStore: runStore)
+            ) {
+                print(line)
+            }
             if let waitOutcome { print("wait outcome: \(waitOutcome.rawValue)") }
         }
         if waitOutcome == .timedOut {

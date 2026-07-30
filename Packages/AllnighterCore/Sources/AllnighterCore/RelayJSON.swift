@@ -41,6 +41,9 @@ public struct RelayJSON: Codable, Equatable, Sendable {
     public var pmTurnDelivery: PMTurnDeliveryJSON?
     /// Present only for `--wait-for`: matched, timedOut, or terminalMismatch.
     public var waitOutcome: String?
+    /// CD-S01a: linked dev-leg projection (running / settling / parked). Same helper
+    /// as `pilot status` — attach via `StreamLiveness.devLegProjection`.
+    public var devLeg: RelayDevLegProjection?
 
     public init(
         schemaVersion: Int = 1,
@@ -60,7 +63,8 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         pmTurn: PMTurnJSON? = nil,
         notes: [String] = [],
         pmTurnDelivery: PMTurnDeliveryJSON? = nil,
-        waitOutcome: String? = nil
+        waitOutcome: String? = nil,
+        devLeg: RelayDevLegProjection? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -80,19 +84,25 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         self.notes = notes
         self.pmTurnDelivery = pmTurnDelivery
         self.waitOutcome = waitOutcome
+        self.devLeg = devLeg
     }
 
     /// Projects a durable `RelayState` to its wire shape. The one place CLI and MCP
     /// both call, so `alln pair relay` output and MCP `pair_relay` output can never
     /// drift (Agent-First Product Law: MCP never richer than the CLI).
+    ///
+    /// Pass `runStore` to attach the shared CD-S01a dev-leg projection (pilot +
+    /// relay-status pair-equality). Without it, `devLeg` is omitted.
     public static func project(
         _ state: RelayState,
         contractVersion: String,
         pmTurn: PMTurnJSON? = nil,
         notes: [String] = [],
-        pmTurnDelivery: PMTurnDeliveryJSON? = nil
+        pmTurnDelivery: PMTurnDeliveryJSON? = nil,
+        runStore: (any RunStoreReading)? = nil
     ) -> RelayJSON {
-        RelayJSON(
+        let devLeg = runStore.map { StreamLiveness.devLegProjection(state: state, runStore: $0) }
+        return RelayJSON(
             contractVersion: contractVersion,
             relayId: state.id,
             status: state.status.rawValue,
@@ -108,13 +118,15 @@ public struct RelayJSON: Codable, Equatable, Sendable {
             laneBlocked: state.laneBlocked,
             pmTurn: pmTurn,
             notes: notes,
-            pmTurnDelivery: pmTurnDelivery
+            pmTurnDelivery: pmTurnDelivery,
+            devLeg: devLeg
         )
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, relayId, status, pmMode, rounds, verdict, note
         case roundLog, docPath, pmModelId, devModelId, stoppedReason, laneBlocked, pmTurn, notes, pmTurnDelivery, waitOutcome
+        case devLeg
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -137,6 +149,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         try c.encode(notes, forKey: .notes)
         try c.encodeIfPresent(pmTurnDelivery, forKey: .pmTurnDelivery)
         try c.encodeIfPresent(waitOutcome, forKey: .waitOutcome)
+        try c.encodeIfPresent(devLeg, forKey: .devLeg)
     }
 }
 

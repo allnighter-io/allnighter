@@ -10,12 +10,13 @@ One named worker, one read-only ask — use `alln run`, not a multi-seat team. P
 
 ## Teaching (keep in sync with TeachingSnippet)
 
-<!-- ALLNIGHTER:TEACHING v5 hash=20323b37ce8ab80e18fd86c54853ca740456a18131269f021a0b209731bdd8b2 -->
+<!-- ALLNIGHTER:TEACHING v5 hash=5f0fd78e583e6e41d3f02f00ebb2b42cd078a60ca6be5e0282f8e2df9938e179 -->
 1. Before first Allnighter use in a session, read `alln menu --json`.
 2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.
 3. Before an unfamiliar agent-starting action, run its validation template.
 4. Re-read the live menu in a new session; never trust a pasted catalog.
 5. After `--no-wait`, run the returned delivery command once; never poll or use resume for terminal delivery.
+6. Relay running ≠ dev running — check devRunId.
 <!-- ALLNIGHTER:TEACHING:END -->
 
 ## Recipe

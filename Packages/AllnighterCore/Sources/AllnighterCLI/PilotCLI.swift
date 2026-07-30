@@ -929,8 +929,11 @@ enum PilotCLI {
         runStore: RunStore = RunStore(),
         waitOutcome: PMTurnStatusWait.Outcome? = nil
     ) {
-        let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
-        let recoveryLine = recoveryActionLine(for: state, recovery: recovery)
+        let relayJSON = RelayJSON.project(
+            state, contractVersion: ContractRegistry.contractVersion, runStore: runStore
+        )
+        let devLeg = StreamLiveness.devLegProjection(state: state, runStore: runStore)
+        let recoveryLine = recoveryActionLine(for: state, recovery: recovery, devLeg: devLeg)
         if json {
             var status = makeStatusJSON(
                 state: state, recovery: recovery, stateStore: stateStore, runStore: runStore
@@ -942,9 +945,10 @@ enum PilotCLI {
             print(RelayDispatch.humanRelaySummary(relayJSON))
             let log = RelayDispatch.humanRoundLog(relayJSON)
             if !log.isEmpty { print(log) }
+            if let line = humanDevLegLine(devLeg) { print(line) }
             if let recoveryLine { print(recoveryLine) }
             if let waitOutcome { print("wait outcome: \(waitOutcome.rawValue)") }
-            print(nextActionLine(for: state))
+            print(nextActionLine(for: state, devLeg: devLeg))
         }
     }
 
@@ -954,6 +958,7 @@ enum PilotCLI {
     static let streamSilenceWarningMultiplier: Double = 6
 
     /// Builds `pilot status --json` — long-job fields only while `.running` + handoff alive.
+    /// CD-S01a: always attaches shared `devLeg` (running / settling / parked).
     static func makeStatusJSON(
         state: RelayState,
         recovery: InFlightRecovery,
@@ -967,6 +972,7 @@ enum PilotCLI {
             state: state, recovery: recovery, stateStore: stateStore,
             runStore: runStore, gitObserver: gitObserver, now: now
         )
+        let devLeg = StreamLiveness.devLegProjection(state: state, runStore: runStore)
         let pmTurn = PMTurnStatusProjection.load(
             kind: .relay,
             subjectId: state.id,
@@ -979,16 +985,21 @@ enum PilotCLI {
                 contractVersion: ContractRegistry.contractVersion,
                 pmTurn: pmTurn.pmTurn,
                 notes: pmTurn.notes,
-                pmTurnDelivery: pmTurn.pmTurnDelivery
+                pmTurnDelivery: pmTurn.pmTurnDelivery,
+                runStore: runStore
             ),
             pmTurn: pmTurn.pmTurn,
             notes: pmTurn.notes,
             pmTurnDelivery: pmTurn.pmTurnDelivery,
             recovery: recoveryActionLine(
-                for: state, recovery: recovery, streamSilenceWarning: longJob.streamSilenceWarning
+                for: state, recovery: recovery,
+                streamSilenceWarning: longJob.streamSilenceWarning,
+                devLeg: devLeg
             ),
-            nextActions: recoveryNextActions(
-                for: state, recovery: recovery, streamSilenceWarning: longJob.streamSilenceWarning
+            nextActions: statusNextActions(
+                for: state, recovery: recovery,
+                streamSilenceWarning: longJob.streamSilenceWarning,
+                devLeg: devLeg
             ),
             elapsedSeconds: longJob.elapsedSeconds,
             ownerAlive: longJob.ownerAlive,
@@ -997,7 +1008,8 @@ enum PilotCLI {
             streamSilenceWarning: longJob.streamSilenceWarning,
             commitsSinceBaseline: longJob.commitsSinceBaseline,
             waitHintSeconds: longJob.waitHintSeconds,
-            watcherDisposable: longJob.watcherDisposable
+            watcherDisposable: longJob.watcherDisposable,
+            devLeg: devLeg
         )
     }
 
@@ -1116,12 +1128,20 @@ enum PilotCLI {
     static func recoveryActionLine(
         for state: RelayState,
         recovery: InFlightRecovery,
-        streamSilenceWarning: Bool? = nil
+        streamSilenceWarning: Bool? = nil,
+        devLeg: RelayDevLegProjection? = nil
     ) -> String? {
         switch recovery {
         case .none:
             return nil
         case .handoffAlive:
+            if devLeg?.phase == .settling {
+                var line = "dev leg terminal (settling) — worker finished; harness settlement still in progress. Wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json`. Relay running ≠ dev running — check devRunId\(devLeg?.devRunId.map { " (\($0))" } ?? "")."
+                if let end = devLeg?.devEndReason {
+                    line += " devEndReason=\(end)."
+                }
+                return line
+            }
             var line = "in flight — handoff process alive; wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json` until it settles (stream silence is primary liveness — matches `alln ps`; commitsSinceBaseline is supplementary only). Optional: `alln pair pilot watch --relay \(state.id)`. A killed watch is not a failed round."
             if streamSilenceWarning == true {
                 line += " streamSilenceWarning: worker stream has been silent longer than \(Int(statusWaitHintSeconds * streamSilenceWarningMultiplier))s — inspect with `alln ps` (process tree may still be busy without worker output)."
@@ -1170,9 +1190,86 @@ enum PilotCLI {
         }
     }
 
+    /// CD-S01a: prefer settling / parked next-actions over "wait as if dev still live".
+    static func statusNextActions(
+        for state: RelayState,
+        recovery: InFlightRecovery,
+        streamSilenceWarning: Bool? = nil,
+        devLeg: RelayDevLegProjection
+    ) -> [AgentSurfaceNextAction] {
+        switch devLeg.phase {
+        case .settling:
+            var actions: [AgentSurfaceNextAction] = [
+                .init(
+                    kind: "waitForSettlement",
+                    label: "Dev leg terminal — wait for relay to park (not progress on a dead dev)",
+                    command: "alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json"
+                ),
+            ]
+            if let devRunId = devLeg.devRunId {
+                actions.append(.init(
+                    kind: "inspectDevRun",
+                    label: "Inspect terminal dev run facts",
+                    command: "alln team status \(devRunId) --json"
+                ))
+            }
+            return actions
+        case .parked:
+            if state.status == .awaitingPM, state.pmMode == .external {
+                return [
+                    .init(
+                        kind: "pilotHandoff",
+                        label: "Review dev report, then hand off the next order",
+                        command: "alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file order.md --json"
+                    ),
+                    .init(
+                        kind: "inspectDevRun",
+                        label: "Inspect terminal dev run facts",
+                        command: devLeg.devRunId.map { "alln team status \($0) --json" }
+                            ?? "alln pair pilot status --relay \(state.id) --json"
+                    ),
+                ]
+            }
+            return recoveryNextActions(
+                for: state, recovery: recovery, streamSilenceWarning: streamSilenceWarning
+            )
+        case .running, .none:
+            return recoveryNextActions(
+                for: state, recovery: recovery, streamSilenceWarning: streamSilenceWarning
+            )
+        }
+    }
+
+    static func humanDevLegLine(_ devLeg: RelayDevLegProjection) -> String? {
+        switch devLeg.phase {
+        case .none:
+            return nil
+        case .running:
+            guard let id = devLeg.devRunId else { return nil }
+            return "dev leg: running · \(id)\(devLeg.devRunStatus.map { " · \($0)" } ?? "")"
+        case .settling:
+            var parts = ["dev leg: settling (worker terminal — not aggregate progress)"]
+            if let id = devLeg.devRunId { parts.append(id) }
+            if let st = devLeg.devRunStatus { parts.append(st) }
+            if let end = devLeg.devEndReason { parts.append("endReason=\(end)") }
+            if let commit = devLeg.commit { parts.append("commit=\(commit)") }
+            return parts.joined(separator: " · ")
+        case .parked:
+            var parts = ["dev leg: parked"]
+            if let id = devLeg.devRunId { parts.append(id) }
+            if let st = devLeg.devRunStatus { parts.append(st) }
+            if let end = devLeg.devEndReason { parts.append("endReason=\(end)") }
+            if let commit = devLeg.commit { parts.append("commit=\(commit)") }
+            return parts.joined(separator: " · ")
+        }
+    }
+
     /// The next-action discipline (Pilot_Relay.md §1 decision 5): every non-JSON print
     /// says, in one line, what the piloting session should do next.
-    static func nextActionLine(for state: RelayState) -> String {
+    static func nextActionLine(for state: RelayState, devLeg: RelayDevLegProjection? = nil) -> String {
+        if devLeg?.phase == .settling {
+            return "dev leg terminal (settling) — wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json`; do not treat relay running as proof the dev worker is still live (check devRunId)."
+        }
         switch state.status {
         case .awaitingPM:
             return "next: write this round's order markdown, then `alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file <order.md>` (or `--file <md>` with a RelayVerdict tail for scripted PM output)."
@@ -1328,6 +1425,7 @@ struct PilotHandoffJSON: Encodable {
 /// (RLR-L6 `lastActivityAt` on the linked dev run — same truth as `alln ps`);
 /// `streamSilenceWarning` when silence exceeds 6×`waitHintSeconds`; `commitsSinceBaseline`
 /// is SUPPLEMENTARY only (not proof of life).
+/// CD-S01a: `devLeg` is always present (shared with `relay-status`).
 struct PilotStatusJSON: Encodable {
     var relay: RelayJSON
     let pmTurn: PMTurnJSON?
@@ -1344,6 +1442,7 @@ struct PilotStatusJSON: Encodable {
     let waitHintSeconds: Double?
     let watcherDisposable: Bool?
     var waitOutcome: String?
+    let devLeg: RelayDevLegProjection?
 
     init(
         relay: RelayJSON,
@@ -1360,7 +1459,8 @@ struct PilotStatusJSON: Encodable {
         commitsSinceBaseline: Int? = nil,
         waitHintSeconds: Double? = nil,
         watcherDisposable: Bool? = nil,
-        waitOutcome: String? = nil
+        waitOutcome: String? = nil,
+        devLeg: RelayDevLegProjection? = nil
     ) {
         self.relay = relay
         self.pmTurn = pmTurn
@@ -1377,6 +1477,7 @@ struct PilotStatusJSON: Encodable {
         self.waitHintSeconds = waitHintSeconds
         self.watcherDisposable = watcherDisposable
         self.waitOutcome = waitOutcome
+        self.devLeg = devLeg
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1396,13 +1497,14 @@ struct PilotStatusJSON: Encodable {
         try c.encodeIfPresent(waitHintSeconds, forKey: .waitHintSeconds)
         try c.encodeIfPresent(watcherDisposable, forKey: .watcherDisposable)
         try c.encodeIfPresent(waitOutcome, forKey: .waitOutcome)
+        try c.encodeIfPresent(devLeg, forKey: .devLeg)
     }
 
     private enum CodingKeys: String, CodingKey {
         case relay, pmTurn, notes, pmTurnDelivery, recovery, nextActions
         case elapsedSeconds, ownerAlive, lastProgressAt, silenceAgeSeconds
         case streamSilenceWarning, commitsSinceBaseline, waitHintSeconds, watcherDisposable
-        case waitOutcome
+        case waitOutcome, devLeg
     }
 }
 
