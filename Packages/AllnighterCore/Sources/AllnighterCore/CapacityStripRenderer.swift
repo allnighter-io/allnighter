@@ -264,7 +264,7 @@ public enum CapacityStripRenderer {
             let age = pad(ageLabel(for: row, now: now), ageW)
 
             if let reason = row.unknownReason {
-                let weekly = pad(unknownCopy(reason, now: now), weeklyW)
+                let weekly = pad(unknownCopy(reason), weeklyW)
                 let short = pad("-", shortW)
                 var line = "\(name) \(plan) \(weekly) \(short) \(age)"
                 if tty { line = ansi(line, color: color) }
@@ -286,7 +286,7 @@ public enum CapacityStripRenderer {
                     }
                     let planCell = pad(poolTag, planW)
                     let ageCell = idx == 0 ? age : pad("", ageW)
-                    let weekly = pad(dashboardCell(pool: pool, now: now, barWidth: 8, tty: tty), weeklyW)
+                    let weekly = pad(dashboardCell(pool: pool, now: now, barWidth: 8), weeklyW)
                     let short = pad(shortCell(pool: pool, row: row), shortW)
                     var line = "\(labelPrefix) \(planCell) \(weekly) \(short) \(ageCell)"
                     if tty { line = ansi(line, color: color) }
@@ -297,7 +297,7 @@ public enum CapacityStripRenderer {
 
             let pool = row.pools.first
             let weekly = pad(
-                pool.map { dashboardCell(pool: $0, now: now, barWidth: 8, tty: tty) } ?? "-",
+                pool.map { dashboardCell(pool: $0, now: now, barWidth: 8) } ?? "-",
                 weeklyW
             )
             let short = pad(
@@ -350,11 +350,10 @@ public enum CapacityStripRenderer {
     private static func dashboardCell(
         pool: CapacityBenchPoolMetrics,
         now: Date,
-        barWidth: Int,
-        tty: Bool
+        barWidth: Int
     ) -> String {
         if let reason = pool.unknownReason, pool.dashboardRemainingPercent == nil {
-            return unknownCopy(reason, now: now)
+            return unknownCopy(reason)
         }
         guard let remaining = pool.dashboardRemainingPercent else {
             return "-"
@@ -366,7 +365,7 @@ public enum CapacityStripRenderer {
         } else {
             clock = "-"
         }
-        let bar = barGlyph(remainingPercent: remaining, width: barWidth, tty: tty)
+        let bar = barGlyph(remainingPercent: remaining, width: barWidth)
         return "\(bar) \(pct) \(clock)"
     }
 
@@ -461,7 +460,7 @@ public enum CapacityStripRenderer {
         return "\(minutes)m ago"
     }
 
-    public static func unknownCopy(_ reason: CapacityUnknownReason, now: Date) -> String {
+    public static func unknownCopy(_ reason: CapacityUnknownReason) -> String {
         switch reason {
         case .vendorExposesNothing:
             return "unknown — no usage surface"
@@ -491,15 +490,13 @@ public enum CapacityStripRenderer {
         return String(format: "%04d-%02d-%02d", y, m, d)
     }
 
-    private static func barGlyph(remainingPercent: Double, width: Int, tty: Bool) -> String {
+    private static func barGlyph(remainingPercent: Double, width: Int) -> String {
         let w = max(4, width)
         let clamped = min(100.0, max(0.0, remainingPercent))
         let filled = Int((clamped / 100.0 * Double(w)).rounded(.towardZero))
         let empty = w - filled
-        // ASCII only — no box-drawing in either variant (TTY uses ANSI colour, not unicode bars).
-        let on: Character = tty ? "#" : "#"
-        let off: Character = tty ? "-" : "-"
-        return String(repeating: String(on), count: filled) + String(repeating: String(off), count: empty)
+        // ASCII only — no box-drawing (TTY colour is applied to the whole line, not the bar).
+        return String(repeating: "#", count: filled) + String(repeating: "-", count: empty)
     }
 
     private static func compressPoolLabel(_ label: String) -> String {
