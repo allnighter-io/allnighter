@@ -45,6 +45,7 @@ revive.
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — incident-driven** | When any seat dies, a recovery agent finds work in 30s (commits + uncommitted + resume commands), gets notified when dev lands, and can substitute PM model. WRC-S00–S04: workRecovery envelope, `relayAwaitingPM` notify, `--pm-model` on resume, `work scan`, relay guard. Origin: 2026-07-29 PM outage mid relay. |
 | [`CLI_Park.md`](CLI_Park.md) | **Implementing** | Park a CLI (ignore, not delete): skip probe, gray UI, out of Ready/pickers; `alln drivers park|unpark`; parked last for future capacity/status. Code SSOT `SetupStore.parkedDriverIds`. |
+| [`Capacity_Hardening_Hotfix.md`](Capacity_Hardening_Hotfix.md) | **OPEN — T2 SSOT lie** | Bare `alln capacity` / Mac strip show “never sampled” while history has real samples. Display is live-acquire only; history write-only. Fix: hydrate last-known. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
