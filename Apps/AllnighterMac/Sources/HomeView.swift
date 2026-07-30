@@ -744,45 +744,66 @@ private struct HomeMarketingEmptyState: View {
     }
 }
 
-// MARK: - New run (threads exist, none selected)
+// MARK: - New run (threads exist, none selected) — capacity strip is the launch surface
 
 private struct HomeNewRunPane: View {
     @Environment(ThreadsViewModel.self) private var threads
     @Environment(AppModel.self) private var appModel
+    /// Seeded at construction so fixture captures never race live acquire on first paint.
+    @State private var capacity = HomeNewRunPane.makeCapacityModel()
 
-    // One readiness number, CLI-based — the same source as the title-bar badge, so
-    // "N ready" never disagrees between the header and the empty state.
-    private var readyCount: Int { appModel.readyToolCount }
-    private var totalCount: Int { appModel.totalToolCount }
+    private var notReadyOrParked: Set<String> {
+        let parked = appModel.parkedDriverIds
+        var down = Set(parked)
+        for record in appModel.toolStatuses where !record.status.isSmokeReady {
+            down.insert(record.driverId)
+            // Capacity source id for Antigravity is `agy`; setup uses `antigravity`.
+            if record.driverId == "antigravity" { down.insert("agy") }
+        }
+        return down
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            Spacer(minLength: 0)
-            VStack(spacing: 12) {
-                AllnighterGlyph(size: 38)
-                Text("Start a run")
-                    .font(.system(size: 25, weight: .bold)).tracking(-0.4)
-                    .foregroundStyle(ALColor.textPrimary)
-                Text("One message plus an optional team and worker, running in the selected repo root.")
-                    .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
-                    .multilineTextAlignment(.center).lineSpacing(3).frame(maxWidth: 486)
-                HStack(spacing: 8) {
-                    Circle().fill(readyCount > 0 ? ALPalette.green500 : ALColor.textFaint).frame(width: 6, height: 6)
-                    Text(readyCount == totalCount ? "\(readyCount) CLIs ready" : "\(readyCount)/\(totalCount) CLIs ready")
-                        .font(ALFont.monoSm).foregroundStyle(ALColor.textMuted)
-                }
-            }
-            .padding(.horizontal, 28)
-            Spacer(minLength: 0)
+            CapacityStripView(model: capacity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             RoutingComposer(
                 big: true,
                 showsProject: true,
                 onSend: { threads.sendRouting($0, createThread: true) }
             )
             .frame(maxWidth: 640)
-            .padding(.horizontal, 28).padding(.bottom, 28)
+            .padding(.horizontal, 28)
+            .padding(.bottom, 28)
+            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
+        .onAppear {
+            if !capacity.isFixtureSeeded {
+                capacity.loadLive(notReadyOrParked: notReadyOrParked)
+            } else {
+                capacity.updateNotReadyOrParked(notReadyOrParked.union(GUIFixture.capacityNotReadyOrParked))
+            }
+        }
+        .onChange(of: appModel.toolStatuses.count) { _, _ in
+            capacity.updateNotReadyOrParked(notReadyOrParked)
+        }
+    }
+
+    @MainActor
+    private static func makeCapacityModel() -> CapacityStripModel {
+        let model = CapacityStripModel()
+        #if DEBUG
+        if GUIFixture.seedsCapacityStrip {
+            model.seedFixture(
+                windows: CapacityStripFixtures.mixedWindows(),
+                now: CapacityStripFixtures.now,
+                notReadyOrParked: GUIFixture.capacityNotReadyOrParked,
+                refreshingSource: GUIFixture.capacityRefreshingSource
+            )
+        }
+        #endif
+        return model
     }
 }

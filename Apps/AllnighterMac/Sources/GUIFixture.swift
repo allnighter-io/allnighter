@@ -140,7 +140,33 @@ enum GUIFixture {
     static var opensHomeWorkspace: Bool {
         let name = active ?? ""
         return name.hasPrefix("home-") || name.hasPrefix("thread-") || name.hasPrefix("relay-thread-")
+            || name.hasPrefix("capacity-")
             || name == "command-palette" || name == "projects-rail"
+    }
+
+    /// CAP-S10: seed Core capacity windows into the launch strip (no live acquire).
+    static var seedsCapacityStrip: Bool {
+        let name = active ?? ""
+        return name.hasPrefix("capacity-")
+    }
+
+    /// CAP-S10: which seat shows a mid-refresh spinner (only that row).
+    static var capacityRefreshingSource: String? {
+        switch active {
+        case "capacity-strip-refreshing": return "grok"
+        default: return nil
+        }
+    }
+
+    /// CAP-S10: dimmed not-ready seats for the mixed fixture.
+    static var capacityNotReadyOrParked: Set<String> {
+        // Mixed fixture has no extra not-ready seat among the six product sources.
+        []
+    }
+
+    /// CAP-S10: keep no thread selected so the capacity strip (HomeNewRunPane) is the main pane.
+    static var forcesCapacityStripPane: Bool {
+        seedsCapacityStrip
     }
 
     /// UNR proof: keep selected-unread below the fold for the rail matrix capture.
@@ -367,6 +393,8 @@ enum GUIFixture {
         ("relay-thread-status", "Relay thread — Status pill + Stop (ATL-S04)"),
         ("relay-thread-stop-confirm", "Relay thread — Stop confirmation (ATL-S04)"),
         ("relay-thread-stopped", "Relay thread — founder stopped, no resume (ATL-S04)"),
+        ("capacity-strip", "Capacity — mixed strip (unknown + Antigravity pools)"),
+        ("capacity-strip-refreshing", "Capacity — one row mid-refresh (Grok spinning)"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
@@ -765,6 +793,10 @@ enum GUIFixture {
     static var opensRelayStopConfirm: Bool { false }
     static var composeLoopTab: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
+    static var seedsCapacityStrip: Bool { false }
+    static var capacityRefreshingSource: String? { nil }
+    static var capacityNotReadyOrParked: Set<String> { [] }
+    static var forcesCapacityStripPane: Bool { false }
     static func seededPendingService(models: [Model]) -> PendingService? { nil }
     static func readinessFocusDriverId(for scenario: String?) -> String? { nil }
     static func seededModels(base: [Model]) -> [Model]? { nil }
