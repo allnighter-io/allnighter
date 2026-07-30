@@ -886,6 +886,11 @@ per-driver CapacityAcquirer  (tiered; see §Acquisition ladder)
   parse with fixtures → CapacityWindow[] | parseFailed
   cadence: launch, refresh press, post-run piggyback, pre-long-dispatch if
            >30m stale. No idle background PTY storms.
+  NOTHING ELSE MAY TRIGGER ACQUISITION. In particular a limit/429 event must not
+  fan out probes across the other seats to record "did I have a fallback" — the
+  app may be closed and the machine asleep, and it is exactly the probe storm
+  this cadence exists to prevent. Events are recorded from what is already
+  known; they never go and ask. (Founder, 2026-07-29.)
 
 → CapacityObservation / CapacityWindow
   source, sourceTier, confidence, observedAt,
