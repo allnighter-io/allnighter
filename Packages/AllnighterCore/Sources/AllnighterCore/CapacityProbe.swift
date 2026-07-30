@@ -59,12 +59,12 @@ public enum CapacityProbe {
     public static let defaultTimeout: TimeInterval = 20
 
     /// Tier-3 seats this probe knows how to drive today.
-    /// Claude is intentionally absent: `/status` → Usage tab needs tab
-    /// navigation that is not reliable enough to ship yet.
+    /// Claude Code: `/usage` opens the Usage pane directly (no tab navigation).
     public static let probeableSources: [String] = [
         "agy",
         "kimi",
         "cursor_agent",
+        "claude_code",
     ]
 
     /// Candidate executable names per source (PATH order).
@@ -72,6 +72,7 @@ public enum CapacityProbe {
         "agy": ["agy"],
         "kimi": ["kimi"],
         "cursor_agent": ["agent", "cursor-agent"],
+        "claude_code": ["claude"],
     ]
 
     /// Home-relative known install paths (checked when PATH misses).
@@ -79,9 +80,11 @@ public enum CapacityProbe {
         "agy": [".local/bin/agy"],
         "kimi": [".kimi-code/bin/kimi", ".local/bin/kimi"],
         "cursor_agent": [".local/bin/agent", ".local/bin/cursor-agent"],
+        "claude_code": [".local/bin/claude", ".local/share/claude/versions"],
     ]
 
     /// Slash command bytes sent after the TUI is ready.
+    /// Claude Code's `/usage` lands on the Usage tab with session/weekly bars.
     public static let usageCommand = "/usage"
 
     // MARK: Public entry
@@ -89,11 +92,11 @@ public enum CapacityProbe {
     /// Probe one source and return normalized windows (or a single unknown).
     ///
     /// - Parameters:
-    ///   - source: Bench source id (`agy`, `kimi`, `cursor_agent`).
+    ///   - source: Bench source id (`agy`, `kimi`, `cursor_agent`, `claude_code`).
     ///   - now: Observation stamp for parse + unknown reasons.
     ///   - timeout: Hard wall-clock budget for the whole probe.
     ///   - workingDirectory: Child cwd (default: process cwd). Trusted workspaces
-    ///     avoid agy "trust this folder" dialogs.
+    ///     avoid "trust this folder" dialogs (agy, Claude Code).
     ///   - pathEnvironment: PATH string for binary resolution (default: real PATH).
     ///   - homeDirectory: Home for known-path fallbacks (default: real home).
     ///   - executableOverride: Force a specific binary (tests: `/bin/sleep`).
@@ -108,7 +111,7 @@ public enum CapacityProbe {
     ) -> [CapacityWindow] {
         #if os(macOS)
         guard probeableSources.contains(source) else {
-            // Unknown or deferred seat (claude) — honest never-sampled.
+            // Unknown seat — honest never-sampled.
             return [unknown(source: source, reason: .neverSampled, now: now)]
         }
 
@@ -130,7 +133,8 @@ public enum CapacityProbe {
         let capture = captureUsageRender(
             executable: executable,
             workingDirectory: cwd,
-            timeout: timeout
+            timeout: timeout,
+            source: source
         )
 
         switch capture {
@@ -163,6 +167,8 @@ public enum CapacityProbe {
             return KimiCapacityLog.capacityWindows(fromRender: renderText, observedAt: now)
         case "cursor_agent":
             return CursorCapacityLog.capacityWindows(fromRender: renderText, observedAt: now)
+        case "claude_code":
+            return ClaudeCapacityLog.capacityWindows(fromRender: renderText, observedAt: now)
         default:
             return []
         }
@@ -191,13 +197,41 @@ public enum CapacityProbe {
         for rel in relatives {
             let url = homeDirectory.appendingPathComponent(rel)
             var isDir: ObjCBool = false
-            guard fileManager.fileExists(atPath: url.path, isDirectory: &isDir),
-                  !isDir.boolValue,
-                  fileManager.isExecutableFile(atPath: url.path)
-            else { continue }
+            guard fileManager.fileExists(atPath: url.path, isDirectory: &isDir) else { continue }
+            if isDir.boolValue {
+                // Claude versions dir: pick newest executable child if present.
+                if source == "claude_code",
+                   let newest = newestExecutable(in: url, fileManager: fileManager)
+                {
+                    return newest
+                }
+                continue
+            }
+            guard fileManager.isExecutableFile(atPath: url.path) else { continue }
             return url.resolvingSymlinksInPath().standardizedFileURL.path
         }
         return nil
+    }
+
+    /// Newest regular executable under a directory (for versioned install trees).
+    private static func newestExecutable(in directory: URL, fileManager: FileManager) -> String? {
+        guard let kids = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else { return nil }
+        var best: (url: URL, date: Date)?
+        for kid in kids {
+            let values = try? kid.resourceValues(forKeys: [.isRegularFileKey, .contentModificationDateKey])
+            guard values?.isRegularFile == true,
+                  fileManager.isExecutableFile(atPath: kid.path)
+            else { continue }
+            let date = values?.contentModificationDate ?? .distantPast
+            if best == nil || date > best!.date {
+                best = (kid, date)
+            }
+        }
+        return best?.url.resolvingSymlinksInPath().standardizedFileURL.path
     }
 
     // MARK: - Capture result
@@ -216,7 +250,8 @@ public enum CapacityProbe {
     static func captureUsageRender(
         executable: String,
         workingDirectory: String,
-        timeout: TimeInterval
+        timeout: TimeInterval,
+        source: String = ""
     ) -> CaptureResult {
         var master: Int32 = -1
         var slave: Int32 = -1
@@ -239,7 +274,8 @@ public enum CapacityProbe {
             pid = try spawnPTYChild(
                 executable: executable,
                 workingDirectory: workingDirectory,
-                slave: slave
+                slave: slave,
+                source: source
             )
         } catch {
             close(master)
@@ -261,15 +297,32 @@ public enum CapacityProbe {
         var sawReady = false
         var sawUsagePane = false
 
-        // 1) Wait for the interactive prompt / boot chrome.
-        let readyMarkers = ["shortcuts", "session:", "cursor agent", "│ >", "\n> ", "tip:"]
+        // 1) Wait for the interactive prompt / boot chrome. Handle Claude's
+        // workspace trust dialog (Enter accepts default "Yes, I trust…").
+        let readyMarkers = [
+            "shortcuts", "session:", "cursor agent", "│ >", "\n> ", "tip:",
+            "bypass permissions", "? for shortcuts", "welcome back", "claude code",
+        ]
         while Date() < deadline {
             appendAvailable(from: master, into: &buffer)
             let text = decodeAndStrip(buffer)
             let lower = text.lowercased()
+            if lower.contains("trust this folder") || lower.contains("yes, i trust") {
+                // Accept trust so the main prompt can paint.
+                let cr: [UInt8] = [0x0D]
+                _ = cr.withUnsafeBufferPointer { ptr in
+                    write(master, ptr.baseAddress!, ptr.count)
+                }
+                _ = waitBrief(0.6)
+                continue
+            }
             if readyMarkers.contains(where: { lower.contains($0) }) {
-                sawReady = true
-                break
+                // Trust dialog also contains "claude code" in some skins — require
+                // a prompt-ish marker once trust is gone.
+                if !lower.contains("trust this folder") {
+                    sawReady = true
+                    break
+                }
             }
             if childExited(pid) {
                 appendAvailable(from: master, into: &buffer)
@@ -285,6 +338,13 @@ public enum CapacityProbe {
         // Brief settle so autocomplete / chrome finishes painting.
         _ = waitBrief(0.5)
         appendAvailable(from: master, into: &buffer)
+
+        // Clear any half-typed junk (Claude autocomplete leftovers).
+        let clearLine: [UInt8] = [0x15] // Ctrl-U
+        _ = clearLine.withUnsafeBufferPointer { ptr in
+            write(master, ptr.baseAddress!, ptr.count)
+        }
+        _ = waitBrief(0.1)
 
         // 2) Send /usage (all-at-once). Autocomplete menus accept Enter next.
         if Date() < deadline, !childExited(pid) {
@@ -307,6 +367,7 @@ public enum CapacityProbe {
             "weekly limit", "five hour", "5h limit", "plan usage",
             "models & quota", "% used", "% remaining", "on-demand",
             "monthly plan", "included", "resets ",
+            "current session", "current week",
         ]
         while Date() < deadline {
             appendAvailable(from: master, into: &buffer)
@@ -338,7 +399,8 @@ public enum CapacityProbe {
     private static func spawnPTYChild(
         executable: String,
         workingDirectory: String,
-        slave: Int32
+        slave: Int32,
+        source: String = ""
     ) throws -> pid_t {
         var attr: posix_spawnattr_t?
         var fileActions: posix_spawn_file_actions_t?
@@ -379,6 +441,15 @@ public enum CapacityProbe {
         // Do not force CI/non-interactive — these TUIs need a real interactive session.
         env.removeValue(forKey: "CI")
         env.removeValue(forKey: "NO_COLOR")
+        // Claude Code inherits parent-session markers from agent hosts and then
+        // starts in child/manual mode with transcript saving off. Scrub them so
+        // the probe is a clean interactive session.
+        if source == "claude_code" {
+            let scrub = env.keys.filter {
+                $0.hasPrefix("CLAUDE") || $0 == "CLAUDECODE" || $0.hasPrefix("ANTHROPIC_") || $0 == "AI_AGENT"
+            }
+            for key in scrub { env.removeValue(forKey: key) }
+        }
 
         var argv: [UnsafeMutablePointer<CChar>?] = [strdup(executable), nil]
         defer { for p in argv where p != nil { free(p) } }

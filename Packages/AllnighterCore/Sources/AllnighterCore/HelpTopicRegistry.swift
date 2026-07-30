@@ -322,7 +322,7 @@ public enum HelpTopicRegistry {
             bodyMarkdown: """
             `alln capacity` reads what vendors already wrote on disk (tier-1: Codex, Grok). \
             Bare capacity is instant and **spawns nothing**. `alln capacity --refresh` adds \
-            tier-3 PTY one-shots into vendor `/usage` panes (agy, Kimi, Cursor). Capacity is \
+            tier-3 PTY one-shots into vendor `/usage` panes (agy, Kimi, Cursor, Claude). Capacity is \
             **vendor-printed when acquired** — Allnighter does not invent percentages. \
             `unknown` means the seat was not sampled, the probe timed out / failed, or the \
             parser could not read the capture. Missing data never blocks (exit 0) and never \

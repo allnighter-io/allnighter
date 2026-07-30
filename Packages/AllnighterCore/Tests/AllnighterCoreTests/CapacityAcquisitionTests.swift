@@ -340,6 +340,37 @@ final class CapacityAcquisitionTests: XCTestCase {
      View in dashboard: cursor.com/dashboard?tab=usage
     """
 
+    /// Real Claude Code `/usage` render (founder capture 2026-07-30, pyte-normalized).
+    private let claudeUsageFixture = """
+       Settings  Status   Config   Usage   Stats
+
+       Session
+
+       Total cost:            $0.0000
+       Total duration (API):  0s
+       Total duration (wall): 3s
+       Total code changes:    0 lines added, 0 lines removed
+       Usage:                 0 input, 0 output, 0 cache read, 0 cache write
+
+       Current session
+       ██████████████████████████████████████▌        83% used
+       Resets 8:49am (America/Vancouver)
+
+       Current week (all models)
+       ███████████████████████▌                           47% used
+       Resets Aug 3 at 8pm (America/Vancouver)
+       +50% weekly limits promo through Aug 19 · clau.de/cc-50-promo
+
+       Current week (Fable)
+       ███▌                                               7% used
+       Resets Aug 3 at 8pm (America/Vancouver)
+
+       What's contributing to your limits usage?
+       Approximate, based on local sessions on this machine — does not include other devices or claude.ai
+
+       Usage credits are off · /usage-credits to turn them on
+    """
+
     func testBareCapacityNeverInvokesProbeExecutor() throws {
         try writeCodexRollout(
             year: "2026", month: "07", day: "28",
@@ -364,7 +395,7 @@ final class CapacityAcquisitionTests: XCTestCase {
         }
     }
 
-    func testRefreshInvokesProbePerProbeableSourceNotClaude() {
+    func testRefreshInvokesProbePerProbeableSourceIncludingClaude() {
         let counter = CountingProbeExecutor()
         _ = CapacityAcquisition.windows(
             homeRoot: homeRoot,
@@ -374,7 +405,24 @@ final class CapacityAcquisitionTests: XCTestCase {
         )
         let called = Set(counter.calls)
         XCTAssertEqual(called, Set(CapacityAcquisition.tier3ProbeableSources))
-        XCTAssertFalse(called.contains("claude_code"), "Claude tab navigation not shipped")
+        XCTAssertTrue(called.contains("claude_code"), "Claude /usage probe is shipped")
+    }
+
+    func testClaudeUsageFixtureParsesSessionAndWeekly() {
+        let windows = ClaudeCapacityLog.capacityWindows(
+            fromRender: claudeUsageFixture,
+            observedAt: now
+        )
+        XCTAssertEqual(windows.count, 3)
+        let session = windows.first { $0.scope == .session }
+        XCTAssertEqual(session?.usedPercent, 83.0)
+        XCTAssertEqual(session?.remainingPercent, 17.0)
+        let weeklyAll = windows.first { $0.scope == .weekly && $0.poolLabel == nil }
+        XCTAssertEqual(weeklyAll?.usedPercent, 47.0)
+        let fable = windows.first { $0.poolLabel == "Fable" }
+        XCTAssertEqual(fable?.usedPercent, 7.0)
+        // Promo line "+50% weekly limits" must not become a window.
+        XCTAssertFalse(windows.contains { $0.usedPercent == 50.0 })
     }
 
     func testRefreshFixtureParsersProduceWindowsAndPreserveTier1() throws {
@@ -391,18 +439,22 @@ final class CapacityAcquisitionTests: XCTestCase {
         let agyWindows = CapacityProbe.parse(source: "agy", renderText: agyUsageFixture, now: now)
         let kimiWindows = CapacityProbe.parse(source: "kimi", renderText: kimiUsageFixture, now: now)
         let cursorWindows = CapacityProbe.parse(source: "cursor_agent", renderText: cursorUsageFixture, now: now)
+        let claudeWindows = CapacityProbe.parse(source: "claude_code", renderText: claudeUsageFixture, now: now)
         XCTAssertFalse(agyWindows.isEmpty)
         XCTAssertFalse(kimiWindows.isEmpty)
         XCTAssertFalse(cursorWindows.isEmpty)
+        XCTAssertFalse(claudeWindows.isEmpty)
         // Agy prefers the high-precision bar float (92.67) over the rounded "93%".
         XCTAssertEqual(agyWindows.first?.remainingPercent, Optional(92.67))
         XCTAssertEqual(kimiWindows.first { $0.scope == .weekly }?.usedPercent, Optional(100.0))
         XCTAssertEqual(cursorWindows.first?.usedPercent, Optional(27.0))
+        XCTAssertEqual(claudeWindows.first { $0.scope == .session }?.usedPercent, Optional(83.0))
 
         let executor = FixtureProbeExecutor(results: [
             "agy": agyWindows,
             "kimi": kimiWindows,
             "cursor_agent": cursorWindows,
+            "claude_code": claudeWindows,
         ])
         let windows = CapacityAcquisition.windows(
             homeRoot: homeRoot,
@@ -419,12 +471,7 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertNotNil(windows.first { $0.source == "agy" && $0.remainingPercent != nil })
         XCTAssertNotNil(windows.first { $0.source == "kimi" && $0.usedPercent != nil })
         XCTAssertNotNil(windows.first { $0.source == "cursor_agent" && $0.usedPercent != nil })
-
-        // Claude stays honest never-sampled (no tab probe yet).
-        XCTAssertEqual(
-            windows.first { $0.source == "claude_code" }?.unknownReason,
-            .neverSampled
-        )
+        XCTAssertNotNil(windows.first { $0.source == "claude_code" && $0.usedPercent != nil })
 
         // No seat may claim vendorExposesNothing.
         XCTAssertTrue(

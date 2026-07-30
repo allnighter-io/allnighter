@@ -6,8 +6,8 @@ import Foundation
 /// no probes, no PTY, no process spawns. Instant.
 ///
 /// **Refresh** (`refresh: true` / `alln capacity --refresh`) additionally runs a
-/// per-driver PTY probe for seats we can drive (agy, kimi, cursor). Probes are
-/// never idle-backgrounded; only explicit refresh starts them.
+/// per-driver PTY probe for seats we can drive (agy, kimi, cursor, Claude Code).
+/// Probes are never idle-backgrounded; only explicit refresh starts them.
 ///
 /// Injectable `homeRoot` / `probeExecutor` keep tests off the real home and off
 /// real vendor CLIs.
@@ -36,8 +36,7 @@ public enum CapacityAcquisition {
         "agy",
     ]
 
-    /// Tier-3 seats the PTY probe drives on `--refresh`.
-    /// Claude is deferred: `/status` → Usage tab needs unreliable tab navigation.
+    /// Tier-3 seats the PTY probe drives on `--refresh` (includes Claude Code).
     public static let tier3ProbeableSources: [String] = CapacityProbe.probeableSources
 
     /// Acquire capacity windows for the fixed bench under `homeRoot`.
@@ -86,9 +85,9 @@ public enum CapacityAcquisition {
         if !refresh {
             // Bare path: never sample, never spawn. NOT `.vendorExposesNothing` —
             // that claims the vendor has no usage surface, which is false for every
-            // seat in this list. agy, Kimi and Cursor all print `/usage`, and we ship
-            // tested parsers for all three; Claude has a Usage tab. Without an
-            // explicit `--refresh` we simply have not looked.
+            // seat in this list. agy, Kimi, Cursor, and Claude all print `/usage`,
+            // and we ship tested parsers for each. Without an explicit `--refresh`
+            // we simply have not looked.
             return tier3DisklessSources.map { source in
                 CapacityWindow.unknown(
                     reason: .neverSampled,
@@ -167,8 +166,7 @@ public enum CapacityAcquisition {
                     )
                 }
             } else {
-                // Claude (and any future deferred seat): honest never-sampled.
-                // Tab navigation for Claude Usage is not shipped yet.
+                // Future deferred seats only — every current tier-3 seat is probeable.
                 result.append(
                     CapacityWindow.unknown(
                         reason: .neverSampled,

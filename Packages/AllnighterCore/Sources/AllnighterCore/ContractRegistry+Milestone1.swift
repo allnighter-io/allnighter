@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "6.9.0"
+    static let contractVersion = "6.10.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -99,14 +99,14 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "capacity",
-            summary: "Show vendor capacity/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy/kimi/cursor). Unknown never blocks.",
+            summary: "Show vendor capacity/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy/kimi/cursor/claude). Unknown never blocks.",
             milestone: .m1,
             trigger: "Before seating work when you need remaining weekly/5-hour headroom, reset clocks, or which vendors expose nothing.",
             example: "alln capacity --refresh",
             antiExample: "Do NOT use this for per-run token usage on receipts — that is a different system.",
             flags: [
                 FlagSpec("json", summary: "Structured CapacityStripJSON (contractVersion + per-source rows)."),
-                FlagSpec("refresh", summary: "Run tier-3 PTY probes (agy/kimi/cursor /usage). Bare capacity never spawns."),
+                FlagSpec("refresh", summary: "Run tier-3 PTY probes (agy/kimi/cursor/claude /usage). Bare capacity never spawns."),
             ],
             outputSchema: .capacityStripJSON,
             spendsQuota: false
