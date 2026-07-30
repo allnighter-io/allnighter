@@ -454,6 +454,7 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait."),
                 FlagSpec("stream", summary: "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run."),
                 FlagSpec("no-wait", summary: "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
             ],
             mutuallyExclusiveFlags: [
                 ["json", "stream"],
@@ -469,6 +470,7 @@ public extension ContractRegistry {
                 FlagConstraint(.onlyWith, "executor", "try-fix"),
                 FlagConstraint(.requires, "accept-survivors", "retry-of"),
                 FlagConstraint(.requires, "seat", "team"),
+                FlagConstraint(.requires, "delivery", "no-wait"),
             ],
             outputSchema: .teamRunJSON,
             exampleIds: ["run_foreground_json"],
@@ -499,8 +501,10 @@ public extension ContractRegistry {
                 FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
+            flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON
         ),
         CommandSpec(
@@ -522,8 +526,10 @@ public extension ContractRegistry {
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the resumed stretch (default 20)."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
+            flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON
         ),
         CommandSpec(
@@ -535,8 +541,10 @@ public extension ContractRegistry {
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted stretch."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
+            flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON
         ),
         CommandSpec(
@@ -561,10 +569,12 @@ public extension ContractRegistry {
                 FlagSpec("handover-stdin", summary: "Read the handover markdown from stdin (mutually exclusive with --file)."),
                 FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional closing note for done/escalate verdicts."),
                 FlagSpec("no-wait", summary: "Return after dispatch with delivery.path=wait and an exact `pilot status --wait-for parked` command. Run it once for the parked PM Turn; a killed `pilot watch` is not failure."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             mutuallyExclusiveFlags: [["file", "handover-file"], ["file", "handover-stdin"], ["handover-file", "handover-stdin"]],
+            flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON
         ),
         CommandSpec(
@@ -1022,6 +1032,8 @@ public extension ContractRegistry {
         ErrorSpec("TEAM_RUN_TIMEOUT", ruleId: "team.run.timeout", agentAction: "Retry with lower effort or fewer workers.", requiresManual: false, retryable: true, explain: "The team run exceeded its time budget. Reduce effort or the worker count and retry.", exitClass: .timeout),
         ErrorSpec("STATUS_WAIT_TIMEOUT", ruleId: "team.status.wait_timeout", agentAction: "Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume.", requiresManual: false, retryable: true, explain: "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.", exitClass: .timeout),
         ErrorSpec("PM_TURN_WAIT_TIMEOUT", ruleId: "pm_turn.status.wait_timeout", agentAction: "Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command.", requiresManual: false, retryable: true, explain: "The relay PM boundary did not reach the requested target before --timeout. The status response carries waitOutcome: timedOut.", exitClass: .timeout),
+        ErrorSpec("PM_TURN_WAKE_UNCONFIGURED", ruleId: "pm_turn.wake.unconfigured", agentAction: "Configure machine-level pmTurnWake.command, then retry `--no-wait --delivery wake`; or omit --delivery and run the returned status waiter.", requiresManual: true, retryable: true, explain: "Wake delivery was requested, but this Mac has no PM Turn receiver command configured. Nothing was dispatched."),
+        ErrorSpec("PM_TURN_WAKE_FAILED", ruleId: "pm_turn.wake.failed", agentAction: "Read status JSON for pmTurnDelivery, fix the receiver, then use the terminal/parked status waiter to recover the durable pmTurn.", requiresManual: true, retryable: true, explain: "The configured PM Turn receiver did not acknowledge the durable turn before its retry window ended. The PM turn remains on disk and status projects the failure."),
         ErrorSpec("RELAY_WAIT_TIMEOUT", ruleId: "relay.status.wait_timeout", agentAction: "Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout.", requiresManual: false, retryable: true, explain: "Compatibility alias for PM_TURN_WAIT_TIMEOUT.", exitClass: .timeout),
         ErrorSpec("TEAM_RUN_FAILED", ruleId: "team.run.failed", agentAction: "Inspect failed workers and stages; retry or adjust the team.", requiresManual: false, retryable: true, explain: "The team run ended without a usable result (e.g. failed or cancelled). Inspect the failed workers/stages in the run, then retry or change the team."),
         ErrorSpec("NESTED_TEAM_BLOCKED", ruleId: "team.nested.blocked", agentAction: "Do not recursively spawn teams without explicit depth budget.", requiresManual: true, retryable: false, explain: "A worker tried to start another team run beyond the allowed depth. Set an explicit depth budget if nesting is intended."),

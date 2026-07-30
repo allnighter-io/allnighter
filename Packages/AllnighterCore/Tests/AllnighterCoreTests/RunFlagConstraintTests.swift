@@ -67,12 +67,16 @@ final class RunFlagConstraintTests: XCTestCase {
     /// `--try-fix`. Public `--run-id` was removed.
     func testRunDeclaresNoWaitFlag() {
         XCTAssertTrue(run.flags.contains { $0.name == "no-wait" })
+        XCTAssertTrue(run.flags.contains { $0.name == "delivery" })
         XCTAssertFalse(run.flags.contains { $0.name == "run-id" })
 
         let groups = Set(run.mutuallyExclusiveFlags.map { Set($0) })
         XCTAssertTrue(groups.contains(["no-wait", "stream"]))
         XCTAssertTrue(groups.contains(["no-wait", "dry-run"]))
         XCTAssertTrue(groups.contains(["no-wait", "try-fix"]))
+        let delivery = run.flagConstraints.first { $0.subject == "delivery" }
+        XCTAssertEqual(delivery?.kind, .requires)
+        XCTAssertEqual(delivery?.peers, ["no-wait"])
     }
 
     func testConstraintSubjectsAndPeersAreDeclaredFlags() {
@@ -140,6 +144,12 @@ final class RunFlagConstraintTests: XCTestCase {
         XCTAssertNil(constraintError(for: ["probe", "--no-wait"]))
     }
 
+    func testDeliveryRequiresNoWait() {
+        let err = constraintError(for: ["probe", "--delivery", "wake"])
+        XCTAssertEqual(err?.subject, "delivery")
+        XCTAssertTrue(err?.message.contains("--no-wait") == true)
+    }
+
     /// `--detach` is gone, so argv naming it must fail as an unknown flag rather
     /// than being silently tolerated.
     func testDetachIsNoLongerADeclaredRunFlag() {
@@ -186,6 +196,7 @@ final class RunFlagConstraintTests: XCTestCase {
             ["probe", "--no-wait", "--stream"],
             ["probe", "--no-wait", "--dry-run"],
             ["probe", "--no-wait", "--try-fix"],
+            ["probe", "--delivery", "wake"],
         ]
         for args in invalid {
             XCTAssertNotNil(constraintError(for: args), "expected gate fail for \(args)")
@@ -208,6 +219,7 @@ final class RunFlagConstraintTests: XCTestCase {
             ["probe", "--dry-run", "--model", "model_sonnet", "--team", "code_bug_hunt", "--effort", "high"],
             ["probe", "--no-wait"],
             ["probe", "--no-wait", "--json"],
+            ["probe", "--no-wait", "--delivery", "wake"],
         ]
         for args in valid {
             let err = constraintError(for: args)

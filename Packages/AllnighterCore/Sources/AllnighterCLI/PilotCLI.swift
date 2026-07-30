@@ -203,6 +203,8 @@ enum PilotCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
+        let wakeDelivery = DetachedDispatch.validateWakeDelivery(opts)
+
         // URN-S02: guarantee a live notifier before dispatching a real dev
         // turn. Covers both branches below (--no-wait and the default
         // blocking path) with one check, not two.
@@ -211,7 +213,7 @@ enum PilotCLI {
         if opts.flag("no-wait") {
             dispatchHandoffInBackground(
                 relayId: relayId, opts: opts, submission: submission, jsonRequested: opts.flag("json"),
-                serveAutoLaunch: autoLaunch.outcome
+                serveAutoLaunch: autoLaunch.outcome, wakeDelivery: wakeDelivery
             )
             return
         }
@@ -408,7 +410,7 @@ enum PilotCLI {
     /// `RELAY_HANDOVER_UNSAFE` into `/dev/null` (stdout/stderr discarded).
     private static func dispatchHandoffInBackground(
         relayId: String, opts: Options, submission: String, jsonRequested: Bool,
-        serveAutoLaunch: ServeAutoLaunch.Outcome
+        serveAutoLaunch: ServeAutoLaunch.Outcome, wakeDelivery: Bool
     ) {
         let stateStore = RelayStateStore()
         let loadedState: RelayState?
@@ -483,12 +485,16 @@ enum PilotCLI {
             print(AllnighterCLI.jsonLine(PilotHandoffDispatchJSON(
                 relayId: relayId, status: "dispatched", roundInFlight: roundInFlight,
                 pid: process.processIdentifier, serveAutoLaunch: serveAutoLaunch.rawValue,
-                delivery: DetachedDispatch.waitDelivery(
+                delivery: wakeDelivery ? DetachedDispatch.wakeDelivery() : DetachedDispatch.waitDelivery(
                     kind: "pilot", id: relayId, commandPrefix: launch.executableURL.path))))
         } else {
-            let delivery = DetachedDispatch.waitDelivery(
+            let delivery = wakeDelivery ? DetachedDispatch.wakeDelivery() : DetachedDispatch.waitDelivery(
                 kind: "pilot", id: relayId, commandPrefix: launch.executableURL.path)
-            print("dispatched (pid \(process.processIdentifier)) — wait for delivery with `\(delivery.command)` (optional: `alln pair pilot watch --relay \(relayId)`)")
+            if let command = delivery.command {
+                print("dispatched (pid \(process.processIdentifier)) — wait for delivery with `\(command)` (optional: `alln pair pilot watch --relay \(relayId)`)")
+            } else {
+                print("dispatched (pid \(process.processIdentifier)) — PM Turn wake delivery configured")
+            }
         }
     }
 
@@ -969,10 +975,12 @@ enum PilotCLI {
                 state,
                 contractVersion: ContractRegistry.contractVersion,
                 pmTurn: pmTurn.pmTurn,
-                notes: pmTurn.notes
+                notes: pmTurn.notes,
+                pmTurnDelivery: pmTurn.pmTurnDelivery
             ),
             pmTurn: pmTurn.pmTurn,
             notes: pmTurn.notes,
+            pmTurnDelivery: pmTurn.pmTurnDelivery,
             recovery: recoveryActionLine(
                 for: state, recovery: recovery, streamSilenceWarning: longJob.streamSilenceWarning
             ),
@@ -1321,6 +1329,7 @@ struct PilotStatusJSON: Encodable {
     var relay: RelayJSON
     let pmTurn: PMTurnJSON?
     let notes: [String]
+    let pmTurnDelivery: PMTurnDeliveryJSON?
     let recovery: String?
     let nextActions: [AgentSurfaceNextAction]
     let elapsedSeconds: Int?
@@ -1337,6 +1346,7 @@ struct PilotStatusJSON: Encodable {
         relay: RelayJSON,
         pmTurn: PMTurnJSON? = nil,
         notes: [String] = [],
+        pmTurnDelivery: PMTurnDeliveryJSON? = nil,
         recovery: String?,
         nextActions: [AgentSurfaceNextAction],
         elapsedSeconds: Int? = nil,
@@ -1352,6 +1362,7 @@ struct PilotStatusJSON: Encodable {
         self.relay = relay
         self.pmTurn = pmTurn
         self.notes = notes
+        self.pmTurnDelivery = pmTurnDelivery
         self.recovery = recovery
         self.nextActions = nextActions
         self.elapsedSeconds = elapsedSeconds
@@ -1370,6 +1381,7 @@ struct PilotStatusJSON: Encodable {
         try c.encode(relay, forKey: .relay)
         try c.encode(pmTurn, forKey: .pmTurn)
         try c.encode(notes, forKey: .notes)
+        try c.encodeIfPresent(pmTurnDelivery, forKey: .pmTurnDelivery)
         try c.encodeIfPresent(recovery, forKey: .recovery)
         try c.encode(nextActions, forKey: .nextActions)
         try c.encodeIfPresent(elapsedSeconds, forKey: .elapsedSeconds)
@@ -1384,7 +1396,7 @@ struct PilotStatusJSON: Encodable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case relay, pmTurn, notes, recovery, nextActions
+        case relay, pmTurn, notes, pmTurnDelivery, recovery, nextActions
         case elapsedSeconds, ownerAlive, lastProgressAt, silenceAgeSeconds
         case streamSilenceWarning, commitsSinceBaseline, waitHintSeconds, watcherDisposable
         case waitOutcome

@@ -82,7 +82,7 @@ final class DetachedDispatchTests: XCTestCase {
         }
     }
 
-    // MARK: - childArguments: --no-wait removed, everything else preserved verbatim
+    // MARK: - childArguments: detached routing flags removed
 
     func testChildArgumentsRemovesOnlyTheNoWaitToken() {
         let argv = ["pair", "relay-resume", "--relay", "relay_1", "--answer", "go", "--no-wait", "--json"]
@@ -103,6 +103,11 @@ final class DetachedDispatchTests: XCTestCase {
             DetachedDispatch.childArguments(from: argv),
             ["pair", "relay-resume", "--relay", "relay_1", "--answer", "go", "--no-auto-serve"]
         )
+    }
+
+    func testChildArgumentsRemovesWakeDeliveryValue() {
+        let argv = ["run", "work", "--no-wait", "--delivery", "wake", "--json"]
+        XCTAssertEqual(DetachedDispatch.childArguments(from: argv), ["run", "work", "--json"])
     }
 
     func testLaunchAndAwaitAcceptanceAccepted() throws {
@@ -182,6 +187,17 @@ final class DetachedDispatchTests: XCTestCase {
             DetachedDispatch.waitDelivery(kind: "pilot", id: "relay_test", commandPrefix: "/usr/local/bin/alln").command,
             "/usr/local/bin/alln pair pilot status --relay relay_test --wait-for parked --timeout 7200 --json"
         )
+    }
+
+    func testWakeDeliveryAckOmitsWaitCommand() throws {
+        let ack = DetachedDispatchJSON(
+            kind: "run", id: "run_test", status: "dispatched", pid: 4242,
+            delivery: DetachedDispatch.wakeDelivery())
+        let data = try XCTUnwrap(AllnighterCLI.jsonLine(ack).data(using: .utf8))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let delivery = try XCTUnwrap(object["delivery"] as? [String: Any])
+        XCTAssertEqual(delivery["path"] as? String, "wake")
+        XCTAssertNil(delivery["command"])
     }
 
     // MARK: - Structural: exactly one "resolve binary, build Process" implementation

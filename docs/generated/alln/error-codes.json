@@ -198,6 +198,24 @@
     "ruleId" : "pm_turn.status.wait_timeout"
   },
   {
+    "agentAction" : "Configure machine-level pmTurnWake.command, then retry `--no-wait --delivery wake`; or omit --delivery and run the returned status waiter.",
+    "code" : "PM_TURN_WAKE_UNCONFIGURED",
+    "exitClass" : "operational",
+    "explain" : "Wake delivery was requested, but this Mac has no PM Turn receiver command configured. Nothing was dispatched.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "pm_turn.wake.unconfigured"
+  },
+  {
+    "agentAction" : "Read status JSON for pmTurnDelivery, fix the receiver, then use the terminal\/parked status waiter to recover the durable pmTurn.",
+    "code" : "PM_TURN_WAKE_FAILED",
+    "exitClass" : "operational",
+    "explain" : "The configured PM Turn receiver did not acknowledge the durable turn before its retry window ended. The PM turn remains on disk and status projects the failure.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "pm_turn.wake.failed"
+  },
+  {
     "agentAction" : "Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout.",
     "code" : "RELAY_WAIT_TIMEOUT",
     "exitClass" : "timeout",

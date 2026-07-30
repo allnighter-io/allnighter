@@ -576,6 +576,7 @@ public actor AsyncTeamService {
         )
         response.pmTurn = pmTurn.pmTurn
         response.notes = pmTurn.notes
+        response.pmTurnDelivery = pmTurn.pmTurnDelivery
         // RLR-S03a / RLR-L6: activity truth is `run.json.lastActivityAt`, not
         // `heartbeat.json` (retired). `progressStale` is a read-time derivation —
         // absent (nil) before the first post-spawn activity, and only meaningful

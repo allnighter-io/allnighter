@@ -195,6 +195,44 @@ final class CoordinatorRunTests: XCTestCase {
         XCTAssertTrue(remote.sawCancellation)
         XCTAssertNil(store.load(), "clean shutdown clears durable daemon state")
     }
+
+    func testServeDaemonRunsPMTurnWakeScheduler() async throws {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("coord-pm-turn-wake-\(UUID().uuidString)")
+        defer { removeIfPresent(root) }
+        let runs = root.appendingPathComponent("Runs", isDirectory: true)
+        let turn = PMTurnJSON(
+            kind: .run, subjectId: "run_wake", sequence: 1, createdAt: Date(),
+            reason: "done", lifecycleStatus: "done", report: "done", nextCommands: [])
+        let expectedPayload = try CoreJSON.encode(turn)
+        try PMTurnStore(runsRootDirectory: runs).save(turn)
+        let config = PMTurnWakeConfigurationStore(fileURL: root.appendingPathComponent("config.json"))
+        try config.save(.init(pmTurnWake: .init(command: ["/receiver"])))
+        let invoked = BoolBox()
+        let scheduler = PMTurnWakeScheduler(
+            runsRootDirectory: runs,
+            relaysRootDirectory: root.appendingPathComponent("Relays", isDirectory: true),
+            configurationStore: config,
+            ledgerStore: .init(fileURL: root.appendingPathComponent("ledger.json")),
+            invoke: { _, stdin in
+                invoked.value = stdin == expectedPayload
+                return .init(succeeded: true)
+            },
+            pollInterval: 0.01
+        )
+
+        try await ServeDaemon(
+            binaryVersion: "0.1.0",
+            store: ServeDaemonStore(directory: root.appendingPathComponent("Coordinator", isDirectory: true)),
+            pmTurnWakeScheduler: scheduler
+        ).run(untilShutdown: {
+            while !invoked.value {
+                try? await Task.sleep(nanoseconds: 1_000_000)
+            }
+        })
+
+        XCTAssertTrue(invoked.value)
+    }
 }
 
 /// Deletes a temp root only when it is actually there.

@@ -646,6 +646,7 @@ Flags:
 - `--json` — Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait.
 - `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run.
 - `--no-wait` — Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 
 Mutually exclusive: `--json`, `--stream`.
 
@@ -668,6 +669,8 @@ Only with: `--executor` only with `--try-fix`.
 Requires: `--accept-survivors` requires `--retry-of`.
 
 Requires: `--seat` requires `--team`.
+
+Requires: `--delivery` requires `--no-wait`.
 
 Output schema: `teamRunJSON`.
 
@@ -706,7 +709,10 @@ Flags:
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+
+Requires: `--delivery` requires `--no-wait`.
 
 Output schema: `relayJSON`.
 
@@ -733,7 +739,10 @@ Flags:
 - `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+
+Requires: `--delivery` requires `--no-wait`.
 
 Output schema: `relayJSON`.
 
@@ -748,7 +757,10 @@ Flags:
 - `--until <time>` — Hard stop HH:MM (local) for the adopted stretch.
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+
+Requires: `--delivery` requires `--no-wait`.
 
 Output schema: `relayJSON`.
 
@@ -778,6 +790,7 @@ Flags:
 - `--handover-stdin` — Read the handover markdown from stdin (mutually exclusive with --file).
 - `--note <string>` — Optional closing note for done/escalate verdicts.
 - `--no-wait` — Return after dispatch with delivery.path=wait and an exact `pilot status --wait-for parked` command. Run it once for the parked PM Turn; a killed `pilot watch` is not failure.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
@@ -786,6 +799,8 @@ Mutually exclusive: `--file`, `--handover-file`.
 Mutually exclusive: `--file`, `--handover-stdin`.
 
 Mutually exclusive: `--handover-file`, `--handover-stdin`.
+
+Requires: `--delivery` requires `--no-wait`.
 
 Output schema: `relayJSON`.
 
@@ -1448,6 +1463,8 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `TEAM_RUN_TIMEOUT` | no | yes | `timeout` | Retry with lower effort or fewer workers. |
 | `STATUS_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume. |
 | `PM_TURN_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command. |
+| `PM_TURN_WAKE_UNCONFIGURED` | yes | yes | `operational` | Configure machine-level pmTurnWake.command, then retry `--no-wait --delivery wake`; or omit --delivery and run the returned status waiter. |
+| `PM_TURN_WAKE_FAILED` | yes | yes | `operational` | Read status JSON for pmTurnDelivery, fix the receiver, then use the terminal/parked status waiter to recover the durable pmTurn. |
 | `RELAY_WAIT_TIMEOUT` | no | yes | `timeout` | Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout. |
 | `TEAM_RUN_FAILED` | no | yes | `operational` | Inspect failed workers and stages; retry or adjust the team. |
 | `NESTED_TEAM_BLOCKED` | yes | no | `operational` | Do not recursively spawn teams without explicit depth budget. |

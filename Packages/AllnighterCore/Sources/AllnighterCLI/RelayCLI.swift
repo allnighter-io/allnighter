@@ -32,9 +32,11 @@ enum RelayCLI {
         }
 
         if opts.flag("no-wait") {
-            await runRelayNoWait(config: config, opts: opts)
+            await runRelayNoWait(
+                config: config, opts: opts, wakeDelivery: DetachedDispatch.validateWakeDelivery(opts))
             return
         }
+        _ = DetachedDispatch.validateWakeDelivery(opts)
 
         // URN-S02: guarantee a live notifier before dispatching a real dev turn.
         ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
@@ -55,14 +57,17 @@ enum RelayCLI {
     /// RSC-HF: `pair relay --no-wait`. Non-mutating preflight fails loud and spawns
     /// nothing. On success, spawn the same registered `pair relay` verb (no hidden
     /// continuation) and ack only after the child durably claims via `DetachedHandoff`.
-    private static func runRelayNoWait(config: RelayCoordinator.Config, opts: Options) async {
+    private static func runRelayNoWait(
+        config: RelayCoordinator.Config, opts: Options, wakeDelivery: Bool
+    ) async {
         let stateStore = RelayStateStore()
         if case .failure(let refusal) = RelayCoordinator.preflightStart(
             projectRoot: config.projectRoot, docPath: config.docPath, stateStore: stateStore
         ) {
             failStart(refusal)
         }
-        await awaitDetachedAcceptance(cwd: config.projectRoot, json: opts.flag("json"))
+        await awaitDetachedAcceptance(
+            cwd: config.projectRoot, json: opts.flag("json"), wakeDelivery: wakeDelivery)
     }
 
     /// Reconciles via `RelayCoordinator.reconcileOrphan` (not a raw `RelayStateStore.load`)
@@ -116,7 +121,8 @@ enum RelayCLI {
             state,
             contractVersion: ContractRegistry.contractVersion,
             pmTurn: pmTurn.pmTurn,
-            notes: pmTurn.notes
+            notes: pmTurn.notes,
+            pmTurnDelivery: pmTurn.pmTurnDelivery
         )
         json.waitOutcome = waitOutcome?.rawValue
         if opts.flag("json") {
@@ -171,10 +177,11 @@ enum RelayCLI {
         if opts.flag("no-wait") {
             await runResumeNoWait(
                 relayId: request.relayId, founderAnswer: request.answer, config: request.config,
-                opts: opts, runtime: runtime
+                opts: opts, runtime: runtime, wakeDelivery: DetachedDispatch.validateWakeDelivery(opts)
             )
             return
         }
+        _ = DetachedDispatch.validateWakeDelivery(opts)
 
         // URN-S02: guarantee a live notifier before dispatching a real dev turn.
         ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
@@ -198,10 +205,11 @@ enum RelayCLI {
     /// acceptance via `DetachedHandoff` after the durable `.running` claim.
     private static func runResumeNoWait(
         relayId: String, founderAnswer: String, config: RelayCoordinator.Config,
-        opts: Options, runtime: ToolRuntime
+        opts: Options, runtime: ToolRuntime, wakeDelivery: Bool
     ) async {
         _ = (relayId, founderAnswer, runtime) // parsed/validated above; child re-runs the real path
-        await awaitDetachedAcceptance(cwd: config.projectRoot, json: opts.flag("json"))
+        await awaitDetachedAcceptance(
+            cwd: config.projectRoot, json: opts.flag("json"), wakeDelivery: wakeDelivery)
     }
 
     /// `pair relay adopt --relay <id> --pm-model <id>` (docs/phases/Pilot_Relay.md
@@ -231,9 +239,12 @@ enum RelayCLI {
         )
 
         if opts.flag("no-wait") {
-            await runAdoptNoWait(relayId: relayId, pmModelId: pmModelId, config: config, opts: opts, runtime: runtime)
+            await runAdoptNoWait(
+                relayId: relayId, pmModelId: pmModelId, config: config, opts: opts, runtime: runtime,
+                wakeDelivery: DetachedDispatch.validateWakeDelivery(opts))
             return
         }
+        _ = DetachedDispatch.validateWakeDelivery(opts)
 
         // URN-S02: guarantee a live notifier before dispatching a real dev turn.
         // Reachable both directly (`pair relay adopt`) and via `runRelay`'s
@@ -257,19 +268,20 @@ enum RelayCLI {
     /// normal registered `relay adopt` path and reports acceptance after claim.
     private static func runAdoptNoWait(
         relayId: String, pmModelId: String, config: RelayCoordinator.Config,
-        opts: Options, runtime: ToolRuntime
+        opts: Options, runtime: ToolRuntime, wakeDelivery: Bool
     ) async {
         _ = (relayId, pmModelId, runtime)
-        await awaitDetachedAcceptance(cwd: config.projectRoot, json: opts.flag("json"))
+        await awaitDetachedAcceptance(
+            cwd: config.projectRoot, json: opts.flag("json"), wakeDelivery: wakeDelivery)
     }
 
     /// Shared `--no-wait` accept wait: spawn same argv minus `--no-wait`, ack only after
     /// the child writes `DetachedHandoff` accepted/refused.
-    private static func awaitDetachedAcceptance(cwd: String, json: Bool) async {
+    private static func awaitDetachedAcceptance(cwd: String, json: Bool, wakeDelivery: Bool) async {
         do {
             switch try DetachedDispatch.launchAndAwaitAcceptance(cwd: cwd, arguments: DetachedDispatch.childArguments()) {
             case .accepted(let id, let pid):
-                emitDispatchAck(kind: "relay", id: id, pid: pid, json: json)
+                emitDispatchAck(kind: "relay", id: id, pid: pid, json: json, wakeDelivery: wakeDelivery)
             case .refused(_, let code, let message, _):
                 AllnighterCLI.fail(code: code, message: message)
             case .timedOut:
@@ -413,14 +425,22 @@ enum RelayCLI {
     }
 
     /// Every detached Relay verb returns the one waiter for its terminal PM Turn.
-    private static func emitDispatchAck(kind: String, id: String, pid: Int32, json: Bool) {
-        let delivery = DetachedDispatch.waitDelivery(
-            kind: kind, id: id, commandPrefix: DetachedDispatch.commandPrefix())
+    private static func emitDispatchAck(
+        kind: String, id: String, pid: Int32, json: Bool, wakeDelivery: Bool
+    ) {
+        let delivery = wakeDelivery
+            ? DetachedDispatch.wakeDelivery()
+            : DetachedDispatch.waitDelivery(
+                kind: kind, id: id, commandPrefix: DetachedDispatch.commandPrefix())
         if json {
             print(AllnighterCLI.jsonLine(DetachedDispatchJSON(
                 kind: kind, id: id, status: "dispatched", pid: pid, delivery: delivery)))
         } else {
-            print("dispatched (pid \(pid)) — wait for delivery with `\(delivery.command)`")
+            if let command = delivery.command {
+                print("dispatched (pid \(pid)) — wait for delivery with `\(command)`")
+            } else {
+                print("dispatched (pid \(pid)) — PM Turn wake delivery configured")
+            }
         }
     }
 
@@ -440,7 +460,8 @@ enum RelayCLI {
             state,
             contractVersion: ContractRegistry.contractVersion,
             pmTurn: pmTurn.pmTurn,
-            notes: pmTurn.notes
+            notes: pmTurn.notes,
+            pmTurnDelivery: pmTurn.pmTurnDelivery
         )
         if json {
             print(AllnighterCLI.jsonLine(relayJSON))

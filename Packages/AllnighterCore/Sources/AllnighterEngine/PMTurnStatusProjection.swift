@@ -8,10 +8,14 @@ import AllnighterCore
 public struct PMTurnStatusProjection: Sendable, Equatable {
     public var pmTurn: PMTurnJSON?
     public var notes: [String]
+    public var pmTurnDelivery: PMTurnDeliveryJSON?
 
-    public init(pmTurn: PMTurnJSON?, notes: [String] = []) {
+    public init(
+        pmTurn: PMTurnJSON?, notes: [String] = [], pmTurnDelivery: PMTurnDeliveryJSON? = nil
+    ) {
         self.pmTurn = pmTurn
         self.notes = notes
+        self.pmTurnDelivery = pmTurnDelivery
     }
 
     /// Relay boundaries are exactly its park and terminal states, never merely
@@ -29,14 +33,15 @@ public struct PMTurnStatusProjection: Sendable, Equatable {
         kind: PMTurnJSON.Kind,
         subjectId: String,
         atPMBoundary: Bool,
-        store: PMTurnStore
+        store: PMTurnStore,
+        wakeLedgerStore: PMTurnWakeReceiptLedgerStore = PMTurnWakeReceiptLedgerStore()
     ) -> PMTurnStatusProjection {
         guard atPMBoundary else { return .init(pmTurn: nil) }
         do {
             guard let pmTurn = try store.load(kind: kind, subjectId: subjectId) else {
                 return .init(pmTurn: nil, notes: ["pm_turn_missing"])
             }
-            return .init(pmTurn: pmTurn)
+            return .init(pmTurn: pmTurn, pmTurnDelivery: wakeLedgerStore.delivery(for: pmTurn))
         } catch {
             // Never synthesize a report when the durable receipt is unreadable.
             return .init(pmTurn: nil, notes: ["pm_turn_unavailable"])

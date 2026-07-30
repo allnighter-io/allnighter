@@ -37,6 +37,8 @@ public struct RelayJSON: Codable, Equatable, Sendable {
     public var pmTurn: PMTurnJSON?
     /// Status-level notes; `pm_turn_missing` marks the receipt crash window.
     public var notes: [String]
+    /// Wake receiver acknowledgement/failure for this PM turn.
+    public var pmTurnDelivery: PMTurnDeliveryJSON?
     /// Present only for `--wait-for`: matched, timedOut, or terminalMismatch.
     public var waitOutcome: String?
 
@@ -57,6 +59,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         laneBlocked: ExecutionLaneTicket? = nil,
         pmTurn: PMTurnJSON? = nil,
         notes: [String] = [],
+        pmTurnDelivery: PMTurnDeliveryJSON? = nil,
         waitOutcome: String? = nil
     ) {
         self.schemaVersion = schemaVersion
@@ -75,6 +78,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         self.laneBlocked = laneBlocked
         self.pmTurn = pmTurn
         self.notes = notes
+        self.pmTurnDelivery = pmTurnDelivery
         self.waitOutcome = waitOutcome
     }
 
@@ -85,7 +89,8 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         _ state: RelayState,
         contractVersion: String,
         pmTurn: PMTurnJSON? = nil,
-        notes: [String] = []
+        notes: [String] = [],
+        pmTurnDelivery: PMTurnDeliveryJSON? = nil
     ) -> RelayJSON {
         RelayJSON(
             contractVersion: contractVersion,
@@ -102,13 +107,14 @@ public struct RelayJSON: Codable, Equatable, Sendable {
             stoppedReason: state.stoppedReason,
             laneBlocked: state.laneBlocked,
             pmTurn: pmTurn,
-            notes: notes
+            notes: notes,
+            pmTurnDelivery: pmTurnDelivery
         )
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, relayId, status, pmMode, rounds, verdict, note
-        case roundLog, docPath, pmModelId, devModelId, stoppedReason, laneBlocked, pmTurn, notes, waitOutcome
+        case roundLog, docPath, pmModelId, devModelId, stoppedReason, laneBlocked, pmTurn, notes, pmTurnDelivery, waitOutcome
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -129,6 +135,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         try c.encodeIfPresent(laneBlocked, forKey: .laneBlocked)
         try c.encode(pmTurn, forKey: .pmTurn)
         try c.encode(notes, forKey: .notes)
+        try c.encodeIfPresent(pmTurnDelivery, forKey: .pmTurnDelivery)
         try c.encodeIfPresent(waitOutcome, forKey: .waitOutcome)
     }
 }

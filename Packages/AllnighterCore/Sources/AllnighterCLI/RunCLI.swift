@@ -217,9 +217,11 @@ enum RunCLI {
         // `--run-id`), wait for DetachedHandoff acceptance, ack the REAL id
         // (including idempotency replay).
         if opts.flag("no-wait") {
-            await runNoWait(project: project, opts: opts)
+            await runNoWait(
+                project: project, opts: opts, wakeDelivery: DetachedDispatch.validateWakeDelivery(opts))
             return
         }
+        _ = DetachedDispatch.validateWakeDelivery(opts)
 
         if tryFix {
             await runTryFix(request, service: service, runtime: runtime, project: project, json: opts.flag("json"))
@@ -299,14 +301,14 @@ enum RunCLI {
     /// RSC-HF: `alln run --no-wait`. Child is the normal registered `alln run` with
     /// `--no-wait` stripped. Parent acks only after `DetachedHandoff` acceptance with
     /// the actual run id (idempotency replay included).
-    private static func runNoWait(project: Project, opts: Options) async {
+    private static func runNoWait(project: Project, opts: Options, wakeDelivery: Bool) async {
         do {
             switch try DetachedDispatch.launchAndAwaitAcceptance(
                 cwd: project.normalizedRootPath,
                 arguments: DetachedDispatch.childArguments()
             ) {
             case .accepted(let id, let pid):
-                emitDispatchAck(id: id, pid: pid, json: opts.flag("json"))
+                emitDispatchAck(id: id, pid: pid, json: opts.flag("json"), wakeDelivery: wakeDelivery)
             case .refused(_, let code, let message, _):
                 AllnighterCLI.fail(code: code, message: message)
             case .timedOut:
@@ -322,14 +324,20 @@ enum RunCLI {
 
     /// A detached run returns the one bounded waiter that delivers its terminal
     /// PM Turn. `run resume` remains vendor-capacity recovery, not delivery.
-    private static func emitDispatchAck(id: String, pid: Int32, json: Bool) {
-        let delivery = DetachedDispatch.waitDelivery(
-            kind: "run", id: id, commandPrefix: DetachedDispatch.commandPrefix())
+    private static func emitDispatchAck(id: String, pid: Int32, json: Bool, wakeDelivery: Bool) {
+        let delivery = wakeDelivery
+            ? DetachedDispatch.wakeDelivery()
+            : DetachedDispatch.waitDelivery(
+                kind: "run", id: id, commandPrefix: DetachedDispatch.commandPrefix())
         if json {
             print(AllnighterCLI.jsonLine(DetachedDispatchJSON(
                 kind: "run", id: id, status: "dispatched", pid: pid, delivery: delivery)))
         } else {
-            print("dispatched (pid \(pid)) — wait for delivery with `\(delivery.command)`")
+            if let command = delivery.command {
+                print("dispatched (pid \(pid)) — wait for delivery with `\(command)`")
+            } else {
+                print("dispatched (pid \(pid)) — PM Turn wake delivery configured")
+            }
         }
     }
 

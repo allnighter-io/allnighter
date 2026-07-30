@@ -191,6 +191,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
     public var pmTurn: PMTurnJSON?
     /// Status-level notes; `pm_turn_missing` marks the receipt crash window.
     public var notes: [String]
+    /// Wake receiver acknowledgement/failure for the terminal PM turn.
+    public var pmTurnDelivery: PMTurnDeliveryJSON?
 
     public init(
         schemaVersion: Int = 1,
@@ -216,7 +218,8 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         nextAction: AsyncTeamNextAction? = nil,
         waitHintSeconds: Double? = nil,
         pmTurn: PMTurnJSON? = nil,
-        notes: [String] = []
+        notes: [String] = [],
+        pmTurnDelivery: PMTurnDeliveryJSON? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.runId = runId
@@ -242,13 +245,14 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         self.waitHintSeconds = waitHintSeconds
         self.pmTurn = pmTurn
         self.notes = notes
+        self.pmTurnDelivery = pmTurnDelivery
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, runId, status, lane, teamPresetId, effort, currentStage
         case workers, workersDone, workersTotal, warnings, resultAvailable, nextPollAfterMs
         case traceId, endReason, lastProgressAt, progressStale, killOutcome, contradiction
-        case silenceStatus, nextAction, waitHintSeconds, pmTurn, notes
+        case silenceStatus, nextAction, waitHintSeconds, pmTurn, notes, pmTurnDelivery
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -277,6 +281,7 @@ public struct TeamStatusResponse: Codable, Equatable, Sendable {
         try c.encodeIfPresent(waitHintSeconds, forKey: .waitHintSeconds)
         try c.encode(pmTurn, forKey: .pmTurn)
         try c.encode(notes, forKey: .notes)
+        try c.encodeIfPresent(pmTurnDelivery, forKey: .pmTurnDelivery)
     }
 }
 

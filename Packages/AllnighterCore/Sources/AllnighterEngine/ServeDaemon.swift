@@ -67,6 +67,7 @@ public final class ServeDaemon: @unchecked Sendable {
     private let store: ServeDaemonStore
     private let probe: ServeDaemonProbe
     private let server: LoopbackHealthServer
+    private let pmTurnWakeScheduler: PMTurnWakeScheduler
     private let wakeDependencies: WakeDependencies?
     private let remoteDependencies: RemoteDependencies?
     private let daemonId: String
@@ -78,6 +79,7 @@ public final class ServeDaemon: @unchecked Sendable {
         contractVersion: String = ContractRegistry.contractVersion,
         store: ServeDaemonStore = ServeDaemonStore(),
         server: LoopbackHealthServer = LoopbackHealthServer(),
+        pmTurnWakeScheduler: PMTurnWakeScheduler = PMTurnWakeScheduler(),
         wakeDependencies: WakeDependencies? = nil,
         remoteDependencies: RemoteDependencies? = nil
     ) {
@@ -87,6 +89,7 @@ public final class ServeDaemon: @unchecked Sendable {
         self.store = store
         self.server = server
         self.probe = ServeDaemonProbe(store: store)
+        self.pmTurnWakeScheduler = pmTurnWakeScheduler
         self.wakeDependencies = wakeDependencies
         self.remoteDependencies = remoteDependencies
         self.daemonId = UUID().uuidString.lowercased()
@@ -123,6 +126,9 @@ public final class ServeDaemon: @unchecked Sendable {
             group.addTask {
                 await untilShutdown()
                 shutdown.fire()
+            }
+            group.addTask {
+                await self.pmTurnWakeScheduler.run { shutdown.isCancelled }
             }
             if let wake = wakeDependencies {
                 group.addTask {

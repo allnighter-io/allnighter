@@ -100,10 +100,24 @@ enum DetachedDispatch {
         }
     }
 
-    /// Child argv = parent argv with `--no-wait` removed. Preserves every other flag
-    /// (including `--no-auto-serve`).
+    /// Child argv removes detached-only routing flags. The child executes the normal
+    /// blocking path; otherwise `--delivery wake` would be rejected for lacking
+    /// `--no-wait` after the parent already validated the receiver.
     static func childArguments(from argv: [String] = Array(CommandLine.arguments.dropFirst())) -> [String] {
-        argv.filter { $0 != "--no-wait" }
+        var result: [String] = []
+        var index = 0
+        while index < argv.count {
+            switch argv[index] {
+            case "--no-wait":
+                index += 1
+            case "--delivery":
+                index += min(2, argv.count - index)
+            default:
+                result.append(argv[index])
+                index += 1
+            }
+        }
+        return result
     }
 
     private static func resolveExecutable(
@@ -126,11 +140,19 @@ enum DetachedDispatch {
 struct DetachedDispatchJSON: Encodable {
     struct Delivery: Encodable, Equatable {
         let path: String
-        let command: String
+        let command: String?
 
-        init(path: String = "wait", command: String) {
+        init(path: String = "wait", command: String? = nil) {
             self.path = path
             self.command = command
+        }
+
+        private enum CodingKeys: String, CodingKey { case path, command }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(path, forKey: .path)
+            try container.encodeIfPresent(command, forKey: .command)
         }
     }
 
@@ -169,5 +191,28 @@ extension DetachedDispatch {
             command = "\(commandPrefix) pair relay-status --relay \(id) --wait-for terminal --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
         }
         return .init(command: command)
+    }
+
+    static func wakeDelivery() -> DetachedDispatchJSON.Delivery {
+        .init(path: "wake")
+    }
+
+    /// Validates Path C before any detached process or auto-serve launch occurs.
+    /// Returns true only for the one supported delivery value (`wake`).
+    static func validateWakeDelivery(_ opts: Options) -> Bool {
+        let raw = opts.value("delivery") ?? (opts.flag("delivery") ? "" : nil)
+        guard let raw else { return false }
+        guard opts.flag("no-wait") else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--delivery wake requires --no-wait")
+        }
+        guard raw == "wake" else {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--delivery supports only wake")
+        }
+        guard PMTurnWakeConfigurationStore().hasConfiguredCommand() else {
+            AllnighterCLI.fail(
+                code: "PM_TURN_WAKE_UNCONFIGURED",
+                message: "--delivery wake requires pmTurnWake.command in machine serve configuration")
+        }
+        return true
     }
 }

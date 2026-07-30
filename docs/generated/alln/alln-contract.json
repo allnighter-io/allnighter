@@ -2165,6 +2165,13 @@
             "team"
           ],
           "subject" : "seat"
+        },
+        {
+          "kind" : "requires",
+          "peers" : [
+            "no-wait"
+          ],
+          "subject" : "delivery"
         }
       ],
       "flags" : [
@@ -2345,6 +2352,12 @@
           "name" : "no-wait",
           "summary" : "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream \/ --dry-run \/ --try-fix.",
           "takesValue" : false
+        },
+        {
+          "name" : "delivery",
+          "summary" : "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.",
+          "takesValue" : true,
+          "valueType" : "string"
         }
       ],
       "freeTwinCommand" : "alln run --dry-run",
@@ -2480,7 +2493,13 @@
 
       ],
       "flagConstraints" : [
-
+        {
+          "kind" : "requires",
+          "peers" : [
+            "no-wait"
+          ],
+          "subject" : "delivery"
+        }
       ],
       "flags" : [
         {
@@ -2534,6 +2553,12 @@
           "name" : "no-wait",
           "summary" : "Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing.",
           "takesValue" : false
+        },
+        {
+          "name" : "delivery",
+          "summary" : "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.",
+          "takesValue" : true,
+          "valueType" : "string"
         },
         {
           "name" : "json",
@@ -2620,7 +2645,13 @@
 
       ],
       "flagConstraints" : [
-
+        {
+          "kind" : "requires",
+          "peers" : [
+            "no-wait"
+          ],
+          "subject" : "delivery"
+        }
       ],
       "flags" : [
         {
@@ -2658,6 +2689,12 @@
           "takesValue" : false
         },
         {
+          "name" : "delivery",
+          "summary" : "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
           "name" : "json",
           "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
           "takesValue" : false
@@ -2689,7 +2726,13 @@
 
       ],
       "flagConstraints" : [
-
+        {
+          "kind" : "requires",
+          "peers" : [
+            "no-wait"
+          ],
+          "subject" : "delivery"
+        }
       ],
       "flags" : [
         {
@@ -2725,6 +2768,12 @@
           "name" : "no-wait",
           "summary" : "Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.",
           "takesValue" : false
+        },
+        {
+          "name" : "delivery",
+          "summary" : "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.",
+          "takesValue" : true,
+          "valueType" : "string"
         },
         {
           "name" : "json",
@@ -2823,7 +2872,13 @@
 
       ],
       "flagConstraints" : [
-
+        {
+          "kind" : "requires",
+          "peers" : [
+            "no-wait"
+          ],
+          "subject" : "delivery"
+        }
       ],
       "flags" : [
         {
@@ -2870,6 +2925,12 @@
           "name" : "no-wait",
           "summary" : "Return after dispatch with delivery.path=wait and an exact `pilot status --wait-for parked` command. Run it once for the parked PM Turn; a killed `pilot watch` is not failure.",
           "takesValue" : false
+        },
+        {
+          "name" : "delivery",
+          "summary" : "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.",
+          "takesValue" : true,
+          "valueType" : "string"
         },
         {
           "name" : "no-auto-serve",
@@ -5444,6 +5505,24 @@
       "requiresManual" : false,
       "retryable" : true,
       "ruleId" : "pm_turn.status.wait_timeout"
+    },
+    {
+      "agentAction" : "Configure machine-level pmTurnWake.command, then retry `--no-wait --delivery wake`; or omit --delivery and run the returned status waiter.",
+      "code" : "PM_TURN_WAKE_UNCONFIGURED",
+      "exitClass" : "operational",
+      "explain" : "Wake delivery was requested, but this Mac has no PM Turn receiver command configured. Nothing was dispatched.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "pm_turn.wake.unconfigured"
+    },
+    {
+      "agentAction" : "Read status JSON for pmTurnDelivery, fix the receiver, then use the terminal\/parked status waiter to recover the durable pmTurn.",
+      "code" : "PM_TURN_WAKE_FAILED",
+      "exitClass" : "operational",
+      "explain" : "The configured PM Turn receiver did not acknowledge the durable turn before its retry window ended. The PM turn remains on disk and status projects the failure.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "pm_turn.wake.failed"
     },
     {
       "agentAction" : "Alias of PM_TURN_WAIT_TIMEOUT: re-run the same waiter with a longer --timeout.",
