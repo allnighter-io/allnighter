@@ -30,6 +30,24 @@ paths.
 
 `lane` means **craft** (Code/Design/Copy/Signal). It is never “a single run.”
 
+## Capacity vocabulary (promoted from the capacity packet, 2026-07-30)
+
+| Term | Meaning |
+| --- | --- |
+| **Bench capacity** | What each paid CLI subscription has left. Vendor-printed only — never estimated, never projected. |
+| **Acquisition ladder** | Where a seat's number comes from, cheapest first: on-disk log (tier 1) → structured stream (tier 2) → PTY probe of the vendor's own usage TUI (tier 3) → 429 failure classification (tier 4). |
+| **Effective availability** | The tightest ceiling across all of a seat's windows. A fresh 5-hour window under an exhausted weekly is unreachable, so it reads 0. This is where Allnighter is deliberately **more honest than the vendor's own meter**. |
+| **`neverSampled` vs `vendorExposesNothing`** | `neverSampled` = we did not look. `vendorExposesNothing` = the vendor genuinely has no usage surface. **Never claim the latter for a seat we ship a parser for** — blaming the vendor for our own gap is the lie this subsystem exists to prevent. There is a test enforcing it. |
+| **Refresh, three affordances** | refresh-all (the routine glance, keeps rows comparable) · the **age chip is the per-row refresh** · `--refresh --source <id>` for agents · automatic pre-dispatch refresh that nobody clicks. |
+
+Standing laws: no projections or forecasts, only observed facts and
+retrospective arithmetic. Never zero-fill a missing sample. Unknown never
+blocks dispatch. Nothing may trigger acquisition except launch, explicit
+refresh, post-run piggyback, and pre-long-dispatch — events record from what is
+already known, they never go and ask. Code SSOT: `CapacityWindow`,
+`CapacityAcquisition`, `CapacityBenchProjection`, `CapacityStripRenderer`,
+`CapacityHistoryStore`, and the five `*CapacityLog` parsers.
+
 **Loop vs Pilot vs Relay:** Loop is the human word on the Mac, Relay is the
 machine, Pilot is the CLI-only supervised variant. Teach
 `pair relay` / `pair relay stop` / `pair relay-status`; never invent `pair loop`.
