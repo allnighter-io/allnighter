@@ -222,7 +222,7 @@ public enum CapacityBenchProjection {
         windows: [CapacityWindow]
     ) -> CapacityBenchPoolMetrics {
         let dashboard = selectDashboard(from: windows)
-        let short = selectShortWindow(from: windows)
+        let short = selectShortWindow(from: windows, poolLabel: poolLabel)
 
         if let dashboard, dashboard.unknownReason == nil {
             return CapacityBenchPoolMetrics(
@@ -264,12 +264,41 @@ public enum CapacityBenchProjection {
         return nil
     }
 
+    /// Sources that **have** a short (5h / session) limit — a product fact about
+    /// the vendor, not a fact about this sample.
+    ///
+    /// Whether a short window has a limit and whether we currently hold a sample
+    /// of it are different questions, and `.none` only ever answers the first.
+    /// Deriving `.none` from "no short window in this batch" conflated them:
+    /// Claude's session window closes every ~5h, so as soon as the last sample
+    /// aged out of the open-history filter the strip printed the same `-` as Grok
+    /// and Cursor, which genuinely have no short limit at all.
+    public static let sourcesWithShortWindow: Set<String> = [
+        "claude_code",
+        "kimi",
+    ]
+
     /// Short column: `fiveHour` (agy/kimi) **or** `session` (Claude).
     /// Session is Claude's short limit — treating it as "no short window" blanked
     /// the 5h column while the Usage pane showed Current session.
-    private static func selectShortWindow(from windows: [CapacityWindow]) -> CapacityShortWindowState {
+    ///
+    /// `poolLabel` is nil for the flat/primary pool. A short limit belongs to the
+    /// seat, not to a weekly sub-pool, so only the primary pool falls back to
+    /// `unknown`; a labeled pool with no short sample stays `.none`.
+    private static func selectShortWindow(
+        from windows: [CapacityWindow],
+        poolLabel: String?
+    ) -> CapacityShortWindowState {
         let shorts = windows.filter { $0.scope == .fiveHour || $0.scope == .session }
-        guard !shorts.isEmpty else { return .none }
+        guard !shorts.isEmpty else {
+            guard poolLabel == nil,
+                  let source = windows.first?.source,
+                  sourcesWithShortWindow.contains(source)
+            else { return .none }
+            // Declared short limit, no sample of the current window — say so.
+            let reason = windows.lazy.compactMap(\.unknownReason).first ?? .neverSampled
+            return .unknown(reason)
+        }
 
         if let known = newestKnown(in: shorts),
            let remaining = known.remainingPercent,

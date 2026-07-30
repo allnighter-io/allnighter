@@ -359,4 +359,63 @@ final class CapacityBenchProjectionTests: XCTestCase {
         }
         XCTAssertEqual(reason, .parserFailed(observedAt: now))
     }
+
+    // MARK: 10 — Declared short limit with no sample is unknown, never none
+
+    /// The founder-visible symptom on bare `alln capacity`: Claude's session
+    /// window closes every ~5h, so the last sample ages out of open history while
+    /// the weekly (days out) survives. With `.none` derived from sample presence,
+    /// the 5h cell printed the same `-` as Grok — as if Claude had no short limit.
+    func testClaudeWithOnlyWeeklyHistoryReportsUnknownShortNotNone() {
+        let windows = [
+            used(53, source: "claude_code", scope: .weekly,
+                 resetAt: now.addingTimeInterval(4 * 24 * 3600)),
+        ]
+        let row = CapacityBenchProjection.rows(from: windows, now: now)[0]
+        guard case .unknown(let reason) = row.pools[0].shortWindow else {
+            return XCTFail("Claude short window must be .unknown, got \(row.pools[0].shortWindow)")
+        }
+        XCTAssertEqual(reason, .neverSampled)
+    }
+
+    /// A short limit belongs to the seat, not to a weekly sub-pool. Claude's
+    /// Fable pool must keep printing `-`, not a second "unknown" for a window
+    /// that pool does not have.
+    func testClaudeSecondaryWeeklyPoolKeepsNoneShortWindow() {
+        let weekReset = now.addingTimeInterval(4 * 24 * 3600)
+        let windows = [
+            used(14, source: "claude_code", scope: .session,
+                 resetAt: now.addingTimeInterval(4 * 3600)),
+            used(53, source: "claude_code", scope: .weekly, resetAt: weekReset),
+            used(10, source: "claude_code", scope: .weekly, resetAt: weekReset,
+                 poolLabel: "Fable"),
+        ]
+        let row = CapacityBenchProjection.rows(from: windows, now: now)[0]
+        XCTAssertEqual(row.pools.count, 2)
+        XCTAssertNil(row.pools[0].poolLabel)
+        XCTAssertEqual(row.pools[0].dashboardRemainingPercent, 47)
+        guard case .known(let shortRem, _, _, _, _) = row.pools[0].shortWindow else {
+            return XCTFail("primary pool short must be known, got \(row.pools[0].shortWindow)")
+        }
+        XCTAssertEqual(shortRem, 86)
+
+        XCTAssertEqual(row.pools[1].poolLabel, "Fable")
+        XCTAssertEqual(row.pools[1].dashboardRemainingPercent, 90)
+        guard case .none = row.pools[1].shortWindow else {
+            return XCTFail("Fable pool short must be .none, got \(row.pools[1].shortWindow)")
+        }
+    }
+
+    /// Grok genuinely has no short limit — the roster must not sweep it in.
+    func testSourceWithoutShortLimitStaysNone() {
+        XCTAssertFalse(CapacityBenchProjection.sourcesWithShortWindow.contains("grok"))
+        XCTAssertFalse(CapacityBenchProjection.sourcesWithShortWindow.contains("cursor_agent"))
+        let windows = [
+            used(42, source: "grok", scope: .weekly, resetAt: now.addingTimeInterval(100_000)),
+        ]
+        let row = CapacityBenchProjection.rows(from: windows, now: now)[0]
+        guard case .none = row.pools[0].shortWindow else {
+            return XCTFail("Grok short window must be .none, got \(row.pools[0].shortWindow)")
+        }
+    }
 }
