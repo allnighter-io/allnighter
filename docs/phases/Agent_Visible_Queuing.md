@@ -2,7 +2,7 @@
 
 Status: **OPEN — incident-driven (2026-07-30)**  
 Audience: **agents using `alln`**  
-Revised: **v4 + S04 hardened (2026-07-30)** — write-policy flag first; honest queue/stall decision second
+Revised: **v5 + S04 clarified (2026-07-30)** — `--read-only` is lock policy on `alln run`, not a team
 
 ## Core promise
 
@@ -13,7 +13,7 @@ Am I queued, unobserved, progressing, stalled, or terminal?
 What is the one safe next action?
 ```
 
-And for feedback that must not mutate: an agent can dispatch **without entering the write-lock queue** via an explicit write-policy flag — not by guessing team ids or misusing commit flags.
+And for parallel feedback: `alln run --read-only --model …` — chat with a model **without** competing for the mutator lock. Not `--no-commit`. Not a team.
 
 `status: running` is lifecycle only. It must never stand in for progress.
 
@@ -61,7 +61,9 @@ Use existing run/status contracts; do not create a floor manager, status service
 
 ### Dispatch
 
-**Read-only (S04):** `alln run --read-only …` resolves with `writePolicy: readOnly` and `takesWriteLock: false`. It never acquires the per-root write lock and never receives a FIFO ticket. Use for doc review, spec hardening, and report-only probes.
+**Read-only (S04):** `alln run --read-only --model <id>` is the same one-model chat as bare `alln run --model <id>`, except `writePolicy: readOnly` and `takesWriteLock: false`. It never acquires the per-root write lock and never receives a FIFO ticket. Use for doc review, spec hardening, and report-only probes.
+
+`--read-only` has **nothing to do with `--team`**. Teams are a separate axis (named panels/workflows). This slice does not add team resolution, team aliases, or silent catalog substitution.
 
 Do **not** use `--no-commit` for parallel feedback — it only changes commit instruction; the run remains mutating and queues FIFO.
 
@@ -131,7 +133,7 @@ The human table must label elapsed stream activity accurately: `STREAM_AGE`, not
 - Silent deduplication of intentionally separate runs.
 - A filesystem sandbox, mirror, clone, or mechanical “blanket read-only layer” (architecture forbids it). `--read-only` is Allnighter write-policy + lock posture, not vendor FS isolation.
 - New dry-run fields (`competesForWriteLock`, etc.). Project with existing `writePolicy` + `effects.repoWrite` + ticket absence.
-- Multi-seat Spec Review seating under this flag (use `--team code_spec_review*` for panels).
+- Team resolution under `--read-only` (no `--team` combo; teams are out of scope for this flag).
 
 ## Slices
 
@@ -139,107 +141,96 @@ The human table must label elapsed stream activity accurately: `STREAM_AGE`, not
 
 ### AVQ-S04 — `alln run --read-only` (no write-lock queue)
 
-**Goal:** One flag so an agent can get model feedback (doc review, spec hardening, report-only probe) **without** knowing judgment-team catalog ids and **without** FIFO behind the per-repo mutator. Today bare `alln run --model <id>` is mutating `default_chat`; `--no-commit` still takes the lock — a product lie agents hit daily.
+**Goal:** Chat with a model in parallel with the mutator — without FIFO behind the per-repo write lock.
 
-**Truth owner:** `RunInvocationResolver` / `ResolvedRunInvocation` (`writePolicy`, `takesWriteLock`); `RunService` acquire path (must not acquire when read-only).  
-**Lie-prone layer:** Default mutating `alln run`; `--no-commit` name; missing help; any implication that “read-only” is a vendor FS sandbox.
+Today bare `alln run --model <id>` is mutating and queues. `--no-commit` still takes the lock. Agents need one flag that says “answer only, don’t compete for the mutator.”
+
+**Truth owner:** `ResolvedRunInvocation.writePolicy` / `takesWriteLock`; `RunService` must not acquire the lock when read-only.  
+**Lie-prone layer:** Default mutating `alln run`; `--no-commit` name; doc/help that mentions teams in the same breath as `--read-only`.
 
 **Product law:**
 
 ```text
---read-only   →  writePolicy: readOnly, takesWriteLock: false, no FIFO ticket
---no-commit   →  mutating runs only: skip git commit instruction; STILL takes write lock
+alln run --model <id>                    →  mutating, takes write lock, queues FIFO
+alln run --read-only --model <id>        →  same chat, writePolicy: readOnly, no lock, no queue
+alln run --no-commit --model <id>        →  still mutating, still takes lock (commit instruction only)
 ```
 
-`--read-only` is a **write-policy selector**, not a team name and not a sandbox. Seat selection stays ordinary:
+`--read-only` is **lock policy on `alln run`**. It is not a team name, not a team alias, not a sandbox, not Spec Review.
 
-| Invocation | Resolution |
-| --- | --- |
-| `--read-only --model <id>` | Default/single-seat path with named model; force `writePolicy: readOnly`. |
-| `--read-only --team <id>` | Team must already be non-mutating (`writePolicy: readOnly`); run that team. Optional `--model` / `--seat` per existing judgment rules. |
-| `--read-only` alone | Fail closed: name the missing seat (`--model` or a non-mutating `--team`). |
-
-Do **not** expand `--read-only --model X` into `code_spec_review_min` or any multi-seat panel. Panels stay explicit `--team`.
-
-**Not guaranteed:** worker process cannot touch files. Observational teams still run in the real repo; unexpected git change is a post-hoc observation path (`researchGitObservation` where applicable), never a silent reset. The guarantee is: **this run does not compete for the Allnighter write lock.**
-
-**CLI surface:**
+**Default path (the whole slice):**
 
 ```bash
-alln run --read-only --model model_grok --json "Harden the named phase packet."
+alln run --read-only --model model_grok --json "Review this doc."
 alln run --read-only --model model_gpt_terra --dry-run --json "…"
-alln run --read-only --team code_spec_review --json "…"   # multi-seat: team explicit
-alln run --read-only --model model_grok --no-wait --json "…"  # detach; still no lock
+alln run --read-only --model model_grok --no-wait --json "…"   # detach; still no lock
 ```
 
-**Flag matrix (fail closed / allow):**
+Requires `--model`. No `--team`. No catalog ids to memorize.
+
+**Implementation (keep it thin):**
+
+1. Parse `--read-only` in `RunCLI`.
+2. Set `writePolicy: .readOnly` / `takesWriteLock: false` in resolution (`ResolvedRunInvocation` / `RunInvocationResolver`).
+3. Skip write-lock acquire and FIFO ticket for this run (`RunService` path already does this when `writePolicy` is read-only — verify, don’t reinvent).
+4. Refuse mutator-only flags and `--team` when `--read-only` is set (fail closed, name the conflict).
+5. Help + contract + one teaching line so agents find the flag.
+
+No team resolution theater. No mapping to `code_spec_review_min` or any built-in team.
+
+**What this guarantees:** the run does **not** compete for the Allnighter write lock.  
+**What this does not guarantee:** the vendor CLI cannot touch files. That is a different problem; this slice does not promise FS isolation.
+
+**Invalid combos (fail closed):**
 
 | Combo | Verdict |
 | --- | --- |
-| `--read-only` + `--model` | Allow |
-| `--read-only` + non-mutating `--team` | Allow |
-| `--read-only` + mutating `--team` (e.g. `default_chat`, `build_slice`) | Fail: use `--model` without that team, or pick a judgment/research team |
-| `--read-only` without `--model` and without `--team` | Fail: name required seat |
-| `--read-only` + `--no-commit` | Fail: `--no-commit` is mutator-only; redundant/confusing |
-| `--read-only` + `--commit-message` | Fail |
-| `--read-only` + `--try-fix` / `--executor` | Fail |
-| `--read-only` + `--proof` | Fail (proof is post-mutator) |
-| `--read-only` + `--dry-run` | Allow; project `writePolicy: readOnly`, `effects.repoWrite: false`; no ticket for this run |
-| `--read-only` + `--no-wait` | Allow; detach path must not wait on / claim write lock |
-| `--read-only` + `--stream` / `--json` | Allow per existing mutual-exclusion rules among output modes |
-| Root write lock held by another mutator | **Must not** block `canStart` for a read-only resolution. Driver/auth/governor gates still apply. |
+| `--read-only` without `--model` | Fail: `--model` required |
+| `--read-only` + `--team` | Fail: `--read-only` is not a team path; use `--model` only |
+| `--read-only` + `--no-commit` | Fail: mutator-only; confusing |
+| `--read-only` + `--commit-message` / `--try-fix` / `--proof` | Fail: mutator-only |
+| `--read-only` + `--dry-run` / `--no-wait` / `--json` | Allow (existing output rules) |
+| Mutator holds root write lock | **Must not** block start for `--read-only` |
 
-**Gates vs lock (do not confuse):**
+Auth, doctor, and driver capacity gates still apply. Only the write lock is skipped.
 
-| Gate | Applies to `--read-only`? |
-| --- | --- |
-| Per-root write lock / FIFO | **No** — never acquire, never ticket |
-| Model ready / source auth / doctor | **Yes** |
-| Team governor / driver capacity | **Yes** (same as other non-mutating runs) |
-| Execution mixed-source gate | N/A for single-seat / judgment teams as today |
-
-**Dry-run / ack projection (existing fields only):**
+**Dry-run / ack (existing fields only):**
 
 - `writePolicy: "readOnly"`
 - `effects.repoWrite: false`
 - No write-lock ticket / blocker for this run
-- `writeLockHeld` may still report the **root** is held by someone else (observation); that must not set this run to queued or block start
+- `writeLockHeld` may report the root is held by someone else (observation only); must not queue this run or block start
 
-**Help surface** (same slice as the flag — agents cannot discover what they cannot search):
+**Help surface:**
 
 | Item | Requirement |
 | --- | --- |
-| `HelpTopicRegistry` / `alln run` topic | Document `--read-only`; one-line contrast with `--no-commit`; state “not a FS sandbox.” |
-| `help search` | Hits from: `read-only`, `readonly`, `no commit`, `write lock`, `queue`, `parallel`, `feedback`, `report only`, `spec review`. |
-| `ContractRegistry` | `FlagSpec("read-only", …)`; mutual exclusivity with mutator-only flags; regenerate via `alln dev export-contracts --check`. |
-| `TeachingSnippet` / `Bootstrap` | One reflex line only (full two-laws prose stays S03): doc/spec feedback → `--read-only --model …`; build → default mutating `alln run`. |
-| Examples | One contract/example recipe: read-only single-model doc review. |
+| `HelpTopicRegistry` / `alln run` topic | One sentence: parallel feedback → `--read-only --model …`; build → default mutating `alln run`; `--no-commit` does not skip the queue. |
+| `help search` | Hits from: `read-only`, `readonly`, `no commit`, `write lock`, `queue`, `parallel`, `feedback`. |
+| `ContractRegistry` | `FlagSpec("read-only", …)`; mutual exclusivity with mutator-only flags and `--team`; `alln dev export-contracts --check`. |
+| `TeachingSnippet` | One reflex line (full prose in S03). |
 
 **Touches:**
 
-- `RunCLI.swift` — parse flag; wire into request/normalized flags; refuse invalid combos early with actionable errors
-- `ResolvedRunInvocation.swift` / `RunInvocationResolver` — `readOnly` on normalized flags; force `writePolicy: .readOnly` and `takesWriteLock: false`; skip write-lock probe for `canStart`; reject mutating `--team` under the flag
-- `RunService.swift` — confirm non-mutating path never calls write-lock acquire (already true for `writePolicy: readOnly`; no second lock path)
-- `SandboxHandoffSpool.swift` / `SandboxHandoffRunner.swift` — handoff request must preserve read-only posture so a sandbox-handed-off run keeps `takesWriteLock: false`
-- `ContractRegistry+Milestone1.swift` — `FlagSpec`, exclusivity, effects profile unchanged
-- `HelpTopicRegistry.swift` + generated help corpus
-- `TeachingSnippet.swift` — minimal one-liner (S03 owns full teaching)
-- Tests: dry-run field assertions; live non-acquisition with holder present; invalid combos; help search fixture; contracts check
+- `RunCLI.swift` — parse flag; refuse `--team` and mutator-only combos
+- `ResolvedRunInvocation.swift` / `RunInvocationResolver` — force `writePolicy: .readOnly`, `takesWriteLock: false`; skip lock probe for `canStart`
+- `RunService.swift` — confirm non-mutating path never acquires (no second lock path)
+- `SandboxHandoffSpool.swift` / `SandboxHandoffRunner.swift` — preserve read-only posture on sandbox handoff
+- `ContractRegistry+Milestone1.swift`, `HelpTopicRegistry.swift`, `TeachingSnippet.swift`
+- Tests: dry-run fields; live parallel start with holder present; invalid combos; help search; contracts check
 
-**Optional same-slice nicety (cut if it grows):** when bare mutating dry-run already emits ADP-S02 `alternatives`, prefer teaching `alln run --read-only --model …` over only `--team code_plan`. Not required for Works Test.
+**Acceptance:**
 
-**Acceptance (merged):**
+1. With a mutating holder on root R, `alln run --read-only --model model_grok --dry-run --json` shows `writePolicy: "readOnly"`, `effects.repoWrite: false`, no ticket; live run reaches `running` or terminal without `blocker.ticketPosition`.
+2. `alln run --model model_grok --no-commit --dry-run --json` unchanged (mutating / `repoWrite: true`). Help says `--no-commit` does not skip the queue.
+3. `--read-only` without `--model`, or `--read-only` + `--team`, or `--read-only` + mutator-only flags → fail with error naming the conflict.
+4. `help search "read-only"` hits the `run` topic; `alln dev export-contracts --check` green.
 
-1. **Policy + parallel:** With a mutating holder on root R, `alln run --read-only --model model_grok --dry-run --json` shows `writePolicy: "readOnly"`, `effects.repoWrite: false`, and no FIFO ticket for this run; a live short-prompt `--read-only` run reaches `running` or terminal **without** `blocker.ticketPosition` while the holder remains.
-2. **Contrast:** `alln run --model model_grok --no-commit --dry-run --json` remains mutating / `effects.repoWrite: true` (unchanged). Help states `--no-commit` does not skip the queue.
-3. **Fail closed:** Missing seat; `--read-only` + mutator-only flags; `--read-only` + mutating `--team` — each fails with an error that names the conflicting/missing flag.
-4. **Discoverable:** `help search "read-only"` and `help search "write lock"` hit the `run` topic; `alln dev export-contracts --check` green.
+**Works test:** Hold mutating fixture on R; `alln run --read-only --model model_grok --json` short prompt; first status has no write-lock ticket.
 
-**Works test:** Hold mutating fixture on R; dispatch `alln run --read-only --model model_grok --json` with a short prompt; first status has no write-lock ticket and lifecycle is non-queued (`running` or terminal).
+**Depends on:** none. **Ship before S01–S03.**
 
-**Depends on:** none. **Do this slice before S01–S03.**
-
-**Dogfood note (2026-07-30):** Spec hardening and AVQ doc review were blocked or skipped because agents used mutating `default_chat` (or thought `--no-commit` was parallel-safe). S04 fixes the product surface; S03 teaching locks the reflex.
+**Dogfood note (2026-07-30):** Doc review was blocked because agents used mutating `alln run --model …` (or thought `--no-commit` was parallel-safe). S04 adds the flag; S03 teaches it.
 
 ---
 
@@ -318,7 +309,7 @@ alln run --read-only --model model_grok --no-wait --json "…"  # detach; still 
 **Acceptance:**
 
 1. Bootstrap says: one mutator per root; `running` is not progress; inspect queue ticket and `progressStale`.
-2. It tells agents to use **`alln run --read-only --model …`** for doc/spec feedback and non-mutating research for parallel work; **not** `--no-commit` for that purpose.
+2. It tells agents: doc/spec feedback → **`alln run --read-only --model …`**; build → default mutating `alln run`. **Not** `--no-commit` for parallel feedback.
 3. It contains no model roster, no invented health claim, no claim of FS sandbox.
 4. Schema/hash installation behavior remains valid.
 
@@ -350,7 +341,7 @@ This is defensible only if Allnighter owns the real **cross-CLI execution bounda
 
 The product advantage is not a smarter queue UI. It is:
 
-1. **Correct isolation of feedback** — `--read-only` so judgment never wedges the mutator (S04).
+1. **Correct isolation of feedback** — `--read-only --model …` so chat never wedges the mutator (S04).
 2. **Trustworthy wait-or-recover** at the moment an agent would otherwise spawn a duplicate mutator or wait forever (S01–S02).
 3. **The same reflex taught next session** (S03).
 
@@ -399,15 +390,14 @@ A fixture triple-dispatch on one root must make all of the following impossible:
 - receiving a stalled run whose primary action is “wait”;
 - requiring a human to discover who blocks the root;
 - silently turning a killed or reconciled holder into success;
-- **queuing read-only doc/spec feedback** because the agent used mutating `default_chat` or thought `--no-commit` was safe parallel.
+- **queuing read-only doc/spec feedback** because the agent used mutating `alln run --model …` or thought `--no-commit` was safe parallel.
 
 Evidence inspected:
 
-- Phase packet v3 (S04 draft), Product Vocabulary, architecture policy (no blanket read-only layer).
-- `ResolvedRunInvocation` / `RunInvocationResolver` (`writePolicy`, `takesWriteLock`, ADP-S02 `code_plan` steer).
+- Phase packet v4 (S04 hardened), Product Vocabulary, architecture policy (no blanket read-only layer).
+- `ResolvedRunInvocation` / `RunInvocationResolver` (`writePolicy`, `takesWriteLock`).
 - `RunDryRunJSON` (`writePolicy`, `effects.repoWrite`), `RunService` write-lock acquire only on mutating path.
-- `alln run` help contract: `--no-commit` is commit instruction; dry-run already projects write policy.
-- Built-in teams: judgment/research non-mutating vs `default_chat` / `build_slice` mutating.
+- `alln run` help contract: `--no-commit` is commit instruction only.
 
 Key claim:
 
@@ -427,7 +417,8 @@ What I reject and why:
 - `advancing` as a new boolean — hides the unobserved state.
 - Notifications, analytics, auto-kill, and a new floor command — none fix the decision-point lie.
 - Separate parallel mutating lanes — violate the root safety law rather than explain it.
-- Mapping `--read-only --model X` onto multi-seat Spec Review — scope creep; panels stay explicit `--team`.
+- Mapping `--read-only` to any built-in team or panel — scope creep; teams stay on `--team`.
+- Team resolution theater under `--read-only` — the flag is lock policy on model chat, not a team alias.
 - Inventing `competesForWriteLock` or a mechanical blanket read-only layer — duplicates existing policy fields / violates architecture.
 - Treating `--no-commit` as “safe parallel” — product lie this phase exists to kill.
 
