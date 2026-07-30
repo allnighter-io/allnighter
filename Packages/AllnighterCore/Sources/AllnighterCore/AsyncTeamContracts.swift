@@ -89,8 +89,8 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
     public static func waitForStatus(runId: String) -> AsyncTeamNextAction {
         AsyncTeamNextAction(
             kind: "waitForStatus",
-            label: "Wait for the terminal PM Turn",
-            command: "alln team status \(runId) --wait-for terminal --timeout 7200 --json",
+            label: "Wait, then re-check status",
+            command: "alln team status \(runId) --json",
             runId: runId)
     }
 }
