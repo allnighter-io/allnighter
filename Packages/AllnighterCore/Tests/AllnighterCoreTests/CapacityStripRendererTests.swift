@@ -97,24 +97,44 @@ final class CapacityStripRendererTests: XCTestCase {
         XCTAssertEqual(ordered.map(\.source), ["grok", "codex"])
     }
 
-    // MARK: - Effective availability in short column
+    // MARK: - Short column reports the short window
 
-    func testKimiShortColumnShowsEffectiveZeroNotRawHundred() {
+    /// Reversal of the old "effective availability" rule. The short column states
+    /// the short window's own remaining; the row-wide ceiling is carried by the
+    /// weekly cell, `effectiveRemainingPercent`, and the row colour. Kimi weekly
+    /// 0% + 5h 100% shows 0% weekly **and** 100% short — both facts, neither
+    /// overwriting the other.
+    func testKimiShortColumnShowsItsOwnFiveHourNumber() {
         let windows = [
             used(100, source: "kimi", scope: .weekly,
                  resetAt: now.addingTimeInterval(151_380)),
             used(0, source: "kimi", scope: .fiveHour,
                  resetAt: now.addingTimeInterval(3_780)),
         ]
-        let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
-        // Short column must show 0%, never 100%.
-        XCTAssertTrue(plain.contains("Kimi"), plain)
-        // Row line should include 0% for weekly and 0% for short.
+        let projected = rows(from: windows)
+        let plain = CapacityStripRenderer.renderPlain(rows: projected, now: now)
         let kimiLine = plain.split(separator: "\n").first { $0.contains("Kimi") }.map(String.init) ?? ""
-        XCTAssertTrue(kimiLine.contains("0%"), "expected 0% on Kimi line: \(kimiLine)")
-        // Must not advertise raw 5h 100% in the short column.
-        // Weekly is also 0%, so count 0% occurrences ≥ 1; forbid a 100% on that line.
-        XCTAssertFalse(kimiLine.contains("100%"), "short column must not show raw 100%: \(kimiLine)")
+        XCTAssertTrue(kimiLine.contains("0%"), "expected weekly 0% on Kimi line: \(kimiLine)")
+        XCTAssertTrue(kimiLine.contains("100%"), "expected raw 5h 100% on Kimi line: \(kimiLine)")
+        // The exhausted weekly still drives the row verdict.
+        XCTAssertEqual(projected.first?.effectiveRemainingPercent, 0)
+        XCTAssertEqual(CapacityStripRenderer.color(for: projected[0], now: now), .red)
+    }
+
+    /// The founder-visible Claude case: session 86% remaining under a 47% weekly
+    /// rendered `47%` in a column headed `5h`, so the 5h limit was never shown.
+    func testClaudeSessionColumnShowsSessionNotWeekly() {
+        let windows = [
+            used(53, source: "claude_code", scope: .weekly,
+                 resetAt: now.addingTimeInterval(4 * 86400)),
+            used(14, source: "claude_code", scope: .session,
+                 resetAt: now.addingTimeInterval(4 * 3600)),
+        ]
+        let projected = rows(from: windows)
+        let line = CapacityStripRenderer.renderPlain(rows: projected, now: now)
+            .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
+        XCTAssertTrue(line.contains("47%"), "expected weekly 47% on Claude line: \(line)")
+        XCTAssertTrue(line.contains("86%"), "expected session 86% in the 5h column: \(line)")
     }
 
     func testGrokShortColumnIsDashNotBlank() {
@@ -309,7 +329,8 @@ final class CapacityStripRendererTests: XCTestCase {
 
         let kimi = payload.rows.first { $0.source == "kimi" }!
         XCTAssertEqual(kimi.effectiveRemainingPercent, 0.0)
-        XCTAssertEqual(kimi.shortRemainingPercent, 0.0)
+        // Short reports its own window; the tightest ceiling lives in `effective`.
+        XCTAssertEqual(kimi.shortRemainingPercent, 100.0)
         XCTAssertFalse(kimi.shortWindowNone)
 
         let grok = payload.rows.first { $0.source == "grok" }!

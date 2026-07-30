@@ -403,8 +403,16 @@ public enum CapacityStripRenderer {
         let reason: CapacityUnknownReason?
     }
 
-    /// Effective availability in the short column when a short window exists.
-    /// Kimi weekly 0% + 5h 100% → short shows 0% (row effective), not 100%.
+    /// The short column reports the **short window's own** remaining — the number
+    /// the vendor prints for it, nothing else.
+    ///
+    /// It used to be floored by the row's tightest remaining ("effective
+    /// availability"): Kimi weekly 0% + 5h 100% rendered 0%. That made the cell
+    /// unreadable as what its header claims. Claude session 86% remaining under a
+    /// 47% weekly rendered 47%, so a column labeled `5h` never once showed the 5h
+    /// number while the weekly was tighter. The row-wide ceiling is already
+    /// carried by the weekly cell, `effectiveRemainingPercent`, and the row colour;
+    /// duplicating it here only cost us the one fact this column exists to state.
     private static func shortPresentation(
         pool: CapacityBenchPoolMetrics,
         row: CapacityBenchRow
@@ -415,16 +423,7 @@ public enum CapacityStripRenderer {
         case .unknown(let reason):
             return ShortPresentation(remaining: nil, isNone: false, reason: reason)
         case .known(let shortRemaining, _, _, _, _):
-            // Floor by the tightest known remaining on the row (effective availability).
-            let effective = row.effectiveRemainingPercent.map { min($0, shortRemaining) } ?? shortRemaining
-            // Also floor by this pool's dashboard when present.
-            let floored: Double
-            if let dash = pool.dashboardRemainingPercent {
-                floored = min(effective, dash)
-            } else {
-                floored = effective
-            }
-            return ShortPresentation(remaining: floored, isNone: false, reason: nil)
+            return ShortPresentation(remaining: shortRemaining, isNone: false, reason: nil)
         }
     }
 
