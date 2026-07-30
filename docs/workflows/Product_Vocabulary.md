@@ -24,8 +24,18 @@ paths.
 | **Crafts** | **Code · Design · Copy** (+ **Signal** scout). Code was: Build. |
 | **Signal** | Repo-aware scout: outside → insights (not “move cards”). |
 | **Project** | Local repo/folder floor where work happens. |
+| **Loop** | Mac composer noun for an **unattended Relay** — both PM and dev seats are spawned agents. You brief it once (the **kickoff**) and it drives itself. The machine substrate is unchanged: CLI stays `pair relay*` and is **never** renamed to `pair loop`. |
+| **Kickoff** | The founder's one-time brief to a Loop's **spawned PM**, round 1 only. Not chat, not the PM→dev handover, and not `founderNote` (which is resume-only). CLI: `--message` / `--message-file`. |
+| **Pilot** | Supervised relay where a **live agent CLI session is the PM**. CLI-only, always. The Mac app is never the PM seat and offers no Pilot entry. |
 
 `lane` means **craft** (Code/Design/Copy/Signal). It is never “a single run.”
+
+**Loop vs Pilot vs Relay:** Loop is the human word on the Mac, Relay is the
+machine, Pilot is the CLI-only supervised variant. Teach
+`pair relay` / `pair relay stop` / `pair relay-status`; never invent `pair loop`.
+Founder Stop is `pair relay stop` (durable `stopped`, reason `founder stopped`,
+PM Turn written, **not** resumable) — never `alln kill`, which is
+process-ownership machinery, not a product verb.
 
 ## Machine layer
 
