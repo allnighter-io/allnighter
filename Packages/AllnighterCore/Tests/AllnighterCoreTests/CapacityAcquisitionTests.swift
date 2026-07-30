@@ -199,14 +199,25 @@ final class CapacityAcquisitionTests: XCTestCase {
 
     // MARK: - Tier 3
 
-    func testTier3SourcesReturnVendorExposesNothing() {
+    /// Tier-3 seats are `neverSampled`, NOT `vendorExposesNothing`.
+    ///
+    /// This assertion previously pinned `vendorExposesNothing`, which is false:
+    /// agy, Kimi and Cursor all print `/usage`, and this package ships tested
+    /// parsers for all three. What is missing is the PTY probe that feeds them.
+    /// Reporting "no usage surface" blamed the vendor for our own gap — the exact
+    /// class of lie this subsystem exists to prevent — and the test was enforcing it.
+    func testTier3SourcesReportNeverSampledNotVendorGap() {
         let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now)
         let bySource = Dictionary(grouping: windows, by: \.source)
 
         for source in CapacityAcquisition.tier3DisklessSources {
             let group = bySource[source] ?? []
             XCTAssertEqual(group.count, 1, source)
-            XCTAssertEqual(group[0].unknownReason, .vendorExposesNothing, source)
+            XCTAssertEqual(group[0].unknownReason, .neverSampled, source)
+            XCTAssertNotEqual(
+                group[0].unknownReason, .vendorExposesNothing,
+                "\(source) has a usage surface we simply have not probed"
+            )
             XCTAssertNil(group[0].usedPercent, source)
             XCTAssertNil(group[0].remainingPercent, source)
             XCTAssertEqual(group[0].sourceTier, .tuiProbe, source)
@@ -241,8 +252,12 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertEqual(codex.first?.usedPercent, 52.0)
         XCTAssertEqual(grok.first?.usedPercent, 42.0)
         XCTAssertEqual(
-            windows.filter { $0.unknownReason == .vendorExposesNothing }.count,
+            windows.filter { $0.unknownReason == .neverSampled }.count,
             CapacityAcquisition.tier3DisklessSources.count
+        )
+        XCTAssertTrue(
+            windows.allSatisfy { $0.unknownReason != .vendorExposesNothing },
+            "no seat may claim the vendor exposes nothing while we ship a parser for it"
         )
     }
 }

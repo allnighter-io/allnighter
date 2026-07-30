@@ -45,7 +45,15 @@ public enum CapacityAcquisition {
         for source in tier3DisklessSources {
             result.append(
                 CapacityWindow.unknown(
-                    reason: .vendorExposesNothing,
+                    // NOT `.vendorExposesNothing` — that claims the vendor has no usage
+                    // surface, which is false for every seat in this list. agy, Kimi and
+                    // Cursor all print `/usage`, and we ship tested parsers for all three
+                    // (AgyCapacityLog, KimiCapacityLog, CursorCapacityLog); Claude has a
+                    // Usage tab. What is missing is the tier-3 PTY probe that would FEED
+                    // those parsers. The honest reason is that we never looked.
+                    // Blaming the vendor for our own gap is exactly the lie this
+                    // subsystem exists to avoid.
+                    reason: .neverSampled,
                     source: source,
                     scope: .weekly,
                     observedAt: now,
