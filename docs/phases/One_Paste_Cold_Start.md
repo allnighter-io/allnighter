@@ -532,7 +532,8 @@ server always keeps the **earliest** start it has ever seen for a key.
   magic; BQ-6). The ledger row holds a **set of active dates**, not an end date —
   one small array, still one row.
 - **Free tier is not zero.** After the trial: **3 dispatches per day, at full
-  capability** — no feature flags, no seat cap, no single-worker lane. The only
+  capability** — a dispatch is the unit whether it seats one worker or six, so a
+  single-seat run to any CLI counts as one — no feature flags, no seat cap, no single-worker lane. The only
   free-tier state is a day-keyed counter (`YYYY-MM-DD` + count), reset by date
   change, reconciled server-side on the same 24h check. A failed dispatch that
   never spawned a worker does not count — and the daily reset means a wrong call

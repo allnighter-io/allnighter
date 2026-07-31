@@ -569,7 +569,7 @@ your problem is no longer access to intelligence. Your problem is coordination.
 Allnighter is the coordination layer.
 
 Pricing block
-Free forever: three full team runs every day.
+Free forever: any 3 runs every day.
 Then $12/month (or $120/year) for Mac plus iPhone.
 Bring your own AI subscriptions.
 ```
@@ -586,7 +586,7 @@ Stop leaving it idle.
 Allnighter runs your own Claude Code setup through local `claude -p`, adds Grok
 and other workers, and fuses the answers into one plan.
 
-Free forever: three team runs a day. $12/month for all day.
+Free forever: any 3 runs a day. $12/month for all day.
 ```
 
 ### Ad 2: Copy-Paste Monkey
@@ -648,7 +648,7 @@ conflicts, unique insights, and blind spots.
 Mac runs the floor.
 iPhone comes included.
 
-Download free. Three full team runs every day, forever. $12/month for all day.
+Download free. Any 3 runs every day, forever. $12/month for all day.
 ```
 
 ## Objection Handling

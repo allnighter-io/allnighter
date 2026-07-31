@@ -11,7 +11,7 @@ this doc without running it.
 ## The Offer
 
 ```text
-Free forever: see your whole bench + 3 full team runs every day
+Free forever: see your whole bench + any 3 runs every day
 14 active days of unlimited, starting at your first run
 $12/month or $120/year after that
 Founding Builder: $199 once, first 100 only
@@ -22,7 +22,7 @@ No per-run fee, no model markup
 
 | Tier | Price | What you get |
 | --- | --- | --- |
-| **Free** | $0, forever | Capacity view (CLI + Mac app) · doctor / setup / readiness · menu, bootstrap, help · run history + Markdown export · **3 dispatches per day, at full power** — any team, any fan-out, any loop |
+| **Free** | $0, forever | Capacity view (CLI + Mac app) · doctor / setup / readiness · menu, bootstrap, help · run history + Markdown export · **3 runs per day** — a run is any dispatch: one worker or six, single-shot or a multi-round loop. Nothing is feature-locked |
 | **Trial** | $0, **14 active days** | Unlimited dispatch. Counts only days you actually run something; expires 60 calendar days after it starts regardless |
 | **Builder** | **$12/mo** or **$120/yr** | Unlimited dispatch within your own provider limits · Mac command center · iPhone floor manager · team presets · synthesis presets |
 | **Founding Builder** | **$199 once** | Everything in Builder, for life. **First 100 buyers only**, then retired permanently |
@@ -36,7 +36,12 @@ The free tier is **not a crippled version**. It is the whole product, three time
 a day.
 
 A free user gets full fan-out, full synthesis, full loops — everything a paying
-user gets — capped at three dispatches per day. Nothing is feature-locked.
+user gets — capped at three runs per day. Nothing is feature-locked.
+
+**A run is any dispatch.** One worker or six, one round or a loop, from the CLI
+or the Mac app — it counts as one. Sitting in Claude Code and sending a single
+job to Grok through `alln` is one of your three. There is no free single-worker
+lane and no "team run" threshold; the unit is the dispatch, full stop.
 
 This is the axis that resolves the real tension:
 
@@ -254,9 +259,10 @@ honestly in doctor and run history.
 ```text
 Free
 $0 forever
-Three full team runs, every day.
+Any 3 runs, every day.
 
-- 3 dispatches per day — full fan-out, full loops, nothing crippled
+- 3 runs per day — one worker or six, single-shot or a loop, all the same
+- Nothing crippled: full fan-out, full synthesis, full loops
 - Live capacity across every connected CLI
 - Doctor checks and setup
 - Run history and Markdown export
@@ -272,7 +278,7 @@ Make your AI team show up all day.
 - Team presets and synthesis presets
 - No model markup
 
-14 active days of unlimited, free — we only count the days you actually use it.
+14 active days of unlimited runs, free — we only count the days you actually use it.
 When it ends you keep the free tier, your three runs a day, and all your history.
 
 Founding Builder
@@ -286,7 +292,7 @@ Bring your own AI subscriptions. Allnighter does not include model access.
 
 | Was | Now | Why |
 | --- | --- | --- |
-| v1: 3 free Team runs, then dark | Free tier forever, 3 dispatches/day | A brick gets uninstalled; the installed binary is the distribution asset |
+| v1: 3 free Team runs, then dark | Free tier forever, 3 runs/day | A brick gets uninstalled; the installed binary is the distribution asset |
 | v2: unlimited free single-worker lane | 3 full-power dispatches/day | Free single-worker is a working multi-model router — the product, not a demo |
 | v2: 14 calendar days | 14 **active** days (60-day hard cap) | Calendar days run the clock while the user isn't looking |
 | Limit connected CLIs | Rejected | Most users have two; it gates nothing and punishes multi-vendor use |

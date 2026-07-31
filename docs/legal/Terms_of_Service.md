@@ -32,7 +32,9 @@ We take no markup on model usage and charge no per-run fee.
 visibility, setup and doctor checks, help and discovery, run history and export,
 and a daily allowance of runs at full capability — no feature is withheld from
 free users, only the number of runs per day. The allowance is stated on the
-pricing page (currently 3 per day) and resets daily.
+pricing page (currently 3 per day) and resets daily. A "run" is any single
+dispatch of work to a tool, whether it uses one worker or several, and whether it
+is a single exchange or a multi-round loop.
 
 **Trial.** A period during which the daily allowance is removed and runs are
 unlimited. The trial begins at your first run — not at install — and lasts for
