@@ -48,6 +48,9 @@ playground.xcworkspace
 SourcePackages/
 Package.resolved
 
+# Local release layout (OPC-S00 build-universal / publish-release dogfood)
+dist/
+
 # Generated Xcode projects (XcodeGen owns project.yml; .xcodeproj is generated)
 Apps/AllnighterMac/AllnighterMac.xcodeproj/
 
