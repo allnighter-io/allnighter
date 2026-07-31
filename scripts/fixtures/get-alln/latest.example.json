@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "cliVersion": "0.12.0",
+  "appVersion": "0.12.0",
+  "releasedAt": "2026-07-31T00:00:00Z",
+  "notes": "human-only; never projected to agents",
+  "installCommand": "curl -fsSL https://get.allnighter.app | sh",
+  "cli": {
+    "url": "https://get.allnighter.app/v0.12.0/alln-macos-universal",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  },
+  "app": {
+    "url": "https://get.allnighter.app/v0.12.0/Allnighter.dmg",
+    "sha256": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210"
+  }
+}
