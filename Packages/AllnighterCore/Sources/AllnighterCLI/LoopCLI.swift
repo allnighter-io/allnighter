@@ -3,21 +3,35 @@ import AllnighterCore
 import AllnighterEngine
 
 /// `alln loop` — the durable PM↔dev loop object (LVC v7 `docs/phases/Loop_Verb_Cutover.md`
-/// §2). This slice (LVC-S02a/S02b) wires `loop start` only; `list|status|stop|resume|wait|
-/// step|pm` land in later slices. `loop start` builds `RelayCoordinator.Config`/
+/// §2). This slice (LVC-S02a/S02b/S02c) wires `start|list|status|stop|resume|wait`;
+/// `step|pm` land in a later slice. `loop start` builds `RelayCoordinator.Config`/
 /// `PilotCLI.StartRequest` directly and dispatches into the existing `PilotCLI`/`RelayCLI`
 /// coordinator entry points — `docPath` is `nil` when `--spec` is omitted (LVC-S02b: a brief
 /// with no doc still starts a real loop); `pair pilot start`/`pair relay` themselves keep
-/// hard-requiring `--doc`, unchanged.
+/// hard-requiring `--doc`, unchanged. `status|stop|resume|wait` are chair-neutral: the
+/// underlying `RelayState` is one substrate for both `--pm caller` and spawned-PM loops
+/// (`RelayJSON.project`/`RelayCLI.runStatus` carry no pmMode branching), so a single
+/// positional `<loop-id>` forwards straight into the existing `--relay <id>` entry points —
+/// no chair lookup needed before dispatch.
 enum LoopCLI {
     static func run(_ args: [String], runtime: ToolRuntime) async {
         guard let sub = args.first else { usage() }
+        let rest = Array(args.dropFirst())
         switch sub {
-        case "start": await runStart(Array(args.dropFirst()), runtime: runtime)
+        case "start": await runStart(rest, runtime: runtime)
+        case "list": runList(rest)
+        case "status":
+            RelayCLI.runStatus(loopArgs(rest, usageLine: "loop status <loop-id> [--wait-for parked|terminal --timeout <seconds>] [--json]"))
+        case "stop":
+            RelayCLI.runStop(loopArgs(rest, usageLine: "loop stop <loop-id> [--json]"), runtime: runtime)
+        case "resume":
+            await RelayCLI.runResume(loopArgs(rest, usageLine: "loop resume <loop-id> --answer <text> [--until HH:MM] [--max-rounds N] [--no-wait] [--json]"), runtime: runtime)
+        case "wait":
+            PilotCLI.runWatch(loopArgs(rest, usageLine: "loop wait <loop-id> [--max-wait <seconds>] [--json]"))
         default:
             FileHandle.standardError.write(Data((
-                "loop \(sub): not yet implemented in this build — only `loop start` exists so far.\n" +
-                "Coming in later slices: list, status, stop, resume, wait, step, pm.\n"
+                "loop \(sub): not yet implemented in this build — start|list|status|stop|resume|wait exist so far.\n" +
+                "Coming in a later slice: step, pm.\n"
             ).utf8))
             exit(2)
         }
@@ -28,6 +42,81 @@ enum LoopCLI {
             "usage: alln loop start \"<what you want done>\" [--spec <path>] [--pm caller|<agent-id>] [--dev <agent-id>] [--project <id>] [--dry-run] [--no-wait] [--json]\n"
                 .utf8))
         exit(2)
+    }
+
+    /// `status|stop|resume|wait` all take a positional `<loop-id>` where the older
+    /// `pair relay*`/`pair pilot*` verbs took `--relay <id>`. Reconstructs the flag-only
+    /// call those entry points already expect, forwarding every other flag the caller
+    /// passed untouched — never dropping `--wait-for`/`--answer`/`--json`/etc.
+    static func loopArgs(_ args: [String], usageLine: String) -> [String] {
+        let opts = Options(args)
+        guard let loopId = opts.positional.first, !loopId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            FileHandle.standardError.write(Data("usage: alln \(usageLine)\n".utf8))
+            exit(2)
+        }
+        var forwarded: [String] = ["--relay", loopId]
+        for key in opts.flags where key != "relay" {
+            forwarded.append("--\(key)")
+        }
+        for (key, value) in opts.values where key != "relay" {
+            forwarded.append("--\(key)")
+            forwarded.append(value)
+        }
+        return forwarded
+    }
+
+    // MARK: - list
+
+    static func runList(
+        _ args: [String],
+        projectStore: ProjectStore = ProjectStore(),
+        relayStateStore: RelayStateStore = RelayStateStore()
+    ) {
+        let opts = Options(args)
+        let project = resolveProject(opts: opts, store: projectStore)
+
+        let entries = relayStateStore.list()
+            .filter { $0.projectRoot == project.normalizedRootPath }
+            .map { state -> LoopListJSON.Entry in
+                LoopListJSON.Entry(
+                    id: state.id,
+                    status: state.status.rawValue,
+                    briefOrSpec: state.docPathOrBrief,
+                    pm: state.pmMode == .external ? "caller" : state.pmModelId,
+                    dev: state.devModelId,
+                    updatedAt: state.finishedAt ?? state.rounds.last?.startedAt ?? state.createdAt
+                )
+            }
+
+        let payload = LoopListJSON(projectId: project.id, projectRoot: project.normalizedRootPath, loops: entries)
+        if opts.flag("json") {
+            print(AllnighterCLI.jsonString(payload))
+        } else if entries.isEmpty {
+            print("no loops for \(project.normalizedRootPath)")
+        } else {
+            for entry in entries {
+                print("\(entry.id)  \(entry.status)  pm=\(entry.pm) dev=\(entry.dev)  \(entry.briefOrSpec)")
+            }
+        }
+    }
+
+    /// Shared with `runStart` — `--project <id|name|path>` or resolved from cwd.
+    private static func resolveProject(opts: Options, store: ProjectStore = ProjectStore()) -> Project {
+        if let projectToken = opts.value("project") {
+            guard let resolved = AllnighterCLI.resolveProject(projectToken, store: store) else {
+                AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(projectToken)")
+            }
+            return resolved
+        }
+        if let resolved = AllnighterCLI.resolveProjectFromCwd(store: store) {
+            return resolved
+        }
+        let cwd = FileManager.default.currentDirectoryPath
+        let gitRoot = GitObserver().repoTopLevel(forPath: cwd) ?? cwd
+        AllnighterCLI.fail(
+            code: "PROJECT_NOT_FOUND",
+            message: "no registered project for \(gitRoot) — run `alln project add \(gitRoot)`"
+        )
     }
 
     // MARK: - start
@@ -51,29 +140,12 @@ enum LoopCLI {
             usage()
         }
         let specPath = opts.value("spec")
-
-        let store = ProjectStore()
-        let project: Project
-        if let projectToken = opts.value("project") {
-            guard let resolved = AllnighterCLI.resolveProject(projectToken, store: store) else {
-                AllnighterCLI.fail(code: "PROJECT_NOT_FOUND", message: "project not found: \(projectToken)")
-            }
-            project = resolved
-        } else if let resolved = AllnighterCLI.resolveProjectFromCwd(store: store) {
-            project = resolved
-        } else {
-            let cwd = FileManager.default.currentDirectoryPath
-            let gitRoot = GitObserver().repoTopLevel(forPath: cwd) ?? cwd
-            AllnighterCLI.fail(
-                code: "PROJECT_NOT_FOUND",
-                message: "no registered project for \(gitRoot) — run `alln project add \(gitRoot)`"
-            )
-        }
+        let project = resolveProject(opts: opts)
 
         let seats = resolveSeats(opts: opts, models: runtime.models)
 
         if opts.flag("dry-run") {
-            emitDryRun(brief: brief, specPath: specPath, project: project, seats: seats)
+            emitDryRun(brief: brief, specPath: specPath, pmRaw: opts.value("pm"), devRaw: opts.value("dev"), project: project, seats: seats)
             return
         }
 
@@ -199,7 +271,9 @@ enum LoopCLI {
         return ResolvedSeats(pm: pm, pmSource: pmSource, dev: dev, devSource: devSource)
     }
 
-    private static func emitDryRun(brief: String, specPath: String?, project: Project, seats: ResolvedSeats) {
+    private static func emitDryRun(
+        brief: String, specPath: String?, pmRaw: String?, devRaw: String?, project: Project, seats: ResolvedSeats
+    ) {
         var warnings: [String] = []
         if let specPath, !FileManager.default.fileExists(atPath: URL(fileURLWithPath: specPath, relativeTo: URL(fileURLWithPath: project.normalizedRootPath)).path) {
             warnings.append("--spec \(specPath) does not exist under \(project.normalizedRootPath) yet — the PM will hit this on round 1")
@@ -223,9 +297,21 @@ enum LoopCLI {
             nextAction: AgentNextAction(
                 kind: "startTeamRun",
                 label: "Start the loop for real",
-                command: "alln loop start \"\(brief)\"" + (specPath.map { " --spec \($0)" } ?? "")
+                command: buildStartCommand(brief: brief, specPath: specPath, pmRaw: pmRaw, devRaw: devRaw)
             )
         )
         print(AllnighterCLI.jsonString(payload))
+    }
+
+    /// The reproduce command must echo back every explicitly-supplied flag and omit
+    /// only the ones the caller actually omitted — a defaulted `--pm`/`--dev` (tier
+    /// default, never typed) must NOT appear, or a caller following the printed
+    /// command silently loses the casting they asked for.
+    static func buildStartCommand(brief: String, specPath: String?, pmRaw: String?, devRaw: String?) -> String {
+        var command = "alln loop start \"\(brief)\""
+        if let specPath { command += " --spec \(specPath)" }
+        if let pmRaw { command += " --pm \(pmRaw)" }
+        if let devRaw { command += " --dev \(devRaw)" }
+        return command
     }
 }
