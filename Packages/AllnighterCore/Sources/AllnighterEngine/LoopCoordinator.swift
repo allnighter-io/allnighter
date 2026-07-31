@@ -564,6 +564,10 @@ public struct LoopCoordinator: Sendable {
                 escalate(&state, note: "dev turn \(reason) (round \(roundNumber))")
                 events?(.escalated(note: state.note ?? ""))
                 return .success(PilotRoundResult(state: state, devReport: nil))
+            case .capacityParked(let park):
+                // QABC-S01c: becomes sleep -> claim-or-adopt -> continue.
+                yieldToCapacityPark(&state, &round, park: park, turn: "dev")
+                return .success(PilotRoundResult(state: state, devReport: nil))
             case .delivered(let devRun, let devOutput):
                 round.devRunId = devRun.id
                 round.headAfterDev = gitObserver.observe(rootPath: state.projectRoot).head
@@ -1157,6 +1161,9 @@ public struct LoopCoordinator: Sendable {
             switch result {
             case .done, .escalated, .stoppedMidRound:
                 return
+            case .capacityParked:
+                // QABC-S01c: becomes sleep -> claim-or-adopt -> continue.
+                return
             case .continued:
                 // Stagnation approximates the doc's --max-consecutive-flags (§5 item 3):
                 // N consecutive rounds where the dev turn produced ZERO repo change AND the
@@ -1184,6 +1191,8 @@ public struct LoopCoordinator: Sendable {
         case done
         case escalated
         case stoppedMidRound
+        /// QABC-S01: yielded to a vendor park mid-round — not a terminal outcome.
+        case capacityParked
     }
 
     /// One full round (PM_Relay.md §2 steps 1–6): pin baseline, PM turn (+ one re-ask on an
@@ -1254,6 +1263,10 @@ public struct LoopCoordinator: Sendable {
                 escalate(&$0, note: "PM turn \(reason) (round \(roundNumber))")
                 events?(.escalated(note: $0.note ?? ""))
             }
+        case .capacityParked(let park):
+            // QABC-S01c: becomes sleep -> claim-or-adopt -> continue.
+            yieldToCapacityPark(&state, &round, park: park, turn: "PM")
+            return .capacityParked
         case .delivered(let run, let output):
             round.pmRunId = run.id
             state.rounds[state.rounds.count - 1] = round
@@ -1289,6 +1302,10 @@ public struct LoopCoordinator: Sendable {
                     escalate(&$0, note: "PM re-ask \(reason) (round \(roundNumber))")
                     events?(.escalated(note: $0.note ?? ""))
                 }
+            case .capacityParked(let park):
+                // QABC-S01c: becomes sleep -> claim-or-adopt -> continue.
+                yieldToCapacityPark(&state, &round, park: park, turn: "PM re-ask")
+                return .capacityParked
             case .delivered(let reaskRun, let reaskOutput):
                 round.pmRunId = reaskRun.id
                 state.rounds[state.rounds.count - 1] = round
@@ -1390,6 +1407,10 @@ public struct LoopCoordinator: Sendable {
                     escalate(&$0, note: "dev turn \(reason) (round \(roundNumber))")
                     events?(.escalated(note: $0.note ?? ""))
                 }
+            case .capacityParked(let park):
+                // QABC-S01c: becomes sleep -> claim-or-adopt -> continue.
+                yieldToCapacityPark(&state, &round, park: park, turn: "dev")
+                return .capacityParked
             case .delivered(let devRun, _):
                 round.devRunId = devRun.id
                 round.headAfterDev = gitObserver.observe(rootPath: config.projectRoot).head
@@ -1441,6 +1462,10 @@ public struct LoopCoordinator: Sendable {
         case budgetExhausted(String)
         case deadline
         case serviceError(RunServiceError)
+        /// QABC-S01: the run parked on a vendor quota wait — not a terminal turn
+        /// outcome, still in progress. Must be checked before `LoopTurnClassifier.classify`
+        /// (see `LoopTurnClassifier.vendorPark` doc comment).
+        case capacityParked(VendorPark)
     }
 
     private struct TurnDeliveryGuard: Sendable {
@@ -1496,6 +1521,7 @@ public struct LoopCoordinator: Sendable {
                 if case .failure(let error) = result { return .serviceError(error) }
                 return .serviceError(.noWorker("relay turn dispatch failed"))
             }
+            if let park = LoopTurnClassifier.vendorPark(run) { return .capacityParked(park) }
             let outcome = run.answers.first?.result
                 ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
 
@@ -1876,6 +1902,18 @@ public struct LoopCoordinator: Sendable {
                     endReason: .unknown, owner: lastOwner
                 )
             }
+            // QABC-S01: parked on a vendor quota wait — the worker exited on its own,
+            // not a failure. Must be checked before classify (see LoopTurnClassifier.vendorPark
+            // doc comment): the parked answer's structured capacityObservation would otherwise
+            // read as .infraBackoff, causing a thrash-retry that mints a fresh mutating run
+            // every attempt (up to 10 orphaned parked runs).
+            if let park = LoopTurnClassifier.vendorPark(run) {
+                return DevTurnDispatch(
+                    dispatch: .capacityParked(park),
+                    endReason: .capacityParked,
+                    owner: lastOwner
+                )
+            }
             let outcome = run.answers.first?.result
                 ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
 
@@ -2038,6 +2076,28 @@ public struct LoopCoordinator: Sendable {
         state.note = note
         state.finishedAt = now()
         persistPMBoundary(state)
+    }
+
+    /// QABC-S01: durably record the vendor park and end this round honestly — parked,
+    /// not escalated, not stopped. `status` stays `.running` (Corrections #8:
+    /// `LoopStateStore.save` only writes the owner-liveness marker for `.running`, and
+    /// `reconcileOrphan` only scans `.running` — this loop's owning process is alive for
+    /// the whole park). The round itself is left unfinished (`outcome` stays `nil`) —
+    /// it genuinely has not ended, it is paused mid-turn.
+    /// QABC-S01c: becomes sleep -> claim-or-adopt -> continue instead of returning here.
+    private func yieldToCapacityPark(
+        _ state: inout LoopState, _ round: inout RelayRound, park: VendorPark, turn: String
+    ) {
+        state.capacityPark = CapacityPark(runId: park.runId, wakeAfter: park.wakeAfter, source: park.source, since: now())
+        state.note = Self.capacityParkNote(park, turn: turn)
+        if !state.rounds.isEmpty { state.rounds[state.rounds.count - 1] = round }
+        persist(state)
+    }
+
+    private static func capacityParkNote(_ park: VendorPark, turn: String) -> String {
+        let wake = park.wakeAfter.map { ISO8601DateFormatter().string(from: $0) } ?? "unknown"
+        let source = park.source ?? "unknown vendor"
+        return "\(turn) turn parked on a vendor quota wait (\(source)); wakes after \(wake). Loop stays running, waiting to resume — not escalated, not stopped."
     }
 
     /// PO-F10: surface the typed error code (e.g. AGENT_NOT_AVAILABLE) in the

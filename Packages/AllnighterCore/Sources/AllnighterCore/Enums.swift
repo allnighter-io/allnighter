@@ -107,6 +107,9 @@ public enum DevTurnEndReason: String, Codable, Sendable, CaseIterable {
     case proofTimeout
     /// Execution lane held by another identity (PO-S03 turn acquire, or PO-S04 proof acquire).
     case laneBusy
+    /// QABC-S01: run parked on a vendor quota wait. The agent process exited cleanly on
+    /// its own (not killed) — the wait is tracked in `LoopState.capacityPark`.
+    case capacityParked
     /// Honest "we do not know" — itself a bug report when seen in production.
     case unknown
 }
