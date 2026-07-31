@@ -194,4 +194,29 @@ final class SeatReseatTests: XCTestCase {
         XCTAssertEqual(next?.id, "model_gpt_sol")
         XCTAssertNotEqual(next?.id, "model_cursor_gpt_sol")
     }
+
+    func testBuildSliceDevReseatFallsBackToLaneCapableModelWhenPreferredDriverFails() {
+        let team = BuiltInTeams.team("build_slice")!
+        let composer = model("model_cursor_composer_25", driver: "cursor_agent")
+        let grok = model("model_grok", driver: "grok")
+        let chatgpt = model("model_gpt_sol", driver: "codex")
+
+        // Relay dev worker pinned on Grok fails
+        let worker = Agent(
+            id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+            skillId: "execution_playbook", purpose: .answer)
+        let chain = SeatReseat.chain(for: worker, team: team, isLead: false)
+        let next = SeatReseat.nextModel(
+            failedModelId: grok.id,
+            failedDriverId: grok.driverId,
+            preferredModelId: chain.preferred,
+            fallbackModelIds: chain.fallbacks,
+            requiredTags: chain.tags,
+            fallback: chain.policy,
+            lane: .code,
+            ready: [composer, grok, chatgpt]
+        )
+        XCTAssertNotNil(next, "Relay dev seat must find a substitute when Grok driver fails")
+        XCTAssertEqual(next?.id, "model_cursor_composer_25")
+    }
 }

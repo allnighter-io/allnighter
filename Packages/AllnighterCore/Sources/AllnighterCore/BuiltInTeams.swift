@@ -412,10 +412,10 @@ public enum BuiltInTeams {
         id: "default_chat", name: "Auto", lane: .code, output: .plan, defaultEffort: .med,
         description: "The default route — your go-to agent in the repo, talk or build.",
         rows: [
-            row(SkillCatalog.directChatSkillId, .answer, preferred: composer, fallback: .sameSource)
+            row(SkillCatalog.directChatSkillId, .answer, preferred: composer, fallback: .laneCapable)
         ],
         writer: SkillCatalog.directChatSkillId,
-        lead: TeamLeadSpec(skillId: SkillCatalog.directChatSkillId, preferredModelId: composer, fallbackPolicy: .sameSource),
+        lead: TeamLeadSpec(skillId: SkillCatalog.directChatSkillId, preferredModelId: composer, fallbackPolicy: .laneCapable),
         mutating: true, executionSourceId: "cursor_agent",
         typeTags: ["chat", "ask", "question"],
         starters: [])
@@ -429,10 +429,10 @@ public enum BuiltInTeams {
         id: "build_slice", name: "Build a Slice", lane: .code, output: .plan, defaultEffort: .high,
         description: "Disciplined build loop: slice → narrow edits → proof → deslop → audit → commit.",
         rows: [
-            row("execution_playbook", .answer, preferred: composer, fallback: .sameSource)
+            row("execution_playbook", .answer, preferred: composer, fallback: .laneCapable)
         ],
         writer: "plan_writer_build",
-        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: composer, fallbackPolicy: .sameSource),
+        lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: composer, fallbackPolicy: .laneCapable),
         mutating: true, executionSourceId: "cursor_agent",
         typeTags: ["build", "implement", "ship", "slice", "execute"],
         starters: [])

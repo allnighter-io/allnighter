@@ -483,12 +483,14 @@ public enum TeamResolver {
         case .laneCapable:
             if homeDriver != nil {
                 picked = strongest(autoPool.filter(laneOK).filter(homeOK))
+                    ?? strongest(autoPool.filter(laneOK))
             } else {
                 picked = strongest(autoPool.filter(laneOK))
             }
         case .anyReady, .strongestReady:
             if homeDriver != nil {
                 picked = strongest(autoPool.filter(homeOK))
+                    ?? strongest(autoPool)
             } else {
                 picked = strongest(autoPool)
             }
