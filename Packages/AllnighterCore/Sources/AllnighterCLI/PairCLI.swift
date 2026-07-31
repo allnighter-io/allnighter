@@ -21,14 +21,18 @@ enum PairCLI {
         case "approve": runApprove(Array(args.dropFirst()), store: store)
         case "revoke": runRevoke(Array(args.dropFirst()), store: store)
         case "begin": runBegin(Array(args.dropFirst()), sessionStore: directSessionStore)
-        case "relay": await RelayCLI.runRelay(Array(args.dropFirst()), runtime: runtime)
-        case "relay-status": RelayCLI.runStatus(Array(args.dropFirst()))
-        case "relay-resume": await RelayCLI.runResume(Array(args.dropFirst()), runtime: runtime)
-        case "pilot": await PilotCLI.run(Array(args.dropFirst()), runtime: runtime)
+        // LVC-S02/Piece 1 — hard cutover, no aliases. `relay`/`pilot` no longer
+        // dispatch into RelayCLI/PilotCLI from here; each errors naming the
+        // `alln loop` replacement. RelayCLI/PilotCLI remain as LoopCLI's internal
+        // engines (LoopCLI.swift) — only the `pair` surface is retired.
+        case "relay": retiredRelay(Array(args.dropFirst()))
+        case "relay-status": retired(old: "pair relay-status", replacement: "alln loop status <loop-id>")
+        case "relay-resume": retired(old: "pair relay-resume", replacement: "alln loop resume <loop-id>")
+        case "pilot": retiredPilot(Array(args.dropFirst()))
         // Retired slice-queue verbs — tombstone only; do NOT re-register as commands.
         case "run", "slice":
             sliceQueueRetired()
-        default: usage("list|approve|revoke|begin|relay|relay-status|relay-resume|pilot")
+        default: usage("list|approve|revoke|begin")
         }
     }
 
@@ -200,6 +204,57 @@ enum PairCLI {
     private static func sliceQueueRetired() -> Never {
         FileHandle.standardError.write(Data("\(sliceQueueRetiredMessage)\n".utf8))
         exit(2)
+    }
+
+    /// LVC-S02/Piece 1 — `pair relay` (and its nested `adopt`/`stop`) are retired
+    /// in favor of `alln loop` (`docs/archive/phases/Loop_Verb_Cutover.md` §2). The
+    /// nested verbs are checked the same way `RelayCLI.runRelay` used to dispatch
+    /// them, so each gets its own precise replacement instead of a generic one.
+    private static func retiredRelay(_ rest: [String]) -> Never {
+        switch rest.first {
+        case "adopt":
+            retired(old: "pair relay adopt", replacement: "alln loop pm <loop-id> <agent-id>")
+        case "stop":
+            retired(old: "pair relay stop", replacement: "alln loop stop <loop-id>")
+        default:
+            retired(old: "pair relay", replacement: "alln loop start \"<what you want done>\"")
+        }
+    }
+
+    /// LVC-S02/Piece 1 — `pair pilot` and every subcommand are retired in favor of
+    /// `alln loop` (§2 matrix). `scaffold-handover` has no replacement verb — it was
+    /// deleted outright; `loop start` auto-seeds round 1 the way `pilot start` used to.
+    private static func retiredPilot(_ rest: [String]) -> Never {
+        switch rest.first {
+        case "start":
+            retired(old: "pair pilot start", replacement: "alln loop start \"<what you want done>\" --pm caller")
+        case "handoff":
+            retired(old: "pair pilot handoff", replacement: "alln loop step <loop-id> <message>")
+        case "status":
+            retired(old: "pair pilot status", replacement: "alln loop status <loop-id>")
+        case "watch":
+            retired(old: "pair pilot watch", replacement: "alln loop wait <loop-id>")
+        case "adopt":
+            retired(old: "pair pilot adopt", replacement: "alln loop pm <loop-id> caller")
+        case "scaffold-handover":
+            retiredNoReplacement(
+                old: "pair pilot scaffold-handover",
+                note: "this verb was deleted outright — `alln loop start` auto-seeds round 1 for you"
+            )
+        default:
+            retired(old: "pair pilot", replacement: "alln loop start \"<what you want done>\" --pm caller")
+        }
+    }
+
+    private static func retired(old: String, replacement: String) -> Never {
+        AllnighterCLI.fail(
+            code: "CLI_USAGE_ERROR",
+            message: "\(old) is retired — use `\(replacement)` instead."
+        )
+    }
+
+    private static func retiredNoReplacement(old: String, note: String) -> Never {
+        AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "\(old) is retired — \(note).")
     }
 
     private static func usage(_ detail: String = "list|approve|revoke|begin|relay|relay-status|relay-resume|pilot") -> Never {

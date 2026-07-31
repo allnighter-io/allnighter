@@ -28,7 +28,7 @@ final class CompletionDeliveryWorksTests: XCTestCase {
         let command = try XCTUnwrap(delivery.command)
         XCTAssertEqual(
             command,
-            "alln pair pilot status --relay relay_cd_wt04 --wait-for parked --timeout 7200 --json"
+            "alln loop status relay_cd_wt04 --wait-for parked --timeout 7200 --json"
         )
 
         let ack = PilotHandoffDispatchJSON(
@@ -52,11 +52,11 @@ final class CompletionDeliveryWorksTests: XCTestCase {
         }
         XCTAssertTrue(
             DetachedDispatch.waitDelivery(kind: "relay", id: "r1", commandPrefix: "alln")
-                .command?.contains("relay-status") == true
+                .command?.contains("loop status r1 --wait-for terminal") == true
         )
         XCTAssertTrue(
             DetachedDispatch.waitDelivery(kind: "pilot", id: "r1", commandPrefix: "alln")
-                .command?.contains("pilot status") == true
+                .command?.contains("loop status r1 --wait-for parked") == true
         )
         XCTAssertTrue(
             DetachedDispatch.waitDelivery(kind: "run", id: "run1", commandPrefix: "alln")
@@ -64,21 +64,20 @@ final class CompletionDeliveryWorksTests: XCTestCase {
         )
     }
 
-    /// Structural: pilot/relay no-wait paths must attach waitDelivery (no silent omit).
-    func testPilotAndRelayNoWaitSourcesEmitWaitDelivery() throws {
+    /// Structural: the `relay` no-wait path must attach waitDelivery (no silent omit).
+    /// LVC Piece 1/2: `pilot handoff --no-wait`'s background dispatch (`kind: "pilot"`)
+    /// was deleted along with the retired raw-args `pilot handoff` CLI entry point —
+    /// `alln loop step` has no `--no-wait` in the locked v7 grammar, so there is no
+    /// live pilot-side no-wait ack to guard here anymore. `DetachedDispatch.waitDelivery`
+    /// itself still answers `kind: "pilot"` (tested above) in case a future caller needs it.
+    func testRelayNoWaitSourceEmitsWaitDelivery() throws {
         let cliDir = sourcesRoot().appendingPathComponent("AllnighterCLI")
-        let pilot = try String(
-            contentsOf: cliDir.appendingPathComponent("PilotCLI.swift"), encoding: .utf8
-        )
         let relay = try String(
             contentsOf: cliDir.appendingPathComponent("RelayCLI.swift"), encoding: .utf8
         )
-        XCTAssertTrue(pilot.contains("DetachedDispatch.waitDelivery"), "pilot handoff ack")
-        XCTAssertTrue(pilot.contains("kind: \"pilot\""), "pilot waiter kind")
         XCTAssertTrue(relay.contains("DetachedDispatch.waitDelivery"), "relay emitDispatchAck")
         XCTAssertTrue(relay.contains("func emitDispatchAck"), "shared relay ack helper")
         // No second spelling of the waiter (CD non-goal: alln wait alias).
-        XCTAssertFalse(pilot.contains("alln wait "))
         XCTAssertFalse(relay.contains("alln wait "))
     }
 

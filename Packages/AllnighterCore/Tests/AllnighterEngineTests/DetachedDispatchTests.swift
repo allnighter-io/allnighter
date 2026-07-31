@@ -200,7 +200,7 @@ final class DetachedDispatchTests: XCTestCase {
         XCTAssertEqual(delivery["path"] as? String, "wait")
         XCTAssertEqual(
             delivery["command"] as? String,
-            "alln pair relay-status --relay relay_test --wait-for terminal --timeout 7200 --json"
+            "alln loop status relay_test --wait-for terminal --timeout 7200 --json"
         )
     }
 
@@ -211,7 +211,7 @@ final class DetachedDispatchTests: XCTestCase {
         )
         XCTAssertEqual(
             DetachedDispatch.waitDelivery(kind: "pilot", id: "relay_test", commandPrefix: "/usr/local/bin/alln").command,
-            "/usr/local/bin/alln pair pilot status --relay relay_test --wait-for parked --timeout 7200 --json"
+            "/usr/local/bin/alln loop status relay_test --wait-for parked --timeout 7200 --json"
         )
     }
 

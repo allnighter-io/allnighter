@@ -186,9 +186,9 @@ extension DetachedDispatch {
         case "run":
             command = "\(commandPrefix) team status \(id) --wait-for terminal --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
         case "pilot":
-            command = "\(commandPrefix) pair pilot status --relay \(id) --wait-for parked --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
+            command = "\(commandPrefix) loop status \(id) --wait-for parked --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
         default:
-            command = "\(commandPrefix) pair relay-status --relay \(id) --wait-for terminal --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
+            command = "\(commandPrefix) loop status \(id) --wait-for terminal --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
         }
         return .init(command: command)
     }

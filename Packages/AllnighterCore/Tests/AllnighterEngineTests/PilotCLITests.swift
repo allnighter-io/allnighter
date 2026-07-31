@@ -448,14 +448,14 @@ final class PilotCLITests: XCTestCase {
         let actions = PilotCLI.recoveryNextActions(for: state, recovery: .handoffAlive)
         XCTAssertEqual(actions.count, 2)
         XCTAssertEqual(actions[0].kind, "pilotStatus")
-        XCTAssertTrue(actions[0].command.contains("pilot status"))
+        XCTAssertTrue(actions[0].command.contains("loop status"))
         XCTAssertTrue(actions[0].command.contains("--wait-for parked"))
         XCTAssertTrue(actions[0].command.contains("--timeout 7200"))
         XCTAssertTrue(actions[0].label.lowercased().contains("wait"))
         XCTAssertTrue(actions[0].label.lowercased().contains("stream"))
         XCTAssertTrue(actions[0].label.lowercased().contains("supplementary"))
         XCTAssertEqual(actions[1].kind, "pilotWatch")
-        XCTAssertTrue(actions[1].command.contains("pilot watch"))
+        XCTAssertTrue(actions[1].command.contains("loop wait"))
         XCTAssertTrue(actions[1].label.lowercased().contains("optional"))
     }
 
@@ -517,7 +517,7 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(delivery["path"] as? String, "wait")
         XCTAssertEqual(
             delivery["command"] as? String,
-            "alln pair pilot status --relay relay_test --wait-for parked --timeout 7200 --json"
+            "alln loop status relay_test --wait-for parked --timeout 7200 --json"
         )
     }
 
@@ -527,7 +527,8 @@ final class PilotCLITests: XCTestCase {
     func testHandoffNextCommandShellQuotesSpacedScaffoldPath() {
         let path = "/Users/x/Library/Application Support/Allnighter/relays/relay_9/round1.md"
         let cmd = PilotCLI.handoffNextCommand(relayId: "relay_9", scaffoldPath: path)
-        XCTAssertTrue(cmd.contains("--handover-file '\(path)'"), "cmd: \(cmd)")
+        XCTAssertTrue(cmd.contains("alln loop step relay_9"), "cmd: \(cmd)")
+        XCTAssertTrue(cmd.contains("'\(path)'"), "cmd: \(cmd)")
         // The quoted path is a single shell token (the substring after the quote has no
         // unescaped space before the closing quote).
         XCTAssertTrue(cmd.hasSuffix("'\(path)'"), "cmd: \(cmd)")

@@ -5,17 +5,18 @@ import AllnighterEngine
 import Darwin
 #endif
 
-/// `alln pair pilot start|handoff|status|watch` — Pilot (`docs/phases/Pilot_Relay.md`):
-/// this session is the PM, Allnighter runs the crew (dev seat + rails). Same substrate
-/// as `pair relay`/`RelayCLI` — `RelayCoordinator.startPilot`/`runExternalRound` do all
-/// the work; this file is a thin CLI projection, mirroring `RelayCLI`'s shape (throwing,
-/// store-injectable, exit-free `parse*` helpers so the recovery ladder is unit-testable
-/// without a subprocess; only the thin `run*` entry points touch `exit()`).
+/// Pilot engine (`docs/archive/phases/Pilot_Relay.md`, superseded by
+/// `docs/archive/phases/Loop_Verb_Cutover.md`): this session is the PM, Allnighter
+/// runs the crew (dev seat + rails). Same substrate as `RelayCLI`/`RelayCoordinator` —
+/// `RelayCoordinator.startPilot`/`runExternalRound` do all the work; this file is a
+/// thin CLI-shaped projection, mirroring `RelayCLI`'s throwing, store-injectable,
+/// exit-free `parse*` helpers so the recovery ladder is unit-testable without a
+/// subprocess.
 ///
-/// CLI is the ONLY agent surface for Pilot (`docs/phases/MCP_Retirement.md` — MCP is
-/// retired). A piloting session drives the loop by running `alln` directly: `pilot
-/// start` once, then one blocking `pilot handoff` call per round — read the printed dev
-/// report, think, call `handoff` again.
+/// `pair pilot` no longer dispatches here (LVC Piece 1, hard cutover) — `LoopCLI`
+/// calls the surviving entry points directly (`runStart(request:...)`, `runWatch`,
+/// `runAdopt`) as `alln loop`'s internal engine. CLI is the only agent surface
+/// (`docs/archive/phases/MCP_Retirement.md` — MCP is retired).
 enum PilotCLI {
     /// Resolved `pilot start` inputs after flag parsing, alias resolution, and optional recall.
     struct StartRequest {
@@ -26,45 +27,13 @@ enum PilotCLI {
         var rememberedDevWorker: Bool
     }
 
-    static func run(_ args: [String], runtime: ToolRuntime) async {
-        guard let sub = args.first else { usage() }
-        switch sub {
-        case "start": await runStart(Array(args.dropFirst()), runtime: runtime)
-        case "handoff": await runHandoff(Array(args.dropFirst()), runtime: runtime)
-        case "status": runStatus(Array(args.dropFirst()))
-        case "watch": runWatch(Array(args.dropFirst()))
-        case "adopt": runAdopt(Array(args.dropFirst()))
-        case "scaffold-handover": runScaffoldHandover(Array(args.dropFirst()))
-        default: usage()
-        }
-    }
-
     // MARK: - start
 
-    static func runStart(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else { usage("pilot start --doc <path> --project <id|path> [--dev-model <seat|alias>] [--max-rounds N] [--idle-timeout <seconds>] [--json]") }
-        let opts = Options(args)
-        let request: StartRequest
-        do {
-            request = try parseStartConfig(
-                args,
-                models: runtime.models,
-                probeRecords: SetupStore().load().records
-            )
-        } catch let error as PilotCLIError {
-            fail(error)
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
-        }
-
-        await runStart(request: request, opts: opts, runtime: runtime)
-    }
-
-    /// LVC-S02b: the dispatch half of `runStart(_:runtime:)`, split out so `alln loop
-    /// start --pm caller` (`LoopCLI`) can build a `StartRequest` itself — with
-    /// `config.docPath: nil` for a brief-only loop — and dispatch straight through,
-    /// without going through `parseStartConfig`'s hard `--doc` requirement. `pair pilot
-    /// start` above still enforces that requirement unchanged.
+    /// LVC-S02b: `alln loop start --pm caller` (`LoopCLI`) builds a `StartRequest`
+    /// itself — with `config.docPath: nil` for a brief-only loop — and dispatches
+    /// straight through, without going through `parseStartConfig`'s hard `--doc`
+    /// requirement (that requirement is `parseStartConfig`'s own contract, kept for
+    /// its direct unit tests; nothing live calls it anymore).
     static func runStart(request: StartRequest, opts: Options, runtime: ToolRuntime) async {
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         switch coordinator.startPilot(config: request.config) {
@@ -178,84 +147,14 @@ enum PilotCLI {
         )
     }
 
-    // MARK: - scaffold-handover
-
-    static func runScaffoldHandover(_ args: [String]) {
-        guard !args.isEmpty else { usage("pilot scaffold-handover --relay <id> [--round N]") }
-        let opts = Options(args)
-        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        let round = Int(opts.value("round") ?? "1") ?? 1
-        guard round > 0 else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--round must be a positive integer")
-        }
-        let stateStore = RelayStateStore()
-        RelayCLILoad.requirePresence(id: relayId, store: stateStore)
-        let template = PilotHandoverScaffold.template(round: round)
-        if opts.flag("json") {
-            print(AllnighterCLI.jsonString(["relayId": relayId, "round": String(round), "template": template]))
-        } else {
-            print(template, terminator: "")
-        }
-    }
-
     // MARK: - handoff
-
-    static func runHandoff(_ args: [String], runtime: ToolRuntime) async {
-        guard !args.isEmpty else {
-            usage("pilot handoff --relay <id> (--file <md> | --verdict continue|done|escalate [--handover-file <path>|--handover-stdin] [--note …]) [--no-wait] [--json]")
-        }
-        let opts = Options(args)
-        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        let submission: String
-        do {
-            submission = try parseHandoffSubmission(opts)
-        } catch let error as PilotCLIError {
-            fail(error)
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
-        }
-
-        let wakeDelivery = DetachedDispatch.validateWakeDelivery(opts)
-
-        // URN-S02: guarantee a live notifier before dispatching a real dev
-        // turn. Covers both branches below (--no-wait and the default
-        // blocking path) with one check, not two.
-        let autoLaunch = ServeAutoLaunchCLI.ensureRunning(opts)
-
-        if opts.flag("no-wait") {
-            dispatchHandoffInBackground(
-                relayId: relayId, opts: opts, submission: submission, jsonRequested: opts.flag("json"),
-                serveAutoLaunch: autoLaunch.outcome, wakeDelivery: wakeDelivery
-            )
-            return
-        }
-        ServeAutoLaunchCLI.reportToStderr(autoLaunch)
-
-        let stateStore = RelayStateStore()
-        RelayCLILoad.requirePresence(id: relayId, store: stateStore)
-        let projectStore = ProjectStore()
-        let projectId = projectStore.resolveFresh(
-            loadedProjectRoot(relayId, stateStore: stateStore) ?? ""
-        )?.id
-
-        let emitJSON = opts.flag("json")
-        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        let progressSink: RelayCoordinator.EventSink? = emitJSON ? { @Sendable event in
-            print(RelayDispatch.progressJSONLine(event))
-        } : nil
-        let result = await coordinator.runExternalRound(
-            relayId: relayId,
-            submission: submission,
-            projectId: projectId,
-            events: progressSink
-        )
-        switch result {
-        case .success(let payload):
-            emitHandoffResult(payload, json: opts.flag("json"))
-        case .failure(let error):
-            failPilotRound(error)
-        }
-    }
+    //
+    // The raw-args `pilot handoff` CLI entry point is deleted (`pair pilot` no
+    // longer dispatches here, Piece 1). `LoopCLI.runStep` (`alln loop step`) is
+    // the live equivalent — it calls `parseHandoffSubmission`'s sibling
+    // `synthesizeSubmission` and `RelayCoordinator.runExternalRound` directly, and
+    // shares `emitHandoffResult`/`failPilotRound` below. The parse helpers here
+    // stay: they're exercised directly by `PilotCLITests`.
 
     /// Resolves a `pilot handoff` submission: the legacy `--file`/stdin path (markdown +
     /// RelayVerdict tail) or the frictionless `--verdict` + `--handover-file`/`--handover-stdin`
@@ -411,104 +310,11 @@ enum PilotCLI {
         }
     }
 
-    /// `--no-wait`: re-invokes THIS SAME executable as a detached background process
-    /// running the normal (blocking) `pilot handoff` against a staged copy of the
-    /// submission — one dispatch path, no second in-process implementation to drift
-    /// from the default. The foreground call returns as soon as the child is launched
-    /// with one exact status waiter; `pilot watch` is optional.
-    ///
-    /// Preflight (status / verdict parse / HandoverGate) runs **before** the ack so a
-    /// gate block cannot report `{"status":"dispatched"}` while the child dumps
-    /// `RELAY_HANDOVER_UNSAFE` into `/dev/null` (stdout/stderr discarded).
-    private static func dispatchHandoffInBackground(
-        relayId: String, opts: Options, submission: String, jsonRequested: Bool,
-        serveAutoLaunch: ServeAutoLaunch.Outcome, wakeDelivery: Bool
-    ) {
-        let stateStore = RelayStateStore()
-        let loadedState: RelayState?
-        switch stateStore.loadResult(id: relayId) {
-        case .success(let state):
-            loadedState = state
-        case .failure(.notFound):
-            loadedState = nil
-        case .failure(.decodeFailed(let detail)):
-            AllnighterCLI.fail(
-                code: "RELAY_STATE_DECODE_FAILED",
-                message: detail.agentMessage,
-                supportDir: AllnighterCLI.effectiveSupportDir()
-            )
-        }
-        switch RelayCoordinator.preflightExternalRound(
-            state: loadedState,
-            submission: submission
-        ) {
-        case .failure(let error):
-            failPilotRound(error)
-        case .success:
-            break
-        }
-
-        let priorStatus = stateStore.load(id: relayId)?.status
-        let roundInFlight = priorStatus == .running
-
-        let launch: DetachedHandoffLaunch
-        do {
-            launch = try detachedHandoffLaunch(relayId: relayId, stateStore: stateStore)
-        } catch DetachedHandoffLaunchError.relayNotFound(let id) {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "relay not found: \(id)")
-        } catch DetachedHandoffLaunchError.missingProjectRoot(let id) {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "relay \(id) has no projectRoot")
-        } catch DetachedHandoffLaunchError.unresolvedExecutable {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not resolve running binary for background handoff")
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not prepare background handoff: \(error)")
-        }
-
-        var childArgs = ["pair", "pilot", "handoff", "--relay", relayId]
-
-        // SR-12 (Sol F19): stage the already-read/synthesized submission to an IMMUTABLE temp
-        // file and hand the detached child `--file <temp>`, for every path. Previously the
-        // `--handover-file` branch re-passed the caller's *live* path, so a file overwritten or
-        // deleted after the foreground ack but before the child opened it made the child run
-        // different or empty instructions. `submission` is already the complete markdown (prose
-        // + synthesized RelayVerdict tail), so `--file` reproduces it byte-for-byte — which also
-        // collapses the three divergent staging branches into one.
-        let stagedURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("alln-pilot-handoff-\(relayId)-\(UUID().uuidString).md")
-        do {
-            try submission.write(to: stagedURL, atomically: true, encoding: .utf8)
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not stage handoff submission: \(error)")
-        }
-        childArgs += ["--file", stagedURL.path]
-
-        if jsonRequested { childArgs.append("--json") }
-        let process: Process
-        do {
-            process = try DetachedDispatch.launch(
-                cwd: launch.currentDirectoryURL.path,
-                arguments: childArgs,
-                executableURL: launch.executableURL
-            )
-        } catch {
-            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background handoff: \(error)")
-        }
-        if jsonRequested {
-            print(AllnighterCLI.jsonLine(PilotHandoffDispatchJSON(
-                relayId: relayId, status: "dispatched", roundInFlight: roundInFlight,
-                pid: process.processIdentifier, serveAutoLaunch: serveAutoLaunch.rawValue,
-                delivery: wakeDelivery ? DetachedDispatch.wakeDelivery() : DetachedDispatch.waitDelivery(
-                    kind: "pilot", id: relayId, commandPrefix: launch.executableURL.path))))
-        } else {
-            let delivery = wakeDelivery ? DetachedDispatch.wakeDelivery() : DetachedDispatch.waitDelivery(
-                kind: "pilot", id: relayId, commandPrefix: launch.executableURL.path)
-            if let command = delivery.command {
-                print("dispatched (pid \(process.processIdentifier)) — wait for delivery with `\(command)` (optional: `alln pair pilot watch --relay \(relayId)`)")
-            } else {
-                print("dispatched (pid \(process.processIdentifier)) — PM Turn wake delivery configured")
-            }
-        }
-    }
+    // The `--no-wait` background-dispatch path that used to live here
+    // (`dispatchHandoffInBackground`, called only from the now-deleted raw-args
+    // `pilot handoff`) is gone with it — `alln loop step` has no `--no-wait` in the
+    // locked LVC v7 grammar (§2), so there is nothing left to re-target it at.
+    // `detachedHandoffLaunch` below stays: `PilotCLITests` exercises it directly.
 
     /// Not `private` — `LoopCLI.runStep` (`alln loop step`, LVC-S02d) shares this
     /// exact print path with `pilot handoff`.
@@ -571,77 +377,12 @@ enum PilotCLI {
         return (state, .handoffAlive)
     }
 
-    static func runStatus(
-        _ args: [String],
-        stateStore: RelayStateStore = RelayStateStore(),
-        threadProjector: RelayThreadProjector? = RelayThreadProjector()
-    ) {
-        guard !args.isEmpty else { usage("pilot status --relay <id> [--wait-for parked --timeout <seconds>] [--json]") }
-        let opts = Options(args)
-        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        let wait = parseStatusWait(opts, relayId: relayId)
-        func load() -> (state: RelayState, recovery: InFlightRecovery) {
-            guard let loaded = loadRelayState(
-                relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
-            ) else { fail(.relayNotFound(relayId)) }
-            return loaded
-        }
-
-        let loaded: (state: RelayState, recovery: InFlightRecovery)
-        let waitOutcome: PMTurnStatusWait.Outcome?
-        if let wait {
-            var observed: (state: RelayState, recovery: InFlightRecovery)?
-            let result = PMTurnStatusWait.wait(
-                target: wait.target,
-                timeout: wait.timeout,
-                readStatus: {
-                    let loaded = load()
-                    observed = loaded
-                    return loaded.state.status
-                }
-            )
-            guard let observed else {
-                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "pilot status waiter returned without observing relay state")
-            }
-            loaded = observed
-            waitOutcome = result.outcome
-        } else {
-            loaded = load()
-            waitOutcome = nil
-        }
-        refreshPilotProjectGit(relayId: relayId, stateStore: stateStore)
-        emitStatusResult(
-            loaded.state, recovery: loaded.recovery, json: opts.flag("json"),
-            stateStore: stateStore, waitOutcome: waitOutcome
-        )
-        if waitOutcome == .timedOut {
-            exit(ContractRegistry.milestone1.processExitCode(forErrorCode: "PM_TURN_WAIT_TIMEOUT"))
-        }
-    }
-
-    private static func parseStatusWait(
-        _ opts: Options, relayId: String
-    ) -> (target: PMTurnStatusWait.Target, timeout: TimeInterval)? {
-        let waitRaw = opts.value("wait-for")
-        let timeoutRaw = opts.value("timeout")
-        if waitRaw == nil && timeoutRaw == nil { return nil }
-        guard let waitRaw else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--timeout requires --wait-for parked")
-        }
-        guard let timeoutRaw else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--wait-for requires --timeout <seconds>")
-        }
-        guard waitRaw == PMTurnStatusWait.Target.parked.rawValue else {
-            AllnighterCLI.fail(
-                code: "CLI_USAGE_ERROR",
-                message: "pilot status only supports --wait-for parked; use `alln pair pilot status --relay \(relayId) --wait-for parked --timeout <seconds> --json`"
-            )
-        }
-        guard let timeout = TimeInterval(timeoutRaw), timeout >= 0 else {
-            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--timeout must be a non-negative number of seconds")
-        }
-        return (.parked, timeout)
-    }
+    // The raw-args `pilot status` CLI entry point (and its `parseStatusWait`
+    // validator) is deleted along with it (`pair pilot` no longer dispatches here,
+    // Piece 1) — `alln loop status` is `RelayCLI.runStatus`, a separate, chair-
+    // neutral implementation (§2). `makeStatusJSON`/`recoveryActionLine`/
+    // `recoveryNextActions`/`statusNextActions` below stay: they're exercised
+    // directly by tests as the `PilotStatusJSON` builder.
 
     // MARK: - watch
 
@@ -877,7 +618,7 @@ enum PilotCLI {
     // MARK: - Output
 
     static func handoffNextCommand(relayId: String, scaffoldPath: String) -> String {
-        "alln pair pilot handoff --relay \(relayId) --verdict continue --handover-file \(shellQuote(scaffoldPath))"
+        "alln loop step \(relayId) \"<order for the dev>\" (or --done <summary> to close the loop) — draft it from \(shellQuote(scaffoldPath))"
     }
 
     /// POSIX single-quote so the printed `next:` command survives copy-paste as ONE argument.
@@ -934,41 +675,11 @@ enum PilotCLI {
         }
     }
 
-    private static func emitStatusResult(
-        _ state: RelayState,
-        recovery: InFlightRecovery,
-        json: Bool,
-        stateStore: RelayStateStore,
-        runStore: RunStore = RunStore(),
-        waitOutcome: PMTurnStatusWait.Outcome? = nil
-    ) {
-        let relayJSON = RelayJSON.project(
-            state, contractVersion: ContractRegistry.contractVersion, runStore: runStore
-        )
-        let devLeg = StreamLiveness.devLegProjection(state: state, runStore: runStore)
-        let recoveryLine = recoveryActionLine(for: state, recovery: recovery, devLeg: devLeg)
-        if json {
-            var status = makeStatusJSON(
-                state: state, recovery: recovery, stateStore: stateStore, runStore: runStore
-            )
-            status.waitOutcome = waitOutcome?.rawValue
-            status.relay.waitOutcome = waitOutcome?.rawValue
-            print(AllnighterCLI.jsonString(status))
-        } else {
-            print(RelayDispatch.humanRelaySummary(relayJSON))
-            let log = RelayDispatch.humanRoundLog(relayJSON)
-            if !log.isEmpty { print(log) }
-            // OUR-S02: human path must print hero live line (not JSON-only).
-            let status = makeStatusJSON(
-                state: state, recovery: recovery, stateStore: stateStore, runStore: runStore
-            )
-            if let live = status.liveLine { print(live) }
-            if let line = humanDevLegLine(devLeg) { print(line) }
-            if let recoveryLine { print(recoveryLine) }
-            if let waitOutcome { print("wait outcome: \(waitOutcome.rawValue)") }
-            print(nextActionLine(for: state, devLeg: devLeg))
-        }
-    }
+    // `emitStatusResult` (the print/JSON orchestration for the now-deleted raw-args
+    // `pilot status`) is gone with its only caller. `makeStatusJSON` below is not —
+    // it's the `PilotStatusJSON` builder, exercised directly by
+    // `PilotCLITests`/`OURLiveStatusUsageTests`/`CompletionDeliveryWorksTests`/
+    // `PilotRelayStatusParityTests` independent of any CLI entry point.
 
     /// Product-owned agent poll cadence while a Pilot round is `.running` (PLT-S02).
     static let statusWaitHintSeconds: Double = 45
@@ -1176,19 +887,19 @@ enum PilotCLI {
             return nil
         case .handoffAlive:
             if devLeg?.phase == .settling {
-                var line = "dev leg terminal (settling) — worker finished; harness settlement still in progress. Wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json`. Relay running ≠ dev running — check devRunId\(devLeg?.devRunId.map { " (\($0))" } ?? "")."
+                var line = "dev leg terminal (settling) — worker finished; harness settlement still in progress. Wait with `alln loop status \(state.id) --wait-for parked --timeout 7200 --json`. Relay running ≠ dev running — check devRunId\(devLeg?.devRunId.map { " (\($0))" } ?? "")."
                 if let end = devLeg?.devEndReason {
                     line += " devEndReason=\(end)."
                 }
                 return line
             }
-            var line = "in flight — handoff process alive; wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json` until it settles (stream silence is primary liveness — matches `alln ps`; commitsSinceBaseline is supplementary only). Optional: `alln pair pilot watch --relay \(state.id)`. A killed watch is not a failed round."
+            var line = "in flight — handoff process alive; wait with `alln loop status \(state.id) --wait-for parked --timeout 7200 --json` until it settles (stream silence is primary liveness — matches `alln ps`; commitsSinceBaseline is supplementary only). Optional: `alln loop wait \(state.id)`. A killed watch is not a failed round."
             if streamSilenceWarning == true {
                 line += " streamSilenceWarning: worker stream has been silent longer than \(Int(statusWaitHintSeconds * streamSilenceWarningMultiplier))s — inspect with `alln ps` (process tree may still be busy without worker output)."
             }
             return line
         case .orphanReconciled:
-            return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? RelayState.orphanReconciledReason)); inspect `alln pair pilot status --relay \(state.id) --json` and the repo before any new handoff — do not blind retry."
+            return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? RelayState.orphanReconciledReason)); inspect `alln loop status \(state.id) --json` and the repo before any new handoff — do not blind retry."
         }
     }
 
@@ -1205,12 +916,12 @@ enum PilotCLI {
                 .init(
                     kind: "pilotStatus",
                     label: "Wait for the parked PM Turn (stream silence primary; commits supplementary)",
-                    command: "alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json"
+                    command: "alln loop status \(state.id) --wait-for parked --timeout 7200 --json"
                 ),
                 .init(
                     kind: "pilotWatch",
                     label: "Optional: block interactively until the round settles (disposable waiter)",
-                    command: "alln pair pilot watch --relay \(state.id) --json"
+                    command: "alln loop wait \(state.id) --json"
                 ),
             ]
             if streamSilenceWarning == true {
@@ -1225,7 +936,7 @@ enum PilotCLI {
             return [.init(
                 kind: "pilotStatus",
                 label: "Inspect reconciled relay state before any new handoff",
-                command: "alln pair pilot status --relay \(state.id) --json"
+                command: "alln loop status \(state.id) --json"
             )]
         }
     }
@@ -1243,7 +954,7 @@ enum PilotCLI {
                 .init(
                     kind: "waitForSettlement",
                     label: "Dev leg terminal — wait for relay to park (not progress on a dead dev)",
-                    command: "alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json"
+                    command: "alln loop status \(state.id) --wait-for parked --timeout 7200 --json"
                 ),
             ]
             if let devRunId = devLeg.devRunId {
@@ -1260,13 +971,13 @@ enum PilotCLI {
                     .init(
                         kind: "pilotHandoff",
                         label: "Review pmTurn.report (dev report), then hand off the next order",
-                        command: "alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file order.md --json"
+                        command: "alln loop step \(state.id) \"<order for the dev>\" --json"
                     ),
                     .init(
                         kind: "inspectDevRun",
                         label: "Inspect terminal dev run facts",
                         command: devLeg.devRunId.map { "alln team status \($0) --json" }
-                            ?? "alln pair pilot status --relay \(state.id) --json"
+                            ?? "alln loop status \(state.id) --json"
                     ),
                 ]
             }
@@ -1371,7 +1082,7 @@ enum PilotCLI {
         case .devWorkerNotFound(let alias, let readySeats):
             return ("CLI_USAGE_ERROR", "no dev seat matches \"\(alias)\" — ready seats: \(readySeats)")
         case .missingDevWorker(let readySeats):
-            return ("CLI_USAGE_ERROR", "--dev-model <seat|alias> required (no remembered seat for this project) — ready seats: \(readySeats)")
+            return ("CLI_USAGE_ERROR", "--dev <seat|alias> required (no remembered seat for this project) — ready seats: \(readySeats)")
         case .noReadyDevSeats:
             return ("CLI_USAGE_ERROR", "no ready dev seats — run `alln doctor --full`")
         case .invalidMaxWait(let raw):
@@ -1384,9 +1095,9 @@ enum PilotCLI {
         case .relayNotFound:
             return ("RELAY_NOT_FOUND", "relay not found")
         case .notPilotRelay:
-            return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (caller doesn't hold the PM seat) — use `alln pair relay`/`alln pair relay-resume` instead")
+            return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (caller doesn't hold the PM seat) — check it with `alln loop status <loop-id>`, or take the chair with `alln loop pm <loop-id> caller`")
         case .roundInFlight:
-            return ("RELAY_ROUND_IN_FLIGHT", "a round is already dispatching for this relay — wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running (optional: `pilot watch`)")
+            return ("RELAY_ROUND_IN_FLIGHT", "a round is already dispatching for this relay — wait with `alln loop status <loop-id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running (optional: `alln loop wait <loop-id>`)")
         case .notAwaitingPM(let status):
             return ("RELAY_NOT_AWAITING_PM", "relay is \(status), not awaitingPM — nothing to hand off to")
         case .verdictUnparseable(let parseError):

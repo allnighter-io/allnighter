@@ -8,7 +8,7 @@ import Foundation
 /// shell-quoted for human paste under paths with spaces (`Application Support/…`).
 public struct PilotStartJSON: Codable, Equatable, Sendable {
     public var relay: RelayJSON
-    /// Shell-ready one-liner for human paste (`--handover-file '…'` single-quoted).
+    /// Shell-ready one-liner for human paste (trailing scaffold path single-quoted).
     public var nextCommand: String
     /// Absolute scaffold path — raw, never shell-quoted. Prefer this over parsing `nextCommand`.
     public var scaffoldPath: String
@@ -36,13 +36,11 @@ public struct PilotStartJSON: Codable, Equatable, Sendable {
         self.rememberedDevWorker = rememberedDevWorker
     }
 
-    /// Token form of the first handoff — path is a bare string, not shell-quoted.
+    /// Token form of the first `loop step` — path is a bare string, not shell-quoted.
+    /// `loop step <loop-id> <message>` only reads the first two positionals; the
+    /// scaffold path rides along as a trailing hint so programmatic consumers don't
+    /// have to cross-reference `scaffoldPath` separately.
     public static func defaultHandoffArgv(relayId: String, scaffoldPath: String) -> [String] {
-        [
-            "pair", "pilot", "handoff",
-            "--relay", relayId,
-            "--verdict", "continue",
-            "--handover-file", scaffoldPath,
-        ]
+        ["loop", "step", relayId, "<order for the dev>", scaffoldPath]
     }
 }
