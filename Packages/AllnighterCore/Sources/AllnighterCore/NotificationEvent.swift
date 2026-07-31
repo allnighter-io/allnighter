@@ -14,6 +14,10 @@ public enum NotificationEventKind: String, Codable, Sendable, CaseIterable {
     case relayNeedsAnswer = "loop.needs_answer"
     case relayStopped = "relay.stopped"
     case relayStreamStalled = "relay.stream_stalled"
+    /// QABC: loop-level capacity park (`LoopState.capacityPark`) entered.
+    case loopParked = "loop.parked"
+    /// QABC: loop-level capacity park cleared and the loop is working again.
+    case loopResumed = "loop.resumed"
 }
 
 /// A notification-worthy state transition on a thread turn.

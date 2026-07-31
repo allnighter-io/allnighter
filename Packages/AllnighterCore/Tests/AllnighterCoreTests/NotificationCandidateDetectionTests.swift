@@ -80,6 +80,47 @@ final class NotificationCandidateDetectionTests: XCTestCase {
         XCTAssertEqual(candidates[0].event, .relayStreamStalled)
     }
 
+    func testLoopParkCandidatesEmitParkAndResumeOnTransition() {
+        let before = ["relay_park": LoopParkNotificationSnapshot(
+            loopId: "relay_park",
+            threadTitle: "QABC park",
+            devModelId: "model_dev",
+            parked: false
+        )]
+        let parked = ["relay_park": LoopParkNotificationSnapshot(
+            loopId: "relay_park",
+            threadTitle: "QABC park",
+            devModelId: "model_dev",
+            parked: true,
+            wakeAfter: now.addingTimeInterval(600),
+            source: "claude_code"
+        )]
+        let parkCandidates = NotificationCandidateDetection.loopParkCandidates(
+            before: before, after: parked, now: now
+        )
+        XCTAssertEqual(parkCandidates.count, 1)
+        XCTAssertEqual(parkCandidates[0].event, .loopParked)
+        XCTAssertEqual(parkCandidates[0].vendorDisplayName, "Claude")
+        XCTAssertEqual(parkCandidates[0].wakeAfter, now.addingTimeInterval(600))
+
+        let resumed = ["relay_park": LoopParkNotificationSnapshot(
+            loopId: "relay_park",
+            threadTitle: "QABC park",
+            devModelId: "model_dev",
+            parked: false
+        )]
+        let resumeCandidates = NotificationCandidateDetection.loopParkCandidates(
+            before: parked, after: resumed, now: now
+        )
+        XCTAssertEqual(resumeCandidates.count, 1)
+        XCTAssertEqual(resumeCandidates[0].event, .loopResumed)
+
+        let cold = NotificationCandidateDetection.loopParkCandidates(
+            before: nil, after: parked, now: now
+        )
+        XCTAssertTrue(cold.isEmpty)
+    }
+
     func testTeamRunCompleteEvent() {
         var before = sampleThread(workerStatus: .done)
         var after = sampleThread(workerStatus: .done)

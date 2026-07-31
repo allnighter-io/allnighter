@@ -25,7 +25,7 @@ final class NotificationSchedulerTests: XCTestCase {
 
         let result = await scheduler.tick(
             previousThreads: nil, previousRuns: nil, previousRelayStreams: nil,
-            ledger: .init(), tickTime: notifT0
+            previousLoopParks: nil, ledger: .init(), tickTime: notifT0
         )
 
         XCTAssertTrue(recorder.calls.isEmpty)
@@ -45,14 +45,15 @@ final class NotificationSchedulerTests: XCTestCase {
 
         let cold = await scheduler.tick(
             previousThreads: nil, previousRuns: nil, previousRelayStreams: nil,
-            ledger: .init(), tickTime: notifT0
+            previousLoopParks: nil, ledger: .init(), tickTime: notifT0
         )
 
         _ = try threadStore.updateTurn(notifWorkerTurn(status: .done), inThreadId: "a", now: notifT1)
 
         let warm = await scheduler.tick(
             previousThreads: cold.threads, previousRuns: cold.runs,
-            previousRelayStreams: cold.relayStreams, ledger: cold.ledger, tickTime: notifT1
+            previousRelayStreams: cold.relayStreams, previousLoopParks: cold.loopParks,
+            ledger: cold.ledger, tickTime: notifT1
         )
 
         XCTAssertEqual(recorder.calls.count, 1)
@@ -102,10 +103,73 @@ final class NotificationSchedulerTests: XCTestCase {
 
         _ = await scheduler.tick(
             previousThreads: nil, previousRuns: nil, previousRelayStreams: nil,
-            ledger: ledgerStore.load(), tickTime: notifT1
+            previousLoopParks: nil, ledger: ledgerStore.load(), tickTime: notifT1
         )
 
         XCTAssertTrue(recorder.calls.isEmpty)
+    }
+
+    func testLoopCapacityParkTransitionDeliversLoopParkedOnce() async throws {
+        let root = tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let loopStore = LoopStateStore(rootDirectory: root.appendingPathComponent("loops", isDirectory: true))
+        let loopId = "relay_capacity_park"
+        var state = LoopState(
+            id: loopId,
+            projectRoot: root.path,
+            docPath: nil,
+            brief: "QABC park notify",
+            pmModelId: "caller",
+            devModelId: "model_opus",
+            status: .running,
+            createdAt: notifT0
+        )
+        try loopStore.save(state)
+
+        let recorder = RecordingCommandRunner()
+        let scheduler = NotificationScheduler(
+            threadStore: ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true)),
+            runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
+            loopStore: loopStore,
+            policyStore: NotificationPolicyStore(fileURL: root.appendingPathComponent("policy.json")),
+            ledgerStore: DeliveredNotificationLedgerStore(fileURL: root.appendingPathComponent("delivered.json")),
+            commandRunner: recorder,
+            models: models,
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "claude_code", command: "claude")]),
+            now: { notifT1 }
+        )
+
+        let cold = await scheduler.tick(
+            previousThreads: nil, previousRuns: nil, previousRelayStreams: nil,
+            previousLoopParks: nil, ledger: .init(), tickTime: notifT0
+        )
+        XCTAssertTrue(recorder.calls.isEmpty)
+        XCTAssertEqual(cold.loopParks[loopId]?.parked, false)
+
+        state.capacityPark = CapacityPark(
+            runId: "run_parked",
+            wakeAfter: notifT1.addingTimeInterval(900),
+            source: "claude_code",
+            since: notifT1
+        )
+        try loopStore.save(state)
+
+        let warm = await scheduler.tick(
+            previousThreads: cold.threads, previousRuns: cold.runs,
+            previousRelayStreams: cold.relayStreams, previousLoopParks: cold.loopParks,
+            ledger: cold.ledger, tickTime: notifT1
+        )
+
+        XCTAssertEqual(recorder.calls.count, 1)
+        let call = try XCTUnwrap(recorder.calls.first)
+        XCTAssertEqual(call.command, "osascript")
+        XCTAssertTrue(call.args[1].contains("Loop parked"))
+        let candidate = NotificationCandidate(
+            threadId: loopId, turnId: loopId, event: .loopParked,
+            threadTitle: "QABC park notify", occurredAt: notifT1
+        )
+        XCTAssertTrue(warm.ledger.deliveredIds.contains(candidate.id))
+        XCTAssertEqual(warm.loopParks[loopId]?.parked, true)
     }
 
     func testRunLoopStopsCleanlyAndDeliversOnTransition() async throws {
@@ -196,6 +260,7 @@ final class NotificationSchedulerTests: XCTestCase {
         NotificationScheduler(
             threadStore: threadStore,
             runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
+            loopStore: LoopStateStore(rootDirectory: root.appendingPathComponent("loops", isDirectory: true)),
             policyStore: NotificationPolicyStore(fileURL: root.appendingPathComponent("policy.json")),
             ledgerStore: DeliveredNotificationLedgerStore(fileURL: root.appendingPathComponent("delivered.json")),
             commandRunner: commandRunner,

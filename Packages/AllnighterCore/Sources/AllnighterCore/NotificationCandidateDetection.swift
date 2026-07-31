@@ -84,6 +84,33 @@ public struct RelayStreamNotificationSnapshot: Sendable, Equatable {
     }
 }
 
+/// Loop-level capacity park snapshot (QABC — `LoopState.capacityPark`).
+/// Distinct from run-level `RunNotificationSnapshot.waitingForVendor` (vendorParked/Resumed).
+public struct LoopParkNotificationSnapshot: Sendable, Equatable {
+    public let loopId: String
+    public let threadTitle: String
+    public let devModelId: String
+    public let parked: Bool
+    public let wakeAfter: Date?
+    public let source: String?
+
+    public init(
+        loopId: String,
+        threadTitle: String,
+        devModelId: String,
+        parked: Bool,
+        wakeAfter: Date? = nil,
+        source: String? = nil
+    ) {
+        self.loopId = loopId
+        self.threadTitle = threadTitle
+        self.devModelId = devModelId
+        self.parked = parked
+        self.wakeAfter = wakeAfter
+        self.source = source
+    }
+}
+
 /// Pure detection of notification candidates from thread state diffs (NOTIF-S02).
 public enum NotificationCandidateDetection {
     public static func snapshots(from threads: [WorkThread]) -> [String: ThreadNotificationSnapshot] {
@@ -251,6 +278,70 @@ public enum NotificationCandidateDetection {
             ))
         }
         return out
+    }
+
+    /// QABC: snapshot every loop's `capacityPark` side-field. Unparked loops stay in
+    /// the map with `parked: false` so a park→clear transition can emit `.loopResumed`
+    /// (same shape as `runCandidates` keeping runs with `waitingForVendor: false`).
+    public static func loopParkSnapshots(
+        relays: [LoopState],
+        threadTitles: [String: String]
+    ) -> [String: LoopParkNotificationSnapshot] {
+        Dictionary(uniqueKeysWithValues: relays.map { relay in
+            let title = threadTitles[relay.id] ?? relay.docPathOrBrief
+            let park = relay.capacityPark
+            return (relay.id, LoopParkNotificationSnapshot(
+                loopId: relay.id,
+                threadTitle: title,
+                devModelId: relay.devModelId,
+                parked: park != nil,
+                wakeAfter: park?.wakeAfter,
+                source: park?.source
+            ))
+        })
+    }
+
+    /// QABC: emit on parked-transition-in (`.loopParked`) and parked-transition-out
+    /// (`.loopResumed`). A nil `before` is a cold start and stays quiet.
+    public static func loopParkCandidates(
+        before: [String: LoopParkNotificationSnapshot]?,
+        after: [String: LoopParkNotificationSnapshot],
+        now: Date
+    ) -> [NotificationCandidate] {
+        guard let before else { return [] }
+        var candidates: [NotificationCandidate] = []
+        for (loopId, current) in after {
+            let previous = before[loopId]
+            if current.parked, previous?.parked != true {
+                let vendor = current.source.map {
+                    VendorContinuityPresentation.vendorDisplayName(sourceId: $0)
+                }
+                candidates.append(NotificationCandidate(
+                    threadId: loopId,
+                    turnId: loopId,
+                    event: .loopParked,
+                    threadTitle: current.threadTitle,
+                    modelId: current.devModelId,
+                    vendorDisplayName: vendor,
+                    wakeAfter: current.wakeAfter,
+                    occurredAt: now
+                ))
+            } else if previous?.parked == true, !current.parked {
+                let vendor = (previous?.source ?? current.source).map {
+                    VendorContinuityPresentation.vendorDisplayName(sourceId: $0)
+                }
+                candidates.append(NotificationCandidate(
+                    threadId: loopId,
+                    turnId: loopId,
+                    event: .loopResumed,
+                    threadTitle: current.threadTitle,
+                    modelId: current.devModelId,
+                    vendorDisplayName: vendor,
+                    occurredAt: now
+                ))
+            }
+        }
+        return candidates
     }
 
     private static func turnCandidates(

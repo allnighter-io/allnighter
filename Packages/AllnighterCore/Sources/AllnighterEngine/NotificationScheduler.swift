@@ -102,6 +102,7 @@ public struct NotificationScheduler: Sendable {
         var previousThreads: [String: ThreadNotificationSnapshot]?
         var previousRuns: [String: RunNotificationSnapshot]?
         var previousRelayStreams: [String: RelayStreamNotificationSnapshot]?
+        var previousLoopParks: [String: LoopParkNotificationSnapshot]?
         var ledger = ledgerStore.load()
 
         while !isCancelled() {
@@ -110,12 +111,14 @@ public struct NotificationScheduler: Sendable {
                 previousThreads: previousThreads,
                 previousRuns: previousRuns,
                 previousRelayStreams: previousRelayStreams,
+                previousLoopParks: previousLoopParks,
                 ledger: ledger,
                 tickTime: tickTime
             )
             previousThreads = result.threads
             previousRuns = result.runs
             previousRelayStreams = result.relayStreams
+            previousLoopParks = result.loopParks
             ledger = result.ledger
 
             guard !isCancelled() else { break }
@@ -137,23 +140,29 @@ public struct NotificationScheduler: Sendable {
         previousThreads: [String: ThreadNotificationSnapshot]?,
         previousRuns: [String: RunNotificationSnapshot]?,
         previousRelayStreams: [String: RelayStreamNotificationSnapshot]?,
+        previousLoopParks: [String: LoopParkNotificationSnapshot]?,
         ledger: DeliveredNotificationLedger,
         tickTime: Date
     ) async -> (
         threads: [String: ThreadNotificationSnapshot],
         runs: [String: RunNotificationSnapshot],
         relayStreams: [String: RelayStreamNotificationSnapshot],
+        loopParks: [String: LoopParkNotificationSnapshot],
         ledger: DeliveredNotificationLedger
     ) {
         let threads = threadStore.list()
         let runs = runStore.list()
+        let relays = loopStore.list()
         let runsById = Dictionary(uniqueKeysWithValues: runs.map { ($0.id, $0) })
         let threadTitles = Dictionary(uniqueKeysWithValues: threads.map { ($0.id, $0.title) })
 
         let threadSnapshots = NotificationCandidateDetection.snapshots(from: threads)
         let runSnapshots = NotificationCandidateDetection.runSnapshots(from: threads, runsById: runsById)
         let relaySnapshots = NotificationCandidateDetection.relayStreamSnapshots(
-            relays: loopStore.list(), runStore: runStore, threadTitles: threadTitles, now: tickTime
+            relays: relays, runStore: runStore, threadTitles: threadTitles, now: tickTime
+        )
+        let loopParkSnapshots = NotificationCandidateDetection.loopParkSnapshots(
+            relays: relays, threadTitles: threadTitles
         )
 
         var candidates = NotificationCandidateDetection.candidates(
@@ -164,6 +173,9 @@ public struct NotificationScheduler: Sendable {
         )
         candidates += NotificationCandidateDetection.relayStreamCandidates(
             before: previousRelayStreams, after: relaySnapshots, now: tickTime
+        )
+        candidates += NotificationCandidateDetection.loopParkCandidates(
+            before: previousLoopParks, after: loopParkSnapshots, now: tickTime
         )
 
         var updatedLedger = ledger
@@ -182,7 +194,7 @@ public struct NotificationScheduler: Sendable {
             }
         }
 
-        return (threadSnapshots, runSnapshots, relaySnapshots, updatedLedger)
+        return (threadSnapshots, runSnapshots, relaySnapshots, loopParkSnapshots, updatedLedger)
     }
 
     /// Pure filter: a candidate is deliverable when it has not already been

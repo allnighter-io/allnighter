@@ -43,7 +43,8 @@ public enum NotificationDeliveryFilter {
             return policy.notifyTeamRunComplete
         case .turnFailed, .turnTimedOut, .turnAwaitingManualPaste, .turnAuthRequired,
              .threadNeedsAttention, .vendorParked, .vendorResumed,
-             .relayNeedsAnswer, .relayStopped, .relayStreamStalled:
+             .relayNeedsAnswer, .relayStopped, .relayStreamStalled,
+             .loopParked, .loopResumed:
             return policy.notifyFailuresAndBlocked
         }
     }
@@ -102,6 +103,11 @@ public enum NotificationCopy {
             return "Delivery Loop stopped"
         case .relayStreamStalled:
             return "Relay worker stream stalled"
+        case .loopParked:
+            let vendor = candidate.vendorDisplayName ?? workerDisplayName ?? "vendor"
+            return "Loop parked — waiting on \(vendor)"
+        case .loopResumed:
+            return "Loop resumed"
         }
     }
 
@@ -125,6 +131,10 @@ public enum NotificationCopy {
             return "Check the relay's final state."
         case .relayStreamStalled:
             return "Agent output has been silent — inspect with `alln loop status` or `alln ps`."
+        case .loopParked:
+            return "Capacity park — the loop will retry when the vendor is ready."
+        case .loopResumed:
+            return "The loop is working again."
         }
     }
 

@@ -61,6 +61,36 @@ final class NotificationDeliveryFilterTests: XCTestCase {
         }
     }
 
+    func testLoopParkEventsGatedOnFailuresAndBlockedToggle() {
+        let enabledPolicy = NotificationPolicy(notifyFailuresAndBlocked: true)
+        let disabledPolicy = NotificationPolicy(notifyFailuresAndBlocked: false)
+        for event in [NotificationEventKind.loopParked, .loopResumed] {
+            XCTAssertTrue(NotificationDeliveryFilter.eventEnabled(event, policy: enabledPolicy))
+            XCTAssertFalse(NotificationDeliveryFilter.eventEnabled(event, policy: disabledPolicy))
+        }
+    }
+
+    func testLoopParkedTitleNamesVendor() {
+        let candidate = NotificationCandidate(
+            threadId: "relay_1", turnId: "relay_1", event: .loopParked,
+            threadTitle: "QABC", vendorDisplayName: "Claude", occurredAt: now
+        )
+        XCTAssertEqual(
+            NotificationCopy.title(candidate: candidate, workerDisplayName: nil),
+            "Loop parked — waiting on Claude"
+        )
+        XCTAssertEqual(
+            NotificationCopy.title(
+                candidate: NotificationCandidate(
+                    threadId: "relay_1", turnId: "relay_1", event: .loopResumed,
+                    threadTitle: "QABC", occurredAt: now
+                ),
+                workerDisplayName: nil
+            ),
+            "Loop resumed"
+        )
+    }
+
     func testRelayNeedsAnswerTitleIsExactRequiredString() {
         let candidate = NotificationCandidate(
             threadId: "t1", turnId: "relay_escalate1", event: .relayNeedsAnswer,
