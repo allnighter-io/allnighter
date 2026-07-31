@@ -488,9 +488,12 @@ public enum TeamResolver {
                 picked = strongest(autoPool.filter(laneOK))
             }
         case .anyReady, .strongestReady:
+            // Prefer same-driver only when preferred has a known home CLI.
+            // Do not fall through to the full autoPool — that silently seats a
+            // different-driver model. Cross-driver seating requires an explicit
+            // ordered fallbackModelIds list (checked above).
             if homeDriver != nil {
                 picked = strongest(autoPool.filter(homeOK))
-                    ?? strongest(autoPool)
             } else {
                 picked = strongest(autoPool)
             }
