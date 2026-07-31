@@ -179,6 +179,10 @@ public struct LoopCoordinator: Sendable {
     private let proofCommandRunner: CommandRunner
     private let now: @Sendable () -> Date
     private let idFactory: @Sendable () -> String
+    /// QABC-S01c: injectable wait for the claim-or-adopt wake sleep — same seam
+    /// `VendorBackoffReconciler`/`PendingWakeScheduler` already use, so tests can
+    /// supply a fake instead of a real multi-hour `Task.sleep`.
+    private let sleeper: any PendingWakeSleeper
 
     /// How long a blocked dev turn waits on the execution lane before failing with
     /// `laneBusy`. Generous: normal holders finish in minutes; this is the wedged-holder
@@ -198,7 +202,8 @@ public struct LoopCoordinator: Sendable {
             spawnKind: .harnessProof
         ),
         now: @escaping @Sendable () -> Date = Date.init,
-        idFactory: @escaping @Sendable () -> String = LoopCoordinator.mintLoopId
+        idFactory: @escaping @Sendable () -> String = LoopCoordinator.mintLoopId,
+        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper()
     ) {
         self.runService = runService
         self.gitObserver = gitObserver
@@ -213,6 +218,7 @@ public struct LoopCoordinator: Sendable {
         self.proofCommandRunner = proofCommandRunner
         self.now = now
         self.idFactory = idFactory
+        self.sleeper = sleeper
     }
 
     /// The default `idFactory` format, exposed so RSC-S03's `pair relay --no-wait`
@@ -1408,9 +1414,45 @@ public struct LoopCoordinator: Sendable {
                     events?(.escalated(note: $0.note ?? ""))
                 }
             case .capacityParked(let park):
-                // QABC-S01c: becomes sleep -> claim-or-adopt -> continue.
                 yieldToCapacityPark(&state, &round, park: park, turn: "dev")
-                return .capacityParked
+                guard let settled = await resolveCapacityPark(park, loopId: state.id, config: config) else {
+                    state.capacityPark = nil
+                    return finishRound(&state, &round, outcome: .stopped, events: events) {
+                        stop(&$0, reason: Self.parkDeadlineStopReason(park, turn: "dev"))
+                        events?(.stopped(reason: $0.stoppedReason ?? ""))
+                    }
+                }
+                state.capacityPark = nil
+                persist(state)
+                // Classify the settled run directly — deliberately NOT a second
+                // `dispatchDevTurn` call. `dispatchDevTurn`'s top-of-function
+                // `resolveExplicitModel` reads `RunService.sourceReadyModelIds()` →
+                // `coolingSources()`, whose `now:` parameter defaults to `Date()`
+                // evaluated fresh at that call site — NOT `RunService`'s own injected
+                // `now` closure. Real vendor cooldowns are >=180s (`VendorBackoffPolicy
+                // .minimumPadSeconds` + jitter), so re-entering `dispatchDevTurn`
+                // immediately after a fake-clock-driven resolve would always see the
+                // source as still cooling and escalate `AGENT_NOT_AVAILABLE` — a real,
+                // hardcoded-real-time dependency, not something a test seam can control.
+                // This means a resumed dev turn skips harness proof-of-record in this
+                // slice — an explicit gap, not a silent one; see QABC-S01c follow-up.
+                let settledOutcome = settled.answers.first?.result
+                    ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
+                guard case .delivered = LoopTurnClassifier.classify(.init(outcome: settledOutcome)) else {
+                    return finishRound(&state, &round, outcome: .escalated, events: events) {
+                        escalate(&$0, note: "dev turn did not classify as delivered after the vendor-wake resume (round \(roundNumber))")
+                        events?(.escalated(note: $0.note ?? ""))
+                    }
+                }
+                round.devRunId = settled.id
+                round.headAfterDev = gitObserver.observe(rootPath: config.projectRoot).head
+                round.outcome = .continued
+                round.finishedAt = now()
+                state.laneBlocked = nil
+                state.rounds[state.rounds.count - 1] = round
+                persist(state)
+                events?(.devTurnFinished(round: roundNumber))
+                return .continued
             case .delivered(let devRun, _):
                 round.devRunId = devRun.id
                 round.headAfterDev = gitObserver.observe(rootPath: config.projectRoot).head
@@ -1502,6 +1544,10 @@ public struct LoopCoordinator: Sendable {
     /// When `deliveryGuard` is set (mutating dev turns), a stall/empty retry first re-observes
     /// HEAD: if it moved past the turn baseline, classify delivered-not-stalled instead of
     /// re-dispatching (FR9). Ambiguous cases (output but no commit) append one retry hint.
+    ///
+    /// PM turns are non-mutating (judgment-only preset), so a vendor park here has no
+    /// claim-or-adopt resolution — `RunService.resumeParkedRun` requires `mutating ==
+    /// true`. A park just yields `.capacityParked`; the caller retries fresh later.
     private func dispatchTurn(
         _ request: RunRequest,
         config: Config,
@@ -2078,13 +2124,12 @@ public struct LoopCoordinator: Sendable {
         persistPMBoundary(state)
     }
 
-    /// QABC-S01: durably record the vendor park and end this round honestly — parked,
-    /// not escalated, not stopped. `status` stays `.running` (Corrections #8:
-    /// `LoopStateStore.save` only writes the owner-liveness marker for `.running`, and
-    /// `reconcileOrphan` only scans `.running` — this loop's owning process is alive for
-    /// the whole park). The round itself is left unfinished (`outcome` stays `nil`) —
-    /// it genuinely has not ended, it is paused mid-turn.
-    /// QABC-S01c: becomes sleep -> claim-or-adopt -> continue instead of returning here.
+    /// QABC-S01: durably record the vendor park so a concurrent `alln loop status` sees
+    /// it while `resolveCapacityPark` sleeps — parked, not escalated, not stopped.
+    /// `status` stays `.running` (Corrections #8: `LoopStateStore.save` only writes the
+    /// owner-liveness marker for `.running`, and `reconcileOrphan` only scans `.running`
+    /// — this loop's owning process is alive for the whole park). The round itself is
+    /// left unfinished (`outcome` stays `nil`) until the caller resolves the park.
     private func yieldToCapacityPark(
         _ state: inout LoopState, _ round: inout RelayRound, park: VendorPark, turn: String
     ) {
@@ -2098,6 +2143,49 @@ public struct LoopCoordinator: Sendable {
         let wake = park.wakeAfter.map { ISO8601DateFormatter().string(from: $0) } ?? "unknown"
         let source = park.source ?? "unknown vendor"
         return "\(turn) turn parked on a vendor quota wait (\(source)); wakes after \(wake). Loop stays running, waiting to resume — not escalated, not stopped."
+    }
+
+    /// QABC-S01c: sleep until the vendor wake (clamped to the loop's own `--until`
+    /// deadline), then claim the wake lease and resume the parked run. If another
+    /// coordinator wins the claim race first — typically `alln serve`'s
+    /// `VendorBackoffReconciler`, which is unchanged and remains a legitimate winner
+    /// (correction #7) — this ADOPTS its settlement instead of escalating: it polls the
+    /// journal until the run leaves `.waitingForVendor`, then returns that settled run.
+    /// Returns `nil` only when the loop's deadline passed while still parked — the one
+    /// legal escalation (correction #7's "claim-or-adopt, never claim-or-escalate").
+    private func resolveCapacityPark(_ park: VendorPark, loopId: String, config: Config) async -> TeamRun? {
+        if let wakeAfter = park.wakeAfter {
+            await sleepUntil(wakeAfter, config: config)
+        }
+        while true {
+            if isPastDeadline(config) { return nil }
+            if runStore.claimVendorWake(runId: park.runId, coordinatorId: loopId, now: now()) != nil {
+                let result = await runService.resumeParkedRun(runId: park.runId, coordinatorId: loopId)
+                if case .success(let run) = result { return run }
+                return nil
+            }
+            // Lost the claim: either another coordinator's active lease refused us, or
+            // the wake genuinely is not due yet. Either way, never escalate — check
+            // whether the run has already settled (adopt), then wait a beat and retry.
+            if let run = runStore.loadRaw(runId: park.runId), run.phase != .waitingForVendor {
+                return run
+            }
+            if isPastDeadline(config) { return nil }
+            await sleepUntil(now().addingTimeInterval(2), config: config)
+        }
+    }
+
+    private func sleepUntil(_ date: Date, config: Config) async {
+        let target = config.until.map { min($0, date) } ?? date
+        let interval = target.timeIntervalSince(now())
+        guard interval > 0 else { return }
+        do { try await sleeper.sleep(until: target, jitterSeconds: 0) } catch {}
+    }
+
+    private static func parkDeadlineStopReason(_ park: VendorPark, turn: String) -> String {
+        let wake = park.wakeAfter.map { ISO8601DateFormatter().string(from: $0) } ?? "unknown"
+        let source = park.source ?? "unknown vendor"
+        return "--until deadline reached while the \(turn) turn was parked on a vendor quota wait (\(source)); wakes after \(wake)."
     }
 
     /// PO-F10: surface the typed error code (e.g. AGENT_NOT_AVAILABLE) in the

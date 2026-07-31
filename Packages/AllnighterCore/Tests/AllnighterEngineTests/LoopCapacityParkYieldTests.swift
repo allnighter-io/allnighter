@@ -92,9 +92,57 @@ final class LoopCapacityParkYieldTests: HermeticSupportTestCase {
     /// A vendor session-cap script: non-zero exit + a message-fallback rate-limit
     /// phrasing `CapacityClassifier.retryAfterSeconds(fromMessage:)` recognizes, which
     /// makes `VendorBackoffPolicy.shouldPark` accept it (`.accountRateLimit` +
-    /// `.messageFallback` confidence + a concrete `retryAfterSeconds`).
+    /// `.messageFallback` confidence + a concrete `retryAfterSeconds`). The ACTUAL
+    /// `wakeAfter` is never this raw value — `VendorBackoffPolicy.computeWakeAfter`
+    /// always adds `minimumPadSeconds` (120s) plus 60-300s of jitter on top, by design
+    /// (never hammer a vendor right at the stated reset). A real wait is therefore
+    /// always >=180s regardless of what this script says — the QABC-S01c resolution
+    /// tests below use a fake clock/sleeper (`SimulatedClock`) instead of waiting for
+    /// real wall-clock time.
     private func vendorParkScript() -> MockCommandRunner.Script {
         .init(stdout: "", stderr: "usage limit reached, retry after: 120 seconds", exitCode: 1)
+    }
+
+    /// A controllable clock threaded through `LoopCoordinator.now` AND the fake
+    /// sleeper below, so "sleeping" just advances this shared clock instead of
+    /// blocking the test for the vendor's real (>=180s) retry-after window.
+    private final class SimulatedClock: @unchecked Sendable {
+        private var current: Date
+        init(_ start: Date) { current = start }
+        func now() -> Date { current }
+        func advance(to date: Date) { if date > current { current = date } }
+    }
+
+    private final class InstantAdvancingSleeper: PendingWakeSleeper, @unchecked Sendable {
+        let clock: SimulatedClock
+        init(clock: SimulatedClock) { self.clock = clock }
+        func sleep(until: Date, jitterSeconds: TimeInterval) async throws {
+            clock.advance(to: until)
+        }
+    }
+
+    /// Simulates a rival coordinator (the shape of `alln serve`'s
+    /// `VendorBackoffReconciler`) winning the wake race: the FIRST time our own loop
+    /// "sleeps" waiting for the wake, this claims and fully resumes the parked run
+    /// itself, before our own loop ever attempts its own claim.
+    private final class RivalClaimingSleeper: PendingWakeSleeper, @unchecked Sendable {
+        let clock: SimulatedClock
+        let runStore: RunStore
+        let runService: RunService
+        private var hasActed = false
+        init(clock: SimulatedClock, runStore: RunStore, runService: RunService) {
+            self.clock = clock
+            self.runStore = runStore
+            self.runService = runService
+        }
+        func sleep(until: Date, jitterSeconds: TimeInterval) async throws {
+            clock.advance(to: until)
+            guard !hasActed else { return }
+            hasActed = true
+            guard let parked = runStore.list().first(where: { $0.phase == .waitingForVendor }) else { return }
+            guard runStore.claimVendorWake(runId: parked.id, coordinatorId: "rival_serve", now: clock.now()) != nil else { return }
+            _ = await runService.resumeParkedRun(runId: parked.id, coordinatorId: "rival_serve")
+        }
     }
 
     // MARK: - Dev turn parks
@@ -106,21 +154,30 @@ final class LoopCapacityParkYieldTests: HermeticSupportTestCase {
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
         ]
-        let devScripts: [MockCommandRunner.Script] = [vendorParkScript()]
+        let devScripts: [MockCommandRunner.Script] = [
+            vendorParkScript(),
+            .init(stdout: "Implemented and committed after the vendor reset."),
+        ]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let clock = SimulatedClock(Date())
+        let coordinator = LoopCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            now: { clock.now() }, sleeper: InstantAdvancingSleeper(clock: clock)
+        )
 
         let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
+            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 1
         )
         let state = try await coordinator.run(config: config).get()
 
         // A misclassified park reads as `.infraBackoff`, thrash-retries up to
-        // `maxInfraBackoffAttempts` (10), then escalates. The only honest outcome for a
-        // genuine park is still-running — never `.escalated`.
-        XCTAssertEqual(state.status, .running)
-        XCTAssertEqual(runner.callCount(for: "dev_cli"), 1, "must not have retried the parked dev turn")
+        // `maxInfraBackoffAttempts` (10), then escalates. The honest outcome is: the
+        // park yields once, claim-or-adopt resolves it after the (simulated) wake,
+        // and the round completes normally — never a bare `.escalated` from thrash.
+        XCTAssertEqual(state.rounds.first?.outcome, .continued, "note: \(state.note ?? "nil")")
+        XCTAssertNil(state.capacityPark, "resolved — no dangling park side-field")
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 2, "one park attempt + one resumed attempt — never a thrash retry")
     }
 
     func testParkedTurnMintsNoCompetingRunIds() async throws {
@@ -130,23 +187,31 @@ final class LoopCapacityParkYieldTests: HermeticSupportTestCase {
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
         ]
-        let devScripts: [MockCommandRunner.Script] = [vendorParkScript()]
+        let devScripts: [MockCommandRunner.Script] = [
+            vendorParkScript(),
+            .init(stdout: "Implemented and committed after the vendor reset."),
+        ]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let clock = SimulatedClock(Date())
+        let coordinator = LoopCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            now: { clock.now() }, sleeper: InstantAdvancingSleeper(clock: clock)
+        )
 
         let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
+            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 1
         )
         _ = try await coordinator.run(config: config).get()
 
         // The ten-orphans regression: every infra-backoff retry called
         // `RunService.mintRunId()` at the top of `dispatchDevTurn`'s loop and re-parked a
-        // fresh mutating run. One dev CLI spawn must mean exactly one run id minted.
-        XCTAssertEqual(runner.callCount(for: "dev_cli"), 1, "exactly one run id must be minted for the parked dev turn")
+        // fresh mutating run. Resolving via claim-or-adopt mints exactly one MORE run
+        // (the resumed attempt) — never a competing third, fourth, ... tenth id.
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 2, "exactly the park attempt plus the one resumed attempt")
     }
 
-    func testParkedLoopStaysRunningWithCapacityPark() async throws {
+    func testParkPastDeadlineStopsWithWakeInReason() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
@@ -154,24 +219,68 @@ final class LoopCapacityParkYieldTests: HermeticSupportTestCase {
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
         ]
         let devScripts: [MockCommandRunner.Script] = [vendorParkScript()]
-        let (service, _) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
+
+        // `until` must be reachable AFTER round 1 starts (else `loop()`'s own
+        // pre-round deadline check fires first, before the dev turn ever dispatches)
+        // but BEFORE the vendor wake (>=180s away) — so `resolveCapacityPark`'s own
+        // deadline check is what fires. The advancing clock carries `now()` up to
+        // `until` via `sleepUntil`'s clamp during the FIRST wake wait.
+        let start = Date()
+        let clock = SimulatedClock(start)
+        let coordinator = LoopCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            now: { clock.now() }, sleeper: InstantAdvancingSleeper(clock: clock)
+        )
 
         let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
+            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5,
+            until: start.addingTimeInterval(1)
         )
         let state = try await coordinator.run(config: config).get()
 
-        XCTAssertEqual(state.status, .running)
-        let park = try XCTUnwrap(state.capacityPark, "a parked dev turn must record LoopState.capacityPark")
-        XCTAssertNotNil(park.wakeAfter)
-        XCTAssertFalse(park.runId.isEmpty)
+        // The loop's own `--until` passed while the dev turn was parked, waiting
+        // for the (much later) vendor wake — correction #7's "one legal escalation":
+        // stop, don't thrash, and name the wake that was interrupted.
+        XCTAssertEqual(state.status, .stopped)
+        let reason = try XCTUnwrap(state.stoppedReason)
+        XCTAssertTrue(reason.contains("parked"), "reason must say the turn was parked: \(reason)")
+        XCTAssertTrue(reason.contains("wakes after"), "reason must name the wake it was waiting for: \(reason)")
+        XCTAssertNil(state.capacityPark, "resolved (to a stop) — no dangling park side-field")
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 1, "must not attempt a claim once the deadline has already passed")
+    }
 
-        // `.running` is the ONLY status `LoopStateStore.save` writes the owner-liveness
-        // marker for (Corrections #8) — a parked-but-running loop's owning process is
-        // alive for the whole wait, so it must stay reconcilable/live, not orphaned.
-        XCTAssertFalse(stateStore.isOwnerDead(id: state.id), "a live .running parked loop must still carry its owner marker")
+    func testWakeClaimLostToServeAdoptsInsteadOfEscalating() async throws {
+        let repo = try makeGitRepo()
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let pmScripts: [MockCommandRunner.Script] = [
+            .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
+        ]
+        let devScripts: [MockCommandRunner.Script] = [
+            vendorParkScript(),
+            .init(stdout: "Implemented and committed by the rival's resume."),
+        ]
+        let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
+        let clock = SimulatedClock(Date())
+        let coordinator = LoopCoordinator(
+            runService: service, stateStore: stateStore, runStore: runStore,
+            now: { clock.now() },
+            sleeper: RivalClaimingSleeper(clock: clock, runStore: runStore, runService: service)
+        )
+
+        let config = LoopCoordinator.Config(
+            projectRoot: repo.path, docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 1
+        )
+        let state = try await coordinator.run(config: config).get()
+
+        // The rival (e.g. `alln serve`) claimed and resumed first. Losing that race
+        // must ADOPT its settlement, never escalate (correction #7).
+        XCTAssertEqual(state.rounds.first?.outcome, .continued, "adopting the rival's settlement must not escalate")
+        XCTAssertNotEqual(state.status, .escalated)
+        XCTAssertEqual(runner.callCount(for: "dev_cli"), 2, "the park attempt plus the rival's one resume — our own loop mints no competing id")
     }
 
     // MARK: - PM turn parks (dispatchTurn twin)
