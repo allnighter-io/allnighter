@@ -75,7 +75,18 @@ enum LoopDispatch {
         if let verdict = json.verdict { lines.append("last verdict: \(verdict)") }
         if let note = json.note { lines.append(note) }
         if let stoppedReason = json.stoppedReason { lines.append("stopped: \(stoppedReason)") }
+        // QABC-S01: parked-but-running — surface the wake clock and the exact next
+        // command so a founder checking in mid-park sees "waiting", not "stuck".
+        if let park = json.capacityPark {
+            let wake = park.wakeAfter.map { ISO8601DateFormatter().string(from: $0) } ?? "unknown"
+            let source = park.source ?? "unknown vendor"
+            lines.append("parked on \(source) quota; wakes after \(wake) — no action needed, re-run \(statusCommandHint(json)) to check again")
+        }
         return lines.joined(separator: "\n")
+    }
+
+    private static func statusCommandHint(_ json: LoopJSON) -> String {
+        "alln loop status --relay \(json.relayId)"
     }
 
     static func humanRoundLog(_ json: LoopJSON) -> String {

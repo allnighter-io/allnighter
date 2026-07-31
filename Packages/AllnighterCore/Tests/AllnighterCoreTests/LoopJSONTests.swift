@@ -159,6 +159,40 @@ final class LoopJSONTests: XCTestCase {
         XCTAssertNil(json.verdict)
     }
 
+    // MARK: - QABC-S01 (capacityPark)
+
+    func testProjectsParkedDevTurnWithCapacityPark() {
+        let park = CapacityPark(
+            runId: "run_dev_1", wakeAfter: now.addingTimeInterval(300), source: "dev_cli", since: now
+        )
+        var state = LoopState(
+            id: "relay_parked", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev", status: .running,
+            createdAt: now
+        )
+        state.capacityPark = park
+
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
+
+        XCTAssertEqual(json.status, "running")
+        XCTAssertEqual(json.capacityPark, park)
+    }
+
+    func testRoundTripsCapacityParkThroughCoreJSON() throws {
+        var state = LoopState(
+            id: "relay_parked_rt", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "model_dev", status: .running,
+            createdAt: now
+        )
+        state.capacityPark = CapacityPark(
+            runId: "run_dev_1", wakeAfter: now.addingTimeInterval(300), source: "dev_cli", since: now
+        )
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
+        let data = try CoreJSON.encode(json)
+        let decoded = try CoreJSON.decode(LoopJSON.self, from: data)
+        XCTAssertEqual(decoded, json)
+    }
+
     // MARK: - Pilot (pmMode, dirtyFilesCount, hasExternalSubmission)
 
     func testProjectsSpawnedRelayWithSpawnedPMMode() {

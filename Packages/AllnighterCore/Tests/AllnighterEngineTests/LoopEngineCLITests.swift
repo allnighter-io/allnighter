@@ -507,6 +507,41 @@ final class LoopEngineCLITests: XCTestCase {
         XCTAssertEqual(LoopDispatch.progressJSON(.stopped(reason: "ceiling")).reason, "ceiling")
     }
 
+    // MARK: - QABC-S01c: capacityPark status surfacing
+
+    func testHumanLoopSummarySurfacesCapacityParkWakeAndNextCommand() {
+        let now = Date(timeIntervalSince1970: 1_752_000_000)
+        var json = LoopJSON.project(
+            LoopState(
+                id: "relay_parked", projectRoot: "/repo", docPath: "docs/spec.md",
+                pmModelId: "model_pm", devModelId: "model_dev", status: .running,
+                createdAt: now
+            ),
+            contractVersion: "1.0.0"
+        )
+        json.capacityPark = CapacityPark(
+            runId: "run_dev_1", wakeAfter: now.addingTimeInterval(300), source: "dev_cli", since: now
+        )
+
+        let summary = LoopDispatch.humanLoopSummary(json)
+
+        XCTAssertTrue(summary.contains("dev_cli"), "must name the parked vendor: \(summary)")
+        XCTAssertTrue(summary.contains("wakes after"), "must name the wake clock: \(summary)")
+        XCTAssertTrue(summary.contains("alln loop status --relay relay_parked"), "must give the exact next command: \(summary)")
+    }
+
+    func testHumanLoopSummaryOmitsCapacityParkLineWhenNotParked() {
+        let json = LoopJSON.project(
+            LoopState(
+                id: "relay_running", projectRoot: "/repo", docPath: "docs/spec.md",
+                pmModelId: "model_pm", devModelId: "model_dev", status: .running,
+                createdAt: Date(timeIntervalSince1970: 1_752_000_000)
+            ),
+            contractVersion: "1.0.0"
+        )
+        XCTAssertFalse(LoopDispatch.humanLoopSummary(json).contains("parked"))
+    }
+
     // MARK: - ATL-S02: pair relay stop CLI surface
 
     func testStopCommandRegisteredWithRelayFlag() {

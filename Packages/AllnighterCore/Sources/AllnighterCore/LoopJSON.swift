@@ -33,6 +33,10 @@ public struct LoopJSON: Codable, Equatable, Sendable {
     /// PO-S03: present while this relay's dev turn holds a FIFO ticket on the
     /// per-root execution lane (harness-owned wait; agents must not busy-loop).
     public var laneBlocked: ExecutionLaneTicket?
+    /// QABC-S01: present while the dev turn is parked on a vendor quota wait —
+    /// `status` stays `"running"` (the owning process is alive, waiting to resume,
+    /// not escalated or stopped). Cleared once claim-or-adopt resolves the park.
+    public var capacityPark: CapacityPark?
     /// Durable PM delivery at a parked or terminal boundary. Always encoded, including null.
     public var pmTurn: PMTurnJSON?
     /// Status-level notes; `pm_turn_missing` marks the receipt crash window.
@@ -60,6 +64,7 @@ public struct LoopJSON: Codable, Equatable, Sendable {
         devModelId: String,
         stoppedReason: String? = nil,
         laneBlocked: ExecutionLaneTicket? = nil,
+        capacityPark: CapacityPark? = nil,
         pmTurn: PMTurnJSON? = nil,
         notes: [String] = [],
         pmTurnDelivery: PMTurnDeliveryJSON? = nil,
@@ -80,6 +85,7 @@ public struct LoopJSON: Codable, Equatable, Sendable {
         self.devModelId = devModelId
         self.stoppedReason = stoppedReason
         self.laneBlocked = laneBlocked
+        self.capacityPark = capacityPark
         self.pmTurn = pmTurn
         self.notes = notes
         self.pmTurnDelivery = pmTurnDelivery
@@ -116,6 +122,7 @@ public struct LoopJSON: Codable, Equatable, Sendable {
             devModelId: state.devModelId,
             stoppedReason: state.stoppedReason,
             laneBlocked: state.laneBlocked,
+            capacityPark: state.capacityPark,
             pmTurn: pmTurn,
             notes: notes,
             pmTurnDelivery: pmTurnDelivery,
@@ -125,7 +132,7 @@ public struct LoopJSON: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, relayId, status, pmMode, rounds, verdict, note
-        case roundLog, docPath, pmModelId, devModelId, stoppedReason, laneBlocked, pmTurn, notes, pmTurnDelivery, waitOutcome
+        case roundLog, docPath, pmModelId, devModelId, stoppedReason, laneBlocked, capacityPark, pmTurn, notes, pmTurnDelivery, waitOutcome
         case devLeg
     }
 
@@ -145,6 +152,7 @@ public struct LoopJSON: Codable, Equatable, Sendable {
         try c.encode(devModelId, forKey: .devModelId)
         try c.encodeIfPresent(stoppedReason, forKey: .stoppedReason)
         try c.encodeIfPresent(laneBlocked, forKey: .laneBlocked)
+        try c.encodeIfPresent(capacityPark, forKey: .capacityPark)
         try c.encode(pmTurn, forKey: .pmTurn)
         try c.encode(notes, forKey: .notes)
         try c.encodeIfPresent(pmTurnDelivery, forKey: .pmTurnDelivery)
