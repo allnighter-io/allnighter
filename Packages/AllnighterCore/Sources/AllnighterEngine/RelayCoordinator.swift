@@ -23,7 +23,15 @@ public struct RelayCoordinator: Sendable {
         public var projectId: String?
         /// Repo-relative path to the spec doc — never a payload; the PM re-reads it fresh
         /// from disk each round (PM_Relay.md §2, "the doc is an anchor, not a payload").
-        public var docPath: String
+        /// `nil` for a brief-only loop (LVC-S02b, `docs/phases/Loop_Verb_Cutover.md` §2
+        /// "`--spec` is a shortcut, not the shape") — `brief` carries the work instead.
+        public var docPath: String?
+        /// The founder's kickoff sentence, verbatim. Always supplied by `alln loop start`
+        /// (LVC-S02b); every other caller (`pair relay`/`pilot start`, both still
+        /// `--doc`-required) leaves this at its default, where it is never read — a real
+        /// `docPath` always wins. Used as the duplicate-start identity and the doc-anchor
+        /// fallback in prompts/titles/status when `docPath` is `nil`.
+        public var brief: String = ""
         public var pmModelId: String
         public var devModelId: String
         public var maxRounds: Int
@@ -57,7 +65,8 @@ public struct RelayCoordinator: Sendable {
         public init(
             projectRoot: String,
             projectId: String? = nil,
-            docPath: String,
+            docPath: String?,
+            brief: String = "",
             pmModelId: String,
             devModelId: String,
             maxRounds: Int = 20,
@@ -73,6 +82,7 @@ public struct RelayCoordinator: Sendable {
             self.projectRoot = projectRoot
             self.projectId = projectId
             self.docPath = docPath
+            self.brief = brief
             self.pmModelId = pmModelId
             self.devModelId = devModelId
             self.maxRounds = max(1, maxRounds)
@@ -228,13 +238,14 @@ public struct RelayCoordinator: Sendable {
     /// call this standalone for an early, lock-free read — a `.success` here is not a
     /// guarantee against a start that lands between the check and the real call.
     public static func preflightStart(
-        projectRoot: String, docPath: String, stateStore: RelayStateStore
+        projectRoot: String, docPath: String?, brief: String = "", stateStore: RelayStateStore
     ) -> Result<Void, DispatchRefusal> {
         let normalizedRoot = RootNormalization.normalize(projectRoot).key
-        let normalizedDoc = RelayDispatchLock.normalizeDocPath(docPath)
+        let identity = RelayDispatchLock.identityKey(docPath: docPath, brief: brief)
         for candidate in stateStore.list() {
             guard candidate.status == .running,
-                  RelayDispatchLock.normalizeDocPath(candidate.docPath) == normalizedDoc else { continue }
+                  RelayDispatchLock.identityKey(docPath: candidate.docPath, brief: candidate.brief ?? "") == identity
+            else { continue }
             guard RootNormalization.normalize(candidate.projectRoot).key == normalizedRoot else { continue }
             guard !stateStore.isOwnerDead(id: candidate.id) else { continue }
             return .failure(.alreadyActive(relayId: candidate.id))
@@ -246,17 +257,17 @@ public struct RelayCoordinator: Sendable {
     /// GUI navigates after this succeeds; `complete` runs the round loop in the background.
     /// `run` is claimStart + complete.
     public func claimStart(config: Config, id: String? = nil) -> Result<RelayState, DispatchRefusal> {
-        let key = RelayDispatchLock.startKey(projectRoot: config.projectRoot, docPath: config.docPath)
+        let key = RelayDispatchLock.startKey(projectRoot: config.projectRoot, docPath: config.docPath, brief: config.brief)
         guard let acquired = RelayDispatchLock.acquireStart(startKey: key, relaysRoot: stateStore.rootDirectory) else {
             if case .failure(let refusal) = Self.preflightStart(
-                projectRoot: config.projectRoot, docPath: config.docPath, stateStore: stateStore
+                projectRoot: config.projectRoot, docPath: config.docPath, brief: config.brief, stateStore: stateStore
             ) { return .failure(refusal) }
             return .failure(.journalUnavailable)
         }
         var lockHandle: ThreadFlockLock.Handle? = acquired
 
         if case .failure(let refusal) = Self.preflightStart(
-            projectRoot: config.projectRoot, docPath: config.docPath, stateStore: stateStore
+            projectRoot: config.projectRoot, docPath: config.docPath, brief: config.brief, stateStore: stateStore
         ) {
             lockHandle = nil
             return .failure(refusal)
@@ -266,6 +277,7 @@ public struct RelayCoordinator: Sendable {
             id: id ?? idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
+            brief: config.docPath == nil && !config.brief.isEmpty ? config.brief : nil,
             pmModelId: config.pmModelId,
             devModelId: config.devModelId,
             status: .running,
@@ -325,6 +337,7 @@ public struct RelayCoordinator: Sendable {
             id: idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
+            brief: config.docPath == nil && !config.brief.isEmpty ? config.brief : nil,
             pmModelId: RelayState.externalPMModelId,
             devModelId: config.devModelId,
             status: .awaitingPM,
@@ -671,6 +684,7 @@ public struct RelayCoordinator: Sendable {
         var adoptedConfig = config
         adoptedConfig.projectRoot = state.projectRoot
         adoptedConfig.docPath = state.docPath
+        adoptedConfig.brief = state.brief ?? ""
         adoptedConfig.pmModelId = pmModelId
         adoptedConfig.devModelId = state.devModelId
 
@@ -839,6 +853,7 @@ public struct RelayCoordinator: Sendable {
         var resumedConfig = config
         resumedConfig.projectRoot = state.projectRoot
         resumedConfig.docPath = state.docPath
+        resumedConfig.brief = state.brief ?? ""
         resumedConfig.pmModelId = state.pmModelId
         resumedConfig.devModelId = state.devModelId
 
@@ -1196,6 +1211,7 @@ public struct RelayCoordinator: Sendable {
         let kickoffMessage = state.kickoffMessage
         let pmContext = RelayPMPrompt.Context(
             docPath: config.docPath,
+            brief: config.brief,
             roundNumber: roundNumber,
             baselineHead: previousRound?.baselineHead ?? baselineHead ?? "",
             currentHead: previousRound?.headAfterDev,
@@ -1333,7 +1349,7 @@ public struct RelayCoordinator: Sendable {
             let devDisplayName = await runService.workerDisplayName(forModelId: config.devModelId)
             let devRequest = RunRequest(
                 message: RelayDevPrompt.assemble(context: .init(
-                    handover: handover, docPath: config.docPath, roundNumber: roundNumber,
+                    handover: handover, docPath: config.docPath, brief: config.brief, roundNumber: roundNumber,
                     workerDisplayName: devDisplayName)),
                 repoRoot: config.projectRoot, projectId: config.projectId,
                 presetId: config.presetId, pinnedModelId: config.devModelId

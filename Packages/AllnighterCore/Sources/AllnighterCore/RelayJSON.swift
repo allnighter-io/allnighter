@@ -111,7 +111,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
             verdict: state.rounds.last?.verdict?.verdict.rawValue,
             note: state.note,
             roundLog: state.rounds.map(RelayRoundLogEntry.init),
-            docPath: state.docPath,
+            docPath: state.docPathOrBrief,
             pmModelId: state.pmModelId,
             devModelId: state.devModelId,
             stoppedReason: state.stoppedReason,

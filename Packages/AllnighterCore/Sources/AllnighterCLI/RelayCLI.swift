@@ -34,7 +34,16 @@ enum RelayCLI {
         } catch {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
+        await runRelay(config: config, opts: opts, runtime: runtime)
+    }
 
+    /// LVC-S02b: the dispatch half of `runRelay(_:runtime:)`, split out so `alln loop
+    /// start` (`LoopCLI`) can build `Config` itself — with `docPath: nil` for a
+    /// brief-only loop — and dispatch straight through, without going through
+    /// `parseStartConfig`'s hard `--doc` requirement. `pair relay` above still enforces
+    /// that requirement unchanged; this entry point never loosens it, it only skips it
+    /// for a caller that already resolved a valid `Config` another way.
+    static func runRelay(config: RelayCoordinator.Config, opts: Options, runtime: ToolRuntime) async {
         if opts.flag("no-wait") {
             await runRelayNoWait(
                 config: config, opts: opts, wakeDelivery: DetachedDispatch.validateWakeDelivery(opts))
@@ -66,7 +75,7 @@ enum RelayCLI {
     ) async {
         let stateStore = RelayStateStore()
         if case .failure(let refusal) = RelayCoordinator.preflightStart(
-            projectRoot: config.projectRoot, docPath: config.docPath, stateStore: stateStore
+            projectRoot: config.projectRoot, docPath: config.docPath, brief: config.brief, stateStore: stateStore
         ) {
             failStart(refusal)
         }
@@ -585,7 +594,7 @@ enum RelayCLI {
 
     // MARK: - Exit funnel
 
-    private static func fail(_ error: RelayCLIError) -> Never {
+    static func fail(_ error: RelayCLIError) -> Never {
         // `.workerNotAvailable` renders through the same `failExactId` funnel the old
         // in-parse `exit()` call used — candidates/suggestions/nextAction included —
         // so real invocations see byte-for-byte the same envelope as before.

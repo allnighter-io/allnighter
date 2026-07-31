@@ -49,7 +49,7 @@ public struct RelayThreadProjector: Sendable {
         if store.get(state.id) == nil {
             guard let created = try? store.create(
                 id: state.id,
-                title: Self.title(forDocPath: state.docPath),
+                title: Self.title(forDocPath: state.docPathOrBrief),
                 now: state.createdAt,
                 workingDir: state.projectRoot
             ) else { return }

@@ -3,9 +3,12 @@ import AllnighterCore
 import AllnighterEngine
 
 /// `alln loop` — the durable PM↔dev loop object (LVC v7 `docs/phases/Loop_Verb_Cutover.md`
-/// §2). This slice (LVC-S02a) wires `loop start` only; `list|status|stop|resume|wait|step|pm`
-/// land in later slices. `loop start` dispatches into the existing `pair pilot start` /
-/// `pair relay` coordinator paths verbatim — no new coordinator logic here.
+/// §2). This slice (LVC-S02a/S02b) wires `loop start` only; `list|status|stop|resume|wait|
+/// step|pm` land in later slices. `loop start` builds `RelayCoordinator.Config`/
+/// `PilotCLI.StartRequest` directly and dispatches into the existing `PilotCLI`/`RelayCLI`
+/// coordinator entry points — `docPath` is `nil` when `--spec` is omitted (LVC-S02b: a brief
+/// with no doc still starts a real loop); `pair pilot start`/`pair relay` themselves keep
+/// hard-requiring `--doc`, unchanged.
 enum LoopCLI {
     static func run(_ args: [String], runtime: ToolRuntime) async {
         guard let sub = args.first else { usage() }
@@ -74,47 +77,69 @@ enum LoopCLI {
             return
         }
 
-        // Live dispatch reuses the existing coordinator paths untouched. Both paths
-        // (RelayCoordinator.Config.docPath / PilotCLI's --doc) still require a spec
-        // doc today — making a real (non-dry-run) round run brief-only end to end is
-        // LVC-S02's coordinator work, out of scope for this slice (LVC-S02a: CLI +
-        // dry-run only). `--dry-run` already resolves and reports readiness brief-only.
-        guard let specPath else {
+        // LVC-S02b: `--spec` is a shortcut, not the shape (LVC v7 §2) — a brief with no
+        // doc dispatches a real loop. `Config`/`StartRequest` are built here directly
+        // (not via `RelayCLI.parseStartConfig`/`PilotCLI.parseStartConfig`, which keep
+        // hard-requiring `--doc` for the retired `pair relay`/`pilot start` verbs) so
+        // `docPath` can be `nil` while `brief` always carries the work.
+        guard let maxRounds = RelayCLI.parseMaxRounds(opts.value("max-rounds")) else {
             AllnighterCLI.fail(
                 code: "CLI_USAGE_ERROR",
-                message: "alln loop start needs --spec <path> to actually dispatch a round today — brief-only live dispatch lands in a later loop slice. `--dry-run` already works with the brief alone."
+                message: "--max-rounds must be a positive integer, got \"\(opts.value("max-rounds") ?? "")\""
             )
+        }
+        let untilParsed = RelayDispatch.parseUntilValidated(opts.value("until"))
+        if let bad = untilParsed.invalid {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--until could not be parsed: \"\(bad)\"")
+        }
+        let idleParsed = RunCLI.parseIdleTimeoutSeconds(opts.value("idle-timeout"))
+        if let error = idleParsed.error {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: error)
         }
 
         switch seats.pm {
         case .caller:
-            var forwarded = ["--doc", specPath, "--project", project.id, "--dev-model", seats.dev]
-            forwarded += passthrough(opts, keys: ["max-rounds", "idle-timeout", "json"])
-            await PilotCLI.runStart(forwarded, runtime: runtime)
+            // Pilot has no clock and no PM prompt of its own — the live session IS the
+            // PM and already holds the brief in its own context, so nothing needs it
+            // injected. `--until` is refused by `startPilot` itself (untilNotSupported).
+            let config = RelayCoordinator.Config(
+                projectRoot: project.normalizedRootPath,
+                projectId: project.id,
+                docPath: specPath,
+                brief: brief,
+                pmModelId: RelayState.externalPMModelId,
+                devModelId: seats.dev,
+                maxRounds: maxRounds,
+                until: untilParsed.value,
+                devTurnIdleTimeoutSeconds: idleParsed.value
+            )
+            let request = PilotCLI.StartRequest(
+                config: config, devModelId: seats.dev, devWorkerAlias: nil, rememberedDevWorker: false
+            )
+            await PilotCLI.runStart(request: request, opts: opts, runtime: runtime)
         case .agent(let pmId):
-            var forwarded = ["--doc", specPath, "--project", project.id, "--pm-model", pmId, "--dev-model", seats.dev]
-            if opts.value("message") == nil, opts.value("message-file") == nil {
-                forwarded += ["--message", brief]
+            let kickoffMessage: String?
+            do {
+                kickoffMessage = try RelayCLI.parseKickoffMessage(opts) ?? brief
+            } catch let error as RelayCLI.RelayCLIError {
+                RelayCLI.fail(error)
+            } catch {
+                AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
             }
-            forwarded += passthrough(
-                opts, keys: ["message", "message-file", "until", "max-rounds", "idle-timeout", "no-wait", "json"])
-            await RelayCLI.runRelay(forwarded, runtime: runtime)
+            let config = RelayCoordinator.Config(
+                projectRoot: project.normalizedRootPath,
+                projectId: project.id,
+                docPath: specPath,
+                brief: brief,
+                pmModelId: pmId,
+                devModelId: seats.dev,
+                maxRounds: maxRounds,
+                until: untilParsed.value,
+                devTurnIdleTimeoutSeconds: idleParsed.value,
+                kickoffMessage: kickoffMessage
+            )
+            await RelayCLI.runRelay(config: config, opts: opts, runtime: runtime)
         }
-    }
-
-    /// Rebuilds a `--key value` / `--flag` argv slice from parsed `Options` for the
-    /// keys the underlying coordinator path accepts unchanged.
-    private static func passthrough(_ opts: Options, keys: [String]) -> [String] {
-        var out: [String] = []
-        for key in keys {
-            if Options.booleanFlags.contains(key) {
-                if opts.flag(key) { out.append("--\(key)") }
-            } else if let value = opts.value(key) {
-                out.append("--\(key)")
-                out.append(value)
-            }
-        }
-        return out
     }
 
     /// `--pm` omitted → Frontier tier default. `--pm caller` → the reserved occupant,

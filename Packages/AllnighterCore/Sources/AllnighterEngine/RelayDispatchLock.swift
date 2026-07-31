@@ -63,16 +63,31 @@ public enum RelayDispatchLock {
         return normalized
     }
 
+    /// LVC-S02b: identity for the duplicate-start scan/lock when a loop has no spec
+    /// doc (`docs/phases/Loop_Verb_Cutover.md` §2 "`--spec` is a shortcut, not the
+    /// shape"). A real `docPath` keeps today's behavior unchanged (two loops on
+    /// different docs coexist; the same doc collides). Brief-only loops collide only
+    /// with an identical brief — that IS a duplicate — never with an unrelated
+    /// concurrent brief-only loop, and never with project-root alone (which would
+    /// wrongly block unrelated concurrent loops).
+    public static func identityKey(docPath: String?, brief: String) -> String {
+        if let docPath { return normalizeDocPath(docPath) }
+        let trimmed = brief.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digest = SHA256.hash(data: Data(trimmed.utf8))
+        return "brief:" + digest.map { String(format: "%02x", $0) }.joined()
+    }
+
     /// `RelayCoordinator.run`'s duplicate-scan → persist window has no relay id to key a
     /// lock on until AFTER that window (the id is minted inside it) — so this lock is
     /// keyed on the START key instead: `sha256(RootNormalization.normalize(root).key +
-    /// "|" + normalizeDocPath(docPath))`. A different lock FILE than `lockURL(relayId:)`
+    /// "|" + identityKey(docPath, brief))`. A different lock FILE than `lockURL(relayId:)`
     /// above (own `.locks` filename), so a start racing a resume/adopt on some unrelated
-    /// relay id never contends with either.
-    public static func startKey(projectRoot: String, docPath: String) -> String {
+    /// relay id never contends with either. `brief` defaults to "" — every caller with a
+    /// real `docPath` (the only case before LVC-S02b) never needs it.
+    public static func startKey(projectRoot: String, docPath: String?, brief: String = "") -> String {
         let normalizedRoot = RootNormalization.normalize(projectRoot).key
-        let normalizedDoc = normalizeDocPath(docPath)
-        let digest = SHA256.hash(data: Data("\(normalizedRoot)|\(normalizedDoc)".utf8))
+        let identity = identityKey(docPath: docPath, brief: brief)
+        let digest = SHA256.hash(data: Data("\(normalizedRoot)|\(identity)".utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 

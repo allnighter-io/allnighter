@@ -204,7 +204,14 @@ public struct RelayState: Sendable, Codable, Equatable {
 
     public var id: String
     public var projectRoot: String
-    public var docPath: String
+    /// Repo-relative path to the spec doc. `nil` for a brief-only loop
+    /// (`docs/phases/Loop_Verb_Cutover.md` LVC-S02b) — `brief` carries the work instead.
+    public var docPath: String?
+    /// The founder's kickoff sentence, verbatim — set when this relay started without
+    /// a `docPath` (a brief-only `alln loop start "<brief>"`). Never cleared (unlike
+    /// `kickoffMessage`, which is consume-once): this is the durable anchor rendered
+    /// wherever a doc path would normally show (thread titles, status, prompts).
+    public var brief: String?
     public var pmModelId: String
     public var devModelId: String
     public var status: Status
@@ -253,7 +260,8 @@ public struct RelayState: Sendable, Codable, Equatable {
     public init(
         id: String,
         projectRoot: String,
-        docPath: String,
+        docPath: String?,
+        brief: String? = nil,
         pmModelId: String,
         devModelId: String,
         status: Status,
@@ -273,6 +281,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.id = id
         self.projectRoot = projectRoot
         self.docPath = docPath
+        self.brief = brief
         self.pmModelId = pmModelId
         self.devModelId = devModelId
         self.status = status
@@ -302,7 +311,8 @@ public struct RelayState: Sendable, Codable, Equatable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         projectRoot = try c.decode(String.self, forKey: .projectRoot)
-        docPath = try c.decode(String.self, forKey: .docPath)
+        docPath = try c.decodeIfPresent(String.self, forKey: .docPath)
+        brief = try c.decodeIfPresent(String.self, forKey: .brief)
         pmModelId = try c.decode(String.self, forKey: .pmModelId)
         devModelId = try c.decode(String.self, forKey: .devModelId)
         status = try c.decode(Status.self, forKey: .status)
@@ -352,5 +362,14 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// resumable.
     public var isResumable: Bool {
         status == .escalated || isReconciledStopped
+    }
+
+    /// The anchor to show wherever a doc path would normally render for humans
+    /// (thread titles, status/JSON, notifications) — the real spec doc when this
+    /// relay has one, otherwise the founder's brief (LVC-S02b). Never fabricated,
+    /// never empty: `docPath`/`brief` are mutually exclusive by construction
+    /// (`RelayCoordinator.claimStart`/`startPilot` always set exactly one).
+    public var docPathOrBrief: String {
+        docPath ?? brief ?? ""
     }
 }

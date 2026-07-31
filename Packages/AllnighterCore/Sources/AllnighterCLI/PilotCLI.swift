@@ -57,6 +57,15 @@ enum PilotCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
+        await runStart(request: request, opts: opts, runtime: runtime)
+    }
+
+    /// LVC-S02b: the dispatch half of `runStart(_:runtime:)`, split out so `alln loop
+    /// start --pm caller` (`LoopCLI`) can build a `StartRequest` itself — with
+    /// `config.docPath: nil` for a brief-only loop — and dispatch straight through,
+    /// without going through `parseStartConfig`'s hard `--doc` requirement. `pair pilot
+    /// start` above still enforces that requirement unchanged.
+    static func runStart(request: StartRequest, opts: Options, runtime: ToolRuntime) async {
         let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
         switch coordinator.startPilot(config: request.config) {
         case .success(let state):

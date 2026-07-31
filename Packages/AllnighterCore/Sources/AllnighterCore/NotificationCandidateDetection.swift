@@ -222,7 +222,7 @@ public enum NotificationCandidateDetection {
             guard relay.status == .running else { return nil }
             let last = StreamLiveness.relayStreamLastActivityAt(state: relay, runStore: runStore)
             let warning = StreamLiveness.streamSilenceWarning(lastActivityAt: last, now: now)
-            let title = threadTitles[relay.id] ?? relay.docPath
+            let title = threadTitles[relay.id] ?? relay.docPathOrBrief
             return (relay.id, RelayStreamNotificationSnapshot(
                 relayId: relay.id,
                 threadTitle: title,

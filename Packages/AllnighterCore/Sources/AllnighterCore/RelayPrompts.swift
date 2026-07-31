@@ -7,7 +7,12 @@ import Foundation
 public enum RelayPMPrompt {
     public struct Context: Sendable, Equatable {
         /// Repo-relative path to the spec doc — the PM re-reads it fresh from disk.
-        public var docPath: String
+        /// `nil` for a brief-only loop (LVC-S02b) — `brief` is the anchor instead.
+        public var docPath: String?
+        /// The founder's kickoff sentence, verbatim — rendered as the work's anchor on
+        /// EVERY round when `docPath` is `nil` (unlike `kickoffMessage` below, which is
+        /// consume-once and only ever appears on round 1).
+        public var brief: String
         public var roundNumber: Int
         /// git HEAD when this round began (read-only, via `GitObserver`).
         public var baselineHead: String
@@ -31,7 +36,8 @@ public enum RelayPMPrompt {
         public var roundsRemaining: Int
 
         public init(
-            docPath: String,
+            docPath: String?,
+            brief: String = "",
             roundNumber: Int,
             baselineHead: String,
             currentHead: String? = nil,
@@ -43,6 +49,7 @@ public enum RelayPMPrompt {
             roundsRemaining: Int
         ) {
             self.docPath = docPath
+            self.brief = brief
             self.roundNumber = roundNumber
             self.baselineHead = baselineHead
             self.currentHead = currentHead
@@ -58,12 +65,7 @@ public enum RelayPMPrompt {
     public static func assemble(context: Context) -> String {
         var parts = [
             "# PM Relay — round \(context.roundNumber) (PM seat)",
-            """
-            You are the project manager driving delivery of the spec doc for this repo. \
-            The doc lives at `\(context.docPath)` — read it fresh from disk right now, plus \
-            anything it links to. Do not rely on any memory of it from an earlier round; the \
-            doc or the repo may have moved. You run at the repo root with full read access.
-            """,
+            anchorParagraph(context: context),
             memoryPointerLine(),
             "You have \(context.roundsRemaining) of \(context.maxRounds) rounds left before this relay stops itself. Plan the remaining work with that ceiling in mind — escalate rather than let it run out silently.",
         ]
@@ -144,6 +146,26 @@ public enum RelayPMPrompt {
 
         return parts.joined(separator: "\n\n")
     }
+
+    /// LVC-S02b: the doc lives at `docPath` when there is one; a brief-only loop
+    /// (`docPath` nil) has no doc to reread, so this anchors every round on the
+    /// founder's brief instead — never a fabricated path.
+    private static func anchorParagraph(context: Context) -> String {
+        if let docPath = context.docPath {
+            return """
+            You are the project manager driving delivery of the spec doc for this repo. \
+            The doc lives at `\(docPath)` — read it fresh from disk right now, plus \
+            anything it links to. Do not rely on any memory of it from an earlier round; the \
+            doc or the repo may have moved. You run at the repo root with full read access.
+            """
+        }
+        return """
+        You are the project manager driving delivery for this repo. There is no spec doc for \
+        this loop — the work is defined by the founder's brief: "\(context.brief)". Judge \
+        progress against that brief and the actual repo state each round; there is nothing \
+        else to reread. You run at the repo root with full read access.
+        """
+    }
 }
 
 /// Dev-turn prompt (docs/phases/PM_Relay.md §2, §4.1). Deliberately thin: a short standing
@@ -154,14 +176,21 @@ public enum RelayDevPrompt {
     public struct Context: Sendable, Equatable {
         /// The PM's handover text, verbatim — never paraphrased or decorated.
         public var handover: String
-        public var docPath: String
+        /// `nil` for a brief-only loop (LVC-S02b) — `brief` is the anchor instead.
+        public var docPath: String?
+        /// The founder's kickoff sentence, verbatim — rendered when `docPath` is `nil`.
+        public var brief: String
         public var roundNumber: Int
         /// Agent display name for the provenance trailer (FR4).
         public var workerDisplayName: String
 
-        public init(handover: String, docPath: String, roundNumber: Int, workerDisplayName: String) {
+        public init(
+            handover: String, docPath: String?, brief: String = "", roundNumber: Int,
+            workerDisplayName: String
+        ) {
             self.handover = handover
             self.docPath = docPath
+            self.brief = brief
             self.roundNumber = roundNumber
             self.workerDisplayName = workerDisplayName
         }
@@ -170,14 +199,7 @@ public enum RelayDevPrompt {
     public static func assemble(context: Context) -> String {
         let parts = [
             "# PM Relay — round \(context.roundNumber) (dev seat)",
-            """
-            You are the developer on this repo. The spec doc is `\(context.docPath)`; the PM \
-            reviewed it and the repo state and wrote the order below. Do the work the order \
-            describes. Commit through your own tooling as the order implies — this loop does no \
-            git of its own. When you're done, end your reply with a delivery report: what you \
-            did, what you committed, what you verified, and what remains. Be honest — no \
-            fake-green.
-            """,
+            anchorParagraph(context: context),
             memoryPointerLine(),
             ProvenanceConvention.commitTrailerAsk(displayName: context.workerDisplayName),
             """
@@ -187,6 +209,28 @@ public enum RelayDevPrompt {
             """,
         ]
         return parts.joined(separator: "\n\n")
+    }
+
+    /// Mirrors `RelayPMPrompt.anchorParagraph` — see its comment.
+    private static func anchorParagraph(context: Context) -> String {
+        if let docPath = context.docPath {
+            return """
+            You are the developer on this repo. The spec doc is `\(docPath)`; the PM \
+            reviewed it and the repo state and wrote the order below. Do the work the order \
+            describes. Commit through your own tooling as the order implies — this loop does no \
+            git of its own. When you're done, end your reply with a delivery report: what you \
+            did, what you committed, what you verified, and what remains. Be honest — no \
+            fake-green.
+            """
+        }
+        return """
+        You are the developer on this repo. There is no spec doc for this loop — the founder's \
+        brief was: "\(context.brief)". The PM reviewed the repo state and wrote the order below. \
+        Do the work the order describes. Commit through your own tooling as the order implies — \
+        this loop does no git of its own. When you're done, end your reply with a delivery \
+        report: what you did, what you committed, what you verified, and what remains. Be \
+        honest — no fake-green.
+        """
     }
 }
 
