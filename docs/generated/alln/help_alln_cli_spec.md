@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 7.2.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 7.3.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -112,7 +112,7 @@ Output schema: `capacityStripJSON`.
 Print a paste-ready agent-activation snippet for a host's context file (never edits files).
 
 Flags:
-- `--host <claude|cursor|codex|generic>` — claude | cursor | codex | generic (default generic).
+- `--host <claude|cursor|codex|generic|hermes|openclaw>` — claude | cursor | codex | generic | hermes | openclaw (default generic).
 - `--json` — Structured { host, pasteTarget, snippet, binaryPath, onPath }.
 
 Output schema: `bootstrapJSON`.

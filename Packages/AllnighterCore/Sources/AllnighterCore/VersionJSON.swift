@@ -29,8 +29,11 @@ import Foundation
 /// bump (7.0.0 → 7.1.0): optional `MenuJSON.capacity` declared in
 /// `menu.schema.json` / `menu-show.schema.json`. Not a major cut, so this is
 /// the standard +0.0.1 batch bump.
+///
+/// **0.11.1 → 0.11.2 (OPC-S02).** `contractVersion` additive minor (7.2.0 →
+/// 7.3.0): bootstrap `--host` closed domain gains `hermes` | `openclaw`.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.11.1"
+    public static let binaryVersion = "0.11.2"
 }
 
 /// `alln version` / `alln --version` machine contract.

@@ -13,6 +13,10 @@ final class BootstrapTests: XCTestCase {
         XCTAssertEqual(Bootstrap.Host(argument: "CURSOR"), .cursor)
         XCTAssertEqual(Bootstrap.Host(argument: "codex"), .codex)
         XCTAssertEqual(Bootstrap.Host(argument: "generic"), .generic)
+        XCTAssertEqual(Bootstrap.Host(argument: "hermes"), .hermes)
+        XCTAssertEqual(Bootstrap.Host(argument: "Hermes"), .hermes)
+        XCTAssertEqual(Bootstrap.Host(argument: "OPENCLAW"), .openclaw)
+        XCTAssertEqual(Bootstrap.Host(argument: "openclaw"), .openclaw)
         XCTAssertNil(Bootstrap.Host(argument: "bogus"))
     }
 
@@ -27,6 +31,45 @@ final class BootstrapTests: XCTestCase {
         for needle in ["CLAUDE.md", "allnighter.mdc", "AGENTS.md"] {
             XCTAssertTrue(generic.contains(needle), "generic paste target missing \(needle)")
         }
+        // OPC-S02: cold hosts — honest print-only, never invent a path.
+        let printOnly = "host system prompt / tools instructions (print-only)"
+        XCTAssertEqual(Bootstrap.Host.hermes.pasteTarget, printOnly)
+        XCTAssertEqual(Bootstrap.Host.openclaw.pasteTarget, printOnly)
+    }
+
+    // MARK: - Checkout rebuild gate (OPC-S02)
+
+    func testCheckoutRebuildLineOnlyForCheckoutHosts() {
+        let rebuildNeedle = "bash scripts/rebuild_cli.sh"
+        for host in [Bootstrap.Host.claude, .cursor, .codex, .generic] {
+            let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true, host: host)
+            XCTAssertTrue(s.contains(rebuildNeedle), "\(host.rawValue) must teach checkout rebuild")
+        }
+        for host in [Bootstrap.Host.hermes, .openclaw] {
+            let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true, host: host)
+            XCTAssertFalse(s.contains(rebuildNeedle), "\(host.rawValue) must not teach checkout rebuild")
+            XCTAssertFalse(s.contains("rebuild_cli"), "\(host.rawValue) must not mention rebuild_cli at all")
+        }
+    }
+
+    func testColdHostRenderCarriesPreambleWithoutCheckoutPoison() {
+        for host in [Bootstrap.Host.hermes, .openclaw] {
+            let out = Bootstrap.render(host: host, binaryPath: sampleBinary, onPath: true)
+            XCTAssertTrue(out.contains("subscription CLIs"), "\(host.rawValue) preamble must name subscription CLIs")
+            XCTAssertTrue(out.contains("alln menu --json"), "\(host.rawValue) preamble must start with menu")
+            XCTAssertTrue(out.contains("Authorize before"), "\(host.rawValue) preamble must teach authorize-before-spend")
+            XCTAssertTrue(out.contains("Upgrade between rounds"), "\(host.rawValue) preamble must teach upgrade timing")
+            XCTAssertTrue(out.contains(host.pasteTarget))
+            XCTAssertFalse(out.contains("rebuild_cli"), "\(host.rawValue) render must not poison with checkout rebuild")
+            // "not API keys" is fine; obtaining/setting an API key is not.
+            XCTAssertFalse(out.lowercased().contains("api_key"), "\(host.rawValue) must not advise API keys")
+            XCTAssertFalse(out.lowercased().contains("set your api"), "\(host.rawValue) must not advise API keys")
+            XCTAssertFalse(out.lowercased().contains("mcp"), "\(host.rawValue) must not revive MCP")
+        }
+        // Checkout hosts keep the compact render (no cold preamble).
+        let claude = Bootstrap.render(host: .claude, binaryPath: sampleBinary, onPath: true)
+        XCTAssertFalse(claude.contains("subscription CLIs"), "claude must not get cold-host preamble")
+        XCTAssertTrue(claude.hasPrefix("Paste into"), "claude render starts at paste target")
     }
 
     // MARK: - MR-S05 four-rule reflex
@@ -117,8 +160,20 @@ final class BootstrapTests: XCTestCase {
     func testEveryHostProducesDistinctJSON() {
         let all = Bootstrap.Host.allCases.map { Bootstrap.json(host: $0, binaryPath: sampleBinary, onPath: true) }
         XCTAssertEqual(Set(all.map(\.host)).count, Bootstrap.Host.allCases.count)
-        XCTAssertEqual(Set(all.map(\.snippet)).count, 1)
         XCTAssertTrue(all.allSatisfy { $0.binaryPath == sampleBinary })
+        // Checkout hosts share the rebuild-bearing snippet; cold hosts share the
+        // rebuild-free variant — two families, not six unique bodies.
+        let checkoutSnippets = Set(
+            all.filter { Bootstrap.Host(rawValue: $0.host)?.includesCheckoutRebuild == true }.map(\.snippet)
+        )
+        let coldSnippets = Set(
+            all.filter { Bootstrap.Host(rawValue: $0.host)?.includesCheckoutRebuild == false }.map(\.snippet)
+        )
+        XCTAssertEqual(checkoutSnippets.count, 1)
+        XCTAssertEqual(coldSnippets.count, 1)
+        XCTAssertNotEqual(checkoutSnippets.first, coldSnippets.first)
+        XCTAssertTrue(all.contains { $0.host == "hermes" })
+        XCTAssertTrue(all.contains { $0.host == "openclaw" })
     }
 
     // MARK: - Never edits files (consent posture parity with the retired MCP install)
@@ -127,5 +182,18 @@ final class BootstrapTests: XCTestCase {
         let a = Bootstrap.render(host: .generic, binaryPath: sampleBinary, onPath: true)
         let b = Bootstrap.render(host: .generic, binaryPath: sampleBinary, onPath: true)
         XCTAssertEqual(a, b)
+        // Cold hosts are pure too — render twice, same bytes, no FS side effects.
+        let h1 = Bootstrap.render(host: .hermes, binaryPath: sampleBinary, onPath: true)
+        let h2 = Bootstrap.render(host: .hermes, binaryPath: sampleBinary, onPath: true)
+        XCTAssertEqual(h1, h2)
+        let o1 = Bootstrap.render(host: .openclaw, binaryPath: sampleBinary, onPath: false)
+        let o2 = Bootstrap.render(host: .openclaw, binaryPath: sampleBinary, onPath: false)
+        XCTAssertEqual(o1, o2)
+        // And JSON projection is pure.
+        let j1 = Bootstrap.jsonString(host: .hermes, binaryPath: sampleBinary, onPath: true)
+        let j2 = Bootstrap.jsonString(host: .openclaw, binaryPath: sampleBinary, onPath: true)
+        XCTAssertFalse(j1.isEmpty)
+        XCTAssertFalse(j2.isEmpty)
+        XCTAssertNotEqual(j1, j2) // host field differs
     }
 }

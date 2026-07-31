@@ -1846,15 +1846,15 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln bootstrap [--host claude|cursor|codex|generic] [--json]` — the
-    /// activation surface that replaced `alln mcp install` (docs/phases/
+    /// `alln bootstrap [--host claude|cursor|codex|generic|hermes|openclaw] [--json]` —
+    /// the activation surface that replaced `alln mcp install` (docs/phases/
     /// MCP_Retirement.md §Activation). Prints, never writes: same consent
     /// posture as the retired MCP install.
     static func runBootstrap(_ args: [String]) {
         let opts = Options(args)
         let hostArg = opts.value("host") ?? "generic"
         guard let host = Bootstrap.Host(argument: hostArg) else {
-            fail(code: "CLI_USAGE_ERROR", message: "unknown host: \(hostArg) (use claude|cursor|codex|generic)")
+            fail(code: "CLI_USAGE_ERROR", message: "unknown host: \(hostArg) (use claude|cursor|codex|generic|hermes|openclaw)")
         }
         let ctx = Bootstrap.liveContext()
         if opts.flag("json") {

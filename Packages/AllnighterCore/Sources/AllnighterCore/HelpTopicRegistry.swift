@@ -76,14 +76,15 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "bootstrap", title: "Bootstrap (agent activation)", audience: .agent,
-            summary: "`alln bootstrap [--host claude|cursor|codex|generic] [--json]` prints a paste-ready context snippet — no MCP server, no config file edits.",
+            summary: "`alln bootstrap [--host claude|cursor|codex|generic|hermes|openclaw] [--json]` prints a paste-ready context snippet — no MCP server, no config file edits.",
             bodyMarkdown: """
             Step zero: ensure `alln` is on PATH (`alln install-cli` if `which alln` fails). \
             Allnighter has no MCP server and no daemon to install — the CLI is the whole \
             agent surface, no humans in the loop. `alln bootstrap` PRINTS (never edits \
             files) a short, paste-ready instruction block for a host agent's own context: \
             `~/.claude/CLAUDE.md` for Claude, `~/.cursor/rules/allnighter.mdc` for Cursor, \
-            project AGENTS.md for Codex (no global Codex path in v1), or a host-neutral \
+            project AGENTS.md for Codex (no global Codex path in v1), host system prompt / \
+            tools instructions (print-only) for Hermes and OpenClaw, or a host-neutral \
             block when `--host` is omitted. The block teaches the four-rule live-menu \
             reflex only: read `alln menu --json` before first use; choose from \
             useWhen/dontUseWhen with canonical ids; run the validation template before \

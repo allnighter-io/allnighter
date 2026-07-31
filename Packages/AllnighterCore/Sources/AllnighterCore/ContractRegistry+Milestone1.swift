@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "7.2.0"
+    static let contractVersion = "7.3.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -114,7 +114,7 @@ public extension ContractRegistry {
         CommandSpec(
             "bootstrap", summary: "Print a paste-ready agent-activation snippet for a host's context file (never edits files).", milestone: .m1,
             flags: [
-                FlagSpec("host", takesValue: true, valueType: "host", summary: "claude | cursor | codex | generic (default generic)."),
+                FlagSpec("host", takesValue: true, valueType: "host", summary: "claude | cursor | codex | generic | hermes | openclaw (default generic)."),
                 FlagSpec("json", summary: "Structured { host, pasteTarget, snippet, binaryPath, onPath }."),
             ],
             outputSchema: .bootstrapJSON, exampleIds: ["bootstrap_json"]

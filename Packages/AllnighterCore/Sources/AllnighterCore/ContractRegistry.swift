@@ -301,7 +301,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
     public static let valueTypeDomains: [String: [String]] = [
         "effort": EffortLevel.allCases.map(\.rawValue),
         "lane": WorkLane.allCases.map(\.rawValue),
-        "host": ["claude", "cursor", "codex", "generic"],
+        "host": ["claude", "cursor", "codex", "generic", "hermes", "openclaw"],
         "modelRole": ModelRole.allCases.map(\.rawValue),
         "purpose": SkillPurpose.allCases.map(\.rawValue),
         "state": RunLifecycle.allCases.map(\.rawValue) + ["terminal"],

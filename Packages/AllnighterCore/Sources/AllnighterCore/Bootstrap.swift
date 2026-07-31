@@ -15,8 +15,10 @@ import Foundation
 public enum Bootstrap {
     /// The host agent surfaces `--host` targets. `generic` is host-neutral —
     /// used when the caller doesn't know (or care) which host it's talking to.
+    /// `hermes` / `openclaw` are cold-install hosts (OPC-S02): released binary,
+    /// no checkout, print-only system-prompt paste.
     public enum Host: String, Codable, Sendable, CaseIterable {
-        case claude, cursor, codex, generic
+        case claude, cursor, codex, generic, hermes, openclaw
 
         public init?(argument raw: String) {
             self.init(rawValue: raw.lowercased())
@@ -24,6 +26,7 @@ public enum Bootstrap {
 
         /// Where the user pastes the snippet for this host.
         /// Global paths align with `TeachingInstalledCheck.hostMatrix` (v1).
+        /// Hermes/OpenClaw: honest print-only — do not invent an unverified path.
         public var pasteTarget: String {
             switch self {
             case .claude:
@@ -34,6 +37,34 @@ public enum Bootstrap {
                 return "AGENTS.md (project — Codex has no global instruction file in v1)"
             case .generic:
                 return "your agent host's context file — ~/.claude/CLAUDE.md, ~/.cursor/rules/allnighter.mdc, or project AGENTS.md"
+            case .hermes, .openclaw:
+                return "host system prompt / tools instructions (print-only)"
+            }
+        }
+
+        /// Checkout hosts may rebuild from source; cold-install hosts only have
+        /// the released binary (OPC-S02 — never teach `rebuild_cli.sh` there).
+        public var includesCheckoutRebuild: Bool {
+            switch self {
+            case .claude, .cursor, .codex, .generic:
+                return true
+            case .hermes, .openclaw:
+                return false
+            }
+        }
+
+        /// Compact host-specific advice ahead of the shared snippet (render only).
+        /// Cold hosts only — checkout hosts already live in a repo context.
+        public var coldStartPreamble: String? {
+            switch self {
+            case .hermes, .openclaw:
+                return """
+                Allnighter runs on the subscription CLIs you already pay for — not API keys.
+                Start with `alln menu --json`. Authorize before any spend or mutate.
+                Upgrade between rounds, never mid-loop.
+                """
+            case .claude, .cursor, .codex, .generic:
+                return nil
             }
         }
     }
@@ -41,14 +72,17 @@ public enum Bootstrap {
     /// Paste-ready snippet: binary fallback + optional install + marked teaching.
     /// Does **not** embed surface command rows; detached acknowledgements return
     /// the exact status waiter and recipe cards add the surface-specific context.
-    public static func snippet(binaryPath: String, onPath: Bool) -> String {
+    /// Checkout rebuild guidance is host-gated (absent for hermes/openclaw).
+    public static func snippet(binaryPath: String, onPath: Bool, host: Host = .generic) -> String {
         var lines = [
             "Allnighter is available via the `alln` CLI (fallback: `\(binaryPath)`).",
         ]
         if !onPath {
             lines.append("- Run `\(binaryPath) install-cli` once so plain `alln` works everywhere.")
         }
-        lines.append("- From the Allnighter checkout, rebuild/refresh with `bash scripts/rebuild_cli.sh`; do not hand-run a multi-step CLI refresh.")
+        if host.includesCheckoutRebuild {
+            lines.append("- From the Allnighter checkout, rebuild/refresh with `bash scripts/rebuild_cli.sh`; do not hand-run a multi-step CLI refresh.")
+        }
         lines.append(TeachingSnippet.wrap())
         return lines.joined(separator: "\n")
     }
@@ -105,7 +139,7 @@ public enum Bootstrap {
         JSON(
             host: host.rawValue,
             pasteTarget: host.pasteTarget,
-            snippet: snippet(binaryPath: binaryPath, onPath: onPath),
+            snippet: snippet(binaryPath: binaryPath, onPath: onPath, host: host),
             binaryPath: binaryPath,
             onPath: onPath,
             recipes: RecipeCatalog.summaries().map { RecipeRef(id: $0.id, title: $0.title) },
@@ -119,14 +153,19 @@ public enum Bootstrap {
         return String(decoding: data, as: UTF8.self)
     }
 
-    /// Human-readable rendering for the non-`--json` path: paste target, then
-    /// the snippet, verbatim and easy to copy.
+    /// Human-readable rendering for the non-`--json` path: optional cold-host
+    /// preamble, paste target, then the snippet — verbatim and easy to copy.
     public static func render(host: Host, binaryPath: String, onPath: Bool) -> String {
-        """
+        var blocks: [String] = []
+        if let preamble = host.coldStartPreamble {
+            blocks.append(preamble.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        blocks.append("""
         Paste into \(host.pasteTarget):
 
-        \(snippet(binaryPath: binaryPath, onPath: onPath))
-        """
+        \(snippet(binaryPath: binaryPath, onPath: onPath, host: host))
+        """)
+        return blocks.joined(separator: "\n\n")
     }
 
     /// Live activation context from argv[0] + PATH (CLI entry).
