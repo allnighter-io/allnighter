@@ -1,6 +1,6 @@
 # Test Infrastructure Upgrade
 
-Status: **FINAL — ready to implement** · 2026-07-31 (rev 3)  
+Status: **Complete** · 2026-07-31 (rev 3) — TIU-S00→S03 shipped; archived  
 Sprints: **TIU-S00 → S03**, all core. Implementation order: **S00 → S03 → S01 → S02**  
 Authority: `AGENTS.md`, `docs/operations/Execution-Playbook.md`, `docs/operations/TechStack.md`  
 Depends on: none — execution stop-gate, not product semantics
@@ -331,16 +331,16 @@ scripts/kill-stale-tests.sh          # after S00; else: pkill -f AllnighterCoreP
 
 ## Done when
 
-- [ ] Second concurrent `scripts/swift-test.sh` fails fast (lock)
-- [ ] A dead lock holder is auto-recovered, not a permanent block
-- [ ] Any single wrapped run is capped by a wall-clock timeout
-- [ ] Raw `swift test` / `xcodebuild test` outside the wrapper are denied by
+- [x] Second concurrent `scripts/swift-test.sh` fails fast (lock)
+- [x] A dead lock holder is auto-recovered, not a permanent block
+- [x] Any single wrapped run is capped by a wall-clock timeout
+- [x] Raw `swift test` / `xcodebuild test` outside the wrapper are denied by
       the PATH shim, verified per agent host actually in use
-- [ ] Guard activation is self-verifying: an unguarded session gets a loud
+- [x] Guard activation is self-verifying: an unguarded session gets a loud
       warning, not silence
-- [ ] Stale runners clearable in one command
-- [ ] `check-fast.sh` < 10s and has no compile/test suites
-- [ ] One uncontended `check.sh` completes without wedging on server suites
+- [x] Stale runners clearable in one command
+- [x] `check-fast.sh` < 10s and has no compile/test suites
+- [x] One uncontended `check.sh` completes without wedging on server suites
 
 Archive this packet to `docs/archive/phases/` when Done when is checked;
 promote the Rules + Commands into Execution Playbook (no separate runbook).

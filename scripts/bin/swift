@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# PATH shim: deny `swift test` without a valid single-use token from scripts/swift-test.sh.
+set -euo pipefail
+
+SHIM_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SHIM_DIR/../.." && pwd)"
+TOKEN_SCRIPT="$ROOT/scripts/allnighter_test_token.py"
+
+find_real_binary() {
+  local name="$1"
+  local entry seen="" candidate=""
+  IFS=':' read -r -a parts <<< "$PATH"
+  for entry in "${parts[@]}"; do
+    [[ -z "$entry" ]] && continue
+    [[ "$entry" == "$SHIM_DIR" ]] && continue
+    [[ ":$seen:" == *":$entry:"* ]] && continue
+    seen="${seen:+$seen:}$entry"
+    if [[ -x "$entry/$name" ]]; then
+      candidate="$entry/$name"
+      break
+    fi
+  done
+  if [[ -z "$candidate" ]]; then
+    echo "alln-test-guard: could not find real $name on PATH past $SHIM_DIR" >&2
+    exit 127
+  fi
+  printf '%s' "$candidate"
+}
+
+deny_test() {
+  echo "alln-test-guard: raw 'swift test' is blocked in this repository." >&2
+  echo "alln-test-guard: use scripts/swift-test.sh instead (e.g. scripts/swift-test.sh --filter YourTests)." >&2
+  echo "alln-test-guard: closeout only: bash scripts/check.sh" >&2
+  exit 1
+}
+
+if [[ "${1:-}" == "test" ]]; then
+  if [[ ! -f "$TOKEN_SCRIPT" ]]; then
+    deny_test
+  fi
+  if ! python3 "$TOKEN_SCRIPT" validate "$ROOT" "${ALLNIGHTER_TEST_TOKEN:-}"; then
+    deny_test
+  fi
+fi
+
+REAL_SWIFT="$(find_real_binary swift)"
+exec "$REAL_SWIFT" "$@"

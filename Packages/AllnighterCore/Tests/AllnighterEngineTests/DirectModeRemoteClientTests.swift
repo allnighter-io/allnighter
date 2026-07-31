@@ -6,6 +6,16 @@ import AllnighterCore
 final class DirectModeRemoteClientTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_750_400_000)
 
+    override func setUp() {
+        super.setUp()
+        ServerAcceptLoopTestGate.enter()
+    }
+
+    override func tearDown() {
+        ServerAcceptLoopTestGate.exit()
+        super.tearDown()
+    }
+
     func testClientPostsCommandToLoopbackServerAndVerifiesSignedAck() async throws {
         let macSigningKey = Curve25519.Signing.PrivateKey()
         let fixedNow = now

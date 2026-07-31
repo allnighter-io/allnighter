@@ -5,6 +5,16 @@ import AllnighterCore
 final class DirectModePairingClientTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_750_600_000)
 
+    override func setUp() {
+        super.setUp()
+        ServerAcceptLoopTestGate.enter()
+    }
+
+    override func tearDown() {
+        ServerAcceptLoopTestGate.exit()
+        super.tearDown()
+    }
+
     func testClientSubmitsPairingRequestToLoopbackServer() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("direct-mode-pairing-client-\(UUID().uuidString)", isDirectory: true)

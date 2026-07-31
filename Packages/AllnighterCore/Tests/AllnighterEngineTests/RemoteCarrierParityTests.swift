@@ -6,6 +6,16 @@ import AllnighterCore
 final class RemoteCarrierParityTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_750_320_000)
 
+    override func setUp() {
+        super.setUp()
+        ServerAcceptLoopTestGate.enter()
+    }
+
+    override func tearDown() {
+        ServerAcceptLoopTestGate.exit()
+        super.tearDown()
+    }
+
     func testCloudAndDirectCarriersExposeSameSnapshotEventsMediaAndStopAll() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("remote-carrier-parity-\(UUID().uuidString)", isDirectory: true)

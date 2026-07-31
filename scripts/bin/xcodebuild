@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# PATH shim: deny `xcodebuild test` without a valid single-use token from check.sh.
+set -euo pipefail
+
+SHIM_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SHIM_DIR/../.." && pwd)"
+TOKEN_SCRIPT="$ROOT/scripts/allnighter_test_token.py"
+
+find_real_binary() {
+  local name="$1"
+  local entry seen="" candidate=""
+  IFS=':' read -r -a parts <<< "$PATH"
+  for entry in "${parts[@]}"; do
+    [[ -z "$entry" ]] && continue
+    [[ "$entry" == "$SHIM_DIR" ]] && continue
+    [[ ":$seen:" == *":$entry:"* ]] && continue
+    seen="${seen:+$seen:}$entry"
+    if [[ -x "$entry/$name" ]]; then
+      candidate="$entry/$name"
+      break
+    fi
+  done
+  if [[ -z "$candidate" ]]; then
+    echo "alln-test-guard: could not find real $name on PATH past $SHIM_DIR" >&2
+    exit 127
+  fi
+  printf '%s' "$candidate"
+}
+
+deny_test() {
+  echo "alln-test-guard: raw 'xcodebuild test' is blocked in this repository." >&2
+  echo "alln-test-guard: use bash scripts/check.sh for Mac/iOS test runs." >&2
+  exit 1
+}
+
+if [[ "${1:-}" == "test" ]]; then
+  if [[ ! -f "$TOKEN_SCRIPT" ]]; then
+    deny_test
+  fi
+  if ! python3 "$TOKEN_SCRIPT" validate "$ROOT" "${ALLNIGHTER_TEST_TOKEN:-}"; then
+    deny_test
+  fi
+fi
+
+REAL_XCODEBUILD="$(find_real_binary xcodebuild)"
+exec "$REAL_XCODEBUILD" "$@"

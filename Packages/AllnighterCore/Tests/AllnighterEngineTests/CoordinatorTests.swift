@@ -123,6 +123,16 @@ final class CoordinatorHealthTests: XCTestCase {
 
 final class CoordinatorRunTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        ServerAcceptLoopTestGate.enter()
+    }
+
+    override func tearDown() {
+        ServerAcceptLoopTestGate.exit()
+        super.tearDown()
+    }
+
     func testLoopbackHealthServerResponds() throws {
         let server = LoopbackHealthServer()
         defer { server.stop() }

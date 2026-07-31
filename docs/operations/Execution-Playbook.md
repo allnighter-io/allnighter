@@ -43,18 +43,23 @@ Done when:
 
 ## Green Wall
 
-When Swift targets exist:
+When Swift targets exist, follow Green Wall rules below (promoted from archived
+`docs/archive/phases/Test_Infrastructure_Upgrade.md`). Binding rules:
+
+1. Raw `swift test` / `xcodebuild test` do not work outside the wrapper (PATH shim).
+2. One test run per clone — second attempt fails fast with a lock message.
+3. Iteration proof = filtered only: `scripts/swift-test.sh --filter <TouchedTests>`
+4. `bash scripts/check.sh` = closeout only — never mid-slice, never in a fix→test loop.
+5. Do not run `swift test --list-tests` as routine (~8+ min cold).
+6. Lock failure or timeout is a stop signal — do not retry, poll, or wait-loop.
+7. Wedged Mac: `scripts/kill-stale-tests.sh`, then continue — do not stack full suites.
 
 ```text
-bash scripts/check.sh
-```
-
-Or individually:
-
-```text
-swift test --package-path Packages/AllnighterCore
-xcodebuild test -scheme AllnighterMac   # Mac app (see TechStack.md)
-xcodebuild test -scheme Allnighter      # iOS app (see TechStack.md)
+scripts/install-test-guard.sh              # one-time per clone
+scripts/swift-test.sh --filter LoopDispatch  # iteration proof
+bash scripts/check-fast.sh                 # hygiene only (TIU-S01)
+bash scripts/check.sh                        # closeout / founder-requested full wall
+scripts/kill-stale-tests.sh                # emergency
 ```
 
 Until targets exist, closeout names missing proof explicitly.

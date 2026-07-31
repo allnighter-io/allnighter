@@ -75,6 +75,11 @@ fastlane/test_output
 *.swp
 *~
 
+# Test infrastructure (TIU-S00/S03) — runtime lock + token state, not committed
+.alln-test.lock
+.alln-test.hmac-key
+.alln-test.tokens/
+
 # Workflow local state
 .wmd/
 

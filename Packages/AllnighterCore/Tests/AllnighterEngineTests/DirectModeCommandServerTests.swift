@@ -6,6 +6,16 @@ import AllnighterCore
 final class DirectModeCommandServerTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_750_300_000)
 
+    override func setUp() {
+        super.setUp()
+        ServerAcceptLoopTestGate.enter()
+    }
+
+    override func tearDown() {
+        ServerAcceptLoopTestGate.exit()
+        super.tearDown()
+    }
+
     func testHandlerRoutesThroughSharedRouterAndBuildsAckEnvelope() async throws {
         let router = RecordingDirectModeRouter(result: Self.routingResult(requestId: "req_1", now: now))
         let auditRecorder = RecordingDirectModeAuditRecorder()

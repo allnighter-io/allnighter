@@ -6,6 +6,16 @@ import AllnighterCore
 final class DirectModePairingCeremonyTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_750_700_000)
 
+    override func setUp() {
+        super.setUp()
+        ServerAcceptLoopTestGate.enter()
+    }
+
+    override func tearDown() {
+        ServerAcceptLoopTestGate.exit()
+        super.tearDown()
+    }
+
     func testDirectModePairingApprovesDeviceBeforeCommandDispatch() async throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("direct-mode-pairing-ceremony-\(UUID().uuidString)", isDirectory: true)

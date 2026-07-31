@@ -194,8 +194,12 @@ case "${1:-}" in
     rg -q -F 'let service = RunService(' "$ROOT/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift"
     rg -q -F 'await service.run(request' "$ROOT/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift"
     ! rg -q -F 'ResidentExecutionOperation' "$ROOT/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift"
-    swift test --disable-sandbox --package-path "$ROOT/Packages/AllnighterCore" --filter RunCLIStreamAdapterTests
-    swift test --disable-sandbox --package-path "$ROOT/Packages/AllnighterCore" --filter TwoSourceResearchTeamTests
+    if [[ "${ALLNIGHTER_STRUCTURAL_SKIP_SWIFT_TEST:-}" == "1" ]]; then
+      echo "code-red structural: skipping filtered swift tests (already covered by check.sh full suite)"
+    else
+      bash "$ROOT/scripts/swift-test.sh" --filter RunCLIStreamAdapterTests
+      bash "$ROOT/scripts/swift-test.sh" --filter TwoSourceResearchTeamTests
+    fi
     echo "code-red structural: direct CLI adapter, policy, alternate-root deletion, two-source roster verified"
     ;;
 
