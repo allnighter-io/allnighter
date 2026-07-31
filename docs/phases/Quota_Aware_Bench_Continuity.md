@@ -256,8 +256,8 @@ either. If the re-set proves contentious, the fallback is to trim `commands`
 | `MenuJSON` | `public var capacity: Capacity?` — one optional field |
 | `MenuCatalog.project` | New `capacity: Capacity? = nil` parameter, passed straight through. No acquisition, no Engine import |
 | `Bootstrap` | Same optional parameter, same passthrough |
-| `MenuJSON.Capacity.init(rows: [CapacityBenchRow], now:)` | The projection — Core→Core, drops `pools`/`color`/`displayName`, rounds to `Int` |
-| `MenuCLI` / `HelpCLI` / bootstrap CLI | Acquire and inject: `CapacityDisplayAcquisition.windows(now:, refresh: false)` → `CapacityBenchProjection.rows` → `MenuJSON.Capacity(rows:now:)` |
+| `MenuJSON.Capacity.init(strip: CapacityStripJSON)` | A **narrowing** projection of the row `alln capacity` already computes — drops `pools`/`color`/`displayName`/`observedAt`, rounds to `Int`. Deriving from `CapacityStripJSONRow` rather than re-deriving from `CapacityBenchRow` keeps **one** derivation path, so `menu` and `alln capacity` can never report different remaining values |
+| `MenuCLI` / `HelpCLI` / bootstrap CLI | Acquire and inject: `CapacityDisplayAcquisition.windows(now:, refresh: false)` → `CapacityBenchProjection.rows` → `CapacityStripRenderer.json` → `MenuJSON.Capacity(strip:)` |
 | `alln menu show model:<id>` | Filter injected rows to that model's source |
 
 **Measured budget:** 815 B pretty (2.3% of the live 35,037 B menu), against
