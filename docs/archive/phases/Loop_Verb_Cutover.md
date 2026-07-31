@@ -1,8 +1,13 @@
 # Loop Verb Cutover — `alln loop`
 
-Status: **v7 — LOCKED 2026-07-30. Final. Implementation-ready.**
-Owner: Founder ruling; implementer TBD
-Updated: 2026-07-30
+> **Archived 2026-07-31.** Shipped LVC-S00–S09: `alln loop` grammar, contract 7.0.0 /
+> binary 0.11.0, `Relay*`→`Loop*` symbol sweep, `Relays/`→`Loops/` path move.
+> Standing law: `docs/workflows/Product_Vocabulary.md` §Loop + Laws 1–3;
+> code SSOT: `LoopCLI`, `LoopEngineCLI`, `LoopCoordinator`, `LoopState`/`LoopStateStore`.
+
+Status: **Complete — archived 2026-07-31** (v7 LOCKED 2026-07-30)
+Owner: Founder ruling
+Updated: 2026-07-31
 
 Founder intent: the multi-round PM↔dev feature is named things nobody says.
 `relay` is confusing, `pilot` is fine but hidden, and `pair` — the word the CLI

@@ -14,7 +14,7 @@ Related shipped substrate (reuse, do not re-build):
 [`Capacity_Hardening_Hotfix.md`](Capacity_Hardening_Hotfix.md),
 archived `Rate_Limit_Continuity.md` (`VendorBackoffPolicy`,
 `VendorBackoffReconciler`, `VendorSubstitutionPolicy`),
-[`Loop_Verb_Cutover.md`](Loop_Verb_Cutover.md),
+[`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md),
 [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md)
 (composes; does not replace).
 
