@@ -1,13 +1,14 @@
 # Quota-Aware Bench Continuity
 
 Status: **OPEN — founder priority (2026-07-30)**
-Owner: AllnighterCore (capacity projection) + AllnighterEngine (relay park-yield) +
-AllnighterCLI (`alln loop` / menu / bootstrap delivery)
+Owner: AllnighterCore (menu envelope) + AllnighterEngine (loop park-yield) +
+AllnighterCLI (capacity injection, `alln loop` delivery)
 Created: 2026-07-30
-Revised: 2026-07-30 (Grok doc review v2)
+Revised: 2026-07-31 (code-verified pass — symbol names, layering, and the
+resume-race were wrong in v2; see "Corrections against live code")
 Origin: Founder dogfood — `alln capacity` + cross-vendor substitution exist at
 runtime, but planners never see the meter at plan time; long `alln loop` dev
-turns hit session caps and die because relay ignores a successful vendor park
+turns hit session caps and die because the loop ignores a successful vendor park
 and thrash-retries as infra backoff.
 
 Related shipped substrate (reuse, do not re-build):
@@ -19,8 +20,68 @@ archived `Rate_Limit_Continuity.md` (`VendorBackoffPolicy`,
 (composes; does not replace).
 
 Phases are ephemeral. At closeout: promote product law into help / vocabulary /
-operations; code remains SSOT; archive this packet. Closeout must also amend
-LVC's "five `RelayState.Status` values" law to include `capacityParked`.
+operations; code remains SSOT; archive this packet.
+
+---
+
+## Corrections against live code (2026-07-31)
+
+Every claim below was checked against the tree, not remembered. These are the
+deltas from the v2 draft; the slice plan already reflects them.
+
+1. **Stale symbol names.** `RelayCoordinator` / `RelayState` /
+   `RelayTurnClassifier` / `RelayCoordinatorTests` do not exist. The Loop Verb
+   Cutover renamed them: `LoopCoordinator` (AllnighterEngine),
+   `LoopState` (AllnighterCore), `LoopTurnClassifier`, `LoopCoordinatorTests`.
+   `AGENTS.md` still routes to `RelayCoordinator` and must be fixed at closeout.
+2. **S00 as drafted does not compile.** `CapacityDisplayAcquisition` lives in
+   **AllnighterEngine** (`CapacityHistoryStore.swift:281`);
+   `MenuCatalog` / `MenuJSON` / `Bootstrap` live in **AllnighterCore**. Core
+   cannot import Engine. Capacity must be **injected downward** from
+   AllnighterCLI, never acquired inside `MenuCatalog.project`.
+3. **The payload type already exists.** `CapacityStripJSON` /
+   `CapacityStripJSONRow` (`CapacityStripRenderer.swift:7,26`) are in **Core**,
+   are `Codable`, and are exactly what `alln capacity --json` emits. Do not
+   invent a new row shape. Measured: **4,084 bytes for 6 bench rows.**
+4. **The byte budget is already blown, before this packet.** Live
+   `alln menu --json` on the founder's bench is **35,037 bytes** — over the
+   32,768 cap. `MenuSelectionGradeTests:159` only asserts against the *built-in
+   fixture*, so the gate does not protect the real surface. Re-setting the
+   budget is an S00 **prerequisite**, not a QABC-caused regression.
+5. **`--refresh` does not exist on `alln capacity`.** The real flags are
+   `--cached` / `--no-refresh`, and **refresh is the default**
+   (`AllnighterCLI.swift:352-354`). The law is "menu passes `refresh: false`",
+   not "`--refresh` stays on capacity".
+6. **The live bug is worse than described.** Each infra retry calls
+   `RunService.mintRunId()` (`LoopCoordinator.swift:1786`) and re-parks a
+   **fresh mutating run**. Ten retries leave up to **ten orphaned parked
+   mutating runs**, each of which `VendorBackoffReconciler` will independently
+   wake at reset and replay the same dev prompt against the repo. The write lock
+   serializes them; it does not prevent ten repeated executions of the same
+   turn. This is a repo-safety bug, not only a continuity bug.
+7. **"Alive loop owner resumes" races `alln serve`.** `resumeParkedRun` requires
+   a lease (`blocker.holderId == coordinatorId`,
+   `RunService.swift:592-598`), and `RunStore.claimVendorWake` refuses to claim
+   before `wakeAfter` unless `force: true` (`RunStore.swift:346-354`). So the
+   loop cannot pre-claim; it must claim at wake — exactly when the reconciler is
+   also polling. **Two `alln serve` daemons are running on this machine right
+   now.** Whoever claims first wins; if serve wins, the loop's claim returns
+   `nil` and the loop escalates while the run resumes orphaned. That is the same
+   bug, relocated. Fix: **claim-or-adopt** (below).
+8. **`capacityParked` must not be a `LoopState.Status`.**
+   `LoopStateStore.save` writes the `owner.pid` marker only for `.running` and
+   clears it otherwise (`LoopStateStore.swift:66-70`), and
+   `reconcileOrphan` only scans `.running`. A loop asleep for five hours has a
+   **live owning process**; giving it a non-`running` status would strip its
+   owner marker and drop it out of orphan reconcile and `alln ps` liveness.
+   The codebase already has the right precedent: `LoopState.laneBlocked`
+   (`LoopState.swift:244`) — a "why am I waiting" side-field on a still-running
+   loop. Use that shape. This also means **no LVC status-law amendment is
+   needed**, which deletes a closeout obligation.
+9. **`parkedRunId` is redundant.** `persistDeliveredDevRun` stamps the attempt
+   run id onto the open round before the worker wait
+   (`LoopCoordinator.swift:1785-1788`), so `round.devRunId` already points at
+   the parked run.
 
 ---
 
@@ -39,35 +100,19 @@ Product value:
   session caps.
 
 Trusted workflow slice:
-  Opus reads `alln menu --json` → seats Grok because Codex is exhausted →
-  `alln loop start "…" --dev model_grok` runs for hours → a later Claude 5h
-  wall parks with wakeAfter → loop owner (or `alln serve` if owner dead)
-  resumes at reset → round continues without founder paste.
-
-Current state (verified 2026-07-30):
-  `alln capacity` + `CapacityDisplayAcquisition` + `CapacityBenchProjection`
-  ship honest multi-pool rows. Capacity is NOT in `MenuJSON`, `Bootstrap.JSON`,
-  or `TeachingSnippet` (protocol-only).
-  `RunService` parks single-worker runs on sourced account limits with
-  `waitingForVendor` + `blocker.wakeAfter`; returns `.success(run)`.
-  `VendorBackoffReconciler` in `ServeDaemon` resumes parked runs.
-  Exact relay failure: `dispatchDevTurn` (and twin `dispatchTurn`) never
-  inspects `run.phase` after `.success`. It classifies
-  `run.answers.first?.result` only → capacity observation → `.infraBackoff`
-  → sleep `infraBackoffGraceSeconds` (5) up to `maxInfraBackoffAttempts` (10)
-  → `budgetExhausted` → escalate. Each retry mints a new runId, orphaning the
-  parked journal row. Direct Claude Code sessions never started via alln have
-  no journal and cannot auto-resume.
+  Opus reads `alln menu --json` → seats Grok because Codex is at 0% → `alln loop
+  start "…" --dev model_grok` runs for hours → a later Claude 5h wall parks with
+  wakeAfter → the loop sleeps, then claims-or-adopts the wake → round continues
+  without founder paste.
 
 Truth owner:
-  Plan-time: `MenuCatalog.project` + `CapacityDisplayAcquisition` +
-  `CapacityBenchProjection` → compact `MenuJSON.capacity` (+ bootstrap echo).
+  Plan-time: `CapacityDisplayAcquisition` + `CapacityBenchProjection` +
+  `CapacityStripRenderer.json` (all existing) → injected into
+  `MenuCatalog.project` / `Bootstrap` as `MenuJSON.capacity`.
   Runtime park: `RunService` + `RunStore` (`waitingForVendor`,
-  `blocker.wakeAfter`).
-  Wake scheduler: `VendorBackoffReconciler` / `VendorBackoffWakePlanner`
-  (standalone runs + dead loop owners).
-  Loop yield/resume: `RelayCoordinator` + `RelayState` (`capacityParked`).
-  Product CLI: `alln loop` (`LoopCLI`); `PilotCLI`/`RelayCLI` remain code paths.
+  `blocker.wakeAfter`, `claimVendorWake`).
+  Loop yield/resume: `LoopCoordinator` + `LoopState.capacityPark`.
+  Wake fallback for dead owners + standalone runs: `VendorBackoffReconciler`.
   Substitution on long reset: `VendorSubstitutionPolicy` (unchanged).
 
 Blocking questions: none — decisions locked below.
@@ -83,190 +128,261 @@ When a wall is still hit, Allnighter sleeps until the meter resets and continues
 the work it owns — not after a minute of useless retries.
 ```
 
-| Half | Question | Primary surface | v1 slice |
+| Half | Question | Primary surface | Slice |
 | --- | --- | --- | --- |
 | **Plan-time quota** | Which seat has headroom before dispatch? | `alln menu --json` + bootstrap | QABC-S00 |
-| **Loop continuity** | Dev turn hits a session cap mid-loop? | `alln loop` + vendor park/wake | QABC-S01 (+ S02) |
+| **Loop continuity** | Turn hits a session cap mid-loop? | `alln loop` + vendor park/wake | QABC-S01 |
 
-**Scope honesty:** v1 does **not** auto-resume naked vendor sessions that never
+**Scope honesty:** this does **not** auto-resume naked vendor sessions that never
 touched alln. Continuity requires `alln run` / `alln loop` ownership.
 
 **Moat sentence (promote at closeout):** Anthropic can only see Anthropic's
 meter. Cross-vendor arbitrage is impossible from inside any one vendor.
 Allnighter sees the whole bench and acts on it at plan time and at the wall.
 
-Rough cost: ~1–2 focused sprints of wiring (S00 small, S01 medium, S02 small) —
-not a new subsystem.
+Rough cost: **S00 small** (one optional field, one parameter, three call sites —
+no new projection code). **S01 medium** (one helper, one side-field, one wait
+loop). Not a new subsystem.
 
 ---
 
 ## Why this exists
 
-1. Planner seats from `menu --json` with no capacity → wrong seat (e.g. Codex at 0%).
-2. Or: Claude 5h session cap → `RunService` parks with real `wakeAfter`, but relay
-   ignores park phase, infra-thrashes ~50s, escalates; founder returns to a dead
-   loop and orphaned parked run(s).
+1. A planner seats from `menu --json` with no capacity → wrong seat (Codex is at
+   0% on this bench right now).
+2. A Claude 5h cap parks the dev turn with a real `wakeAfter`, but the loop
+   classifies the parked run's answer as `.infraBackoff`
+   (`LoopTurnClassifier.swift:88-91` — the structured `capacityObservation`
+   fires), sleeps 5s × 10, mints a new run each time, then escalates. The
+   founder returns to a dead loop and up to ten orphaned parked mutating runs
+   queued to replay the same turn.
 
-Happy path for standalone `alln run` + `alln serve` already exists. Gaps:
-planner visibility + relay honor of vendor park.
+Standalone `alln run` + `alln serve` continuity already works. The gaps are
+planner visibility and the loop's refusal to recognise a park.
 
 ---
 
 ## Architecture (reuse)
 
 ```text
-Plan time                         Run time                      Loop time
-─────────                         ────────                      ─────────
-menu --json                       RunService.run                dispatchDevTurn
-  └─ capacity{} (tier-1 hydrate)    └─ park + wakeAfter           └─ IF phase waitingForVendor
-       no probes on menu read             │                            YIELD capacityParked
-bootstrap --json                          ▼                            persist parkedRunId
-  └─ same compact snapshot          VendorBackoffReconciler            │
-                                      (serve / dead owner)             ▼
-                                      resumeParkedRun            owner alive: sleep→resume
-                                                                 round continues
+Plan time                          Turn time                      Loop time
+─────────                          ─────────                      ─────────
+AllnighterCLI                      RunService.run                 dispatchTurn /
+  └─ CapacityDisplayAcquisition      └─ park: queued +             dispatchDevTurn
+       .windows(refresh: false)           waitingForVendor           └─ vendorPark(run)?
+  └─ CapacityBenchProjection.rows       + blocker.wakeAfter              │  (BEFORE classify)
+  └─ CapacityStripRenderer.json         → .success(run)                  ▼
+       │  (4,084 B, 6 rows)                                       sleep→ claim-or-adopt
+       ▼ injected                                                        │
+  MenuCatalog.project(capacity:)   VendorBackoffReconciler                ▼
+  Bootstrap(capacity:)              (dead owners + standalone)    same run settles →
+       └─ MenuJSON.capacity                                       re-enter classify
 ```
 
 **Laws:**
 
-- Do not probe on `menu --json` (`refresh: false` only). `--refresh` stays on
-  `alln capacity`.
-- Do not stuff capacity into `TeachingSnippet.body` — live JSON is SSOT.
-- Phase/blocker check **before** `RelayTurnClassifier`. Parked success is not
-  infra backoff.
-- While `capacityParked`, do not mint competing runIds.
+- Capacity is **injected** into Core, never acquired there. Core must not gain an
+  Engine dependency.
+- `menu --json` passes `refresh: false` — it spawns no probes. Refresh stays the
+  default only on `alln capacity` itself.
+- Capacity never goes in `TeachingSnippet.body`; live JSON is SSOT.
+- **A parked run is not a turn outcome — it is a turn still in progress.** The
+  park check runs before `LoopTurnClassifier`, and the loop re-enters the same
+  classification switch once the run settles.
+- While parked, **never mint a competing runId**.
+- A parked loop stays `status == .running`. Park facts live in a side-field.
 
 ---
 
 ## Locked decisions
 
-1. New loop status: **`capacityParked`** (not overloaded `escalated`).
-2. Dev-turn only in v1; PM `dispatchTurn` twin deferred.
-3. Alive loop owner resumes via `resumeParkedRun`; serve covers standalone runs
-   and dead owners. Project `resumePolicy`.
-4. Menu oversize → truncate + `truncated: true`; counsel deferred to S03.
-5. S02 ships with S01 (thin acks/help). S03 optional.
-6. LVC five-status law amended at closeout for `capacityParked`.
+1. Park visibility is `LoopState.capacityPark` (a `laneBlocked`-shaped
+   side-field), **not** a new `LoopState.Status` case. No LVC law amendment.
+2. Both `dispatchTurn` (PM) and `dispatchDevTurn` get the check, via one shared
+   helper. Deferring the PM twin costs more than doing it: the same orphaned
+   parked-run problem applies and the fix is the same three lines.
+3. Wake is **claim-or-adopt**, never claim-or-escalate. Serve winning the race is
+   a normal outcome, not a failure.
+4. Reuse `CapacityStripJSON`; introduce no new capacity row type.
+5. Menu byte budget is re-set and the gate is extended to a realistic catalog
+   **before** capacity is added (prerequisite, S00).
+6. S02 (acks/help) folds into S01. S03 (counsel string) is **cut** — see below.
 
 ---
 
 ## Slice plan
 
-### QABC-S00 — Capacity in the selection envelope (mandatory)
+### QABC-S00 — Capacity in the selection envelope
 
-**Goal:** Every agent that reads `alln menu --json` before planning sees a compact,
-honestly aged capacity snapshot.
+**Goal:** Every agent reading `alln menu --json` before planning sees a compact,
+honestly aged capacity snapshot, with no probe spawned.
 
-| Surface | Field / behavior |
+**S00a — prerequisite: fix the byte gate.** Live menu is 35,037 B against a
+32,768 B documented cap that only the built-in fixture is tested against. Extend
+`MenuSelectionGradeTests` to project a realistic large catalog and set the
+budget to a number the real surface meets (40 KiB with capacity included is the
+recommendation). Shipping S00 on top of an untested-and-already-exceeded budget
+would make the gate a lie.
+
+| Surface | Change |
 | --- | --- |
-| `MenuJSON` | Top-level `capacity` — `generatedAt`, `rows[]` (source, effective remaining, short remaining when present, reset hints, `observedAt`, `unknownReason`), optional `truncated` |
-| `alln menu show model:<id>` | Capacity row(s) for that model's driver/source |
-| `Bootstrap.JSON` | Same compact snapshot (boot once) |
-| `MenuCatalog.project` | `CapacityDisplayAcquisition.windows(now:, refresh: false)` → `CapacityBenchProjection.rows` → trim to menu budget |
+| `MenuJSON` | `public var capacity: CapacityStripJSON?` — one optional field, existing Codable type |
+| `MenuCatalog.project` | New `capacity: CapacityStripJSON? = nil` parameter, passed straight through. No acquisition, no Engine import |
+| `Bootstrap` | Same optional parameter, same passthrough |
+| `MenuCLI` / `HelpCLI` / bootstrap CLI | Acquire and inject: `CapacityDisplayAcquisition.windows(now:, refresh: false)` → `CapacityBenchProjection.rows` → `CapacityStripRenderer.json(rows:now:contractVersion:)` |
+| `alln menu show model:<id>` | Filter injected rows to that model's source |
 
 **Constraints:**
 
-- MenuJSON ≤ 32 KiB (`MenuSelectionGradeTests`). Truncate to bench order +
-  `truncated: true` if needed.
-- Unknown never blocks menu or seating.
-- **Gate:** bump `contractVersion`; extend `ContractSchema` MenuJSON schema.
+- Nil capacity is always legal — unknown never blocks menu or seating. Every
+  non-CLI caller (`ModelListProjector`, `CatalogJSON`, `TypedRef`, tests) keeps
+  compiling untouched because the parameter defaults to `nil`.
+- Rows already carry `observedAt` + `observedAgeSeconds` + `unknownReason`. Never
+  render them in a way that implies a fresh probe.
+- **Gate:** bump `contractVersion` (currently 7.0.0); extend `ContractSchema`'s
+  MenuJSON schema with the optional `capacity` object.
 
 **Works Test:**
 
 ```text
-swift test --filter MenuSelectionGradeTests
-swift test --filter CapacityBenchProjectionTests
-# Manual: alln menu --json | jq '.capacity.rows[] | {source, effectiveRemainingPercent, observedAt}'
+scripts/swift-test.sh --filter MenuSelectionGradeTests
+scripts/swift-test.sh --filter CapacityBenchProjectionTests
+scripts/swift-test.sh --filter ContractSchema
+# New: menu projection with injected capacity spawns zero probes (inject a
+# counting CapacityProbeExecuting and assert count == 0).
+# Manual: alln menu --json | jq '.capacity.rows[] | {source, effectiveRemainingPercent, observedAgeSeconds}'
 ```
 
 **Proof waiver:** None.
 
 ---
 
-### QABC-S01 — Relay yields to vendor park (mandatory)
+### QABC-S01 — The loop yields to a vendor park
 
-**Goal:** When a dev turn returns a parked run, relay yields `capacityParked`
-instead of infra thrash; loop status names the wake; work resumes across
-session caps.
+**Goal:** A parked turn suspends the loop until the meter resets, then continues
+the same round — instead of thrashing, escalating, and stranding mutating runs.
+
+**1. One shared park probe** (pure, testable, in `LoopCoordinator` or beside
+`LoopTurnClassifier`):
+
+```text
+vendorPark(run) -> (runId, wakeAfter, source)?
+  run.status == .queued && run.phase == .waitingForVendor
+    && run.blocker?.resource == .vendorBackoff
+```
+
+Called in **both** `dispatchTurn` and `dispatchDevTurn`, immediately after
+`guard case .success(let run)` and **before** `LoopTurnClassifier.classify`.
+On a hit the dispatch loop does not retry, does not kill the turn group, and
+does not mint a new runId.
+
+**2. Claim-or-adopt wake** (this is the whole race fix):
+
+```text
+persist LoopState.capacityPark { runId, wakeAfter, source, since }
+sleep until wakeAfter, clamped to the loop deadline (existing
+  sleepClampedToDeadline; re-check isPastDeadline on wake)
+try runStore.claimVendorWake(runId:coordinatorId: <loopId>, now:)
+  claimed  → runService.resumeParkedRun(runId:coordinatorId:) → settled run
+  nil      → another coordinator (alln serve) owns this wake.
+             DO NOT escalate. Poll the journal until the run leaves
+             .waitingForVendor, then load the settled run.
+clear capacityPark; re-enter the SAME classification switch with the settled run
+```
+
+Deadline expiry while parked is the one honest escalation: the loop's `--until`
+ceiling fired, and it says so with the wake time it was waiting for.
+
+**3. Visibility:**
 
 | Component | Behavior |
 | --- | --- |
-| `RelayCoordinator.dispatchDevTurn` | After `.success(run)`: if `phase == .waitingForVendor` && `blocker.resource == .vendorBackoff` → return capacity-parked outcome with `wakeAfter` / `parkedRunId`. **Do not** classify via `RelayTurnClassifier`. **Do not** mint another runId. |
-| `RelayState.Status` | Add `capacityParked` with `wakeAfter`, `parkedRunId`, `parkedSource`, `resumePolicy`. Must not collide with `awaitingPM` / `escalated`. |
-| Alive loop owner | Sleep until `wakeAfter` (deadline-clamped) → `resumeParkedRun` → continue round on terminal success. |
-| Dead owner / standalone run | `VendorBackoffReconciler` unchanged; loop may need `loop resume` / reattach after run completes. |
-| `alln loop status` | Project wake + resumePolicy + exact next command. Wake-aware `--wait-for` on status (not `loop wait` — wait uses `PilotCLI.runWatch` with different flags). |
-| `VendorSubstitutionPolicy` | Unchanged. |
+| `LoopState.capacityPark` | Optional struct: `runId`, `wakeAfter`, `source`, `since`. `laneBlocked`-shaped; lenient decode like every other post-hoc field |
+| `LoopState.status` | Stays `.running` — the owning process is alive (see correction 8) |
+| `alln loop status` | Surfaces `capacityPark` with the wake clock and the exact next command; `--wait-for` becomes wake-aware. `loop wait` is untouched (`PilotCLI.runWatch`, different flags) |
+| Detached ack / notification | Names `wakeAfter` + source, so URN can fire a "parked until X" banner instead of silence |
+| `VendorBackoffReconciler` | **Unchanged.** It remains the fallback for standalone runs and dead owners, and is now a legitimate winner of the claim race |
+| `VendorSubstitutionPolicy` | Unchanged — a long reset still prefers substitution inside `RunService`, before any park is written |
 
-**Explicit S01 non-goals:** PM-seat park; naked vendor auto-resume; replacing serve
-for standalone runs.
+**Non-goals:** naked-vendor auto-resume; replacing serve; changing substitution
+law; forcing a pre-`wakeAfter` lease claim (`force: true` is not used — it would
+let a loop starve serve).
 
 **Works Test:**
 
 ```text
-swift test --filter RelayCoordinatorTests/testDevTurnYieldsCapacityParkedNotInfraThrash
-swift test --filter VendorBackoffReconcilerTests
-# Hermetic scenario: RunService returns success with waitingForVendor + wakeAfter
-# near future → loop status capacityParked (not escalated); no extra runIds minted;
-# after resume → round continues
+scripts/swift-test.sh --filter LoopCoordinatorTests
+scripts/swift-test.sh --filter VendorBackoffReconcilerTests
 ```
 
-**Proof waiver:** Named hermetic required; one on-host loop dogfood before archive.
+Named hermetic cases (all with an injected `RunService` seam, no real workers):
+
+- `testParkedDevTurnDoesNotClassifyAsInfraBackoff` — parked run in, exactly one
+  runId minted, zero 5s infra sleeps.
+- `testParkedTurnMintsNoCompetingRunIds` — the ten-orphans regression, asserted
+  by run count.
+- `testParkedLoopStaysRunningWithCapacityPark` — status `.running`, owner marker
+  still written, `capacityPark.wakeAfter` set.
+- `testWakeClaimLostToServeAdoptsInsteadOfEscalating` — `claimVendorWake`
+  returns `nil`, journal later settles, round continues.
+- `testParkPastDeadlineStopsWithWakeInReason` — the one legal escalation.
+- `testPMTurnParkYieldsToo` — the `dispatchTurn` twin.
+
+**Proof waiver:** hermetics are required; one on-host loop dogfood across a real
+vendor wall before archive.
 
 ---
 
-### QABC-S02 — Delivery acks + serve visibility (ships with S01)
+### QABC-S02 — cut (folded into S01)
 
-**Goal:** Agents/founders see when auto-resume happens and what to do if the
-owner/serve path is missing.
+The acks, help text, and status strings were never separable from the state that
+produces them. They ship in S01's visibility table.
 
-- Parked loop/run status + detached ack: `wakeAfter`, `resumePolicy`,
-  `parkedRunId`.
-- Help / error explain: parked until X; if owner dead, start `alln serve` (or
-  `loop resume` after run wake).
-- Extend delivery/status tests via `LoopCLI` surfaces (code may still live in
-  `PilotCLI`/`RelayCLI`).
+### QABC-S03 — cut
 
-**Works Test:** extend existing completion/status Works Tests for ack strings.
-
----
-
-### QABC-S03 — Optional counsel string (defer)
-
-Deterministic one-liner from strip rows ("seat Grok, not Codex until …").
-Owner: pure `CapacityCounsel` (or thin `CapacityStripRenderer` helper).
-**Non-goal:** LLM prose. Ship only if S00 stays under byte budget.
+A deterministic counsel string ("seat Grok, not Codex until …") is a second
+opinion derived from data the caller now has in the same JSON envelope. It can
+disagree with the rows it was derived from, it needs its own staleness rules,
+and the calling LLM is strictly better at the judgment than a one-liner. Cutting
+it also removes the byte-budget pressure that made it conditional in the first
+place. Re-open only if dogfood shows planners reading `capacity.rows` and still
+seating wrong.
 
 ---
 
 ## Non-goals
 
 - Auto-resume of naked vendor CLI sessions with no alln journal.
-- Probing / refreshing capacity on every `menu --json` read.
+- Probing / refreshing capacity on a `menu --json` read.
 - Capacity inside `TeachingSnippet.body`.
-- Replacing or bypassing `VendorBackoffReconciler` for standalone `alln run`.
-- PM-seat capacity park mid-round (v1).
+- An Engine dependency in AllnighterCore.
+- A new `LoopState.Status` case.
+- Replacing or bypassing `VendorBackoffReconciler`.
 - New dashboard / GUI capacity surface (CLI envelope + status only).
 - Changing `VendorSubstitutionPolicy` law.
-- Inventing `loop wait --wait-for` flags that do not exist on the wait path.
-- Mac strip echo / counsel as mandatory v1 (S03 only).
+- `alln capacity --refresh` (that flag does not exist; refresh is the default).
 
 ---
 
 ## Lie-prone layers
 
 - **`RunService.run` `.success` looking like "turn finished."** Parked runs are
-  success-with-phase; treating them as failed worker outcomes is the live bug.
-- **`RelayTurnClassifier.infraBackoff` as capacity truth.** Classifier sees
-  worker outcome text/facts, not journal park. Phase/blocker is the park SSOT.
+  success-with-phase. Treating them as worker outcomes is the live bug.
+- **`LoopTurnClassifier.infraBackoff` as capacity truth.** The classifier reads
+  the worker outcome, which genuinely carries a `capacityObservation` — so it is
+  confidently wrong. Phase + blocker is the park SSOT and must be read first.
+- **Retry loops that mint ids.** Any retry path that calls `mintRunId` on a
+  parked turn silently multiplies pending mutating work.
+- **Status enums implying ownership.** In `LoopState`, non-`running` means
+  unowned. A status that lies about that removes orphan reconcile.
+- **A lease claim treated as a right.** `claimVendorWake` returning `nil` is
+  normal concurrency, not an error.
 - **Stale menu capacity.** Tier-1 hydrate can be aged; `observedAt` /
-  `unknownReason` must stay visible — never imply a fresh probe.
-- **`escalated` used as soft park.** Hides wake clock from URN / `loop status` /
-  agents.
-- **Serve implied always required.** Alive loop owners resume themselves;
-  serve is for dead owners + standalone runs.
-- **Product verb drift.** Docs/acks saying `pilot`/`relay` when the user-facing
-  verb is `alln loop`.
+  `observedAgeSeconds` / `unknownReason` must stay visible.
+- **A byte gate that tests a fixture, not the surface.** 32 KiB "held" while the
+  real envelope was 35,037 B.
+- **Product verb drift.** Docs/acks saying `pilot` / `relay` when the user-facing
+  verb is `alln loop` — and code comments still saying `RelayCoordinator`.
 
 ---
 
@@ -275,21 +391,27 @@ Owner: pure `CapacityCounsel` (or thin `CapacityStripRenderer` helper).
 | Packet | Relationship |
 | --- | --- |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | Composes — WRC recovers after seat death; QABC prevents/survives capacity walls |
-| [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md) | Extends status set with `capacityParked`; product surface stays `alln loop` |
-| [`Capacity_Hardening_Hotfix.md`](Capacity_Hardening_Hotfix.md) | Prerequisite — QABC consumes projection path |
+| [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md) | Status set **unchanged** (correction 8); product surface stays `alln loop` |
+| [`Capacity_Hardening_Hotfix.md`](Capacity_Hardening_Hotfix.md) | Prerequisite — QABC consumes the projection path unmodified |
 | [`CLI_Park.md`](CLI_Park.md) | Orthogonal — parks a driver from probes; QABC parks runs on quota |
 
 ---
 
 ## Done when
 
-- [ ] `alln menu --json` includes tier-1 capacity; bootstrap echoes it; contract
-      version bumped; MenuJSON ≤ 32 KiB.
+- [ ] Menu byte gate covers a realistic catalog and the documented budget is one
+      the live surface meets.
+- [ ] `alln menu --json` and bootstrap carry `capacity` (injected, `refresh:
+      false`, zero probes asserted); `contractVersion` bumped; `ContractSchema`
+      extended; AllnighterCore still has no Engine dependency.
 - [ ] Planner dogfood: seats from menu without a separate `alln capacity` call.
-- [ ] `dispatchDevTurn` honors `waitingForVendor` before classify; loop status
-      `capacityParked`; no infra escalate after ~50s; no competing runIds while parked.
-- [ ] Status/ack names `wakeAfter` + `resumePolicy` (S02 with S01).
-- [ ] Hermetic `testDevTurnYieldsCapacityParkedNotInfraThrash` green; deslop +
-      code audit at closeout.
-- [ ] Promote moat sentence + plan-time capacity law; amend LVC status inventory;
-      archive this packet.
+- [ ] `vendorPark` is checked before classify in **both** turn dispatchers; no
+      competing runIds; no 50s infra escalate on a park.
+- [ ] Claim-or-adopt proven against a lost claim; `alln serve` winning is not an
+      escalation.
+- [ ] Parked loop reports `.running` + `capacityPark{wakeAfter, source}` in
+      `loop status`, ack, and notification.
+- [ ] All six named hermetics green; one on-host wall-crossing dogfood.
+- [ ] `AGENTS.md` routing rows updated (`RelayCoordinator` → `LoopCoordinator`).
+- [ ] Deslop + code audit; promote the moat sentence and the plan-time capacity
+      law; archive this packet.
