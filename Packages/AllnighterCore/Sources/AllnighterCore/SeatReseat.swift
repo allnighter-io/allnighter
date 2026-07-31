@@ -9,6 +9,13 @@ import Foundation
 /// invents Cursor Sol or other `neverAutomaticSubstituteIds`.
 public enum SeatReseat {
 
+    /// Whether the seat preset allows a cross-bench substitute (ordered fallbacks or
+    /// lane-capable policy). Used with `isEligible` so mid-run reseat matches initial
+    /// seating intent for teams like `build_slice` that declare no ordered chain.
+    public static func allowsSubstitute(fallbacks: [String], policy: ModelFallbackPolicy) -> Bool {
+        !fallbacks.isEmpty || policy == .laneCapable
+    }
+
     /// True when this failed result should trigger exactly one substitute invoke.
     public static func isEligible(_ result: WorkerRunResult, hasDeclaredFallbacks: Bool = false) -> Bool {
         guard result.status != .done, result.status != .cancelled else { return false }

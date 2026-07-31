@@ -307,7 +307,11 @@ public actor CatalogRunCoordinator {
                     var substitutedFrom: String? = agent.substitutedFromModelId
                     if let team, agent.seatingReason != TeamExplicitSeats.explicitSeatingReason {
                         let chain = SeatReseat.chain(for: agent, team: team, isLead: false)
-                        if SeatReseat.isEligible(result, hasDeclaredFallbacks: !chain.fallbacks.isEmpty) {
+                        if SeatReseat.isEligible(
+                            result,
+                            hasDeclaredFallbacks: SeatReseat.allowsSubstitute(
+                                fallbacks: chain.fallbacks, policy: chain.policy)
+                        ) {
                             if let alt = SeatReseat.nextModel(
                                 failedModelId: settledModel.id,
                                 failedDriverId: settledModel.driverId,
@@ -422,7 +426,11 @@ public actor CatalogRunCoordinator {
         }
         if let team, writer.seatingReason != TeamExplicitSeats.explicitSeatingReason {
             let chain = SeatReseat.chain(for: writer, team: team, isLead: true)
-            if SeatReseat.isEligible(outcome, hasDeclaredFallbacks: !chain.fallbacks.isEmpty) {
+            if SeatReseat.isEligible(
+                outcome,
+                hasDeclaredFallbacks: SeatReseat.allowsSubstitute(
+                    fallbacks: chain.fallbacks, policy: chain.policy)
+            ) {
                 let pool = reseatPool.isEmpty ? Array(modelByID.values) : reseatPool
                 if let alt = SeatReseat.nextModel(
                     failedModelId: model.id,
@@ -435,18 +443,18 @@ public actor CatalogRunCoordinator {
                     ready: pool,
                     preferredTags: chain.preferredTags
                 ), let altManifest = registry.manifest(for: alt), altManifest.kind == .headlessCLI {
-                writer.substitutedFromModelId = writer.substitutedFromModelId ?? model.id
-                writer.modelId = alt.id
-                model = alt
-                manifest = altManifest
-                outcome = await ProcessOwnership.$currentWorkerId.withValue(writer.id) {
-                    await workerRunner.collect(WorkerInvocation(
-                        model: alt, manifest: altManifest, prompt: writerPrompt, effort: resolved.effort,
-                        workingDirectory: repoRoot))
+                    writer.substitutedFromModelId = writer.substitutedFromModelId ?? model.id
+                    writer.modelId = alt.id
+                    model = alt
+                    manifest = altManifest
+                    outcome = await ProcessOwnership.$currentWorkerId.withValue(writer.id) {
+                        await workerRunner.collect(WorkerInvocation(
+                            model: alt, manifest: altManifest, prompt: writerPrompt, effort: resolved.effort,
+                            workingDirectory: repoRoot))
+                    }
                 }
             }
         }
-    }
         guard outcome.status == .done, let markdown = outcome.output, !markdown.isEmpty else {
             return fail(outcome.errorReason ?? "plan writer produced no output")
         }

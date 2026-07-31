@@ -679,4 +679,21 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_gpt_sol")
         XCTAssertEqual(r.answerWorkers.first?.seatingReason, "band+unusedFamily")
     }
+
+    func testLaneCapableFallsBackCrossSourceWhenHomeDriverUnavailable() {
+        let codex = Model(id: "model_gpt_sol", displayName: "GPT-5.6 Sol", modelLabel: "gpt-5.6-sol",
+                          driverId: "codex", role: .both)
+        let t = team(rows: [
+            TeamAgentSpec(
+                id: "r1", skillId: "execution_playbook",
+                preferredModelId: "model_cursor_composer_25",
+                fallbackPolicy: .laneCapable)
+        ])
+        let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .high,
+                                     readyModels: [codex])
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, "model_gpt_sol",
+                       "laneCapable must seat a lane-ready model when the home driver is down")
+        XCTAssertEqual(r.answerWorkers.first?.substitutedFromModelId, "model_cursor_composer_25")
+    }
 }

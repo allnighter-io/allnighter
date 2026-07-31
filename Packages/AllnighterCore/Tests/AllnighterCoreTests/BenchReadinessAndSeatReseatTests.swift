@@ -137,6 +137,23 @@ final class SeatReseatTests: XCTestCase {
         XCTAssertTrue(SeatReseat.isEligible(result, hasDeclaredFallbacks: true))
     }
 
+    func testLaneCapablePolicyAllowsSubstituteForGenericFailure() {
+        let team = BuiltInTeams.team("build_slice")!
+        let worker = Agent(
+            id: "model_grok#0", modelId: "model_grok", instanceIndex: 0,
+            skillId: "execution_playbook", purpose: .answer)
+        let chain = SeatReseat.chain(for: worker, team: team, isLead: false)
+        XCTAssertTrue(SeatReseat.allowsSubstitute(fallbacks: chain.fallbacks, policy: chain.policy))
+
+        let result = WorkerRunResult(status: .failed, errorReason: "Unknown subprocess exit 1")
+        XCTAssertTrue(
+            SeatReseat.isEligible(
+                result,
+                hasDeclaredFallbacks: SeatReseat.allowsSubstitute(
+                    fallbacks: chain.fallbacks, policy: chain.policy))
+        )
+    }
+
     func testAuthRequiredIsNotEligibleEvenWithDeclaredFallback() {
         let obs = CapacityObservation(
             kind: .authRequired,
