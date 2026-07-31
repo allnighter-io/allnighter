@@ -170,6 +170,24 @@ public struct RelayGateSummary: Sendable, Codable, Equatable {
     }
 }
 
+/// QABC-S01: durable facts for a loop's dev turn parked on a vendor quota wait
+/// (`LoopState.capacityPark`). `runId` is the parked run — note the round's
+/// `devRunId` already points at it, this does not duplicate that link, it
+/// records why the loop is waiting.
+public struct CapacityPark: Sendable, Codable, Equatable {
+    public var runId: String
+    public var wakeAfter: Date?
+    public var source: String?
+    public var since: Date
+
+    public init(runId: String, wakeAfter: Date?, source: String?, since: Date) {
+        self.runId = runId
+        self.wakeAfter = wakeAfter
+        self.source = source
+        self.since = since
+    }
+}
+
 /// One PM↔dev relay (docs/phases/PM_Relay.md) — the durable ledger `LoopCoordinator`
 /// reads/writes after every state change so the loop is resumable from disk at any point,
 /// never held only in memory (R-S04).
@@ -242,6 +260,13 @@ public struct LoopState: Sendable, Codable, Equatable {
     /// execution lane (FIFO ticket). Cleared when the lane is acquired or the
     /// wait ends. Status JSON surfaces this as `laneBlocked`.
     public var laneBlocked: ExecutionLaneTicket?
+    /// QABC-S01: set while this loop's turn is parked on a vendor quota wait —
+    /// a side-field, not a `.capacityParked` status, because `LoopStateStore.save`
+    /// only writes the `owner.pid` liveness marker for `.running` and
+    /// `reconcileOrphan` only scans `.running`; the loop's owning process is
+    /// alive for the whole park, so it must stay `.running` (same shape as
+    /// `laneBlocked`). Cleared once the parked run resumes.
+    public var capacityPark: CapacityPark?
 
     public init(
         id: String,
@@ -261,7 +286,8 @@ public struct LoopState: Sendable, Codable, Equatable {
         pilotMaxRounds: Int? = nil,
         pilotStagnationRoundCap: Int? = nil,
         pilotDevTurnIdleTimeoutSeconds: Int? = nil,
-        laneBlocked: ExecutionLaneTicket? = nil
+        laneBlocked: ExecutionLaneTicket? = nil,
+        capacityPark: CapacityPark? = nil
     ) {
         self.id = id
         self.projectRoot = projectRoot
@@ -281,6 +307,7 @@ public struct LoopState: Sendable, Codable, Equatable {
         self.pilotStagnationRoundCap = pilotStagnationRoundCap
         self.pilotDevTurnIdleTimeoutSeconds = pilotDevTurnIdleTimeoutSeconds
         self.laneBlocked = laneBlocked
+        self.capacityPark = capacityPark
     }
 
     /// Pilot only: the sentinel `pmModelId` stamped when the caller (a live human/agent
@@ -321,6 +348,7 @@ public struct LoopState: Sendable, Codable, Equatable {
         pilotStagnationRoundCap = try c.decodeIfPresent(Int.self, forKey: .pilotStagnationRoundCap)
         pilotDevTurnIdleTimeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .pilotDevTurnIdleTimeoutSeconds)
         laneBlocked = try c.decodeIfPresent(ExecutionLaneTicket.self, forKey: .laneBlocked)
+        capacityPark = try c.decodeIfPresent(CapacityPark.self, forKey: .capacityPark)
     }
 
     // MARK: - Orphan reconciliation (works-test hazard #1)

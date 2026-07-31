@@ -35,7 +35,34 @@ public enum RelayTurnOutcome: Sendable, Equatable {
     case compacting
 }
 
+/// A `TeamRun` durably parked on a vendor quota wait (QABC-S01), as opposed to a
+/// terminal turn outcome. Returned by `LoopTurnClassifier.vendorPark`.
+public struct VendorPark: Sendable, Equatable {
+    public var runId: String
+    public var wakeAfter: Date?
+    public var source: String?
+
+    public init(runId: String, wakeAfter: Date?, source: String?) {
+        self.runId = runId
+        self.wakeAfter = wakeAfter
+        self.source = source
+    }
+}
+
 public enum LoopTurnClassifier {
+    /// A parked run is NOT a turn outcome — it is a turn still in progress. This MUST be
+    /// checked before `classify`: the parked run's worker answer genuinely carries a
+    /// structured `capacityObservation`, so `isInfraBackoff` (below) confidently — and
+    /// wrongly — reads it as `.infraBackoff`, causing the loop to thrash-retry and mint a
+    /// new run instead of waiting out the same parked one (QABC-S01).
+    public static func vendorPark(_ run: TeamRun) -> VendorPark? {
+        guard run.status == .queued,
+              run.phase == .waitingForVendor,
+              run.blocker?.resource == .vendorBackoff
+        else { return nil }
+        return VendorPark(runId: run.id, wakeAfter: run.blocker?.wakeAfter, source: run.blocker?.quotaScope)
+    }
+
     /// Retry ceilings for one relay turn's dispatch loop (PM or dev), mirroring
     /// `PairCoordinator`'s per-failure-mode caps (QUEUE-S01/S02: `maxCompactionRetries`,
     /// `maxInfraBackoffRetries`, `infraBackoffGraceSeconds`, executor attempt budget) —
