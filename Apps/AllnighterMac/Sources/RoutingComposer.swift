@@ -768,7 +768,7 @@ struct RoutingComposer: View {
     @ViewBuilder private var targetChipContent: some View {
         if targetTab == .loop {
             Image(systemName: "arrow.2.circlepath").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
-            Text("Loop").font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
+            Text("Delivery Loop").font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
         } else if let id = team, let preset = TeamCatalog.get(id) {
             Image(systemName: "person.2").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
             Text(preset.displayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
@@ -1040,7 +1040,7 @@ struct RoutingComposer: View {
                     teamSearchField
                     teamPickerBody
                 } else {
-                    popHeader("Loop", "Unattended PM ↔ dev — brief once, then Return opens the launch sheet.")
+                    popHeader("Delivery Loop", "PM ↔ dev, round after round — brief once, then Return opens the launch sheet.")
                 }
             }
         }
@@ -1114,7 +1114,7 @@ struct RoutingComposer: View {
             ForEach([TargetTab.model, .team, .loop], id: \.self) { tab in
                 let selected = tab == targetTab
                 Button { targetTab = tab } label: {
-                    Text(tab == .team ? "Team" : (tab == .loop ? "Loop" : "Model"))
+                    Text(tab == .team ? "Team" : (tab == .loop ? "Delivery Loop" : "Model"))
                         .font(.system(size: 12, weight: selected ? .semibold : .medium))
                         .foregroundStyle(selected ? ALColor.textPrimary : ALColor.textFaint)
                         .padding(.horizontal, 11).frame(height: 24)

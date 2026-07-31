@@ -3,7 +3,7 @@ import AllnighterCore
 import AllnighterEngine
 @testable import AllnighterMac
 
-/// ATL-S04 — status chrome reads the same projection as `pair relay-status --json`.
+/// ATL-S04 — status chrome reads the same projection as `alln loop status --json`.
 @MainActor
 final class RelayStatusLoaderTests: XCTestCase {
     func testLoadRelayJSONMatchesStoreFields() throws {
@@ -32,6 +32,6 @@ final class RelayStatusLoaderTests: XCTestCase {
         XCTAssertEqual(json.status, "running")
         XCTAssertEqual(json.rounds, 1)
         XCTAssertEqual(json.note, "Round 1 in flight")
-        XCTAssertEqual(RelayStatusLoader.statusCommand(relayId: id), "alln pair relay-status --relay \(id) --json")
+        XCTAssertEqual(RelayStatusLoader.statusCommand(relayId: id), "alln loop status \(id) --json")
     }
 }

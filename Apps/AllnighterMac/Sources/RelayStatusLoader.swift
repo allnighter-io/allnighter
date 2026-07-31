@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// Read-side projection for Mac relay thread chrome (ATL-S04). Mirrors
+/// Read-side projection for Mac Delivery Loop thread chrome (ATL-S04). Mirrors
 /// `RelayCLI.runStatus` load + `RelayJSON.project` — never a GUI-only DTO and
 /// never lifecycle inferred from thread turn prose.
 enum RelayStatusLoader {
@@ -31,6 +31,6 @@ enum RelayStatusLoader {
     }
 
     static func statusCommand(relayId: String) -> String {
-        "alln pair relay-status --relay \(relayId) --json"
+        "alln loop status \(relayId) --json"
     }
 }

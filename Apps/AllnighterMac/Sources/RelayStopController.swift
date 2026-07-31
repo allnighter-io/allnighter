@@ -3,8 +3,8 @@ import Observation
 import AllnighterCore
 import AllnighterEngine
 
-/// ATL-S04 — founder Stop from relay thread chrome. Routes through
-/// `RelayCoordinator.stop` (same settlement as `pair relay stop`), never
+/// ATL-S04 — founder Stop from Delivery Loop thread chrome. Routes through
+/// `RelayCoordinator.stop` (same settlement as `alln loop stop`), never
 /// `ProcessOwnershipSurface.kill` or `alln kill`.
 @MainActor
 @Observable

@@ -3,7 +3,8 @@ import AllnighterCore
 import AllnighterEngine
 @testable import AllnighterMac
 
-/// ATL-S03 — Loop launch surface: validation + detached start wiring.
+/// ATL-S03 — Loop launch surface: validation + detached start wiring. Starts via
+/// `alln loop start --no-wait` (LVC v7, `docs/phases/Loop_Verb_Cutover.md`).
 @MainActor
 final class RelayLaunchViewModelTests: XCTestCase {
     private func tempRoot(_ label: String) -> URL {
@@ -151,11 +152,32 @@ final class RelayLaunchViewModelTests: XCTestCase {
 
     func testRelayDetachedLauncherStripsNoWaitFromChildArgv() {
         let parent = [
-            "pair", "relay", "--doc", "docs/a.md", "--no-wait", "--json", "--delivery", "wake",
+            "loop", "start", "Ship it", "--spec", "docs/a.md", "--no-wait", "--json", "--delivery", "wake",
         ]
         XCTAssertEqual(
             RelayDetachedLauncher.childArguments(from: parent),
-            ["pair", "relay", "--doc", "docs/a.md", "--json"]
+            ["loop", "start", "Ship it", "--spec", "docs/a.md", "--json"]
         )
+    }
+
+    func testRelayStartArgumentsUsesLoopStartGrammar() {
+        let args = RelayDetachedLauncher.relayStartArguments(
+            docPath: "docs/spec.md",
+            projectId: "prj_test",
+            pmModelId: "pm_worker",
+            devModelId: "dev_worker",
+            kickoffMessage: "Ship the parser fix.",
+            maxRounds: 20,
+            until: nil
+        )
+        XCTAssertEqual(args, [
+            "loop", "start", "Ship the parser fix.",
+            "--spec", "docs/spec.md",
+            "--project", "prj_test",
+            "--pm", "pm_worker",
+            "--dev", "dev_worker",
+            "--max-rounds", "20",
+            "--no-wait", "--json",
+        ])
     }
 }

@@ -3,9 +3,10 @@ import Observation
 import AllnighterCore
 import AllnighterEngine
 
-/// R-S08 / ATL-S03 — the Mac GUI's Loop launch surface. Owns the launch form's state
-/// (kickoff, doc, seats, ceilings) and starts a relay via detached `alln pair relay
-/// --no-wait` — the same survival contract as the CLI, not in-process `complete`.
+/// R-S08 / ATL-S03 — the Mac GUI's Delivery Loop launch surface. Owns the launch
+/// form's state (kickoff, doc, seats, ceilings) and starts a loop via detached
+/// `alln loop start --no-wait` — the same survival contract as the CLI, not
+/// in-process `complete`.
 ///
 /// Validation is a pure static function (`validate`) so it is unit-testable without SwiftUI
 /// or a running app.
@@ -53,6 +54,22 @@ final class RelayLaunchViewModel {
         self.kickoffMessage = initialKickoffMessage
         self.stateStore = stateStore
         self.detachedLaunch = detachedLaunch
+
+        // LVC-S07 — seat defaults come from the tier SSOT (PM = Frontier, dev =
+        // Balanced), never a hardcoded model id: hardcoding is what stops a down
+        // CLI from being routed around. Mirrors `LoopCLI.resolveSeats`'s own
+        // defaults exactly. Only pre-fills a seat whose tier default is actually
+        // ready — the picker below only ever lists ready seats, so silently
+        // arming Start on an unready default would be a dead end; an unready
+        // default just leaves the seat unset for the user to pick.
+        let readyIds = Set(readyModels.map(\.id))
+        let defaultSettings = DefaultModelSettingsPersistence().load()
+        if let frontierDefault = defaultSettings.tierDefault(.frontier), readyIds.contains(frontierDefault) {
+            self.pmModelId = frontierDefault
+        }
+        if let balancedDefault = defaultSettings.tierDefault(.balanced), readyIds.contains(balancedDefault) {
+            self.devModelId = balancedDefault
+        }
     }
 
     // MARK: - Validation (pure, testable)
@@ -106,7 +123,7 @@ final class RelayLaunchViewModel {
 
     // MARK: - Start (detached)
 
-    /// Spawns `alln pair relay --no-wait` and waits for durable accept. Returns the relay
+    /// Spawns `alln loop start --no-wait` and waits for durable accept. Returns the loop
     /// id on success, `nil` on refusal. Does not pre-claim — the detached child owns claim.
     @discardableResult
     func start() async -> String? {

@@ -2,10 +2,11 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// ATL-S03 — Mac Loop detached start. Spawns the same registered `alln pair relay
-/// --no-wait` argv the CLI uses, waits for `DetachedHandoff` acceptance, and returns
-/// the durable relay id. Mirrors `DetachedDispatch.launchAndAwaitAcceptance` without
-/// linking `AllnighterCLI` (executable target only).
+/// ATL-S03 — Mac Loop detached start. Spawns the same registered `alln loop start
+/// --no-wait` argv the CLI uses (LVC v7, `docs/phases/Loop_Verb_Cutover.md`), waits
+/// for `DetachedHandoff` acceptance, and returns the durable loop id. Mirrors
+/// `DetachedDispatch.launchAndAwaitAcceptance` without linking `AllnighterCLI`
+/// (executable target only).
 enum RelayDetachedLauncher {
     enum Outcome: Equatable {
         case accepted(id: String, pid: Int32)
@@ -15,7 +16,7 @@ enum RelayDetachedLauncher {
         case spawnFailed(String)
     }
 
-    /// Spawn `pair relay … --no-wait --json` in a detached child whose argv omits
+    /// Spawn `loop start … --no-wait --json` in a detached child whose argv omits
     /// detached-only routing flags — same strip law as `DetachedDispatch.childArguments`.
     static func launchAndAwaitAcceptance(
         cwd: String,
@@ -90,6 +91,11 @@ enum RelayDetachedLauncher {
     }
 
     /// Builds the parent argv passed to `launchAndAwaitAcceptance` (includes `--no-wait`).
+    /// `kickoffMessage` is the loop's brief — `alln loop start`'s one required
+    /// positional (LVC v7 §2); `docPath` is the optional `--spec` shortcut, always
+    /// supplied here because the launch sheet still requires a spec doc (§8, deferred).
+    /// PM is always an explicit agent id — the sheet has no `--pm caller` option
+    /// (LVC-S06: there is no live agent session behind a modal).
     static func relayStartArguments(
         docPath: String,
         projectId: String,
@@ -100,12 +106,11 @@ enum RelayDetachedLauncher {
         until: Date?
     ) -> [String] {
         var args = [
-            "pair", "relay",
-            "--doc", docPath,
+            "loop", "start", kickoffMessage,
+            "--spec", docPath,
             "--project", projectId,
-            "--pm-model", pmModelId,
-            "--dev-model", devModelId,
-            "--message", kickoffMessage,
+            "--pm", pmModelId,
+            "--dev", devModelId,
             "--max-rounds", String(maxRounds),
             "--no-wait", "--json",
         ]
