@@ -240,7 +240,7 @@ final class MenuSelectionGradeTests: XCTestCase {
         }
         let data = try MenuCatalog.encodeCompact(m)
         // Budget derivation (QABC-S00a, 2026-07-31): the built-in-only fixture
-        // that `testPerRowBoundsAndBuiltInFixtureStillWithin13KiB` gates does
+        // that `testPerRowBoundsAndBuiltInFixtureStillWithin30KiB` gates does
         // NOT protect the real agent-facing surface — live `alln menu --json`
         // on this bench compacts to 35,027 B, above the old 32 KiB gate, and
         // that weight is legitimate: runTemplate+validateTemplate across every
