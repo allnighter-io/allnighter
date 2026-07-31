@@ -191,9 +191,11 @@ Until that is answered, every slice below is decoration.
 
 **Ship order is now S00 → S03 → S04 → S01. S02 as written is deleted.**
 
-### OBS-S00 — the ruling: what does an alive-but-silent worker report? *(blocking)*
+### OBS-S00 — the ruling: what does an alive-but-silent worker report?
 
-Answer §2b's question before any code. Recommended shape, for founder ruling:
+**RULED 2026-07-30 (agent ruling under the standing delegation of technical
+calls; founder may overturn, an implementer may not).** Blocking the packet on a
+question already delegated would be report-and-stop. The ruling:
 
 - **Keep `heartbeatAgeSeconds` stream-only and nil-when-nil.** PLS-S01 is law. Do
   not widen it. Do not merge pgid. Do not invent a substitute that quietly means
@@ -208,7 +210,16 @@ Answer §2b's question before any code. Recommended shape, for founder ruling:
   already exists) and must never be called liveness or progress, and must never
   feed a kill decision. IDLE-HF-S04 kill policy is untouched.
 
-The whole packet is decoration without this. It is a ruling, not a build.
+**Why the expectation field is the crux.** The incident was not "the supervisor
+lacked a number." It was "the supervisor could not tell whether silence was
+normal." A run that is terminal-only by construction *should* be silent, and an
+agent told so will wait correctly. An agent not told so will keep killing live
+work no matter how many liveness fields exist — which is the 4-for-4 record this
+family already has.
+
+This slice adds no new source of truth. It surfaces a fact already known at
+dispatch (driver parser capability, `RunService.swift:1580-1586`) that was never
+exposed to the caller.
 
 ### OBS-S03 — make the live row findable *(strongest slice, ship early)*
 
