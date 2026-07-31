@@ -30,6 +30,11 @@
     "title" : "Print binary and contract identity"
   },
   {
+    "command" : "alln update --check",
+    "id" : "update_check",
+    "title" : "Soft-announce a newer release"
+  },
+  {
     "command" : "alln models --json",
     "id" : "models_json",
     "title" : "List model catalog and Bench state"

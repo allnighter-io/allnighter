@@ -32,8 +32,12 @@ import Foundation
 ///
 /// **0.11.1 → 0.11.2 (OPC-S02).** `contractVersion` additive minor (7.2.0 →
 /// 7.3.0): bootstrap `--host` closed domain gains `hermes` | `openclaw`.
+///
+/// **0.11.2 → 0.11.3 (OPC-S06).** `contractVersion` additive minor (7.3.0 →
+/// 7.4.0): optional top-level `MenuJSON.update` / `VersionJSON.update` from the
+/// shared release channel (`latest.json` + fail-open cache). Not a major cut.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.11.2"
+    public static let binaryVersion = "0.11.3"
 }
 
 /// `alln version` / `alln --version` machine contract.
@@ -48,6 +52,8 @@ public struct VersionJSON: Codable, Sendable, Equatable {
     public var buildTime: String?
     /// Absolute path of the running binary (AE-S08).
     public var binaryPath: String?
+    /// OPC-S06 — same `ReleaseChannel` truth as `menu.update`. Omitted when nil.
+    public var update: ReleaseUpdateInfo?
 
     public init(
         schemaVersion: Int = 1,
@@ -56,7 +62,8 @@ public struct VersionJSON: Codable, Sendable, Equatable {
         contractHash: String = ContractRegistry.contractHash(),
         gitSha: String? = nil,
         buildTime: String? = nil,
-        binaryPath: String? = nil
+        binaryPath: String? = nil,
+        update: ReleaseUpdateInfo? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.binaryVersion = binaryVersion
@@ -65,5 +72,26 @@ public struct VersionJSON: Codable, Sendable, Equatable {
         self.gitSha = gitSha
         self.buildTime = buildTime
         self.binaryPath = binaryPath
+        self.update = update
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, binaryVersion, contractVersion, contractHash
+        case gitSha, buildTime, binaryPath, update
+    }
+
+    /// Omit `update` when nil (never encode `"update": null`). Other optionals
+    /// keep the historical synthesized-null behavior via encodeIfPresent so
+    /// existing consumers still see the same keys when values exist.
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(binaryVersion, forKey: .binaryVersion)
+        try container.encode(contractVersion, forKey: .contractVersion)
+        try container.encode(contractHash, forKey: .contractHash)
+        try container.encodeIfPresent(gitSha, forKey: .gitSha)
+        try container.encodeIfPresent(buildTime, forKey: .buildTime)
+        try container.encodeIfPresent(binaryPath, forKey: .binaryPath)
+        try container.encodeIfPresent(update, forKey: .update)
     }
 }

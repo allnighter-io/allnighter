@@ -483,6 +483,46 @@
         "workerStart" : "never"
       },
       "exampleIds" : [
+        "update_check"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "check",
+          "summary" : "Same as bare update — print current, latest, and the install one-liner.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured { available, current, latest?, command }.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "update",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Show whether a newer alln release is available (soft-announce only; never downloads).",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
         "install_cli_json"
       ],
       "flagConstraints" : [
@@ -5586,7 +5626,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "7.3.0",
+  "contractVersion" : "7.4.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5595,6 +5635,10 @@
     {
       "meaning" : "`alln` resolves on PATH to this binary.",
       "name" : "binary.onPath"
+    },
+    {
+      "meaning" : "Whether a newer alln release is available (ReleaseChannel cache).",
+      "name" : "release.update"
     },
     {
       "meaning" : "Generated docs match binary contract.",
@@ -6978,6 +7022,11 @@
       "command" : "alln version --json",
       "id" : "version_json",
       "title" : "Print binary and contract identity"
+    },
+    {
+      "command" : "alln update --check",
+      "id" : "update_check",
+      "title" : "Soft-announce a newer release"
     },
     {
       "command" : "alln models --json",

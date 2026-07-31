@@ -451,8 +451,15 @@ public enum ContractSchema {
             "schemaVersion": int, "binaryVersion": str, "contractVersion": str, "contractHash": str,
             "gitSha": nullable("string"), "buildTime": nullable("string"),
             "binaryPath": nullable("string"),
+            "update": ref("ReleaseUpdate"),
         ], required: ["schemaVersion", "binaryVersion", "contractVersion", "contractHash"])
         schema.merge(top) { _, new in new }
+        schema["$defs"] = [
+            "ReleaseUpdate": obj([
+                "available": bool, "current": str, "latest": str,
+                "binaryPath": nullable("string"), "command": str,
+            ], required: ["available", "current", "latest", "command"]),
+        ]
         return schema
     }
 
@@ -849,6 +856,7 @@ public enum ContractSchema {
             "defaults": ref("MenuDefaults"),
             "completeness": ref("MenuCompleteness"),
             "capacity": ref("Capacity"),
+            "update": ref("ReleaseUpdate"),
         ], required: [
             "schemaVersion", "contractVersion", "contractHash", "catalogRevision",
             "truncated", "detailTemplate", "actions", "commands", "teams", "models",
@@ -918,6 +926,10 @@ public enum ContractSchema {
                 "observedAgeSeconds": nullable("integer"),
                 "unknownReason": nullable("string"),
             ], required: ["source"]),
+            "ReleaseUpdate": obj([
+                "available": bool, "current": str, "latest": str,
+                "binaryPath": nullable("string"), "command": str,
+            ], required: ["available", "current", "latest", "command"]),
         ]
         return schema
     }

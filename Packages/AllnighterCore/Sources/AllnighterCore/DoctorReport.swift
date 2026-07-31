@@ -39,6 +39,9 @@ public enum DoctorReport {
         /// Optional teaching-snippet probe inputs (ONB-S01). `nil` → `teaching.installed`
         /// is `notChecked` (unit-test default). Live CLI passes home-derived targets.
         public var teachingInputs: [TeachingInstalledCheck.TargetInput]?
+        /// OPC-S06 — same `ReleaseChannel` announcement as menu/version. `nil` means
+        /// no newer release announced (or check disabled/failed); never remote notes.
+        public var update: ReleaseUpdateInfo?
 
         public init(
             binaryVersion: String,
@@ -56,7 +59,8 @@ public enum DoctorReport {
             runningBinaryPath: String? = nil,
             pathEnvironment: String? = nil,
             pilot: PilotContext? = nil,
-            teachingInputs: [TeachingInstalledCheck.TargetInput]? = nil
+            teachingInputs: [TeachingInstalledCheck.TargetInput]? = nil,
+            update: ReleaseUpdateInfo? = nil
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -74,6 +78,7 @@ public enum DoctorReport {
             self.pathEnvironment = pathEnvironment
             self.pilot = pilot
             self.teachingInputs = teachingInputs
+            self.update = update
         }
     }
 
@@ -115,6 +120,7 @@ public enum DoctorReport {
                   detail: inputs.docsVersionMatchesBinary ? "generated docs match the contract registry" : "generated docs drift from the registry",
                   fixCommand: inputs.docsVersionMatchesBinary ? nil : "alln dev export-contracts"),
             binaryStaleCheck(inputs),
+            updateCheck(inputs.update),
             .init(name: "configDir",
                   status: inputs.configDirWritable ? .ok : .critical,
                   detail: inputs.configDirWritable ? "config dir writable" : "config dir missing or not writable",
@@ -241,6 +247,25 @@ public enum DoctorReport {
             detail: "on-PATH binary gitSha \(binShort) ≠ workspace HEAD \(headShort)",
             fixCommand: "swift build --package-path Packages/AllnighterCore && alln install-cli",
             requiresManual: false
+        )
+    }
+
+    /// OPC-S06 — projects the same `ReleaseChannel` truth as menu/version.
+    /// `fixCommand` is always the compiled-in one-liner (never remote).
+    private static func updateCheck(_ update: ReleaseUpdateInfo?) -> DoctorResult.Check {
+        guard let update else {
+            return .init(
+                name: "release.update",
+                status: .ok,
+                detail: "no newer release announced"
+            )
+        }
+        return .init(
+            name: "release.update",
+            status: .degraded,
+            detail: "alln \(update.current) → \(update.latest) available",
+            fixCommand: ReleaseChannel.installCommand,
+            requiresManual: true
         )
     }
 

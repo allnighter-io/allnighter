@@ -1,4 +1,36 @@
 {
+  "$defs" : {
+    "ReleaseUpdate" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "available" : {
+          "type" : "boolean"
+        },
+        "binaryPath" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "command" : {
+          "type" : "string"
+        },
+        "current" : {
+          "type" : "string"
+        },
+        "latest" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "available",
+        "current",
+        "latest",
+        "command"
+      ],
+      "type" : "object"
+    }
+  },
   "$id" : "https:\/\/allnighter.app\/schemas\/version.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
@@ -32,6 +64,9 @@
     },
     "schemaVersion" : {
       "type" : "integer"
+    },
+    "update" : {
+      "$ref" : "#\/$defs\/ReleaseUpdate"
     }
   },
   "required" : [

@@ -111,7 +111,11 @@ public struct SourceProbeService: Sendable {
             runningBinaryPath: runningBinaryPath,
             pathEnvironment: pathEnvironment,
             pilot: request.pilot ? Self.pilotContext(projectToken: request.projectToken, records: doctorRecords, models: models, full: request.full) : nil,
-            teachingInputs: TeachingInstalledCheck.defaultInputs(homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
+            teachingInputs: TeachingInstalledCheck.defaultInputs(homeDirectory: FileManager.default.homeDirectoryForCurrentUser),
+            update: ReleaseChannel.checkUpdate(
+                currentVersion: binaryVersion,
+                binaryPath: runningBinaryPath
+            )
         )
         var result = DoctorReport.build(models: models, manifests: manifests, records: doctorRecords, inputs: inputs)
         result.checks.append(LoopPersistenceDoctorCheck.doctorCheck(loopsRoot: AllnighterPaths.loops))

@@ -288,7 +288,7 @@ public enum CLIUsage {
         // Golden-path families first; remaining families alphabetical.
         let preferred = [
             "run", "team", "teams", "models", "catalog", "doctor", "bootstrap", "help", "docs", "menu",
-            "version", "install-cli", "project", "thread", "skills", "pending", "stalled",
+            "version", "update", "install-cli", "project", "thread", "skills", "pending", "stalled",
             "show", "export", "history", "floor", "spec", "defaults", "boost-window",
             "ps", "kill", "gc", "continuity", "serve", "pair", "dev",
         ]

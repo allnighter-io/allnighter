@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 7.3.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 7.4.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -129,6 +129,16 @@ Flags:
 Output schema: `versionJSON`.
 
 Examples: `version_json`.
+
+### `alln update`
+
+Show whether a newer alln release is available (soft-announce only; never downloads).
+
+Flags:
+- `--check` — Same as bare update — print current, latest, and the install one-liner.
+- `--json` — Structured { available, current, latest?, command }.
+
+Examples: `update_check`.
 
 ### `alln install-cli`
 
@@ -1722,6 +1732,7 @@ the selected CLI.
 - `bootstrap_json` — Agent activation snippet for Claude Code: `alln bootstrap --host claude --json`
 - `install_cli_json` — Install the running binary onto PATH: `alln install-cli --json`
 - `version_json` — Print binary and contract identity: `alln version --json`
+- `update_check` — Soft-announce a newer release: `alln update --check`
 - `models_json` — List model catalog and Bench state: `alln models --json`
 - `drivers_json` — List CLIs and park state: `alln drivers --json`
 - `drivers_park` — Park a CLI you are not using: `alln drivers park opencode`

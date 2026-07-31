@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "7.3.0"
+    static let contractVersion = "7.4.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -123,6 +123,16 @@ public extension ContractRegistry {
             "version", summary: "Print the running binary version and contract hash.", milestone: .m1,
             flags: [FlagSpec("json", summary: "Structured VersionJSON.")],
             outputSchema: .versionJSON, exampleIds: ["version_json"]
+        ),
+        CommandSpec(
+            "update",
+            summary: "Show whether a newer alln release is available (soft-announce only; never downloads).",
+            milestone: .m1,
+            flags: [
+                FlagSpec("check", summary: "Same as bare update — print current, latest, and the install one-liner."),
+                FlagSpec("json", summary: "Structured { available, current, latest?, command }."),
+            ],
+            exampleIds: ["update_check"]
         ),
         CommandSpec(
             "install-cli", summary: "Symlink the running `alln` binary onto PATH (running the command is consent).", milestone: .m1,
@@ -1269,6 +1279,7 @@ public extension ContractRegistry {
     static let m1DoctorChecks: [DoctorCheckSpec] = [
         DoctorCheckSpec("binaryVersion", meaning: "CLI binary reports version."),
         DoctorCheckSpec("binary.onPath", meaning: "`alln` resolves on PATH to this binary."),
+        DoctorCheckSpec("release.update", meaning: "Whether a newer alln release is available (ReleaseChannel cache)."),
         DoctorCheckSpec("docsVersion", meaning: "Generated docs match binary contract."),
         DoctorCheckSpec("configDir", meaning: "Allnighter config dir exists and is writable."),
         DoctorCheckSpec("runsDir", meaning: "Run journal dir exists and is writable."),
@@ -1341,6 +1352,7 @@ public extension ContractRegistry {
         ExampleRecipe("bootstrap_json", title: "Agent activation snippet for Claude Code", command: "alln bootstrap --host claude --json"),
         ExampleRecipe("install_cli_json", title: "Install the running binary onto PATH", command: "alln install-cli --json"),
         ExampleRecipe("version_json", title: "Print binary and contract identity", command: "alln version --json"),
+        ExampleRecipe("update_check", title: "Soft-announce a newer release", command: "alln update --check"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("drivers_json", title: "List CLIs and park state", command: "alln drivers --json"),
         ExampleRecipe("drivers_park", title: "Park a CLI you are not using", command: "alln drivers park opencode"),

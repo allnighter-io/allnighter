@@ -408,6 +408,36 @@
         "strengthRank"
       ],
       "type" : "object"
+    },
+    "ReleaseUpdate" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "available" : {
+          "type" : "boolean"
+        },
+        "binaryPath" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "command" : {
+          "type" : "string"
+        },
+        "current" : {
+          "type" : "string"
+        },
+        "latest" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "available",
+        "current",
+        "latest",
+        "command"
+      ],
+      "type" : "object"
     }
   },
   "$id" : "https:\/\/allnighter.app\/schemas\/menu.schema.json",
@@ -476,6 +506,9 @@
     },
     "truncated" : {
       "type" : "boolean"
+    },
+    "update" : {
+      "$ref" : "#\/$defs\/ReleaseUpdate"
     }
   },
   "required" : [

@@ -111,6 +111,7 @@ struct AllnighterCLI {
         case "bootstrap": runBootstrap(args)
         case "install-cli": runInstallCLI(args)
         case "version": runVersion(args)
+        case "update": runUpdate(args)
         case "ps": await runOwnershipPs(args)
         case "kill": await runOwnershipKill(args)
         case "gc": runOwnershipGC(args)
@@ -404,6 +405,18 @@ struct AllnighterCLI {
             contractVersion: ContractRegistry.contractVersion
         )
         return MenuJSON.Capacity(strip: strip)
+    }
+
+    /// OPC-S06 — release-channel announcement for menu / version / doctor.
+    /// Fail-open: never throws, never blocks seating. Uses the shared
+    /// `ReleaseChannel` cache (24h TTL, 2s timeout). Not called from `run`.
+    static func menuUpdate(now: Date = Date()) -> ReleaseUpdateInfo? {
+        ReleaseChannel.checkUpdate(
+            currentVersion: binaryVersion,
+            binaryPath: ProcessOwnership.currentExecutablePath()
+                ?? CommandLine.arguments.first,
+            now: now
+        )
     }
 
     /// Local TTY probe for the capacity strip (mirrors PilotCLI — not shared).
@@ -1827,12 +1840,14 @@ struct AllnighterCLI {
     /// `alln version [--json]` / `alln --version` — binary + contract + build identity.
     static func runVersion(_ args: [String]) {
         let opts = Options(args)
+        let binaryPath = ProcessOwnership.currentExecutablePath()
+            ?? CommandLine.arguments.first
         let payload = VersionJSON(
             binaryVersion: binaryVersion,
             gitSha: AllnighterBuildInfo.gitSha,
             buildTime: AllnighterBuildInfo.buildTime,
-            binaryPath: ProcessOwnership.currentExecutablePath()
-                ?? CommandLine.arguments.first
+            binaryPath: binaryPath,
+            update: menuUpdate(now: Date())
         )
         if opts.flag("json") {
             print(jsonString(payload))
@@ -1843,6 +1858,51 @@ struct AllnighterCLI {
             }
             line += ")"
             print(line)
+            if let update = payload.update {
+                FileHandle.standardError.write(
+                    Data("update available: \(update.current) → \(update.latest); \(update.command)\n".utf8)
+                )
+            }
+        }
+    }
+
+    /// `alln update [--check] [--json]` — soft-announce only (BQ-4). Never
+    /// downloads or execs; applying is the human/agent running the one-liner.
+    static func runUpdate(_ args: [String]) {
+        let opts = Options(args)
+        // V1: bare `update` and `update --check` are the same read-only path.
+        _ = opts.flag("check")
+        let binaryPath = ProcessOwnership.currentExecutablePath()
+            ?? CommandLine.arguments.first
+        let info = menuUpdate(now: Date())
+        if opts.flag("json") {
+            if let info {
+                print(jsonString(info))
+            } else {
+                // Quiet when nothing to announce — same omit-key policy as menu.
+                struct EmptyUpdate: Encodable {
+                    let schemaVersion = 1
+                    let available = false
+                    let current: String
+                    let command: String
+                }
+                print(jsonString(EmptyUpdate(
+                    current: binaryVersion,
+                    command: ReleaseChannel.installCommand
+                )))
+            }
+            return
+        }
+        print("alln \(binaryVersion)")
+        if let info {
+            print("latest \(info.latest)")
+            print("update: \(info.command)")
+        } else {
+            print("latest (none announced)")
+            print("install/repair: \(ReleaseChannel.installCommand)")
+        }
+        if let binaryPath {
+            print("binary \(binaryPath)")
         }
     }
 

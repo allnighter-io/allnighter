@@ -9,7 +9,8 @@ enum MenuCLI {
         let menu = MenuCatalog.project(
             teams: runtime.teams.filter { !$0.isLabTeam },
             modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models,
-            capacity: AllnighterCLI.menuCapacity(now: Date())
+            capacity: AllnighterCLI.menuCapacity(now: Date()),
+            update: AllnighterCLI.menuUpdate(now: Date())
         )
         do {
             print(String(decoding: try MenuCatalog.encodeCompact(menu), as: UTF8.self))

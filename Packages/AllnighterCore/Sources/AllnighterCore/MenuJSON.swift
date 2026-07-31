@@ -20,6 +20,9 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     /// QABC-S00c — plan-time capacity snapshot, injected downward from a
     /// caller that already acquired it. Absent (not `null`) when omitted.
     public var capacity: Capacity?
+    /// OPC-S06 — release-channel announcement when a newer CLI is known.
+    /// Absent (not `null`) when omitted. Never carries remote notes/command.
+    public var update: ReleaseUpdateInfo?
 
     public struct Action: Codable, Sendable, Equatable {
         public var id: String
@@ -108,7 +111,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         effectProfiles: [String: ContractRegistry.EffectProfile],
         defaults: Defaults,
         completeness: Completeness,
-        capacity: Capacity? = nil
+        capacity: Capacity? = nil,
+        update: ReleaseUpdateInfo? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -125,18 +129,19 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         self.defaults = defaults
         self.completeness = completeness
         self.capacity = capacity
+        self.update = update
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, contractHash, catalogRevision, truncated,
             detailTemplate, actions, commands, teams, models, recipes, effectProfiles,
-            defaults, completeness, capacity
+            defaults, completeness, capacity, update
     }
 
     /// Swift's synthesized `Encodable` writes `Optional` properties as explicit
     /// `null` rather than omitting the key — this packet requires an absent key
-    /// when `capacity` is nil, so encoding is hand-written; decoding stays
-    /// synthesized (a matching `CodingKeys` is enough for that half).
+    /// when `capacity` / `update` is nil, so encoding is hand-written; decoding
+    /// stays synthesized (a matching `CodingKeys` is enough for that half).
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(schemaVersion, forKey: .schemaVersion)
@@ -154,6 +159,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         try container.encode(defaults, forKey: .defaults)
         try container.encode(completeness, forKey: .completeness)
         try container.encodeIfPresent(capacity, forKey: .capacity)
+        try container.encodeIfPresent(update, forKey: .update)
     }
 }
 
