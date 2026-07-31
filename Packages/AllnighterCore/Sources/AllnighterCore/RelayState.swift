@@ -289,7 +289,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// meaning rather than leaving it a real, dispatchable worker id. Never resolved
     /// through `RunService`. The chair is `caller` iff `pmModelId == callerPMModelId`
     /// (`isCallerChair`) — no separate mode field to drift out of sync with it.
-    public static let callerPMModelId = "external"
+    public static let callerPMModelId = "caller"
 
     /// True when the caller — a live human/agent session outside Allnighter — holds
     /// the PM seat (Pilot), false when Allnighter dispatches a PM model each round

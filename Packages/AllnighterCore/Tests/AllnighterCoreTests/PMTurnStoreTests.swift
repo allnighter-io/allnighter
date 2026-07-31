@@ -23,7 +23,7 @@ final class PMTurnStoreTests: XCTestCase {
 
     func testWriteReadRoundTripForRunAndRelay() throws {
         let run = makeTurn(kind: .run, subjectId: "run_abc", sequence: 1)
-        let relay = makeTurn(kind: .relay, subjectId: "relay_abc", sequence: 1, round: 2, pmMode: "external")
+        let relay = makeTurn(kind: .relay, subjectId: "relay_abc", sequence: 1, round: 2, pmMode: "caller")
 
         let runURL = try store.save(run)
         let relayURL = try store.save(relay)

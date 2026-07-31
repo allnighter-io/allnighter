@@ -186,7 +186,7 @@ final class RelayJSONTests: XCTestCase {
 
         let json = RelayJSON.project(state, contractVersion: "1.0.0")
 
-        XCTAssertEqual(json.pmMode, "external")
+        XCTAssertEqual(json.pmMode, "caller")
         XCTAssertEqual(json.status, "awaitingPM")
         XCTAssertNil(json.roundLog[0].pmRunId, "no PM turn dispatches in Pilot")
         XCTAssertEqual(json.roundLog[0].dirtyFilesCount, 2)

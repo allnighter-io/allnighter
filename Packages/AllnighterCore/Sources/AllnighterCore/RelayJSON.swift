@@ -106,7 +106,7 @@ public struct RelayJSON: Codable, Equatable, Sendable {
             contractVersion: contractVersion,
             relayId: state.id,
             status: state.status.rawValue,
-            pmMode: state.isCallerChair ? "external" : "spawned",
+            pmMode: state.isCallerChair ? "caller" : "spawned",
             rounds: state.rounds.count,
             verdict: state.rounds.last?.verdict?.verdict.rawValue,
             note: state.note,

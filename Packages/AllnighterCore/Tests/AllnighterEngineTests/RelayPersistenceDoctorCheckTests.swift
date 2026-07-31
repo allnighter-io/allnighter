@@ -11,7 +11,7 @@ final class RelayPersistenceDoctorCheckTests: XCTestCase {
             id: "relay_ok",
             projectRoot: "/tmp/repo",
             docPath: "docs/spec.md",
-            pmModelId: "external",
+            pmModelId: "caller",
             devModelId: "model_dev",
             status: .awaitingPM,
             createdAt: Date()
@@ -33,10 +33,10 @@ final class RelayPersistenceDoctorCheckTests: XCTestCase {
           "id": "relay_bad",
           "projectRoot": "/tmp/repo",
           "docPath": "docs/spec.md",
-          "pmWorkerId": "external",
+          "pmWorkerId": "caller",
           "devWorkerId": "model_dev",
           "status": "awaitingPM",
-          "pmMode": "external",
+          "pmMode": "caller",
           "rounds": [],
           "createdAt": "2026-07-29T12:00:00Z"
         }

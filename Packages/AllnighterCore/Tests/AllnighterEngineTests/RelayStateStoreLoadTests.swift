@@ -26,10 +26,10 @@ final class RelayStateStoreLoadTests: XCTestCase {
           "id": "relay_legacy",
           "projectRoot": "/tmp/repo",
           "docPath": "docs/spec.md",
-          "pmWorkerId": "external",
+          "pmWorkerId": "caller",
           "devWorkerId": "model_dev",
           "status": "awaitingPM",
-          "pmMode": "external",
+          "pmMode": "caller",
           "rounds": [],
           "createdAt": "2026-07-29T12:00:00Z"
         }

@@ -2091,7 +2091,7 @@ public struct RelayCoordinator: Sendable {
             workRecovery: nil,
             nextCommands: nextCommands,
             notes: report == nil ? ["settled_dev_report_missing"] : [],
-            pmMode: state.isCallerChair ? "external" : "spawned"
+            pmMode: state.isCallerChair ? "caller" : "spawned"
         )
         try pmTurnStore.save(turn)
     }
