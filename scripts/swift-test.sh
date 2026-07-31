@@ -182,6 +182,17 @@ group_signature() {
 
 run_with_timeout() {
   local -a cmd=(swift test --disable-sandbox --package-path "$PACKAGE_PATH" "$@")
+  if [[ -n "${ALLNIGHTER_SWIFT_TEST_CMD_OVERRIDE:-}" ]]; then
+    # TEST-ONLY escape hatch: scripts/works-test-test-guard.sh sets this to
+    # exec a fake runner (e.g. one that ignores SIGTERM, or one that wedges
+    # on purpose) instead of real `swift test`, so the guard machinery
+    # itself — process-group reaping, wedge detection, lock/pgid recovery —
+    # can be proven without a real multi-minute build. Never set this
+    # outside a Works Test; it bypasses --disable-sandbox/--package-path
+    # entirely.
+    # shellcheck disable=SC2206
+    cmd=(${ALLNIGHTER_SWIFT_TEST_CMD_OVERRIDE})
+  fi
   local log
   log="$(mktemp "${TMPDIR:-/tmp}/alln-swift-test.XXXXXX")"
 
