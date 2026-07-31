@@ -1,6 +1,6 @@
 # Loop Verb Cutover — `alln loop`
 
-Status: **v6 — LOCKED 2026-07-30. Grammar final. Implementation-ready. Not started.**
+Status: **v7 — LOCKED 2026-07-30. Final. Implementation-ready.**
 Owner: Founder ruling; implementer TBD
 Updated: 2026-07-30
 
@@ -13,9 +13,9 @@ the loops we have not built yet.
 Product value: one sayable word for a whole class of work, and one vocabulary
 across CLI, JSON, disk, and UI.
 
-Trusted workflow slice: `alln loop start deliver "<brief>" --spec <path> --pm
-<agent> --dev <agent>` runs unattended until the work is delivered, reviewing real
-commits every round. The Mac composer does the same thing behind one sheet.
+Trusted workflow slice: **`alln loop start "<what you want done>"`** — one
+sentence, nothing else required. It runs round after round, reviewing real commits,
+until the work is done. The Mac composer does the same thing behind one sheet.
 
 Non-goals: no change to round mechanics, write-lock behavior, or coordinator
 internals beyond what the renames force. The Mac sheet redesign is §8, a separate
@@ -34,6 +34,13 @@ packet.
 > two adopts do **not** share preconditions, and `step` for a spawned chair had no
 > existing operation to be neutral over — plus a missing archive step and a dozen
 > uncovered surfaces. All corrected below. **The names did not move.**
+>
+> **v7 — founder ruling, from his own sentences.** v6 was unusable: the founder
+> could not say what he wanted. Derived from transcript instead of principle
+> (§2 "What the founder actually says"). Three changes, all removals:
+> the `deliver` kind slot is **empty**, `--pm` and `--dev` are **optional with tier
+> defaults**, and `--spec` is a **shortcut, not the shape**. Nothing was added.
+> v6's state-machine corrections and surface inventory stand unchanged.
 
 ---
 
@@ -81,49 +88,90 @@ with `alln teams` besides.
 
 ```text
 alln run                                    # one turn
-alln loop start <kind> <brief> [--spec <path>] --pm <occupant> --dev <agent-id> [--dry-run]
+alln loop start "<what you want done>" [--spec <path>] [--pm caller|<agent-id>] [--dev <agent-id>] [--dry-run]
 alln loop list
 alln loop status <loop-id>
 alln loop stop <loop-id>                    # terminal, durable, NOT resumable
 alln loop resume <loop-id>
 alln loop wait <loop-id>                    # disposable waiter; blocks, prints event, exits
 alln loop step <loop-id> <message>          # submit the next PM decision
-alln loop step <loop-id> --done <summary>   # PM decision: delivered, end successfully
-alln loop pm <loop-id> <occupant>           # reassign the chair; loop must be parked
+alln loop step <loop-id> --done <summary>   # decision: work is done, end successfully
+alln loop pm <loop-id> <occupant>           # reassign the chair
 alln teams                                  # manage the noun
 alln pair                                   # device pairing ONLY
 ```
 
-- `<kind>` — today the only value is **`deliver`**. Required positional, never
-  defaulted (§3).
-- `<occupant>` — **`caller`** (the live agent session holds the chair) or a
-  canonical agent id (alln spawns that agent into it).
-- `--pm` is **required**. No silent default for a cold agent to guess wrong.
+**Everything in brackets is optional. The brief is the only required input.**
 
-### Disclosure: how a human phrase reaches the right value
+### What the founder actually says — this is the spec, not an illustration
 
-Law 2 moved attendedness from a verb into an argument. That is right for
-extensibility and it has a cost: **"unsupervised" is no longer a word in the
-command.** Founder phrasings that must land correctly:
+v1–v6 derived the grammar from taxonomy and produced something the founder could
+not use. v7 derives it from transcript. These are his sentences, verbatim:
 
-| What the founder says | Correct invocation |
+| He says | Invocation |
 | --- | --- |
-| "start an unsupervised PM/dev loop on this spec" | `--pm <agent-id>` |
-| "run this loop but I'll review each round" / "I'll pilot it" | `--pm caller` |
-| "hand this spec to a loop and walk away" | `--pm <agent-id>` |
+| "Set up a loop using alln and have it execute this doc" | `alln loop start "execute this doc" --spec <doc>` |
+| "Set up a loop via alln and have a dev and pm execute this doc" | same — naming two agents *is* the default |
+| "You are the pm and the dev is grok via grok CLI" | `--pm caller --dev model_grok` |
 
-**Binding on LVC-S03.** The `--pm` values ship explicit disclosure in
-`MenuCatalog` — this is not optional polish, it is what makes the grammar usable:
+Two findings that overturned v6:
 
+1. **No sentence contains an attendedness word.** Not "unsupervised," not
+   "unattended." What he varies is **casting** — who sits in which chair. `--pm
+   caller` is the literal answer to "who's the PM," not a posture in disguise. The
+   design was right; v6's *story* about it was wrong, and the wrong story is what
+   made it unusable.
+2. **He named seats because nothing defaulted, not because he wanted to.**
+   `relay`/`pilot` were memorized as a tax. Once seats default, the default
+   sentence names nobody — so a required `--pm` would reject his most natural
+   request.
+
+**"Setup a loop → then what" = then nothing.** `alln loop start` plus a brief. Any
+further word is optional casting he already speaks in plain English.
+
+### The kind slot ships EMPTY
+
+v5/v6 required a `deliver` positional on Fable's argument that an unnamed sole kind
+becomes an implicit default. Real, but it costs the founder the first slot he
+types on a word that distinguishes nothing today. **Founder ruling: wrong trade for
+the one user.** The slot stays empty and reserved. When a second kind exists
+(`research`, `review`) it claims the slot under Law 1 and we pay the rename then —
+against a grammar people can actually use, which is the only kind worth migrating.
+
+### `--spec` is a shortcut, not the shape
+
+The loop needs **work that takes multiple rounds and produces commits**, not a
+document. A spec doc is the common case, never the requirement:
+
+```
+alln loop start "fix every failing test until the suite is green"
+alln loop start "migrate all call sites off the old catalog loader"
+```
+
+`--spec` exists for when the brief would be three paragraphs. **Binding on S03:
+brief-only is the headline example everywhere** — menu, help, bootstrap, recipes.
+Leading every example with `--spec` makes it read as mandatory, which narrows the
+product to people who write spec docs.
+
+### Defaults
+
+| Flag | Default | Source |
+| --- | --- | --- |
+| `--pm` | Frontier tier | `DefaultModelSettings.swift` (LVC-S07) |
+| `--dev` | Balanced tier | same |
+| `--spec` | none — the brief carries the work | — |
+
+`caller` is a reserved `--pm` value meaning the live agent session holds the chair.
+It is never resolved as a model id.
+
+**Binding on S03 — menu disclosure:**
 - `--pm caller` — *useWhen:* "you (this session) review every round and decide the
-  next slice." *dontUseWhen:* "not unattended — the loop parks until you `step` it."
-- `--pm <agent-id>` — *useWhen:* "that agent reviews every round; runs unattended,
-  nobody has to watch." *dontUseWhen:* "not if you want to approve each round."
+  next slice." *dontUseWhen:* "not unattended — the loop waits for you to `step` it."
+- `--pm <agent-id>` / omitted — *useWhen:* "that agent reviews every round; nobody
+  has to watch."
 
-**Binding on §9.** The cold-agent matrix must test the phrase, not the flag: give
-an agent *"start an unsupervised PM/dev loop on <spec>"* and assert it produces
-`--pm <agent-id>`, not `--pm caller` and not a hunt for a retired `pilot` verb.
-A grammar a founder cannot reach from plain speech is not shipped.
+**Binding on §9 — the cold-agent matrix runs the founder's sentences verbatim**,
+not synthetic ones. A grammar he cannot reach from plain speech is not shipped.
 
 ### "Parked" is prose, not a status — use these names
 
@@ -152,8 +200,8 @@ Live registry: `ContractRegistry+Milestone1.swift:609-666`, `PairCLI.swift:20-31
 
 | Today | After |
 | --- | --- |
-| `pair relay --pm-model X --dev-model Y` | `alln loop start deliver … --pm X --dev Y` |
-| `pair pilot start` | `alln loop start deliver … --pm caller --dev Y` |
+| `pair relay --pm-model X --dev-model Y` | `alln loop start "<brief>"` (seats default) or `--pm X --dev Y` |
+| `pair pilot start` | `alln loop start "<brief>" --pm caller` |
 | `pair relay-status` / `pair pilot status` | `alln loop status <id>` |
 | `pair relay-resume` | `alln loop resume <id>` |
 | `pair relay stop` | `alln loop stop <id>` |
@@ -204,15 +252,15 @@ preconditions may be loosened to make them match.
 
 ## 3. The three naming laws
 
-### Law 1 — `kind` names what *done* means
+### Law 1 — a `kind`, when one exists, names what *done* means
 
-`deliver` = runs until the work is delivered. Future kinds name their own terminal
-condition: `research` (until questions are exhausted), `review` (until clean).
-That is what keeps the slot coherent.
+The slot is **empty today** (§2). When a second kind of loop arrives it must name
+its own terminal condition — `research` (until questions are exhausted), `review`
+(until clean) — never a posture, never a mechanism. That is the rule the slot is
+being held for.
 
-**The kind is required today, with only one value.** An unnamed sole kind becomes
-"the implicit default" the moment a second arrives — and under a no-aliases rule
-that means renaming on-disk state and menu ids later. Name it now; pay once.
+Until then there is nothing to type. A word that distinguishes nothing is not
+worth the first position in the command.
 
 ### Law 2 — the chair is an occupant, not a mode
 
@@ -268,6 +316,9 @@ keeps the cutover from having to happen again.
 | `--pm spawned \| session` alongside `--pm-model` | Two flags for one concept. Collapsed into `--pm <caller\|agent-id>`. |
 | `handoff` as a chair-conditional verb | Law 3. It is the seed of the fork. |
 | `set-pm` | `pm` reuses the flag's word. One concept, one word. |
+| A required `deliver` kind positional | Costs the founder the first slot he types on a word that distinguishes nothing today. The slot ships empty (§2). |
+| Required `--pm` / `--dev` | Rejects the founder's most natural sentence, which names nobody. Both default by tier (§2). |
+| Any attendedness word (`unsupervised`, `unattended`, `away`, `live`) after `loop` | No founder sentence contains one. He varies **casting**, not posture. Adding a mode word re-creates the `relay`/`pilot` tax in new spelling. |
 
 ### The `delegate` collision was a false premise
 
@@ -596,8 +647,9 @@ seats and spec so the repeat path is type-one-field-and-go.
 ## 9. Proof
 
 Works Test, from a clean shell:
-- `alln loop start deliver "<brief>" --spec <path> --pm <agent> --dev <agent>` lands a real commit
-- `--pm caller` → `step` → `status` (parked) → `wait`
+- `alln loop start "<brief>"` — **no other flags** — lands a real commit with defaulted seats
+- `--spec <path>` variant lands a real commit
+- `--pm caller` → `step` → `status` (`awaitingPM`) → `wait`
 - `loop pm <id> caller` and `loop pm <id> <agent-id>` both flip a parked loop
 - `step` errors on the **status** (`notAwaitingPM`) for an agent-occupied loop — never on the occupant
 - `stop` is durable and not resumable; `resume` works on a parked loop
@@ -631,12 +683,14 @@ decode), `RelayAdoptTests`, `RelayJSONTests:164,173,183`,
 
 **The cold-agent matrix is non-optional.** `menu-not-router` /
 `scripts/menu_not_router_eval.py` must be extended to cover the `loop` family —
-specifically whether a cold agent reaches for `--pm caller` rather than hunting a
-`pilot` verb that no longer exists. No waiver.
+and it runs the founder's own sentences verbatim (§2 table): "Set up a loop using
+alln and have it execute this doc" must produce a defaulted-seat invocation, and
+"You are the pm and the dev is grok via grok CLI" must produce
+`--pm caller --dev model_grok`. No waiver.
 
 Done when: no product surface an agent or human can read says `pair relay`,
 `pair pilot`, `relay-resume`, `--relay`, or `external`; `alln loop` is the only way
-to start a multi-round thing; `alln loop start --dry-run` exists and spends nothing;
+to start a multi-round thing; `alln loop start "<brief>"` works with no other flags; `--dry-run` exists and spends nothing;
 contract 7.0.0 / binary 0.11.0 ship together; the Mac popover offers Delivery Loop;
 **and this packet is archived to `docs/archive/phases/` with the three laws
 promoted (LVC-S10).**
@@ -648,8 +702,8 @@ promoted (LVC-S10).**
 | Sibling verb or flag on `run`? | **Sibling verb.** The verb is the object (§1). |
 | Does that violate Menu_Not_Router? | **No** — it bills effects + a free twin (§1). |
 | Two kinds (`delegate`/`pilot`) or one? | **One kind, `deliver`.** The chair is not a kind (§3). |
-| Kind slot empty or named today? | **Named.** An unnamed sole kind becomes an implicit default (§3, Law 1). |
-| How is the chair expressed? | `--pm <caller\|agent-id>`; reassignment is `loop pm` (§3, Law 2). |
+| Kind slot empty or named today? | **EMPTY (v7).** v5/v6 said named; overturned by founder ruling — a word that distinguishes nothing is not worth the first slot. |
+| How is the chair expressed? | `--pm <caller\|agent-id>`, **optional, Frontier default**; reassignment is `loop pm` (§3, Law 2). |
 | Two adopts? | **One operation** — `loop pm <id> <occupant>` (§2). |
 | `handoff`? | **`step`, chair-neutral** (§3, Law 3). |
 | Collapse `relay-status` + `pilot status`? | **Yes** — one object, one `status`; parked-vs-terminal is a flag. |
@@ -661,6 +715,8 @@ promoted (LVC-S10).**
 | Swift symbol sweep? | **Yes, LVC-S09 — separate slice** (§4). |
 | Mac feature name? | **Delivery Loop** (§3). |
 | First future kind? | Must name a terminal condition (`research`, `review`). **None authorized** — do not build speculative kind machinery. |
+| Is `--spec` required? | **No.** The brief carries the work; `--spec` is a shortcut. Brief-only is the headline example everywhere (§2). |
+| Is there a mode word? | **No, and never.** No founder sentence has one (§2, §3). |
 | Is `loop pm` one code path? | **No** — one verb, two transitions with different eligibility and effects (§2 table). |
 | Does `step` need a spawned-side injection path? | **No.** `step` is accepted only in `awaitingPM` and errors on the *status*. Do not build injection (§3, Law 3). |
 | Where does this packet end up? | **`docs/archive/phases/`**, after the three laws are promoted (LVC-S10). |
