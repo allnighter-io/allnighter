@@ -33,12 +33,16 @@ public enum CapacityAcquisition {
         "agy",
     ]
 
-    /// Tier-3 seats with no on-disk capacity surface.
+    /// Tier-3 seats with a PTY probe path.
+    /// Codex and Grok have disk-read fallbacks when the probe fails;
+    /// the others have no disk surface and show `neverSampled` on failure.
     public static let tier3DisklessSources: [String] = [
         "claude_code",
         "cursor_agent",
         "kimi",
         "agy",
+        "codex",
+        "grok",
     ]
 
     /// Tier-3 seats the PTY probe drives on `--refresh` (includes Claude Code).
@@ -89,10 +93,10 @@ public enum CapacityAcquisition {
         probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
     ) -> [CapacityWindow] {
         var result: [CapacityWindow] = []
-        // Tier-1 first — always. Probe failures must not prevent these numbers.
-        result.append(contentsOf: acquireCodex(homeRoot: homeRoot, now: now))
-        result.append(contentsOf: acquireGrok(homeRoot: homeRoot, now: now))
+        // Tier-3 covers all bench sources now, including codex and grok.
+        // Codex and Grok fall back to disk reads when their probe fails.
         result.append(contentsOf: acquireTier3(
+            homeRoot: homeRoot,
             now: now,
             refresh: refresh,
             refreshSource: refreshSource,
@@ -105,6 +109,7 @@ public enum CapacityAcquisition {
     // MARK: - Tier 3
 
     private static func acquireTier3(
+        homeRoot: URL,
         now: Date,
         refresh: Bool,
         refreshSource: String?,
@@ -112,20 +117,21 @@ public enum CapacityAcquisition {
         probeTimeout: TimeInterval
     ) -> [CapacityWindow] {
         if !refresh {
-            // Bare path: never sample, never spawn. NOT `.vendorExposesNothing` —
-            // that claims the vendor has no usage surface, which is false for every
-            // seat in this list. agy, Kimi, Cursor, and Claude all print `/usage`,
-            // and we ship tested parsers for each. Without an explicit `--refresh`
-            // we simply have not looked.
-            return tier3DisklessSources.map { source in
-                CapacityWindow.unknown(
-                    reason: .neverSampled,
-                    source: source,
-                    scope: .weekly,
-                    observedAt: now,
-                    sourceTier: .tuiProbe
-                )
-            }
+            // Bare/cached path: return disk reads for codex and grok, neverSampled for others.
+            return tier3DisklessSources.map { source -> [CapacityWindow] in
+                switch source {
+                case "codex": return acquireCodexDisk(homeRoot: homeRoot, now: now)
+                case "grok":  return acquireGrokDisk(homeRoot: homeRoot, now: now)
+                default:
+                    return [CapacityWindow.unknown(
+                        reason: .neverSampled,
+                        source: source,
+                        scope: .weekly,
+                        observedAt: now,
+                        sourceTier: .tuiProbe
+                    )]
+                }
+            }.flatMap { $0 }
         }
 
         let probeable = Set(tier3ProbeableSources)
@@ -235,21 +241,33 @@ public enum CapacityAcquisition {
                 }
             } else {
                 // Not selected for this refresh (targeted other seat, or deferred).
-                result.append(
-                    CapacityWindow.unknown(
-                        reason: .neverSampled,
-                        source: source,
-                        scope: .weekly,
-                        observedAt: now,
-                        sourceTier: .tuiProbe
+                // Codex and grok fall back to their disk reads; others: neverSampled.
+                switch source {
+                case "codex": result.append(contentsOf: acquireCodexDisk(homeRoot: homeRoot, now: now))
+                case "grok":  result.append(contentsOf: acquireGrokDisk(homeRoot: homeRoot, now: now))
+                default:
+                    result.append(
+                        CapacityWindow.unknown(
+                            reason: .neverSampled,
+                            source: source,
+                            scope: .weekly,
+                            observedAt: now,
+                            sourceTier: .tuiProbe
+                        )
                     )
-                )
+                }
             }
         }
         return result
     }
 
     // MARK: - Codex
+
+    /// Disk fallback: newest `rollout-*.jsonl` under `~/.codex/sessions/`.
+    /// Called when the PTY probe is skipped (cached path) or fails.
+    private static func acquireCodexDisk(homeRoot: URL, now: Date) -> [CapacityWindow] {
+        acquireCodex(homeRoot: homeRoot, now: now)
+    }
 
     /// `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl` — newest file first;
     /// stop at the first file that yields a usable rate-limit record.
@@ -324,6 +342,12 @@ public enum CapacityAcquisition {
     }
 
     // MARK: - Grok
+
+    /// Disk fallback: `~/.grok/logs/unified.jsonl` reverse-scan.
+    /// Called when the PTY probe is skipped (cached path) or fails.
+    private static func acquireGrokDisk(homeRoot: URL, now: Date) -> [CapacityWindow] {
+        acquireGrok(homeRoot: homeRoot, now: now)
+    }
 
     /// `~/.grok/logs/unified.jsonl` — one large file. Read backwards from EOF
     /// and stop at the first billing weekly match (newest record).

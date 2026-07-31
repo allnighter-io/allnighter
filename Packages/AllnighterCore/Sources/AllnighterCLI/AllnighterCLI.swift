@@ -334,16 +334,23 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln capacity [--json] [--refresh [--source <id>]]` — vendor quota strip.
-    /// Live acquire (tier-1 disk; optional tier-3 PTY on `--refresh`), record
-    /// successes, then hydrate last-known for unknowns (CAP-HF-00). Unknown
-    /// never blocks (exit 0). Non-TTY path is plain ASCII, zero ANSI.
+    /// `alln capacity [--json] [--cached] [--source <id>]` — vendor quota strip.
+    /// Live acquire (tier-3 PTY probes by default; use `--cached` for instant
+    /// disk-only display), record successes, then hydrate last-known for unknowns
+    /// (CAP-HF-00). Unknown never blocks (exit 0). Non-TTY path is plain ASCII,
+    /// zero ANSI.
+    ///
+    /// Default behaviour: all seats are probed (tier-3 PTY, 20–35 s budget).
+    /// Use `--cached` (or `--no-refresh`) for the old instant disk-only view.
     static func runCapacity(_ args: [String]) {
         let opts = Options(args)
         let now = Date()
-        let refresh = opts.flag("refresh")
-        // --source without --refresh is rejected by registry flagConstraints
-        // before this handler (CLI_USAGE_ERROR). Unknown ids fail closed here.
+        // Refresh is ON by default. --cached / --no-refresh restores the fast
+        // disk-only path (no spawns). This means bare `alln capacity` always
+        // returns fresh data — agents and users never see stale numbers by default.
+        let cached = opts.flag("cached") || opts.flag("no-refresh")
+        let refresh = !cached
+        // --source without a refresh-capable context is still validated.
         let refreshSource = opts.value("source")
         if let refreshSource, let message = CapacityAcquisition.validateRefreshSourceId(refreshSource) {
             fail(code: "CLI_USAGE_ERROR", message: message)

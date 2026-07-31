@@ -99,18 +99,14 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "capacity",
-            summary: "Show vendor capacity/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy/kimi/cursor/claude); --refresh --source <id> probes one seat only. Unknown never blocks.",
+            summary: "Show vendor capacity/quota headroom. Default runs tier-3 PTY probes for all seats (agy/kimi/cursor/claude/codex/grok) and returns fresh data; --cached (or --no-refresh) gives an instant disk-only view with no spawns. --source <id> probes one seat only. Unknown never blocks.",
             milestone: .m1,
-            trigger: "Before seating work when you need remaining weekly/5-hour headroom, reset clocks, or which vendors expose nothing. Use --refresh --source <id> when about to dispatch to one seat.",
-            example: "alln capacity --refresh --source cursor_agent",
-            antiExample: "Do NOT use this for per-run token usage on receipts — that is a different system. Do NOT pass --source without --refresh.",
+            example: "alln capacity --source cursor_agent",
             flags: [
-                FlagSpec("json", summary: "Structured CapacityStripJSON (contractVersion + per-source rows)."),
-                FlagSpec("refresh", summary: "Run tier-3 PTY probes (agy/kimi/cursor/claude /usage). Bare capacity never spawns. Combine with --source to probe one seat."),
-                FlagSpec("source", takesValue: true, valueType: "sourceId", summary: "With --refresh only: probe one bench source (codex|claude_code|cursor_agent|grok|kimi|agy). Tier-1 is disk-only (no spawn). Full strip still renders."),
-            ],
-            flagConstraints: [
-                FlagConstraint(.requires, "source", "refresh"),
+                FlagSpec("json", summary: "Emit JSON instead of the human-readable strip."),
+                FlagSpec("cached", summary: "Skip PTY probes; return disk-only cached view instantly (no spawns). Alias: --no-refresh."),
+                FlagSpec("no-refresh", summary: "Alias for --cached."),
+                FlagSpec("source", takesValue: true, summary: "Probe one seat only (still runs the full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy."),
             ],
             outputSchema: .capacityStripJSON,
             spendsQuota: false
@@ -538,7 +534,7 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "loop start",
-            summary: "Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself (the `pair pilot start` path); `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended (the `pair relay` path).",
+            summary: "Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself; `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended.",
             milestone: .m1,
             trigger: "Use when the user wants a multi-round PM↔dev loop that reviews real commits round after round until the work is done — with or without naming who sits in which chair.",
             example: "alln loop start \"execute this doc\" --spec docs/phases/Loop_Verb_Cutover.md --pm caller --dev model_grok",

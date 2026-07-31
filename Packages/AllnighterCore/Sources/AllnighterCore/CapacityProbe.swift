@@ -81,11 +81,14 @@ public enum CapacityProbe {
 
     /// Tier-3 seats this probe knows how to drive today.
     /// Claude Code: `/usage` opens the Usage pane directly (no tab navigation).
+    /// Codex: `/status` shows the weekly-limit bar at the top of the status screen.
     public static let probeableSources: [String] = [
         "agy",
         "kimi",
         "cursor_agent",
         "claude_code",
+        "codex",
+        "grok",
     ]
 
     /// Candidate executable names per source (PATH order).
@@ -94,6 +97,8 @@ public enum CapacityProbe {
         "kimi": ["kimi"],
         "cursor_agent": ["agent", "cursor-agent"],
         "claude_code": ["claude"],
+        "codex": ["codex"],
+        "grok": ["grok"],
     ]
 
     /// Home-relative known install paths (checked when PATH misses).
@@ -102,11 +107,19 @@ public enum CapacityProbe {
         "kimi": [".kimi-code/bin/kimi", ".local/bin/kimi"],
         "cursor_agent": [".local/bin/agent", ".local/bin/cursor-agent"],
         "claude_code": [".local/bin/claude", ".local/share/claude/versions"],
+        "codex": [".local/bin/codex"],
+        "grok": [".local/bin/grok"],
     ]
 
-    /// Slash command bytes sent after the TUI is ready.
+    /// Default slash command sent after the TUI is ready.
     /// Claude Code's `/usage` lands on the Usage tab with session/weekly bars.
     public static let usageCommand = "/usage"
+
+    /// Per-source TUI command to invoke the usage/status surface.
+    /// Codex uses `/status`; all others use `/usage`.
+    public static func probeCommand(for source: String) -> String {
+        source == "codex" ? "/status" : usageCommand
+    }
 
     // MARK: Public entry
 
@@ -223,6 +236,10 @@ public enum CapacityProbe {
             return CursorCapacityLog.capacityWindows(fromRender: renderText, observedAt: now)
         case "claude_code":
             return ClaudeCapacityLog.capacityWindows(fromRender: renderText, observedAt: now)
+        case "codex":
+            return CodexCapacityProbe.capacityWindows(fromRender: renderText, observedAt: now)
+        case "grok":
+            return GrokCapacityProbe.capacityWindows(fromRender: renderText, observedAt: now)
         default:
             return []
         }
@@ -354,8 +371,12 @@ public enum CapacityProbe {
         // 1) Wait for the interactive prompt / boot chrome. Handle Claude's
         // workspace trust dialog (Enter accepts default "Yes, I trust…").
         let readyMarkers = [
-            "shortcuts", "session:", "cursor agent", "│ >", "\n> ", "tip:",
+            "shortcuts", "session:", "cursor agent", "│ > ", "\n> ", "tip:",
             "bypass permissions", "? for shortcuts", "welcome back", "claude code",
+            // codex: status screen paints immediately with version header
+            "openai codex", ">_ openai", "weekly limit",
+            // grok: standard TUI boot chrome
+            "grok build", ">grok",
         ]
         while Date() < deadline {
             appendAvailable(from: master, into: &buffer)
@@ -400,8 +421,9 @@ public enum CapacityProbe {
         }
         _ = waitBrief(0.1)
 
-        // 2) Send usage command. Claude often needs slow typing so the slash
+        // 2) Send usage/status command. Claude needs slow typing so the slash
         // menu resolves to /usage instead of leaving the chat chrome painted.
+        // Codex uses /status; others use /usage.
         if Date() < deadline, !childExited(pid) {
             sendUsageCommand(master: master, source: source)
             usageSent = true
@@ -430,6 +452,10 @@ public enum CapacityProbe {
             "monthly plan", "included", "resets ",
             "current session", "current week",
             "settings", "status", "config", "usage", "stats", // Claude Usage tab chrome
+            // codex: remaining-polarity display
+            "% left",
+            // grok: credit-based display
+            "credit",
         ]
         while Date() < deadline {
             appendAvailable(from: master, into: &buffer)
@@ -530,11 +556,13 @@ public enum CapacityProbe {
         return .captured(finalText)
     }
 
-    /// Type the usage slash command. Claude needs per-keystroke delay so the
+    /// Type the usage/status slash command. Claude needs per-keystroke delay so the
     /// slash menu binds to `/usage` instead of leaving bare chat chrome.
+    /// Codex uses `/status`; all other sources use `/usage`.
     private static func sendUsageCommand(master: Int32, source: String) {
-        let cmd = Array("\(usageCommand)".utf8)
+        let cmd = Array(probeCommand(for: source).utf8)
         if source == "claude_code" {
+            // Slow typing so the slash menu resolves before Enter.
             for byte in cmd {
                 var b = byte
                 _ = write(master, &b, 1)
