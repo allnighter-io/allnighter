@@ -510,7 +510,9 @@ enum PilotCLI {
         }
     }
 
-    private static func emitHandoffResult(_ payload: RelayCoordinator.PilotRoundResult, json: Bool) {
+    /// Not `private` — `LoopCLI.runStep` (`alln loop step`, LVC-S02d) shares this
+    /// exact print path with `pilot handoff`.
+    static func emitHandoffResult(_ payload: RelayCoordinator.PilotRoundResult, json: Bool) {
         let relayJSON = RelayJSON.project(payload.state, contractVersion: ContractRegistry.contractVersion)
         if json {
             print(AllnighterCLI.jsonLine(PilotHandoffJSON(relay: relayJSON, devReport: payload.devReport)))
@@ -1421,7 +1423,8 @@ enum PilotCLI {
         AllnighterCLI.fail(code: code, message: message)
     }
 
-    private static func failPilotRound(_ error: RelayCoordinator.PilotRoundError) -> Never {
+    /// Not `private` — shared with `LoopCLI.runStep` (LVC-S02d).
+    static func failPilotRound(_ error: RelayCoordinator.PilotRoundError) -> Never {
         let (code, message) = pilotRoundErrorEnvelope(error)
         AllnighterCLI.fail(code: code, message: message)
     }

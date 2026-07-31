@@ -3,8 +3,9 @@ import AllnighterCore
 import AllnighterEngine
 
 /// `alln loop` — the durable PM↔dev loop object (LVC v7 `docs/phases/Loop_Verb_Cutover.md`
-/// §2). This slice (LVC-S02a/S02b/S02c) wires `start|list|status|stop|resume|wait`;
-/// `step|pm` land in a later slice. `loop start` builds `RelayCoordinator.Config`/
+/// §2). LVC-S02a/S02b/S02c wired `start|list|status|stop|resume|wait`; this slice
+/// (LVC-S02d) adds the last two verbs, `step` and `pm`. `loop start` builds
+/// `RelayCoordinator.Config`/
 /// `PilotCLI.StartRequest` directly and dispatches into the existing `PilotCLI`/`RelayCLI`
 /// coordinator entry points — `docPath` is `nil` when `--spec` is omitted (LVC-S02b: a brief
 /// with no doc still starts a real loop); `pair pilot start`/`pair relay` themselves keep
@@ -28,11 +29,14 @@ enum LoopCLI {
             await RelayCLI.runResume(loopArgs(rest, usageLine: "loop resume <loop-id> --answer <text> [--until HH:MM] [--max-rounds N] [--no-wait] [--json]"), runtime: runtime)
         case "wait":
             PilotCLI.runWatch(loopArgs(rest, usageLine: "loop wait <loop-id> [--max-wait <seconds>] [--json]"))
+        case "step":
+            await runStep(rest, runtime: runtime)
+        case "pm":
+            await runPm(rest, runtime: runtime)
         default:
-            FileHandle.standardError.write(Data((
-                "loop \(sub): not yet implemented in this build — start|list|status|stop|resume|wait exist so far.\n" +
-                "Coming in a later slice: step, pm.\n"
-            ).utf8))
+            FileHandle.standardError.write(Data(
+                "loop \(sub): not recognized — start|list|status|stop|resume|wait|step|pm.\n".utf8
+            ))
             exit(2)
         }
     }
@@ -313,5 +317,126 @@ enum LoopCLI {
         if let pmRaw { command += " --pm \(pmRaw)" }
         if let devRaw { command += " --dev \(devRaw)" }
         return command
+    }
+
+    // MARK: - step (was `pair pilot handoff`)
+
+    /// `alln loop step <loop-id> <message>` / `alln loop step <loop-id> --done <summary>`
+    /// (LVC v7 §2, Law 3 — `docs/phases/Loop_Verb_Cutover.md` §3). `step` is
+    /// chair-neutral BY DEFINITION: it is accepted only when the loop's durable
+    /// `status == .awaitingPM`, checked on the status alone, never on `pmMode`/who
+    /// holds the chair. `awaitingPM` is documented Pilot-only (`RelayState.swift:195-202`)
+    /// — an agent-occupied loop dispatches its own decision inside `RelayCoordinator`
+    /// and so is never observably `awaitingPM`; that is what makes this chair-neutral
+    /// without ever consulting the occupant. Do NOT add a `pmMode`/occupant check here —
+    /// that was v5's Law 3 violation (corrected in v6/v7).
+    static func runStep(
+        _ args: [String], runtime: ToolRuntime,
+        stateStore: RelayStateStore = RelayStateStore(),
+        projectStore: ProjectStore = ProjectStore()
+    ) async {
+        let opts = Options(args)
+        guard let loopId = opts.positional.first, !loopId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            stepUsage()
+        }
+        let doneSummary = opts.value("done")
+        let message = opts.positional.count > 1 ? opts.positional[1] : nil
+        if doneSummary != nil, message != nil {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "loop step takes either a message or --done <summary>, not both"
+            )
+        }
+
+        let submission: String
+        do {
+            if let doneSummary {
+                submission = try PilotCLI.synthesizeSubmission(verdict: .done, handover: nil, note: doneSummary)
+            } else if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                submission = try PilotCLI.synthesizeSubmission(verdict: .continueRelay, handover: message, note: nil)
+            } else {
+                stepUsage()
+            }
+        } catch {
+            AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
+        }
+
+        guard let state = stateStore.load(id: loopId) else {
+            AllnighterCLI.fail(code: "RELAY_NOT_FOUND", message: "loop not found: \(loopId)")
+        }
+        guard state.status == .awaitingPM else {
+            AllnighterCLI.fail(
+                code: "RELAY_NOT_AWAITING_PM",
+                message: "loop is not awaiting a PM decision (status: \(state.status.rawValue))"
+            )
+        }
+
+        let projectId = projectStore.resolveFresh(state.projectRoot)?.id
+        let emitJSON = opts.flag("json")
+        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
+        let progressSink: RelayCoordinator.EventSink? = emitJSON ? { @Sendable event in
+            print(RelayDispatch.progressJSONLine(event))
+        } : nil
+        let result = await coordinator.runExternalRound(
+            relayId: loopId, submission: submission, projectId: projectId, events: progressSink
+        )
+        switch result {
+        case .success(let payload):
+            PilotCLI.emitHandoffResult(payload, json: emitJSON)
+        case .failure(let error):
+            PilotCLI.failPilotRound(error)
+        }
+    }
+
+    private static func stepUsage() -> Never {
+        FileHandle.standardError.write(Data(
+            "usage: alln loop step <loop-id> <message>\n       alln loop step <loop-id> --done <summary>\n".utf8
+        ))
+        exit(2)
+    }
+
+    // MARK: - pm (was `pair relay adopt` + `pair pilot adopt` — collapsed, NOT symmetric)
+
+    /// `alln loop pm <loop-id> <occupant>` (LVC v7 §2 "Both adopts collapse under one
+    /// verb — but they are NOT symmetric"). Which transition applies is decided by
+    /// the CURRENT chair, not the requested occupant — `RelayCoordinator.adopt`/
+    /// `.adoptToPilot` already enforce each column's own precondition from the loaded
+    /// state (chair == caller vs. chair == an agent), so this only routes to the
+    /// matching entry point for the requested occupant; it never re-derives or
+    /// loosens either column's eligibility:
+    ///
+    /// | `occupant` | was | requires current chair | eligible | effect |
+    /// | --- | --- | --- | --- | --- |
+    /// | an agent id | `relay adopt` | `caller` | `awaitingPM`\|`escalated` | dispatches a round |
+    /// | `caller` | `pilot adopt` | an agent | `RelayState.isResumable` | static relabel, no dispatch |
+    static func runPm(_ args: [String], runtime: ToolRuntime) async {
+        let opts = Options(args)
+        guard opts.positional.count >= 2,
+              !opts.positional[0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !opts.positional[1].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            FileHandle.standardError.write(Data(
+                "usage: alln loop pm <loop-id> <caller|agent-id> [--max-rounds N] [--until HH:MM] [--no-wait] [--json]\n".utf8
+            ))
+            exit(2)
+        }
+        let loopId = opts.positional[0]
+        let occupant = opts.positional[1]
+
+        var forwarded: [String] = ["--relay", loopId]
+        for key in opts.flags where key != "relay" {
+            forwarded.append("--\(key)")
+        }
+        for (key, value) in opts.values where key != "relay" {
+            forwarded.append("--\(key)")
+            forwarded.append(value)
+        }
+
+        if occupant == "caller" {
+            PilotCLI.runAdopt(forwarded)
+        } else {
+            forwarded.append(contentsOf: ["--pm-model", occupant])
+            await RelayCLI.runAdopt(forwarded, runtime: runtime)
+        }
     }
 }
