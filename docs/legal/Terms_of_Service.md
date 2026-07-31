@@ -30,11 +30,16 @@ We take no markup on model usage and charge no per-run fee.
 
 **Free.** Free forever, no account required. Includes capacity and quota
 visibility, setup and doctor checks, help and discovery, run history and export,
-and single-worker single-round runs.
+and a daily allowance of runs at full capability — no feature is withheld from
+free users, only the number of runs per day. The allowance is stated on the
+pricing page (currently 3 per day) and resets daily.
 
-**Trial.** A time-limited period during which all paid features are available at
-no cost. The trial begins at your first multi-worker team run — not at install —
-and runs for the number of days stated on the pricing page (currently 14).
+**Trial.** A period during which the daily allowance is removed and runs are
+unlimited. The trial begins at your first run — not at install — and lasts for
+the number of **active days** stated on the pricing page (currently 14). An
+active day is a day on which you actually run something; days you do not use
+Allnighter do not count against it. The trial ends no later than 60 calendar days
+after it starts.
 
 **Paid subscription.** Monthly or annual. Unlimited Allnighter orchestration
 *within your own providers' limits*, including multi-worker fan-out and
@@ -53,9 +58,10 @@ not on your machine.
 
 ### When the trial or subscription ends
 
-**The software does not stop working.** It returns to the Free tier. You keep
-access to your run history and can export it at any time. We will not withhold
-data you have already produced.
+**The software does not stop working.** It returns to the Free tier — including
+its daily allowance of full-capability runs. You keep access to your run history
+and can export it at any time. We will not withhold data you have already
+produced, and no feature becomes unavailable to you.
 
 ## 3. Fees, Billing, Cancellation
 

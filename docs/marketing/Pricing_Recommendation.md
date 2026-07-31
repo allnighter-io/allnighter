@@ -1,9 +1,9 @@
 # Pricing Recommendation
 
-Status: **v2 — recommended offer** (supersedes v1 "3 free Team runs / $9.95")  
+Status: **v3 — recommended offer** (supersedes v2 free-single-worker, and v1 "3 free Team runs / $9.95")  
 Owner: Founder  
 Created: 2026-06-15  
-Updated: 2026-07-31 (free core + degrade-don't-brick + $12/$120 + founding cohort)
+Updated: 2026-07-31 (daily free allowance · trial counts active days · $12/$120)
 
 Change process: `docs/phases/Pricing_Change_Process.md`. Do not edit numbers in
 this doc without running it.
@@ -11,8 +11,8 @@ this doc without running it.
 ## The Offer
 
 ```text
-Free forever core
-14-day full trial, starts at your first team run
+Free forever: see your whole bench + 3 full team runs every day
+14 active days of unlimited, starting at your first run
 $12/month or $120/year after that
 Founding Builder: $199 once, first 100 only
 Mac app + iPhone app included
@@ -22,75 +22,105 @@ No per-run fee, no model markup
 
 | Tier | Price | What you get |
 | --- | --- | --- |
-| **Free** | $0, forever | Capacity view (CLI + Mac app) · doctor / setup / readiness · menu, bootstrap, help · run history + Markdown export · **one worker, one round** |
-| **Trial** | $0, 14 days | Everything in Builder. Starts at **first team run** (2+ workers), not at install |
-| **Builder** | **$12/mo** or **$120/yr** | Unlimited fan-out and multi-round loops within your own provider limits · Mac command center · iPhone floor manager · team presets · synthesis presets |
+| **Free** | $0, forever | Capacity view (CLI + Mac app) · doctor / setup / readiness · menu, bootstrap, help · run history + Markdown export · **3 dispatches per day, at full power** — any team, any fan-out, any loop |
+| **Trial** | $0, **14 active days** | Unlimited dispatch. Counts only days you actually run something; expires 60 calendar days after it starts regardless |
+| **Builder** | **$12/mo** or **$120/yr** | Unlimited dispatch within your own provider limits · Mac command center · iPhone floor manager · team presets · synthesis presets |
 | **Founding Builder** | **$199 once** | Everything in Builder, for life. **First 100 buyers only**, then retired permanently |
 
 Later, after iOS ships and the surface deepens: $19–24/month for **new**
 customers. Everyone earlier is grandfathered.
 
-## The Line: Free = See. Paid = Do.
+## The Line: Not How Much — How Often
 
-Free forever is not a crippled demo. It is a working tool that observes.
+The free tier is **not a crippled version**. It is the whole product, three times
+a day.
 
-- **`alln capacity` is free in both CLI and Mac app.** It is a read-only mirror
-  of the user's own quota. Charging for a mirror is indefensible — commercially
-  (it's a weekend clone) and morally.
-- **One worker, one round is free.** A single `claude -p` is something the user
-  can already do in their own terminal. Charging for convenience they don't need
-  us for is a bad line to defend.
-- **Fan-out (2+ workers) and multi-round loops are paid.** These are the things
-  that are genuinely hard by hand: parallel judgment across vendors plus
-  synthesis, and a lead steering execution seats over rounds. We charge when we
-  save real work.
+A free user gets full fan-out, full synthesis, full loops — everything a paying
+user gets — capped at three dispatches per day. Nothing is feature-locked.
 
-Why this line and not a run counter:
+This is the axis that resolves the real tension:
 
-1. **It keeps the binary installed.** A free user with `alln` on PATH is a call
-   option. An uninstalled user is a permanently closed door — and the installed
-   binary is the entire distribution asset.
-2. **It generates the upgrade prompt at the moment of pain.** "Codex 4%, Claude
-   80% headroom" is free-tier output; the next thought is "so run it on Claude
-   instead," which is the paid action. The free tier *is* the marketing for the
-   arbitrage story, better than any copy we can write.
-3. **It is enforceable at one call site.** Seat count is already on hand
-   (`MenuJSON.Team.seatCount`) and dispatch already funnels through
-   `RunService`. One check, one place, few bugs. A run counter needs durable
-   counting, retry semantics, and an answer to "did that failed run count?" —
-   which is pure support load.
-4. **It costs nothing to serve.** Everything free is local.
+- **Unlimited single-worker free is too much.** With a hub like OpenCode, a free
+  single-worker lane is a fully working multi-model router with capacity
+  awareness and history. That is not a teaser for the product — it *is* the
+  product, and giving it away builds a free competitor to the paid tier.
+- **Zero free dispatch is too little.** A tool that cannot run anything gets
+  uninstalled, and the installed binary on PATH is the entire distribution asset.
+
+Three a day is neither. It cannot carry a working day — anyone doing real work
+hits it before lunch and knows exactly why — but it is never nothing.
+
+Why a **daily** allowance and not a lifetime one:
+
+1. **It kills the worst support question in freemium.** "Did that failed run
+   count?" A daily counter resets tomorrow, so a bad run costs a wait, not a
+   ticket, and never an argument.
+2. **It is the habit machine.** Claude.ai's own free tier proves the shape works:
+   taste it daily, build the habit. Ours is strictly better — full power on every
+   free run, and it never brick-walls you into a dead product.
+3. **It is a safe ratchet.** 3 → 5 later is a gift. Unlimited → 3 is a betrayal.
+4. **It self-selects the buyer.** Someone doing three runs a day was never going
+   to pay, and is exactly the person who tells other people. Someone doing twenty
+   is the customer.
+
+Also free forever, and never metered: **capacity, doctor, setup, discovery, run
+history, and export.** Capacity is a read-only mirror of the user's own quota —
+charging for a mirror is indefensible commercially (a weekend clone) and morally.
+It is also the daily reason to open the tool, and the upgrade prompt writes
+itself: "Codex 4%, Claude 80% headroom" → *so run it on Claude* → that is the
+paid action.
+
+### Rejected alternatives
+
+| Idea | Why not |
+| --- | --- |
+| Unlimited free single-worker lane | It is a working router; that's the product, not a demo (v2's error) |
+| Limit the number of connected CLIs | Most users have two, so it gates nothing — and it punishes multi-vendor use, which is the entire product |
+| N free runs total, then dark | Reintroduces "did that count?", and ends in a brick |
+| Per-run pricing | See §Why Not Usage-Based |
 
 ## Degrade, Never Brick
 
-When the trial ends, the product **falls back to the free core**. It never
-becomes a brick, and it never withholds data the user already produced.
+When the trial ends, the product **falls back to the free tier** — still three
+full runs a day, still the whole bench in view, still every past run readable and
+exportable. It never becomes a brick and it never withholds data the user made.
 
-This is the most important pricing decision in the doc, ahead of the number:
+Ahead of the number in importance:
 
-- A bricked tool gets uninstalled. An uninstall removes the distribution asset
-  and closes the door on every future conversion.
+- A bricked tool gets uninstalled. An uninstall closes the door on every future
+  conversion and removes the distribution asset.
 - Word of mouth is the whole GTM. People do not recommend software that turned
   itself off on them.
 - It de-risks trial anti-abuse: a false positive in the machine-hash ledger
   (`docs/phases/One_Paste_Cold_Start.md` §Trial) drops someone to a working free
   tier instead of bricking a paying-intent user.
 
-Never hold run history or exports hostage. It is cheap to give and enraging to
-withhold.
+## Why 14 **Active** Days
 
-## Why 14 Days, Starting At First Team Run
+Trial length is measured in days the user actually dispatched — not calendar
+days. A busy fortnight, a vacation, or a week on someone else's codebase does not
+burn the trial.
 
-The buying decision requires the user to hit a real "I need a second opinion on
-something that matters" moment. That does not happen daily for everyone.
+- **Calendar days are the wrong unit.** They run the clock while the user isn't
+  looking, which is both unfair and a support argument we lose.
+- **7 is too short** — the buying trigger is "I need a second opinion on
+  something that matters," which does not arrive on a schedule.
+- **30 calendar days is the wrong fix.** It delays revenue, hardens the "this is
+  free" mental model, and by day 30 the user has forgotten they were on a trial,
+  so the lock reads as a bait-and-switch. Worst of all it **halves the learning
+  rate** — at zero users, finding out whether anyone pays is scarcer than the
+  revenue itself.
+- **The habit worry that motivates "30 days" is real, but trial length is the
+  wrong lever for it.** Habit comes from the free tier having a daily reason to
+  open — capacity plus three runs. That is what makes the tool stay installed
+  forever, paying or not.
 
-- **7 days** risks missing it, especially across a weekend.
-- **30 days** delays revenue and teaches people to treat the product as free.
-- **14 days** covers two working weeks.
+Hard cap: the trial expires 60 calendar days after it starts regardless, so the
+ledger closes. The clock starts at the **first dispatch**, never at install — an
+agent that installs `alln` on a Friday must not burn the weekend.
 
-Start the clock at the **first team run**, not at install. An agent that installs
-`alln` on a Friday must not burn the weekend. Enforcement detail and the
-anti-reinstall ledger live in `docs/phases/One_Paste_Cold_Start.md` §Trial.
+Enforcement detail and the anti-reinstall ledger:
+`docs/phases/One_Paste_Cold_Start.md` §Trial.
 
 ## Why $12
 
@@ -127,11 +157,14 @@ standing tier, never reopened.
 
 ## Why Not Usage-Based
 
-Do not charge per team run.
+Do not charge per run.
 
 Per-run pricing fights the behavior we want. The promise is: use the capacity you
 already paid for, ask the team more often, stop rationing review. A meter makes
 users think twice right before the magic moment.
+
+The free tier's daily allowance is **not** a pricing meter — nobody is billed by
+it. It is a throttle on a free tier, and it resets every day.
 
 Usage pricing also confuses responsibility:
 
@@ -154,7 +187,8 @@ You pay Allnighter for orchestration.
 intelligence. Allnighter sells the missing operating layer: fan-out, synthesis,
 comparison, dispatch, history, and mobile control.
 
-Free core extends it: **observation is free, coordination is paid.**
+Free extends it: **seeing your bench is free, and so are the first three moves
+each day. Working all day is paid.**
 
 ## Claim Discipline (pricing surfaces)
 
@@ -220,26 +254,26 @@ honestly in doctor and run history.
 ```text
 Free
 $0 forever
-See your whole bench.
+Three full team runs, every day.
 
+- 3 dispatches per day — full fan-out, full loops, nothing crippled
 - Live capacity across every connected CLI
 - Doctor checks and setup
 - Run history and Markdown export
-- One worker, one round
 
 Builder
 $12/month — or $120/year
-Make your AI team show up.
+Make your AI team show up all day.
 
-- Unlimited fan-out and multi-round loops, within your own provider limits
+- Unlimited dispatch, within your own provider limits
 - Mac command center
 - iPhone floor manager
 - Claude Code, Grok, Codex, Gemini, Aider, and local workers
 - Team presets and synthesis presets
 - No model markup
 
-14-day free trial, starting at your first team run.
-When it ends, you keep the free core — and all your history.
+14 active days of unlimited, free — we only count the days you actually use it.
+When it ends you keep the free tier, your three runs a day, and all your history.
 
 Founding Builder
 $199 once — first 100 only
@@ -248,12 +282,15 @@ Everything in Builder, for life.
 Bring your own AI subscriptions. Allnighter does not include model access.
 ```
 
-## Superseded (v1, 2026-06-15)
+## Superseded
 
-| v1 | v2 | Why |
+| Was | Now | Why |
 | --- | --- | --- |
-| 3 free Team runs, then dark | Free core forever + 14-day full trial | A brick gets uninstalled; the installed binary is the distribution asset |
-| $9.95/month | $12/month | Sub-$10 signals disposable; $2 costs no conversion; headroom to $19–24 |
-| $95/year | $120/year | Rounder; "$10/month billed annually" |
-| No lifetime option | $199 capped at 100 | Cash timing beats LTV at zero funding |
+| v1: 3 free Team runs, then dark | Free tier forever, 3 dispatches/day | A brick gets uninstalled; the installed binary is the distribution asset |
+| v2: unlimited free single-worker lane | 3 full-power dispatches/day | Free single-worker is a working multi-model router — the product, not a demo |
+| v2: 14 calendar days | 14 **active** days (60-day hard cap) | Calendar days run the clock while the user isn't looking |
+| Limit connected CLIs | Rejected | Most users have two; it gates nothing and punishes multi-vendor use |
+| v1: $9.95/month | $12/month | Sub-$10 signals disposable; $2 costs no conversion; headroom to $19–24 |
+| v1: $95/year | $120/year | Rounder; "$10/month billed annually" |
+| v1: no lifetime option | $199 capped at 100 | Cash timing beats LTV at zero funding |
 | "quota harvester" as a feature name | Retired from all public copy | Reads as circumvention |

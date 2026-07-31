@@ -102,7 +102,7 @@ usage after claiming it.
 Do not say:
 
 ```text
-Pay us $9.95 and get $100 of Claude.
+Pay us $12 and get $100 of Claude.
 ```
 
 Better direct-response version:
@@ -569,14 +569,14 @@ your problem is no longer access to intelligence. Your problem is coordination.
 Allnighter is the coordination layer.
 
 Pricing block
-Free to download. Run your first teams free.
-Then $9.95/month for Mac plus iPhone.
+Free forever: three full team runs every day.
+Then $12/month (or $120/year) for Mac plus iPhone.
 Bring your own AI subscriptions.
 ```
 
 ## Ad Concepts
 
-### Ad 1: Credit Harvest
+### Ad 1: Idle Credit
 
 ```text
 Claude Max users:
@@ -586,7 +586,7 @@ Stop leaving it idle.
 Allnighter runs your own Claude Code setup through local `claude -p`, adds Grok
 and other workers, and fuses the answers into one plan.
 
-Free download. $9.95/month after your first teams.
+Free forever: three team runs a day. $12/month for all day.
 ```
 
 ### Ad 2: Copy-Paste Monkey
@@ -648,7 +648,7 @@ conflicts, unique insights, and blind spots.
 Mac runs the floor.
 iPhone comes included.
 
-Download free. Run your first teams free. Then $9.95/month.
+Download free. Three full team runs every day, forever. $12/month for all day.
 ```
 
 ## Objection Handling

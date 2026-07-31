@@ -306,7 +306,7 @@ Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
 | **BQ-3** | **Defer npm/npx** | Nothing in V1 |
 | **BQ-4** | Soft update only in V1 (announce + command). Hard `minSupportedBinaryVersion` fail closed = later packet if protocol breaks. | Not V1 |
 | **BQ-5** | **One universal CLI binary**, no per-arch assets | S00/S01 asset naming |
-| **BQ-6** | Trial = **14 days, unlimited**, machine-keyed, starts at first successful dispatch. Supersedes "3 free Team runs" in `docs/marketing/Pricing_Recommendation.md` (that doc needs a follow-up edit). | Trial packet only |
+| **BQ-6** | Trial = **14 active days** unlimited (60-day hard cap), machine-keyed, starts at first successful dispatch. Free tier after it = **3 full-capability dispatches/day**, never zero. Offer SSOT: `docs/marketing/Pricing_Recommendation.md` v3. | Trial packet only |
 | **BQ-7** | Entitlement/payments **spin out** to a sibling packet; this packet only reserves the seams and ships S00–S06 without a gate | Nothing in this packet |
 
 ### Decision log
@@ -318,7 +318,7 @@ Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
 | 2026-07-31 | BQ-3 | Defer npm |
 | 2026-07-31 | BQ-4 | Soft announce only; no force-upgrade gate in this packet |
 | 2026-07-31 | BQ-5 | Universal binary — one asset, one path, no arch branch |
-| 2026-07-31 | BQ-6 | Days beat run-counting: one server timestamp, no "did that failed run count?" support load |
+| 2026-07-31 | BQ-6 | Active days beat calendar days (the clock must not run while the user isn't looking); a **daily** free allowance beats a lifetime run count — it resets, so "did that count?" is never a support ticket |
 | 2026-07-31 | BQ-7 | Cold start must ship before the gate exists; seams reserved so it is not a rewrite |
 
 ---
@@ -527,13 +527,22 @@ successful dispatch writes `trial_started_at` for that machine hash. Reinstall
 finds the same row. A fresh Apple ID on the same machine finds the same row. The
 server always keeps the **earliest** start it has ever seen for a key.
 
-- Trial = **14 days, unlimited**, no account required (preserves one-paste magic;
-  BQ-6).
+- Trial = **14 active days** unlimited (a day counts only if a dispatch happened),
+  hard-capped at 60 calendar days, no account required (preserves one-paste
+  magic; BQ-6). The ledger row holds a **set of active dates**, not an end date —
+  one small array, still one row.
+- **Free tier is not zero.** After the trial: **3 dispatches per day, at full
+  capability** — no feature flags, no seat cap, no single-worker lane. The only
+  free-tier state is a day-keyed counter (`YYYY-MM-DD` + count), reset by date
+  change, reconciled server-side on the same 24h check. A failed dispatch that
+  never spawned a worker does not count — and the daily reset means a wrong call
+  costs a wait, never a support ticket.
 - Sign in with Apple is required only to **pay** and to sync entitlement across
   machines / iOS.
 - Offline at first dispatch: grant a provisional local start, reconcile on next
-  contact (server takes the earlier timestamp). Unactivated + never able to reach
-  the server = **72h** grace, then fail closed.
+  contact (server takes the earlier timestamp and the union of active dates).
+  Unactivated + never able to reach the server = **72h** grace, then fall back to
+  the free daily allowance — **never to zero** (§Degrade, never brick).
 - Residual risk accepted: VM / hardware spoofing. **No anti-VM, no
   anti-tamper, no obfuscation** — a $10/mo prosumer tool does not win a DRM arms
   race, and every hardening step costs support incidents from honest users.
@@ -547,9 +556,11 @@ users look unpaid (BUG-9). Local clock earlier than `issuedAt` = rollback →
 force refresh, and refuse to extend on local time alone (BUG-10). Refresh
 piggybacks the same 24h check as the release channel — one network reflex, not two.
 
-**What is metered:** dispatch only (`alln run`, `loop` start, any worker spawn).
+**What is metered:** dispatch only (`alln run`, `loop` start, any worker spawn) —
+and only as a *count per day* on the free tier, never as a capability gate.
 Everything else is free forever (law 12). An in-flight run is never killed by an
-expiry — admission is checked at dispatch, once.
+expiry or an allowance — admission is checked at dispatch, once. A multi-round
+loop counts once, at start, not per round.
 
 **Failure shape:** structured `ErrorEnvelope` with a real `nextAction` (the
 checkout URL or `alln activate`), so an agent can tell its human exactly what to
