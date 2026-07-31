@@ -58,12 +58,17 @@ if [[ -f "$MAC_APP/project.yml" ]] && command -v xcodegen >/dev/null 2>&1; then
   # workers instead of seating the user's live catalog; see their doc comments.
   export ALLNIGHTER_TEST_TOKEN
   ALLNIGHTER_TEST_TOKEN="$(python3 "$ROOT/scripts/allnighter_test_token.py" mint "$ROOT")"
+  xcode_log="$(mktemp "${TMPDIR:-/tmp}/alln-xcodebuild-test.XXXXXX")"
   xcode_status=0
   xcodebuild test \
     -project "$MAC_APP/AllnighterMac.xcodeproj" \
     -scheme AllnighterMac \
     -destination 'platform=macOS' \
-    CODE_SIGNING_ALLOWED=NO | tail -3 || xcode_status=$?
+    CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$xcode_log" | tail -3 || xcode_status=${PIPESTATUS[0]}
+  if [[ "$xcode_status" -eq 0 ]] && rg -q 'TEST FAILED|with [1-9][0-9]* failures?' "$xcode_log" 2>/dev/null; then
+    xcode_status=1
+  fi
+  rm -f "$xcode_log"
   python3 "$ROOT/scripts/allnighter_test_token.py" burn "$ROOT" "$ALLNIGHTER_TEST_TOKEN" 2>/dev/null || true
   unset ALLNIGHTER_TEST_TOKEN
   [[ "$xcode_status" -eq 0 ]] || exit "$xcode_status"

@@ -48,7 +48,7 @@ final class JSONStreamLawTests: XCTestCase {
         lines.append(AllnighterCLI.jsonLine(terminal))
         let objs = try parseLines(lines)
         XCTAssertEqual(objs.count, 4)
-        XCTAssertEqual(objs.last?["loopId"] as? String, "relay_stream")
+        XCTAssertEqual(objs.last?["relayId"] as? String, "relay_stream")
         XCTAssertEqual(objs.last?["status"] as? String, "awaitingPM")
     }
 

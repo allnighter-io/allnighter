@@ -88,11 +88,14 @@ mint_token() {
 
 run_with_timeout() {
   local -a cmd=(swift test --disable-sandbox --package-path "$PACKAGE_PATH" "$@")
+  local log
+  log="$(mktemp "${TMPDIR:-/tmp}/alln-swift-test.XXXXXX")"
   (
     "${cmd[@]}"
-  ) &
+  ) 2>&1 | tee "$log" &
   SWIFT_TEST_CHILD_PID=$!
   local waited=0
+  local exit_code=0
   while kill -0 "$SWIFT_TEST_CHILD_PID" 2>/dev/null; do
     if [[ "$waited" -ge "$TIMEOUT_SECONDS" ]]; then
       echo "swift-test: timeout after ${TIMEOUT_SECONDS}s — killing test run" >&2
@@ -101,14 +104,19 @@ run_with_timeout() {
       kill -KILL "$SWIFT_TEST_CHILD_PID" 2>/dev/null || true
       wait "$SWIFT_TEST_CHILD_PID" 2>/dev/null || true
       SWIFT_TEST_CHILD_PID=""
+      rm -f "$log"
       return 124
     fi
     sleep 1
     waited=$((waited + 1))
   done
-  wait "$SWIFT_TEST_CHILD_PID"
-  local exit_code=$?
+  wait "$SWIFT_TEST_CHILD_PID" || exit_code=$?
   SWIFT_TEST_CHILD_PID=""
+  # SwiftPM may exit 0 when XCTest failed but Swift Testing had nothing to run.
+  if rg -q 'with [1-9][0-9]* failures?' "$log" 2>/dev/null; then
+    exit_code=1
+  fi
+  rm -f "$log"
   return "$exit_code"
 }
 

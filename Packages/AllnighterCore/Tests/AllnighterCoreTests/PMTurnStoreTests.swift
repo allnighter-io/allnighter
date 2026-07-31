@@ -33,7 +33,7 @@ final class PMTurnStoreTests: XCTestCase {
         XCTAssertEqual(runURL.lastPathComponent, "pm-turn.json")
         XCTAssertEqual(relayURL.lastPathComponent, "pm-turn.json")
         XCTAssertTrue(runURL.path.contains("/Runs/run_run_abc/"))
-        XCTAssertTrue(relayURL.path.contains("/Relays/relay_abc/"))
+        XCTAssertTrue(relayURL.path.contains("/Loops/relay_abc/"))
     }
 
     func testNextSequenceAdvancesAndRejectsRegression() throws {
