@@ -1,7 +1,8 @@
 # Quota-Aware Bench Continuity
 
-Status: **OPEN — founder priority (2026-07-30); S00/S01a/S01b/S01c code-complete
-2026-07-31, notification/ack + dogfood proof still open (see "Progress" below)**
+Status: **OPEN — founder priority (2026-07-30); S00/S01a/S01b/S01c and the
+detached-ack/URN notification integration all code-complete 2026-07-31; two
+live-session dogfood proofs still open (see "Progress" below)**
 Owner: AllnighterCore (menu envelope) + AllnighterEngine (loop park-yield) +
 AllnighterCLI (capacity injection, `alln loop` delivery)
 Created: 2026-07-30
@@ -58,11 +59,20 @@ operations; code remains SSOT; archive this packet.
   references, closeout item).
 - **Deslop: CLEAN. Code Audit: CLEAN** (after the resumeFailed/deadlinePassed
   split above).
-- **Still open:** the "Detached ack / notification" visibility row (URN should
-  fire a "parked until X" banner) — a separate, un-started integration against
-  `NotificationCandidateDetection`/`WorkThread` turn snapshots, not touched this
-  slice. Planner dogfood and the one on-host wall-crossing dogfood in "Done
-  when" require live/manual verification and are not claimed here.
+- **Detached ack / URN notification — done (2026-07-31, `f51c2dd6`).**
+  `LoopState.capacityPark` now feeds the existing notification pipeline: new
+  `loopParked`/`loopResumed` `NotificationEventKind` cases, a
+  `LoopParkNotificationSnapshot` + `loopParkSnapshots`/`loopParkCandidates` pair
+  mirroring the shipped `relayStream` pattern exactly, wired into
+  `NotificationScheduler.tick` (reuses `loopStore.list()`, no new store
+  dependency). No `ContractRegistry` bump (event kind isn't wire contract, same
+  precedent as URN-S03) and no cross-driver touch of run-level
+  `vendorParked`/`vendorResumed`. 35/35 filtered `Notification*` tests green,
+  independently re-verified. Live on-host banner appearance is folded into the
+  wall-crossing dogfood below, not claimed separately.
+- **Still open:** planner dogfood (seats from menu without a separate `alln
+  capacity` call) and one on-host wall-crossing dogfood — both require a live
+  agent session on the founder's own machine and are not claimed here.
 
 ---
 
@@ -487,8 +497,9 @@ seating wrong.
       caveat: PM turns are non-mutating, `resumeParkedRun` requires mutating.)
 - [x] Parked loop reports `.running` + `capacityPark{wakeAfter, source}` in
       `loop status`.
-- [ ] ...and in the detached ack / URN notification. **Not done** — separate,
-      un-started integration against `NotificationCandidateDetection`.
+- [x] ...and in the detached ack / URN notification: `loopParked`/`loopResumed`
+      wired into `NotificationCandidateDetection`/`NotificationScheduler`
+      (`f51c2dd6`, 2026-07-31).
 - [x] All six named hermetics green (`LoopCapacityParkYieldTests`, 5 tests).
 - [ ] One on-host wall-crossing dogfood. (Not claimed — requires a real vendor
       wall on the founder's own machine.)
@@ -496,7 +507,6 @@ seating wrong.
 - [x] Deslop + code audit (CLEAN; audit found and fixed a real bug — a
       `resumeParkedRun` failure was mislabeled as a deadline stop).
 - [ ] Promote the moat sentence and the plan-time capacity law; archive this
-      packet. **Not done yet** — the notification gap and the two dogfood
-      items above are real open work, not paperwork; archiving now would bury
-      them. Close this packet once those three are resolved or explicitly
-      deferred by the founder.
+      packet. **Not done yet** — the two dogfood items above are real open
+      work, not paperwork; archiving now would bury them. Close this packet
+      once those two are resolved or explicitly deferred by the founder.
