@@ -271,7 +271,8 @@ public enum DoctorReport {
 
     private static func installedCheck(_ r: ToolProbeRecord, name: String) -> DoctorResult.Check {
         switch r.status {
-        case .ready, .installedNotProbed, .installedNotSignedIn, .probeFailed:
+        case .ready, .installedNotProbed, .installedNotSignedIn, .probeFailed, .rateLimited:
+            // rateLimited = healthy install + smoke hit a vendor quota wall (not missing).
             return .init(name: "source.\(r.driverId).installed", status: .ok, detail: "\(name) found\(r.version.map { " (\($0))" } ?? "")")
         case .shimmedNeedsConfirm:
             return .init(name: "source.\(r.driverId).installed", status: .degraded, detail: "\(name) needs a one-click path confirmation", requiresManual: true)
@@ -290,6 +291,14 @@ public enum DoctorReport {
             return .init(name: key, status: .ok, detail: "\(name) authenticated")
         case .installedNotSignedIn(let flow):
             return .init(name: key, status: .degraded, detail: "\(name) is not signed in. \(flow.instructions)", fixCommand: flow.interactiveCommand, requiresManual: true)
+        case .rateLimited(let observation):
+            // Temporarily unavailable (quota/rate wall) — not "broken auth".
+            return .init(
+                name: key,
+                status: .degraded,
+                detail: "\(name) \(rateLimitedDetail(observation: observation))",
+                requiresManual: true
+            )
         case .probeFailed(let reason):
             let lower = reason.lowercased()
             if lower.contains("secitemcopymatching failed") {
@@ -302,6 +311,14 @@ public enum DoctorReport {
         default:
             return .init(name: key, status: .notChecked, detail: "auth not determined")
         }
+    }
+
+    /// Honest temporary-unavailability copy for a probe `.rateLimited` observation.
+    public static func rateLimitedDetail(observation: CapacityObservation) -> String {
+        if let reset = observation.wakeAfter ?? observation.observedResetAt {
+            return "Rate limited — resets \(VendorContinuityPresentation.localTime(reset))"
+        }
+        return "Rate limited — will retry soon"
     }
 
     private static func headlessTrustCheck(_ driverId: String, trust: HeadlessTrustPolicy) -> DoctorResult.Check {
@@ -462,7 +479,8 @@ public enum DoctorReport {
         }
         let problem = !inputs.docsVersionMatchesBinary || shellAllowlistRestrictive || binaryOffPath || records.contains {
             switch $0.status {
-            case .notInstalled, .shimmedNeedsConfirm, .probeFailed, .installedNotSignedIn: return true
+            case .notInstalled, .shimmedNeedsConfirm, .probeFailed, .installedNotSignedIn, .rateLimited:
+                return true
             default: return false
             }
         }

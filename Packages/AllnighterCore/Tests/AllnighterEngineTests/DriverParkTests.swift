@@ -72,6 +72,43 @@ final class DriverParkTests: XCTestCase {
         XCTAssertEqual(list.drivers.map(\.status), ["notChecked", "parked"])
     }
 
+    func testDriverListProjectorSurfacesRateLimitedDetail() {
+        let reset = Date(timeIntervalSince1970: 7_200)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .structured,
+            rawSnippet: "weekly",
+            observedAt: .distantPast,
+            observedResetAt: reset,
+            wakeAfter: reset
+        )
+        let registry = DriverRegistry([
+            DriverManifest(id: "codex", displayName: "Codex", kind: .headlessCLI),
+        ])
+        let models: [Model] = [
+            Model(id: "m_c", displayName: "C", modelLabel: "c", driverId: "codex", role: .both, enabled: true),
+        ]
+        let list = DriverListProjector.build(
+            registry: registry,
+            probeRecords: [
+                ToolProbeRecord(
+                    driverId: "codex",
+                    status: .rateLimited(observation: observation),
+                    version: "0.9",
+                    lastProbeAt: .distantPast
+                ),
+            ],
+            models: models,
+            parkedDriverIds: []
+        )
+        XCTAssertEqual(list.drivers.count, 1)
+        let row = list.drivers[0]
+        XCTAssertEqual(row.status, "notReady")
+        XCTAssertEqual(row.probeDetail, DoctorReport.rateLimitedDetail(observation: observation))
+        XCTAssertTrue(row.probeDetail?.contains("Rate limited") ?? false)
+    }
+
     func testBenchReadinessExcludesParked() {
         let model = Model(
             id: "m1", displayName: "M", modelLabel: "m",
@@ -90,5 +127,31 @@ final class DriverParkTests: XCTestCase {
             models: [model], probeRecords: [ready], parkedDriverIds: ["opencode"]
         )
         XCTAssertTrue(off.isEmpty)
+    }
+
+    /// Rate-limited drivers flow through readyDriverIds into bench readiness
+    /// (so explicit loop dispatch can attempt and capacity-park).
+    func testBenchReadinessIncludesRateLimitedDriver() {
+        let model = Model(
+            id: "model_gpt_sol", displayName: "GPT Sol", modelLabel: "gpt",
+            driverId: "codex", role: .both, enabled: true
+        )
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .structured,
+            rawSnippet: "0%",
+            observedAt: .distantPast,
+            wakeAfter: Date(timeIntervalSince1970: 9_000)
+        )
+        let limited = ToolProbeRecord(
+            driverId: "codex",
+            status: .rateLimited(observation: observation),
+            lastProbeAt: .distantPast
+        )
+        let on = BenchReadiness.readyModels(
+            models: [model], probeRecords: [limited], parkedDriverIds: []
+        )
+        XCTAssertEqual(on.map(\.id), ["model_gpt_sol"])
     }
 }

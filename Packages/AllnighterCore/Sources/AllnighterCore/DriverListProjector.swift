@@ -62,8 +62,9 @@ public enum DriverListProjector {
         case .probeFailed: return "Probe failed"
         case .notInstalled: return "Not installed"
         case .installedNotProbed: return "Installed, not checked"
+        case .rateLimited(let observation):
+            return DoctorReport.rateLimitedDetail(observation: observation)
         case .ready: return nil
-        @unknown default: return "Needs a step"
         }
     }
 }

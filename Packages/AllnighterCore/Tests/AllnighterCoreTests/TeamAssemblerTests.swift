@@ -67,6 +67,39 @@ final class TeamAssemblerTests: XCTestCase {
         XCTAssertEqual(TeamAssembler.readyDriverIds(from: records), ["claude_code"])
     }
 
+    /// Rate-limited CLIs are dispatch-eligible (so QABC can park after a real
+    /// attempt); broken / missing / unsigned-in are still excluded.
+    func testReadyDriverIdsAdmitsRateLimitedAndExcludesBroken() {
+        let reset = Date(timeIntervalSince1970: 1_800)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .structured,
+            rawSnippet: "weekly limit",
+            observedAt: t,
+            observedResetAt: reset,
+            wakeAfter: reset
+        )
+        let flow = LoginFlow(interactiveCommand: "claude", instructions: "Sign in.")
+        let records = [
+            ToolProbeRecord(driverId: "codex", status: .rateLimited(observation: observation), lastProbeAt: t),
+            ToolProbeRecord(driverId: "claude_code", status: .probeFailed(reason: "timeout"), lastProbeAt: t),
+            ToolProbeRecord(driverId: "grok", status: .notInstalled, lastProbeAt: t),
+            ToolProbeRecord(
+                driverId: "cursor_agent",
+                status: .installedNotSignedIn(flow),
+                lastProbeAt: t
+            ),
+            ToolProbeRecord(driverId: "opencode", status: .ready(version: "1"), lastProbeAt: t),
+        ]
+        XCTAssertEqual(
+            TeamAssembler.readyDriverIds(from: records),
+            ["codex", "opencode"]
+        )
+        // isSmokeReady stays false for rateLimited — only readyDriverIds widens.
+        XCTAssertFalse(records[0].status.isSmokeReady)
+    }
+
     func testAssembledRoundTrips() throws {
         let a = TeamAssembler.assemble(models: models, readyDriverIds: ["claude_code"], now: t)
         let back = try CoreJSON.decode(TeamAssembler.Assembled.self, from: CoreJSON.encode(a))

@@ -139,4 +139,57 @@ final class DoctorReportTests: XCTestCase {
         let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: base)
         XCTAssertEqual(check(r, "pilot")?.status, .critical)
     }
+
+    /// Rate-limited = healthy install, temporary quota wall — degraded auth copy
+    /// with a reset time when known, not the same bucket as a broken CLI.
+    func testFullSurfacesRateLimitedAsDegradedWithReset() {
+        let reset = Date(timeIntervalSince1970: 3_600)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .structured,
+            rawSnippet: "weekly limit reached",
+            observedAt: t,
+            observedResetAt: reset,
+            wakeAfter: reset
+        )
+        let records = [
+            ToolProbeRecord(
+                driverId: "codex",
+                status: .rateLimited(observation: observation),
+                version: "0.9",
+                lastProbeAt: t
+            ),
+            ToolProbeRecord(
+                driverId: "claude_code",
+                status: .ready(version: "1.2"),
+                version: "1.2",
+                lastProbeAt: t
+            ),
+        ]
+        let r = DoctorReport.build(
+            models: models, manifests: manifests, records: records, inputs: inputs(full: true)
+        )
+        XCTAssertEqual(check(r, "source.codex.installed")?.status, .ok)
+        let auth = check(r, "source.codex.auth")
+        XCTAssertEqual(auth?.status, .degraded)
+        XCTAssertTrue(auth?.detail.contains("Rate limited") ?? false)
+        XCTAssertTrue(auth?.detail.contains("resets") ?? false)
+        // Claude still ready → overall degraded, not critical.
+        XCTAssertEqual(r.status, .degraded)
+    }
+
+    func testRateLimitedDetailWithoutWakeSaysRetrySoon() {
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .messageFallback,
+            rawSnippet: "rate limit",
+            observedAt: t
+        )
+        XCTAssertEqual(
+            DoctorReport.rateLimitedDetail(observation: observation),
+            "Rate limited — will retry soon"
+        )
+    }
 }

@@ -587,6 +587,8 @@ struct AllnighterCLI {
                 print("\(r.driverId)\tINSTALLED (not probed)\t\(v)\t\(path)")
             case .installedNotSignedIn(let f):
                 print("\(r.driverId)\tNEEDS SIGN-IN\t\(r.version ?? "")\n  → \(f.instructions)")
+            case .rateLimited(let observation):
+                print("\(r.driverId)\tRATE LIMITED\t\(r.version ?? "")\n  → \(DoctorReport.rateLimitedDetail(observation: observation))")
             case .probeFailed(let reason):
                 print("\(r.driverId)\tPROBE FAILED\t\(r.version ?? "")\n  → \(reason)")
             case .shimmedNeedsConfirm(let res):

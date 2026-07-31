@@ -25,8 +25,8 @@ public enum TeamAssembler {
         public var isEmpty: Bool { benchModelIds.isEmpty }
     }
 
-    /// Assemble from the bench models and the set of driver ids whose source is
-    /// `ready` (derive `readyDriverIds` from `ToolProbeRecord`s that `.isSmokeReady`).
+    /// Assemble from the bench models and the set of driver ids eligible for
+    /// dispatch (see `readyDriverIds(from:excludingParked:)`).
     public static func assemble(models: [Model], readyDriverIds: Set<String>, now: Date) -> Assembled {
         let ready = models.filter { $0.enabled && readyDriverIds.contains($0.driverId) }
         // Plan writer: strongest eligible model (role planWriter/both) by catalog
@@ -50,12 +50,21 @@ public enum TeamAssembler {
         }.first
     }
 
-    /// Convenience: derive ready driver ids from probe records.
-    /// Parked CLIs are never ready (user ignored them).
+    /// Derive dispatch-eligible driver ids from probe records.
+    ///
+    /// Includes `.ready` **and** `.rateLimited` (healthy CLI, vendor quota wall).
+    /// Rate-limited drivers must be admitted so an explicit/auto dispatch can
+    /// attempt for real and park via the existing QABC capacity-park path —
+    /// not fail early as `AGENT_NOT_AVAILABLE`. Does **not** change
+    /// `ModelSetupStatus.isSmokeReady` (still only `.ready`).
+    /// Parked CLIs are never eligible (user ignored them).
     public static func readyDriverIds(
         from records: [ToolProbeRecord],
         excludingParked parked: Set<String> = []
     ) -> Set<String> {
-        Set(records.filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }.map(\.driverId))
+        Set(records.filter {
+            ($0.status.isSmokeReady || $0.status.kind == .rateLimited)
+                && !parked.contains($0.driverId)
+        }.map(\.driverId))
     }
 }
