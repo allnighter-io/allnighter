@@ -123,6 +123,73 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     }
 }
 
+extension MenuJSON {
+    /// Lean plan-time capacity decision row (QABC-S00b) — narrowed from the
+    /// display-oriented `CapacityStripJSON` so `alln menu` and `alln capacity`
+    /// share one derivation path and never disagree. See
+    /// docs/phases/Quota_Aware_Bench_Continuity.md "Corrections against live
+    /// code" item 3 for the byte-budget rationale.
+    public struct Capacity: Sendable, Equatable, Codable {
+        public let generatedAt: Date
+        public let rows: [Row]
+
+        public init(generatedAt: Date, rows: [Row]) {
+            self.generatedAt = generatedAt
+            self.rows = rows
+        }
+
+        public struct Row: Sendable, Equatable, Codable {
+            public let source: String
+            public let effectiveRemainingPercent: Int?
+            public let resetAt: Date?
+            public let scope: CapacityWindowScope?
+            public let shortRemainingPercent: Int?
+            /// Nil when never observed. A sentinel (e.g. `Int.max`) would cost
+            /// ~19 bytes per row on the wire and fabricate a duration that was
+            /// never measured — nil is both cheaper and honest here.
+            public let observedAgeSeconds: Int?
+            public let unknownReason: String?
+
+            public init(
+                source: String,
+                effectiveRemainingPercent: Int?,
+                resetAt: Date?,
+                scope: CapacityWindowScope?,
+                shortRemainingPercent: Int?,
+                observedAgeSeconds: Int?,
+                unknownReason: String?
+            ) {
+                self.source = source
+                self.effectiveRemainingPercent = effectiveRemainingPercent
+                self.resetAt = resetAt
+                self.scope = scope
+                self.shortRemainingPercent = shortRemainingPercent
+                self.observedAgeSeconds = observedAgeSeconds
+                self.unknownReason = unknownReason
+            }
+        }
+
+        public init(strip: CapacityStripJSON) {
+            generatedAt = strip.generatedAt
+            rows = strip.rows.map(Row.init(stripRow:))
+        }
+    }
+}
+
+extension MenuJSON.Capacity.Row {
+    fileprivate init(stripRow row: CapacityStripJSONRow) {
+        self.init(
+            source: row.source,
+            effectiveRemainingPercent: row.effectiveRemainingPercent.map { Int($0.rounded()) },
+            resetAt: row.dashboardResetAt,
+            scope: row.dashboardScope,
+            shortRemainingPercent: row.shortRemainingPercent.map { Int($0.rounded()) },
+            observedAgeSeconds: row.observedAgeSeconds.map { Int($0.rounded()) },
+            unknownReason: row.unknownReason?.rawValue
+        )
+    }
+}
+
 /// Tier-2 hydrate payload (`alln menu show <ref> --json`).
 public struct MenuShowJSON: Codable, Sendable, Equatable {
     public var schemaVersion: Int
