@@ -186,8 +186,24 @@ public actor CatalogRunCoordinator {
         }
 
         // Stage 3 — synthetic plan/output writer runs last and preserves dissent.
-        // Runs when a writer resolved and at least one worker produced output.
-        if let writer = resolved.planWriter, !run.answeredWorkers.isEmpty {
+        // Solo answer teams (`code_doc_review`) skip synthesis — the one worker's
+        // markdown is the final output.
+        if team?.isSoloAnswerTeam == true,
+           let workerId = resolved.answerWorkers.first?.id,
+           let answer = run.answers.first(where: { $0.memberId == workerId }),
+           answer.hasAnswer,
+           let markdown = answer.output,
+           !markdown.isEmpty {
+            run = transition(run, to: .planning)
+            persist?(run)
+            let startedAt = now()
+            let stageId = idFactory()
+            let stage = StageOutput(
+                id: stageId, purpose: .plan, status: .done,
+                payload: .plan(markdown: markdown), startedAt: startedAt, finishedAt: now())
+            run.stages.append(stage)
+            run = transition(run, to: .complete)
+        } else if let writer = resolved.planWriter, !run.answeredWorkers.isEmpty {
             run = transition(run, to: .planning)
             persist?(run)
             let (stage, writerSnapshot, settledWriter) = await runWriter(

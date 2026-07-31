@@ -327,19 +327,21 @@ public enum BuiltInTeams {
             "Run a lean Spec Review on the named spec. Workers critique only (do not edit repo files). Lead emits Lead Call (Ready|Partial + locked leans + contrarian flags) then craft body — never Not ready / founder homework."]
     )
 
-    /// Doc Review — one worker, read-only. Chat-with-a-model doc/spec feedback
-    /// without the mutator queue. Smaller than Spec Review Min (no panel).
+    /// Doc Review — one model, one doc, no panel. Same read-only posture as Spec
+    /// Review; no Lead synthesis pass (`isSoloAnswerTeam`).
     static let buildDocReview = make(
         id: "code_doc_review", name: "Doc Review", lane: .code,
-        output: .specReview, defaultEffort: .high,
-        description: "Single-model doc and spec feedback — critique only, no repo writes, no write-lock queue.",
+        output: .plan, defaultEffort: .med,
+        description: "One model reviews one doc — critique only, no repo writes, no mutator queue.",
         rows: needRows([
-            ("spec_first_principles_reviewer", .answer)
+            ("doc_reviewer", .answer)
         ], tags: [.code]),
-        writer: "spec_review_writer", dissent: .compareOptions,
+        writer: SkillCatalog.docReviewerSkillId,
+        lead: TeamLeadSpec(
+            skillId: SkillCatalog.docReviewerSkillId,
+            fallbackPolicy: .strongestReady),
         typeTags: ["doc-review", "doc", "feedback", "read-only"],
-        starters: [
-            "Review the named doc or phase packet. Critique only — do not edit repo files. Be direct: what is unclear, wrong, or missing proof."])
+        starters: [])
 
     /// Spec Review — the everyday default. Five independent lenses; declaration
     /// order gives the first-principles lens first pick of the strongest ready

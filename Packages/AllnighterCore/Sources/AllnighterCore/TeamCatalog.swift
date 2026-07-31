@@ -346,7 +346,17 @@ public struct TeamPreset: Codable, Sendable, Equatable, Identifiable {
     public var catalogSeatCount: Int {
         let scoutSeats = scout == nil ? 0 : 1
         let crewSeats = agentSpecs.reduce(0) { $0 + max(1, $1.count) }
+        if isSoloAnswerTeam { return scoutSeats + crewSeats }
         return scoutSeats + crewSeats + 1
+    }
+
+    /// One answer seat whose lead shares the same skill — no synthesis pass (`code_doc_review`).
+    public var isSoloAnswerTeam: Bool {
+        guard scout == nil else { return false }
+        guard agentSpecs.allSatisfy({ $0.purpose != .review }) else { return false }
+        guard agentSpecs.count == 1, agentSpecs[0].purpose == .answer else { return false }
+        guard max(1, agentSpecs[0].count) == 1 else { return false }
+        return agentSpecs[0].skillId == lead.skillId
     }
 
     /// ADP-S03: the human-readable name every catalog/menu row must disclose

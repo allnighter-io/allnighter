@@ -36,11 +36,13 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertNotNil(team)
         guard let team else { return }
         XCTAssertEqual(team.displayName, "Doc Review")
-        XCTAssertEqual(team.outputKind, .specReview)
+        XCTAssertEqual(team.outputKind, .plan)
         XCTAssertFalse(team.mutating)
+        XCTAssertTrue(team.isSoloAnswerTeam)
+        XCTAssertEqual(team.catalogSeatCount, 1)
         XCTAssertEqual(team.agentSpecs.count, 1)
-        XCTAssertEqual(team.agentSpecs[0].skillId, "spec_first_principles_reviewer")
-        XCTAssertEqual(team.lead.skillId, "spec_review_writer")
+        XCTAssertEqual(team.agentSpecs[0].skillId, SkillCatalog.docReviewerSkillId)
+        XCTAssertEqual(team.lead.skillId, SkillCatalog.docReviewerSkillId)
     }
 
     func testSpecReviewDepthFamilyCarriesCuratedLineups() {
@@ -140,7 +142,7 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testEverySynthesisTeamReservesFableForLead() {
-        let passthrough: Set<String> = ["default_chat", "build_slice"]
+        let passthrough: Set<String> = ["default_chat", "build_slice", "code_doc_review"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
             XCTAssertEqual(team.lead.preferredModelId, "model_fable", "\(team.id) lead should prefer Fable")
         }
@@ -155,7 +157,7 @@ final class BuiltInTeamsTests: XCTestCase {
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
             "model_cursor_auto"
         ]
-        let passthrough: Set<String> = ["default_chat", "build_slice"]
+        let passthrough: Set<String> = ["default_chat", "build_slice", "code_doc_review"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
             XCTAssertEqual(team.lead.fallbackModelIds, expected, team.id)
         }
@@ -374,7 +376,7 @@ final class BuiltInTeamsTests: XCTestCase {
         // (see the doc comment on `executionPlaybook` — a starter here would
         // double-inject the playbook preamble), and `default_chat` is the plain
         // pass-everything-through chat default with no canned prompt to offer.
-        let starterExempt: Set<String> = ["default_chat", "build_slice"]
+        let starterExempt: Set<String> = ["default_chat", "build_slice", "code_doc_review"]
         for team in BuiltInTeams.all {
             XCTAssertFalse(team.typeTags.isEmpty, "\(team.id) has no typeTags")
             XCTAssertFalse(team.description.isEmpty, "\(team.id) has no description")
