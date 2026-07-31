@@ -137,7 +137,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // ATL-S01 completion registers those kickoff flags on the CommandSpec
         // (allowlist + mutex); contract 6.6.0 → 6.7.0.
         // CAP-S06 bumps contract 6.7.0 → 6.8.0 (`capacity` command + CapacityStripJSON).
-        XCTAssertEqual(trj.contractVersion, "6.13.0")
+        // LVC-S05 bumps contract 6.13.0 → 7.0.0 (major cut: `pair relay*`/`pair
+        // pilot*` retire behind one `alln loop` verb; `PMMode` wire enum deleted).
+        XCTAssertEqual(trj.contractVersion, "7.0.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"

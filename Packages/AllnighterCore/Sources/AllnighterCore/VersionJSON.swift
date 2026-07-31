@@ -11,8 +11,18 @@ import Foundation
 /// (+0.1.0) only when `contractVersion` takes a major cut. Distinct from
 /// `ContractRegistry.contractVersion`, which is schema-shape governed and
 /// never substitutes for this.
+///
+/// **Release note — 0.10.7 → 0.11.0 (LVC-S05, `docs/phases/Loop_Verb_Cutover.md`).**
+/// `contractVersion` took its major cut (6.13.0 → 7.0.0): `alln pair relay*` /
+/// `alln pair pilot*` are retired in favor of one `alln loop` verb, and the
+/// `PMMode` wire enum (`spawned|external`) is deleted — the chair is now an
+/// occupant id (`caller` or an agent id). **Breaking, deliberate, unshimmed:**
+/// on-disk `RelayState` carrying the old `"pmMode":"external"` will not
+/// decode. Finish or `stop` every in-flight loop before upgrading past this
+/// version — there is no compatibility shim, no dual-read, no migration. This
+/// fails loud on purpose (pre-user, foundation-first); do not add one later.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.10.7"
+    public static let binaryVersion = "0.11.0"
 }
 
 /// `alln version` / `alln --version` machine contract.

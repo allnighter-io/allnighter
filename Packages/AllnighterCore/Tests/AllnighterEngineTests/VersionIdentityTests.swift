@@ -27,13 +27,14 @@ final class VersionIdentityTests: XCTestCase {
         XCTAssertFalse(line.contains("0.9.0"), "Codex handshake must not carry the retired 0.9.0 literal")
     }
 
-    /// Bump rule (Agent_Dogfood_Papercuts.md §Version rule): the Claude capacity
-    /// truth batch bumps 0.10.6 → 0.10.7 (pool window identity, the 5h column
-    /// reporting the 5h window, and `none` no longer meaning "unsampled").
-    /// Pin the value so an accidental revert is caught here, not discovered
-    /// downstream.
+    /// Bump rule (Agent_Dogfood_Papercuts.md §Version rule): LVC-S05
+    /// (`docs/phases/Loop_Verb_Cutover.md`) bumps 0.10.7 → 0.11.0 because
+    /// `contractVersion` takes its major cut (6.13.0 → 7.0.0) — `pair relay*`/
+    /// `pair pilot*` retire behind one `alln loop` verb and the `PMMode` wire
+    /// enum is deleted. Pin the value so an accidental revert is caught here,
+    /// not discovered downstream.
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.10.7")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.11.0")
     }
 
     /// Drift gate: no OTHER hardcoded `"0.9.0"` string literal survives in the
