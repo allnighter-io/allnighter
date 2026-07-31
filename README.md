@@ -26,8 +26,11 @@ alln menu --json
 
 Choose from `useWhen` / `dontUseWhen`, pass canonical ids only, and run a
 validation template (`--dry-run`) before unfamiliar worker-starting actions.
-Never trust a pasted catalog across sessions. If `alln` isn't on PATH yet:
-`alln install-cli`. Paste-ready host context: `alln bootstrap`.
+Never trust a pasted catalog across sessions. Cold install (no `alln` anywhere):
+`curl -fsSL https://get.allnighter.app | sh`. PATH repair only (binary exists
+but plain `alln` does not resolve): `alln install-cli`. Updates appear on
+`alln menu --json` (`update` field) and use the same one-liner. Paste-ready
+host context: `alln bootstrap`.
 
 Selection and discovery SSOT: `docs/archive/phases/Menu_Not_Router.md`
 (router-era `team hello` / `route` / `resolve` are retired).

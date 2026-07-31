@@ -57,10 +57,12 @@ public enum HelpTopicRegistry {
             id: "quickstart", title: "Quickstart", audience: .both,
             summary: "Ensure `alln` is on your PATH, then check readiness with `alln menu --json` or `alln doctor`.",
             bodyMarkdown: """
-            Step zero: make sure `alln` resolves on your PATH. If `which alln` fails, run \
-            `alln install-cli` (or invoke the built binary by absolute path and follow its \
-            install step). Then check what your machine can do with `alln menu --json` or \
-            `alln doctor`.
+            Step zero: make sure `alln` resolves on your PATH. Cold install (no `alln` \
+            anywhere): `\(ReleaseChannel.installCommand)`. PATH repair only (binary exists \
+            but plain `alln` does not resolve): `alln install-cli` (or invoke the built binary \
+            by absolute path and follow its install step). Then check what your machine can \
+            do with `alln menu --json` or `alln doctor`. Updates appear on `alln menu --json` \
+            (`update` field) and use the same one-liner.
 
             Allnighter turns the AI CLIs you already have (Claude Code, Codex, Cursor, \
             Grok, Antigravity) into one team that works in a repo. A default run sends \
@@ -70,7 +72,8 @@ public enum HelpTopicRegistry {
             Other agents: run `alln bootstrap` for a paste-ready context snippet that teaches \
             the live-menu reflex (`alln menu --json`) in one paste (no MCP server, no config file edits).
             """,
-            aliases: ["getting started", "first run", "what is allnighter"],
+            aliases: ["getting started", "first run", "what is allnighter",
+                      "no alln", "get alln", "curl", "PATH", "update", "upgrade"],
             relatedCommandNames: ["install-cli", "run", "doctor", "bootstrap", "menu"],
             needsLiveCheck: false),
 
@@ -78,7 +81,9 @@ public enum HelpTopicRegistry {
             id: "bootstrap", title: "Bootstrap (agent activation)", audience: .agent,
             summary: "`alln bootstrap [--host claude|cursor|codex|generic|hermes|openclaw] [--json]` prints a paste-ready context snippet — no MCP server, no config file edits.",
             bodyMarkdown: """
-            Step zero: ensure `alln` is on PATH (`alln install-cli` if `which alln` fails). \
+            Step zero: ensure `alln` is on PATH. Cold install (no `alln` anywhere): \
+            `\(ReleaseChannel.installCommand)`. PATH repair only (binary exists but plain \
+            `alln` does not resolve): `alln install-cli`. \
             Allnighter has no MCP server and no daemon to install — the CLI is the whole \
             agent surface, no humans in the loop. `alln bootstrap` PRINTS (never edits \
             files) a short, paste-ready instruction block for a host agent's own context: \
@@ -106,7 +111,8 @@ public enum HelpTopicRegistry {
             """,
             aliases: ["install", "setup", "connect agent", "activation", "add to agent",
                      "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp",
-                     "rebuild", "self build", "fresh binary", "build alln"],
+                     "rebuild", "self build", "fresh binary", "build alln",
+                     "hermes", "openclaw"],
             relatedCommandNames: ["install-cli", "bootstrap", "help get", "help search", "menu", "doctor", "version"],
             schemaRefs: [],
             needsLiveCheck: false),

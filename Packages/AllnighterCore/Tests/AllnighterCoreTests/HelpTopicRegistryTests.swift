@@ -97,8 +97,61 @@ final class HelpTopicRegistryTests: XCTestCase {
         let prose = topic.summary + " " + topic.bodyMarkdown
         XCTAssertTrue(prose.contains("swift build -c release --product alln"))
         XCTAssertTrue(prose.contains("alln install-cli"))
+        XCTAssertTrue(prose.contains(ReleaseChannel.installCommand),
+                      "bootstrap must teach cold install one-liner, not install-cli alone")
+        XCTAssertTrue(prose.contains("PATH repair") || prose.contains("repair"),
+                      "bootstrap must frame install-cli as PATH repair, not cold start")
         XCTAssertTrue(prose.contains("version --json") || prose.contains("alln version"))
         XCTAssertTrue(prose.contains("tool_selection") || prose.contains("menu --json"))
+    }
+
+    /// OPC-S03: cold recovery is the one-liner; install-cli is PATH repair only.
+    func testQuickstartTeachesColdInstallNotInstallCliAlone() throws {
+        let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "quickstart"))
+        let prose = topic.summary + " " + topic.bodyMarkdown
+        XCTAssertTrue(prose.contains(ReleaseChannel.installCommand),
+                      "quickstart must cite ReleaseChannel.installCommand for cold install")
+        XCTAssertTrue(prose.contains("alln install-cli"),
+                      "quickstart still mentions install-cli for PATH repair")
+        XCTAssertTrue(prose.contains("PATH repair") || prose.contains("repair"),
+                      "quickstart must frame install-cli as PATH repair")
+    }
+
+    /// OPC-S03: search aliases surface cold-install and host recovery terms.
+    func testSearchRoutesColdInstallAndHostAliases() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("install"), "bootstrap")
+        XCTAssertEqual(top("curl"), "quickstart")
+        XCTAssertEqual(top("hermes"), "bootstrap")
+        XCTAssertEqual(top("openclaw"), "bootstrap")
+        XCTAssertEqual(top("get alln"), "quickstart")
+        XCTAssertEqual(top("no alln"), "quickstart")
+        XCTAssertEqual(top("PATH"), "quickstart")
+        XCTAssertEqual(top("update"), "quickstart")
+        XCTAssertEqual(top("upgrade"), "quickstart")
+    }
+
+    /// OPC-S03: help prose + README both cite the one install one-liner SSOT.
+    func testInstallCommandIsSharedSSOTAcrossHelpAndREADME() throws {
+        let command = ReleaseChannel.installCommand
+        let quickstart = try XCTUnwrap(HelpTopicRegistry.topic(id: "quickstart"))
+        let bootstrap = try XCTUnwrap(HelpTopicRegistry.topic(id: "bootstrap"))
+        XCTAssertTrue(quickstart.bodyMarkdown.contains(command),
+                      "quickstart body must contain ReleaseChannel.installCommand")
+        XCTAssertTrue(bootstrap.bodyMarkdown.contains(command),
+                      "bootstrap body must contain ReleaseChannel.installCommand")
+
+        // …/Packages/AllnighterCore/Tests/AllnighterCoreTests/<this>.swift → up 5.
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()   // AllnighterCoreTests
+            .deletingLastPathComponent()   // Tests
+            .deletingLastPathComponent()   // AllnighterCore
+            .deletingLastPathComponent()   // Packages
+            .deletingLastPathComponent()   // repo root
+        let readmeURL = repoRoot.appendingPathComponent("README.md")
+        let readme = try String(contentsOf: readmeURL, encoding: .utf8)
+        XCTAssertTrue(readme.contains(command),
+                      "README.md must contain ReleaseChannel.installCommand verbatim")
     }
 
     /// Golden: team_run_loop teaches CLI verbs in both markdown projections.
