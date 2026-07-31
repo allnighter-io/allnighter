@@ -53,6 +53,11 @@ deep-build and CLI Implementation Contract are archived — do not revive.
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
+> [`Worker_Skill_Sharing.md`](../archive/phases/Worker_Skill_Sharing.md)
+> (Complete, archived 2026-07-31 — founder-signed owner-visible Works Test
+> passed all 7 steps; same-ID shared Skill overrides + Restore, roster-only
+> Team Save, CLI 5.2.0, Mac worker editor cutover; code SSOT `SkillCatalog`,
+> `ContractRegistry`, `RunService`);
 > [`Capacity_Hardening_Hotfix.md`](../archive/phases/Capacity_Hardening_Hotfix.md)
 > (SHIPPED (code), archived 2026-07-31 — HF-00 hydrate last-known + HF-claude
 > reliability batch; all six seats resolve live-or-last-known correctly; code
@@ -71,6 +76,7 @@ deep-build and CLI Implementation Contract are archived — do not revive.
 > slice-queue PPT docs, and the PM Turn Delivery `ptd/` work orders) — moved to
 > `docs/archive/phases/sprint/<topic>/`; see `docs/phases/sprint/README.md` for
 > what's still open;
+> [`Menu_Envelope_Compression.md`](../archive/phases/Menu_Envelope_Compression.md)
 > (CLOSED / NO BUILD 2026-07-31 — raise menu byte cap only; gzip/encoding rejected;
 > size gate in menu tests; capacity stays with QABC);
 > [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md)
@@ -210,7 +216,6 @@ without a new founder ruling.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Worker_Skill_Sharing.md`](Worker_Skill_Sharing.md) | **Code Complete (WSS-S01)** — archive after Works Test | Same-ID shared Skill overrides + Restore; roster-only Team Save; CLI 5.2.0 + Mac worker editor cutover. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft — needs re-base** against `Unified_Run_Model.md` (its Execute-approval mutating gate is retired ceremony); Core routing built, GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send. |
 | [`Live_Team_Board.md`](Live_Team_Board.md) | **Draft feature packet** — no-theater contract | In-thread live board for running answer-team runs: sourced per-worker states + real deltas only when emitted. Forbids fake activity/progress. |
 
