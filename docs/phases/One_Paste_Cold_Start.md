@@ -3,7 +3,8 @@
 Status: **OPEN — founder priority (distribution wedge)** · implementation-ready  
 Owner: install script + release manifest + CLI projection + Mac update UI  
 Created: 2026-07-31  
-Updated: 2026-07-31 (release channel + agent/Mac update discovery as same system)  
+Updated: 2026-07-31 (hardening pass: publish race, injection, self-overwrite,
+in-flight upgrade, semver compare; trial/entitlement seams reserved)  
 Origin: Hermes / OpenClaw users with **no `alln`** need one paste so agents run
 on **subscription CLIs**, not API keys. Follow-on: once installed, **CLI-only
 users and agents never open the Mac app** — they still need to learn when a
@@ -13,10 +14,11 @@ Ephemeral packet. Closeout: promote install/teaching/update law into code +
 `docs/operations/` / help; archive this file.
 
 Related (reuse): `InstallCLI.swift` (PATH symlink only), `Bootstrap.swift` +
-`TeachingSnippet.swift`, `scripts/rebuild_cli.sh`, open QABC (capacity in menu —
-not a blocker), archived MCP retirement (**MCP stays dead**), deferred P05-S06
-app DMG (this packet owns the **shared release channel** the DMG/Sparkle path
-must use when it ships — not a second update product).
+`TeachingSnippet.swift`, `MenuJSON.capacity` (the precedent for an optional
+cached projection field), `ServeDaemonProbe` (binaryVersion already on the wire),
+`scripts/rebuild_cli.sh`, archived MCP retirement (**MCP stays dead**), deferred
+P05-S06 app DMG (this packet owns the **shared release channel** the DMG/Sparkle
+path must use when it ships — not a second update product).
 
 ---
 
@@ -54,17 +56,22 @@ These beat long checklists. If a design fights a law, the design is wrong.
 **Install layout:**
 
 1. Store the real binary at `~/.local/share/allnighter/bin/alln` (stable home).
-2. Link/copy onto the **first** of:
+2. **Symlink** — never copy — onto the **first** of:
    - a directory already on `$PATH` that is writable without sudo
    - `/usr/local/bin` if writable (often on PATH; same preference as
      `InstallCLI.defaultInstallDirectory`)
    - else `~/.local/bin` (create if needed)
+   A copy goes stale on the next upgrade; a symlink to the stable home means
+   upgrades need no re-link.
 3. Prove install with **absolute** path: `"$BIN" version` must exit 0.
 4. If the link dir is not on `$PATH`, **print** the one export line — do **not**
    auto-edit `~/.zshrc` / `~/.bash_profile`. Silent shell-rc edits surprise
    agents and break the print-never-edit consent posture.
 5. Installer stdout and bootstrap always include the **absolute binary fallback**
    (Bootstrap already does this). Hosts that never reload PATH still work.
+6. After linking, resolve `command -v alln`. If it resolves to something that is
+   **not** our link, print the conflict (both paths + both versions). Silence
+   here is what creates the "update available forever" trap (law 6, BUG-6).
 
 Works Test primary assert: absolute `version` green + paste block printed.
 `which alln` is optional and only expected when the link dir was already on PATH
@@ -74,64 +81,94 @@ or the user exported it.
 
 - **Outer pipe:** script body is `main() { … }; main "$@"` so a truncated
   `curl | sh` does not execute half a script.
-- **Binary fetch:** download to a temp file → verify **SHA256** → install → only
-  then print success. Fail closed; never exit 0 on a partial install.
-- Prefer the hosted page to keep serving this same script (hardening later:
-  download script to a file first — same URL brand).
+- **Every child gets `</dev/null`.** Under `curl … | sh`, the shell's stdin *is
+  the script*. Any subprocess that reads stdin eats the rest of the script.
+  `"$BIN" version </dev/null`, `"$BIN" bootstrap … </dev/null`, `curl … </dev/null`.
+  This is the single most likely cold-start bug and it is invisible in a
+  `sh ./get-alln.sh` test — the fixture test must run through a **pipe**.
+- **POSIX `/bin/sh` only.** No `[[`, no arrays, no `pipefail`, no `local`
+  assumptions. Check exit codes explicitly; `set -eu` plus explicit checks.
+- **Binary fetch:** manifest → download to temp → verify **SHA256** → atomic
+  install → only then print success. Fail closed; never exit 0 on partial state.
+- **Atomic install:** write `~/.local/share/allnighter/bin/.alln.tmp.$$` on the
+  **same filesystem**, then `mv` (rename) over `alln`. Never write in place: a
+  running `alln serve` / loop / detached run holds that inode, and an in-place
+  write is either `ETXTBSY` or a corrupted running process (BUG-3). Rename from
+  `$TMPDIR` can cross devices — stage in the destination directory.
+- `trap` cleanup of the temp dir on EXIT/INT; `umask 022`.
 
 ### 3. Public binary must run on Apple Silicon
 
-Unsigned / wrong-signed arm64 Mach-O dies under Gatekeeper (`Code Signature
-Invalid`). Track:
+arm64 Mach-O **must carry a valid signature to execute at all** (ad-hoc is the
+floor). Unsigned or wrong-signed dies with `Code Signature Invalid`. Track:
 
 | Track | Audience | Bar |
 | --- | --- | --- |
 | **Dogfood** | Founder / trusted | Local build or private URL; ad-hoc sign OK; SHA256 still required for any network fetch |
-| **Public** | Strangers | **Developer ID Application** sign (hardened runtime). SHA256 in script. Notarization before a loud launch — not required to start dogfood |
+| **Public** | Strangers | **Developer ID Application** sign (hardened runtime). SHA256 in manifest. Notarization before a loud launch — not required to start dogfood |
+
+`curl` does not set `com.apple.quarantine`, so the Gatekeeper *prompt* is not the
+failure mode here — the signature check is. Do not cargo-cult `xattr -d` into the
+script. Instead: if `"$BIN" version` fails, print the raw error plus the one
+remedy line, and exit non-zero (law 2).
 
 High-Risk Stop (`AGENTS.md`): do not flip the public hostname to strangers until
 signing (BQ-2) is real.
 
-### 4. Static asset URLs — no GitHub API
+### 4. Manifest first; immutable asset paths; no GitHub API
 
 Do not resolve version via `api.github.com` (shared 60 req/hr rate limits kill
-agent runners). `get.allnighter.app` (or override base) serves **direct** paths:
+agent runners). And do not fetch `binary` and `binary.sha256` as two independent
+mutable objects — a publish between the two requests yields a valid binary that
+fails a stale checksum, or worse (BUG-1).
+
+**One mutable object, everything else immutable:**
 
 ```text
-https://get.allnighter.app/alln-macos-arm64
-https://get.allnighter.app/alln-macos-arm64.sha256
-https://get.allnighter.app/alln-macos-x86_64
-https://get.allnighter.app/alln-macos-x86_64.sha256
-https://get.allnighter.app/latest.json          # release channel SSOT (S06)
+https://get.allnighter.app/latest.json                    # ONLY mutable object; edge TTL <= 60s
+https://get.allnighter.app/v0.12.0/alln-macos-universal   # immutable, never rewritten; long TTL
+https://get.allnighter.app/v0.12.0/Allnighter.dmg         # immutable
 ```
 
-Edge redirect / object store / Worker — implementer's choice. Contract: fixed
-paths, no API. V1 paths may mean "latest".
+`latest.json` names the exact versioned URL **and** its sha256, so binary and
+checksum can never disagree. Republishing a version = new version number, never
+an overwrite. Edge redirect / object store / Worker — implementer's choice.
+
+**One asset, not an arch matrix.** Ship a **universal** binary
+(`swift build --arch arm64 --arch x86_64`, or `lipo -create`). This deletes the
+arch-detection branch, halves the release matrix, and removes the entire
+"downloaded the wrong slice" bug class. (BQ-5.)
 
 ### 5. One teaching body; script never writes host configs
 
 Installer ends by running the installed binary:
 
 ```bash
-"$BIN" bootstrap --host hermes   # or openclaw via ALLN_BOOTSTRAP_HOST
+"$BIN" bootstrap --host hermes </dev/null   # or openclaw via ALLN_BOOTSTRAP_HOST
 ```
 
 That print is SSOT (`TeachingSnippet` + host preamble). Script does not
 hand-maintain a second manifesto. Script never writes Hermes / Claude / Cursor
 files — print only (same as bootstrap).
 
-### 6. One product on PATH — last writer wins
+### 6. One product on PATH — last writer wins, and say so
 
 Cold-start places a **standalone** binary. App `install-cli` still symlinks the
 *running* binary. Do not build upgrade-negotiation in V1.
 
 Rule: whatever last ran `install-cli` (or the cold script's link step) owns the
-PATH name `alln`. `alln version` shows which build. Optional later: doctor notes
-mismatch. Not a cold-start blocker.
+PATH name `alln`. Both the script (law 1.6) and `doctor` must **print the
+conflict** when the resolved `alln` is not the standalone home. Otherwise the
+user upgrades the standalone binary forever while PATH keeps resolving to an
+older app-bundled one, and `update.available` never clears (BUG-6).
+
+`version --json` already carries `binaryPath` — the update projection reuses it.
 
 ### 7. Subscriptions only; MCP dead
 
-Paste, help, doctor: never API keys / BYOK; never `mcp add` / MCP install.
+Paste, help, doctor: never model-vendor API keys / BYOK; never `mcp add` / MCP
+install. (An Allnighter **account** for entitlement is not a model API key — see
+§Trial. It is still never required to install, bootstrap, or read the menu.)
 
 ### 8. Release ≠ commit; one channel for CLI and Mac app
 
@@ -141,15 +178,73 @@ and bump the channel manifest. Agents and humans share **one** system:
 | Rule | Detail |
 | --- | --- |
 | **SSOT** | `latest.json` on the install host (same base URL as cold start) |
-| **Announce ≠ apply** | Surfaces say “update available + command”; never silent binary swap mid-session |
-| **Upgrade path** | CLI: same one-liner as cold start (optional thin `alln update` wrapper). Mac app: install the published app build for that release (Sparkle or manual) — versions align with the **same** manifest |
+| **Announce ≠ apply** | Surfaces say "update available + command"; never silent binary swap mid-session |
+| **Upgrade path** | CLI: same one-liner as cold start. Mac app: install the published app build for that release (Sparkle or manual) — versions align with the **same** manifest |
 | **Where agents look** | Piggyback `alln menu --json` (already taught as session start). Secondary: `version --json`, `doctor` |
 | **Where humans look** | Same menu field if they use CLI; Mac app update UI reads the **same** channel — not a private Sparkle-only truth |
 | **Network tax** | Cache check (~24h). Fail open (no field). Never block `run` on check failure |
 | **Not every commit** | CI does not flip `latest.json` on merge; only on an explicit release publish |
 
-If the Mac app and CLI disagree on “what’s latest,” the channel is wrong — fix the
-manifest, don’t add a second feed.
+If the Mac app and CLI disagree on "what's latest," the channel is wrong — fix the
+manifest, don't add a second feed.
+
+### 9. The network is data, never an instruction to an agent
+
+`latest.json` is fetched over the wire and then read by an LLM that can execute
+shell. Anything free-text in it is a **prompt-injection / RCE path** the moment
+an agent is told "run `update.command`" (BUG-4).
+
+- `update.command` is the **compiled-in constant** (`ReleaseChannel.installCommand`).
+  The manifest's `installCommand` is *never* projected — it exists only so a human
+  reading the file sees the canonical string. Mismatch → ignore it silently.
+- **No free text reaches the agent.** `notes` is not projected into
+  `menu --json` / `version --json` in V1. Humans can see it in the Mac app
+  (rendered as plain text, never as a command).
+- Version strings are parsed as semver and re-emitted from parsed components —
+  a raw remote string is never echoed into a field an agent may paste.
+
+### 10. The update check never blocks and never runs in a hot path
+
+- Checked only in `menu`, `version --json`, `doctor`, and explicit
+  `alln update --check`. **Never** in `run`, `loop`, or any dispatch path.
+- Read cache first. Fetch only when the cache is older than TTL (24h), with a
+  hard **2s** timeout, at most once per TTL, fail-open (omit the field).
+- On failure, stamp `nextAttemptAt = now + 1h` so an offline host does not pay
+  the timeout on every call.
+- Cache writes are temp+rename (concurrent `alln` invocations are normal; a torn
+  JSON cache must never be possible — BUG-2). A cache that fails to parse is a
+  miss, never an error.
+- Clock defence: if `fetchedAt` is more than 5 minutes in the future, treat the
+  cache as stale (BUG-5).
+- `ALLN_NO_UPDATE_CHECK=1` disables the check entirely (CI, air-gapped).
+
+### 11. Upgrading must be safe while work is in flight
+
+Upgrade is a file swap under a live machine. Two real hazards:
+
+- **Running processes.** Solved by atomic rename (law 2). A running
+  `alln serve` / loop keeps its old inode and does not crash.
+- **Durable state format cutovers.** These are not theoretical: 0.11.0 (LVC-S05)
+  deliberately made old `LoopState` undecodable — "finish or `stop` every
+  in-flight loop before upgrading." An agent that blind-runs the one-liner mid-loop
+  bricks that loop (BUG-7).
+
+Therefore the install script, **after** a successful install:
+
+1. Reads `alln loop list` / `alln ps` (new binary, `</dev/null`) and prints a
+   plain warning if anything is in flight.
+2. Prints the `alln serve` restart line if a serve daemon is running an older
+   `binaryVersion` (`ServeDaemonProbe` already records it).
+
+It does **not** kill anything, and it does not refuse to install. Announce, don't
+mutate. The teaching line in bootstrap says: upgrade between rounds, not during.
+
+### 12. Entitlement never blocks discovery
+
+Install, `bootstrap`, `menu`, `help`, `version`, `doctor`, `ps`, `artifact`,
+`kill` work forever, paid or not. Only **dispatch** is metered. An expired user
+must still be able to read their data and learn exactly how to pay — from the
+CLI, offline, with no account.
 
 ---
 
@@ -161,11 +256,15 @@ Intent:
      menu/run on subscription CLIs, not API keys.
   2) after install, agents + CLI-only humans learn about *releases* without
      opening the Mac app; Mac app uses the same release truth.
+  3) free to install, free to try for a bounded window, and deleting +
+     reinstalling must not reset that window.
 
-Value: kill chicken-and-egg; stop rotting on week-old bins while shipping daily.
+Value: kill chicken-and-egg; stop rotting on week-old bins while shipping daily;
+  make the trial honest without a DRM arms race.
 Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
   Linux; auto-apply upgrades; commit-SHA "you're behind"; GH API; app-only
-  Sparkle as sole update channel; forcing alln serve for update checks.
+  Sparkle as sole update channel; forcing alln serve for update checks;
+  anti-VM / anti-tamper hardening; gating discovery commands.
 ```
 
 ### Live bugs this packet fixes
@@ -173,12 +272,28 @@ Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
 | Lie / gap today | Fix |
 | --- | --- |
 | Help: no alln → run `alln install-cli` | Cold recovery = one-liner; `install-cli` is PATH **repair** only |
-| `Bootstrap.Host` has no hermes/openclaw | Add them (S02) |
+| `Bootstrap.Host` has no hermes/openclaw (`claude, cursor, codex, generic`) | Add them (S02) |
 | Snippet always teaches checkout `rebuild_cli.sh` | Drop/gate for release installs (poison when no checkout) |
 | No fetch faucet | `scripts/get-alln.sh` + published binary |
 | Doctor cannot run without alln | Pre-install recovery is the one-liner in docs/help text |
 | Updates only visible if you open the Mac app | Shared `latest.json` + menu/`update` field (S06); app UI same channel |
-| Humans/agents don’t know to “check for updates” | Piggyback the command they already run (`menu --json`) |
+| Humans/agents don't know to "check for updates" | Piggyback the command they already run (`menu --json`) |
+
+### Bugs found in the hardening pass (must be designed for, not discovered)
+
+| ID | Bug | Fix (law) |
+| --- | --- | --- |
+| **BUG-0** | `curl \| sh` + a child that reads stdin eats the rest of the script; passes when tested as a file, fails as a pipe | `</dev/null` on every child; fixture test runs through a real pipe (L2) |
+| **BUG-1** | Binary and `.sha256` fetched as two mutable objects → publish race gives a real binary with a stale hash → install "fails" or a mismatched pair installs | Manifest-first + immutable versioned paths (L4) |
+| **BUG-2** | Two concurrent `alln` invocations write the update cache → torn JSON → every later call errors or re-fetches | temp+rename write; unparseable = miss (L10) |
+| **BUG-3** | Upgrade writes over the binary a running `serve`/loop is executing → `ETXTBSY` or corrupted process | stage in dest dir + rename (L2) |
+| **BUG-4** | `installCommand` / `notes` come from the network and land in `menu --json`, where an agent is instructed to execute them | Compiled-in command only; no remote free text projected (L9) |
+| **BUG-5** | String compare says `0.9.0 > 0.10.0`; clock skew freezes the TTL cache forever; a rolled-back release announces a downgrade | Numeric semver compare, announce only on strict `latest > current`, future-`fetchedAt` = stale (L10) |
+| **BUG-6** | Standalone binary upgrades but PATH resolves to the app-bundled `alln` → `update.available` never clears; user "updates" daily forever | Print the resolved-path conflict in script + `doctor`; carry `binaryPath` in the projection (L1.6, L6) |
+| **BUG-7** | Blind one-liner upgrade mid-loop across a state-format cutover (0.11.0 LVC-S05) makes in-flight `LoopState` undecodable | Post-install in-flight warning + serve-restart line; teach "upgrade between rounds" (L11) |
+| **BUG-8** | Adding `MenuJSON.update` changes `contractHash` — schemas, contract lock, and the menu verifier drift and CI reds late | S06 ships `menu.schema.json` + `menu-show.schema.json` + `contract.lock.json` + `scripts/verify_menu_contract.py` + additive `contractVersion` minor bump + `binaryVersion` +0.0.1 in the same slice (precedent: QABC-S00e `capacity`) |
+| **BUG-9** | Entitlement stored in Keychain → the documented Codex/host sandbox Keychain block makes paid users look unpaid | Entitlement token is a `0600` file under Application Support. **Never Keychain** (L12, §Trial) |
+| **BUG-10** | Trial clock kept locally → `rm -rf ~/Library/Application Support/Allnighter` resets it; or the user sets the clock back | Server-side ledger keyed on machine hash; token carries server `issuedAt`/`expiresAt`; local clock < `issuedAt` = tamper → force refresh (§Trial) |
 
 ---
 
@@ -190,6 +305,9 @@ Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
 | **BQ-2** | Public = Developer ID signed + SHA256. Dogfood free without public DNS. Notarize before big launch. | Public cutover only |
 | **BQ-3** | **Defer npm/npx** | Nothing in V1 |
 | **BQ-4** | Soft update only in V1 (announce + command). Hard `minSupportedBinaryVersion` fail closed = later packet if protocol breaks. | Not V1 |
+| **BQ-5** | **One universal CLI binary**, no per-arch assets | S00/S01 asset naming |
+| **BQ-6** | Trial = **14 days, unlimited**, machine-keyed, starts at first successful dispatch. Supersedes "3 free Team runs" in `docs/marketing/Pricing_Recommendation.md` (that doc needs a follow-up edit). | Trial packet only |
+| **BQ-7** | Entitlement/payments **spin out** to a sibling packet; this packet only reserves the seams and ships S00–S06 without a gate | Nothing in this packet |
 
 ### Decision log
 
@@ -199,6 +317,9 @@ Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
 | 2026-07-31 | BQ-2 | Public floor = Developer ID + SHA256; dogfood unsigned/private OK |
 | 2026-07-31 | BQ-3 | Defer npm |
 | 2026-07-31 | BQ-4 | Soft announce only; no force-upgrade gate in this packet |
+| 2026-07-31 | BQ-5 | Universal binary — one asset, one path, no arch branch |
+| 2026-07-31 | BQ-6 | Days beat run-counting: one server timestamp, no "did that failed run count?" support load |
+| 2026-07-31 | BQ-7 | Cold start must ship before the gate exists; seams reserved so it is not a rewrite |
 
 ---
 
@@ -219,15 +340,19 @@ Same entitlement. App not required for Hermes. npm later only.
 
 ```text
 main() {
-  1. Darwin only; else exit 1
-  2. arch: arm64 | x86_64
-  3. BASE=${ALLN_INSTALL_BASE_URL:-https://get.allnighter.app}
-  4. curl binary + .sha256 to temp; verify sha256; fail closed
-  5. install to ~/.local/share/allnighter/bin/alln
-  6. link into PATH dir per law 1; print export line if needed
-  7. "$BIN" version   # absolute — required success
-  8. "$BIN" bootstrap --host ${ALLN_BOOTSTRAP_HOST:-hermes}
-  9. exit 0 only if 7 succeeded and link step did not leave a broken state
+  1. Darwin only; else exit 1.  POSIX sh; set -eu; umask 022; trap cleanup
+  2. BASE=${ALLN_INSTALL_BASE_URL:-https://get.allnighter.app}
+  3. curl -fsSL "$BASE/latest.json" </dev/null    → cliVersion, cli.url, cli.sha256
+  4. curl -fsSL "$CLI_URL" </dev/null → temp; shasum -a 256 must equal cli.sha256
+     (fail closed, print both hashes)
+  5. install atomically: HOME_BIN=~/.local/share/allnighter/bin
+     write "$HOME_BIN/.alln.tmp.$$" (same fs), chmod 755, mv → "$HOME_BIN/alln"
+  6. symlink into PATH dir per law 1; print export line if needed
+  7. "$BIN" version </dev/null                    # absolute — required success
+  8. resolved=$(command -v alln || true); warn if resolved != our link (BUG-6)
+  9. warn on in-flight loops / older running serve (law 11)
+ 10. "$BIN" bootstrap --host ${ALLN_BOOTSTRAP_HOST:-hermes} </dev/null
+ 11. exit 0 only if 7 succeeded
 }
 main "$@"
 ```
@@ -235,19 +360,21 @@ main "$@"
 Env: `ALLN_INSTALL_BASE_URL` (dogfood/fixture), `ALLN_BOOTSTRAP_HOST`,
 `ALLN_INSTALL_DIR` (optional force link dir).  
 Writes only under `~/.local/share/allnighter/`, chosen link dir, temp.  
-No Keychain, no telemetry, no host config edits, no shell-rc edits.
+No Keychain, no telemetry, no host config edits, no shell-rc edits, no `sudo`.
 
-**CI proof:** fixture binary + `ALLN_INSTALL_BASE_URL` + temp HOME; checksum
-mismatch → non-zero; host config mtime unchanged.
+**CI proof:** fixture manifest + binary served from a temp dir, `ALLN_INSTALL_BASE_URL`
++ temp HOME. Asserts: checksum mismatch → non-zero and **no** file at the install
+path; host config mtime unchanged; **script executed through a pipe** (`cat
+get-alln.sh | sh`) still reaches step 10 (BUG-0 regression gate).
 
-**Also the upgrade tool:** re-running this script *is* CLI upgrade. Optional
-`alln update` (S06) is a thin wrapper, not a second downloader.
+**Also the upgrade tool:** re-running this script *is* CLI upgrade. `alln update`
+(S06) prints the same one-liner; it is not a second downloader.
 
 ---
 
 ## Release channel contract (`latest.json`) — OPC-S06
 
-Published only on **release**, not on every merge:
+Published only on **release**, not on every merge. The only mutable object.
 
 ```json
 {
@@ -255,14 +382,14 @@ Published only on **release**, not on every merge:
   "cliVersion": "0.12.0",
   "appVersion": "0.12.0",
   "releasedAt": "2026-07-31T00:00:00Z",
-  "notes": "optional one line for humans/agents",
+  "notes": "human-only; never projected to agents",
   "installCommand": "curl -fsSL https://get.allnighter.app | sh",
   "cli": {
-    "arm64": { "url": "https://get.allnighter.app/alln-macos-arm64", "sha256": "…" },
-    "x86_64": { "url": "https://get.allnighter.app/alln-macos-x86_64", "sha256": "…" }
+    "url": "https://get.allnighter.app/v0.12.0/alln-macos-universal",
+    "sha256": "…"
   },
   "app": {
-    "url": "https://get.allnighter.app/Allnighter.dmg",
+    "url": "https://get.allnighter.app/v0.12.0/Allnighter.dmg",
     "sha256": "…"
   }
 }
@@ -270,84 +397,95 @@ Published only on **release**, not on every merge:
 
 Rules:
 
+- Versioned asset paths are **immutable**. A bad build ships as `0.12.1`, never as
+  a rewrite of `0.12.0`.
 - `cliVersion` / `appVersion` may match (preferred) or diverge only when a release
   truly ships one surface — still **one file**, not two private channels.
-- `installCommand` must equal the canonical one-liner string.
+- `installCommand` must equal the canonical one-liner string, and is
+  informational only (law 9).
+- Unknown fields are ignored by readers; `schemaVersion` > known → treat as "no
+  update information" and fail open (never guess).
 - Dogfood: same shape at a private base URL; CLI/app honor `ALLN_INSTALL_BASE_URL`
   / Settings override for checks.
-- Sparkle (when wired): appcast **derived from or pointing at this release**, not
-  a hand-maintained parallel “latest” that can drift. Prefer generating appcast
-  from the same publish step that writes `latest.json`.
+- Sparkle (when wired): appcast **generated by the same publish step**, not a
+  hand-maintained parallel "latest" that can drift.
 
 ### CLI projection (agent-native)
 
-Cache path: Application Support (or equivalent), TTL ~24h.  
+Cache: `~/Library/Application Support/Allnighter/Release/latest-check.json`
+(`AllnighterPaths.release`), TTL 24h, temp+rename write, fail-open (law 10).  
 Inject into **`alln menu --json`** (primary — agents already open it):
 
 ```json
 "update": {
   "available": true,
-  "current": "0.11.0",
+  "current": "0.11.1",
   "latest": "0.12.0",
-  "notes": "optional one line",
+  "binaryPath": "/Users/me/.local/share/allnighter/bin/alln",
   "command": "curl -fsSL https://get.allnighter.app | sh"
 }
 ```
 
-When current ≥ latest or check failed/skipped: omit `update` or
-`"available": false` (prefer omit to keep the happy path quiet).
-
-Also expose on `alln version --json` and a doctor check when useful.  
-Optional: `alln update` / `alln update --check` — check or re-exec install
-script; print-never-auto unless user/agent passes an explicit apply flag later.
+- Optional field, exactly like `MenuJSON.capacity`. When current ≥ latest, or the
+  check failed/skipped/was disabled: **omit** `update` entirely (keep the happy
+  path quiet — no `"available": false` noise).
+- `command` is compiled-in. No `notes`. No remote strings (law 9).
+- `binaryPath` present so an agent can see a BUG-6 PATH conflict without a second
+  command.
+- Same truth on `alln version --json` and as a `doctor` check — **one owner**
+  (`ReleaseChannel`), three projections.
+- Humans on a TTY get one stderr line per TTL from `menu`/`doctor`. Never on
+  stdout, never during `run`.
+- `alln update` / `alln update --check`: prints current, latest, and the
+  one-liner. It does **not** download or exec in V1 (BQ-4). Applying is the
+  human/agent running the one-liner.
 
 **Teaching:** one reflex line (bootstrap/help): if `update.available`, tell the
-user and run `update.command` only when they authorize an upgrade — same consent
-as other spending/mutating recommendations.
-
-**Non-goals for S06:** auto-replace binary; hard min-version kill; serve daemon
-required; GH API; nag on every command.
+user and run `update.command` only when they authorize it — and prefer **between
+rounds**, not mid-loop (law 11).
 
 ### Mac app projection (same channel)
 
 Today: update UX is app-centric and easy to miss if the app is closed for a week.
 Improve under **the same laws**:
 
-| Do | Don’t |
+| Do | Don't |
 | --- | --- |
-| Read `latest.json` (or generated Sparkle feed from the same publish) | Own a second “latest version” only in app prefs code |
-| Compare `appVersion` to running app; show notes + install path | Require opening a buried Settings page to discover updates |
+| Read `latest.json` (or a Sparkle feed generated by the same publish) | Own a second "latest version" only in app prefs code |
+| Compare `appVersion` to running app; show notes as **plain text** + install path | Require a buried Settings page to discover updates |
 | Status item / first window / about: quiet badge or one line when behind | Modal every launch |
-| After app update, offer/repair CLI via existing `install-cli` if app bundles CLI | Silently fight a standalone cold-start binary (law 6: last writer wins; show versions) |
-| Use dogfood base URL override consistent with CLI | Hardcode a different CDN for “app updates only” |
+| After app update, offer/repair CLI via existing `install-cli`, and show which binary PATH resolves to | Silently fight a standalone cold-start binary (law 6) |
+| Use the same base URL override as the CLI | Hardcode a different CDN for "app updates only" |
 
-Sparkle remains an **implementation** for downloading the DMG/app zip — not the
-product SSOT for “is there a release?” Product SSOT is `latest.json`.
+Sparkle remains an **implementation** for downloading the DMG — not the product
+SSOT for "is there a release?" Product SSOT is `latest.json`.
 
 ### Publish recipe (release day)
 
-One intentional step (script or CI job “release”):
+One intentional step (script or CI job "release"):
 
-1. Build + sign CLI (+ app if shipping).
-2. Upload static assets + `.sha256`.
-3. Write/upload `latest.json` (and generate Sparkle appcast from it if used).
+1. Build universal + sign CLI (+ app if shipping); compute sha256.
+2. Upload to **versioned, immutable** paths.
+3. Write/upload `latest.json` last (and generate the Sparkle appcast from it).
 4. Do **not** bump `latest.json` on ordinary merges.
+5. Purge/short-TTL only `latest.json` at the edge; assets are immutable.
+
+Ordering matters: assets before manifest, so the manifest never points at a 404.
 
 ---
 
 ## Bootstrap (OPC-S02)
 
-Add hosts `hermes` | `openclaw`.  
+Add hosts `hermes` | `openclaw` to `Bootstrap.Host` (today: `claude, cursor,
+codex, generic`).  
 `pasteTarget`: honest "host system prompt / tools instructions (print-only)" —
 do not invent a file path we have not verified.
 
 - Shared `snippet()` stays `TeachingSnippet` SSOT (keep host-invariant body).
 - Short host **preamble** in `render()` (subscription CLIs over API keys; start
-  with `alln menu --json`; authorize before spend/mutate). Optional JSON field
-  `preamble` if agents need it.
-- Remove/gate checkout `rebuild_cli.sh` from cold on-PATH snippet.
-- Size: keep hermes render compact (aim ≲ existing snippet budgets + few preamble
-  lines; no second manifesto).
+  with `alln menu --json`; authorize before spend/mutate; upgrade between rounds).
+- Remove/gate checkout `rebuild_cli.sh` from the cold on-PATH snippet.
+- Size: keep hermes render compact; no second manifesto.
 - Negative tests: no MCP, no API key strings; no filesystem writes.
 
 Files: `Bootstrap.swift`, `AllnighterCLI.runBootstrap`,
@@ -362,11 +500,79 @@ Files: `Bootstrap.swift`, `AllnighterCLI.runBootstrap`,
 - Delete help lie: "no alln → alln install-cli" as sole recovery.
 - README agent section: one-liner for cold; `install-cli` for repair; updates via
   menu `update` + same one-liner.
-- One constant for the one-liner string (Core or script+help test that greps both).
+- One constant for the one-liner string (`ReleaseChannel.installCommand`) with a
+  test that greps script + help + README against it.
 
 Doctor (when binary exists): never API keys; PATH repair = absolute path +
-`install-cli`. Doctor does not install a missing binary; may report
-`update.available` when cache says so.
+`install-cli`; reports the BUG-6 conflict and `update.available` from cache.
+Doctor does not install a missing binary.
+
+---
+
+## Trial & payments (seams reserved here; **sibling packet owns the build**)
+
+Founder ask: free to install, free to try for X days, and `rm -rf` + reinstall
+must not mint a fresh trial. Design below is the answer; per BQ-7 it ships as
+`docs/phases/Trial_And_Entitlement.md`, **not** inside the cold-start train.
+Recorded here because two seams must exist from day one or S01/S06 get rewritten.
+
+**Anchor (same as the Mac app).** Sign in with Apple → Supabase
+(`RemoteAccountModel.signInWithApple`, `trusted_devices`, `mac_agents` already
+exist). One entitlement service for CLI, Mac, and iOS. Not a second product.
+
+**The abuse fix is that the clock is not local.** A server ledger row is keyed on
+a **machine hash** — an HMAC (static compiled-in salt) over stable IOKit hardware
+identity; the raw UUID never leaves the machine and is never stored. First
+successful dispatch writes `trial_started_at` for that machine hash. Reinstall
+finds the same row. A fresh Apple ID on the same machine finds the same row. The
+server always keeps the **earliest** start it has ever seen for a key.
+
+- Trial = **14 days, unlimited**, no account required (preserves one-paste magic;
+  BQ-6).
+- Sign in with Apple is required only to **pay** and to sync entitlement across
+  machines / iOS.
+- Offline at first dispatch: grant a provisional local start, reconcile on next
+  contact (server takes the earlier timestamp). Unactivated + never able to reach
+  the server = **72h** grace, then fail closed.
+- Residual risk accepted: VM / hardware spoofing. **No anti-VM, no
+  anti-tamper, no obfuscation** — a $10/mo prosumer tool does not win a DRM arms
+  race, and every hardening step costs support incidents from honest users.
+
+**Token, not a phone-home per run.** Activation/refresh returns a short-lived
+signed entitlement token (Ed25519; public key compiled in) carrying account (if
+any), machine hash, plan, `issuedAt`, `expiresAt` (7d). Stored `0600` at
+`~/Library/Application Support/Allnighter/Entitlement/token.json` — **never
+Keychain**, because the documented host-sandbox Keychain block would make paid
+users look unpaid (BUG-9). Local clock earlier than `issuedAt` = rollback →
+force refresh, and refuse to extend on local time alone (BUG-10). Refresh
+piggybacks the same 24h check as the release channel — one network reflex, not two.
+
+**What is metered:** dispatch only (`alln run`, `loop` start, any worker spawn).
+Everything else is free forever (law 12). An in-flight run is never killed by an
+expiry — admission is checked at dispatch, once.
+
+**Failure shape:** structured `ErrorEnvelope` with a real `nextAction` (the
+checkout URL or `alln activate`), so an agent can tell its human exactly what to
+do. Never a silent hang, never a generic error.
+
+**Payments:** hosted Stripe Checkout link → webhook → Supabase entitlement row.
+No in-app payment UI, no IAP (direct distribution, unsandboxed by design). Founder
+is solo — the whole surface is one table, one webhook, one signed token.
+
+**Seams to reserve now (cheap now, expensive later):**
+
+1. `ReleaseChannel` fetch/cache/TTL/backoff is written generically enough that the
+   entitlement refresh reuses it (one cached network reflex, one lock, one clock
+   defence) — do not build a second cache later.
+2. `MenuJSON` gains **one** optional projection field per concern. `entitlement`
+   is reserved as a sibling of `update` so adding it later is another additive
+   minor bump, not a reshuffle.
+3. Dispatch already funnels through `RunService` — the admission check has exactly
+   one call site. Do not scatter checks.
+
+**High-Risk Stop:** hardware-derived identity + payment state is a privacy /
+billing surface per `AGENTS.md`. The sibling packet discloses exactly what is
+hashed and sent, in `doctor` and in the privacy line, before it ships.
 
 ---
 
@@ -375,10 +581,10 @@ Doctor (when binary exists): never API keys; PATH repair = absolute path +
 | Slice | Goal | Done when |
 | --- | --- | --- |
 | **OPC-S02** | hermes/openclaw + C3 snippet fix | Contract, tests, no checkout poison |
-| **OPC-S03** | Help/README recovery = one-liner | Search hits; no install-cli chicken-egg |
-| **OPC-S00** | Asset names + dogfood publish recipe | Static paths locked; private or local URL works |
-| **OPC-S01** | `scripts/get-alln.sh` + fixture proof | Laws 1–2 green on cold Mac / temp HOME |
-| **OPC-S06** | Shared release channel: `latest.json` + CLI `menu.update` + Mac reads same feed | Agents see update without opening app; app not a second SSOT; cache/fail-open; no auto-apply |
+| **OPC-S03** | Help/README recovery = one-liner | Search hits; no install-cli chicken-egg; one-liner constant grep-gated |
+| **OPC-S00** | Universal build + versioned asset layout + publish recipe | Immutable paths locked; manifest written last; private/local URL works |
+| **OPC-S01** | `scripts/get-alln.sh` + fixture proof | Laws 1–2 green on temp HOME **through a pipe**; BUG-0/1/3/6/7 gated |
+| **OPC-S06** | Shared release channel: `latest.json` + `ReleaseChannel` + `menu.update` + `version --json` + doctor + Mac reads same feed | Agents see update without opening app; app not a second SSOT; cache/fail-open; no auto-apply; BUG-8 artifacts updated in the same commit |
 | **OPC-S05** | Public cutover | BQ-1/2 real: signed assets + `latest.json` on get.allnighter.app |
 | **OPC-S04** | npm (optional) | Only if founder reopens BQ-3 |
 
@@ -388,16 +594,25 @@ public DNS. S05 is the public flip for install **and** update channel together.
 
 ### OPC-S06 checklist
 
-- [ ] `latest.json` schema + fixture tests (parse, compare, omit when current)
-- [ ] Cached fetch (TTL ~24h); injectable URL for tests; fail open
-- [ ] `MenuJSON` / menu projection field `update` (CLI inject, Core types)
-- [ ] `version --json` carries same truth (or points at menu field — one owner)
-- [ ] Optional `alln update --check` (print); apply = re-run install script
-- [ ] Help + bootstrap: authorize before upgrade command
-- [ ] Mac: About/status (or existing update entry) reads same base URL +
-      `appVersion`; no parallel “latest” constant in app-only code
-- [ ] Publish recipe documents writing manifest + assets in one step
-- [ ] Negative: no GH API; no auto binary replace; check failure does not fail `run`
+- [ ] `ReleaseManifest` decode + fixtures (unknown fields ignored; future
+      `schemaVersion` → no update info)
+- [ ] `ReleaseVersion` numeric semver compare + tests (`0.9.0 < 0.10.0`;
+      malformed → no announcement; never announce a downgrade)
+- [ ] Cached fetch: 24h TTL, 2s timeout, 1h failure backoff, temp+rename write,
+      corrupt cache = miss, future `fetchedAt` = stale, `ALLN_NO_UPDATE_CHECK`
+- [ ] `MenuJSON.update` optional field + `menu.schema.json` +
+      `menu-show.schema.json` + `contract.lock.json` +
+      `scripts/verify_menu_contract.py` + `contractVersion` additive minor +
+      `binaryVersion` +0.0.1 (BUG-8, all in one commit)
+- [ ] `version --json` + `doctor` project the same `ReleaseChannel` truth
+- [ ] `alln update --check` prints; no download, no exec
+- [ ] Injection gate: remote `installCommand`/`notes` never appear in any JSON
+      projection (test asserts a hostile fixture cannot inject a command string)
+- [ ] Mac: About/status reads the same base URL + `appVersion`; no parallel
+      "latest" constant in app-only code
+- [ ] Publish recipe documents assets-then-manifest ordering
+- [ ] Negative: no GH API; no auto binary replace; check failure does not fail
+      `run`; `run` performs no update network call at all
 
 ---
 
@@ -407,15 +622,22 @@ public DNS. S05 is the public flip for install **and** update channel together.
 | --- | --- |
 | Script edits Hermes/Claude/shell rc | Print only |
 | Cold start → MCP | Deny-list stays green |
-| Paste → API keys | String tests |
+| Paste → model-vendor API keys | String tests |
 | No alln → `alln install-cli` alone | One-liner first |
 | Script owns a second teaching body | Call `alln bootstrap` |
 | Public curl of unsigned arm64 | BQ-2 / S05 |
 | Version via GitHub API | Static URLs only |
-| “Behind” because git is busy | Only `latest.json` / published version |
+| "Behind" because git is busy | Only `latest.json` / published version |
 | Auto-upgrade under a live agent | Announce + authorized command only |
 | Mac Sparkle is the only update truth | Channel SSOT is `latest.json`; Sparkle is transport |
 | Update check requires `alln serve` | CLI check is self-contained |
+| Copy the binary onto PATH | Symlink to the stable home (law 1) |
+| Overwrite a published version's asset | New version number, always |
+| Echo a remote string an agent might run | Compiled-in constants only (law 9) |
+| Update check inside `run` | Discovery commands only (law 10) |
+| Trial clock in a local file / Keychain | Server ledger + `0600` token (BUG-9/10) |
+| Gate `menu`/`doctor`/`help` on entitlement | Discovery is free forever (law 12) |
+| Anti-VM / anti-tamper hardening | Explicit non-goal |
 
 ---
 
@@ -424,28 +646,62 @@ public DNS. S05 is the public flip for install **and** update channel together.
 ### Cold start (S01)
 
 ```text
-Setup: Mac, subscription CLI ready, alln not available.
-Gesture: curl one-liner (or script + ALLN_INSTALL_BASE_URL fixture).
+Setup: Mac, subscription CLI ready, alln not available. Fixture base URL.
+Gesture: cat scripts/get-alln.sh | sh   (a PIPE, not a file — BUG-0)
 Assert:
   1. Absolute "$BIN" version exits 0
-  2. Installer stdout includes bootstrap paste (menu --json / teaching markers)
+  2. Installer stdout includes the bootstrap paste (menu --json / teaching markers)
   3. No MCP, no API-key advice
-  4. No host config files modified
+  4. No host config or shell-rc files modified
   5. which alln only if link dir was on PATH (or after printed export)
+  6. Tampered sha256 → non-zero exit AND no binary at the install path
+  7. Re-run while a fake long-lived process holds the old binary → succeeds,
+     old process survives, new version reported (BUG-3)
+  8. PATH resolves elsewhere → conflict printed with both paths (BUG-6)
 ```
 
 ### Update channel (S06)
 
 ```text
-Setup: alln on PATH at version A; fixture latest.json reports version B > A.
-Gesture: alln menu --json (after cache miss or forced refresh in test).
+Setup: alln at version A; fixture latest.json reports B > A.
+Gesture: alln menu --json (cache miss / forced refresh in test).
 Assert:
-  1. update.available == true, latest == B, command == canonical one-liner
-  2. Offline / bad URL: menu still succeeds; no false available
-  3. After script upgrade to B: update absent or available false
-  4. Mac app (or unit seam) given same latest.json reports the same appVersion story
-  5. No auto binary replace without explicit update/apply path
+  1. update.available == true, latest == B, command == compiled-in one-liner
+  2. Hostile fixture (installCommand "rm -rf ~", notes with backticks) → those
+     strings appear NOWHERE in any projection (BUG-4)
+  3. Offline / bad URL / 500 / garbage body: menu still succeeds, field omitted,
+     nextAttemptAt backoff set
+  4. current 0.10.0 vs latest 0.9.0 → no announcement; 0.9.0 vs 0.10.0 → announced
+  5. Corrupt cache file → treated as miss, menu succeeds
+  6. After upgrade to B: field omitted
+  7. alln run performs zero release-channel network calls
+  8. Mac app seam given the same latest.json reports the same appVersion story
 ```
+
+---
+
+## Estimate
+
+| Slice | Dev days (solo + agent seats) |
+| --- | --- |
+| S02 hosts + snippet | 0.5 |
+| S03 help/README/one-liner constant | 0.5 |
+| S00 universal build + asset layout + publish script | 1.0 |
+| S01 `get-alln.sh` + pipe/fixture proof | 1.5 |
+| S06 `ReleaseChannel` + menu/version/doctor + contract artifacts + Mac read | 2.0 |
+| S05 public cutover (DNS, Developer ID, notarize) | 1.0 |
+| **Total (this packet)** | **~6.5 dev days** |
+| Sibling trial/entitlement packet (Supabase table, edge function, device flow, Stripe, CLI gate, Mac/iOS parity) | ~6 dev days |
+
+**Importance: 9/10 — definitely do.** Two live problems, one packet: agents cannot
+start at all without a paste (the wedge), and installed agents silently rot on
+old binaries with no way to find out (the retention bug). Everything downstream —
+public launch, the trial, the DMG — needs this channel to exist first.
+
+Per-slice: S02/S03 **9** (cheap, fixes live lies). S00/S01 **9** (the wedge).
+S06 **9** (the rot bug; also the only honest place to hang the entitlement
+refresh). S05 **7** (gated on founder's public-launch timing). S04 npm **2**.
+Sibling trial packet **6** — required before strangers, not before dogfood.
 
 ---
 
@@ -453,7 +709,10 @@ Assert:
 
 - One claim true on a cold Mac via one paste (dogfood OK for founder).
 - Public hostname only after Developer ID + SHA256 assets.
-- S02–S03 teaching honest; S01 script reliable under laws 1–2.
-- S06: agents and CLI-only humans learn about **releases** via menu; Mac app
-  uses the **same** channel (not a second product).
+- S02–S03 teaching honest; S01 script reliable under laws 1–2 **through a pipe**.
+- S06: agents and CLI-only humans learn about **releases** via menu; Mac app uses
+  the **same** channel; no remote string can reach an agent as a command.
+- BUG-0 … BUG-8 each have a named regression test.
+- Trial seams reserved (one cached network reflex, one admission call site, one
+  reserved menu field); the gate itself ships in its own packet.
 - Packet promoted and archived.
