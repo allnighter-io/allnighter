@@ -53,7 +53,24 @@ deep-build and CLI Implementation Contract are archived — do not revive.
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
-> [`Menu_Envelope_Compression.md`](../archive/phases/Menu_Envelope_Compression.md)
+> [`Capacity_Hardening_Hotfix.md`](../archive/phases/Capacity_Hardening_Hotfix.md)
+> (SHIPPED (code), archived 2026-07-31 — HF-00 hydrate last-known + HF-claude
+> reliability batch; all six seats resolve live-or-last-known correctly; code
+> SSOT `CapacityDisplayAcquisition`, `CapacityHistoryStore`, `CapacityProbe`);
+> orphaned execution briefs for already-shipped work, found un-archived during
+> the 2026-07-31 cleanup and archived alongside their parent packets:
+> `atl/ATL_S01_S02_execution.md` (parent: archived `Agent_Team_Loop.md`),
+> `capacity/CAP-S01_slice.md` + `CAP-S05_slice.md` + capacity-strip mockups,
+> `closeout/ATL_S05_sidebar_quieting.md` + `CAP-S08_tier3_probe.md` +
+> `Open_Items_Closeout.md` (parents: archived `Agent_Team_Loop.md` and
+> `CLI_Capacity_TUI_Sampling.md`) — all now under `docs/archive/phases/`;
+> `docs/phases/sprint/` also had a matching backlog of "ready"/"done" work
+> orders whose parent packets had already archived (RunWriteLock/CheckRunner/
+> SliceGate/Classifier/Queue/Watchdog/Driver/Timeline/Streaming CR-01–CR-10,
+> Design Lane, most of Team Run Receipt, OC-S01a, the deleted pair-programming
+> slice-queue PPT docs, and the PM Turn Delivery `ptd/` work orders) — moved to
+> `docs/archive/phases/sprint/<topic>/`; see `docs/phases/sprint/README.md` for
+> what's still open;
 > (CLOSED / NO BUILD 2026-07-31 — raise menu byte cap only; gzip/encoding rejected;
 > size gate in menu tests; capacity stays with QABC);
 > [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md)
@@ -237,8 +254,13 @@ without a new founder ruling.
 - SwiftUI may render truth; it must not invent it.
 - Generated output is derived. Change the source contract, then regenerate.
 - Do not leave “Product shipped” / “Living SSOT” docs in `docs/phases/`. A hard
-  cleanup pass on 2026-07-18 archived ~40 delivered docs; keep that habit —
-  with promotion, not archive-only amnesia.
+  cleanup pass on 2026-07-18 archived ~40 delivered docs; a second pass on
+  2026-07-31 found a whole class of the same failure one level down — shipped
+  *sprint work orders* whose parent packet had already been archived, left
+  behind under `docs/phases/sprint/<topic>/` and three orphaned execution-brief
+  directories (`atl/`, `capacity/`, `closeout/`) never linked from this README
+  at all. Keep that habit — with promotion, not archive-only amnesia — and
+  check one level below the phase-packet doc, not just the packet itself.
 
 ## Post-MVP Product Laws
 

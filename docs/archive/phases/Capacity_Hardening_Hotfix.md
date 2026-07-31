@@ -309,5 +309,5 @@ Close only when:
 ## Related
 
 - `docs/archive/phases/CLI_Capacity_TUI_Sampling.md` — last-known and age law
-- `docs/phases/closeout/CAP-S08_tier3_probe.md` — probe ship record
+- `docs/archive/phases/closeout/CAP-S08_tier3_probe.md` — probe ship record
 - Code: `CapacityAcquisition`, `CapacityProbe`, `CapacityHistoryStore`, `ClaudeCapacityLog`, `CursorCapacityLog`, `KimiCapacityLog`, `AgyCapacityLog`, `AllnighterCLI.runCapacity`, `CapacityStripModel.loadLive`

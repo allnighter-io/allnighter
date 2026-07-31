@@ -147,8 +147,8 @@ and inspect findings under `docs/phases/code_review/findings/`.
 | Hand-authored symbol stubs | Phantom cross-refs in findings |
 | Expecting GLM to explore | Window dies; quality drops |
 
-Parallel is **opt-in only** after serve lifecycle is hardened
-([`OC-S02`](../phases/sprint/opencode/OC-S02-serve-lifecycle-hardening.md)).
+Parallel is **opt-in only**; serve lifecycle hardening shipped
+([`OC-S02`](../archive/phases/sprint/opencode/OC-S02-serve-lifecycle-hardening.md)).
 
 ---
 
