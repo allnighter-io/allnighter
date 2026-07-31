@@ -180,8 +180,8 @@ final class RelayJSONTests: XCTestCase {
         )
         let state = RelayState(
             id: "relay_pilot", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev", status: .awaitingPM,
-            pmMode: .external, rounds: [round], createdAt: now
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev", status: .awaitingPM,
+            rounds: [round], createdAt: now
         )
 
         let json = RelayJSON.project(state, contractVersion: "1.0.0")

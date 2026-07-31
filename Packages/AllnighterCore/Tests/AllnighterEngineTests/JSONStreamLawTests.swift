@@ -60,8 +60,7 @@ final class JSONStreamLawTests: XCTestCase {
         let relayJSON = RelayJSON.project(
             RelayState(
                 id: "relay_pilot_stream", projectRoot: "/repo", docPath: "docs/spec.md",
-                pmModelId: "model_pm", devModelId: "model_dev", status: .awaitingPM,
-                pmMode: .external, createdAt: Date()
+                pmModelId: "model_pm", devModelId: "model_dev", status: .awaitingPM, createdAt: Date()
             ),
             contractVersion: ContractRegistry.contractVersion
         )
@@ -76,8 +75,7 @@ final class JSONStreamLawTests: XCTestCase {
         let relayJSON = RelayJSON.project(
             RelayState(
                 id: "relay_watch", projectRoot: "/repo", docPath: "docs/spec.md",
-                pmModelId: "model_pm", devModelId: "model_dev", status: .awaitingPM,
-                pmMode: .external, createdAt: Date()
+                pmModelId: "model_pm", devModelId: "model_dev", status: .awaitingPM, createdAt: Date()
             ),
             contractVersion: ContractRegistry.contractVersion
         )

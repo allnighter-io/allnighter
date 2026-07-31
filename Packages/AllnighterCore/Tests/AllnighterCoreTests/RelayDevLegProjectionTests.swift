@@ -16,8 +16,8 @@ final class RelayDevLegProjectionTests: XCTestCase {
 
         var state = RelayState(
             id: "relay_settle", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         state.rounds = [round]
 
@@ -69,8 +69,8 @@ final class RelayDevLegProjectionTests: XCTestCase {
 
         var state = RelayState(
             id: "relay_parked", projectRoot: "/tmp", docPath: "d.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "dev",
+            status: .awaitingPM, createdAt: Date()
         )
         state.rounds = [round]
 
@@ -93,8 +93,8 @@ final class RelayDevLegProjectionTests: XCTestCase {
         round.devTurnEndReason = .reported
         var state = RelayState(
             id: "relay_fail", projectRoot: "/tmp", docPath: "d.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "dev",
+            status: .awaitingPM, createdAt: Date()
         )
         state.rounds = [round]
         var run = TeamRun(id: "run_dev_fail", prompt: "p", status: .failed, createdAt: Date())
@@ -144,8 +144,8 @@ final class RelayDevLegProjectionTests: XCTestCase {
         round.headAfterDev = "111aaa"
         var state = RelayState(
             id: "relay_pair", projectRoot: "/tmp", docPath: "d.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "dev",
+            status: .running, createdAt: Date()
         )
         state.rounds = [round]
         var run = TeamRun(id: "run_pair", prompt: "p", status: .done, createdAt: Date())

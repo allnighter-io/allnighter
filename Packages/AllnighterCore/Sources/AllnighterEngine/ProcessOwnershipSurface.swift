@@ -371,7 +371,7 @@ public struct ProcessOwnershipSurface: Sendable {
 
     private func listRelays(now: Date) -> [OwnershipProcessJSON] {
         relayStore.list().map { relay in
-            let kind = relay.pmMode == .external ? "pilot" : "relay"
+            let kind = "loop"
             let dir = (try? relayStore.directory(for: relay.id))
                 ?? relayStore.rootDirectory.appendingPathComponent(relay.id, isDirectory: true)
             let turnOwner = ProcessOwnership.readTurnOwner(in: dir)
@@ -438,7 +438,7 @@ public struct ProcessOwnershipSurface: Sendable {
     }
 
     private func killRelay(_ state: RelayState) -> Result<OwnershipKillRowJSON, OwnershipKillError> {
-        let kind = state.pmMode == .external ? "pilot" : "relay"
+        let kind = "loop"
         // Terminal parked states (done/escalated/stopped/awaitingPM without a live tree).
         if state.status != .running {
             // Still allow kill when an in-flight turn owner file exists (edge).

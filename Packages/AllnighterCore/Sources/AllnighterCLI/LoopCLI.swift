@@ -86,7 +86,7 @@ enum LoopCLI {
                     id: state.id,
                     status: state.status.rawValue,
                     briefOrSpec: state.docPathOrBrief,
-                    pm: state.pmMode == .external ? "caller" : state.pmModelId,
+                    pm: state.isCallerChair ? "caller" : state.pmModelId,
                     dev: state.devModelId,
                     updatedAt: state.finishedAt ?? state.rounds.last?.startedAt ?? state.createdAt
                 )
@@ -183,7 +183,7 @@ enum LoopCLI {
                 projectId: project.id,
                 docPath: specPath,
                 brief: brief,
-                pmModelId: RelayState.externalPMModelId,
+                pmModelId: RelayState.callerPMModelId,
                 devModelId: seats.dev,
                 maxRounds: maxRounds,
                 until: untilParsed.value,

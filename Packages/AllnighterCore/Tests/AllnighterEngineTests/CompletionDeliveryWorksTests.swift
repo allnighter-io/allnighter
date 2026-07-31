@@ -118,8 +118,8 @@ final class CompletionDeliveryWorksTests: XCTestCase {
 
         let state = RelayState(
             id: "relay_wt01", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, rounds: [round], createdAt: Date()
         )
         try relayStore.save(state)
         var run = TeamRun(id: devRunId, prompt: "p", status: .done, createdAt: Date())
@@ -175,8 +175,8 @@ final class CompletionDeliveryWorksTests: XCTestCase {
         round.headAfterDev = "failc0mm1t"
         let state = RelayState(
             id: "relay_wt06", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .failed, createdAt: Date())
         run.endReason = .failed

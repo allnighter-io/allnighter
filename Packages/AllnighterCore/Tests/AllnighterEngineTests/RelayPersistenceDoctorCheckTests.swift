@@ -14,7 +14,6 @@ final class RelayPersistenceDoctorCheckTests: XCTestCase {
             pmModelId: "external",
             devModelId: "model_dev",
             status: .awaitingPM,
-            pmMode: .external,
             createdAt: Date()
         )
         _ = try store.save(state)

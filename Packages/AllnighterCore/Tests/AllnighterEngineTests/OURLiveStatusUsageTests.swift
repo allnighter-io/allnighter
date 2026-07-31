@@ -27,8 +27,8 @@ final class OURLiveStatusUsageTests: XCTestCase {
         round.devRunId = devRunId
         let state = RelayState(
             id: "relay_our", projectRoot: "/repo", docPath: "d.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_grok",
-            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_grok",
+            status: .running, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: Date())
         run.lastActivityAt = Date().addingTimeInterval(-12)
@@ -62,8 +62,8 @@ final class OURLiveStatusUsageTests: XCTestCase {
         round.devRunId = devRunId
         let state = RelayState(
             id: "relay_silent", projectRoot: "/repo", docPath: "d.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_grok",
-            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_grok",
+            status: .running, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: Date())
         run.lastActivityAt = Date().addingTimeInterval(-20)
@@ -90,8 +90,8 @@ final class OURLiveStatusUsageTests: XCTestCase {
         let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays3"))
         let state = RelayState(
             id: "relay_nodev", projectRoot: "/repo", docPath: "d.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_grok",
-            status: .running, pmMode: .external,
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_grok",
+            status: .running,
             rounds: [RelayRound(roundNumber: 1, startedAt: Date())],
             createdAt: Date()
         )
@@ -112,8 +112,8 @@ final class OURLiveStatusUsageTests: XCTestCase {
         round.devRunId = devRunId
         let state = RelayState(
             id: "relay_dead", projectRoot: "/repo", docPath: "d.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_grok",
-            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_grok",
+            status: .running, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: Date())
         run.lastActivityAt = Date().addingTimeInterval(-240)

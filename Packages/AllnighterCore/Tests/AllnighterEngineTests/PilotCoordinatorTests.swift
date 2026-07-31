@@ -4,8 +4,9 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 /// PL-S01/S02 works tests: Pilot (`docs/phases/Pilot_Relay.md`) is the SAME substrate
-/// as the shipped PM Relay — `pmMode: .external`, a parked `awaitingPM` status between
-/// rounds, and `RelayCoordinator.runExternalRound` standing in for a spawned PM turn.
+/// as the shipped PM Relay — caller-chaired (`isCallerChair`), a parked `awaitingPM`
+/// status between rounds, and `RelayCoordinator.runExternalRound` standing in for a
+/// spawned PM turn.
 /// Fixtures mirror `RelayCoordinatorTests` (real git repo, scripted dev CLI only — Pilot
 /// never dispatches a PM seat at all).
 final class PilotCoordinatorTests: HermeticSupportTestCase {
@@ -83,9 +84,9 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let result = coordinator.startPilot(config: config)
         guard case .success(let state) = result else { return XCTFail("expected success") }
 
-        XCTAssertEqual(state.pmMode, .external)
+        XCTAssertTrue(state.isCallerChair)
         XCTAssertEqual(state.status, .awaitingPM)
-        XCTAssertEqual(state.pmModelId, RelayState.externalPMModelId)
+        XCTAssertEqual(state.pmModelId, RelayState.callerPMModelId)
         XCTAssertEqual(state.devModelId, "model_dev")
         XCTAssertTrue(state.rounds.isEmpty)
         XCTAssertEqual(state.pilotMaxRounds, 7)
@@ -375,8 +376,8 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightBlocksCredentialTokenHandoverSameAsBlockingPath() throws {
         let state = RelayState(
             id: "relay_preflight_cred", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         // Same shape as the founder detour / HandoverGateTests: imperative credential exposure.
         let handover = "Please commit the API key to the repo so CI can read it."
@@ -401,8 +402,8 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightAllowsSafeContinueAndDone() throws {
         let state = RelayState(
             id: "relay_preflight_ok", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         let continueOK = RelayCoordinator.preflightExternalRound(
             state: state,
@@ -420,8 +421,8 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testPreflightRefusesRoundInFlightAndUnparseable() throws {
         var running = RelayState(
             id: "relay_preflight_run", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         guard case .failure(.roundInFlight) = RelayCoordinator.preflightExternalRound(
             state: running, submission: verdictJSON("done", note: "x")
@@ -454,8 +455,8 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let running = RelayState(
             id: "relay_pilot_inflight", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         try stateStore.save(running)
 
@@ -473,8 +474,8 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let done = RelayState(
             id: "relay_pilot_done_already", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .done, pmMode: .external, createdAt: Date(), note: "Shipped."
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .done, createdAt: Date(), note: "Shipped."
         )
         try stateStore.save(done)
 
@@ -567,9 +568,13 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 2, "the 3rd handoff never dispatches — stagnation fires before parsing")
     }
 
-    // MARK: - Legacy decode (PL-S01)
+    // MARK: - Legacy decode (PL-S01, LVC-S02e)
 
-    func testLegacyRelayJSONWithoutPMModeDecodesToSpawned() throws {
+    /// `pmMode` is gone (LVC-S02e) — the chair is derived solely from `pmModelId`
+    /// (`isCallerChair`), so a relay.json from before `pmMode` ever existed decodes
+    /// exactly as it did — no shim, no dual-read, just one field that was always
+    /// durable enough to carry the answer.
+    func testLegacyRelayJSONWithoutPMModeDecodesAsSpawnedChair() throws {
         let legacyJSON = """
         {
           "id": "relay_legacy", "projectRoot": "/repo", "docPath": "docs/spec.md",
@@ -578,7 +583,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         }
         """
         let decoded = try CoreJSON.decode(RelayState.self, from: Data(legacyJSON.utf8))
-        XCTAssertEqual(decoded.pmMode, .spawned)
+        XCTAssertFalse(decoded.isCallerChair)
         XCTAssertNil(decoded.pilotMaxRounds)
         XCTAssertNil(decoded.pilotStagnationRoundCap)
     }
@@ -589,8 +594,8 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let parked = RelayState(
             id: "relay_pilot_parked", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         try stateStore.save(parked)
         // No owner.pid marker at all — a genuinely long-parked relay never had one,

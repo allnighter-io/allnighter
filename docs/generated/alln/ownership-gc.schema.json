@@ -22,7 +22,7 @@
           "enum" : [
             "run",
             "relay",
-            "pilot"
+            "loop"
           ],
           "type" : "string"
         },

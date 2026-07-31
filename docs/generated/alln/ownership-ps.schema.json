@@ -166,8 +166,7 @@
         "kind" : {
           "enum" : [
             "run",
-            "relay",
-            "pilot",
+            "loop",
             "proof",
             "worker"
           ],

@@ -712,7 +712,7 @@ public enum ContractSchema {
         schema["$defs"] = [
             "OwnershipProcess": obj([
                 "id": str,
-                "kind": enumStr(["run", "relay", "pilot", "proof", "worker"]),
+                "kind": enumStr(["run", "loop", "proof", "worker"]),
                 "projectRoot": nullable("string"),
                 "identity": nullableRef("ProcessOwner"),
                 "identityAlive": bool,
@@ -819,7 +819,7 @@ public enum ContractSchema {
         schema["$defs"] = [
             "GarbageCollectionRecord": obj([
                 "id": str,
-                "kind": enumStr(["run", "relay", "pilot"]),
+                "kind": enumStr(["run", "relay", "loop"]),
                 "createdAt": nullable("string"),
                 "status": nullable("string"),
                 "detail": nullable("string"),

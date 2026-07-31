@@ -144,7 +144,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         XCTAssertEqual(dead.endReason, RunEndReason.reconciledOrphan.rawValue)
 
         let relayRow = try XCTUnwrap(byId["relay_live_1"])
-        XCTAssertEqual(relayRow.kind, "relay")
+        XCTAssertEqual(relayRow.kind, "loop")
         XCTAssertTrue(relayRow.identityAlive)
         XCTAssertFalse(relayRow.wouldReconcile)
         XCTAssertEqual(relayRow.projectRoot, "/tmp/relay-repo")
@@ -527,7 +527,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         ProcessOwnership.terminateSignalHook = { pgid in signals.append(pgid) }
 
         let row = try surface.kill(id: "relay_kill_1").get()
-        XCTAssertEqual(row.kind, "relay")
+        XCTAssertEqual(row.kind, "loop")
         XCTAssertEqual(row.endReason, "killed")
         XCTAssertEqual(signals, [9_150])
 

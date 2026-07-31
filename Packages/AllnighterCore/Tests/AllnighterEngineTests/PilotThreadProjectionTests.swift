@@ -2,8 +2,8 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// PL-S05 works test: `RelayThreadProjector` renders a Pilot relay (`pmMode ==
-/// .external`) on the SAME `WorkThread` shape a spawned relay uses — an external
+/// PL-S05 works test: `RelayThreadProjector` renders a Pilot relay (`isCallerChair`)
+/// on the SAME `WorkThread` shape a spawned relay uses — an external
 /// round's submission renders verbatim as the PM turn, attributed distinctly
 /// (`author: .user`, no `workerId`) from a spawned PM turn's `author: .worker` +
 /// `workerId`; `awaitingPM` renders PARKED-calm (no open turn, not running, no

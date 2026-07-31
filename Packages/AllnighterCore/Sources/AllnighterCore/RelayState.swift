@@ -34,8 +34,8 @@ public struct RelayRound: Sendable, Codable, Equatable {
     public var startedAt: Date
     public var finishedAt: Date?
     public var outcome: Outcome?
-    /// Pilot only (`pmMode == .external`, `docs/phases/Pilot_Relay.md` §2 "round log
-    /// truth"): the piloting session's raw markdown submission for this round,
+    /// Pilot only (`pmModelId == RelayState.callerPMModelId`, `docs/phases/Pilot_Relay.md`
+    /// §2 "round log truth"): the piloting session's raw markdown submission for this round,
     /// verbatim — the PM turn's run-truth when there is no `pmRunId`/`RunStore` entry
     /// to point at (there was no PM dispatch; the submission itself IS the record).
     /// `nil` for a spawned round.
@@ -170,17 +170,6 @@ public struct RelayGateSummary: Sendable, Codable, Equatable {
     }
 }
 
-/// Who holds the PM seat for a relay (`docs/phases/Pilot_Relay.md` §1 decision 1).
-/// `spawned` is the shipped PM Relay — Allnighter dispatches a PM model each round.
-/// `external` is Pilot — a live human/agent session outside Allnighter IS the PM;
-/// Allnighter only ever dispatches the dev seat, driven by `RelayCoordinator.
-/// runExternalRound`. Same `RelayState`, same rounds, same thread — this field is the
-/// only fork ("one substrate, two entries").
-public enum PMMode: String, Sendable, Codable, CaseIterable {
-    case spawned
-    case external
-}
-
 /// One PM↔dev relay (docs/phases/PM_Relay.md) — the durable ledger `RelayCoordinator`
 /// reads/writes after every state change so the loop is resumable from disk at any point,
 /// never held only in memory (R-S04).
@@ -192,7 +181,7 @@ public struct RelayState: Sendable, Codable, Equatable {
         /// A ceiling fired (`--max-rounds`, `--until`, or stagnation) — always carries
         /// `stoppedReason`.
         case stopped
-        /// Pilot only (`pmMode == .external`, `docs/phases/Pilot_Relay.md` §2): parked
+        /// Pilot only (`isCallerChair`, `docs/phases/Pilot_Relay.md` §2): parked
         /// between rounds, waiting on the piloting session's next `pilot handoff`. A
         /// **parked, UNOWNED** state — no process lives here, `RelayStateStore.save`
         /// never writes an `owner.pid` marker for it (only `.running` does), and
@@ -215,9 +204,6 @@ public struct RelayState: Sendable, Codable, Equatable {
     public var pmModelId: String
     public var devModelId: String
     public var status: Status
-    /// `spawned` (default) or `external` (Pilot). Legacy relays persisted before this
-    /// field existed decode as `spawned` — the only mode that ever ran.
-    public var pmMode: PMMode
     public var rounds: [RelayRound]
     public var createdAt: Date
     public var finishedAt: Date?
@@ -236,7 +222,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// Set once at `claimStart`, injected into the first PM prompt assemble, then
     /// cleared (consume-once). Never written into `founderNote` (resume-only).
     public var kickoffMessage: String?
-    /// Pilot only (`pmMode == .external`): the round ceiling set once at `pilot start`
+    /// Pilot only (`isCallerChair`): the round ceiling set once at `pilot start`
     /// and re-read at every later `pilot handoff`. A spawned relay gets its ceiling
     /// fresh from `RelayCoordinator.Config` on every `run`/`resume` call (one
     /// long-lived process holds it); a pilot relay has no such process — each
@@ -265,7 +251,6 @@ public struct RelayState: Sendable, Codable, Equatable {
         pmModelId: String,
         devModelId: String,
         status: Status,
-        pmMode: PMMode = .spawned,
         rounds: [RelayRound] = [],
         createdAt: Date,
         finishedAt: Date? = nil,
@@ -285,7 +270,6 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.pmModelId = pmModelId
         self.devModelId = devModelId
         self.status = status
-        self.pmMode = pmMode
         self.rounds = rounds
         self.createdAt = createdAt
         self.finishedAt = finishedAt
@@ -299,11 +283,21 @@ public struct RelayState: Sendable, Codable, Equatable {
         self.laneBlocked = laneBlocked
     }
 
-    /// Pilot only: the sentinel `pmModelId` stamped on an `external`-mode relay —
-    /// there is no PM model to dispatch (the piloting session IS the PM), so this
-    /// documents the field's meaning rather than leaving it a real, dispatchable
-    /// worker id. Never resolved through `RunService`.
-    public static let externalPMModelId = "external"
+    /// Pilot only: the sentinel `pmModelId` stamped when the caller (a live human/agent
+    /// session outside Allnighter, driven by `RelayCoordinator.runExternalRound`) holds
+    /// the PM seat — there is no PM model to dispatch, so this documents the field's
+    /// meaning rather than leaving it a real, dispatchable worker id. Never resolved
+    /// through `RunService`. The chair is `caller` iff `pmModelId == callerPMModelId`
+    /// (`isCallerChair`) — no separate mode field to drift out of sync with it.
+    public static let callerPMModelId = "external"
+
+    /// True when the caller — a live human/agent session outside Allnighter — holds
+    /// the PM seat (Pilot), false when Allnighter dispatches a PM model each round
+    /// (the shipped PM Relay). Same `RelayState`, same rounds, same thread either way;
+    /// this is the only fork ("one substrate, two entries").
+    public var isCallerChair: Bool {
+        pmModelId == Self.callerPMModelId
+    }
 
     // Lenient decode: tolerates relays persisted before later fields existed
     // (mirrors `FixPacket.init(from:)`'s partial-model tolerance).
@@ -316,9 +310,6 @@ public struct RelayState: Sendable, Codable, Equatable {
         pmModelId = try c.decode(String.self, forKey: .pmModelId)
         devModelId = try c.decode(String.self, forKey: .devModelId)
         status = try c.decode(Status.self, forKey: .status)
-        // Legacy decode: every relay persisted before Pilot existed only ever ran
-        // `spawned` (Pilot_Relay.md §1 decision 1, PL-S01).
-        pmMode = try c.decodeIfPresent(PMMode.self, forKey: .pmMode) ?? .spawned
         rounds = try c.decodeIfPresent([RelayRound].self, forKey: .rounds) ?? []
         createdAt = try c.decode(Date.self, forKey: .createdAt)
         finishedAt = try c.decodeIfPresent(Date.self, forKey: .finishedAt)

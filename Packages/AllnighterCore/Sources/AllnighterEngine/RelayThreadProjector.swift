@@ -134,7 +134,7 @@ public struct RelayThreadProjector: Sendable {
         }
     }
 
-    /// Pilot's PM turn (`docs/phases/Pilot_Relay.md` PL-S05, `pmMode == .external`):
+    /// Pilot's PM turn (`docs/phases/Pilot_Relay.md` PL-S05, `isCallerChair`):
     /// there is no PM model dispatch to wait on — `RelayCoordinator.runExternalRound`
     /// only ever persists a round AFTER the piloting session's submission already
     /// parsed (and, for `continue`, cleared `HandoverGate`), so the round is a complete,

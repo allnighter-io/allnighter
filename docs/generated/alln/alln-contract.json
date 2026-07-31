@@ -2710,6 +2710,83 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT use this to explore shapes — use `alln loop start --dry-run` first; this spends quota.",
+      "args" : [
+        {
+          "name" : "brief",
+          "required" : true,
+          "summary" : "What you want done. The brief handed to the PM at round 1 — no other flag is required."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
+      "example" : "alln loop start \"execute this doc\" --spec docs\/phases\/Loop_Verb_Cutover.md --pm caller --dev model_grok",
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "spec",
+          "summary" : "Repo-relative spec doc path — a shortcut for when the brief would be three paragraphs, not the shape. The PM re-reads it fresh each round.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "pm",
+          "summary" : "PM occupant: `caller` (this session reviews every round) or a canonical agent id (that agent is spawned as PM and the loop runs unattended). Omitted → the Frontier-tier default.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "dev",
+          "summary" : "Dev seat canonical agent id. Omitted → the Balanced-tier default.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "project",
+          "summary" : "Project id, name, or repo path. Omitted → resolved from the current working directory.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "dry-run",
+          "summary" : "Resolve the brief\/spec\/both seats\/project and report readiness; exit 0, create nothing, spend nothing.",
+          "takesValue" : false
+        },
+        {
+          "name" : "no-wait",
+          "summary" : "Spawn the same registered `loop start` verb in a detached child; return only after the child durably claims delivery.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit structured JSON (LoopStartDryRunJSON with --dry-run; RelayJSON otherwise).",
+          "takesValue" : false
+        }
+      ],
+      "freeTwinCommand" : "alln loop start --dry-run",
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "loop start",
+      "outputSchema" : "relayJSON",
+      "spendsQuota" : true,
+      "summary" : "Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself (the `pair pilot start` path); `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended (the `pair relay` path).",
+      "trigger" : "Use when the user wants a multi-round PM↔dev loop that reviews real commits round after round until the work is done — with or without naming who sits in which chair.",
+      "visibility" : "public"
+    },
+    {
       "args" : [
 
       ],

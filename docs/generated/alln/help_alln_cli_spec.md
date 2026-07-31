@@ -760,6 +760,24 @@ Local observed-facts summary of vendor waits covered and automatic resumes (last
 Flags:
 - `--json` — Emit MorningReceipt JSON.
 
+### `alln loop start`
+
+Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself (the `pair pilot start` path); `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended (the `pair relay` path).
+
+Arguments:
+- `brief` (required) — What you want done. The brief handed to the PM at round 1 — no other flag is required.
+
+Flags:
+- `--spec <path>` — Repo-relative spec doc path — a shortcut for when the brief would be three paragraphs, not the shape. The PM re-reads it fresh each round.
+- `--pm <id>` — PM occupant: `caller` (this session reviews every round) or a canonical agent id (that agent is spawned as PM and the loop runs unattended). Omitted → the Frontier-tier default.
+- `--dev <id>` — Dev seat canonical agent id. Omitted → the Balanced-tier default.
+- `--project <id>` — Project id, name, or repo path. Omitted → resolved from the current working directory.
+- `--dry-run` — Resolve the brief/spec/both seats/project and report readiness; exit 0, create nothing, spend nothing.
+- `--no-wait` — Spawn the same registered `loop start` verb in a detached child; return only after the child durably claims delivery.
+- `--json` — Emit structured JSON (LoopStartDryRunJSON with --dry-run; RelayJSON otherwise).
+
+Output schema: `relayJSON`.
+
 ### `alln pair relay`
 
 Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.

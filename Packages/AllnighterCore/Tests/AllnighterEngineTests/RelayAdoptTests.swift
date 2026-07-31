@@ -126,7 +126,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let result = await adoptCoordinator.adopt(relayId: "relay_adopt_happy", pmModelId: "model_pm", config: config)
         guard case .success(let state) = result else { return XCTFail("expected success") }
 
-        XCTAssertEqual(state.pmMode, .spawned)
+        XCTAssertFalse(state.isCallerChair)
         XCTAssertEqual(state.pmModelId, "model_pm")
         XCTAssertEqual(state.status, .done)
         XCTAssertEqual(state.note, "All criteria met.")
@@ -148,7 +148,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
 
         // Durable: reloading from disk agrees.
         let reloaded = stateStore.load(id: "relay_adopt_happy")
-        XCTAssertEqual(reloaded?.pmMode, .spawned)
+        XCTAssertEqual(reloaded?.isCallerChair, false)
         XCTAssertEqual(reloaded?.status, .done)
     }
 
@@ -261,8 +261,8 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let running = RelayState(
             id: "relay_adopt_inflight", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         try stateStore.save(running)
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
@@ -279,8 +279,8 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let done = RelayState(
             id: "relay_adopt_done", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .done, pmMode: .external, createdAt: Date(), note: "Shipped."
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .done, createdAt: Date(), note: "Shipped."
         )
         try stateStore.save(done)
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
@@ -297,8 +297,8 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let stopped = RelayState(
             id: "relay_adopt_stopped", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .stopped, pmMode: .external, createdAt: Date(), stoppedReason: "reached --max-rounds (3)"
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .stopped, createdAt: Date(), stoppedReason: "reached --max-rounds (3)"
         )
         try stateStore.save(stopped)
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
@@ -324,9 +324,9 @@ final class RelayAdoptTests: HermeticSupportTestCase {
 
         let result = RelayCoordinator.adoptToPilot(relayId: "relay_reverse_escalated", stateStore: stateStore, threadProjector: nil)
         guard case .success(let flipped) = result else { return XCTFail("expected success") }
-        XCTAssertEqual(flipped.pmMode, .external)
+        XCTAssertTrue(flipped.isCallerChair)
         XCTAssertEqual(flipped.status, .awaitingPM)
-        XCTAssertEqual(flipped.pmModelId, RelayState.externalPMModelId)
+        XCTAssertEqual(flipped.pmModelId, RelayState.callerPMModelId)
         XCTAssertNil(flipped.finishedAt)
         XCTAssertEqual(flipped.rounds.count, 1, "round log carries over untouched")
 
@@ -348,7 +348,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
 
         let result = RelayCoordinator.adoptToPilot(relayId: "relay_reverse_orphan", stateStore: stateStore, threadProjector: nil)
         guard case .success(let flipped) = result else { return XCTFail("expected success — a reconciled-stopped relay is adoptable") }
-        XCTAssertEqual(flipped.pmMode, .external)
+        XCTAssertTrue(flipped.isCallerChair)
         XCTAssertEqual(flipped.status, .awaitingPM)
         XCTAssertNil(flipped.stoppedReason, "the ceiling-stop reason is cleared once handed back to Pilot")
     }
@@ -399,8 +399,8 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let parked = RelayState(
             id: "relay_reverse_already_pilot", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         try stateStore.save(parked)
         let result = RelayCoordinator.adoptToPilot(relayId: "relay_reverse_already_pilot", stateStore: stateStore, threadProjector: nil)
@@ -442,7 +442,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         guard case .failure(let error) = racedResult else { return XCTFail("expected failure while the lock is held") }
         XCTAssertEqual(error, .roundInFlight)
         // The lock loser must never have mutated durable state.
-        XCTAssertEqual(stateStore.load(id: "relay_adopt_concurrent")?.pmMode, .external)
+        XCTAssertEqual(stateStore.load(id: "relay_adopt_concurrent")?.isCallerChair, true)
         XCTAssertEqual(stateStore.load(id: "relay_adopt_concurrent")?.status, .awaitingPM)
 
         heldLock = nil
@@ -481,7 +481,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
 
         let guardResult = coordinator.adoptGuard(relayId: "relay_guard_adopt", pmModelId: "model_pm", config: config)
         guard case .success(let (flipped, adoptedConfig, note)) = guardResult else { return XCTFail("expected guard success") }
-        XCTAssertEqual(flipped.pmMode, .spawned)
+        XCTAssertFalse(flipped.isCallerChair)
         XCTAssertEqual(flipped.pmModelId, "model_pm")
         XCTAssertEqual(flipped.status, .running, "the guard's own mutation, before any child exists")
         XCTAssertTrue(note.contains("Pilot"), "adoptionNote names the piloted-round handoff")
@@ -509,7 +509,7 @@ final class RelayAdoptTests: HermeticSupportTestCase {
         let guardResult = coordinator.adoptGuard(relayId: "relay_guard_adopt_locked", pmModelId: "model_pm", config: config)
         guard case .failure(let error) = guardResult else { return XCTFail("expected guard failure while the lock is held") }
         XCTAssertEqual(error, .roundInFlight)
-        XCTAssertEqual(stateStore.load(id: "relay_guard_adopt_locked")?.pmMode, .external, "a refused guard must never mutate durable state")
+        XCTAssertEqual(stateStore.load(id: "relay_guard_adopt_locked")?.isCallerChair, true, "a refused guard must never mutate durable state")
         XCTAssertEqual(stateStore.load(id: "relay_guard_adopt_locked")?.status, .awaitingPM)
         heldLock = nil
     }

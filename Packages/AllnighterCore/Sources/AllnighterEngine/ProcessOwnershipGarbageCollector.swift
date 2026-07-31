@@ -164,7 +164,7 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
             }
             let identity = ProcessOwnership.readTurnOwner(in: directory)
                 ?? relay.rounds.last?.devTurnOwner.flatMap(ProcessOwnership.OwnerIdentity.fromRecord)
-            let kind = relay.pmMode == .external ? "pilot" : "relay"
+            let kind = "loop"
             return Snapshot(
                 id: relay.id,
                 directory: directory,

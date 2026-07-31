@@ -165,7 +165,7 @@ enum PilotCLI {
             projectRoot: project.normalizedRootPath,
             projectId: project.id,
             docPath: docPath,
-            pmModelId: RelayState.externalPMModelId,
+            pmModelId: RelayState.callerPMModelId,
             devModelId: devModelId,
             maxRounds: maxRounds,
             devTurnIdleTimeoutSeconds: idleParsed.value
@@ -1255,7 +1255,7 @@ enum PilotCLI {
             }
             return actions
         case .parked:
-            if state.status == .awaitingPM, state.pmMode == .external {
+            if state.status == .awaitingPM, state.isCallerChair {
                 return [
                     .init(
                         kind: "pilotHandoff",
@@ -1384,7 +1384,7 @@ enum PilotCLI {
         case .relayNotFound:
             return ("RELAY_NOT_FOUND", "relay not found")
         case .notPilotRelay:
-            return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (pmMode != external) — use `alln pair relay`/`alln pair relay-resume` instead")
+            return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (caller doesn't hold the PM seat) — use `alln pair relay`/`alln pair relay-resume` instead")
         case .roundInFlight:
             return ("RELAY_ROUND_IN_FLIGHT", "a round is already dispatching for this relay — wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running (optional: `pilot watch`)")
         case .notAwaitingPM(let status):
@@ -1401,7 +1401,7 @@ enum PilotCLI {
         case .relayNotFound:
             return ("RELAY_NOT_FOUND", "relay not found")
         case .notSpawnedRelay:
-            return ("RELAY_INVALID_STATE", "relay is not a spawned relay (pmMode != spawned) — only a spawned relay can be handed to a piloting session")
+            return ("RELAY_INVALID_STATE", "relay is not a spawned relay (caller already holds the PM seat) — only a spawned relay can be handed to a piloting session")
         case .notAdoptable(let status):
             return ("RELAY_INVALID_STATE", "relay is \(status), not adoptable — only an escalated or ceiling-stopped (and reconciled) spawned relay can be handed to Pilot")
         }

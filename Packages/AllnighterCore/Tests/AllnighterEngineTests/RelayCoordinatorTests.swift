@@ -1249,16 +1249,16 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     /// days by design.
     func testParkedRelayAwaitingPMOrEscalatedDoesNotBlockANewStart() async throws {
         let repo = try makeGitRepo()
-        for (label, status, pmMode) in [
-            ("awaiting_pm", RelayState.Status.awaitingPM, PMMode.external),
-            ("escalated", RelayState.Status.escalated, PMMode.spawned),
+        for (label, status, isCallerChair) in [
+            ("awaiting_pm", RelayState.Status.awaitingPM, true),
+            ("escalated", RelayState.Status.escalated, false),
         ] {
             let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-\(label)"))
             let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-\(label)"))
             let parked = RelayState(
                 id: "relay_parked_\(label)", projectRoot: repo.path, docPath: "docs/spec.md",
-                pmModelId: pmMode == .external ? RelayState.externalPMModelId : "model_pm",
-                devModelId: "model_dev", status: status, pmMode: pmMode, createdAt: Date(),
+                pmModelId: isCallerChair ? RelayState.callerPMModelId : "model_pm",
+                devModelId: "model_dev", status: status, createdAt: Date(),
                 note: status == .escalated ? "which env?" : nil
             )
             try stateStore.save(parked)

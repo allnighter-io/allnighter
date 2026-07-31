@@ -667,7 +667,7 @@ enum RelayCLI {
         case .relayNotFound:
             return ("RELAY_NOT_FOUND", "relay not found")
         case .notPilotRelay:
-            return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (pmMode != external) — only a Pilot relay can be adopted by a spawned PM")
+            return ("RELAY_INVALID_STATE", "relay is not a Pilot relay (caller doesn't hold the PM seat) — only a Pilot relay can be adopted by a spawned PM")
         case .notAdoptable(let status):
             return ("RELAY_INVALID_STATE", "relay is \(status), not adoptable — only a parked Pilot relay (awaitingPM or escalated) can be adopted")
         case .roundInFlight:

@@ -29,8 +29,8 @@ final class PilotRelayStatusParityTests: XCTestCase {
 
         let state = RelayState(
             id: "relay_parity", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, rounds: [round], createdAt: Date()
         )
         try relayStore.save(state)
 
@@ -75,8 +75,8 @@ final class PilotRelayStatusParityTests: XCTestCase {
 
         let state = RelayState(
             id: "relay_parked_parity", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, rounds: [round], createdAt: Date()
         )
         try relayStore.save(state)
 
@@ -107,8 +107,8 @@ final class PilotRelayStatusParityTests: XCTestCase {
         round.devRunId = devRunId
         let state = RelayState(
             id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: Date())
         run.lastActivityAt = Date()

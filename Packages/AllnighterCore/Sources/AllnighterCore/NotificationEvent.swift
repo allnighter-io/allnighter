@@ -11,7 +11,7 @@ public enum NotificationEventKind: String, Codable, Sendable, CaseIterable {
     case teamRunCompleted = "team_run.completed"
     case vendorParked = "team_run.vendor_parked"
     case vendorResumed = "team_run.vendor_resumed"
-    case relayNeedsAnswer = "relay.needs_answer"
+    case relayNeedsAnswer = "loop.needs_answer"
     case relayStopped = "relay.stopped"
     case relayStreamStalled = "relay.stream_stalled"
 }

@@ -35,8 +35,8 @@ final class PilotCLITests: XCTestCase {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let state = RelayState(
             id: "relay_pm_turn", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         let turnStore = PMTurnStore(relaysRootDirectory: relayStore.rootDirectory)
         let turn = PMTurnJSON(
@@ -62,8 +62,8 @@ final class PilotCLITests: XCTestCase {
         let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_wait_match", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         let turnStore = PMTurnStore(relaysRootDirectory: relayStore.rootDirectory)
         try turnStore.save(PMTurnJSON(
@@ -89,8 +89,8 @@ final class PilotCLITests: XCTestCase {
         let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_missing_turn", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
 
         let json = PilotCLI.makeStatusJSON(
@@ -185,7 +185,7 @@ final class PilotCLITests: XCTestCase {
         XCTAssertEqual(config.projectRoot, project.normalizedRootPath)
         XCTAssertEqual(config.projectId, project.id)
         XCTAssertEqual(config.docPath, "docs/spec.md")
-        XCTAssertEqual(config.pmModelId, RelayState.externalPMModelId, "no PM model dispatches in Pilot")
+        XCTAssertEqual(config.pmModelId, RelayState.callerPMModelId, "no PM model dispatches in Pilot")
         XCTAssertEqual(config.devModelId, "model_dev")
         XCTAssertEqual(config.maxRounds, 20)
         XCTAssertNil(config.until, "pilot start never wires --until from a flag")
@@ -377,8 +377,8 @@ final class PilotCLITests: XCTestCase {
     func testNextActionLineNamesTheHandoffCommandWhenAwaitingPM() {
         let state = RelayState(
             id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         let line = PilotCLI.nextActionLine(for: state)
         XCTAssertTrue(line.contains("pilot handoff"))
@@ -390,8 +390,8 @@ final class PilotCLITests: XCTestCase {
         func state(_ status: RelayState.Status) -> RelayState {
             RelayState(
                 id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
-                pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-                status: status, pmMode: .external, createdAt: Date()
+                pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+                status: status, createdAt: Date()
             )
         }
         XCTAssertFalse(PilotCLI.nextActionLine(for: state(.done)).isEmpty)
@@ -406,8 +406,8 @@ final class PilotCLITests: XCTestCase {
         let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
         let state = RelayState(
             id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         try store.save(state)
         let ownerURL = store.rootDirectory.appendingPathComponent("relay_live/owner.pid")
@@ -424,8 +424,8 @@ final class PilotCLITests: XCTestCase {
         let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays2"))
         var state = RelayState(
             id: "relay_dead", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external,
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running,
             rounds: [RelayRound(roundNumber: 1, baselineHead: "abc", startedAt: Date())],
             createdAt: Date()
         )
@@ -443,8 +443,8 @@ final class PilotCLITests: XCTestCase {
     func testRecoveryNextActionsPreferStatusForAliveHandoff() {
         let state = RelayState(
             id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         let actions = PilotCLI.recoveryNextActions(for: state, recovery: .handoffAlive)
         XCTAssertEqual(actions.count, 2)
@@ -463,8 +463,8 @@ final class PilotCLITests: XCTestCase {
     func testRecoveryNextActionsOrphanInspectNotBlindRetry() {
         let state = RelayState(
             id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .stopped, pmMode: .external, createdAt: Date(),
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .stopped, createdAt: Date(),
             stoppedReason: RelayState.orphanReconciledReason
         )
         let actions = PilotCLI.recoveryNextActions(for: state, recovery: .orphanReconciled)
@@ -480,8 +480,8 @@ final class PilotCLITests: XCTestCase {
     func testNextActionLineRunningPrefersStatusOverWatch() {
         let state = RelayState(
             id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         let line = PilotCLI.nextActionLine(for: state)
         XCTAssertTrue(line.contains("pilot status"))
@@ -540,8 +540,8 @@ final class PilotCLITests: XCTestCase {
         let relay = RelayJSON.project(
             RelayState(
                 id: "relay_9", projectRoot: "/repo", docPath: "d.md",
-                pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-                status: .awaitingPM, pmMode: .external, createdAt: Date()
+                pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+                status: .awaitingPM, createdAt: Date()
             ),
             contractVersion: ContractRegistry.contractVersion
         )
@@ -577,8 +577,8 @@ final class PilotCLITests: XCTestCase {
         let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-\(relayId)"))
         let state = RelayState(
             id: relayId, projectRoot: projectRoot, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         try store.save(state)
         return store
@@ -702,8 +702,8 @@ final class PilotCLITests: XCTestCase {
     func testWatchStillRunningRequiresRunningAndAliveOwner() {
         let running = RelayState(
             id: "relay_x", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         XCTAssertTrue(PilotCLI.watchStillRunning(state: running, recovery: .handoffAlive))
         XCTAssertFalse(PilotCLI.watchStillRunning(state: running, recovery: .orphanReconciled))
@@ -725,8 +725,8 @@ final class PilotCLITests: XCTestCase {
         let relayJSON = RelayJSON.project(
             RelayState(
                 id: "relay_watch", projectRoot: "/repo", docPath: "docs/spec.md",
-                pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-                status: .running, pmMode: .external, createdAt: Date()
+                pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+                status: .running, createdAt: Date()
             ),
             contractVersion: ContractRegistry.contractVersion
         )
@@ -746,8 +746,8 @@ final class PilotCLITests: XCTestCase {
         let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-watch"))
         let state = RelayState(
             id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, createdAt: Date()
         )
         try store.save(state)
         let ownerURL = store.rootDirectory.appendingPathComponent("relay_live/owner.pid")
@@ -786,8 +786,8 @@ final class PilotCLITests: XCTestCase {
         let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-dead-waiter"))
         var state = RelayState(
             id: "relay_dead", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external,
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running,
             rounds: [RelayRound(roundNumber: 1, baselineHead: "abc", startedAt: Date())],
             createdAt: Date()
         )
@@ -842,8 +842,8 @@ final class PilotCLITests: XCTestCase {
         round.devRunId = devRunId
         let state = RelayState(
             id: "relay_s02", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external,
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running,
             rounds: [round],
             createdAt: Date()
         )
@@ -900,8 +900,8 @@ final class PilotCLITests: XCTestCase {
         round.devRunId = devRunId
         let state = RelayState(
             id: "relay_pls", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, rounds: [round], createdAt: Date()
         )
         try store.save(state)
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: started, repoRoot: repo.path)
@@ -930,8 +930,8 @@ final class PilotCLITests: XCTestCase {
         let head = try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head)
         let state = RelayState(
             id: "relay_pls2", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external,
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running,
             rounds: [RelayRound(roundNumber: 1, baselineHead: head, startedAt: Date())],
             createdAt: Date()
         )
@@ -961,8 +961,8 @@ final class PilotCLITests: XCTestCase {
         round.devRunId = devRunId
         let state = RelayState(
             id: "relay_pls3", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .running, pmMode: .external, rounds: [round], createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .running, rounds: [round], createdAt: Date()
         )
         try store.save(state)
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: silenceBase, repoRoot: repo.path)
@@ -981,8 +981,8 @@ final class PilotCLITests: XCTestCase {
         let store = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-s02b"))
         let state = RelayState(
             id: "relay_parked", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.externalPMModelId, devModelId: "model_dev",
-            status: .awaitingPM, pmMode: .external, createdAt: Date()
+            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            status: .awaitingPM, createdAt: Date()
         )
         let fields = PilotCLI.longJobStatusFields(
             state: state, recovery: .none, stateStore: store

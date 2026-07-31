@@ -126,7 +126,7 @@ public struct RelayCoordinator: Sendable {
     /// and, for `continue`, the handover cleared `HandoverGate`).
     public enum PilotRoundError: Swift.Error, Sendable, Equatable {
         case relayNotFound
-        /// The relay exists but isn't a pilot relay (`pmMode != .external`) — use
+        /// The relay exists but isn't a pilot relay (caller doesn't hold the PM seat) — use
         /// `pair relay`/`pair relay-resume` for a spawned relay instead.
         case notPilotRelay
         /// A round is already dispatching (durable check: `status == .running`) —
@@ -318,9 +318,9 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    // MARK: - Pilot (docs/phases/Pilot_Relay.md) — `pmMode: .external`
+    // MARK: - Pilot (docs/phases/Pilot_Relay.md) — caller holds the PM seat
 
-    /// `pilot start` — creates a parked, PM-less relay: `pmMode: .external`,
+    /// `pilot start` — creates a parked, PM-less relay: caller-chaired,
     /// `status: .awaitingPM`, zero rounds. Pilot has no clock (`until` is meaningless
     /// without a process advancing the loop between rounds), so a non-nil
     /// `config.until` is a usage error rather than silently ignored — the founder
@@ -330,7 +330,7 @@ public struct RelayCoordinator: Sendable {
     /// because, unlike a spawned relay's `run`/`resume`, there is no long-lived process
     /// to re-supply them at every later round — each `pilot handoff` is a fresh CLI
     /// invocation. `config.pmModelId` is ignored; the durable `pmModelId` is always
-    /// `RelayState.externalPMModelId` (there is no PM model to dispatch).
+    /// `RelayState.callerPMModelId` (there is no PM model to dispatch).
     public func startPilot(config: Config) -> Result<RelayState, PilotStartError> {
         guard config.until == nil else { return .failure(.untilNotSupported) }
         let state = RelayState(
@@ -338,10 +338,9 @@ public struct RelayCoordinator: Sendable {
             projectRoot: config.projectRoot,
             docPath: config.docPath,
             brief: config.docPath == nil && !config.brief.isEmpty ? config.brief : nil,
-            pmModelId: RelayState.externalPMModelId,
+            pmModelId: RelayState.callerPMModelId,
             devModelId: config.devModelId,
             status: .awaitingPM,
-            pmMode: .external,
             createdAt: now(),
             pilotMaxRounds: config.maxRounds,
             pilotStagnationRoundCap: config.stagnationRoundCap,
@@ -365,7 +364,7 @@ public struct RelayCoordinator: Sendable {
         submission: String
     ) -> Result<(state: RelayState, extraction: RelayVerdictParser.Extraction), PilotRoundError> {
         guard let state else { return .failure(.relayNotFound) }
-        guard state.pmMode == .external else { return .failure(.notPilotRelay) }
+        guard state.isCallerChair else { return .failure(.notPilotRelay) }
         if state.status == .running { return .failure(.roundInFlight) }
         guard state.status == .awaitingPM else {
             return .failure(.notAwaitingPM(status: state.status.rawValue))
@@ -601,8 +600,8 @@ public struct RelayCoordinator: Sendable {
     /// exactly as it was before the call.
     public enum AdoptError: Swift.Error, Sendable, Equatable {
         case relayNotFound
-        /// The relay isn't a Pilot relay (`pmMode != .external`) — nothing to adopt
-        /// FROM (use `resume` for a spawned relay instead).
+        /// The relay isn't a Pilot relay (caller doesn't hold the PM seat) — nothing to
+        /// adopt FROM (use `resume` for a spawned relay instead).
         case notPilotRelay
         /// Anything other than a parked pilot relay (`awaitingPM` or `escalated`): a
         /// round in flight (`running`), a finished relay (`done`), or a ceiling-fired
@@ -619,8 +618,8 @@ public struct RelayCoordinator: Sendable {
 
     /// `alln pair relay adopt --relay <id> --pm-model <id>` (`docs/phases/
     /// Pilot_Relay.md` §5 "adopt (unattended handover) is the strategic unlock") —
-    /// converts a PARKED pilot relay (`pmMode == .external`, `status == .awaitingPM`
-    /// or `.escalated`) to `pmMode: .spawned` with `pmModelId` as the new PM seat,
+    /// converts a PARKED pilot relay (caller-chaired, `status == .awaitingPM`
+    /// or `.escalated`) to a spawned PM with `pmModelId` as the new PM seat,
     /// then CONTINUES the SAME relay — same id, same round log, same thread — from
     /// exactly where the piloting session left it.
     ///
@@ -664,7 +663,7 @@ public struct RelayCoordinator: Sendable {
             lockHandle = nil
             return .failure(.relayNotFound)
         }
-        guard state.pmMode == .external else {
+        guard state.isCallerChair else {
             lockHandle = nil
             return .failure(.notPilotRelay)
         }
@@ -676,7 +675,6 @@ public struct RelayCoordinator: Sendable {
         let priorEscalationNote = state.status == .escalated ? state.note : nil
         let note = Self.adoptionNoteText(roundsSoFar: state.rounds.count, priorEscalationNote: priorEscalationNote)
 
-        state.pmMode = .spawned
         state.pmModelId = pmModelId
         state.status = .running
         state.finishedAt = nil
@@ -737,8 +735,8 @@ public struct RelayCoordinator: Sendable {
     /// `alln pair pilot adopt` failure.
     public enum ReverseAdoptError: Swift.Error, Sendable, Equatable {
         case relayNotFound
-        /// The relay isn't a spawned relay (`pmMode != .spawned`) — nothing to hand to
-        /// a piloting session (it's already Pilot's).
+        /// The relay isn't a spawned relay (caller already holds the PM seat) —
+        /// nothing to hand to a piloting session (it's already Pilot's).
         case notSpawnedRelay
         /// Anything other than a parked spawned relay (`RelayState.isResumable`) — a
         /// round in flight, a finished relay, or a ceiling-`stopped` one that never
@@ -752,8 +750,8 @@ public struct RelayCoordinator: Sendable {
     /// never dispatches anything and needs no `RunService` at all — a parked spawned
     /// relay (`RelayState.isResumable`: `escalated`, or ceiling-`stopped` and
     /// reconciled) is EXACTLY the set `relay-resume` already accepts, so this simply
-    /// re-labels it `pmMode: .external`, `status: .awaitingPM`,
-    /// `pmModelId: RelayState.externalPMModelId` and persists — the round log and
+    /// re-labels it `status: .awaitingPM`,
+    /// `pmModelId: RelayState.callerPMModelId` and persists — the round log and
     /// thread carry over untouched, and the piloting session picks it up with an
     /// ordinary `pilot handoff` next. `static` for the same reason `reconcileOrphan`
     /// is: a plain state mutation shouldn't need a full `RelayCoordinator` (and the
@@ -765,12 +763,11 @@ public struct RelayCoordinator: Sendable {
     ) -> Result<RelayState, ReverseAdoptError> {
         guard let loaded = stateStore.load(id: relayId) else { return .failure(.relayNotFound) }
         let reconciled = reconcileOrphan(loaded, stateStore: stateStore, threadProjector: threadProjector, now: now)
-        guard reconciled.pmMode == .spawned else { return .failure(.notSpawnedRelay) }
+        guard !reconciled.isCallerChair else { return .failure(.notSpawnedRelay) }
         guard reconciled.isResumable else { return .failure(.notAdoptable(status: reconciled.status.rawValue)) }
 
         var state = reconciled
-        state.pmMode = .external
-        state.pmModelId = RelayState.externalPMModelId
+        state.pmModelId = RelayState.callerPMModelId
         state.status = .awaitingPM
         state.finishedAt = nil
         state.stoppedReason = nil
@@ -2094,14 +2091,14 @@ public struct RelayCoordinator: Sendable {
             workRecovery: nil,
             nextCommands: nextCommands,
             notes: report == nil ? ["settled_dev_report_missing"] : [],
-            pmMode: state.pmMode.rawValue
+            pmMode: state.isCallerChair ? "external" : "spawned"
         )
         try pmTurnStore.save(turn)
     }
 
     private func pmTurnNextCommands(for state: RelayState) -> [String] {
         let status = "alln pair relay-status --relay \(state.id) --json"
-        guard state.status == .awaitingPM, state.pmMode == .external else {
+        guard state.status == .awaitingPM, state.isCallerChair else {
             return [status]
         }
         return [
