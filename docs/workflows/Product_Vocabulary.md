@@ -24,8 +24,8 @@ paths.
 | **Crafts** | **Code · Design · Copy** (+ **Signal** scout). Code was: Build. |
 | **Signal** | Repo-aware scout: outside → insights (not “move cards”). |
 | **Project** | Local repo/folder floor where work happens. |
-| **Loop** | The family noun for a durable, multi-round PM↔dev object — **`alln loop`** in both the Mac composer and the CLI. It owns runs, survives the caller, and is resumable. `kind` names what *done* means; today the only kind is **`deliver`** (runs until the work is delivered). The PM chair is an **occupant** — `caller` (a live agent session) or a spawned agent id — not a separate verb or mode. You brief it once (the **kickoff**) and it drives itself. |
-| **Kickoff** | The founder's one-time brief to a Loop, round 1 only, delivered via `alln loop start deliver <brief>`. Not chat, not the PM→dev handover, and not `founderNote` (which is resume-only). |
+| **Loop** | The family noun for a durable, multi-round PM↔dev object — **`alln loop`** in both the Mac composer and the CLI. It owns runs, survives the caller, and is resumable. The `kind` slot ships **empty** today; when a kind exists it names what *done* means (e.g. `research` = until questions are exhausted, `review` = until clean) — never a posture or a mechanism. The PM chair is an **occupant** — `caller` (a live agent session) or a spawned agent id — not a separate verb or mode. You brief it once (the **kickoff**) and it drives itself. |
+| **Kickoff** | The founder's one-time brief to a Loop, round 1 only, delivered via `alln loop start "<what you want done>"`. Not chat, not the PM→dev handover, and not `founderNote` (which is resume-only). |
 | **Pilot** | Retired as a CLI verb. What it named — a live agent CLI session holding the PM chair — is now `--pm caller` on `alln loop start`. The Mac app is never the PM seat, so it never exposes `--pm caller`. |
 
 `lane` means **craft** (Code/Design/Copy/Signal). It is never “a single run.”
@@ -51,18 +51,27 @@ already known, they never go and ask. Code SSOT: `CapacityWindow`,
 **The `alln loop` grammar** — one object, one vocabulary, CLI and Mac alike:
 
 ```text
-alln loop start deliver <brief> [--spec <path>] --pm <caller|agent-id> --dev <agent-id> [--dry-run]
+alln loop start "<what you want done>" [--spec <path>] [--pm caller|<agent-id>] [--dev <agent-id>] [--dry-run]
 alln loop list | status | stop | resume | wait | step | pm
 ```
+
+**Everything in brackets is optional. The brief is the only required input.**
+`--pm` defaults to the Frontier tier and `--dev` to Balanced
+(`DefaultModelSettings.swift`); `caller` is a reserved `--pm` value meaning the
+live session holds the chair. `--spec` is a shortcut for handing the loop a
+document to work from — it is not the shape of the feature. The loop's job is
+multi-round work that produces commits, not a document; brief-only is the
+headline form. There is no mode word and never will be — what varies across
+invocations is **casting** (who holds the PM chair), never posture.
 
 Founder Stop is `alln loop stop` (durable `stopped`, reason `founder stopped`,
 PM Turn written, **not** resumable) — never `alln kill`, which is
 process-ownership machinery, not a product verb.
 
-**Law 1 — `kind` names what *done* means.** `deliver` = runs until the work is
-delivered. Future kinds name their own terminal condition (`research` = until
-questions are exhausted, `review` = until clean). Never name a kind after a
-posture.
+**Law 1 — `kind` names what *done* means, when one exists.** The `kind` slot
+ships empty today. When a kind is added, it names its own terminal condition
+(`research` = until questions are exhausted, `review` = until clean). Never
+name a kind after a posture or a mechanism.
 
 **Law 2 — the chair is an occupant, not a mode.** `--pm` takes `caller` (a live
 agent session holds the chair) or a canonical agent id (a spawned agent holds
@@ -122,7 +131,7 @@ Shortcut: *Model at rest. Agent at work (model + skill).*
 | Flag | Meaning |
 | --- | --- |
 | `--model` | Pin which model runs (`alln run`, `alln thread send`, `alln pending add`, …). |
-| `--pm <caller\|agent-id>` | `alln loop start` PM chair occupant: `caller` (live session) or a canonical agent id (spawned). Required, no default. |
+| `--pm <caller\|agent-id>` | `alln loop start` PM chair occupant: `caller` (live session) or a canonical agent id (spawned). Optional — defaults to the Frontier tier. |
 | `--dev <agent-id>` | `alln loop start` dev seat agent id. |
 | `--seat` | Ordered model ids for one-off judgment-team staffing (not a synonym for `--model`). |
 
