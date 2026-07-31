@@ -76,6 +76,8 @@ public enum Bootstrap {
         public var recipes: [RecipeRef]
         /// How to read full recipe markdown without inventing a new CLI verb.
         public var recipesHelp: String
+        /// QABC-S00c — passthrough only; caller injects, Bootstrap never acquires.
+        public var capacity: MenuJSON.Capacity?
         public init(
             schemaVersion: Int = 1,
             host: String,
@@ -84,7 +86,8 @@ public enum Bootstrap {
             binaryPath: String,
             onPath: Bool,
             recipes: [RecipeRef] = RecipeCatalog.summaries().map { RecipeRef(id: $0.id, title: $0.title) },
-            recipesHelp: String = "alln help get recipes --format md"
+            recipesHelp: String = "alln help get recipes --format md",
+            capacity: MenuJSON.Capacity? = nil
         ) {
             self.schemaVersion = schemaVersion
             self.host = host
@@ -94,10 +97,11 @@ public enum Bootstrap {
             self.onPath = onPath
             self.recipes = recipes
             self.recipesHelp = recipesHelp
+            self.capacity = capacity
         }
     }
 
-    public static func json(host: Host, binaryPath: String, onPath: Bool) -> JSON {
+    public static func json(host: Host, binaryPath: String, onPath: Bool, capacity: MenuJSON.Capacity? = nil) -> JSON {
         JSON(
             host: host.rawValue,
             pasteTarget: host.pasteTarget,
@@ -105,7 +109,8 @@ public enum Bootstrap {
             binaryPath: binaryPath,
             onPath: onPath,
             recipes: RecipeCatalog.summaries().map { RecipeRef(id: $0.id, title: $0.title) },
-            recipesHelp: "alln help get recipes --format md"
+            recipesHelp: "alln help get recipes --format md",
+            capacity: capacity
         )
     }
 

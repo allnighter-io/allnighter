@@ -111,4 +111,50 @@ final class MenuCapacityRowTests: XCTestCase {
 
         XCTAssertLessThan(data.count, 700, "compact 6-row capacity should stay well under the 815B pretty / 562B compact budget")
     }
+
+    // MARK: - QABC-S00c passthrough wiring
+
+    func testMenuCatalogProjectDefaultsCapacityToNilAndOmitsTheKey() throws {
+        let menu = MenuCatalog.project()
+        XCTAssertNil(menu.capacity)
+
+        let data = try MenuCatalog.encodeCompact(menu)
+        let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        // `alln capacity` is itself a registry command, so `commands` legitimately
+        // contains the substring "capacity" — assert on the top-level key only.
+        XCTAssertNil(object["capacity"], "top-level capacity key must be absent, not null, when uninjected")
+    }
+
+    func testMenuCatalogProjectRoundTripsInjectedCapacity() throws {
+        let strip = CapacityStripJSON(
+            contractVersion: "7.0.0",
+            generatedAt: now,
+            rows: [stripRow()]
+        )
+        let capacity = MenuJSON.Capacity(strip: strip)
+
+        let menu = MenuCatalog.project(capacity: capacity)
+        XCTAssertEqual(menu.capacity, capacity)
+
+        let data = try MenuCatalog.encodeCompact(menu)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode(MenuJSON.self, from: data)
+        XCTAssertEqual(decoded.capacity, capacity)
+        XCTAssertEqual(decoded.capacity?.rows.first?.source, "claude")
+    }
+
+    func testBootstrapJSONDefaultsCapacityToNilAndPassesThroughWhenInjected() {
+        let plain = Bootstrap.json(host: .generic, binaryPath: "alln", onPath: true)
+        XCTAssertNil(plain.capacity)
+
+        let strip = CapacityStripJSON(
+            contractVersion: "7.0.0",
+            generatedAt: now,
+            rows: [stripRow(source: "codex")]
+        )
+        let capacity = MenuJSON.Capacity(strip: strip)
+        let injected = Bootstrap.json(host: .generic, binaryPath: "alln", onPath: true, capacity: capacity)
+        XCTAssertEqual(injected.capacity, capacity)
+    }
 }
