@@ -324,7 +324,7 @@ final class ThreadsPresenterTests: XCTestCase {
     func testArchivedSearchMatchesOnlyWhenQueryNonEmpty() {
         let active = thread("live", updatedAt: t1, projectId: "p1")
         let archived = thread("old chat", updatedAt: t0, archived: true, projectId: "p1")
-        let rows = [active, archived].map(ThreadsPresenter.railRow(from:))
+        let rows = [active, archived].map { ThreadsPresenter.railRow(from: $0) }
 
         XCTAssertTrue(ThreadsPresenter.archivedSearchMatches(rows, search: "").isEmpty)
         XCTAssertEqual(ThreadsPresenter.archivedSearchMatches(rows, search: "old").map(\.id), ["old chat"])
@@ -334,7 +334,7 @@ final class ThreadsPresenterTests: XCTestCase {
     func testArchivedRailRowsSortedNewestFirst() {
         let older = thread("a", updatedAt: t0, archived: true)
         let newer = thread("b", updatedAt: t1, archived: true)
-        let rows = [older, newer].map(ThreadsPresenter.railRow(from:))
+        let rows = [older, newer].map { ThreadsPresenter.railRow(from: $0) }
         XCTAssertEqual(ThreadsPresenter.archivedRailRows(rows, search: "").map(\.id), ["b", "a"])
     }
 
