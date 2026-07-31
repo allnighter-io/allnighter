@@ -68,6 +68,38 @@ and `check.sh` source `scripts/ensure-test-guard-path.sh` first, which prepends
 
 Until targets exist, closeout names missing proof explicitly.
 
+**Guard self-heals (2026-07-31).** `kill-stale-tests.sh` was locale-broken
+from the day it shipped: it parsed `ps -o lstart=` with a hardcoded English
+day-month strptime format, this machine's locale transposes them, the parse
+silently failed, and the swallowed error made every runner's age look like
+0 — so rule 7 above always reported "sent TERM to 0 stale runner(s)" even
+against a confirmed real orphan (`AllnighterCorePackageTests.xctest`,
+PPID=1, 2h17m elapsed, 0.0% CPU, no `.alln-test.lock` in sight). Fixed to a
+locale-independent `ps -o etime=` parse under `LC_ALL=C`, with a failed
+probe now treated as stale-eligible instead of silently becoming age=0.
+
+`scripts/swift-test.sh` now self-heals on every invocation instead of
+relying on a human to notice and run rule 7 by hand:
+- **preflight sweep** — before acquiring the lock, it TERM/KILLs any live
+  `AllnighterCorePackageTests` runner and re-scans the process table (never
+  the lock file) before proceeding;
+- **process-group reaping** — the timeout/trap paths used to kill `tee`
+  (the last stage of a piped background job) instead of `swift`/`xctest`;
+  the runner now starts under `set -m` in its own process group, and every
+  exit path kills the whole group;
+- **lock records the runner's pgid**, not just the wrapper's pid, so a
+  dead wrapper no longer erases the only record of what it spawned;
+  `recover_stale_lock` reaps an orphaned group before clearing the lock;
+- **wedge detection in ~90s**, not the 900s wall-clock backstop — three
+  consecutive flat samples of process-group CPU time and log size mean
+  deadlock, and it kills and exits loud and non-zero immediately.
+
+Proof: `scripts/works-test-test-guard.sh` — self-contained, seconds not
+minutes, injects a fixture runner via `ALLNIGHTER_SWIFT_TEST_CMD_OVERRIDE`
+(test-only) that ignores SIGTERM and blocks forever, and asserts SIGKILL
+escalation, zero surviving processes, a cleared lock file, fast wedge exit,
+and that `kill-stale-tests.sh` actually kills a stale runner.
+
 ## Codex permissions (one-time, per machine)
 
 Managed permission profiles need **codex-cli `0.138.0+`**. Legacy sandbox settings
