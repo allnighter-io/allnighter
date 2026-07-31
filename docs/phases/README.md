@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-30
+Updated: 2026-07-31
 
 ## Purpose
 
@@ -36,19 +36,20 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 **Top priority:** quota-aware bench continuity — plan-time capacity in the
 selection envelope plus loop honor of vendor park/wake (founder 2026-07-30).
-One other founder-decision packet open. Forward work otherwise is optional
-feature packets below (or dogfood of shipped surfaces). Signal Graph deep-build
-and CLI Implementation Contract are archived — do not revive.
+**Distribution wedge:** one-paste cold start for Hermes/OpenClaw (founder
+2026-07-31). One other founder-decision packet open. Forward work otherwise is
+optional feature packets below (or dogfood of shipped surfaces). Signal Graph
+deep-build and CLI Implementation Contract are archived — do not revive.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — founder priority** | **Plan-time:** inject tier-1 capacity snapshot into `alln menu --json` + bootstrap so every PM plan is quota-aware (Codex 0% → seat Grok; Claude Fable 90% → route away). **Run-time:** relay yields to `waitingForVendor` + `wakeAfter` instead of 5s infra thrash — long `alln loop` dev turns resume at session reset. Reuses `CapacityDisplayAcquisition`, `VendorBackoffReconciler`, `VendorSubstitutionPolicy`. Moat: cross-vendor arbitrage no single vendor can copy. Slices QABC-S00 (menu envelope), S01 (relay park-yield), S02 (delivery acks). Does **not** resume naked vendor sessions never started via alln. |
+| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — founder priority (distribution)** | Kill the chicken-and-egg: Hermes/OpenClaw user with no `alln` pastes one `curl \| sh` → binary on PATH → print-only host paste line (prefer subscriptions over API keys). App remains the human faucet; npm optional later. **No MCP.** Blocks on founder URL + notarization picks (BQ-1/BQ-2). Slices OPC-S00–S03. Reuses `InstallCLI`, `Bootstrap`; does not replace QABC. |
 | [`Worker_To_Agent_Migration.md`](Worker_To_Agent_Migration.md) | **CLOSED — optional hygiene only** | Ship line complete (2026-07-29): living contracts + teaching use `agentId` + `modelId`. **Do not start** unless founder allocates time. Backlog: journal rename, lying locals, S07. SSOT: `Product_Vocabulary.md`; history: [`archive`](../archive/phases/Worker_To_Agent_Migration.md). |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — incident-driven** | When any seat dies, a recovery agent finds work in 30s (commits + uncommitted + resume commands), gets notified when dev lands, and can substitute PM model. WRC-S00–S04: workRecovery envelope, `relayAwaitingPM` notify, `--pm` on `loop resume`, `work scan`, relay guard. Origin: 2026-07-29 PM outage mid relay. |
 | [`Agent_Facing_Run_Observability.md`](Agent_Facing_Run_Observability.md) | **Draft — incident-derived 2026-07-30, not started** | A supervising agent could not tell whether a delegated seat was advancing; `pgrep` outperformed `ps`, `status`, and the journal. Three bounded fixes, no new subsystem: **OBS-S01 `alln ps --wait-for-change --timeout N`** (the fix — turns a PM agent from a poller into a listener; the agent-facing counterpart to the human notification spine), OBS-S02 populate `streamAge` (null on every row — a bug), OBS-S03 make the live row findable when settled history floods the default view. Explicitly rejects a naive `live: bool` — it cannot help a row that is absent, and sourcing it from pgid would re-create the shipped liveness lie. Code SSOT `ProcessOwnershipSurface`, `StreamLiveness`. |
 | [`CLI_Park.md`](CLI_Park.md) | **Implementing** | Park a CLI (ignore, not delete): skip probe, gray UI, out of Ready/pickers; `alln drivers park|unpark`; parked last for future capacity/status. Code SSOT `SetupStore.parkedDriverIds`. |
-| [`Capacity_Hardening_Hotfix.md`](Capacity_Hardening_Hotfix.md) | **SHIPPED (code)** | HF-00 hydrate last-known on bare strip; HF-claude distinct probe fails + dump. Bare `alln capacity` shows 6/6 after refresh. Claude live parse still residual. Code SSOT `CapacityDisplayAcquisition`. |
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
@@ -327,6 +328,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Default-chat / team-run latency, streaming throughput, rail click stalls, scroll jank | archived `Team_Run_Load_Performance.md` (code SSOT; warm path: archived `Warm_Single_Lane_Chat.md`) |
 | GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Agent front door — findable/suggested/selection, catalog normalization | Front door V1 Complete — archived `Agent_Front_Door.md` (gate 1) → archived `Agent_Onboarding.md` (gate 2) → archived `Menu_Not_Router.md` (selection; gate 3 router tombstone: `Agent_Intent_Router.md`); catalog: archived `Team_Catalog_Normalization.md` |
+| Cold start — Hermes/OpenClaw has no `alln` yet; one-paste install; curl vs app vs npm | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) — install script + published binary + `bootstrap --host hermes\|openclaw`; MCP stays dead; npm deferred |
 | Stale MCP/help language, empty help search, invented flags, dead retired verbs in living docs, version freshness | archived `CLI_Agent_Surface_Fidelity.md` (Complete; code SSOT `RetiredVocabulary` + HelpTopicRegistry) |
 | CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md`; shipped schemas/commands = `ContractRegistry` / code |
 | Team authoring shape (`teams duplicate`/`new`/`edit` JSON), model-catalog quick fixes | archived [`Model_Catalog_Quick_Fixes.md`](../archive/phases/Model_Catalog_Quick_Fixes.md) — MCV-S03 shipped (code SSOT: `AllnighterCLI` authoring printers + `ContractRegistry` `teamPreset`/`teamShowJSON`); remaining ledger items unauthorized |
@@ -348,7 +350,7 @@ Live docs on the left; historical truth points into the archive or code SSOT.
 | Pilot/Relay long deploy or ops turn; harness killed `pilot watch`; detached handoff cwd/binary; status vs watch recovery | archived [`Pilot_Long_Turn_Survival.md`](../archive/phases/Pilot_Long_Turn_Survival.md) — code SSOT `PilotCLI.swift` / `RelayCoordinator.swift` (substrate: archived `Pilot_Relay.md` / `Pilot_DX.md`; idle floors: archived `Idle_Stall_False_Kill_Hotfix.md`) |
 | `pair pilot status` fresh silenceAge while `alln ps` says no stream for Ns; hung child under worker (e.g. wrangler tail); pgid heartbeat lie | archived `docs/archive/phases/Pilot_Status_Liveness_Lie_Hotfix.md` — Complete 2026-07-28; code SSOT `PilotCLI.resolveLastProgressAt`, `PilotStatusJSON.streamSilenceWarning`, `RelayCoordinator` early `persistDeliveredDevRun` |
 | Relay/pilot round lands or escalates with nobody notified (Mac app closed, caller already gone) | archived [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md) — Code Complete 2026-07-27, on-host banner confirmation still needed; code SSOT `NotificationScheduler.swift`, `ServeAutoLaunch.swift`, `NotificationCandidateDetection.swift`; extends archived `threads/02_Notifications.md` (Mac-app-only NOTIF-S01–S05) |
-| Mac Compose Loop / Agent Team Loop; remove relay spinner; kickoff handoff; Stop+Status parity with CLI | [`Agent_Team_Loop.md`](../archive/phases/Agent_Team_Loop.md) — **ARCHIVED 2026-07-30**, S01–S04 shipped; optional ATL-S05 never started |
+| Mac Compose Loop / Agent Team Loop; remove relay spinner; kickoff handoff; Stop+Status parity with CLI | [`Agent_Team_Loop.md`](../archive/phases/Agent_Team_Loop.md) — **ARCHIVED 2026-07-30**, S01–S05 all shipped (S05 sidebar quieting shipped 2026-07-30, `f15017ee`) |
 | `pair relay`/`relay-resume`/`relay adopt`/`alln run` die when the caller dies (no `--no-wait` equivalent); relay dispatch has no in-flight guard | **Archived** — `docs/archive/phases/Round_Survives_The_Caller.md` + Hot Fixes; code SSOT `DetachedHandoff` / `DetachedDispatch` / `RelayCoordinator` |
 | Composer `@` file references, file chips, prompt file-read blocks | `Composer_File_References.md` |
 | Persistent chat, routable turns, thread backend | `Persistent_Work_Threads.md` → `threads/04_Observed_Usage.md`, `threads/09_Thread_Forking.md` |

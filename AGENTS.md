@@ -103,6 +103,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Team run artifact / `alln artifact` | Code SSOT: `ArtifactProjector.swift`, `ArtifactWriter.swift`, `ArtifactCLI.swift`; closed record: archived `Team_Run_Receipt.md` |
 | Agent surface, `alln bootstrap` activation, help/menu routing (MCP retired 2026-07-16) | Live `alln menu --json` is the selection front door; `alln bootstrap` prints the paste-ready host context; CLI is the only agent surface. Code SSOT: `MenuCatalog.swift`, `Bootstrap.swift`, `HelpTopicRegistry.swift` |
 | Agent front door: `install-cli`, `bootstrap`, live menu selection | Front door V1 complete; there is no intent router — the caller chooses from the live menu. Code SSOT: `InstallCLI.swift`, `Bootstrap.swift`, `TeachingSnippet.swift`, `MenuCatalog.swift` |
+| Cold start — no `alln` on PATH yet (Hermes/OpenClaw one-paste curl install) | Open packet: `docs/phases/One_Paste_Cold_Start.md` — curl faucet + bootstrap host paste; MCP stays dead; app is human faucet; npm deferred |
 | Stale MCP / invented flags in help, empty `help search`, dead verbs in living docs, `version` freshness | Code SSOT: `RetiredVocabulary.swift`, `HelpTopicRegistry.swift`, `AllnighterVersionIdentity` + `docs/workflows/SSOT_Founder_Input_Workflow.md` §Agent-facing help |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
