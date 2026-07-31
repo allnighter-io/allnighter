@@ -45,6 +45,7 @@ enum AppSetupModel {
             case .installedNotSignedIn?: state = .needsLogin
             case .shimmedNeedsConfirm(let r)?: state = .needsPath; shim = r.rawCommandV
             case .probeFailed(let r)?: state = .probeFailed; reason = r
+            case .rateLimited(let observation)?: state = .rateLimited; reason = DoctorReport.rateLimitedDetail(observation: observation)
             case .notInstalled?: state = .notInstalled
             case .installedNotProbed?: state = .installedNotProbed
             case nil: state = .notChecked

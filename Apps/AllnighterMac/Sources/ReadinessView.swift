@@ -425,6 +425,8 @@ struct BenchRepairPanel: View {
                 return "Detect passed but smoke failed. Allnighter starts the OpenCode server for you — no separate terminal step. Re-try probe (can take a few minutes) or Copy log."
             }
             return "Detect passed but the smoke run failed — this is not a sign-in problem. Re-try the probe or copy the log for the real error."
+        case .rateLimited:
+            return card.probeReason ?? "Installed and healthy, but the vendor quota wall blocked the smoke run. It should clear on its own — re-check after the reset time."
         case .notInstalled:
             return "No binary resolved on PATH or known locations. Install it, then re-scan — it joins the bench automatically."
         case .notChecked:
@@ -486,6 +488,12 @@ struct BenchRepairPanel: View {
                 },
                 RepairAction(icon: "folder", title: "Locate the binary…", subtitle: "In case the wrong binary resolved", button: "Locate", primary: false, secondary: false) {
                     SetupActions.locateBinary()
+                },
+            ]
+        case .rateLimited:
+            return [
+                RepairAction(icon: "arrow.clockwise", title: "Re-check", subtitle: "Probe again after the vendor limit resets", button: isProbingThisCard ? "Running…" : "Run", primary: true, secondary: false) {
+                    model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
                 },
             ]
         case .notInstalled:
@@ -589,6 +597,11 @@ struct BenchRepairPanel: View {
             return [
                 [.init(text: "! ", tone: .prompt), .init(text: card.probeReason ?? "smoke failed", tone: .err)],
                 [.init(text: "detected: ", tone: .normal), .init(text: card.version ?? card.name, tone: .normal), .init(text: " · smoke ", tone: .normal), .init(text: "failed", tone: .err)],
+            ]
+        case .rateLimited:
+            return [
+                [.init(text: "⏳ ", tone: .prompt), .init(text: card.probeReason ?? "rate limited", tone: .normal)],
+                [.init(text: "detected: ", tone: .normal), .init(text: card.version ?? card.name, tone: .normal), .init(text: " · install ", tone: .normal), .init(text: "ok", tone: .ok)],
             ]
         case .notInstalled:
             return [

@@ -10,7 +10,7 @@ import AllnighterCore
 // MARK: - Card model (mapped from a ToolProbeRecord by AppModel.setupCards)
 
 enum SetupCardState: Sendable {
-    case ready, needsLogin, needsPath, notInstalled, probeFailed, installedNotProbed, detecting, reprobing, queued, waiting
+    case ready, needsLogin, needsPath, notInstalled, probeFailed, rateLimited, installedNotProbed, detecting, reprobing, queued, waiting
     /// Supported, but never probed on this machine (cold first run). Honest
     /// "we haven't looked yet" — shown so onboarding lists every supported CLI
     /// before the first scan, instead of a blank roster.
@@ -28,6 +28,7 @@ extension SetupCardState {
         case .needsPath: SetupPill(kind: .step, label: "Needs a path")
         case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
         case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
+        case .rateLimited: SetupPill(kind: .step, label: "Rate limited")
         case .installedNotProbed: SetupPill(kind: .muted, label: "Installed")
         case .detecting: SetupPill(kind: .check, label: "Detecting…")
         case .reprobing: SetupPill(kind: .check, label: "Re-checking…")
@@ -46,6 +47,7 @@ extension SetupCardState {
         case .needsPath: SetupPill(kind: .step, label: "Needs a path")
         case .notInstalled: SetupPill(kind: .muted, label: "Not installed")
         case .probeFailed: SetupPill(kind: .fail, label: "Probe failed")
+        case .rateLimited: SetupPill(kind: .step, label: "Rate limited")
         case .detecting, .reprobing: SetupPill(kind: .check, label: "Re-checking…")
         case .parked: SetupPill(kind: .muted, label: "Parked")
         default: SetupPill(kind: .muted, label: "Needs a step")
@@ -106,7 +108,7 @@ struct SetupCardModel: Identifiable {
     var showsHeadlessTrustDisclosure: Bool {
         guard let trust = headlessTrust, trust.required else { return false }
         switch state {
-        case .ready, .needsLogin, .waiting, .notChecked, .installedNotProbed, .probeFailed:
+        case .ready, .needsLogin, .waiting, .notChecked, .installedNotProbed, .probeFailed, .rateLimited:
             return true
         default:
             return false
@@ -376,6 +378,8 @@ struct SetupCardView: View {
             return [MetaItem(text: "no binary on PATH or known paths", color: ALColor.textFaint)]
         case .probeFailed:
             return [route, version, MetaItem(text: "smoke failed", color: ALColor.textFaint)]
+        case .rateLimited:
+            return [route, version, MetaItem(text: "rate limited", color: ALColor.textFaint)]
         case .installedNotProbed:
             return [route, version, MetaItem(text: "installed — not yet probed", color: ALColor.textFaint)]
         case .reprobing:
@@ -702,7 +706,7 @@ enum CLIStatusGroup {
     /// A genuinely broken state (vs. dormant/parked, which are not errors).
     static func isAttention(_ state: SetupCardState) -> Bool {
         switch state {
-        case .needsLogin, .needsPath, .notInstalled, .probeFailed, .waiting: return true
+        case .needsLogin, .needsPath, .notInstalled, .probeFailed, .rateLimited, .waiting: return true
         case .ready, .notChecked, .installedNotProbed, .detecting, .reprobing, .queued, .parked: return false
         }
     }
@@ -789,6 +793,7 @@ struct CLIStatusRow: View {
         case .needsPath: return "Installed but not on PATH — locate it to use its models."
         case .notInstalled: return "Not installed."
         case .probeFailed: return "Health check failed — re-check or fix."
+        case .rateLimited: return card.probeReason ?? "Vendor quota wall — will retry when the limit resets."
         default: return "Needs a step."
         }
     }

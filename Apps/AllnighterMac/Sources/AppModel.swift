@@ -561,6 +561,7 @@ final class AppModel {
                 case .installedNotSignedIn?: reason = "Not signed in"
                 case .shimmedNeedsConfirm?: reason = "Needs a path"
                 case .probeFailed?: reason = "Probe failed"
+                case .rateLimited(let observation)?: reason = DoctorReport.rateLimitedDetail(observation: observation)
                 case .installedNotProbed?: reason = "Not checked"
                 case .notInstalled?, .none: reason = "Not detected"
                 case .ready?: reason = nil
