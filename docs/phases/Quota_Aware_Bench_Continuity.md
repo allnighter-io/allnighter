@@ -275,7 +275,7 @@ Owner: pure `CapacityCounsel` (or thin `CapacityStripRenderer` helper).
 | Packet | Relationship |
 | --- | --- |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | Composes — WRC recovers after seat death; QABC prevents/survives capacity walls |
-| [`Loop_Verb_Cutover.md`](Loop_Verb_Cutover.md) | Extends status set with `capacityParked`; product surface stays `alln loop` |
+| [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md) | Extends status set with `capacityParked`; product surface stays `alln loop` |
 | [`Capacity_Hardening_Hotfix.md`](Capacity_Hardening_Hotfix.md) | Prerequisite — QABC consumes projection path |
 | [`CLI_Park.md`](CLI_Park.md) | Orthogonal — parks a driver from probes; QABC parks runs on quota |
 
