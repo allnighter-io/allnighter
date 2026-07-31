@@ -162,7 +162,8 @@ public enum ModelCatalog {
     }
 
     public static func resolvedModels(registry: DriverRegistry) -> [Model] {
-        materialize(mergedDefinitions(), registry: registry)
+        try? reconcileRosterWithCatalog()
+        return materialize(mergedDefinitions(), registry: registry)
     }
 
     public static func benchModels(registry: DriverRegistry) -> [Model] {
@@ -439,7 +440,51 @@ public enum ModelCatalog {
     }
 
     private static func defaultRosterState(definitions: [ModelDefinition]) -> ModelRosterState {
-        ModelRosterState(enabledModelIds: definitions.filter(\.defaultEnabled).map(\.id))
+        let ids = definitions.filter(\.defaultEnabled).map(\.id)
+        return ModelRosterState(
+            enabledModelIds: ids,
+            catalogSeenModelIds: definitions.map(\.id))
+    }
+
+    /// Built-ins that shipped default-on before roster newcomer tracking existed.
+    private static let legacyDefaultOnBackfillIds: Set<ModelID> = ["model_kimi_k27"]
+
+    /// Default-on built-ins added after the roster was first saved get enabled once;
+    /// models the user turned off stay off (they remain in `catalogSeenModelIds`).
+    private static func reconcileRosterWithCatalog() throws {
+        let definitions = mergedDefinitions()
+        let builtIns = definitions.filter { $0.origin == .builtIn }
+        let catalogIds = Set(builtIns.map(\.id))
+        var roster = rosterPersistence().load() ?? defaultRosterState(definitions: definitions)
+        var changed = false
+
+        if roster.catalogSeenModelIds == nil {
+            roster.catalogSeenModelIds = Array(catalogIds)
+            for id in legacyDefaultOnBackfillIds where catalogIds.contains(id) {
+                guard let def = builtIns.first(where: { $0.id == id }),
+                      def.defaultEnabled,
+                      !roster.enabledModelIds.contains(id) else { continue }
+                roster.enabledModelIds.append(id)
+                changed = true
+            }
+            try rosterPersistence().save(roster)
+            return
+        }
+
+        let seen = Set(roster.catalogSeenModelIds ?? [])
+        let newcomers = catalogIds.subtracting(seen).sorted()
+        guard !newcomers.isEmpty else { return }
+        for id in newcomers {
+            guard let def = builtIns.first(where: { $0.id == id }),
+                  def.defaultEnabled,
+                  !roster.enabledModelIds.contains(id) else { continue }
+            roster.enabledModelIds.append(id)
+            changed = true
+        }
+        roster.catalogSeenModelIds = Array(catalogIds)
+        if changed || !newcomers.isEmpty {
+            try rosterPersistence().save(roster)
+        }
     }
 
     private static func ensureRosterExists() throws {

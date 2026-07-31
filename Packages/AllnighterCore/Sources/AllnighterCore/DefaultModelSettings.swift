@@ -132,11 +132,13 @@ public struct TierMembership: Codable, Sendable, Equatable {
 
     /// Group on-Bench models for the routing picker: Frontier → Balanced → Economy →
     /// Unassigned. `orderedBench` supplies browse order for Unassigned (typically A–Z).
+    /// A model appears under **every** tier it belongs to (many-to-many membership) so
+    /// Economy is never empty just because those seats also live on Balanced.
     public func pickerSections(orderedBench: [ModelID]) -> [PickerSection] {
         let bench = Set(orderedBench)
         var sections: [PickerSection] = []
         for tier in SubstitutionTier.allCases {
-            let ids = self[tier].filter { bench.contains($0) && highestTier(of: $0) == tier }
+            let ids = self[tier].filter { bench.contains($0) }
             guard !ids.isEmpty else { continue }
             sections.append(PickerSection(tier: tier, title: tier.displayName, modelIds: ids))
         }
@@ -249,6 +251,19 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
 
     /// The tier's default model id (index 0), or nil when the tier is empty.
     public func tierDefault(_ tier: SubstitutionTier) -> ModelID? { tiers[tier].first }
+
+    /// Additive merge for tier members that shipped in a later catalog/seed but may be
+    /// absent from persisted settings saved before that ship. Never removes or reorders.
+    public func mergingMissingFreshTierMembers() -> DefaultModelSettings {
+        var merged = self
+        let backfill: [(SubstitutionTier, ModelID)] = [
+            (.economy, "model_agy_sonnet"),
+        ]
+        for (tier, id) in backfill where !merged.tiers[tier].contains(id) {
+            merged.tiers.assign(id, to: tier)
+        }
+        return merged
+    }
 }
 
 /// Resolves Auto and healthy substitution against the tiers + ready Bench. NEVER
@@ -343,7 +358,7 @@ public struct DefaultModelSettingsPersistence {
             return .fresh
         }
         settings.tiers = settings.tiers.normalized().membership
-        return settings
+        return settings.mergingMissingFreshTierMembers()
     }
 
     public func save(_ settings: DefaultModelSettings) throws {

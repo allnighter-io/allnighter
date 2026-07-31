@@ -83,6 +83,18 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertTrue(diags.contains { $0.code == "MODEL_ROSTER_STALE_ID" && $0.modelId == "ghost_model" })
     }
 
+    func testLegacyRosterBackfillsKimiK27WithoutReenablingUserDisabledSeats() throws {
+        let registry = testRegistry()
+        try ModelRosterPersistence(fileURL: rosterURL).save(
+            ModelRosterState(enabledModelIds: ["model_opus"]))
+        _ = ModelCatalog.resolvedModels(registry: registry)
+        let roster = try XCTUnwrap(ModelRosterPersistence(fileURL: rosterURL).load())
+        XCTAssertTrue(roster.enabledModelIds.contains("model_kimi_k27"))
+        XCTAssertFalse(roster.enabledModelIds.contains("model_cursor_auto"),
+                       "default-on seats the user left off must not be backfilled")
+        XCTAssertNotNil(roster.catalogSeenModelIds)
+    }
+
     func testProbeLabelWhenAllClaudeModelsDisabled() throws {
         try ModelCatalog.setEnabled("model_fable", false)
         try ModelCatalog.setEnabled("model_opus", false)

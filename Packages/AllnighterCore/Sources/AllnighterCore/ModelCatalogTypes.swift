@@ -62,11 +62,20 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
 public struct ModelRosterState: Codable, Sendable, Equatable {
     public var schemaVersion: Int
     public var enabledModelIds: [ModelID]
+    /// Built-in catalog ids reconciled at least once — used to default-on newcomers
+    /// without re-enabling models the user turned off.
+    public var catalogSeenModelIds: [ModelID]?
     public var updatedAt: Date?
 
-    public init(schemaVersion: Int = 1, enabledModelIds: [ModelID] = [], updatedAt: Date? = nil) {
+    public init(
+        schemaVersion: Int = 1,
+        enabledModelIds: [ModelID] = [],
+        catalogSeenModelIds: [ModelID]? = nil,
+        updatedAt: Date? = nil
+    ) {
         self.schemaVersion = schemaVersion
         self.enabledModelIds = enabledModelIds
+        self.catalogSeenModelIds = catalogSeenModelIds
         self.updatedAt = updatedAt
     }
 }

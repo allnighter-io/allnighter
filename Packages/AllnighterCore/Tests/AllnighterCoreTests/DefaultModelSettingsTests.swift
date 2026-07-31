@@ -26,7 +26,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         }
     }
 
-    func testPickerSectionsDedupMultiTierModelsByHighestTier() {
+    func testPickerSectionsListsBenchModelsInEveryAssignedTier() {
         let bench = [
             "model_fable", "model_gpt_sol", "model_gemini", "model_cursor_composer_25",
             "model_kimi_k27", "model_cursor_gpt_sol", "model_grok_composer_25_fast",
@@ -35,8 +35,17 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(sections.map(\.title), ["Frontier", "Balanced", "Economy", "Unassigned"])
         XCTAssertEqual(sections[0].modelIds, ["model_fable", "model_gpt_sol"])
         XCTAssertEqual(sections[1].modelIds, ["model_cursor_composer_25", "model_gemini"])
-        XCTAssertEqual(sections[2].modelIds, ["model_kimi_k27"])
+        XCTAssertEqual(sections[2].modelIds, ["model_kimi_k27", "model_cursor_composer_25", "model_gemini"])
         XCTAssertEqual(sections[3].modelIds, ["model_cursor_gpt_sol", "model_grok_composer_25_fast"])
+    }
+
+    func testMergingMissingFreshTierMembersIsAdditive() {
+        var saved = DefaultModelSettings.fresh
+        saved.tiers.economy = saved.tiers.economy.filter { $0 != "model_agy_sonnet" }
+        let merged = saved.mergingMissingFreshTierMembers()
+        XCTAssertTrue(merged.tiers.economy.contains("model_agy_sonnet"))
+        XCTAssertEqual(merged.tiers.frontier, saved.tiers.frontier)
+        XCTAssertFalse(merged.tiers.balanced.contains("model_agy_sonnet"))
     }
 
     func testPickerModelIdsOmitsCollapsedUnassigned() {
