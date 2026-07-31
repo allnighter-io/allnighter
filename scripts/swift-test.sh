@@ -11,7 +11,17 @@ LOCK_FILE="$ROOT/.alln-test.lock"
 PACKAGE_PATH="$ROOT/Packages/AllnighterCore"
 
 # Default ~15 min for filtered iteration; check.sh sets ALLNIGHTER_SWIFT_TEST_TIMEOUT_SECONDS higher.
+# This is a backstop ceiling — the wedge detector below (defect D) fires
+# far sooner on a genuine deadlock.
 TIMEOUT_SECONDS="${ALLNIGHTER_SWIFT_TEST_TIMEOUT_SECONDS:-900}"
+# Wedge detector: every SAMPLE_INTERVAL_SECONDS, compare the runner
+# process-group's cumulative CPU time and the log file's size to the
+# previous sample. FLAT_SAMPLE_LIMIT consecutive samples with neither
+# advancing means deadlock, not "slow test" — a real build/test always
+# grows the log or burns CPU well inside 90s. Overridable so the Works
+# Test can drive this in seconds instead of minutes.
+SAMPLE_INTERVAL_SECONDS="${ALLNIGHTER_SWIFT_TEST_SAMPLE_INTERVAL_SECONDS:-30}"
+FLAT_SAMPLE_LIMIT="${ALLNIGHTER_SWIFT_TEST_FLAT_SAMPLES:-3}"
 TOKEN_SCRIPT="$ROOT/scripts/allnighter_test_token.py"
 
 SWIFT_TEST_CHILD_PID=""
@@ -160,6 +170,16 @@ preflight_sweep() {
   fi
 }
 
+# group_signature PGID — "<pid>:<cpu-time>,..." for every live member of
+# PGID, sorted. A cheap proxy for "did ANY process in this run's group do
+# work" — combined with log-file size, this is the wedge detector's whole
+# progress signal. A membership change (child spawned/exited) also changes
+# the signature, which is fine: that counts as progress too.
+group_signature() {
+  local pgid="$1"
+  LC_ALL=C ps -axo pgid=,pid=,time= 2>/dev/null | awk -v g="$pgid" '$1==g {print $2":"$3}' | sort | tr '\n' ','
+}
+
 run_with_timeout() {
   local -a cmd=(swift test --disable-sandbox --package-path "$PACKAGE_PATH" "$@")
   local log
@@ -183,6 +203,10 @@ run_with_timeout() {
   SWIFT_TEST_TAIL_PID=$!
 
   local waited=0
+  local since_sample=0
+  local flat_count=0
+  local have_baseline=false
+  local last_sig="" last_size=-1
   local exit_code=0
   while kill -0 "$SWIFT_TEST_CHILD_PID" 2>/dev/null; do
     if [[ "$waited" -ge "$TIMEOUT_SECONDS" ]]; then
@@ -191,8 +215,31 @@ run_with_timeout() {
       rm -f "$log"
       return 124
     fi
+
+    if [[ "$since_sample" -ge "$SAMPLE_INTERVAL_SECONDS" ]]; then
+      since_sample=0
+      local sig size
+      sig="$(group_signature "$SWIFT_TEST_PGID")"
+      size="$(wc -c < "$log" 2>/dev/null | tr -d ' ')"
+      if [[ "$have_baseline" == true ]] && [[ "$sig" == "$last_sig" ]] && [[ "$size" == "$last_size" ]]; then
+        flat_count=$((flat_count + 1))
+      else
+        flat_count=0
+      fi
+      have_baseline=true
+      last_sig="$sig"
+      last_size="$size"
+      if [[ "$flat_count" -ge "$FLAT_SAMPLE_LIMIT" ]]; then
+        echo "swift-test: WEDGED — pid=$SWIFT_TEST_CHILD_PID (pgid=$SWIFT_TEST_PGID) made no CPU or log progress across $FLAT_SAMPLE_LIMIT consecutive samples (~$((FLAT_SAMPLE_LIMIT * SAMPLE_INTERVAL_SECONDS))s). Killing process group, not waiting for the ${TIMEOUT_SECONDS}s backstop." >&2
+        reap_runner
+        rm -f "$log"
+        return 99
+      fi
+    fi
+
     sleep 1
     waited=$((waited + 1))
+    since_sample=$((since_sample + 1))
   done
 
   stop_tail
