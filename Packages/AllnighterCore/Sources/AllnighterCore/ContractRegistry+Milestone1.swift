@@ -537,6 +537,29 @@ public extension ContractRegistry {
             outputSchema: .none
         ),
         CommandSpec(
+            "loop start",
+            summary: "Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself (the `pair pilot start` path); `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended (the `pair relay` path).",
+            milestone: .m1,
+            trigger: "Use when the user wants a multi-round PM↔dev loop that reviews real commits round after round until the work is done — with or without naming who sits in which chair.",
+            example: "alln loop start \"execute this doc\" --spec docs/phases/Loop_Verb_Cutover.md --pm caller --dev model_grok",
+            antiExample: "Do NOT use this to explore shapes — use `alln loop start --dry-run` first; this spends quota.",
+            args: [
+                ArgSpec("brief", required: true, summary: "What you want done. The brief handed to the PM at round 1 — no other flag is required."),
+            ],
+            flags: [
+                FlagSpec("spec", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path — a shortcut for when the brief would be three paragraphs, not the shape. The PM re-reads it fresh each round."),
+                FlagSpec("pm", takesValue: true, valueType: "id", summary: "PM occupant: `caller` (this session reviews every round) or a canonical agent id (that agent is spawned as PM and the loop runs unattended). Omitted → the Frontier-tier default."),
+                FlagSpec("dev", takesValue: true, valueType: "id", summary: "Dev seat canonical agent id. Omitted → the Balanced-tier default."),
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. Omitted → resolved from the current working directory."),
+                FlagSpec("dry-run", summary: "Resolve the brief/spec/both seats/project and report readiness; exit 0, create nothing, spend nothing."),
+                FlagSpec("no-wait", summary: "Spawn the same registered `loop start` verb in a detached child; return only after the child durably claims delivery."),
+                FlagSpec("json", summary: "Emit structured JSON (LoopStartDryRunJSON with --dry-run; RelayJSON otherwise)."),
+            ],
+            outputSchema: .relayJSON,
+            spendsQuota: true,
+            freeTwinCommand: "alln loop start --dry-run"
+        ),
+        CommandSpec(
             "pair relay", summary: "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.", milestone: .m1,
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the PM re-reads it fresh each round."),
