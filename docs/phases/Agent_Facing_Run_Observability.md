@@ -72,6 +72,45 @@ times not present — in the default view.
 
 ---
 
+## 2b. This is the FIFTH attempt — why the first four did not hold
+
+Founder, 2026-07-30: *"We have tried to fix this 10 times and agents like you
+STILL stall."* That is the most important sentence in this packet. Lineage:
+
+| Packet | What it did | Why it did not end the problem |
+| --- | --- | --- |
+| `Pilot_Long_Turn_Survival` (PLT-S02) | Taught agents `silenceAgeSeconds` is **PRIMARY** liveness | Named a field authoritative without constraining what feeds it |
+| `Idle_Stall_False_Kill_Hotfix` (IDLE-HF-S02) | `pgid_activity` (child CPU/spawn) refreshes the turn heartbeat | Defensible alone; made "progress" mean "a process moved," not "work advanced" |
+| `Pilot_Status_Liveness_Lie_Hotfix` (PLS-S01/S02) | PRIMARY = stream **only**; stopped `max(journal, heartbeat)` | Fixed *which source is authoritative*. Did not require the source to ever be **non-null** |
+| `Core_Loop_Improvements` (CLP-S01/S02) | Stream liveness on `ps`/status, reconcile-on-read | Same: correctness of the value, not presence of the value |
+
+**The pattern.** Every prior attempt answered *"which source is the truth?"* Not
+one asked *"what does a supervising agent do when the field is empty?"*
+
+PLS made `pilot status` honest by refusing to merge in the pgid heartbeat. That
+was right. But the failure mode it left behind is the one that bit on 2026-07-30:
+`streamAge` came back **null on every row of every poll for two hours**, and a
+supervisor cannot distinguish *"not advancing"* from *"we did not measure."*
+
+> **An honest `null` and a fresh lie fail the agent identically.** Both end with
+> a supervisor guessing. PLS traded a lie for a silence and the incident rate did
+> not change.
+
+**Binding consequences for this packet:**
+
+1. **Never reintroduce the merge.** `pgid_activity` / owner-tree busyness must
+   never appear under `streamAge` / `lastProgressAt` / `silenceAgeSeconds`. PLS-S01
+   is law; OBS-S02 fixes population **without** re-widening the source.
+2. **Unknown must be loud, not empty.** If liveness genuinely cannot be measured,
+   say so in a way an agent must handle — an explicit unknown state with a reason,
+   never a bare null the caller silently coerces to "fine."
+3. **Presence is a gate, not a nicety.** A test asserting `streamAge` is non-null
+   on a live run is the regression this family has never had. Every prior packet
+   tested *correctness of a value that was present*.
+4. **The real test is behavioral.** Four packets shipped green and agents kept
+   stalling, so shape tests are not evidence. The proof must be: a supervisor that
+   uses only these surfaces observes every transition from dispatch to terminal.
+
 ## 3. Slices
 
 ### OBS-S01 — `alln ps --wait-for-change --timeout <seconds>` *(the fix)*
