@@ -27,4 +27,9 @@ public enum AllnighterSupportRoot {
     public static var config: URL {
         support.appendingPathComponent("Config", isDirectory: true)
     }
+
+    /// `…/Allnighter/Release/` — OPC-S06 release-channel cache (mirrors Engine path).
+    public static var release: URL {
+        support.appendingPathComponent("Release", isDirectory: true)
+    }
 }

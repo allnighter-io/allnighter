@@ -108,6 +108,18 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Capacity", isDirectory: true)
     }
 
+    /// `…/Allnighter/Release/` — cached release-channel check (OPC-S06).
+    /// Product SSOT for "is there a newer release?" is remote `latest.json`;
+    /// this directory holds only the local fail-open cache (`latest-check.json`).
+    public static var release: URL {
+        support.appendingPathComponent("Release", isDirectory: true)
+    }
+
+    /// `…/Allnighter/Release/latest-check.json`
+    public static var releaseCheckCache: URL {
+        release.appendingPathComponent("latest-check.json")
+    }
+
     /// `…/Allnighter/Catalogs/` — custom team and skill definitions.
     public static var catalogs: URL {
         support.appendingPathComponent("Catalogs", isDirectory: true)
