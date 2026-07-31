@@ -1415,12 +1415,22 @@ public struct LoopCoordinator: Sendable {
                 }
             case .capacityParked(let park):
                 yieldToCapacityPark(&state, &round, park: park, turn: "dev")
-                guard let settled = await resolveCapacityPark(park, loopId: state.id, config: config) else {
+                let settled: TeamRun
+                switch await resolveCapacityPark(park, loopId: state.id, config: config) {
+                case .deadlinePassed:
                     state.capacityPark = nil
                     return finishRound(&state, &round, outcome: .stopped, events: events) {
                         stop(&$0, reason: Self.parkDeadlineStopReason(park, turn: "dev"))
                         events?(.stopped(reason: $0.stoppedReason ?? ""))
                     }
+                case .resumeFailed(let error):
+                    state.capacityPark = nil
+                    return finishRound(&state, &round, outcome: .escalated, events: events) {
+                        escalate(&$0, note: Self.serviceErrorEscalateNote(error, turn: "dev vendor-wake resume"))
+                        events?(.escalated(note: $0.note ?? ""))
+                    }
+                case .settled(let run):
+                    settled = run
                 }
                 state.capacityPark = nil
                 persist(state)
@@ -2145,32 +2155,45 @@ public struct LoopCoordinator: Sendable {
         return "\(turn) turn parked on a vendor quota wait (\(source)); wakes after \(wake). Loop stays running, waiting to resume — not escalated, not stopped."
     }
 
+    /// QABC-S01c: outcome of resolving a capacity park — distinct from a bare
+    /// `TeamRun?` so a genuine `resumeParkedRun` failure (write-lock timeout, team
+    /// resolution, a stale lease) is never mislabeled as "the loop's deadline
+    /// passed" — that reason is reserved for the one case it is actually true.
+    private enum CapacityParkResolution {
+        case settled(TeamRun)
+        case deadlinePassed
+        case resumeFailed(RunServiceError)
+    }
+
     /// QABC-S01c: sleep until the vendor wake (clamped to the loop's own `--until`
     /// deadline), then claim the wake lease and resume the parked run. If another
     /// coordinator wins the claim race first — typically `alln serve`'s
     /// `VendorBackoffReconciler`, which is unchanged and remains a legitimate winner
     /// (correction #7) — this ADOPTS its settlement instead of escalating: it polls the
     /// journal until the run leaves `.waitingForVendor`, then returns that settled run.
-    /// Returns `nil` only when the loop's deadline passed while still parked — the one
-    /// legal escalation (correction #7's "claim-or-adopt, never claim-or-escalate").
-    private func resolveCapacityPark(_ park: VendorPark, loopId: String, config: Config) async -> TeamRun? {
+    /// `.deadlinePassed` is the one legal escalation (correction #7's "claim-or-adopt,
+    /// never claim-or-escalate"); `.resumeFailed` is a real, distinct error surfaced
+    /// honestly rather than folded into the deadline case.
+    private func resolveCapacityPark(_ park: VendorPark, loopId: String, config: Config) async -> CapacityParkResolution {
         if let wakeAfter = park.wakeAfter {
             await sleepUntil(wakeAfter, config: config)
         }
         while true {
-            if isPastDeadline(config) { return nil }
+            if isPastDeadline(config) { return .deadlinePassed }
             if runStore.claimVendorWake(runId: park.runId, coordinatorId: loopId, now: now()) != nil {
                 let result = await runService.resumeParkedRun(runId: park.runId, coordinatorId: loopId)
-                if case .success(let run) = result { return run }
-                return nil
+                switch result {
+                case .success(let run): return .settled(run)
+                case .failure(let error): return .resumeFailed(error)
+                }
             }
             // Lost the claim: either another coordinator's active lease refused us, or
             // the wake genuinely is not due yet. Either way, never escalate — check
             // whether the run has already settled (adopt), then wait a beat and retry.
             if let run = runStore.loadRaw(runId: park.runId), run.phase != .waitingForVendor {
-                return run
+                return .settled(run)
             }
-            if isPastDeadline(config) { return nil }
+            if isPastDeadline(config) { return .deadlinePassed }
             await sleepUntil(now().addingTimeInterval(2), config: config)
         }
     }
