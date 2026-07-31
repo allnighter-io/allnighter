@@ -24,9 +24,9 @@ paths.
 | **Crafts** | **Code · Design · Copy** (+ **Signal** scout). Code was: Build. |
 | **Signal** | Repo-aware scout: outside → insights (not “move cards”). |
 | **Project** | Local repo/folder floor where work happens. |
-| **Loop** | Mac composer noun for an **unattended Relay** — both PM and dev seats are spawned agents. You brief it once (the **kickoff**) and it drives itself. The machine substrate is unchanged: CLI stays `pair relay*` and is **never** renamed to `pair loop`. |
-| **Kickoff** | The founder's one-time brief to a Loop's **spawned PM**, round 1 only. Not chat, not the PM→dev handover, and not `founderNote` (which is resume-only). CLI: `--message` / `--message-file`. |
-| **Pilot** | Supervised relay where a **live agent CLI session is the PM**. CLI-only, always. The Mac app is never the PM seat and offers no Pilot entry. |
+| **Loop** | The family noun for a durable, multi-round PM↔dev object — **`alln loop`** in both the Mac composer and the CLI. It owns runs, survives the caller, and is resumable. `kind` names what *done* means; today the only kind is **`deliver`** (runs until the work is delivered). The PM chair is an **occupant** — `caller` (a live agent session) or a spawned agent id — not a separate verb or mode. You brief it once (the **kickoff**) and it drives itself. |
+| **Kickoff** | The founder's one-time brief to a Loop, round 1 only, delivered via `alln loop start deliver <brief>`. Not chat, not the PM→dev handover, and not `founderNote` (which is resume-only). |
+| **Pilot** | Retired as a CLI verb. What it named — a live agent CLI session holding the PM chair — is now `--pm caller` on `alln loop start`. The Mac app is never the PM seat, so it never exposes `--pm caller`. |
 
 `lane` means **craft** (Code/Design/Copy/Signal). It is never “a single run.”
 
@@ -48,12 +48,31 @@ already known, they never go and ask. Code SSOT: `CapacityWindow`,
 `CapacityAcquisition`, `CapacityBenchProjection`, `CapacityStripRenderer`,
 `CapacityHistoryStore`, and the five `*CapacityLog` parsers.
 
-**Loop vs Pilot vs Relay:** Loop is the human word on the Mac, Relay is the
-machine, Pilot is the CLI-only supervised variant. Teach
-`pair relay` / `pair relay stop` / `pair relay-status`; never invent `pair loop`.
-Founder Stop is `pair relay stop` (durable `stopped`, reason `founder stopped`,
+**The `alln loop` grammar** — one object, one vocabulary, CLI and Mac alike:
+
+```text
+alln loop start deliver <brief> [--spec <path>] --pm <caller|agent-id> --dev <agent-id> [--dry-run]
+alln loop list | status | stop | resume | wait | step | pm
+```
+
+Founder Stop is `alln loop stop` (durable `stopped`, reason `founder stopped`,
 PM Turn written, **not** resumable) — never `alln kill`, which is
 process-ownership machinery, not a product verb.
+
+**Law 1 — `kind` names what *done* means.** `deliver` = runs until the work is
+delivered. Future kinds name their own terminal condition (`research` = until
+questions are exhausted, `review` = until clean). Never name a kind after a
+posture.
+
+**Law 2 — the chair is an occupant, not a mode.** `--pm` takes `caller` (a live
+agent session holds the chair) or a canonical agent id (a spawned agent holds
+it). One slot, one word — there is no mode enum to keep in sync, and none
+should ever be added.
+
+**Law 3 — operations are defined against the state machine, never against who
+holds the PM chair.** `step` (submit the next PM decision) is accepted only in
+status `awaitingPM` and errors on the *status* for any other state — never on
+the *occupant*. Every future loop operation follows this rule.
 
 ## Machine layer
 
@@ -103,11 +122,13 @@ Shortcut: *Model at rest. Agent at work (model + skill).*
 | Flag | Meaning |
 | --- | --- |
 | `--model` | Pin which model runs (`alln run`, `alln thread send`, `alln pending add`, …). |
-| `--dev-model` / `--pm-model` | Relay/pilot seat model ids. |
+| `--pm <caller\|agent-id>` | `alln loop start` PM chair occupant: `caller` (live session) or a canonical agent id (spawned). Required, no default. |
+| `--dev <agent-id>` | `alln loop start` dev seat agent id. |
 | `--seat` | Ordered model ids for one-off judgment-team staffing (not a synonym for `--model`). |
 
-Retired flags: `--worker`, `--dev-worker`, `--pm-worker`. Retired commands:
-`alln project workers` → `alln project models`.
+Retired flags: `--worker`, `--dev-worker`, `--pm-worker`, `--pm-model`,
+`--dev-model`, `--relay`. Retired commands: `alln project workers` →
+`alln project models`.
 
 ### Execution source gate
 
