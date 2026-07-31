@@ -125,7 +125,63 @@ final class MenuSelectionGradeTests: XCTestCase {
             || MenuSelectionCopy.action("teams duplicate")!.dontUseWhen.contains("novel"))
     }
 
-    func testPerRowBoundsAndBuiltInFixtureStillWithin32KiB() throws {
+    /// Duplicate-to-edit built-in teams into `custom_` overlay rows (mirrors
+    /// `TeamPreset.duplicated`, the real path a saved custom team takes).
+    private func customTeams(from builtIns: [TeamPreset], count: Int) -> [TeamPreset] {
+        (0..<count).map { i in
+            builtIns[i % builtIns.count].duplicated(newId: "custom_team_\(i)", newName: "Custom Team \(i)")
+        }
+    }
+
+    /// Custom model rows in the same shape `builtInModelEntries()` (MenuCatalog.swift)
+    /// produces for built-ins, but with `custom_`-prefixed ids — the real overlay shape.
+    private func customModelEntries(from defs: [ModelDefinition], count: Int) -> [ModelListJSON.Entry] {
+        (0..<count).map { i in
+            let def = defs[i % defs.count]
+            return ModelListJSON.Entry(
+                id: "custom_\(def.driverId)_variant_\(i)",
+                displayName: "Custom \(def.displayName) Variant \(i)",
+                modelLabel: def.modelLabel,
+                driverId: def.driverId,
+                driverName: def.driverId,
+                role: def.role.rawValue,
+                origin: "custom",
+                enabled: true,
+                ready: false,
+                status: "notChecked",
+                state: "onBench",
+                capabilities: def.capabilities
+            )
+        }
+    }
+
+    /// A realistic projection: built-ins plus a representative slice of `custom_`
+    /// overlay teams and models (id-prefixed, full useWhen/dontWhen/templates —
+    /// the shape a real bench with saved customs actually sends over the wire).
+    private func realisticMenu() -> MenuJSON {
+        let builtInTeams = BuiltInTeams.all.filter { !$0.isLabTeam }
+        let builtInModels = ModelCatalog.list()
+        let teams = builtInTeams + customTeams(from: builtInTeams, count: 6)
+        let modelEntries = builtInModels.map { def in
+            ModelListJSON.Entry(
+                id: def.id,
+                displayName: def.displayName,
+                modelLabel: def.modelLabel,
+                driverId: def.driverId,
+                driverName: def.driverId,
+                role: def.role.rawValue,
+                origin: def.origin.rawValue,
+                enabled: ModelCatalog.isEnabled(def.id),
+                ready: false,
+                status: "notChecked",
+                state: ModelCatalog.isEnabled(def.id) ? "onBench" : "available",
+                capabilities: ModelCatalog.capabilities(def.id)
+            )
+        }.filter(\.enabled) + customModelEntries(from: builtInModels, count: 6)
+        return MenuCatalog.project(teams: teams, modelEntries: modelEntries)
+    }
+
+    func testPerRowBoundsAndBuiltInFixtureStillWithin30KiB() throws {
         let m = menu
         for action in m.actions {
             try MenuSelectionCopy.validateBounds(
@@ -156,7 +212,45 @@ final class MenuSelectionGradeTests: XCTestCase {
             )
         }
         let data = try MenuCatalog.encodeCompact(m)
-        XCTAssertLessThanOrEqual(data.count, 32768, "built-in MenuJSON \(data.count) exceeds 32 KiB")
+        // Measured 2026-07-31: built-in-only fixture compacts to 28,797 B.
+        // Live bench (built-ins + real saved customs) compacts to 35,027 B. The
+        // built-in fixture alone is not the surface QABC gates — see
+        // testPerRowBoundsAndRealisticCatalogWithinBudget below — but a tight
+        // ceiling here (30 KiB, ~4% headroom over the measured value) still
+        // catches built-in bloat (new team/model/recipe authored copy) early,
+        // before it reaches the realistic-catalog gate.
+        XCTAssertLessThanOrEqual(data.count, 30720, "built-in MenuJSON \(data.count) exceeds 30 KiB")
+    }
+
+    func testPerRowBoundsAndRealisticCatalogWithinBudget() throws {
+        let m = realisticMenu()
+        for team in m.teams {
+            try MenuSelectionCopy.validateBounds(
+                .init(useWhen: team.useWhen, dontUseWhen: team.dontUseWhen),
+                kind: "team",
+                id: team.id
+            )
+        }
+        for model in m.models {
+            try MenuSelectionCopy.validateBounds(
+                .init(useWhen: model.useWhen, dontUseWhen: model.dontUseWhen),
+                kind: "model",
+                id: model.id
+            )
+        }
+        let data = try MenuCatalog.encodeCompact(m)
+        // Budget derivation (QABC-S00a, 2026-07-31): the built-in-only fixture
+        // that `testPerRowBoundsAndBuiltInFixtureStillWithin13KiB` gates does
+        // NOT protect the real agent-facing surface — live `alln menu --json`
+        // on this bench compacts to 35,027 B, above the old 32 KiB gate, and
+        // that weight is legitimate: runTemplate+validateTemplate across every
+        // model and team are 8,196 B (23%) so a cold agent can copy an exact
+        // command instead of constructing one — do not trim them. QABC-S00b
+        // adds a capacity decision row (~562 B compact). 40 KiB (40,960 B)
+        // covers the measured 35,027 B live bench plus the S00b capacity row
+        // plus headroom for a realistic number of saved custom teams/models,
+        // without being so loose it stops gating growth.
+        XCTAssertLessThanOrEqual(data.count, 40960, "realistic MenuJSON \(data.count) exceeds 40 KiB budget")
     }
 
     func testAuthoredBoundsRejectOversizedCustomRecord() {
