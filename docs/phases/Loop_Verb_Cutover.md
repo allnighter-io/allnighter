@@ -100,6 +100,31 @@ alln pair                                   # device pairing ONLY
   canonical agent id (alln spawns that agent into it).
 - `--pm` is **required**. No silent default for a cold agent to guess wrong.
 
+### Disclosure: how a human phrase reaches the right value
+
+Law 2 moved attendedness from a verb into an argument. That is right for
+extensibility and it has a cost: **"unsupervised" is no longer a word in the
+command.** Founder phrasings that must land correctly:
+
+| What the founder says | Correct invocation |
+| --- | --- |
+| "start an unsupervised PM/dev loop on this spec" | `--pm <agent-id>` |
+| "run this loop but I'll review each round" / "I'll pilot it" | `--pm caller` |
+| "hand this spec to a loop and walk away" | `--pm <agent-id>` |
+
+**Binding on LVC-S03.** The `--pm` values ship explicit disclosure in
+`MenuCatalog` — this is not optional polish, it is what makes the grammar usable:
+
+- `--pm caller` — *useWhen:* "you (this session) review every round and decide the
+  next slice." *dontUseWhen:* "not unattended — the loop parks until you `step` it."
+- `--pm <agent-id>` — *useWhen:* "that agent reviews every round; runs unattended,
+  nobody has to watch." *dontUseWhen:* "not if you want to approve each round."
+
+**Binding on §9.** The cold-agent matrix must test the phrase, not the flag: give
+an agent *"start an unsupervised PM/dev loop on <spec>"* and assert it produces
+`--pm <agent-id>`, not `--pm caller` and not a hunt for a retired `pilot` verb.
+A grammar a founder cannot reach from plain speech is not shipped.
+
 ### "Parked" is prose, not a status — use these names
 
 `RelayState.Status` has exactly five cases (`RelayState.swift:188-199`):
