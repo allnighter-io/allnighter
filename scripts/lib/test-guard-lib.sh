@@ -4,20 +4,78 @@
 # never depends on the caller's locale (this is what defect E was: a localized
 # `lstart` string silently failed to parse and every age came back as 0).
 
-# matches_pattern CMDLINE — true if CMDLINE looks like an AllnighterCore test
+# matches_pattern CMDLINE — true if CMDLINE IS an actual AllnighterCore test
 # runner and is NOT `alln serve` / `allnighter serve`. Never touch serve or
 # unrelated work.
+#
+# Anchored on argv[0] (and, for xctest, the .xctest bundle argument) — never
+# a bare substring search anywhere in the line. The old matcher fired on any
+# process whose cmdline merely *mentioned* AllnighterCorePackageTests, which
+# meant a bystander shell running `grep AllnighterCorePackageTests`, `git log
+# --grep=...`, an editor with the string open, or an `alln run` whose message
+# body happened to contain the token all looked like a runner and got
+# TERM'd/KILL'd — including, live, the agent's own calling shell. A process
+# must match one of three concrete shapes, not a mention:
+#   (a) a real xctest runner       — argv[0] IS xctest, and a later argument
+#                                     IS/ends with the
+#                                     AllnighterCorePackageTests.xctest bundle
+#                                     path.
+#   (b) a genuine swift-test.sh    — argv[0] is a shell interpreter and
+#       wrapper invocation           argv[1] IS (by basename) swift-test.sh.
+#   (c) a genuine `swift test`     — argv[0] IS swift, argv[1] IS the literal
+#       invocation for the           `test` subcommand, and a later argument
+#       AllnighterCore package       IS (by basename) the AllnighterCore
+#                                     package path.
 matches_pattern() {
   local cmdline="$1"
   if [[ "$cmdline" == *"alln serve"* ]] || [[ "$cmdline" == *"allnighter serve"* ]]; then
     return 1
   fi
-  if [[ "$cmdline" == *"AllnighterCorePackageTests"* ]]; then
-    return 0
+
+  # Word-split into argv-shaped tokens so we can anchor on position instead
+  # of searching the whole line. This does not perfectly recover true argv
+  # boundaries (ps flattens them with single spaces, so an argument that
+  # itself contains a space is indistinguishable from two arguments), but it
+  # is sufficient to require the token show up in the RIGHT position rather
+  # than anywhere at all.
+  local -a words
+  read -r -a words <<< "$cmdline"
+  [[ "${#words[@]}" -ge 1 ]] || return 1
+
+  local argv0="${words[0]}"
+  local argv0_base="${argv0##*/}"
+
+  # (a) real xctest runner.
+  if [[ "$argv0_base" == "xctest" ]]; then
+    local i w
+    for (( i = 1; i < ${#words[@]}; i++ )); do
+      w="${words[$i]}"
+      [[ "$w" == *"AllnighterCorePackageTests.xctest"* ]] && return 0
+    done
+    return 1
   fi
-  if [[ "$cmdline" == *"swift-test"* ]] && [[ "$cmdline" == *"AllnighterCore"* ]]; then
-    return 0
+
+  # (b) genuine scripts/swift-test.sh wrapper invocation (direct execution
+  # or `bash scripts/swift-test.sh ...` both show up as
+  # "<shell> <script-path> ..." in `ps`).
+  if [[ "${#words[@]}" -ge 2 ]]; then
+    local argv1_base="${words[1]##*/}"
+    if [[ "$argv0_base" == "bash" || "$argv0_base" == "sh" || "$argv0_base" == "zsh" ]] \
+       && [[ "$argv1_base" == "swift-test.sh" ]]; then
+      return 0
+    fi
   fi
+
+  # (c) genuine `swift test` invocation for the AllnighterCore package.
+  if [[ "$argv0_base" == "swift" ]] && [[ "${#words[@]}" -ge 2 ]] && [[ "${words[1]}" == "test" ]]; then
+    local i w
+    for (( i = 2; i < ${#words[@]}; i++ )); do
+      w="${words[$i]}"
+      [[ "${w##*/}" == "AllnighterCore" ]] && return 0
+    done
+    return 1
+  fi
+
   return 1
 }
 
