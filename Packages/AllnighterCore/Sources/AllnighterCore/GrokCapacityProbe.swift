@@ -77,15 +77,18 @@ public enum GrokCapacityProbe {
             let stripped = stripBoxChars(line)
             let lower = stripped.lowercased()
 
-            // "54% used", "54.0% used", "54% of weekly limit used", "54% left" (invert)
-            if lower.contains("weekly") || lower.contains("% used") || lower.contains("credit") {
-                if let pct = parsePercent(from: stripped, remainingPolarity: lower.contains("% left")) {
+            // "Weekly limit: 100%" — bare percent, used-polarity (Grok TUI format).
+            // Also handles "54% used", "54.0% of weekly limit used".
+            if lower.contains("weekly limit") || lower.contains("% used") || lower.contains("credit") {
+                // Grok TUI: "Weekly limit: X%" — the number is used-percent.
+                let isRemaining = lower.contains("% left") || lower.contains("% remaining")
+                if let pct = parsePercent(from: stripped, remainingPolarity: isRemaining) {
                     usedPercent = pct
                 }
             }
 
-            // "Resets in 6d 3h" or "Resets in 6 days" or absolute date forms
-            if lower.contains("reset") {
+            // "Next reset: July 31, 11:11" or "Resets in 6d 3h" or other reset forms.
+            if lower.contains("next reset") || lower.contains("reset") {
                 if let date = parseResetDate(from: stripped, observedAt: observedAt) {
                     resetAt = date
                 }
@@ -121,8 +124,10 @@ public enum GrokCapacityProbe {
         return remainingPolarity ? max(0.0, 100.0 - val) : val
     }
 
-    /// Tries relative-duration → absolute-HHMM → month-day forms in order.
+    /// Tries next-reset (local time) → relative-duration → absolute-HHMM → month-day forms.
     static func parseResetDate(from line: String, observedAt: Date) -> Date? {
+        // "Next reset: July 31, 11:11" — Grok TUI primary format (local time).
+        if let d = parseNextResetLocalDate(from: line, observedAt: observedAt) { return d }
         // "Resets in 6d 3h 20m" / "Resets in 6 days 3 hours"
         if let d = parseRelativeDuration(from: line, observedAt: observedAt) { return d }
         // "Resets 21:32 on 4 Aug"
@@ -130,6 +135,22 @@ public enum GrokCapacityProbe {
         // "Resets Aug 4" / "Resets 4 Aug"
         if let d = parseMonthDay(from: line, observedAt: observedAt) { return d }
         return nil
+    }
+
+    /// Parses "Next reset: Month DD, HH:MM" → local-timezone `Date`.
+    /// This is the primary Grok TUI format: e.g. "Next reset: July 31, 11:11".
+    static func parseNextResetLocalDate(from line: String, observedAt: Date) -> Date? {
+        // e.g. "Next reset: July 31, 11:11" or "Next reset: August 4, 09:00"
+        let pattern = #"[Nn]ext reset:\s+([A-Za-z]+)\s+(\d{1,2}),\s*(\d{1,2}):(\d{2})"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
+        let ns = line as NSString
+        guard let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: ns.length)),
+              match.numberOfRanges >= 5,
+              let day    = Int(ns.substring(with: match.range(at: 2))),
+              let hour   = Int(ns.substring(with: match.range(at: 3))),
+              let minute = Int(ns.substring(with: match.range(at: 4))) else { return nil }
+        let monthStr = ns.substring(with: match.range(at: 1))
+        return resolveLocalDate(hour: hour, minute: minute, day: day, monthStr: monthStr, observedAt: observedAt)
     }
 
     /// Parses "Xd Yh Zm" relative duration after a "resets in" or "reset in" anchor.
@@ -220,6 +241,25 @@ public enum GrokCapacityProbe {
     }
 
     // MARK: - Date resolution
+
+    /// Resolves a **local-time** date from parsed components (uses `Calendar.current`).
+    /// Used for Grok's "Next reset: Month DD, HH:MM" format which is local time.
+    private static func resolveLocalDate(
+        hour: Int, minute: Int, day: Int, monthStr: String, observedAt: Date
+    ) -> Date? {
+        guard let monthInt = monthNumber(monthStr) else { return nil }
+        var cal = Calendar.current   // respects the user's local timezone
+        let year = cal.component(.year, from: observedAt)
+        var comps = DateComponents()
+        comps.year = year; comps.month = monthInt; comps.day = day
+        comps.hour = hour; comps.minute = minute; comps.second = 0
+        guard var candidate = cal.date(from: comps) else { return nil }
+        if candidate < observedAt {
+            comps.year = year + 1
+            candidate = cal.date(from: comps) ?? candidate
+        }
+        return candidate
+    }
 
     private static func resolveUTCDate(
         hour: Int, minute: Int, day: Int, monthStr: String, observedAt: Date
