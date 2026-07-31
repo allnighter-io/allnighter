@@ -1,6 +1,7 @@
 # Quota-Aware Bench Continuity
 
-Status: **OPEN — founder priority (2026-07-30)**
+Status: **OPEN — founder priority (2026-07-30); S00/S01a/S01b/S01c code-complete
+2026-07-31, notification/ack + dogfood proof still open (see "Progress" below)**
 Owner: AllnighterCore (menu envelope) + AllnighterEngine (loop park-yield) +
 AllnighterCLI (capacity injection, `alln loop` delivery)
 Created: 2026-07-30
@@ -21,6 +22,47 @@ archived `Rate_Limit_Continuity.md` (`VendorBackoffPolicy`,
 
 Phases are ephemeral. At closeout: promote product law into help / vocabulary /
 operations; code remains SSOT; archive this packet.
+
+## Progress (2026-07-31)
+
+- **S00 — done.** `alln menu --json`/bootstrap carry an 891 B capacity block;
+  envelope 35,939 B against the 40,960 B gate; contract 7.1.0; zero probes on
+  read (asserted by test).
+- **S01a/S01b — done.** Both turn dispatchers detect a vendor park before
+  `LoopTurnClassifier.classify` and yield instead of thrash-retrying (the
+  ten-orphans regression is guarded by a passing test).
+- **S01c — done, PM-turn caveat.** `resolveCapacityPark` (sleep to the wake,
+  clamped to `--until`; claim the lease; resume) is wired into the **dev-turn**
+  path only. `RunService.resumeParkedRun` hard-requires `mutating == true`, and
+  a PM turn is a non-mutating judgment preset — there is structurally no
+  resume path for a parked PM turn, so it still just yields and gets retried
+  fresh later (documented in `dispatchTurn`'s doc comment, not a gap in this
+  slice). Claim-loss-adopts-instead-of-escalates is proven
+  (`testWakeClaimLostToServeAdoptsInsteadOfEscalating`, a fake "rival"
+  `alln serve`-shaped claimer). Deadline-while-parked stops honestly with the
+  wake in the reason (`testParkPastDeadlineStopsWithWakeInReason`); a genuine
+  `resumeParkedRun` failure escalates with its real `RunServiceError` instead
+  of being mislabeled as a deadline (found and fixed in Code Audit).
+  **Known, explicit gap:** a resumed dev turn skips harness proof-of-record —
+  re-entering `dispatchDevTurn` a second time would hit
+  `RunService.sourceReadyModelIds() → coolingSources()`, whose `now:` default
+  parameter is `Date()` evaluated fresh at that call site (not `RunService`'s
+  own injected `now`); real vendor cooldowns are always >=180s
+  (`VendorBackoffPolicy.minimumPadSeconds` + jitter), so any second dispatch
+  would always see the source as still cooling and escalate
+  `AGENT_NOT_AVAILABLE`. Fixing that is a `RunService` change, out of scope here.
+- **Status surfacing — done.** `LoopJSON.capacityPark` (additive, contract
+  7.1.0 → 7.2.0) and the human `alln loop status` line name the vendor, the
+  wake clock, and the exact next command.
+- **AGENTS.md routing — fixed** (correction #1's four stale `RelayCoordinator`
+  references, closeout item).
+- **Deslop: CLEAN. Code Audit: CLEAN** (after the resumeFailed/deadlinePassed
+  split above).
+- **Still open:** the "Detached ack / notification" visibility row (URN should
+  fire a "parked until X" banner) — a separate, un-started integration against
+  `NotificationCandidateDetection`/`WorkThread` turn snapshots, not touched this
+  slice. Planner dogfood and the one on-host wall-crossing dogfood in "Done
+  when" require live/manual verification and are not claimed here.
 
 ---
 
@@ -431,19 +473,30 @@ seating wrong.
 
 ## Done when
 
-- [ ] Menu byte gate covers a realistic catalog and the documented budget is one
+- [x] Menu byte gate covers a realistic catalog and the documented budget is one
       the live surface meets.
-- [ ] `alln menu --json` and bootstrap carry `capacity` (injected, `refresh:
+- [x] `alln menu --json` and bootstrap carry `capacity` (injected, `refresh:
       false`, zero probes asserted); `contractVersion` bumped; `ContractSchema`
       extended; AllnighterCore still has no Engine dependency.
 - [ ] Planner dogfood: seats from menu without a separate `alln capacity` call.
-- [ ] `vendorPark` is checked before classify in **both** turn dispatchers; no
+      (Not claimed — requires a live agent session, not a hermetic test.)
+- [x] `vendorPark` is checked before classify in **both** turn dispatchers; no
       competing runIds; no 50s infra escalate on a park.
-- [ ] Claim-or-adopt proven against a lost claim; `alln serve` winning is not an
-      escalation.
-- [ ] Parked loop reports `.running` + `capacityPark{wakeAfter, source}` in
-      `loop status`, ack, and notification.
-- [ ] All six named hermetics green; one on-host wall-crossing dogfood.
-- [ ] `AGENTS.md` routing rows updated (`RelayCoordinator` → `LoopCoordinator`).
-- [ ] Deslop + code audit; promote the moat sentence and the plan-time capacity
-      law; archive this packet.
+- [x] Claim-or-adopt proven against a lost claim; `alln serve` winning is not an
+      escalation. (Dev-turn only — see "Progress" for the PM-turn structural
+      caveat: PM turns are non-mutating, `resumeParkedRun` requires mutating.)
+- [x] Parked loop reports `.running` + `capacityPark{wakeAfter, source}` in
+      `loop status`.
+- [ ] ...and in the detached ack / URN notification. **Not done** — separate,
+      un-started integration against `NotificationCandidateDetection`.
+- [x] All six named hermetics green (`LoopCapacityParkYieldTests`, 5 tests).
+- [ ] One on-host wall-crossing dogfood. (Not claimed — requires a real vendor
+      wall on the founder's own machine.)
+- [x] `AGENTS.md` routing rows updated (`RelayCoordinator` → `LoopCoordinator`).
+- [x] Deslop + code audit (CLEAN; audit found and fixed a real bug — a
+      `resumeParkedRun` failure was mislabeled as a deadline stop).
+- [ ] Promote the moat sentence and the plan-time capacity law; archive this
+      packet. **Not done yet** — the notification gap and the two dogfood
+      items above are real open work, not paperwork; archiving now would bury
+      them. Close this packet once those three are resolved or explicitly
+      deferred by the founder.
