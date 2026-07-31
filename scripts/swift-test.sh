@@ -140,6 +140,26 @@ mint_token() {
   fi
 }
 
+# preflight_sweep — unconditional sweep for live AllnighterCorePackageTests
+# runners, run BEFORE acquire_lock on every invocation (defect A: nothing
+# swept automatically before this). Trusts the process table, never the
+# lock file — the lock file is the lie-prone layer (defect B). Any
+# survivor after TERM+KILL is a hard, named failure: refuse to start a new
+# run on top of a runner we couldn't clear.
+preflight_sweep() {
+  sweep_matching_processes "$$" >/dev/null
+  # Re-scan the live process table (never the lock file) after sweeping —
+  # catches anything sweep_matching_processes's own kill_pid_escalate
+  # calls reported as merely "survived" as well as anything that raced in.
+  local remaining
+  remaining="$(list_matching_pids "$$")"
+  if [[ -n "$remaining" ]]; then
+    echo "swift-test: HARD FAIL — runner(s) still present after preflight sweep, refusing to start a new run:" >&2
+    echo "$remaining" >&2
+    exit 1
+  fi
+}
+
 run_with_timeout() {
   local -a cmd=(swift test --disable-sandbox --package-path "$PACKAGE_PATH" "$@")
   local log
@@ -187,6 +207,7 @@ run_with_timeout() {
   return "$exit_code"
 }
 
+preflight_sweep
 acquire_lock
 trap cleanup EXIT INT TERM
 
