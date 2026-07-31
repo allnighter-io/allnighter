@@ -38,10 +38,7 @@ is a single exchange or a multi-round loop.
 
 **Trial.** A period during which the daily allowance is removed and runs are
 unlimited. The trial begins at your first run — not at install — and lasts for
-the number of **active days** stated on the pricing page (currently 14). An
-active day is a day on which you actually run something; days you do not use
-Allnighter do not count against it. The trial ends no later than 60 calendar days
-after it starts.
+the number of days stated on the pricing page (currently 14 calendar days).
 
 **Paid subscription.** Monthly or annual. Unlimited Allnighter orchestration
 *within your own providers' limits*, including multi-worker fan-out and

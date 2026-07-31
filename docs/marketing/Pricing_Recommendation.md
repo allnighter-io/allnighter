@@ -3,7 +3,7 @@
 Status: **v3 — recommended offer** (supersedes v2 free-single-worker, and v1 "3 free Team runs / $9.95")  
 Owner: Founder  
 Created: 2026-06-15  
-Updated: 2026-07-31 (daily free allowance · trial counts active days · $12/$120)
+Updated: 2026-07-31 (daily free allowance · plain 14-day trial · $12/$120)
 
 Change process: `docs/phases/Pricing_Change_Process.md`. Do not edit numbers in
 this doc without running it.
@@ -12,7 +12,7 @@ this doc without running it.
 
 ```text
 Free forever: see your whole bench + any 3 runs every day
-14 active days of unlimited, starting at your first run
+14 days of unlimited, starting at your first run
 $12/month or $120/year after that
 Founding Builder: $199 once, first 100 only
 Mac app + iPhone app included
@@ -23,7 +23,7 @@ No per-run fee, no model markup
 | Tier | Price | What you get |
 | --- | --- | --- |
 | **Free** | $0, forever | Capacity view (CLI + Mac app) · doctor / setup / readiness · menu, bootstrap, help · run history + Markdown export · **3 runs per day** — a run is any dispatch: one worker or six, single-shot or a multi-round loop. Nothing is feature-locked |
-| **Trial** | $0, **14 active days** | Unlimited dispatch. Counts only days you actually run something; expires 60 calendar days after it starts regardless |
+| **Trial** | $0, **14 days** | Unlimited dispatch. Starts at your first run, not at install |
 | **Builder** | **$12/mo** or **$120/yr** | Unlimited dispatch within your own provider limits · Mac command center · iPhone floor manager · team presets · synthesis presets |
 | **Founding Builder** | **$199 once** | Everything in Builder, for life. **First 100 buyers only**, then retired permanently |
 
@@ -100,29 +100,33 @@ Ahead of the number in importance:
   (`docs/phases/One_Paste_Cold_Start.md` §Trial) drops someone to a working free
   tier instead of bricking a paying-intent user.
 
-## Why 14 **Active** Days
+## Why 14 Days, Plain
 
-Trial length is measured in days the user actually dispatched — not calendar
-days. A busy fortnight, a vacation, or a week on someone else's codebase does not
-burn the trial.
+Fourteen calendar days from the first run. One timestamp, one end date, the same
+mechanic every other product in the category uses. Nothing to explain.
 
-- **Calendar days are the wrong unit.** They run the clock while the user isn't
-  looking, which is both unfair and a support argument we lose.
 - **7 is too short** — the buying trigger is "I need a second opinion on
   something that matters," which does not arrive on a schedule.
-- **30 calendar days is the wrong fix.** It delays revenue, hardens the "this is
-  free" mental model, and by day 30 the user has forgotten they were on a trial,
-  so the lock reads as a bait-and-switch. Worst of all it **halves the learning
-  rate** — at zero users, finding out whether anyone pays is scarcer than the
-  revenue itself.
-- **The habit worry that motivates "30 days" is real, but trial length is the
-  wrong lever for it.** Habit comes from the free tier having a daily reason to
-  open — capacity plus three runs. That is what makes the tool stay installed
-  forever, paying or not.
+- **30 is too long.** It delays revenue, hardens the "this is free" mental model,
+  and by day 30 the user has forgotten they were on a trial, so the end reads as
+  a bait-and-switch. Worst of all it **halves the learning rate** — at zero
+  users, finding out whether anyone pays is scarcer than the revenue itself.
+- **The habit worry behind "30 days" is real, but trial length is the wrong
+  lever.** Habit comes from the free tier having a daily reason to open —
+  capacity plus three runs. That is what keeps the tool installed forever, paying
+  or not.
 
-Hard cap: the trial expires 60 calendar days after it starts regardless, so the
-ledger closes. The clock starts at the **first dispatch**, never at install — an
-agent that installs `alln` on a Friday must not burn the weekend.
+The clock starts at the **first run**, never at install — an agent that installs
+`alln` on a Friday must not burn the weekend. That single rule handles the
+"trial ran while I wasn't looking" worry, and it is the only special case.
+
+**Rejected: counting only days the user was active.** Briefly considered, then
+cut. No subscription software does it (the closest analogues are game playtime
+trials and API credits), and unfamiliar metering reads as a trick even when it is
+generous. It also creates state only we can compute — "6 active days left" is not
+something a user can verify, and unverifiable state is what disputes are made of.
+Above all it was redundant: **the 3-runs-a-day free tier is already the safety
+net.** A trial ending early now costs unlimited runs, not the product.
 
 Enforcement detail and the anti-reinstall ledger:
 `docs/phases/One_Paste_Cold_Start.md` §Trial.
@@ -278,7 +282,7 @@ Make your AI team show up all day.
 - Team presets and synthesis presets
 - No model markup
 
-14 active days of unlimited runs, free — we only count the days you actually use it.
+14 days of unlimited runs, free, starting at your first run.
 When it ends you keep the free tier, your three runs a day, and all your history.
 
 Founding Builder
@@ -294,7 +298,7 @@ Bring your own AI subscriptions. Allnighter does not include model access.
 | --- | --- | --- |
 | v1: 3 free Team runs, then dark | Free tier forever, 3 runs/day | A brick gets uninstalled; the installed binary is the distribution asset |
 | v2: unlimited free single-worker lane | 3 full-power dispatches/day | Free single-worker is a working multi-model router — the product, not a demo |
-| v2: 14 calendar days | 14 **active** days (60-day hard cap) | Calendar days run the clock while the user isn't looking |
+| Briefly: 14 **active** days | Plain **14 calendar days** | Nobody in software does activity-based trials; opaque state the user can't verify reads as a trick — and the 3/day free floor already solves what it was for |
 | Limit connected CLIs | Rejected | Most users have two; it gates nothing and punishes multi-vendor use |
 | v1: $9.95/month | $12/month | Sub-$10 signals disposable; $2 costs no conversion; headroom to $19–24 |
 | v1: $95/year | $120/year | Rounder; "$10/month billed annually" |

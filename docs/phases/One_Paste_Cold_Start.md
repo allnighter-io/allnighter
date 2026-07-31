@@ -306,7 +306,7 @@ Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
 | **BQ-3** | **Defer npm/npx** | Nothing in V1 |
 | **BQ-4** | Soft update only in V1 (announce + command). Hard `minSupportedBinaryVersion` fail closed = later packet if protocol breaks. | Not V1 |
 | **BQ-5** | **One universal CLI binary**, no per-arch assets | S00/S01 asset naming |
-| **BQ-6** | Trial = **14 active days** unlimited (60-day hard cap), machine-keyed, starts at first successful dispatch. Free tier after it = **3 full-capability dispatches/day**, never zero. Offer SSOT: `docs/marketing/Pricing_Recommendation.md` v3. | Trial packet only |
+| **BQ-6** | Trial = **14 calendar days** unlimited, machine-keyed, starts at first successful dispatch. Free tier after it = **3 full-capability dispatches/day**, never zero. Offer SSOT: `docs/marketing/Pricing_Recommendation.md` v3. | Trial packet only |
 | **BQ-7** | Entitlement/payments **spin out** to a sibling packet; this packet only reserves the seams and ships S00–S06 without a gate | Nothing in this packet |
 
 ### Decision log
@@ -527,10 +527,9 @@ successful dispatch writes `trial_started_at` for that machine hash. Reinstall
 finds the same row. A fresh Apple ID on the same machine finds the same row. The
 server always keeps the **earliest** start it has ever seen for a key.
 
-- Trial = **14 active days** unlimited (a day counts only if a dispatch happened),
-  hard-capped at 60 calendar days, no account required (preserves one-paste
-  magic; BQ-6). The ledger row holds a **set of active dates**, not an end date —
-  one small array, still one row.
+- Trial = **14 calendar days** unlimited, no account required (preserves
+  one-paste magic; BQ-6). The ledger row holds **one timestamp** — `trial_started_at`.
+  The end date is derived, fixed, and something the user can verify.
 - **Free tier is not zero.** After the trial: **3 dispatches per day, at full
   capability** — a dispatch is the unit whether it seats one worker or six, so a
   single-seat run to any CLI counts as one — no feature flags, no seat cap, no single-worker lane. The only
@@ -541,7 +540,7 @@ server always keeps the **earliest** start it has ever seen for a key.
 - Sign in with Apple is required only to **pay** and to sync entitlement across
   machines / iOS.
 - Offline at first dispatch: grant a provisional local start, reconcile on next
-  contact (server takes the earlier timestamp and the union of active dates).
+  contact (server always keeps the earlier timestamp).
   Unactivated + never able to reach the server = **72h** grace, then fall back to
   the free daily allowance — **never to zero** (§Degrade, never brick).
 - Residual risk accepted: VM / hardware spoofing. **No anti-VM, no
