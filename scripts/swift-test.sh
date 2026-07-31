@@ -219,7 +219,12 @@ run_with_timeout() {
   local have_baseline=false
   local last_sig="" last_size=-1
   local exit_code=0
-  while kill -0 "$SWIFT_TEST_CHILD_PID" 2>/dev/null; do
+  # pid_running, NOT a bare `kill -0` — the latter stays true for a zombie
+  # (exited, not yet reaped), so a runner that finishes in microseconds
+  # would otherwise never be noticed here and would sit until the wedge
+  # detector below eventually fired on it (~120-200s observed live for a
+  # runner that should have returned almost instantly).
+  while pid_running "$SWIFT_TEST_CHILD_PID"; do
     if [[ "$waited" -ge "$TIMEOUT_SECONDS" ]]; then
       echo "swift-test: timeout after ${TIMEOUT_SECONDS}s — killing pgid=$SWIFT_TEST_PGID (pid=$SWIFT_TEST_CHILD_PID)" >&2
       reap_runner
@@ -232,10 +237,16 @@ run_with_timeout() {
       local sig size
       sig="$(group_signature "$SWIFT_TEST_PGID")"
       size="$(wc -c < "$log" 2>/dev/null | tr -d ' ')"
+      # The FIRST sample counts toward flat_count too (starts at 1, not
+      # gated behind a separate "have we got a baseline yet" no-op sample).
+      # With the old have_baseline gate, the first sample only recorded a
+      # baseline and never incremented flat_count, so reaching
+      # FLAT_SAMPLE_LIMIT actually required FLAT_SAMPLE_LIMIT+1 samples —
+      # ~120s, not the documented ~90s, for the default 3x30s config.
       if [[ "$have_baseline" == true ]] && [[ "$sig" == "$last_sig" ]] && [[ "$size" == "$last_size" ]]; then
         flat_count=$((flat_count + 1))
       else
-        flat_count=0
+        flat_count=1
       fi
       have_baseline=true
       last_sig="$sig"
