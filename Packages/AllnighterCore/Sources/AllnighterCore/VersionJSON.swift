@@ -24,8 +24,13 @@ import Foundation
 /// **LVC-S09:** loop durable state directory moved `Relays/` → `Loops/` (`AllnighterPaths.loops`);
 /// on-disk `relay.json` filenames unchanged. Existing state under `Relays/` is not migrated —
 /// `alln loop list` warns when `Loops/` is missing but `Relays/` still exists.
+///
+/// **0.11.0 → 0.11.1 (QABC-S00e).** `contractVersion` takes an additive minor
+/// bump (7.0.0 → 7.1.0): optional `MenuJSON.capacity` declared in
+/// `menu.schema.json` / `menu-show.schema.json`. Not a major cut, so this is
+/// the standard +0.0.1 batch bump.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.11.0"
+    public static let binaryVersion = "0.11.1"
 }
 
 /// `alln version` / `alln --version` machine contract.

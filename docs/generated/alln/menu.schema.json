@@ -1,5 +1,72 @@
 {
   "$defs" : {
+    "Capacity" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "generatedAt" : {
+          "type" : "string"
+        },
+        "rows" : {
+          "items" : {
+            "$ref" : "#\/$defs\/CapacityRow"
+          },
+          "type" : "array"
+        }
+      },
+      "required" : [
+        "generatedAt",
+        "rows"
+      ],
+      "type" : "object"
+    },
+    "CapacityRow" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "effectiveRemainingPercent" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "observedAgeSeconds" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "resetAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "scope" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "shortRemainingPercent" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "source" : {
+          "type" : "string"
+        },
+        "unknownReason" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "source"
+      ],
+      "type" : "object"
+    },
     "CollectionCompleteness" : {
       "additionalProperties" : false,
       "properties" : {
@@ -352,6 +419,9 @@
         "$ref" : "#\/$defs\/MenuAction"
       },
       "type" : "array"
+    },
+    "capacity" : {
+      "$ref" : "#\/$defs\/Capacity"
     },
     "catalogRevision" : {
       "type" : "string"

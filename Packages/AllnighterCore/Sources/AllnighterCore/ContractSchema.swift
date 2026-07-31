@@ -848,6 +848,7 @@ public enum ContractSchema {
             "effectProfiles": ["type": "object", "additionalProperties": ref("EffectProfile")],
             "defaults": ref("MenuDefaults"),
             "completeness": ref("MenuCompleteness"),
+            "capacity": ref("Capacity"),
         ], required: [
             "schemaVersion", "contractVersion", "contractHash", "catalogRevision",
             "truncated", "detailTemplate", "actions", "commands", "teams", "models",
@@ -905,6 +906,18 @@ public enum ContractSchema {
             "ModelCapabilities": obj([
                 "laneTags": arr(str), "capabilityTags": arr(str), "strengthRank": int,
             ], required: ["laneTags", "capabilityTags", "strengthRank"]),
+            "Capacity": obj([
+                "generatedAt": str, "rows": arr(ref("CapacityRow")),
+            ], required: ["generatedAt", "rows"]),
+            "CapacityRow": obj([
+                "source": str,
+                "effectiveRemainingPercent": nullable("integer"),
+                "resetAt": nullable("string"),
+                "scope": nullable("string"),
+                "shortRemainingPercent": nullable("integer"),
+                "observedAgeSeconds": nullable("integer"),
+                "unknownReason": nullable("string"),
+            ], required: ["source"]),
         ]
         return schema
     }
@@ -973,6 +986,7 @@ public enum ContractSchema {
                 "blockedReason": nullable("string"),
                 "capabilities": ref("ModelCapabilities"),
                 "runTemplate": str, "validateTemplate": str,
+                "capacity": ref("Capacity"),
             ], required: [
                 "ref", "id", "displayName", "driverId", "driverName", "enabled", "ready",
                 "status", "capabilities", "runTemplate", "validateTemplate",
@@ -984,6 +998,18 @@ public enum ContractSchema {
             "ModelCapabilities": obj([
                 "laneTags": arr(str), "capabilityTags": arr(str), "strengthRank": int,
             ], required: ["laneTags", "capabilityTags", "strengthRank"]),
+            "Capacity": obj([
+                "generatedAt": str, "rows": arr(ref("CapacityRow")),
+            ], required: ["generatedAt", "rows"]),
+            "CapacityRow": obj([
+                "source": str,
+                "effectiveRemainingPercent": nullable("integer"),
+                "resetAt": nullable("string"),
+                "scope": nullable("string"),
+                "shortRemainingPercent": nullable("integer"),
+                "observedAgeSeconds": nullable("integer"),
+                "unknownReason": nullable("string"),
+            ], required: ["source"]),
         ]
         return schema
     }

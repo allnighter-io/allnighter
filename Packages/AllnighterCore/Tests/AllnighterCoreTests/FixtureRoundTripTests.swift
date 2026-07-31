@@ -139,7 +139,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // CAP-S06 bumps contract 6.7.0 → 6.8.0 (`capacity` command + CapacityStripJSON).
         // LVC-S05 bumps contract 6.13.0 → 7.0.0 (major cut: `pair relay*`/`pair
         // pilot*` retire behind one `alln loop` verb; `PMMode` wire enum deleted).
-        XCTAssertEqual(trj.contractVersion, "7.0.0")
+        // QABC-S00e bumps contract 7.0.0 → 7.1.0 (additive: optional `MenuJSON.capacity`).
+        XCTAssertEqual(trj.contractVersion, "7.1.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
