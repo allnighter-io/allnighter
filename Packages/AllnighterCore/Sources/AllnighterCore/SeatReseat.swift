@@ -10,24 +10,28 @@ import Foundation
 public enum SeatReseat {
 
     /// True when this failed result should trigger exactly one substitute invoke.
-    public static func isEligible(_ result: WorkerRunResult) -> Bool {
+    public static func isEligible(_ result: WorkerRunResult, hasDeclaredFallbacks: Bool = false) -> Bool {
         guard result.status != .done, result.status != .cancelled else { return false }
         if let kind = result.capacityObservation?.kind {
             switch kind {
             case .accountRateLimit, .providerBusy, .cooldown, .unknownCapacity:
                 return true
             case .authRequired, .manualRequired:
-                break
+                return false
             }
+        }
+        if hasDeclaredFallbacks {
+            return true
         }
         let text = [result.errorReason, result.output]
             .compactMap { $0 }
             .joined(separator: " ")
             .lowercased()
         let cues = [
-            "429", "rate limit", "rate-limit", "session limit", "usage limit",
+            "429", "402", "rate limit", "rate-limit", "session limit", "usage limit",
             "usage_limit", "overloaded", "at capacity", "cooldown",
-            "temporarily unavailable", "service unavailable"
+            "temporarily unavailable", "service unavailable",
+            "payment required", "payment_required", "balance exhausted", "usage balance"
         ]
         return cues.contains { text.contains($0) }
     }

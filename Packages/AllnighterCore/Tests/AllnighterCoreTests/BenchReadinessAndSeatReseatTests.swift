@@ -120,6 +120,35 @@ final class SeatReseatTests: XCTestCase {
         XCTAssertFalse(SeatReseat.isEligible(result))
     }
 
+    func testGrokPaymentRequiredTextIsEligible() {
+        let result = WorkerRunResult(
+            status: .failed,
+            errorReason: "402 Payment Required: Grok Build usage balance exhausted"
+        )
+        XCTAssertTrue(SeatReseat.isEligible(result))
+    }
+
+    func testDeclaredFallbackMakesFailedSeatEligible() {
+        let result = WorkerRunResult(
+            status: .failed,
+            errorReason: "Unknown subprocess exit 1"
+        )
+        XCTAssertFalse(SeatReseat.isEligible(result, hasDeclaredFallbacks: false))
+        XCTAssertTrue(SeatReseat.isEligible(result, hasDeclaredFallbacks: true))
+    }
+
+    func testAuthRequiredIsNotEligibleEvenWithDeclaredFallback() {
+        let obs = CapacityObservation(
+            kind: .authRequired,
+            source: "claude_code",
+            sourceConfidence: .messageFallback,
+            rawSnippet: "not signed in",
+            observedAt: Date()
+        )
+        let result = WorkerRunResult(status: .failed, capacityObservation: obs)
+        XCTAssertFalse(SeatReseat.isEligible(result, hasDeclaredFallbacks: true))
+    }
+
     func testLeadReseatSkipsFailedDriverAndPicksCodexSol() {
         let team = BuiltInTeams.team("code_spec_review_min")!
         let fable = model("model_fable", driver: "claude_code")

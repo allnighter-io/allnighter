@@ -156,4 +156,20 @@ final class CapacityClassifierTests: XCTestCase {
         XCTAssertFalse(blob.contains("runtime"))
         XCTAssertFalse(blob.contains("token"))
     }
+
+    func testGrokPaymentRequiredUsageBalanceExhausted() throws {
+        let stderr = "402 Payment Required: Grok Build usage balance exhausted"
+        let obs = try XCTUnwrap(CapacityClassifier.classify(input(sourceId: "grok", stderr: stderr)))
+        XCTAssertEqual(obs.kind, .accountRateLimit)
+        XCTAssertEqual(obs.sourceConfidence, .localPolicy)
+        XCTAssertTrue(obs.rawSnippet.lowercased().contains("payment required"))
+    }
+
+    func testGrok402JSON() throws {
+        let stdout = #"{"http_status":402,"message":"Grok Build usage balance exhausted"}"#
+        let obs = try XCTUnwrap(CapacityClassifier.classify(input(sourceId: "grok", stdout: stdout)))
+        XCTAssertEqual(obs.kind, .accountRateLimit)
+        XCTAssertEqual(obs.sourceConfidence, .structured)
+        XCTAssertTrue(obs.rawSnippet.lowercased().contains("balance exhausted"))
+    }
 }

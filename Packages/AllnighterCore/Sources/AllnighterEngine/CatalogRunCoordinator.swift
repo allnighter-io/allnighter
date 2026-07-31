@@ -305,31 +305,32 @@ public actor CatalogRunCoordinator {
                     }
                     var settledModel = model
                     var substitutedFrom: String? = agent.substitutedFromModelId
-                    if SeatReseat.isEligible(result), let team,
-                       agent.seatingReason != TeamExplicitSeats.explicitSeatingReason {
+                    if let team, agent.seatingReason != TeamExplicitSeats.explicitSeatingReason {
                         let chain = SeatReseat.chain(for: agent, team: team, isLead: false)
-                        if let alt = SeatReseat.nextModel(
-                            failedModelId: settledModel.id,
-                            failedDriverId: settledModel.driverId,
-                            preferredModelId: chain.preferred,
-                            fallbackModelIds: chain.fallbacks,
-                            requiredTags: chain.tags,
-                            fallback: chain.policy,
-                            lane: lane,
-                            ready: pool,
-                            preferredTags: chain.preferredTags
-                        ), let altManifest = registry.manifest(for: alt) {
-                            substitutedFrom = substitutedFrom ?? settledModel.id
-                            settledModel = alt
-                            let altPrompt = deliveries.isEmpty ? baseWorkerPrompt
-                                : TeamRunAttachmentMapper.teamRunSeatPrompt(
-                                    basePrompt: baseWorkerPrompt,
-                                    deliveries: deliveries,
-                                    readsImages: altManifest.canReadImages)
-                            result = await ProcessOwnership.$currentWorkerId.withValue(agent.id) {
-                                await runner.collect(WorkerInvocation(
-                                    model: alt, manifest: altManifest, prompt: altPrompt, effort: effort,
-                                    workingDirectory: workingDirectory))
+                        if SeatReseat.isEligible(result, hasDeclaredFallbacks: !chain.fallbacks.isEmpty) {
+                            if let alt = SeatReseat.nextModel(
+                                failedModelId: settledModel.id,
+                                failedDriverId: settledModel.driverId,
+                                preferredModelId: chain.preferred,
+                                fallbackModelIds: chain.fallbacks,
+                                requiredTags: chain.tags,
+                                fallback: chain.policy,
+                                lane: lane,
+                                ready: pool,
+                                preferredTags: chain.preferredTags
+                            ), let altManifest = registry.manifest(for: alt) {
+                                substitutedFrom = substitutedFrom ?? settledModel.id
+                                settledModel = alt
+                                let altPrompt = deliveries.isEmpty ? baseWorkerPrompt
+                                    : TeamRunAttachmentMapper.teamRunSeatPrompt(
+                                        basePrompt: baseWorkerPrompt,
+                                        deliveries: deliveries,
+                                        readsImages: altManifest.canReadImages)
+                                result = await ProcessOwnership.$currentWorkerId.withValue(agent.id) {
+                                    await runner.collect(WorkerInvocation(
+                                        model: alt, manifest: altManifest, prompt: altPrompt, effort: effort,
+                                        workingDirectory: workingDirectory))
+                                }
                             }
                         }
                     }
@@ -419,21 +420,21 @@ public actor CatalogRunCoordinator {
                 model: model, manifest: manifest, prompt: writerPrompt, effort: resolved.effort,
                 workingDirectory: repoRoot))
         }
-        if SeatReseat.isEligible(outcome), let team,
-           writer.seatingReason != TeamExplicitSeats.explicitSeatingReason {
+        if let team, writer.seatingReason != TeamExplicitSeats.explicitSeatingReason {
             let chain = SeatReseat.chain(for: writer, team: team, isLead: true)
-            let pool = reseatPool.isEmpty ? Array(modelByID.values) : reseatPool
-            if let alt = SeatReseat.nextModel(
-                failedModelId: model.id,
-                failedDriverId: model.driverId,
-                preferredModelId: chain.preferred,
-                fallbackModelIds: chain.fallbacks,
-                requiredTags: chain.tags,
-                fallback: chain.policy,
-                lane: team.lane,
-                ready: pool,
-                preferredTags: chain.preferredTags
-            ), let altManifest = registry.manifest(for: alt), altManifest.kind == .headlessCLI {
+            if SeatReseat.isEligible(outcome, hasDeclaredFallbacks: !chain.fallbacks.isEmpty) {
+                let pool = reseatPool.isEmpty ? Array(modelByID.values) : reseatPool
+                if let alt = SeatReseat.nextModel(
+                    failedModelId: model.id,
+                    failedDriverId: model.driverId,
+                    preferredModelId: chain.preferred,
+                    fallbackModelIds: chain.fallbacks,
+                    requiredTags: chain.tags,
+                    fallback: chain.policy,
+                    lane: team.lane,
+                    ready: pool,
+                    preferredTags: chain.preferredTags
+                ), let altManifest = registry.manifest(for: alt), altManifest.kind == .headlessCLI {
                 writer.substitutedFromModelId = writer.substitutedFromModelId ?? model.id
                 writer.modelId = alt.id
                 model = alt
@@ -445,6 +446,7 @@ public actor CatalogRunCoordinator {
                 }
             }
         }
+    }
         guard outcome.status == .done, let markdown = outcome.output, !markdown.isEmpty else {
             return fail(outcome.errorReason ?? "plan writer produced no output")
         }
