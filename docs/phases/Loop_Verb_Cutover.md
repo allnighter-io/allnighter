@@ -1,6 +1,6 @@
 # Loop Verb Cutover — `alln loop`
 
-Status: **v5 — LOCKED 2026-07-30. Grammar final, no open questions. Not started.**
+Status: **v6 — LOCKED 2026-07-30. Grammar final. Implementation-ready. Not started.**
 Owner: Founder ruling; implementer TBD
 Updated: 2026-07-30
 
@@ -28,6 +28,12 @@ packet.
 > improved three things: the chair is an occupant, operations are chair-neutral,
 > and `kind` names what *done* means.** Rejected alternatives are recorded in §3
 > so none of it gets relitigated.
+>
+> **v6.** Implementation-readiness pass (Sonnet 5), names locked and unchanged.
+> Found two places where v5 was *factually wrong* about the state machine — the
+> two adopts do **not** share preconditions, and `step` for a spawned chair had no
+> existing operation to be neutral over — plus a missing archive step and a dozen
+> uncovered surfaces. All corrected below. **The names did not move.**
 
 ---
 
@@ -94,6 +100,26 @@ alln pair                                   # device pairing ONLY
   canonical agent id (alln spawns that agent into it).
 - `--pm` is **required**. No silent default for a cold agent to guess wrong.
 
+### "Parked" is prose, not a status — use these names
+
+`RelayState.Status` has exactly five cases (`RelayState.swift:188-199`):
+`running`, `done`, `escalated`, `stopped`, `awaitingPM`. **There is no `parked`.**
+v5 used "parked" loosely for two different things. Concrete mapping, binding on
+every slice:
+
+| Prose | Real statuses | Accepts |
+| --- | --- | --- |
+| "parked, chair == `caller`" | `awaitingPM` | `step`, `pm <agent-id>`, `stop` |
+| "parked, chair == agent" | `escalated`, reconciled-`stopped` | `resume`, `pm caller`, `stop` |
+| in flight | `running` | `stop`, `wait` |
+| finished | `done`, ceiling-`stopped` | nothing (not resumable) |
+
+`awaitingPM` today is documented as pilot-only because it is the state a live
+session rests in between rounds. Under the occupant model it means **the chair
+holder owes a decision** — an agent-occupied loop dispatches its own decision
+immediately, so it is only *observable* when the chair is `caller`. Same state,
+stated without reference to a mode enum.
+
 ### Full old → new matrix
 
 Live registry: `ContractRegistry+Milestone1.swift:609-666`, `PairCLI.swift:20-31`,
@@ -110,7 +136,7 @@ Live registry: `ContractRegistry+Milestone1.swift:609-666`, `PairCLI.swift:20-31
 | `pair pilot adopt` (spawned → pilot) | `alln loop pm <id> caller` |
 | `pair pilot handoff` | `alln loop step <id> <message>` |
 | `pair pilot watch` | `alln loop wait <id>` |
-| `pair pilot scaffold-handover` | **deleted** — a chair-specific helper the neutral `step` removes the need for. If a real need survives, it is internal, not a verb. |
+| `pair pilot scaffold-handover` | **CLI verb deleted; engine type stays.** `PilotHandoverScaffold.writeRoundFile` is also called automatically by `pilot start` (`PilotCLI.swift:65`) to seed round 1 — `loop start` must keep that auto-seed. Only the manual re-emit verb goes. |
 | — (did not exist) | `alln loop list` |
 | `pair list\|approve\|revoke\|begin` | **unchanged** — device trust keeps `pair` |
 
@@ -127,12 +153,27 @@ Live registry: `ContractRegistry+Milestone1.swift:609-666`, `PairCLI.swift:20-31
 spawned at all.* One field answers both — `caller` is a reserved occupant, any
 other value is an agent to spawn.
 
-### Both adopts collapse
+### Both adopts collapse under one verb — but they are NOT symmetric
 
-They were never two operations. They are one — **reassign the chair** — with the
-target named explicitly. `alln loop pm <id> caller` ⇄ `alln loop pm <id> <agent-id>`.
-Preconditions do not change: both still require a parked loop in an
-adopt-eligible status. This is a rename plus a merge, never a loosening.
+v5 claimed "preconditions do not change: both still require a parked loop in an
+adopt-eligible status." **That was wrong.** Verified in
+`RelayCoordinator.swift:596-598,658-661` and `:735-766`:
+
+| `alln loop pm <id> <agent-id>` (was `relay adopt`) | `alln loop pm <id> caller` (was `pilot adopt`) |
+| --- | --- |
+| Requires chair == `caller` | Requires chair == an agent |
+| Eligible: `awaitingPM` **or** `escalated` | Eligible: `escalated` **or** reconciled-`stopped` (`RelayState.isResumable`) |
+| **Dispatches** a round — needs `RunService` | **Never dispatches** — relabels three fields and persists |
+| Takes the dispatch lock | `static`, no coordinator needed |
+
+Different eligible statuses, different side effects. `awaitingPM` is not even a
+legal resting state on the spawned side.
+
+**Ruling:** one verb, two transitions, and the implementer gets the table above as
+the spec. `loop pm` validates the *current* chair, then applies that column's
+eligibility and effects. **It is not a merge of identical logic** — do not let an
+implementer write one code path and assume symmetry. Neither column's
+preconditions may be loosened to make them match.
 
 ---
 
@@ -162,9 +203,29 @@ They differ only in a field value — not a verb, not a mode, not a subtree.
 special case, the grammar accretes more caller-only and spawned-only surface until
 the command tree forks.
 
-So `step` is chair-neutral by definition: *submit a PM decision into the loop.* A
-spawned PM submits through the identical internal operation; the CLI errors
-uniformly (`chair is occupied by <agent-id>`) when the caller does not hold it.
+So `step` is chair-neutral by definition: *submit the PM decision the loop is
+waiting for.*
+
+**v6 correction — v5 broke its own law here.** v5 specified the error as
+`chair is occupied by <agent-id>`. That keys the error on the **occupant**, which
+is exactly what Law 3 forbids. It also described a spawned PM "submitting through
+the identical internal operation" — verified: **no such manual-injection path
+exists.** A spawned chair's decisions are dispatched automatically inside
+`RelayCoordinator`; there is no verb, internal or external, that injects one.
+
+Corrected, and it is simpler than what v5 imagined:
+
+> `step` is accepted **only in `awaitingPM`** — the state where the loop is
+> waiting on a decision. Any other status errors on the **status**, reusing the
+> existing `PilotRoundError.notAwaitingPM(status:)`
+> (`RelayCoordinator.swift:117-135`): *"loop is not awaiting a PM decision
+> (status: running)."*
+
+An agent-occupied loop dispatches its own decision and therefore is never
+observably in `awaitingPM`, so it rejects `step` **without the CLI ever consulting
+the occupant.** Chair-neutrality is a property of the grammar and the error
+surface — not a new dispatch path to build. **No manual-injection path is in
+scope. Do not build one.**
 
 **Every future loop operation must be defined this way.** This is the law that
 keeps the cutover from having to happen again.
@@ -230,14 +291,29 @@ a principle. Corrected:
 
 | Wire word | Verdict |
 | --- | --- |
-| `PMMode` enum (`spawned \| external`) | **Deleted.** The chair is an occupant id with `caller` reserved. `external` was wrong (external to *what*?) and `spawned` becomes redundant — an occupant either is `caller` or is an agent. The codebase already faked this: `RelayState.swift:293` stamps a sentinel `pmModelId` for external mode. The sentinel becomes the real model. |
+| `PMMode` enum (`spawned \| external`) | **Deleted.** The chair is an occupant id with `caller` reserved. `external` was wrong (external to *what*?) and `spawned` becomes redundant — an occupant either is `caller` or is an agent. The codebase already faked this: `RelayState.swift:293` stamps a sentinel `pmModelId` for external mode. The sentinel becomes the real model. **Blast radius is wider than v5 said — see below.** |
 | `--relay <id>` | **Deleted** → positional `<loop-id>`. |
 | `kind: relay\|pilot` in `alln ps` / journals | **Renamed → `loop`.** Agent-readable: an agent that ran `alln loop start` cannot then read a noun the CLI does not have. |
 | `relay.needs_answer` event id | **Renamed → `loop.needs_answer`.** Same reason. |
 | `RelayCoordinator`, `RelayState`, `RelayCLI`, `RelayVerdict`, `Relays/` dir | **Renamed → `Loop*` / `Loops/` — but in LVC-S09**, a separate slice. Internal *and* accurate; the rename has zero semantic content and a large mechanical diff. Mixing a repo-wide symbol sweep into a contract cut makes the reviewable diff unreviewable, which project law forbids. |
 
+#### Deleting `PMMode` touches more than `RelayState`
+
+v5 discussed only the `RelayState` decode break. Verified call sites that must all
+change in LVC-S02:
+
+| Site | What it does |
+| --- | --- |
+| `RelayJSON.swift:19,53,109` | `pmMode: String` with default `"spawned"` — a **public wire type**, not internal |
+| `PMTurnJSON.swift:31,47,62` | `pmMode: String?` — same |
+| `ProcessOwnershipSurface.swift:374,441`, `ProcessOwnershipGarbageCollector.swift:167` | `relay.pmMode == .external ? "pilot" : "relay"` — **this ternary is what actually produces the `kind` strings** §4 renames to `loop`. After the enum is deleted it has no legal input. It is a separate edit, not implied by "rename `kind`". |
+| `RelayThreadProjector.swift:137,148` | branches on `.external` to suppress the sentinel model id in thread titles |
+| `docs/generated/alln/ownership-gc.schema.json:24-25`, `ownership-ps.schema.json:169-170`, `team-run.schema.json:804` | literal `"relay"`/`"pilot"` enum values — regeneration only fixes these **after** the source above changes |
+| ~60 assertions across `RelayCoordinatorTests`, `PilotCoordinatorTests` (incl. `:572` legacy-decode test), `RelayAdoptTests`, `RelayJSONTests:164,173,183` | fixtures |
+
 **Decode break is accepted, not migrated.** On-disk `RelayState` carrying
-`"pmMode":"external"` will not decode. Pre-user, so no shim and no dual-read —
+`"pmMode":"external"` will not decode, and `RelayJSON`/`PMTurnJSON` consumers see
+the field disappear. Pre-user, so no shim and no dual-read —
 foundation-first, build the correct final model now. It fails **loud**, never
 silently. Operational cost, and it goes in the release note: **finish or `stop`
 any in-flight loop before upgrading.**
@@ -251,30 +327,66 @@ the binary, which would have the SSOT teaching `alln loop …` while the shipped
 still only had `pair relay` — recreating the exact word-split this cutover exists
 to kill.
 
-**LVC-S00 — Vocabulary.** Rewrite `Product_Vocabulary.md` §Human layer and
-§Loop-vs-Pilot-vs-Relay per §4. Add the three laws from §3. No open rulings remain.
+**LVC-S00 — Vocabulary, and where each law lives.** Rewrite
+`Product_Vocabulary.md` §Human layer and §Loop-vs-Pilot-vs-Relay per §4. No open
+rulings remain. The three laws do **not** all go to the same home:
+
+| Law | Durable home |
+| --- | --- |
+| 1 — `kind` names what *done* means | `Product_Vocabulary.md` — it governs future naming |
+| 2 — the chair is an occupant, not a mode | **Code.** `Product_Vocabulary.md` gets the word `pm`/`caller`; the invariant is enforced by there being no mode enum to violate |
+| 3 — operations are defined against the state machine, never the chair | `Product_Vocabulary.md` — it constrains every future loop verb |
+
+Nothing else in this packet is durable law. §2's matrix, §6's surface inventory,
+and §7's review dispositions are **working notes** and die with the archive.
 
 **LVC-S01 — Retire the old vocabulary.** Add `pair relay`, `pair relay-status`,
 `pair relay-resume`, `pair pilot`, `relay adopt`, `--relay`, `--pm-model`,
 `--dev-model` to `RetiredVocabulary.swift`. **Also widen the gate** — see below.
+`RetiredVocabularyTests.swift:264` currently lists `"relay"` in its *allowed* flag
+names and `:54` treats `pair_relay(` as current — both assertions must flip, or
+the test will contradict the new retired list.
 
 **LVC-S02 — `LoopCLI` + wire renames.** The full §2 grammar. Retired verbs error
-naming their replacement — hard cutover, no aliases. Deletes `PMMode`; renames
-`kind` and the notification event id.
+naming their replacement — hard cutover, no aliases. Deletes `PMMode` (blast
+radius table in §4); renames `kind` and the notification event id; rewrites the
+`ProcessOwnershipSurface` / GC `kind` ternary.
+
+> **New work S02 must not miss:** `alln loop status` unifies two waiters that are
+> **not** equivalent today. `relay-status` accepts `--wait-for parked|terminal`
+> (`RelayCLI.swift:189-206`); `pilot status` accepts **only `parked`** and
+> explicitly rejects `terminal` (`PilotCLI.swift:611-628`). One `loop status`
+> means adding terminal-wait support to the caller-chair path. v5 called this
+> "just a flag"; it is a build item.
+
+> **`loop pm` is two transitions, not one merged code path** (§2 table). Validate
+> the current chair, then apply that column's eligibility and effects. Do not
+> write it as symmetric.
 
 **LVC-S03 — Agent-facing surfaces.** `MenuCatalog.swift`, `HelpTopicRegistry.swift`
 (topic `pm_relay`, `:221-275`), `Bootstrap.swift`, `TeachingSnippet.swift`,
 `RecipeCatalog` + the four recipe bodies (§6).
 
 **LVC-S04 — Living docs.** `AGENTS.md` routing table (four rows),
-`docs/phases/README.md`, `docs/operations/`, `Product_Vocabulary.md`. **Do not
-rewrite `docs/archive/phases/`** — that makes the record lie about what shipped
-when. A one-line header note (`relay → alln loop, renamed 2026-07-30`) on
+`docs/phases/README.md`, `docs/operations/`, `Product_Vocabulary.md`.
+
+**Live phase docs must be rewritten, not header-noted.** These are being worked
+from, so a "renamed" banner is not enough:
+- `docs/phases/Work_Recovery_And_PM_Continuity.md` — 11+ live references
+  (`:11,104-105,142,193-194,235-266,342`), including `--pm-model` on resume, which
+  this cutover renames
+- `docs/phases/atl/ATL_S01_S02_execution.md:51,56`
+- `docs/phases/closeout/Open_Items_Closeout.md:108,112`
+
+**Do not rewrite `docs/archive/phases/`** — that makes the record lie about what
+shipped when. A one-line header note (`relay → alln loop, renamed 2026-07-30`) on
 `PM_Relay.md`, `Pilot_Relay.md`, `Round_Survives_The_Caller.md`,
-`Agent_Team_Loop.md` is enough.
+`Agent_Team_Loop.md` is enough **for archived docs only**.
 
 **LVC-S05 — Version.** `contractVersion` **6.13.0 → 7.0.0**, `binaryVersion`
-**0.10.7 → 0.11.0**. Regenerate `docs/generated/alln/*` via
+**0.10.7 → 0.11.0** — **two files**: the constant *and*
+`VersionIdentityTests.swift:36`, which hardcodes the literal `"0.10.7"`.
+Regenerate `docs/generated/alln/*` via
 `alln dev export-contracts` — generated output, never hand-edited. Release note
 carries the decode break (§4).
 
@@ -292,6 +404,14 @@ for every `loop` verb in `ContractRegistry`. Non-optional.
 
 **LVC-S09 — Symbol sweep (separate slice, after S00–S08).** `Relay*` → `Loop*`,
 `Relays/` → `Loops/`. Pure mechanical rename. Behavior first, sweep second.
+
+**LVC-S10 — Promote and archive this packet.** `docs/phases/` is **never SSOT**
+(`docs/phases/README.md:11-13,29-31`). Once S00–S09 land: confirm the three laws
+are in their homes per S00, then move this file to `docs/archive/phases/` and
+update the phase board. A packet left in `phases/` with a LOCKED banner is exactly
+the "shipped banner means promote + archive is overdue" failure the router warns
+about — and §6's surface inventory is the part most likely to rot into a
+pseudo-SSOT if it lingers.
 
 ### Widen the gate — it is narrower than it looks
 
@@ -325,15 +445,37 @@ Truth owner: `Product_Vocabulary.md` for the words; `LoopCLI` + `MenuCatalog` +
 
 **Product-facing strings:**
 - `RelayThreadProjector.swift:271` — `"PM Relay"` / `"PM Relay: …"` thread titles
-- `NotificationDeliveryFilter.swift:99-102` — `"PM Relay needs an answer"`
+  (and `:137,148`, which branch on `PMMode`)
+- `NotificationDeliveryFilter.swift:99-102` — `"PM Relay needs an answer"`; **also
+  `:46,122,125,127`** — "PM Relay stopped", "Relay worker stream stalled", and an
+  embedded `alln pair pilot status` next-action
 - `ContractRegistry+Milestone1.swift:742` — `serve` summary teaches four old verbs
 - `ContractRegistry+Milestone1.swift:1181,1183` — `ErrorSpec.agentAction` for
   `RELAY_INVALID_STATE` / `RELAY_ALREADY_ACTIVE`
-- `PilotCLI.swift` / `RelayCoordinator.swift` — embedded next-action strings
+- `PilotCLI.swift:85,1149-1180,1298-1312,1376` — **runtime-formatted** next-action
+  and error strings, a surface distinct from `ContractRegistry.ErrorSpec`. e.g.
+  *"relay is not a Pilot relay (pmMode != external) — use `alln pair relay`…"*.
+  Enumerated here because v5 gestured at these generically and they are real work.
+- `RelayCoordinator.swift` — same class of embedded strings
 
-**Recipes** (agent-facing, not gate-covered): `keep-working-while-im-away.md`,
-`get-another-model-to-implement-this.md`, `recover-a-run-that-lost-its-terminal.md`,
-`challenge-this-decision-before-i-commit.md`
+**Agent discovery / teaching surfaces — the full list:**
+
+| Surface | File | Covered by |
+| --- | --- | --- |
+| `alln menu --json` | `MenuCatalog.swift` — actions, commands, recipes, defaults, `detailTemplate`, `effectProfiles` | S03 |
+| `alln help` / `help search` / `help get` | `HelpTopicRegistry.swift` — topic `pm_relay` **`:221-289`** (v5 said `:275`; the declaration including `relatedCommandNames` / `schemaRefs` / `errorRefs` runs to `:289`), plus the `delegate` alias at `:191` | S03 |
+| `alln doctor` / `doctor explain` | `ErrorSpec.agentAction` + recovery codes, `ContractRegistry+Milestone1.swift:1181,1183` | S03 |
+| `alln doctor handoff` | mailbox liveness copy referencing relay verbs | S03 |
+| `alln bootstrap` | `Bootstrap.swift`, `TeachingSnippet.swift`, `GlobalTeachingInstaller` | S03 |
+| `ContractRegistry` CommandSpecs | **`:540-606` (`pair relay`, `relay-status`, `relay-resume`, `relay adopt`, `relay stop` + FlagSpecs)** — v5 cited only `:609-666` (pilot) and never named the relay block | S02/S03 |
+| `docs/generated/alln/*` | generated — regenerate after the source enums change | S05 |
+
+**Recipes** (agent-facing, not gate-covered) — **seven, not four**:
+`keep-working-while-im-away.md`, `get-another-model-to-implement-this.md`,
+`recover-a-run-that-lost-its-terminal.md`,
+`challenge-this-decision-before-i-commit.md`, and the three v5 missed:
+`ask-several-models-and-compare.md`, `get-sols-take-without-changing-files.md`,
+`use-a-specific-model-without-silent-substitution.md`
 
 **Living docs carrying `pair relay|pilot` outside archive/:** `AGENTS.md`,
 `Product_Vocabulary.md`, `docs/phases/README.md`, `Work_Recovery_And_PM_Continuity.md`,
@@ -368,6 +510,21 @@ from silence. Driver/protocol impact: none. Auth/privacy impact: none.
 | `delegate` collides with locked `Delegate` | ❌ **false premise** | Rejected — zero CLI occurrences; moot under `deliver` |
 | Version 7.0.0 / 0.11.0 correct | ✅ | No change |
 | `relay-status` + `pilot status` collapse is lie-prone | ✅ | Accepted, then resolved — one object, one `status`; parked-vs-terminal is `--wait-for`, a flag |
+
+**Implementation-readiness pass — Sonnet 5, 2026-07-30** (names locked; every
+finding verified against the repo before acceptance):
+
+| Finding | Verified | Disposition |
+| --- | --- | --- |
+| The two adopts do **not** share preconditions — different eligible statuses, and one dispatches while the other only relabels | ✅ `RelayCoordinator.swift:596-598,658-661` vs `:735-766` | **Accepted — v5 was factually wrong.** §2 now carries the real two-column table; `loop pm` is one verb over two transitions, not one code path. |
+| `step` chair-neutrality rests on a spawned-side manual-injection path that does not exist | ✅ no such verb, internal or external | **Accepted — and it exposed that v5 broke its own Law 3.** The error was keyed on the occupant; it is now keyed on the status. No injection path is in scope (§3). |
+| `parked` is not a real status | ✅ `RelayState.swift:188-199` — five cases, no `parked` | **Accepted** — §2 has a concrete prose→status→accepts table. |
+| `pilot status` rejects `--wait-for terminal`; the collapse is new work | ✅ `PilotCLI.swift:611-628` vs `RelayCLI.swift:189-206` | **Accepted** — called out in S02. |
+| `PMMode` reaches public wire types + the ownership `kind` ternary | ✅ `RelayJSON:19,53,109`, `PMTurnJSON:31`, `ProcessOwnershipSurface:374,441`, GC`:167` | **Accepted** — blast-radius table in §4. |
+| `scaffold-handover`'s engine type is also called by `pilot start` | ✅ `PilotCLI.swift:65` | **Accepted** — verb dies, auto-seed stays. |
+| Packet never schedules its own archival; `phases/` is never SSOT | ✅ `docs/phases/README.md:11-13,29-31` | **Accepted** — LVC-S10; S00 says which law goes where. |
+| Surfaces missed: 3 recipes, help topic to `:289`, ContractRegistry `:540-606`, extra `NotificationDeliveryFilter` lines, generated schema enums, live phase docs | ✅ | **Accepted** — §6 and S04. |
+| `VersionIdentityTests:36` and `RetiredVocabularyTests:54,264` pin old values | ✅ | **Accepted** — S05, S01. |
 
 **Cold first-principles redesign — Fable 5, 2026-07-30** (no repo docs read, no
 anchoring on the draft). Converged independently on the sibling verb, the object
@@ -417,7 +574,7 @@ Works Test, from a clean shell:
 - `alln loop start deliver "<brief>" --spec <path> --pm <agent> --dev <agent>` lands a real commit
 - `--pm caller` → `step` → `status` (parked) → `wait`
 - `loop pm <id> caller` and `loop pm <id> <agent-id>` both flip a parked loop
-- `step` errors uniformly with `chair is occupied by <agent-id>` when the caller does not hold it
+- `step` errors on the **status** (`notAwaitingPM`) for an agent-occupied loop — never on the occupant
 - `stop` is durable and not resumable; `resume` works on a parked loop
 - `list` shows them
 - every old verb, `--relay`, `--pm-model`, `--dev-model` hard-error naming their replacement
@@ -435,8 +592,17 @@ python3 scripts/verify_menu_contract.py
 swift test                     # once, at closeout
 ```
 
-Fixtures to update: contract export, `ContractRegistryTests` command-name list,
-Mac `RelayDetachedLauncher` / `RelayStatusLoader` unit tests.
+Fixtures to update — **v5 listed three; the real set is ~12 files.** The Works
+Test's `--filter Relay` / `--filter Pilot` surfaces them as compile failures, so
+nothing is silently missed, but S02 must be scoped for the real diff:
+contract export, `ContractRegistryTests` command-name list,
+`VersionIdentityTests.swift:36`, `RetiredVocabularyTests.swift:54,264`,
+`RelayCLITests.swift` (~45 literal occurrences), `DetachedDispatchTests.swift`
+(~17), `RelayCoordinatorTests`, `PilotCoordinatorTests` (incl. `:572` legacy
+decode), `RelayAdoptTests`, `RelayJSONTests:164,173,183`,
+`ServeAutoLaunchCLITests`, `ProcessOwnershipSurfaceTests`, `CLIHelpDriftTests`,
+`JSONStreamLawTests`, `UnknownFlagTests`, Mac `RelayDetachedLauncher` /
+`RelayStatusLoader` tests.
 
 **The cold-agent matrix is non-optional.** `menu-not-router` /
 `scripts/menu_not_router_eval.py` must be extended to cover the `loop` family —
@@ -446,7 +612,9 @@ specifically whether a cold agent reaches for `--pm caller` rather than hunting 
 Done when: no product surface an agent or human can read says `pair relay`,
 `pair pilot`, `relay-resume`, `--relay`, or `external`; `alln loop` is the only way
 to start a multi-round thing; `alln loop start --dry-run` exists and spends nothing;
-contract 7.0.0 / binary 0.11.0 ship together; the Mac popover offers Delivery Loop.
+contract 7.0.0 / binary 0.11.0 ship together; the Mac popover offers Delivery Loop;
+**and this packet is archived to `docs/archive/phases/` with the three laws
+promoted (LVC-S10).**
 
 ## 10. Decisions log — nothing is open
 
@@ -468,3 +636,6 @@ contract 7.0.0 / binary 0.11.0 ship together; the Mac popover offers Delivery Lo
 | Swift symbol sweep? | **Yes, LVC-S09 — separate slice** (§4). |
 | Mac feature name? | **Delivery Loop** (§3). |
 | First future kind? | Must name a terminal condition (`research`, `review`). **None authorized** — do not build speculative kind machinery. |
+| Is `loop pm` one code path? | **No** — one verb, two transitions with different eligibility and effects (§2 table). |
+| Does `step` need a spawned-side injection path? | **No.** `step` is accepted only in `awaitingPM` and errors on the *status*. Do not build injection (§3, Law 3). |
+| Where does this packet end up? | **`docs/archive/phases/`**, after the three laws are promoted (LVC-S10). |
