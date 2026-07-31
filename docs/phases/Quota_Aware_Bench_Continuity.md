@@ -1,8 +1,11 @@
 # Quota-Aware Bench Continuity
 
 Status: **OPEN — founder priority (2026-07-30); S00/S01a/S01b/S01c and the
-detached-ack/URN notification integration all code-complete 2026-07-31; two
-live-session dogfood proofs still open (see "Progress" below)**
+detached-ack/URN notification integration all code-complete 2026-07-31.
+Planner dogfood done and the wall-crossing dogfood's park half done, both
+live 2026-07-31 with the founder present; only the wall-crossing dogfood's
+resume half remains, blocked on Codex's real reset (2026-08-04T21:32Z) —
+see "Progress" below**
 Owner: AllnighterCore (menu envelope) + AllnighterEngine (loop park-yield) +
 AllnighterCLI (capacity injection, `alln loop` delivery)
 Created: 2026-07-30
@@ -70,9 +73,12 @@ operations; code remains SSOT; archive this packet.
   `vendorParked`/`vendorResumed`. 35/35 filtered `Notification*` tests green,
   independently re-verified. Live on-host banner appearance is folded into the
   wall-crossing dogfood below, not claimed separately.
-- **Still open:** planner dogfood (seats from menu without a separate `alln
-  capacity` call) and one on-host wall-crossing dogfood — both require a live
-  agent session on the founder's own machine and are not claimed here.
+- **Both dogfood items attempted live 2026-07-31, founder present.** Planner
+  dogfood: done cleanly. Wall-crossing dogfood: the park half is done and
+  proven against Codex's real 0% wall — but doing so surfaced a real,
+  separate bug (a driver-probe misclassification upstream of QABC, fixed the
+  same night — see "Done when" for the full account) — the resume half
+  remains, blocked on Codex's real reset (2026-08-04T21:32Z).
 
 ---
 
@@ -488,8 +494,13 @@ seating wrong.
 - [x] `alln menu --json` and bootstrap carry `capacity` (injected, `refresh:
       false`, zero probes asserted); `contractVersion` bumped; `ContractSchema`
       extended; AllnighterCore still has no Engine dependency.
-- [ ] Planner dogfood: seats from menu without a separate `alln capacity` call.
-      (Not claimed — requires a live agent session, not a hermetic test.)
+- [x] Planner dogfood: seats from menu without a separate `alln capacity` call.
+      Done live 2026-07-31 with the founder present — `alln menu --json`'s
+      embedded capacity was internally consistent (unlike an earlier same-night
+      read, where a stale snapshot's `resetAt` had already passed; that read
+      was correctly distrusted and cross-checked instead of acted on) and
+      correctly informed a seating decision (avoid Codex at 0%, prefer
+      Grok/Cursor) with no fallback `alln capacity` call.
 - [x] `vendorPark` is checked before classify in **both** turn dispatchers; no
       competing runIds; no 50s infra escalate on a park.
 - [x] Claim-or-adopt proven against a lost claim; `alln serve` winning is not an
@@ -501,12 +512,34 @@ seating wrong.
       wired into `NotificationCandidateDetection`/`NotificationScheduler`
       (`f51c2dd6`, 2026-07-31).
 - [x] All six named hermetics green (`LoopCapacityParkYieldTests`, 5 tests).
-- [ ] One on-host wall-crossing dogfood. (Not claimed — requires a real vendor
-      wall on the founder's own machine.)
+- [x] The **park** half of one on-host wall-crossing dogfood — done live
+      2026-07-31 against Codex's real 0% weekly wall, with a real bug found
+      and fixed along the way (see below). `alln loop start --dev
+      model_gpt_sol` now correctly parks (`capacityPark{source: "codex"}`,
+      `phase: waitingForVendor`) instead of escalating `AGENT_NOT_AVAILABLE`;
+      the parked run's `capacityObservation.rawSnippet` is Codex's real quota
+      message, correctly classified `accountRateLimit`. No orphan processes.
+  - [ ] The **resume** half is not claimed — Codex's real reset is
+        2026-08-04T21:32Z; auto-resume can only be observed once that passes.
+  - **Bug found and fixed along the way, not a QABC defect:** the driver
+    health *probe* (a layer upstream of QABC's dispatch-time park logic, in
+    the sibling `AgentOS` package) classified a rate-limited-but-healthy CLI
+    identically to a genuinely broken one (`ModelSetupStatus.probeFailed`,
+    `alln drivers --json` → `"Probe failed"`), so team resolution rejected
+    the model before QABC's park-aware dispatch path ever got a chance to
+    run. Fixed in two commits, PM-verified independently, both live-tested:
+    `AgentOS@2928a90` (new `ModelSetupStatus.rateLimited(observation:)`,
+    wires the already-shipped `CapacityClassifier` into the probe path) and
+    this repo's `2cce4460` (`TeamAssembler.readyDriverIds` admits
+    `.rateLimited`; `doctor`/`drivers` show "Rate limited — resets …" instead
+    of "Probe failed"; `ModelSetupStatus.isSmokeReady` untouched). No new
+    park-minting logic was built — the fix only removes a premature gate
+    ahead of QABC's existing, unmodified dispatch/park machinery.
 - [x] `AGENTS.md` routing rows updated (`RelayCoordinator` → `LoopCoordinator`).
 - [x] Deslop + code audit (CLEAN; audit found and fixed a real bug — a
       `resumeParkedRun` failure was mislabeled as a deadline stop).
 - [ ] Promote the moat sentence and the plan-time capacity law; archive this
-      packet. **Not done yet** — the two dogfood items above are real open
-      work, not paperwork; archiving now would bury them. Close this packet
-      once those two are resolved or explicitly deferred by the founder.
+      packet. **Not done yet** — only the wall-crossing dogfood's resume half
+      remains, and it is a real, dated wait (2026-08-04T21:32Z), not
+      paperwork. Archive once that resolves or the founder explicitly defers
+      it — it is not something to force or fake.
