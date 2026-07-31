@@ -38,13 +38,13 @@ alln team status <run-id> --wait-for terminal --timeout 7200 --json
 alln team cancel <run-id> --json
 ```
 
-Relay / Pilot terminal delivery (status owns terminal truth; cancel via kill). For Pilot,
-a killed `pilot watch` is not a failed round — run the appropriate status waiter; if orphan,
-inspect before any new handoff:
+Loop terminal delivery (status owns terminal truth; cancel via kill). A killed
+`loop wait` is not a failed round — run the appropriate status waiter; if
+orphan, inspect before any new step:
 
 ```bash
-alln pair relay-status --relay <run-id> --wait-for terminal --timeout 7200 --json
-alln pair pilot status --relay <run-id> --wait-for parked --timeout 7200 --json
+alln loop status <run-id> --wait-for terminal --timeout 7200 --json
+alln loop status <run-id> --wait-for parked --timeout 7200 --json
 alln kill <run-id> --json
 ```
 

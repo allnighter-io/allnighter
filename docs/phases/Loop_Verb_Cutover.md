@@ -524,13 +524,14 @@ Truth owner: `Product_Vocabulary.md` for the words; `LoopCLI` + `MenuCatalog` +
   (and `:137,148`, which branch on `PMMode`)
 - `NotificationDeliveryFilter.swift:99-102` — `"PM Relay needs an answer"`; **also
   `:46,122,125,127`** — "PM Relay stopped", "Relay worker stream stalled", and an
-  embedded `alln pair pilot status` next-action
+  embedded next-action naming the old `pair pilot status` invocation
 - `ContractRegistry+Milestone1.swift:742` — `serve` summary teaches four old verbs
 - `ContractRegistry+Milestone1.swift:1181,1183` — `ErrorSpec.agentAction` for
   `RELAY_INVALID_STATE` / `RELAY_ALREADY_ACTIVE`
 - `PilotCLI.swift:85,1149-1180,1298-1312,1376` — **runtime-formatted** next-action
   and error strings, a surface distinct from `ContractRegistry.ErrorSpec`. e.g.
-  *"relay is not a Pilot relay (pmMode != external) — use `alln pair relay`…"*.
+  *"relay is not a Pilot relay (pmMode != external) — use the old `pair relay`
+  verb…"* (prefixed with the binary name at runtime).
   Enumerated here because v5 gestured at these generically and they are real work.
 - `RelayCoordinator.swift` — same class of embedded strings
 

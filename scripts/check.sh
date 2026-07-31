@@ -97,6 +97,13 @@ while IFS= read -r pattern; do
       rg -n -F -- "$pattern" \
         "$ROOT/docs/phases/CLI_Product_Spine.md" \
         "$ROOT/docs/archive/phases/CLI_Implementation_Contract.md" 2>/dev/null || true
+      # LVC-S01 — widen the gate: living docs beyond docs/operations/ also teach
+      # agent-facing grammar. docs/archive/** stays excluded — it is history.
+      rg -n -F -- "$pattern" "$ROOT/AGENTS.md" 2>/dev/null || true
+      rg -n -F -- "$pattern" "$ROOT"/docs/workflows/*.md 2>/dev/null || true
+      rg -n -F -- "$pattern" "$ROOT"/docs/phases/*.md 2>/dev/null || true
+      rg -n -F -- "$pattern" \
+        "$ROOT"/Packages/AllnighterCore/Sources/AllnighterCore/Resources/Recipes/*.md 2>/dev/null || true
     } || true
   )
   if [[ -n "$hits" ]]; then

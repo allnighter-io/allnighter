@@ -188,8 +188,8 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         XCTAssertNil(turn.workRecovery)
         XCTAssertEqual(turn.notes, [])
         XCTAssertEqual(turn.nextCommands, [
-            "alln pair pilot handoff --relay relay_pm_turn --verdict continue --handover-file order.md --json",
-            "alln pair relay-status --relay relay_pm_turn --json"
+            "alln loop step relay_pm_turn \"<order for the dev>\" --json",
+            "alln loop status relay_pm_turn --json"
         ])
     }
 

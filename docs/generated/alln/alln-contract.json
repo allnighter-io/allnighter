@@ -2231,7 +2231,7 @@
       "name" : "ps",
       "outputSchema" : "ownershipPsJSON",
       "spendsQuota" : false,
-      "summary" : "List owned process trees (runs, relays, pilots, proofs). Reconciles identity-dead owners on read (CLP-S02) — no manual `team reconcile` on the happy path. PRIMARY liveness is stream silence (`run.lastActivityAt`), same as `pair pilot status` — not relay heartbeat\/pgid. Default shows alive + needs-action only; `--all` includes terminal history. Scoped to caller's project; `--all-projects` is machine-wide.",
+      "summary" : "List owned process trees (runs, loops, proofs). Reconciles identity-dead owners on read (CLP-S02) — no manual `team reconcile` on the happy path. PRIMARY liveness is stream silence (`run.lastActivityAt`), same as `alln loop status` — not relay heartbeat\/pgid. Default shows alive + needs-action only; `--all` includes terminal history. Scoped to caller's project; `--all-projects` is machine-wide.",
       "visibility" : "public"
     },
     {
@@ -2897,7 +2897,7 @@
       "name" : "pair relay",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling.",
+      "summary" : "Retired — use `alln loop start \"<what you want done>\"` instead. Runs the PM↔dev loop unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done\/escalate\/a ceiling.",
       "visibility" : "public"
     },
     {
@@ -2950,7 +2950,7 @@
       "name" : "pair relay-status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a PM Relay's durable state, or wait for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).",
+      "summary" : "Retired — use `alln loop status <loop-id>` instead. Reads a loop's durable state, or waits for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).",
       "visibility" : "public"
     },
     {
@@ -3031,7 +3031,7 @@
       "name" : "pair relay-resume",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Resume an escalated PM Relay with the founder's answer, then continue the loop.",
+      "summary" : "Retired — use `alln loop resume <loop-id>` instead. Resumes an escalated loop with the founder's answer, then continues.",
       "visibility" : "public"
     },
     {
@@ -3112,7 +3112,7 @@
       "name" : "pair relay adopt",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log.",
+      "summary" : "Retired — use `alln loop pm <loop-id> <agent-id>` instead. Converts a parked caller-held loop (awaitingPM or escalated) to a spawned PM and continues from the durable round log.",
       "visibility" : "public"
     },
     {
@@ -3153,7 +3153,7 @@
       "name" : "pair relay stop",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Founder stop of a PM Relay Loop: identity-checked teardown, durable stopped status with reason \"founder stopped\", and a PM Turn on transition. Idempotent on already done\/stopped.",
+      "summary" : "Retired — use `alln loop stop <loop-id>` instead. Founder stop of a Loop: identity-checked teardown, durable stopped status with reason \"founder stopped\", and a PM Turn on transition. Idempotent on already done\/stopped.",
       "visibility" : "public"
     },
     {
@@ -3218,7 +3218,7 @@
       "name" : "pair pilot start",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM.",
+      "summary" : "Retired — use `alln loop start \"<what you want done>\" --pm caller` instead. Starts a loop with this session as PM; Allnighter runs the crew (dev seat + rails). Parks awaitingPM.",
       "visibility" : "public"
     },
     {
@@ -3326,7 +3326,7 @@
       "name" : "pair pilot handoff",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.",
+      "summary" : "Retired — use `alln loop step <loop-id>` instead. Submits this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.",
       "visibility" : "public"
     },
     {
@@ -3379,7 +3379,7 @@
       "name" : "pair pilot status",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Read a Pilot relay's durable state, or wait for its parked PM boundary (awaitingPM|escalated). While running: elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat\/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.",
+      "summary" : "Retired — use `alln loop status <loop-id>` instead. Reads a caller-held loop's durable state, or waits for its parked PM boundary (awaitingPM|escalated). While running: elapsedSeconds, ownerAlive, lastProgressAt\/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat\/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over wait for agents.",
       "visibility" : "public"
     },
     {
@@ -3426,7 +3426,7 @@
       "name" : "pair pilot watch",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents. Emits heartbeats while running; SIGTERM\/SIGINT prints stillRunning goodbye.",
+      "summary" : "Retired — use `alln loop wait <loop-id>` instead. Optional interactive waiter: blocks until the in-flight round settles. Disposable — death ≠ job failure; prefer `loop status` for agents. Emits heartbeats while running; SIGTERM\/SIGINT prints stillRunning goodbye.",
       "visibility" : "public"
     },
     {
@@ -3467,7 +3467,7 @@
       "name" : "pair pilot adopt",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch.",
+      "summary" : "Retired — use `alln loop pm <loop-id> caller` instead. Hands a parked spawned loop's PM seat to the caller session (status → awaitingPM). No dispatch.",
       "visibility" : "public"
     },
     {
@@ -3514,7 +3514,7 @@
       "name" : "pair pilot scaffold-handover",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Write or re-emit a suggested PM handover markdown template for a relay round.",
+      "summary" : "Retired alongside `pair pilot`. Writes or re-emits a suggested PM handover markdown template for a loop round; the underlying auto-seed template is unaffected.",
       "visibility" : "public"
     },
     {
@@ -3901,7 +3901,7 @@
       "name" : "serve",
       "outputSchema" : "coordinatorHealth",
       "spendsQuota" : false,
-      "summary" : "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or PM Relay round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it. `pair pilot handoff`\/`pair relay`\/`pair relay-resume`\/`pair relay adopt` auto-start it in the background unless `--no-auto-serve`\/`ALLN_NO_AUTO_SERVE` is set.",
+      "summary" : "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it. `alln loop step`\/`start`\/`resume`\/`pm` auto-start it in the background unless `--no-auto-serve`\/`ALLN_NO_AUTO_SERVE` is set.",
       "visibility" : "public"
     },
     {
@@ -6456,7 +6456,7 @@
       "ruleId" : "try_fix.executor.invalid"
     },
     {
-      "agentAction" : "Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`.",
+      "agentAction" : "Run `alln loop status <id> --json` with a valid loop id, or start a new loop with `alln loop start \"<what you want done>\"`.",
       "code" : "RELAY_NOT_FOUND",
       "exitClass" : "operational",
       "explain" : "No PM Relay matches the given id.",
@@ -6474,10 +6474,10 @@
       "ruleId" : "relay.state.decode_failed"
     },
     {
-      "agentAction" : "Check status with `pair relay-status` (or `pair pilot status`); only resume\/adopt-eligible statuses accept those transitions. Founder stop uses `pair relay stop` and does not use this code.",
+      "agentAction" : "Check status with `alln loop status <id>`; only resume\/pm-eligible statuses accept those transitions. Founder stop uses `alln loop stop` and does not use this code.",
       "code" : "RELAY_INVALID_STATE",
       "exitClass" : "operational",
-      "explain" : "The requested resume\/adopt (or pilot) transition is not valid for the relay's current status — not a founder-stop error.",
+      "explain" : "The requested resume\/pm-reassignment transition is not valid for the loop's current status — not a founder-stop error.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "relay.invalid_state"
@@ -6492,10 +6492,10 @@
       "ruleId" : "relay.handover.unsafe"
     },
     {
-      "agentAction" : "Read it with `alln pair relay-status --relay <id> --json`, resume or adopt it, or wait — do not start a second relay on the same doc.",
+      "agentAction" : "Read it with `alln loop status <id> --json`, resume it or reassign the PM with `alln loop pm`, or wait — do not start a second loop on the same doc.",
       "code" : "RELAY_ALREADY_ACTIVE",
       "exitClass" : "operational",
-      "explain" : "a relay is already running for this project + doc",
+      "explain" : "a loop is already running for this project + doc",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "relay.already_active"
@@ -6510,16 +6510,16 @@
       "ruleId" : "relay.journal.unavailable"
     },
     {
-      "agentAction" : "Wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once parked, retry `pilot handoff` if still needed.",
+      "agentAction" : "Wait with `alln loop status <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `alln loop wait` is not a failed round. Once parked, retry `alln loop step` if still needed.",
       "code" : "RELAY_ROUND_IN_FLIGHT",
       "exitClass" : "operational",
-      "explain" : "A relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (pilot handoff, or a resume\/adopt racing another) on the same relay is refused rather than racing a second dev turn onto one repo root. Founder stop never uses this code.",
+      "explain" : "A loop round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (step, or a resume\/pm-reassignment racing another) on the same loop is refused rather than racing a second dev turn onto one repo root. Founder stop never uses this code.",
       "requiresManual" : false,
       "retryable" : true,
       "ruleId" : "relay.round.in_flight"
     },
     {
-      "agentAction" : "Inspect with `alln ps --json`; retry `alln pair relay stop --relay <id> --json`. Do not invent resume while live trees remain.",
+      "agentAction" : "Inspect with `alln ps --json`; retry `alln loop stop <id> --json`. Do not invent resume while live trees remain.",
       "code" : "RELAY_STOP_FAILED",
       "exitClass" : "operational",
       "explain" : "Founder stop could not honestly settle: a signalled owner or turn tree is still identity-alive. Status is left non-terminal rather than stamping stopped over known-live work.",
@@ -6537,19 +6537,19 @@
       "ruleId" : "run.id.in_use"
     },
     {
-      "agentAction" : "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done\/escalated\/stopped have nothing left to hand off to).",
+      "agentAction" : "Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done\/escalated\/stopped have nothing left to hand off to).",
       "code" : "RELAY_NOT_AWAITING_PM",
       "exitClass" : "operational",
-      "explain" : "`pilot handoff` was called against a relay that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a Pilot relay's normal between-rounds state.",
+      "explain" : "`loop step` was called against a loop that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a caller-held loop's normal between-rounds state.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "relay.not_awaiting_pm"
     },
     {
-      "agentAction" : "The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs.",
+      "agentAction" : "The PM's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.",
       "code" : "RELAY_VERDICT_UNPARSEABLE",
       "exitClass" : "operational",
-      "explain" : "Pilot's `pilot handoff` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the piloting session is live and just resubmits.",
+      "explain" : "A `loop step` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits.",
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "relay.verdict.unparseable"

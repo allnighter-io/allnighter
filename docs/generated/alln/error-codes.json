@@ -783,7 +783,7 @@
     "ruleId" : "try_fix.executor.invalid"
   },
   {
-    "agentAction" : "Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`.",
+    "agentAction" : "Run `alln loop status <id> --json` with a valid loop id, or start a new loop with `alln loop start \"<what you want done>\"`.",
     "code" : "RELAY_NOT_FOUND",
     "exitClass" : "operational",
     "explain" : "No PM Relay matches the given id.",
@@ -801,10 +801,10 @@
     "ruleId" : "relay.state.decode_failed"
   },
   {
-    "agentAction" : "Check status with `pair relay-status` (or `pair pilot status`); only resume\/adopt-eligible statuses accept those transitions. Founder stop uses `pair relay stop` and does not use this code.",
+    "agentAction" : "Check status with `alln loop status <id>`; only resume\/pm-eligible statuses accept those transitions. Founder stop uses `alln loop stop` and does not use this code.",
     "code" : "RELAY_INVALID_STATE",
     "exitClass" : "operational",
-    "explain" : "The requested resume\/adopt (or pilot) transition is not valid for the relay's current status — not a founder-stop error.",
+    "explain" : "The requested resume\/pm-reassignment transition is not valid for the loop's current status — not a founder-stop error.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "relay.invalid_state"
@@ -819,10 +819,10 @@
     "ruleId" : "relay.handover.unsafe"
   },
   {
-    "agentAction" : "Read it with `alln pair relay-status --relay <id> --json`, resume or adopt it, or wait — do not start a second relay on the same doc.",
+    "agentAction" : "Read it with `alln loop status <id> --json`, resume it or reassign the PM with `alln loop pm`, or wait — do not start a second loop on the same doc.",
     "code" : "RELAY_ALREADY_ACTIVE",
     "exitClass" : "operational",
-    "explain" : "a relay is already running for this project + doc",
+    "explain" : "a loop is already running for this project + doc",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "relay.already_active"
@@ -837,16 +837,16 @@
     "ruleId" : "relay.journal.unavailable"
   },
   {
-    "agentAction" : "Wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once parked, retry `pilot handoff` if still needed.",
+    "agentAction" : "Wait with `alln loop status <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `alln loop wait` is not a failed round. Once parked, retry `alln loop step` if still needed.",
     "code" : "RELAY_ROUND_IN_FLIGHT",
     "exitClass" : "operational",
-    "explain" : "A relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (pilot handoff, or a resume\/adopt racing another) on the same relay is refused rather than racing a second dev turn onto one repo root. Founder stop never uses this code.",
+    "explain" : "A loop round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (step, or a resume\/pm-reassignment racing another) on the same loop is refused rather than racing a second dev turn onto one repo root. Founder stop never uses this code.",
     "requiresManual" : false,
     "retryable" : true,
     "ruleId" : "relay.round.in_flight"
   },
   {
-    "agentAction" : "Inspect with `alln ps --json`; retry `alln pair relay stop --relay <id> --json`. Do not invent resume while live trees remain.",
+    "agentAction" : "Inspect with `alln ps --json`; retry `alln loop stop <id> --json`. Do not invent resume while live trees remain.",
     "code" : "RELAY_STOP_FAILED",
     "exitClass" : "operational",
     "explain" : "Founder stop could not honestly settle: a signalled owner or turn tree is still identity-alive. Status is left non-terminal rather than stamping stopped over known-live work.",
@@ -864,19 +864,19 @@
     "ruleId" : "run.id.in_use"
   },
   {
-    "agentAction" : "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done\/escalated\/stopped have nothing left to hand off to).",
+    "agentAction" : "Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done\/escalated\/stopped have nothing left to hand off to).",
     "code" : "RELAY_NOT_AWAITING_PM",
     "exitClass" : "operational",
-    "explain" : "`pilot handoff` was called against a relay that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a Pilot relay's normal between-rounds state.",
+    "explain" : "`loop step` was called against a loop that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a caller-held loop's normal between-rounds state.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "relay.not_awaiting_pm"
   },
   {
-    "agentAction" : "The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs.",
+    "agentAction" : "The PM's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.",
     "code" : "RELAY_VERDICT_UNPARSEABLE",
     "exitClass" : "operational",
-    "explain" : "Pilot's `pilot handoff` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the piloting session is live and just resubmits.",
+    "explain" : "A `loop step` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits.",
     "requiresManual" : true,
     "retryable" : true,
     "ruleId" : "relay.verdict.unparseable"

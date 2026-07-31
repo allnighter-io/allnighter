@@ -84,6 +84,15 @@ public enum RetiredVocabulary {
         "\"leadWorkerId\"",
         "\"rejectedWorkerIds\"",
         "\"sourceWorkerIds\"",
+        // LVC-S01 — relay/pilot vocabulary retired in favor of `alln loop`
+        "pair relay",
+        "pair relay-status",
+        "pair relay-resume",
+        "pair pilot",
+        "relay adopt",
+        "--relay",
+        "--pm-model",
+        "--dev-model",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible
@@ -131,6 +140,11 @@ public enum RetiredVocabulary {
         "alln team start",
         "alln run --worker",
         "alln project workers",
+        "alln pair relay",
+        "alln pair relay-status",
+        "alln pair relay-resume",
+        "alln pair pilot",
+        "alln relay adopt",
     ]
     /// END livingDocDenyPatterns
 

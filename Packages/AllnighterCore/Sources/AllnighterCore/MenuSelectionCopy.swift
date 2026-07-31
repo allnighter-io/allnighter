@@ -371,7 +371,7 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not implementing; Spec Review"
         ),
         "get-another-model-to-implement-this": Pair(
-            useWhen: "You PM; a model builds (Pilot)",
+            useWhen: "You PM; a model builds (loop start --pm caller)",
             dontUseWhen: "Not single ask; run --model"
         ),
         "get-sols-take-without-changing-files": Pair(
@@ -379,8 +379,8 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not multi-seat; --model model_gpt_sol"
         ),
         "keep-working-while-im-away": Pair(
-            useWhen: "Unattended PM↔dev relay loop",
-            dontUseWhen: "Not one-shot; use pair relay"
+            useWhen: "Unattended PM↔dev loop",
+            dontUseWhen: "Not one-shot; use run"
         ),
         "recover-a-run-that-lost-its-terminal": Pair(
             useWhen: "Monitor/cancel a run, shell is gone",

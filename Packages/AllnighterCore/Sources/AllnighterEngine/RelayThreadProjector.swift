@@ -268,6 +268,6 @@ public struct RelayThreadProjector: Sendable {
             .replacingOccurrences(of: "_", with: " ")
             .replacingOccurrences(of: "-", with: " ")
             .trimmingCharacters(in: .whitespaces)
-        return cleaned.isEmpty ? "PM Relay" : "PM Relay: \(cleaned)"
+        return cleaned.isEmpty ? "Delivery Loop" : "Delivery Loop: \(cleaned)"
     }
 }

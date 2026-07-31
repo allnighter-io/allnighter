@@ -218,67 +218,65 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
-            id: "pm_relay", title: "PM Relay", audience: .both,
-            summary: "Mechanizes the founder's PM↔dev copy-paste loop: a PM seat reviews the repo and writes a handover, a dev seat builds and commits, round after round, unattended.",
+            id: "loop", title: "Loop", audience: .both,
+            summary: "Mechanizes the founder's PM↔dev copy-paste loop: a PM reviews the repo and writes an order, a dev seat builds and commits, round after round, until done/escalate/a ceiling.",
             bodyMarkdown: """
-            The PM Relay automates a two-seat loop that used to be a human relaying prose \
-            between two CLI sessions. Each round: the PM seat re-reads the spec doc and the \
-            actual commit range, writes free-form review plus a handover, and ends with one \
-            small verdict block — continue (with a handover for the dev), done (closing \
-            summary), or escalate (a specific question for the founder). A safety scan runs \
-            over every handover before it reaches the dev seat; a danger instruction (leaking \
-            credentials, destructive git, signing, sandbox/TCC changes, mass deletion) blocks \
-            dispatch and escalates instead. The dev seat builds, commits through its own \
-            tooling, and writes a delivery report that becomes the next round's review input. \
-            The loop stops only on done, escalate, or a ceiling (`--until`, `--max-rounds`, or \
-            repeated no-progress rounds) — never by inference. Drive it with CLI verbs: \
-            `alln pair relay` starts a new relay, `alln pair relay-status` reads durable state, \
-            `alln pair relay-resume` injects the founder's answer into an escalated relay and \
-            continues, and `alln pair relay stop` is the founder stop for a Loop (durable \
-            stopped + PM Turn — not ownership kill). A spawned PM with repo access may complete \
-            small mechanical work itself rather than dispatching another dev round — by design \
-            (PM-may-fix), not a defect.
+            `alln loop start "<what you want done>"` starts a durable PM↔dev loop. The brief \
+            is the only required input — both seats default by tier (`--spec <path>` is a \
+            shortcut for pointing at a doc instead of restating it, not the shape of the \
+            feature). Each round: the PM re-reads the brief/spec and the actual commit range, \
+            writes free-form review plus an order, and ends with one small verdict block — \
+            continue (with an order for the dev), done (closing summary), or escalate (a \
+            specific question for the founder). A safety scan runs over every order before it \
+            reaches the dev seat; a danger instruction (leaking credentials, destructive git, \
+            signing, sandbox/TCC changes, mass deletion) blocks dispatch and escalates instead. \
+            The dev seat builds, commits through its own tooling, and writes a delivery report \
+            that becomes the next round's review input. The loop stops only on done, escalate, \
+            or a ceiling (`--until`, `--max-rounds`, or repeated no-progress rounds) — never by \
+            inference. A PM with repo access may complete small mechanical work itself rather \
+            than dispatching another dev round — by design (PM-may-fix), not a defect.
 
-            Pilot is the sibling mode on the SAME substrate: instead of Allnighter spawning \
-            a PM model, YOUR live CLI session holds the PM seat. `alln pair pilot start` \
-            parks a new relay `awaitingPM` (no clock — nothing advances until you say so); \
-            `alln pair pilot handoff --relay <id> --verdict continue --handover-file <order.md>` \
-            (or `--file <md>` with a RelayVerdict tail for scripted PM output) submits your \
-            review, blocks through the dev turn by default, and prints the \
-            dev's report verbatim — read it, write the next round, call `handoff` again. For \
-            long jobs prefer `handoff --no-wait` then run its returned `delivery.command` once \
-            (`pilot status --wait-for parked`) to receive the pmTurn; do not re-dispatch while \
-            status is `running`. `--no-wait` still \
-            runs HandoverGate (and other non-mutating refusals) in the foreground — a gate \
-            block fails closed with `RELAY_HANDOVER_UNSAFE`, never a silent `dispatched` ack. \
-            `pilot watch` is an \
-            optional disposable waiter — its death is not a failed round. If the handoff \
-            owner died (orphan), inspect status/repo before any new handoff. A \
-            `continue` verdict still passes HandoverGate, but a block or an unparseable \
-            verdict leaves the relay `awaitingPM` untouched rather than escalating — you're \
-            right there to rephrase and resubmit. The Mac inbox shows a pilot relay exactly \
-            like a spawned one.
+            The PM chair is an **occupant**, not a mode: `--pm caller` means YOUR live CLI \
+            session holds the seat and reviews every round yourself; `--pm <agent-id>` (or the \
+            default) spawns that agent as PM and runs unattended. `loop pm <loop-id> \
+            <occupant>` reassigns the chair on a parked loop (`awaitingPM` or `escalated`) — \
+            same id, same rounds, same thread; the first turn under the new occupant is told, \
+            once, that earlier rounds were held by someone else. `--max-rounds`/`--until` \
+            behave the same either way, and the round ceiling counts every round already on \
+            the log — an honest total, not a fresh budget.
+
+            Every operation is defined against the loop's **status**, never against who holds \
+            the chair. `loop step <loop-id> "<order>"` (or `--done <summary>`) submits the \
+            next PM decision and is accepted only in status `awaitingPM` — whether the caller \
+            or a spawned agent holds the seat, the check and the error are the same. For long \
+            jobs prefer `step --no-wait` then run its returned `delivery.command` once (`loop \
+            status --wait-for parked`) to receive the pmTurn; do not re-dispatch while status is \
+            `running`. `--no-wait` still runs HandoverGate (and other non-mutating refusals) in \
+            the foreground — a gate block fails closed with `RELAY_HANDOVER_UNSAFE`, never a \
+            silent `dispatched` ack. `loop wait <loop-id>` is an optional disposable \
+            waiter — its death is not a failed round. If the round owner died (orphan), inspect \
+            status/repo before any new step. A `continue` verdict still passes HandoverGate, but \
+            a block or an unparseable verdict leaves the loop `awaitingPM` untouched rather than \
+            escalating — you're right there to rephrase and resubmit.
             """,
             aliases: ["pm relay", "relay", "pair relay", "automate pm dev loop", "spec doc relay",
                       "pilot", "pair pilot", "pilot mode", "i am the pm", "drive from my session",
                       "notify me", "notification", "tell me when it's done", "background notifier",
-                      "no-wait", "background", "detached", "my session died", "survive"],
+                      "no-wait", "background", "detached", "my session died", "survive",
+                      "delivery loop", "kickoff"],
             sections: [
                 .init("verdict", "The only structure", "Everything the PM writes is free prose except one JSON tail: verdict continue/done/escalate. Missing or unparseable triggers one re-ask, then escalate — never a guess."),
-                .init("gate", "Handover safety", "Every continue verdict's handover passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
-                .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the relay always ends on done, escalate, or a ceiling."),
-                .init("resume", "Escalation is not failure", "An escalated relay is a real question for the founder, not an error. `alln pair relay-resume` injects the answer and the loop continues from there."),
-                .init("stop", "Founder stop of a Loop", "`alln pair relay stop --relay <id>` abandons the Loop: identity-checked teardown, durable `stopped` with reason founder stopped, and a PM Turn on transition. Idempotent on already done/stopped. Not ownership kill."),
-                .init("pilot", "Pilot: you hold the PM seat", "`pair pilot start|handoff|status|watch` — no `--pm-model` (there is no PM model) and no `--until` (no clock). Long jobs: `handoff --no-wait`, then run its returned `pilot status --wait-for parked` command once (watch optional/disposable). Orphan owner → inspect, never blind retry. `handoff` is the only mutation boundary: a parse failure or a gate block never escalates in Pilot, it just leaves the relay `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the relay exactly like a spawned round."),
-                .init("adopt", "Adopt: hand the SAME relay to a spawned PM (unattended)", "Pilot the first rounds yourself while context is hot, then `alln pair relay adopt --relay <id> --pm-model <id>` converts a parked Pilot relay (`awaitingPM` or `escalated`) to a spawned PM relay and keeps going from the durable round log — same id, same rounds, same thread; the first spawned turn is told, once, that earlier rounds were externally piloted. `--max-rounds`/`--until` behave like a spawned run, and the round ceiling counts the piloted rounds too — an honest total, not a fresh budget. The reverse flip, `alln pair pilot adopt --relay <id>`, hands a parked spawned relay (escalated, or ceiling-stopped) back to Pilot — a plain state flip, no dispatch."),
-                .init("golden", "Golden paths (day one)", "Attended: `alln menu --json` → `alln run` → `alln artifact show`. Unattended: `alln pair relay --doc …` → `alln pair relay-status --relay <id> --json` (or wait for a macOS notification). Status reads reconcile dead owners automatically — no manual `team reconcile` on the happy path. Default `alln ps` shows the alive floor; `alln ps --all` is history."),
-                .init("notify", "You do not have to watch", "Dispatching `pair pilot handoff`, `pair relay`, `pair relay-resume`, or `pair relay adopt` auto-starts `alln serve` in the background (silent, opt out with `--no-auto-serve` or `ALLN_NO_AUTO_SERVE`). When the round lands or escalates — even with the Mac app closed and the CLI session that dispatched it long gone — a local notification fires: \"PM Relay needs an answer\" on escalation, or the normal completion notice when it settles. Stream silence on a running relay also notifies when agent output stalls. Neither you nor the human has to poll `pilot status` or build a watcher for this; `alln serve` already knows."),
-                .init("survive", "The round outlives your session", "`--no-wait` on `pair relay` / `pair relay-resume` / `pair relay adopt` dispatches, then returns delivery.path=wait and one exact `relay-status --wait-for terminal` command. A killed caller is not a killed relay: the round keeps advancing under its own process. A second dispatch against an already-active relay is refused with `RELAY_ALREADY_ACTIVE`, not raced onto the same doc."),
+                .init("gate", "Handover safety", "Every continue verdict's order passes a danger scan before the dev seat ever sees it. Danger blocks and escalates; mere doubt does not block."),
+                .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the loop always ends on done, escalate, or a ceiling."),
+                .init("resume", "Escalation is not failure", "An escalated loop is a real question for the founder, not an error. `loop resume <loop-id> --answer <text>` injects the answer and the loop continues from there."),
+                .init("stop", "Founder stop of a Loop", "`loop stop <loop-id>` abandons the loop: identity-checked teardown, durable `stopped` with reason founder stopped, and a PM Turn on transition. Idempotent on already done/stopped. Not ownership kill."),
+                .init("caller-pm", "Caller-held: you hold the PM seat", "`--pm caller` on `loop start` — the chair is an occupant, not a model id, and there is no clock restriction (each round still advances only when you call `step`). Long jobs: `step --no-wait`, then run its returned `loop status --wait-for parked` command once (`loop wait` optional/disposable). Orphan owner → inspect, never blind retry. `step` is the only mutation boundary: a parse failure or a gate block never escalates, it just leaves the loop `awaitingPM` for you to resubmit. `done`/`escalate` verdicts settle the loop exactly like a spawned round."),
+                .init("pm", "Reassign the PM chair mid-loop", "Hold the first rounds yourself while context is hot, then `loop pm <loop-id> <agent-id>` converts a parked caller-held loop (`awaitingPM` or `escalated`) to a spawned PM and keeps going from the durable round log — same id, same rounds, same thread. The reverse, `loop pm <loop-id> caller`, hands a parked spawned loop (escalated, or ceiling-stopped) back to the caller — a plain state flip, no dispatch."),
+                .init("golden", "Golden paths (day one)", "Attended: `alln menu --json` → `alln run` → `alln artifact show`. Unattended: `alln loop start \"<what you want done>\"` → `loop status <loop-id> --json` (or wait for a macOS notification). Status reads reconcile dead owners automatically — no manual `team reconcile` on the happy path. Default `alln ps` shows the alive floor; `alln ps --all` is history."),
+                .init("notify", "You do not have to watch", "Dispatching `loop step`, `loop start`, `loop resume`, or `loop pm` auto-starts `alln serve` in the background (silent, opt out with `--no-auto-serve` or `ALLN_NO_AUTO_SERVE`). When the round lands or escalates — even with the Mac app closed and the CLI session that dispatched it long gone — a local notification fires: \"PM Relay needs an answer\" on escalation, or the normal completion notice when it settles. Stream silence on a running loop also notifies when agent output stalls. Neither you nor the human has to poll `loop status` or build a watcher for this; `alln serve` already knows."),
+                .init("survive", "The round outlives your session", "`--no-wait` on `loop start` / `loop resume` / `loop pm` dispatches, then returns delivery.path=wait and one exact `loop status --wait-for terminal` command. A killed caller is not a killed loop: the round keeps advancing under its own process. A second dispatch against an already-active loop is refused with `RELAY_ALREADY_ACTIVE`, not raced onto the same doc."),
             ],
-            relatedCommandNames: [
-                "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt", "pair relay stop", "project add", "project show",
-                "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
-            ],
+            relatedCommandNames: ["loop start", "project add", "project show"],
             schemaRefs: ["relayJSON"],
             errorRefs: [
                 "RELAY_NOT_FOUND", "RELAY_INVALID_STATE", "RELAY_HANDOVER_UNSAFE", "PROJECT_NOT_FOUND",
@@ -599,7 +597,7 @@ public enum HelpTopicRegistry {
             sections: recipes.map { HelpTopic.Section($0.id, $0.title, $0.markdown) },
             relatedCommandNames: [
                 "bootstrap", "help get", "help search", "menu",
-                "pair pilot start", "pair relay", "run",
+                "loop start", "run",
                 "team status", "team result", "team cancel",
             ],
             needsLiveCheck: false

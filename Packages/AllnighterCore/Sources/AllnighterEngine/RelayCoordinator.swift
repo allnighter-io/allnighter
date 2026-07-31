@@ -2097,12 +2097,12 @@ public struct RelayCoordinator: Sendable {
     }
 
     private func pmTurnNextCommands(for state: RelayState) -> [String] {
-        let status = "alln pair relay-status --relay \(state.id) --json"
+        let status = "alln loop status \(state.id) --json"
         guard state.status == .awaitingPM, state.isCallerChair else {
             return [status]
         }
         return [
-            "alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file order.md --json",
+            "alln loop step \(state.id) \"<order for the dev>\" --json",
             status
         ]
     }

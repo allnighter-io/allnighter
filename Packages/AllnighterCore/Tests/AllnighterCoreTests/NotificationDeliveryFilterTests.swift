@@ -64,22 +64,22 @@ final class NotificationDeliveryFilterTests: XCTestCase {
     func testRelayNeedsAnswerTitleIsExactRequiredString() {
         let candidate = NotificationCandidate(
             threadId: "t1", turnId: "relay_escalate1", event: .relayNeedsAnswer,
-            threadTitle: "PM Relay: some doc", occurredAt: now
+            threadTitle: "Delivery Loop: some doc", occurredAt: now
         )
         XCTAssertEqual(
             NotificationCopy.title(candidate: candidate, workerDisplayName: nil),
-            "PM Relay needs an answer"
+            "Delivery Loop needs an answer"
         )
     }
 
     func testRelayStoppedTitleIsExactRequiredString() {
         let candidate = NotificationCandidate(
             threadId: "t1", turnId: "relay_stopped", event: .relayStopped,
-            threadTitle: "PM Relay: some doc", occurredAt: now
+            threadTitle: "Delivery Loop: some doc", occurredAt: now
         )
         XCTAssertEqual(
             NotificationCopy.title(candidate: candidate, workerDisplayName: nil),
-            "PM Relay stopped"
+            "Delivery Loop stopped"
         )
     }
 

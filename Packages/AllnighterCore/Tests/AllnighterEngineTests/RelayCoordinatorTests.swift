@@ -735,7 +735,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         let turn = try XCTUnwrap(pmTurnStore.load(kind: .relay, subjectId: "relay_founder_stop"))
         XCTAssertEqual(turn.reason, "stopped")
         XCTAssertEqual(turn.lifecycleStatus, "stopped")
-        XCTAssertTrue(turn.nextCommands.contains { $0.contains("pair relay-status") })
+        XCTAssertTrue(turn.nextCommands.contains { $0.contains("loop status") })
     }
 
     func testFounderStopIdempotentOnDoneAndStoppedDoesNotRewriteReasonOrSecondPMTurn() throws {

@@ -19,7 +19,7 @@ dispatch queue:
 
 ```bash
 # Single-worker ask (chat / advisory review in the project root)
-alln run --worker model_opencode_glm_5_2 --json "Review <file>: what invariant breaks if X?"
+alln run --model model_opencode_glm_5_2 --json "Review <file>: what invariant breaks if X?"
 
 # Or: confirm the worker is on the bench, then run
 alln models --json          # look for model_opencode_glm_5_2
@@ -125,7 +125,7 @@ optimize for slice JSON turning green; optimize for **upheld findings → shippe
 ```text
 # HISTORICAL — non-runnable. scripts/run_cr_phase1.sh no longer exists on disk.
 # Kept only so agents do not invent a replacement paste from memory.
-# Live replacement: alln run --worker model_opencode_glm_5_2 … (see §Live path).
+# Live replacement: alln run --model model_opencode_glm_5_2 … (see §Live path).
 #
 # PAIR_CR_PARALLEL=0 PAIR_CR_VERIFY=0 scripts/run_cr_phase1.sh Allnighter \
 #   11 14 15 18 19 21 16 17 22 12 23 20 24 25 13 26 27 28 29 30 31 32
@@ -278,4 +278,4 @@ Fifteen sprint work orders from Phase 1 planner triage (2026-06-28).
 | --- | --- |
 | 2026-06-27 | Initial doc: serial hardening pass, findings-as-gold, F1–F5, anti-patterns from Phase 1 dogfood (CR-01–05), infra deps OC-S02/CHECK-S01 |
 | 2026-06-28 | Phase 2 resumed after 15 sprint landings; post-sprint delta-review pattern; infra table marked shipped |
-| 2026-07-20 | ASF-S07: lead with live `alln run --worker model_opencode_glm_5_2`; fix PM_Relay archive links; fence deleted batch script; drop instructional dead verbs |
+| 2026-07-20 | ASF-S07: lead with live `alln run --model model_opencode_glm_5_2`; fix PM_Relay archive links; fence deleted batch script; drop instructional dead verbs |

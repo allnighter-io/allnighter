@@ -48,12 +48,12 @@ Three ways to fail this slice, all named in the packet:
 
 CLI with neither flag stays allowed for back-compat. Do not hard-require it.
 
-### ATL-S02 — `pair relay stop` (CLI + Engine)
+### ATL-S02 — `alln loop stop` (CLI + Engine)
 
 Full spec: packet §"Stop settlement — exact order" and §ATL-S02.
 
-Ship `RelayCoordinator.stop(relayId:reason:)` and the nested verb
-`pair relay stop` (space, like `pair relay adopt` — **not** `relay-stop`), plus
+Ship `RelayCoordinator.stop(relayId:reason:)` and the verb
+`alln loop stop` (renamed from `pair relay stop` — LVC, 2026-07-30), plus
 `RelayState.founderStoppedReason = "founder stopped"`.
 
 The ten-step settlement order in the packet is exact. Follow it. In particular:

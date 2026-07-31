@@ -97,9 +97,9 @@ public enum NotificationCopy {
         case .turnAuthRequired:
             return "\(workerDisplayName ?? "Agent") needs sign-in"
         case .relayNeedsAnswer:
-            return "PM Relay needs an answer"
+            return "Delivery Loop needs an answer"
         case .relayStopped:
-            return "PM Relay stopped"
+            return "Delivery Loop stopped"
         case .relayStreamStalled:
             return "Relay worker stream stalled"
         }
@@ -124,7 +124,7 @@ public enum NotificationCopy {
         case .relayStopped:
             return "Check the relay's final state."
         case .relayStreamStalled:
-            return "Agent output has been silent — inspect with `alln pair pilot status` or `alln ps`."
+            return "Agent output has been silent — inspect with `alln loop status` or `alln ps`."
         }
     }
 

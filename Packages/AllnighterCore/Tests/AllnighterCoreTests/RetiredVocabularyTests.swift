@@ -58,6 +58,8 @@ final class RetiredVocabularyTests: XCTestCase {
             "pair slice", "pair status", "alln mcp",
             "team hello", "route --for", "resolve --for", "commands --json",
             "team list", "team show", "team preflight", "team start",
+            "pair relay", "pair relay-status", "pair relay-resume", "pair pilot",
+            "relay adopt", "--relay", "--pm-model", "--dev-model",
         ]
         for term in required {
             XCTAssertTrue(
@@ -73,6 +75,8 @@ final class RetiredVocabularyTests: XCTestCase {
             "alln commands --json", "alln team list", "alln team show",
             "alln team preflight", "alln team start",
             "alln run --worker", "alln project workers",
+            "alln pair relay", "alln pair relay-status", "alln pair relay-resume",
+            "alln pair pilot", "alln relay adopt",
         ]
         XCTAssertEqual(Set(RetiredVocabulary.livingDocDenyPatterns), expected)
     }
@@ -261,7 +265,7 @@ final class RetiredVocabularyTests: XCTestCase {
                 let ignored = Set(["json", "format", "help", "version", "project", "team",
                                    "worker", "ref", "host", "for", "lane", "try-fix",
                                    "executor", "schema", "stream", "all", "doc", "panel",
-                                   "relay", "pm-worker", "max-rounds", "until", "verdict",
+                                   "pm-worker", "max-rounds", "until", "verdict",
                                    "handover-file", "id"])
                 if !allowed.contains(name) && !ignored.contains(name) {
                     // Many commands inherit shared flags via CLI parsing rather than

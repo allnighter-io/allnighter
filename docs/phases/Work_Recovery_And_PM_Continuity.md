@@ -8,7 +8,7 @@ Revised: 2026-07-29 (pre-build review: trim S03/S04, sharpen envelope, harden ga
 Origin: Founder outage during a pilot/relay run — PM agent (Opus) hit vendor API
 500/529; dev agent (Terra) may still have been executing; work landed in git
 (committed and uncommitted) but was hard to find and resume. Recovery required
-forensic `git log` across repos, not `alln pair relay-status`.
+forensic `git log` across repos, not `alln loop status`.
 Related shipped substrate (reuse, do not re-build):
 [`Pilot_Relay.md`](../archive/phases/Pilot_Relay.md) (PL-S06 adopt),
 [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
@@ -101,8 +101,8 @@ There is no human PM seat. Both modes are AI agents:
 
 Handoffs are **agent → agent**:
 
-- Session PM → spawned PM: `alln pair relay adopt --pm-model <id>`
-- Spawned PM → session PM: `alln pair pilot adopt --relay <id>`
+- Session PM → spawned PM: `alln loop pm <id> <agent-id>`
+- Spawned PM → session PM: `alln loop pm <id> caller`
 - Spawned PM → different spawned PM: **not supported today** (WRC-S02)
 
 `external` means session-bound agent PM, not founder/human.
@@ -138,10 +138,10 @@ While a round is `.running`, no adopt, resume, or handoff is allowed
 This is intentional — not a bug.
 
 ```text
-.running     → poll pilot status / alln ps; do NOT adopt or resume
-.awaitingPM  → pilot handoff OR relay adopt (session → spawned)
-.escalated   → relay-resume OR adopt OR pilot adopt
-.stopped+orphan → relay-resume OR pilot adopt (after reconcile)
+.running     → poll loop status / alln ps; do NOT loop pm or resume
+.awaitingPM  → step OR loop pm (session → spawned)
+.escalated   → resume OR loop pm
+.stopped+orphan → resume OR loop pm (after reconcile)
 ```
 
 WRC v1 adds: **what the status envelope shows**, **when to notify on park**,
@@ -190,8 +190,8 @@ S02 before S01 because substitution is small, unblocks attended recovery without
   "dirtyAtDevEnd": { "count": 5, "paths": ["…"] },
   "devRunId": "AD0446C6-…",
   "resumeCommands": [
-    "alln pair pilot status --relay RELAY_ID --json",
-    "alln pair relay-resume --relay RELAY_ID --pm-model model_sonnet --answer '…'"
+    "alln loop status RELAY_ID --json",
+    "alln loop pm RELAY_ID model_sonnet && alln loop resume RELAY_ID --answer '…'"
   ]
 }
 ```
@@ -232,29 +232,29 @@ lists paths, `workState: workUncommitted`; (b) committed-only round lists
 *Claim:* "A recovery agent can continue a spawned relay with a different PM
 model."
 *Truth owner:* `RelayCoordinator.resumeGuard` + `RelayState.pmModelId`.
-*Adds:* `--pm-model <id>` on `pair relay-resume` (and contract registry). When
+*Adds:* `--pm <agent-id>` on `alln loop resume` (and contract registry). When
 present and parked (`isResumable`), update `state.pmModelId` before loop
 continues. Inject one-time `substitutionNote` on first PM turn (same pattern as
-`adoptionNote` in adopt).
+`adoptionNote` in `loop pm`).
 *Eligibility:*
 
-| Current status | `--pm-model` allowed? | Action |
+| Current status | `--pm` allowed? | Action |
 | --- | --- | --- |
 | `escalated`, resumable `stopped` | yes (spawned only) | update `pmModelId`, resume |
-| `awaitingPM` (external pilot park) | no on `relay-resume` | use existing `relay adopt --pm-model` |
+| `awaitingPM` (caller-held park) | no on `resume` | use existing `alln loop pm <id> <agent-id>` |
 | `running` | no | `RELAY_ROUND_IN_FLIGHT` |
-| `pmMode == external` | no on `relay-resume` | adopt path already owns model pick |
+| PM occupant is `caller` | no on `resume` | `loop pm` already owns occupant reassignment |
 
 *Harden:*
 - Unknown / retired model id → hard error before state write.
 - Concurrent resume: existing in-flight / claim guards apply; second resume fails
   cleanly, does not double-dispatch PM.
-- Omit `--pm-model` → keep prior `pmModelId` (today's behavior).
+- Omit `--pm` → keep prior `pmModelId` (today's behavior).
 
 *Proof:* test — relay parked `escalated` with `pmModelId: model_opus`; resume
-with `--pm-model model_sonnet` → state carries sonnet, loop dispatches sonnet PM,
+with `--pm model_sonnet` → state carries sonnet, loop dispatches sonnet PM,
 note rendered once; second concurrent resume rejected.
-*Non-goal:* substitution while `.running`; session-PM model swap (use adopt).
+*Non-goal:* substitution while `.running`; caller-occupant swap (use `loop pm`).
 
 ### WRC-S01 · `relayAwaitingPM` notification — **blocking for unattended recovery**
 
@@ -263,7 +263,7 @@ agent."
 *Truth owner:* `NotificationCandidateDetection` + `NotificationEventKind`.
 *Gap:* `relayEscalated` → `relayNeedsAnswer` notifies; **`awaitingPM` is silent**
 (pilot park after dev completes). That is exactly when a dead session PM needs a
-substitute (via `relay adopt`).
+substitute (via `alln loop pm`).
 *Adds:* `relayAwaitingPM` event; `ServeDaemon` posts when thread projection shows
 parked pilot relay with dev round finished.
 *Payload must include (from S00, not prose):* relay id, `repoRoot`, `workState`,
@@ -339,7 +339,7 @@ until claim/idempotency design is explicit (single actor, durable intent, cancel
    sees `repoRoot`, `commitShas` or `commitCount`, uncommitted paths when dirty.
 2. Dev lands uncommitted work (spawned path): `dirtyAtDevEnd` stamped;
    live `uncommitted` on status; `workState: workUncommitted`.
-3. `relay-resume --pm-model model_sonnet` on parked escalated relay substitutes
+3. `alln loop resume <id> --pm model_sonnet` on parked escalated relay substitutes
    PM; loop continues from same relay id; concurrent second resume fails cleanly.
 4. `awaitingPM` fires **one** `relayAwaitingPM` notification when `alln serve`
    is running; payload includes relay id + suggested command + work counts.

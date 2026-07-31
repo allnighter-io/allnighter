@@ -381,8 +381,7 @@ final class PilotCLITests: XCTestCase {
             status: .awaitingPM, createdAt: Date()
         )
         let line = PilotCLI.nextActionLine(for: state)
-        XCTAssertTrue(line.contains("pilot handoff"))
-        XCTAssertTrue(line.contains("handover-file"))
+        XCTAssertTrue(line.contains("loop step"))
         XCTAssertTrue(line.contains("relay_x"))
     }
 
@@ -484,10 +483,10 @@ final class PilotCLITests: XCTestCase {
             status: .running, createdAt: Date()
         )
         let line = PilotCLI.nextActionLine(for: state)
-        XCTAssertTrue(line.contains("pilot status"))
+        XCTAssertTrue(line.contains("loop status"))
         XCTAssertTrue(line.contains("do not re-dispatch"))
-        let statusIdx = line.range(of: "pilot status")?.lowerBound
-        let watchIdx = line.range(of: "pilot watch")?.lowerBound
+        let statusIdx = line.range(of: "loop status")?.lowerBound
+        let watchIdx = line.range(of: "loop wait")?.lowerBound
         XCTAssertNotNil(statusIdx)
         if let statusIdx, let watchIdx {
             XCTAssertLessThan(statusIdx, watchIdx)
@@ -717,7 +716,7 @@ final class PilotCLITests: XCTestCase {
             relayId: "relay_x", reason: .interrupted, stillRunning: true
         )
         XCTAssertTrue(note.contains("still running"))
-        XCTAssertTrue(note.contains("pilot status"))
+        XCTAssertTrue(note.contains("loop status"))
         XCTAssertTrue(note.contains("not a failed round"))
     }
 
@@ -779,7 +778,7 @@ final class PilotCLITests: XCTestCase {
         )
         XCTAssertTrue(note.contains("max-wait"))
         XCTAssertTrue(note.contains("still running"))
-        XCTAssertTrue(note.contains("pilot status"))
+        XCTAssertTrue(note.contains("loop status"))
     }
 
     func testDeadWaiterReconcileDisabledLeavesRunningState() throws {

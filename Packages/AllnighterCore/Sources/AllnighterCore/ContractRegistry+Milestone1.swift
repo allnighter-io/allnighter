@@ -430,7 +430,7 @@ public extension ContractRegistry {
         ),
         // Process ownership observability (docs/phases/Process_Ownership.md PO-S05)
         CommandSpec(
-            "ps", summary: "List owned process trees (runs, relays, pilots, proofs). Reconciles identity-dead owners on read (CLP-S02) — no manual `team reconcile` on the happy path. PRIMARY liveness is stream silence (`run.lastActivityAt`), same as `pair pilot status` — not relay heartbeat/pgid. Default shows alive + needs-action only; `--all` includes terminal history. Scoped to caller's project; `--all-projects` is machine-wide.", milestone: .m1,
+            "ps", summary: "List owned process trees (runs, loops, proofs). Reconciles identity-dead owners on read (CLP-S02) — no manual `team reconcile` on the happy path. PRIMARY liveness is stream silence (`run.lastActivityAt`), same as `alln loop status` — not relay heartbeat/pgid. Default shows alive + needs-action only; `--all` includes terminal history. Scoped to caller's project; `--all-projects` is machine-wide.", milestone: .m1,
             flags: [
                 FlagSpec("all", summary: "Include terminal/history rows (museum view). Default is alive + needs-action floor only."),
                 FlagSpec("all-projects", summary: "Machine-wide fleet view instead of the caller's project scope."),
@@ -560,7 +560,7 @@ public extension ContractRegistry {
             freeTwinCommand: "alln loop start --dry-run"
         ),
         CommandSpec(
-            "pair relay", summary: "Run the PM Relay unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.", milestone: .m1,
+            "pair relay", summary: "Retired — use `alln loop start \"<what you want done>\"` instead. Runs the PM↔dev loop unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.", milestone: .m1,
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the PM re-reads it fresh each round."),
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
@@ -581,7 +581,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair relay-status", summary: "Read a PM Relay's durable state, or wait for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).", milestone: .m1,
+            "pair relay-status", summary: "Retired — use `alln loop status <loop-id>` instead. Reads a loop's durable state, or waits for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("wait-for", takesValue: true, valueType: "string", summary: "Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout."),
@@ -591,7 +591,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair relay-resume", summary: "Resume an escalated PM Relay with the founder's answer, then continue the loop.", milestone: .m1,
+            "pair relay-resume", summary: "Retired — use `alln loop resume <loop-id>` instead. Resumes an escalated loop with the founder's answer, then continues.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("answer", takesValue: true, valueType: "string", summary: "The founder's answer to the escalation (required)."),
@@ -606,7 +606,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair relay adopt", summary: "Night-shift handover: converts a parked Pilot relay (awaitingPM or escalated) to a spawned PM relay and continues the loop from the durable round log.", milestone: .m1,
+            "pair relay adopt", summary: "Retired — use `alln loop pm <loop-id> <agent-id>` instead. Converts a parked caller-held loop (awaitingPM or escalated) to a spawned PM and continues from the durable round log.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("pm-model", takesValue: true, valueType: "id", summary: "The spawned PM seat's model id (required)."),
@@ -621,7 +621,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair relay stop", summary: "Founder stop of a PM Relay Loop: identity-checked teardown, durable stopped status with reason \"founder stopped\", and a PM Turn on transition. Idempotent on already done/stopped.", milestone: .m1,
+            "pair relay stop", summary: "Retired — use `alln loop stop <loop-id>` instead. Founder stop of a Loop: identity-checked teardown, durable stopped status with reason \"founder stopped\", and a PM Turn on transition. Idempotent on already done/stopped.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("json", summary: "Emit RelayJSON (status=stopped, stoppedReason=\"founder stopped\" on transition)."),
@@ -629,7 +629,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot start", summary: "Start a Pilot relay: this session is the PM, Allnighter runs the crew (dev seat + rails). Parks awaitingPM.", milestone: .m1,
+            "pair pilot start", summary: "Retired — use `alln loop start \"<what you want done>\" --pm caller` instead. Starts a loop with this session as PM; Allnighter runs the crew (dev seat + rails). Parks awaitingPM.", milestone: .m1,
             flags: [
                 FlagSpec("doc", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path (required) — the piloting session re-reads it fresh each round."),
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path (required)."),
@@ -641,7 +641,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot handoff", summary: "Submit this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.", milestone: .m1,
+            "pair pilot handoff", summary: "Retired — use `alln loop step <loop-id>` instead. Submits this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the full submission markdown from a file (verdict tail included; omit to read stdin)."),
@@ -659,7 +659,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot status", summary: "Read a Pilot relay's durable state, or wait for its parked PM boundary (awaitingPM|escalated). While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over watch for agents.", milestone: .m1,
+            "pair pilot status", summary: "Retired — use `alln loop status <loop-id>` instead. Reads a caller-held loop's durable state, or waits for its parked PM boundary (awaitingPM|escalated). While running: elapsedSeconds, ownerAlive, lastProgressAt/silenceAgeSeconds (PRIMARY stream liveness — same truth as alln ps; not relay heartbeat/pgid), streamSilenceWarning when silence > 6×waitHint, commitsSinceBaseline (SUPPLEMENTARY only — not liveness), waitHintSeconds 45, watcherDisposable. Prefer over wait for agents.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("wait-for", takesValue: true, valueType: "string", summary: "Wait for parked (awaitingPM|escalated); requires --timeout. terminal is not valid for Pilot."),
@@ -669,7 +669,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot watch", summary: "Optional interactive waiter: block until the in-flight round settles. Disposable — death ≠ job failure; prefer `pilot status` for agents. Emits heartbeats while running; SIGTERM/SIGINT prints stillRunning goodbye.", milestone: .m1,
+            "pair pilot watch", summary: "Retired — use `alln loop wait <loop-id>` instead. Optional interactive waiter: blocks until the in-flight round settles. Disposable — death ≠ job failure; prefer `loop status` for agents. Emits heartbeats while running; SIGTERM/SIGINT prints stillRunning goodbye.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("max-wait", takesValue: true, valueType: "integer", summary: "Stop waiting after N seconds while still running; exit with stillRunning and reattach to pilot status (default 1800 when stdout is not a TTY; interactive TTY waits until settled unless set)."),
@@ -678,7 +678,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot adopt", summary: "Reverse flip: hands a parked spawned relay's PM seat to a piloting session (pmMode → external, status → awaitingPM). No dispatch.", milestone: .m1,
+            "pair pilot adopt", summary: "Retired — use `alln loop pm <loop-id> caller` instead. Hands a parked spawned loop's PM seat to the caller session (status → awaitingPM). No dispatch.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("json", summary: "Emit RelayJSON."),
@@ -686,7 +686,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot scaffold-handover", summary: "Write or re-emit a suggested PM handover markdown template for a relay round.", milestone: .m1,
+            "pair pilot scaffold-handover", summary: "Retired alongside `pair pilot`. Writes or re-emits a suggested PM handover markdown template for a loop round; the underlying auto-seed template is unaffected.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("round", takesValue: true, valueType: "integer", summary: "Round number for the filename (default 1)."),
@@ -762,7 +762,7 @@ public extension ContractRegistry {
             exampleIds: ["export_contracts_check"]
         ),
         CommandSpec(
-            "serve", summary: "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or PM Relay round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it. `pair pilot handoff`/`pair relay`/`pair relay-resume`/`pair relay adopt` auto-start it in the background unless `--no-auto-serve`/`ALLN_NO_AUTO_SERVE` is set.", milestone: .m1,
+            "serve", summary: "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it. `alln loop step`/`start`/`resume`/`pm` auto-start it in the background unless `--no-auto-serve`/`ALLN_NO_AUTO_SERVE` is set.", milestone: .m1,
             flags: [
                 FlagSpec("health", summary: "Read-only serve health; does not start serve."),
                 FlagSpec("json", summary: "Structured CoordinatorHealth output."),
@@ -1199,17 +1199,17 @@ public extension ContractRegistry {
         ErrorSpec("TRY_FIX_PACKET_MISSING", ruleId: "try_fix.packet.missing", agentAction: "Re-run the Bug Hunt diagnosis; the fix attempt needs a typed fix packet.", requiresManual: false, retryable: true, explain: "The Bug Hunt answer run produced no typed fix packet (the writer emitted no fenced fix-packet block), so there is no hypothesis to try. Re-run the diagnosis with a sharper report."),
         ErrorSpec("TRY_FIX_PACKET_UNSAFE", ruleId: "try_fix.packet.unsafe", agentAction: "Read the gate reason; resolve the danger flag / add an actionable hypothesis + proof, then retry.", requiresManual: true, retryable: false, explain: "The fix packet is not safe to execute: it carries a danger flag (credentials, deletion, deploy…), lacks an actionable hypothesis (a fix within a boundary), names no truth owner, or its proof method is incomplete. Danger blocks; doubt does not."),
         ErrorSpec("TRY_FIX_EXECUTOR_INVALID", ruleId: "try_fix.executor.invalid", agentAction: "Pass --executor a single mutating team that is runnable on this bench (default build_slice).", requiresManual: true, retryable: false, explain: "The chosen fix executor is not a single, mutating, runnable team. The fix attempt must resolve to exactly one mutating worker."),
-        ErrorSpec("RELAY_NOT_FOUND", ruleId: "relay.not_found", agentAction: "Run `alln pair relay-status --relay <id> --json` with a valid relay id, or start a new relay with `alln pair relay`.", requiresManual: true, retryable: false, explain: "No PM Relay matches the given id."),
+        ErrorSpec("RELAY_NOT_FOUND", ruleId: "relay.not_found", agentAction: "Run `alln loop status <id> --json` with a valid loop id, or start a new loop with `alln loop start \"<what you want done>\"`.", requiresManual: true, retryable: false, explain: "No PM Relay matches the given id."),
         ErrorSpec("RELAY_STATE_DECODE_FAILED", ruleId: "relay.state.decode_failed", agentAction: "The relay folder exists but relay.json cannot be read by this binary — rebuild from the current branch (`swift build --package-path Packages/AllnighterCore` + `alln install-cli`). If the file uses retired devWorkerId/pmWorkerId keys, delete the relay folder or rewrite seat keys to devModelId/pmModelId.", requiresManual: true, retryable: false, explain: "A relay.json is present on disk but failed to decode — not the same as a missing id. Common during dogfood when a stale on-PATH alln binary predates the WTA seat-key rename."),
-        ErrorSpec("RELAY_INVALID_STATE", ruleId: "relay.invalid_state", agentAction: "Check status with `pair relay-status` (or `pair pilot status`); only resume/adopt-eligible statuses accept those transitions. Founder stop uses `pair relay stop` and does not use this code.", requiresManual: true, retryable: false, explain: "The requested resume/adopt (or pilot) transition is not valid for the relay's current status — not a founder-stop error."),
+        ErrorSpec("RELAY_INVALID_STATE", ruleId: "relay.invalid_state", agentAction: "Check status with `alln loop status <id>`; only resume/pm-eligible statuses accept those transitions. Founder stop uses `alln loop stop` and does not use this code.", requiresManual: true, retryable: false, explain: "The requested resume/pm-reassignment transition is not valid for the loop's current status — not a founder-stop error."),
         ErrorSpec("RELAY_HANDOVER_UNSAFE", ruleId: "relay.handover.unsafe", agentAction: "The PM's handover named a danger instruction (credentials, signing, destructive git, sandbox/TCC, mass deletion); the relay escalated instead of dispatching it. Answer the escalation or rewrite the round's intent.", requiresManual: true, retryable: false, explain: "HandoverGate blocked a PM handover before it reached the dev seat — danger blocks, doubt does not."),
-        ErrorSpec("RELAY_ALREADY_ACTIVE", ruleId: "relay.already_active", agentAction: "Read it with `alln pair relay-status --relay <id> --json`, resume or adopt it, or wait — do not start a second relay on the same doc.", requiresManual: true, retryable: false, explain: "a relay is already running for this project + doc"),
+        ErrorSpec("RELAY_ALREADY_ACTIVE", ruleId: "relay.already_active", agentAction: "Read it with `alln loop status <id> --json`, resume it or reassign the PM with `alln loop pm`, or wait — do not start a second loop on the same doc.", requiresManual: true, retryable: false, explain: "a loop is already running for this project + doc"),
         ErrorSpec("RELAY_JOURNAL_UNAVAILABLE", ruleId: "relay.journal.unavailable", agentAction: "The relay claim could not be written durably — check disk space and permissions under the support root, then retry the relay verb.", requiresManual: true, retryable: true, explain: "Relay dispatch could not persist its claim to the journal."),
-        ErrorSpec("RELAY_ROUND_IN_FLIGHT", ruleId: "relay.round.in_flight", agentAction: "Wait with `alln pair pilot status --relay <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `pilot watch` is not a failed round. Once parked, retry `pilot handoff` if still needed.", requiresManual: false, retryable: true, explain: "A relay round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (pilot handoff, or a resume/adopt racing another) on the same relay is refused rather than racing a second dev turn onto one repo root. Founder stop never uses this code."),
-        ErrorSpec("RELAY_STOP_FAILED", ruleId: "relay.stop.failed", agentAction: "Inspect with `alln ps --json`; retry `alln pair relay stop --relay <id> --json`. Do not invent resume while live trees remain.", requiresManual: true, retryable: true, explain: "Founder stop could not honestly settle: a signalled owner or turn tree is still identity-alive. Status is left non-terminal rather than stamping stopped over known-live work."),
+        ErrorSpec("RELAY_ROUND_IN_FLIGHT", ruleId: "relay.round.in_flight", agentAction: "Wait with `alln loop status <id> --wait-for parked --timeout 7200 --json`; do not re-dispatch while running. A killed `alln loop wait` is not a failed round. Once parked, retry `alln loop step` if still needed.", requiresManual: false, retryable: true, explain: "A loop round is already dispatching (status == running) — one mutating dev turn at a time, unchanged law. A concurrent dispatch (step, or a resume/pm-reassignment racing another) on the same loop is refused rather than racing a second dev turn onto one repo root. Founder stop never uses this code."),
+        ErrorSpec("RELAY_STOP_FAILED", ruleId: "relay.stop.failed", agentAction: "Inspect with `alln ps --json`; retry `alln loop stop <id> --json`. Do not invent resume while live trees remain.", requiresManual: true, retryable: true, explain: "Founder stop could not honestly settle: a signalled owner or turn tree is still identity-alive. Status is left non-terminal rather than stamping stopped over known-live work."),
         ErrorSpec("RUN_ID_IN_USE", ruleId: "run.id.in_use", agentAction: "Attach with `alln run resume <id> --json`, or omit an explicit id.", requiresManual: true, retryable: false, explain: "a run already exists with this id"),
-        ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln pair pilot status --relay <id> --json`; a relay only accepts `pilot handoff` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`pilot handoff` was called against a relay that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a Pilot relay's normal between-rounds state."),
-        ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The piloting session's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `pilot handoff` — the relay is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "Pilot's `pilot handoff` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the piloting session is live and just resubmits."),
+        ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`loop step` was called against a loop that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a caller-held loop's normal between-rounds state."),
+        ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The PM's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "A `loop step` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits."),
         ErrorSpec("OWNERSHIP_NOT_FOUND", ruleId: "ownership.not_found", agentAction: "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.", requiresManual: false, retryable: false, explain: "No owned process tree matches the given id in durable state (run dirs, relay dirs, lane holders)."),
         ErrorSpec("OWNERSHIP_ALREADY_TERMINAL", ruleId: "ownership.already_terminal", agentAction: "No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`.", requiresManual: false, retryable: false, explain: "`alln kill` refused because the named work is already terminal — kill never clobbers an existing terminal endReason."),
         ErrorSpec("OWNERSHIP_IDENTITY_MISMATCH", ruleId: "ownership.identity.mismatch", agentAction: "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.", requiresManual: true, retryable: false, explain: "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process."),

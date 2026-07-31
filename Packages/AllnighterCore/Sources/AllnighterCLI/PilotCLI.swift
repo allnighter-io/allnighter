@@ -708,7 +708,7 @@ enum PilotCLI {
     }
 
     static func pilotStatusReattachCommand(relayId: String) -> String {
-        "alln pair pilot status --relay \(relayId) --wait-for parked --timeout 7200 --json"
+        "alln loop status \(relayId) --wait-for parked --timeout 7200 --json"
     }
 
     static func watchGoodbyeNote(relayId: String, reason: WatchEndReason, stillRunning: Bool) -> String {
@@ -1308,19 +1308,19 @@ enum PilotCLI {
     /// says, in one line, what the piloting session should do next.
     static func nextActionLine(for state: RelayState, devLeg: RelayDevLegProjection? = nil) -> String {
         if devLeg?.phase == .settling {
-            return "dev leg terminal (settling) — wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json`; do not treat relay running as proof the dev worker is still live (check devRunId)."
+            return "dev leg terminal (settling) — wait with `alln loop status \(state.id) --wait-for parked --timeout 7200 --json`; do not treat relay running as proof the dev worker is still live (check devRunId)."
         }
         switch state.status {
         case .awaitingPM:
-            return "next: write this round's order markdown, then `alln pair pilot handoff --relay \(state.id) --verdict continue --handover-file <order.md>` (or `--file <md>` with a RelayVerdict tail for scripted PM output)."
+            return "next: write this round's order, then `alln loop step \(state.id) \"<order for the dev>\"` (or `--done <summary>` to close the loop)."
         case .running:
-            return "a round is in flight — wait with `alln pair pilot status --relay \(state.id) --wait-for parked --timeout 7200 --json`; do not re-dispatch while running (optional: `alln pair pilot watch --relay \(state.id)`)."
+            return "a round is in flight — wait with `alln loop status \(state.id) --wait-for parked --timeout 7200 --json`; do not re-dispatch while running (optional: `alln loop wait \(state.id)`)."
         case .done:
             return "relay done — nothing left to hand off."
         case .escalated:
-            return "relay escalated — parked; \(state.note ?? "a founder question is open"). No further `pilot handoff` calls are accepted until this is resolved."
+            return "relay escalated — parked; \(state.note ?? "a founder question is open"). No further `loop step` calls are accepted until this is resolved."
         case .stopped:
-            return "relay stopped (\(state.stoppedReason ?? "a ceiling was reached")) — no further `pilot handoff` calls are accepted."
+            return "relay stopped (\(state.stoppedReason ?? "a ceiling was reached")) — no further `loop step` calls are accepted."
         }
     }
 

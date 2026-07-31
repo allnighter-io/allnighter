@@ -136,8 +136,8 @@ Shortcut: *Model at rest. Agent at work (model + skill).*
 | `--seat` | Ordered model ids for one-off judgment-team staffing (not a synonym for `--model`). |
 
 Retired flags: `--worker`, `--dev-worker`, `--pm-worker`, `--pm-model`,
-`--dev-model`, `--relay`. Retired commands: `alln project workers` →
-`alln project models`.
+`--dev-model`, `--relay`. The old `project workers` subcommand is retired in
+favor of `alln project models`.
 
 ### Execution source gate
 

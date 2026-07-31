@@ -76,7 +76,7 @@ final class PairCLITests: XCTestCase {
     }
 
     func testSliceQueueVerbsPrintTombstone() {
-        XCTAssertTrue(PairCLI.sliceQueueRetiredMessage.contains("pm_relay"))
+        XCTAssertTrue(PairCLI.sliceQueueRetiredMessage.contains("loop"))
         XCTAssertTrue(PairCLI.sliceQueueRetiredMessage.contains("retired"))
     }
 

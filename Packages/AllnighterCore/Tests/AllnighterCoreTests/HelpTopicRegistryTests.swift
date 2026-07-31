@@ -189,9 +189,9 @@ final class HelpTopicRegistryTests: XCTestCase {
     /// it here proves discoverability, not merely that the alias was typed in.
     func testSearchRoutesDetachedDispatchSurvivalQueries() {
         func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
-        XCTAssertEqual(top("no-wait"), "pm_relay")
-        XCTAssertEqual(top("survive"), "pm_relay")
-        XCTAssertEqual(top("my session died"), "pm_relay")
+        XCTAssertEqual(top("no-wait"), "loop")
+        XCTAssertEqual(top("survive"), "loop")
+        XCTAssertEqual(top("my session died"), "loop")
         XCTAssertEqual(top("idempotency"), "team_run_loop")
         XCTAssertEqual(top("detach"), "team_run_loop")
     }

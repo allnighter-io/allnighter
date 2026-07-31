@@ -44,8 +44,8 @@ Read a settled run again by id:
 alln show <run-id> --json
 ```
 
-Optional chain into Pilot on the same doc once the run settles:
+Optional chain into a loop on the same doc once the run settles:
 
 ```bash
-alln pair pilot start --doc <same-path> --project <id|path> --json
+alln loop start "<what you want done>" --spec <same-path> --pm caller --project <id|path> --json
 ```

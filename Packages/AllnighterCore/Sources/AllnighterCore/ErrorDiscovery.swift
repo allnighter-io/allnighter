@@ -28,7 +28,7 @@ public enum ErrorDiscovery {
         case "STALL_EPISODE_NOT_FOUND":
             return "alln stalled list --all --json"
         case "RELAY_NOT_FOUND":
-            return "alln pair relay-status --json"
+            return "alln loop status --json"
         case "RELAY_STATE_DECODE_FAILED":
             return "alln doctor --json"
         case "PANEL_NOT_FOUND":

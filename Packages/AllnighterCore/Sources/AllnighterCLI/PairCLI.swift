@@ -4,7 +4,7 @@ import AllnighterEngine
 
 enum PairCLI {
     /// Retired slice-queue tombstone (`Pilot_DX.md` §DX5) — one stderr line + exit 2.
-    static let sliceQueueRetiredMessage = "the slice queue was retired — see `alln help get pm_relay`"
+    static let sliceQueueRetiredMessage = "the slice queue was retired — see `alln help get loop`"
 
     static func run(
         _ args: [String],
