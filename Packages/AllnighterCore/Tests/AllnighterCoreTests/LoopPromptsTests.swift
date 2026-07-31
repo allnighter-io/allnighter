@@ -5,7 +5,7 @@ import XCTest
 /// and deterministic; the load-bearing property is that embedded third-party text (dev
 /// reports, handovers) survives verbatim even when it contains ```json fences or backticks
 /// of its own — the sentinel-delimited blocks must never truncate or mutate it.
-final class RelayPromptsTests: XCTestCase {
+final class LoopPromptsTests: XCTestCase {
 
     // MARK: - Determinism
 
@@ -26,14 +26,14 @@ final class RelayPromptsTests: XCTestCase {
     }
 
     func testDevPromptAssemblyIsDeterministic() {
-        let context = RelayDevPrompt.Context(
+        let context = LoopDevPrompt.Context(
             handover: "Build the parser.",
             docPath: "docs/phases/PM_Relay.md",
             roundNumber: 2,
             workerDisplayName: "Cursor Composer"
         )
-        let first = RelayDevPrompt.assemble(context: context)
-        let second = RelayDevPrompt.assemble(context: context)
+        let first = LoopDevPrompt.assemble(context: context)
+        let second = LoopDevPrompt.assemble(context: context)
         XCTAssertEqual(first, second)
     }
 
@@ -113,13 +113,13 @@ final class RelayPromptsTests: XCTestCase {
         ```
         Watch for `edge cases` and a lone ``` fragment.
         """
-        let context = RelayDevPrompt.Context(
+        let context = LoopDevPrompt.Context(
             handover: tricky,
             docPath: "docs/phases/PM_Relay.md",
             roundNumber: 4,
             workerDisplayName: "Grok Build"
         )
-        let prompt = RelayDevPrompt.assemble(context: context)
+        let prompt = LoopDevPrompt.assemble(context: context)
         XCTAssertTrue(prompt.contains(tricky), "the handover must appear byte-for-byte, embedded fences included")
     }
 
@@ -137,17 +137,17 @@ final class RelayPromptsTests: XCTestCase {
             roundsRemaining: 20
         )
         let pmPrompt = RelayPMPrompt.assemble(context: pmContext)
-        XCTAssertTrue(pmPrompt.contains("RelayVerdict"))
+        XCTAssertTrue(pmPrompt.contains("LoopVerdict"))
         XCTAssertTrue(pmPrompt.contains("\"verdict\": \"continue\""))
 
-        let devContext = RelayDevPrompt.Context(
+        let devContext = LoopDevPrompt.Context(
             handover: "Build the first unit of work described in the doc.",
             docPath: "docs/phases/PM_Relay.md",
             roundNumber: 1,
             workerDisplayName: "Dev Seat"
         )
-        let devPrompt = RelayDevPrompt.assemble(context: devContext)
-        XCTAssertFalse(devPrompt.contains("RelayVerdict"))
+        let devPrompt = LoopDevPrompt.assemble(context: devContext)
+        XCTAssertFalse(devPrompt.contains("LoopVerdict"))
         XCTAssertFalse(devPrompt.contains("\"verdict\""))
         XCTAssertFalse(devPrompt.contains("escalate"))
     }
@@ -261,7 +261,7 @@ final class RelayPromptsTests: XCTestCase {
         let prompt = RelayReaskPrompt.assemble(previousOutput: previous, parseError: .noVerdictFound)
         XCTAssertTrue(prompt.contains("no JSON object anywhere in the reply carried a `verdict` key"))
         XCTAssertTrue(prompt.contains(previous))
-        XCTAssertTrue(prompt.contains("RelayVerdict"))
+        XCTAssertTrue(prompt.contains("LoopVerdict"))
         XCTAssertTrue(prompt.contains("Do not redo the review"))
     }
 
@@ -298,13 +298,13 @@ final class RelayPromptsTests: XCTestCase {
     }
 
     func testDevPromptIncludesMemoryPointerExactlyOnce() {
-        let context = RelayDevPrompt.Context(
+        let context = LoopDevPrompt.Context(
             handover: "Add the pointer line.",
             docPath: "docs/phases/Folder_Native_Memory.md",
             roundNumber: 2,
             workerDisplayName: "Grok Build"
         )
-        let prompt = RelayDevPrompt.assemble(context: context)
+        let prompt = LoopDevPrompt.assemble(context: context)
         XCTAssertTrue(prompt.contains(Self.memoryPointerMarker))
         XCTAssertTrue(prompt.contains("honored MEMORY: <line>"))
         XCTAssertTrue(prompt.contains("do not silently work around it"))
@@ -314,13 +314,13 @@ final class RelayPromptsTests: XCTestCase {
     // MARK: - Provenance trailer (FR4)
 
     func testDevPromptIncludesCommitTrailerAskExactlyOnce() {
-        let context = RelayDevPrompt.Context(
+        let context = LoopDevPrompt.Context(
             handover: "Ship repoDelta.",
             docPath: "docs/phases/Field_Reports_1.md",
             roundNumber: 2,
             workerDisplayName: "Grok Build"
         )
-        let prompt = RelayDevPrompt.assemble(context: context)
+        let prompt = LoopDevPrompt.assemble(context: context)
         let trailer = ProvenanceConvention.commitTrailerAsk(displayName: "Grok Build")
         XCTAssertTrue(prompt.contains(trailer))
         XCTAssertEqual(prompt.components(separatedBy: trailer).count - 1, 1)
@@ -341,12 +341,12 @@ final class RelayPromptsTests: XCTestCase {
         )
         XCTAssertTrue(RelayPMPrompt.assemble(context: pmContext).contains("docs/phases/Weird_Doc.md"))
 
-        let devContext = RelayDevPrompt.Context(
+        let devContext = LoopDevPrompt.Context(
             handover: "Do the thing.",
             docPath: "docs/phases/Weird_Doc.md",
             roundNumber: 1,
             workerDisplayName: "Dev Seat"
         )
-        XCTAssertTrue(RelayDevPrompt.assemble(context: devContext).contains("docs/phases/Weird_Doc.md"))
+        XCTAssertTrue(LoopDevPrompt.assemble(context: devContext).contains("docs/phases/Weird_Doc.md"))
     }
 }

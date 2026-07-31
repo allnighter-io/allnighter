@@ -2,10 +2,10 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// Shared relay load for `RelayCLI` / `PilotCLI` — never maps decode failure to
+/// Shared relay load for `LoopEngineCLI` / `PilotCLI` — never maps decode failure to
 /// `RELAY_NOT_FOUND`.
-enum RelayCLILoad {
-    static func requireState(id: String, store: RelayStateStore) -> RelayState {
+enum LoopEngineCLILoad {
+    static func requireState(id: String, store: LoopStateStore) -> LoopState {
         switch store.loadResult(id: id) {
         case .success(let state):
             return state
@@ -20,7 +20,7 @@ enum RelayCLILoad {
         }
     }
 
-    static func requirePresence(id: String, store: RelayStateStore) {
+    static func requirePresence(id: String, store: LoopStateStore) {
         _ = requireState(id: id, store: store)
     }
 }

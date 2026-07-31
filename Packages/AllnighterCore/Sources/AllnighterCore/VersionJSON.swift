@@ -17,10 +17,13 @@ import Foundation
 /// `alln pair pilot*` are retired in favor of one `alln loop` verb, and the
 /// `PMMode` wire enum (`spawned|external`) is deleted — the chair is now an
 /// occupant id (`caller` or an agent id). **Breaking, deliberate, unshimmed:**
-/// on-disk `RelayState` carrying the old `"pmMode":"external"` will not
+/// on-disk `LoopState` carrying the old `"pmMode":"external"` will not
 /// decode. Finish or `stop` every in-flight loop before upgrading past this
 /// version — there is no compatibility shim, no dual-read, no migration. This
 /// fails loud on purpose (pre-user, foundation-first); do not add one later.
+/// **LVC-S09:** loop durable state directory moved `Relays/` → `Loops/` (`AllnighterPaths.loops`);
+/// on-disk `relay.json` filenames unchanged. Existing state under `Relays/` is not migrated —
+/// `alln loop list` warns when `Loops/` is missing but `Relays/` still exists.
 public enum AllnighterVersionIdentity {
     public static let binaryVersion = "0.11.0"
 }

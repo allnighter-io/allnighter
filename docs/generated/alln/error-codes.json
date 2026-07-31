@@ -873,10 +873,10 @@
     "ruleId" : "relay.not_awaiting_pm"
   },
   {
-    "agentAction" : "The PM's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.",
+    "agentAction" : "The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.",
     "code" : "RELAY_VERDICT_UNPARSEABLE",
     "exitClass" : "operational",
-    "explain" : "A `loop step` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits.",
+    "explain" : "A `loop step` submission didn't end with a parseable LoopVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits.",
     "requiresManual" : true,
     "retryable" : true,
     "ruleId" : "relay.verdict.unparseable"

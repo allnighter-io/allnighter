@@ -8,7 +8,7 @@ public enum PMTurnStatusWait {
         case parked
         case terminal
 
-        public func matches(_ status: RelayState.Status) -> Bool {
+        public func matches(_ status: LoopState.Status) -> Bool {
             switch self {
             case .parked: status == .awaitingPM || status == .escalated
             case .terminal: status == .done || status == .stopped
@@ -16,7 +16,7 @@ public enum PMTurnStatusWait {
         }
 
         /// A non-matching PM boundary cannot progress without another PM action.
-        public func isTerminalMismatch(_ status: RelayState.Status) -> Bool {
+        public func isTerminalMismatch(_ status: LoopState.Status) -> Bool {
             switch self {
             case .parked: status == .done || status == .stopped
             case .terminal: status == .awaitingPM || status == .escalated
@@ -31,10 +31,10 @@ public enum PMTurnStatusWait {
     }
 
     public struct Result: Sendable, Equatable {
-        public let status: RelayState.Status
+        public let status: LoopState.Status
         public let outcome: Outcome
 
-        public init(status: RelayState.Status, outcome: Outcome) {
+        public init(status: LoopState.Status, outcome: Outcome) {
             self.status = status
             self.outcome = outcome
         }
@@ -49,7 +49,7 @@ public enum PMTurnStatusWait {
         target: Target,
         timeout: TimeInterval,
         pollInterval: TimeInterval = minimumPollInterval,
-        readStatus: () -> RelayState.Status,
+        readStatus: () -> LoopState.Status,
         now: () -> Date = Date.init,
         sleep: (TimeInterval) -> Void = Thread.sleep
     ) -> Result {

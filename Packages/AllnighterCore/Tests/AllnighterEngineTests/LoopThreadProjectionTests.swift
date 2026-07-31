@@ -2,13 +2,13 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// R-S07 works test: `RelayThreadProjector` wired into `RelayCoordinator` via the
+/// R-S07 works test: `LoopThreadProjector` wired into `LoopCoordinator` via the
 /// optional-collaborator seam — one `WorkThread` per relay, rounds as turns, escalation
 /// raising `needsAttention` through the thread model's existing derived rules (never a
-/// new stored flag). Mirrors `RelayCoordinatorTests`' fixture shape (scripted
+/// new stored flag). Mirrors `LoopCoordinatorTests`' fixture shape (scripted
 /// `CommandRunner`, real git repo) so these tests exercise the SAME dispatch path, just
-/// asserting on the projected `WorkThread` instead of (or alongside) `RelayState`.
-final class RelayThreadProjectionTests: HermeticSupportTestCase {
+/// asserting on the projected `WorkThread` instead of (or alongside) `LoopState`.
+final class LoopThreadProjectionTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
@@ -22,7 +22,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         try super.tearDownWithError()
     }
 
-    // MARK: - Fixtures (mirrors RelayCoordinatorTests)
+    // MARK: - Fixtures (mirrors LoopCoordinatorTests)
 
     private func runGit(_ args: [String], cwd: URL) {
         let p = Process()
@@ -51,12 +51,12 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
         return "```json\n{\(fields.joined(separator: ", "))}\n```"
     }
 
-    /// Everything one test needs: a `RelayCoordinator` wired to a real `ThreadStore` +
-    /// `RunStore` + `RelayStateStore` under `tmp`, and the projector reading back the
+    /// Everything one test needs: a `LoopCoordinator` wired to a real `ThreadStore` +
+    /// `RunStore` + `LoopStateStore` under `tmp`, and the projector reading back the
     /// SAME `RunStore`/`ThreadStore` roots — exactly the invariant
-    /// `RelayDispatch.makeCoordinator` relies on in production.
+    /// `LoopDispatch.makeCoordinator` relies on in production.
     private struct Rig {
-        let coordinator: RelayCoordinator
+        let coordinator: LoopCoordinator
         let threadStore: ThreadStore
         let runner: SequencedCommandRunner
     }
@@ -89,10 +89,10 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
             }
         )
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
-        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let projector = LoopThreadProjector(store: threadStore, runStore: runStore)
+        let coordinator = LoopCoordinator(
             runService: service,
-            stateStore: RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays")),
+            stateStore: LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops")),
             runStore: runStore,
             threadProjector: projector,
             idFactory: idFactory
@@ -108,7 +108,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
             pmScripts: [.init(stdout: "Reviewed.\n\n" + verdictJSON("done", note: "Shipped."))],
             devScripts: []
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, projectId: "proj_relay_1", docPath: "docs/phases/PM_Relay.md",
             pmModelId: "model_pm", devModelId: "model_dev"
         )
@@ -132,7 +132,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
             ],
             devScripts: [.init(stdout: "Implemented exactly that. Committed.")]
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
@@ -172,7 +172,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
             ],
             devScripts: []
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmModelId: "model_pm", devModelId: "model_dev"
         )
@@ -189,12 +189,12 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
 
         // Resume: PM now delivers `done`.
         rig.runner.enqueue(command: "pm_cli", .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")))
-        let resumedConfig = RelayCoordinator.Config(
+        let resumedConfig = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
         let resumedResult = await rig.coordinator.resume(
-            relayId: escalated.id, founderAnswer: "use staging", config: resumedConfig
+            loopId: escalated.id, founderAnswer: "use staging", config: resumedConfig
         )
         guard case .success(let resumed) = resumedResult else { return XCTFail("expected success") }
         XCTAssertEqual(resumed.status, .done)
@@ -214,7 +214,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
             pmScripts: [.init(stdout: "All good.\n\n" + verdictJSON("done", note: "Nothing left."))],
             devScripts: []
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmModelId: "model_pm", devModelId: "model_dev"
         )
@@ -235,7 +235,7 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
             pmScripts: [.init(stdout: "Keep going.\n\n" + verdictJSON("continue", handover: "Keep building."))],
             devScripts: [.init(stdout: "Some progress, no commit this time.")]
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmModelId: "model_pm", devModelId: "model_dev",
             maxRounds: 1, stagnationRoundCap: 10
@@ -279,12 +279,12 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
             }
         )
         // No `threadProjector:` argument at all — defaults to nil.
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service,
-            stateStore: RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays")),
+            stateStore: LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops")),
             runStore: runStore
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/PM_Relay.md",
             pmModelId: "model_pm", devModelId: "model_dev"
         )
@@ -295,8 +295,8 @@ final class RelayThreadProjectionTests: HermeticSupportTestCase {
     // MARK: - Title derivation
 
     func testTitleFromDocPath() {
-        XCTAssertEqual(RelayThreadProjector.title(forDocPath: "docs/phases/PM_Relay.md"), "Delivery Loop: PM Relay")
-        XCTAssertEqual(RelayThreadProjector.title(forDocPath: "docs/phases/foo-bar.md"), "Delivery Loop: foo bar")
-        XCTAssertEqual(RelayThreadProjector.title(forDocPath: ""), "Delivery Loop")
+        XCTAssertEqual(LoopThreadProjector.title(forDocPath: "docs/phases/PM_Relay.md"), "Delivery Loop: PM Relay")
+        XCTAssertEqual(LoopThreadProjector.title(forDocPath: "docs/phases/foo-bar.md"), "Delivery Loop: foo bar")
+        XCTAssertEqual(LoopThreadProjector.title(forDocPath: ""), "Delivery Loop")
     }
 }

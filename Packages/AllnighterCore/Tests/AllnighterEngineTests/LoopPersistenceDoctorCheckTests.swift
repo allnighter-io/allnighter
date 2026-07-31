@@ -2,12 +2,12 @@ import XCTest
 @testable import AllnighterEngine
 import AllnighterCore
 
-final class RelayPersistenceDoctorCheckTests: XCTestCase {
+final class LoopPersistenceDoctorCheckTests: XCTestCase {
     func testDoctorCheckOkWhenAllRelaysDecode() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("relay-doctor-\(UUID().uuidString)", isDirectory: true)
-        let store = RelayStateStore(rootDirectory: root)
-        let state = RelayState(
+        let store = LoopStateStore(rootDirectory: root)
+        let state = LoopState(
             id: "relay_ok",
             projectRoot: "/tmp/repo",
             docPath: "docs/spec.md",
@@ -18,7 +18,7 @@ final class RelayPersistenceDoctorCheckTests: XCTestCase {
         )
         _ = try store.save(state)
 
-        let check = RelayPersistenceDoctorCheck.doctorCheck(relaysRoot: root)
+        let check = LoopPersistenceDoctorCheck.doctorCheck(loopsRoot: root)
         XCTAssertEqual(check.name, "relayPersistence")
         XCTAssertEqual(check.status, .ok)
     }
@@ -43,7 +43,7 @@ final class RelayPersistenceDoctorCheckTests: XCTestCase {
         """
         try json.write(to: directory.appendingPathComponent("relay.json"), atomically: true, encoding: .utf8)
 
-        let check = RelayPersistenceDoctorCheck.doctorCheck(relaysRoot: root)
+        let check = LoopPersistenceDoctorCheck.doctorCheck(loopsRoot: root)
         XCTAssertEqual(check.status, .critical)
         XCTAssertEqual(check.name, "relayPersistence")
         XCTAssertTrue(check.detail.contains("relay_bad"))

@@ -5,9 +5,9 @@ import AllnighterEngine
 /// Shared PM Relay dispatch for CLI + MCP (same engine path, same JSON). Mirrors the
 /// old `PairProgrammingDispatch` shape (docs/phases/PM_Relay.md §6 R-S05/R-S06) —
 /// that type was deleted at R-S09; this is now the only such dispatch enum.
-enum RelayDispatch {
-    static func makeCoordinator(runtime: ToolRuntime) -> RelayCoordinator {
-        RelayCoordinator(
+enum LoopDispatch {
+    static func makeCoordinator(runtime: ToolRuntime) -> LoopCoordinator {
+        LoopCoordinator(
             runService: RunService(
                 models: runtime.models,
                 registry: runtime.registry,
@@ -18,11 +18,11 @@ enum RelayDispatch {
             // into the inbox — default `ThreadStore()`/`RunStore()` roots, same as
             // `RunService`'s own default `RunStore()`, so the projector reads back the
             // exact runs this coordinator just dispatched.
-            threadProjector: RelayThreadProjector()
+            threadProjector: LoopThreadProjector()
         )
     }
 
-    static func progressJSON(_ event: RelayCoordinator.RelayEvent) -> RelayProgressJSON {
+    static func progressJSON(_ event: LoopCoordinator.RelayEvent) -> RelayProgressJSON {
         switch event {
         case .roundStarted(let round):
             return RelayProgressJSON(contractVersion: ContractRegistry.contractVersion, event: "roundStarted", round: round)
@@ -47,11 +47,11 @@ enum RelayDispatch {
     /// but wrong for a per-event stream; this mirrors the house NDJSON convention
     /// (`NDJSONStreamProjector.encodeLine`'s plain `JSONEncoder` with only
     /// `.sortedKeys`, no `.prettyPrinted`) rather than inventing a second one.
-    static func progressJSONLine(_ event: RelayCoordinator.RelayEvent) -> String {
+    static func progressJSONLine(_ event: LoopCoordinator.RelayEvent) -> String {
         AllnighterCLI.jsonLine(progressJSON(event))
     }
 
-    static func humanProgressLine(_ event: RelayCoordinator.RelayEvent) -> String {
+    static func humanProgressLine(_ event: LoopCoordinator.RelayEvent) -> String {
         switch event {
         case .roundStarted(let round):
             return "round \(round) starting…"
@@ -70,7 +70,7 @@ enum RelayDispatch {
         }
     }
 
-    static func humanRelaySummary(_ json: RelayJSON) -> String {
+    static func humanLoopSummary(_ json: LoopJSON) -> String {
         var lines = ["relay \(json.relayId): \(json.status) (\(json.rounds) round\(json.rounds == 1 ? "" : "s"))"]
         if let verdict = json.verdict { lines.append("last verdict: \(verdict)") }
         if let note = json.note { lines.append(note) }
@@ -78,7 +78,7 @@ enum RelayDispatch {
         return lines.joined(separator: "\n")
     }
 
-    static func humanRoundLog(_ json: RelayJSON) -> String {
+    static func humanRoundLog(_ json: LoopJSON) -> String {
         json.roundLog.map { round in
             var parts = ["round \(round.round)"]
             if let verdict = round.verdict { parts.append(verdict) }

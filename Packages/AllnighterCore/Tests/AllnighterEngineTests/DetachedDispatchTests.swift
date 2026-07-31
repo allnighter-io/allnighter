@@ -228,12 +228,12 @@ final class DetachedDispatchTests: XCTestCase {
 
     // MARK: - Structural: exactly one "resolve binary, build Process" implementation
 
-    /// `PilotCLI.swift` and `RelayCLI.swift` must route detached spawn through
+    /// `PilotCLI.swift` and `LoopEngineCLI.swift` must route detached spawn through
     /// `DetachedDispatch` — neither should construct its own `Process()` for
     /// this purpose.
-    func testPilotAndRelayCLIDoNotConstructProcessDirectly() throws {
+    func testPilotAndLoopEngineCLIDoNotConstructProcessDirectly() throws {
         let cliDir = sourcesRoot().appendingPathComponent("AllnighterCLI")
-        for name in ["PilotCLI.swift", "RelayCLI.swift"] {
+        for name in ["PilotCLI.swift", "LoopEngineCLI.swift"] {
             let url = cliDir.appendingPathComponent(name)
             let text = try String(contentsOf: url, encoding: .utf8)
             XCTAssertFalse(

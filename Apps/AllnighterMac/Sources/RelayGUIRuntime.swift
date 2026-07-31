@@ -3,12 +3,12 @@ import AllnighterCore
 import AllnighterEngine
 
 /// GUI-side PM Relay construction (R-S08, `docs/phases/PM_Relay.md` §6). Mirrors
-/// `RelayDispatch.makeCoordinator(runtime:)` (`AllnighterCLI`) field-for-field so a relay
+/// `LoopDispatch.makeCoordinator(runtime:)` (`AllnighterCLI`) field-for-field so a relay
 /// launched from the Mac app dispatches through the exact same `RunService` shape and the
-/// exact same `RelayThreadProjector` default (`ThreadStore()`/`RunStore()` roots) as the CLI
+/// exact same `LoopThreadProjector` default (`ThreadStore()`/`RunStore()` roots) as the CLI
 /// paths — CLI/GUI relays are indistinguishable once running.
 ///
-/// This can't literally CALL `RelayDispatch.makeCoordinator` — `AllnighterCLI` is an
+/// This can't literally CALL `LoopDispatch.makeCoordinator` — `AllnighterCLI` is an
 /// `executableTarget` (`Packages/AllnighterCore/Package.swift`), not a library product, so
 /// the Mac app target cannot import it. Instead this sources `models`/`registry`/
 /// `invocations` the same way the Mac app already does everywhere else
@@ -18,9 +18,9 @@ import AllnighterEngine
 /// + cached `SetupStore` invocations): same registry/model catalog data on disk, same
 /// transform. `teams` and every other `RunService` parameter are left at their defaults,
 /// which are themselves `TeamCatalog.all` / house defaults — identical to what
-/// `RelayDispatch.makeCoordinator` passes explicitly.
+/// `LoopDispatch.makeCoordinator` passes explicitly.
 enum RelayGUIRuntime {
-    /// One relay id, matching `RelayCoordinator`'s own default `idFactory` format
+    /// One relay id, matching `LoopCoordinator`'s own default `idFactory` format
     /// (`"relay_\(UUID().uuidString.lowercased())"`) — callers that need to know the id
     /// BEFORE the coordinator's `run()` returns (so the GUI can select the thread the
     /// moment it exists) generate it here and hand it back to `makeCoordinator(idFactory:)`.
@@ -28,17 +28,17 @@ enum RelayGUIRuntime {
         "relay_\(UUID().uuidString.lowercased())"
     }
 
-    /// Builds a `RelayCoordinator` construction-identical to `RelayDispatch.makeCoordinator`.
+    /// Builds a `LoopCoordinator` construction-identical to `LoopDispatch.makeCoordinator`.
     /// `idFactory` defaults to a fresh `newRelayId()` per call (matching
-    /// `RelayCoordinator.init`'s own default) but callers starting a NEW relay from the GUI
+    /// `LoopCoordinator.init`'s own default) but callers starting a NEW relay from the GUI
     /// should pass a fixed closure returning an id they generated up front (see
     /// `RelayLaunchViewModel.start`).
     static func makeCoordinator(
         idFactory: @escaping @Sendable () -> String = { RelayGUIRuntime.newRelayId() }
-    ) -> RelayCoordinator {
+    ) -> LoopCoordinator {
         let configuration = AppConfig.loadConfiguration()
         let invocations = AppSetupModel.invocations(from: SetupStore().load().records)
-        return RelayCoordinator(
+        return LoopCoordinator(
             runService: RunService(
                 models: configuration.models,
                 registry: configuration.registry,
@@ -46,23 +46,23 @@ enum RelayGUIRuntime {
                 invocations: invocations
             ),
             // R-S07: real relays always project into the inbox — default `ThreadStore()`/
-            // `RunStore()` roots, exactly like `RelayDispatch.makeCoordinator`.
-            threadProjector: RelayThreadProjector(),
+            // `RunStore()` roots, exactly like `LoopDispatch.makeCoordinator`.
+            threadProjector: LoopThreadProjector(),
             idFactory: idFactory
         )
     }
 
     /// Resolves a persisted relay's `projectRoot` back to a `Project.id`, mirroring
     /// `AllnighterCLI.resolveProject`'s normalized-root match (that function isn't visible
-    /// to the Mac app for the same module-boundary reason as `RelayDispatch` above). `nil`
-    /// degrades gracefully — `RelayCoordinator.resume` only needs `projectId` to stamp the
-    /// `RunRequest`; every other resume field re-derives from the persisted `RelayState`.
+    /// to the Mac app for the same module-boundary reason as `LoopDispatch` above). `nil`
+    /// degrades gracefully — `LoopCoordinator.resume` only needs `projectId` to stamp the
+    /// `RunRequest`; every other resume field re-derives from the persisted `LoopState`.
     static func resolveProjectId(forRoot root: String, store: ProjectStore) -> String? {
         let key = RootNormalization.normalize(root).key
         return (try? store.activeProjects())?.first { $0.normalizedRootPath == key }?.id
     }
 
-    /// `--until HH:MM` parsing, ported from `RelayDispatch.parseUntil` (same module-boundary
+    /// `--until HH:MM` parsing, ported from `LoopDispatch.parseUntil` (same module-boundary
     /// reason — not visible to the Mac app). Next occurrence of that local clock time (today
     /// if still ahead, else tomorrow); `nil`/unparseable input means no deadline.
     static func parseUntil(_ raw: String?) -> Date? {

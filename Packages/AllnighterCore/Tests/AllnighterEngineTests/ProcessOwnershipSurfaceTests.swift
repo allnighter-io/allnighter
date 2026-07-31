@@ -19,7 +19,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
     private func tempTree() throws -> (
         support: URL,
         runs: RunStore,
-        relays: RelayStateStore,
+        relays: LoopStateStore,
         lanes: URL,
         surface: ProcessOwnershipSurface
     ) {
@@ -27,16 +27,16 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
             .appendingPathComponent("po-s05-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
         let runsRoot = support.appendingPathComponent("Runs", isDirectory: true)
-        let relaysRoot = support.appendingPathComponent("Relays", isDirectory: true)
+        let loopsRoot = support.appendingPathComponent("Loops", isDirectory: true)
         let lanesRoot = support.appendingPathComponent("Lanes", isDirectory: true)
         try FileManager.default.createDirectory(at: runsRoot, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: relaysRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: loopsRoot, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: lanesRoot, withIntermediateDirectories: true)
         let runs = RunStore(rootDirectory: runsRoot)
-        let relays = RelayStateStore(rootDirectory: relaysRoot)
+        let relays = LoopStateStore(rootDirectory: loopsRoot)
         let surface = ProcessOwnershipSurface(
             runStore: runs,
-            relayStore: relays,
+            loopStore: relays,
             lanesRoot: lanesRoot
         )
         return (support, runs, relays, lanesRoot, surface)
@@ -81,7 +81,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         try ProcessOwnership.writeOwnerIdentity(deadIdentity, in: deadDir)
 
         // Running relay with live turn owner.
-        var relay = RelayState(
+        var relay = LoopState(
             id: "relay_live_1",
             projectRoot: "/tmp/relay-repo",
             docPath: "docs/spec.md",
@@ -184,7 +184,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         let liveIdentity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner))
         try ProcessOwnership.writeOwnerIdentity(liveIdentity, in: try runs.runDirectory(forRunId: "run-a"))
         try ProcessOwnership.writeOwnerIdentity(liveIdentity, in: try runs.runDirectory(forRunId: "run-b"))
-        var relay = RelayState(
+        var relay = LoopState(
             id: "relay_b_1", projectRoot: "/tmp/repo-b", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
@@ -228,7 +228,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
             try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner)), in: liveDir
         )
 
-        var stoppedRelay = RelayState(
+        var stoppedRelay = LoopState(
             id: "relay_stopped", projectRoot: "/tmp/r", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .stopped, createdAt: Date()
         )
@@ -253,7 +253,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         run.lastActivityKind = .message
         try runs.save(run, models: [])
 
-        var relay = RelayState(
+        var relay = LoopState(
             id: "relay_stream", projectRoot: "/tmp/r", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
@@ -279,7 +279,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         let (support, _, relays, _, surface) = try tempTree()
         defer { try? FileManager.default.removeItem(at: support) }
 
-        var relay = RelayState(
+        var relay = LoopState(
             id: "relay_orphan", projectRoot: "/tmp/r", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
@@ -289,11 +289,11 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         try Data("999999".utf8).write(to: relayDir.appendingPathComponent("owner.pid"), options: .atomic)
 
         let row = try XCTUnwrap(surface.list(includeHistory: true).processes.first { $0.id == "relay_orphan" })
-        XCTAssertEqual(row.status, RelayState.Status.stopped.rawValue)
+        XCTAssertEqual(row.status, LoopState.Status.stopped.rawValue)
         XCTAssertFalse(row.identityAlive)
         let stored = try XCTUnwrap(relays.load(id: "relay_orphan"))
         XCTAssertEqual(stored.status, .stopped)
-        XCTAssertEqual(stored.stoppedReason, RelayState.orphanReconciledReason)
+        XCTAssertEqual(stored.stoppedReason, LoopState.orphanReconciledReason)
     }
 
     func testKillAllScopedKillsOnlyCallerProject() throws {
@@ -504,7 +504,7 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         let (support, _, relays, _, surface) = try tempTree()
         defer { try? FileManager.default.removeItem(at: support) }
 
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_kill_1",
             projectRoot: "/tmp/r",
             docPath: "d.md",

@@ -20,7 +20,7 @@ public struct PMTurnStatusProjection: Sendable, Equatable {
 
     /// Relay boundaries are exactly its park and terminal states, never merely
     /// "anything not running" — new lifecycle states must opt in deliberately.
-    public static func isRelayPMBoundary(_ status: RelayState.Status) -> Bool {
+    public static func isRelayPMBoundary(_ status: LoopState.Status) -> Bool {
         switch status {
         case .awaitingPM, .escalated, .stopped, .done:
             true

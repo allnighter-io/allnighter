@@ -8,8 +8,8 @@ enum ThreadRailComponents {
 
     struct UnreadLight: View {
         let thread: WorkThread
-        /// `RelayState.status` from the store when this row is a relay; nil otherwise.
-        var relayStatus: RelayState.Status? = nil
+        /// `LoopState.status` from the store when this row is a relay; nil otherwise.
+        var relayStatus: LoopState.Status? = nil
 
         var body: some View {
             let attention = ThreadsPresenter.railAttention(thread, relayStatus: relayStatus)

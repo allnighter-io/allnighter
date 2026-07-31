@@ -549,7 +549,7 @@ public extension ContractRegistry {
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. Omitted → resolved from the current working directory."),
                 FlagSpec("dry-run", summary: "Resolve the brief/spec/both seats/project and report readiness; exit 0, create nothing, spend nothing."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `loop start` verb in a detached child; return only after the child durably claims delivery."),
-                FlagSpec("json", summary: "Emit structured JSON (LoopStartDryRunJSON with --dry-run; RelayJSON otherwise)."),
+                FlagSpec("json", summary: "Emit structured JSON (LoopStartDryRunJSON with --dry-run; LoopJSON otherwise)."),
             ],
             outputSchema: .relayJSON,
             spendsQuota: true,
@@ -570,7 +570,7 @@ public extension ContractRegistry {
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             mutuallyExclusiveFlags: [["message", "message-file"]],
             flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
@@ -582,7 +582,7 @@ public extension ContractRegistry {
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("wait-for", takesValue: true, valueType: "string", summary: "Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout."),
                 FlagSpec("timeout", takesValue: true, valueType: "number", summary: "Non-negative wait limit in seconds; required with --wait-for."),
-                FlagSpec("json", summary: "Emit RelayJSON."),
+                FlagSpec("json", summary: "Emit LoopJSON."),
             ],
             outputSchema: .relayJSON
         ),
@@ -596,7 +596,7 @@ public extension ContractRegistry {
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON
@@ -611,7 +611,7 @@ public extension ContractRegistry {
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
-                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
+                FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON
@@ -620,7 +620,7 @@ public extension ContractRegistry {
             "pair relay stop", summary: "Retired — use `alln loop stop <loop-id>` instead. Founder stop of a Loop: identity-checked teardown, durable stopped status with reason \"founder stopped\", and a PM Turn on transition. Idempotent on already done/stopped.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("json", summary: "Emit RelayJSON (status=stopped, stoppedReason=\"founder stopped\" on transition)."),
+                FlagSpec("json", summary: "Emit LoopJSON (status=stopped, stoppedReason=\"founder stopped\" on transition)."),
             ],
             outputSchema: .relayJSON
         ),
@@ -637,11 +637,11 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot handoff", summary: "Retired — use `alln loop step <loop-id>` instead. Submits this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.", milestone: .m1,
+            "pair pilot handoff", summary: "Retired — use `alln loop step <loop-id>` instead. Submits this round's review (LoopVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the full submission markdown from a file (verdict tail included; omit to read stdin)."),
-                FlagSpec("verdict", takesValue: true, valueType: "verdict", summary: "Required with --handover-file/--handover-stdin; synthesizes the RelayVerdict tail internally."),
+                FlagSpec("verdict", takesValue: true, valueType: "verdict", summary: "Required with --handover-file/--handover-stdin; synthesizes the LoopVerdict tail internally."),
                 FlagSpec("handover-file", takesValue: true, valueType: "path", summary: "Raw order markdown for the dev seat (mutually exclusive with --file)."),
                 FlagSpec("handover-stdin", summary: "Read the handover markdown from stdin (mutually exclusive with --file)."),
                 FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional closing note for done/escalate verdicts."),
@@ -677,7 +677,7 @@ public extension ContractRegistry {
             "pair pilot adopt", summary: "Retired — use `alln loop pm <loop-id> caller` instead. Hands a parked spawned loop's PM seat to the caller session (status → awaitingPM). No dispatch.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
-                FlagSpec("json", summary: "Emit RelayJSON."),
+                FlagSpec("json", summary: "Emit LoopJSON."),
             ],
             outputSchema: .relayJSON
         ),
@@ -1205,7 +1205,7 @@ public extension ContractRegistry {
         ErrorSpec("RELAY_STOP_FAILED", ruleId: "relay.stop.failed", agentAction: "Inspect with `alln ps --json`; retry `alln loop stop <id> --json`. Do not invent resume while live trees remain.", requiresManual: true, retryable: true, explain: "Founder stop could not honestly settle: a signalled owner or turn tree is still identity-alive. Status is left non-terminal rather than stamping stopped over known-live work."),
         ErrorSpec("RUN_ID_IN_USE", ruleId: "run.id.in_use", agentAction: "Attach with `alln run resume <id> --json`, or omit an explicit id.", requiresManual: true, retryable: false, explain: "a run already exists with this id"),
         ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`loop step` was called against a loop that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a caller-held loop's normal between-rounds state."),
-        ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The PM's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "A `loop step` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits."),
+        ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "A `loop step` submission didn't end with a parseable LoopVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits."),
         ErrorSpec("OWNERSHIP_NOT_FOUND", ruleId: "ownership.not_found", agentAction: "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.", requiresManual: false, retryable: false, explain: "No owned process tree matches the given id in durable state (run dirs, relay dirs, lane holders)."),
         ErrorSpec("OWNERSHIP_ALREADY_TERMINAL", ruleId: "ownership.already_terminal", agentAction: "No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`.", requiresManual: false, retryable: false, explain: "`alln kill` refused because the named work is already terminal — kill never clobbers an existing terminal endReason."),
         ErrorSpec("OWNERSHIP_IDENTITY_MISMATCH", ruleId: "ownership.identity.mismatch", agentAction: "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.", requiresManual: true, retryable: false, explain: "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process."),

@@ -7,11 +7,11 @@ import Crypto
 #endif
 
 /// RSC-S01 (`docs/archive/phases/Round_Survives_The_Caller.md`): cross-process mutual exclusion
-/// for `RelayCoordinator.resume`/`.adopt`'s load → check-status → flip-`.running` →
+/// for `LoopCoordinator.resume`/`.adopt`'s load → check-status → flip-`.running` →
 /// persist window. Without this, two separate OS processes — two `alln` CLI
 /// invocations, or a CLI racing the Mac app (`RelayGUIRuntime.makeCoordinator` builds a
 /// coordinator field-for-field identical to the CLI's) — can both load the same
-/// pre-mutation `RelayState`, both pass the eligibility check, and both dispatch a dev
+/// pre-mutation `LoopState`, both pass the eligibility check, and both dispatch a dev
 /// turn against the same relay id. Actor isolation would not fix this: the racing
 /// parties are separate processes, not separate tasks in one process.
 ///
@@ -19,25 +19,25 @@ import Crypto
 /// `flock(2)` released automatically by the kernel when the holding process dies, so a
 /// crashed lock-holder can never wedge a relay. This lock covers ONLY the
 /// read-check-write window described above; liveness for the (possibly long) round
-/// loop that follows remains owned by `owner.pid` + `RelayCoordinator.reconcileOrphan`,
+/// loop that follows remains owned by `owner.pid` + `LoopCoordinator.reconcileOrphan`,
 /// unchanged — this type does not duplicate that mechanism.
-public enum RelayDispatchLock {
+public enum LoopDispatchLock {
     /// One lock file per relay id, under a `.locks` sibling of the relay state
-    /// directory. `relaysRoot` defaults to production (`AllnighterPaths.relays`), but
-    /// callers pass `RelayStateStore.rootDirectory` so a test-injected store root gets
+    /// directory. `loopsRoot` defaults to production (`AllnighterPaths.loops`), but
+    /// callers pass `LoopStateStore.rootDirectory` so a test-injected store root gets
     /// an isolated, collision-free lock path for free — the same store override
-    /// already used to sandbox `RelayCoordinatorTests`/`RelayAdoptTests`.
-    public static func lockURL(relayId: String, relaysRoot: URL = AllnighterPaths.relays) -> URL {
-        relaysRoot
+    /// already used to sandbox `LoopCoordinatorTests`/`RelayAdoptTests`.
+    public static func lockURL(loopId: String, loopsRoot: URL = AllnighterPaths.loops) -> URL {
+        loopsRoot
             .appendingPathComponent(".locks", isDirectory: true)
-            .appendingPathComponent("\(relayId).dispatch.lock")
+            .appendingPathComponent("\(loopId).dispatch.lock")
     }
 
     /// Non-blocking try. `nil` means another process currently holds the dispatch lock
-    /// for this relay id — the caller (`RelayCoordinator.resume`/`.adopt`) maps that to
+    /// for this relay id — the caller (`LoopCoordinator.resume`/`.adopt`) maps that to
     /// `.roundInFlight`, surfaced at the CLI layer as the existing `RELAY_ROUND_IN_FLIGHT`.
-    public static func tryAcquire(relayId: String, relaysRoot: URL = AllnighterPaths.relays) -> ThreadFlockLock.Handle? {
-        let url = lockURL(relayId: relayId, relaysRoot: relaysRoot)
+    public static func tryAcquire(loopId: String, loopsRoot: URL = AllnighterPaths.loops) -> ThreadFlockLock.Handle? {
+        let url = lockURL(loopId: loopId, loopsRoot: loopsRoot)
         do {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(), withIntermediateDirectories: true
@@ -77,10 +77,10 @@ public enum RelayDispatchLock {
         return "brief:" + digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    /// `RelayCoordinator.run`'s duplicate-scan → persist window has no relay id to key a
+    /// `LoopCoordinator.run`'s duplicate-scan → persist window has no relay id to key a
     /// lock on until AFTER that window (the id is minted inside it) — so this lock is
     /// keyed on the START key instead: `sha256(RootNormalization.normalize(root).key +
-    /// "|" + identityKey(docPath, brief))`. A different lock FILE than `lockURL(relayId:)`
+    /// "|" + identityKey(docPath, brief))`. A different lock FILE than `lockURL(loopId:)`
     /// above (own `.locks` filename), so a start racing a resume/adopt on some unrelated
     /// relay id never contends with either. `brief` defaults to "" — every caller with a
     /// real `docPath` (the only case before LVC-S02b) never needs it.
@@ -91,20 +91,20 @@ public enum RelayDispatchLock {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    public static func startLockURL(startKey: String, relaysRoot: URL = AllnighterPaths.relays) -> URL {
-        relaysRoot
+    public static func startLockURL(startKey: String, loopsRoot: URL = AllnighterPaths.loops) -> URL {
+        loopsRoot
             .appendingPathComponent(".locks", isDirectory: true)
             .appendingPathComponent("start-\(startKey).start.lock")
     }
 
     /// Blocking exclusive acquire (unlike `tryAcquire` above): the critical section this
-    /// guards is a quick scan of `RelayStateStore.list()` plus one `save` — not a
+    /// guards is a quick scan of `LoopStateStore.list()` plus one `save` — not a
     /// long-lived round loop — so a brief wait for a concurrent start on the SAME
     /// root+doc to clear its identical window is correct, not a hang risk. Still a real
     /// `flock(2)`, released by the kernel if the holder dies, so a crashed starter can
     /// never wedge a later start.
-    public static func acquireStart(startKey: String, relaysRoot: URL = AllnighterPaths.relays) -> ThreadFlockLock.Handle? {
-        let url = startLockURL(startKey: startKey, relaysRoot: relaysRoot)
+    public static func acquireStart(startKey: String, loopsRoot: URL = AllnighterPaths.loops) -> ThreadFlockLock.Handle? {
+        let url = startLockURL(startKey: startKey, loopsRoot: loopsRoot)
         do {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(), withIntermediateDirectories: true

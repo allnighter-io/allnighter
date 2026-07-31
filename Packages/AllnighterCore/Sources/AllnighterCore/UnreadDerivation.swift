@@ -27,7 +27,7 @@ public struct ThreadReadCursor: Codable, Sendable, Equatable {
 /// cursor. One canonical algorithm — presenters format and sort only.
 ///
 /// ATL-S05: rail attention colour for relay threads is gated by
-/// `RelayState.status` (same truth owner as `RelayStatusLoader`), never by
+/// `LoopState.status` (same truth owner as `RelayStatusLoader`), never by
 /// turn prose or unread counts alone. Ordinary non-relay threads keep the
 /// pre-S05 unread → amber rule.
 public enum UnreadDerivation {
@@ -65,18 +65,18 @@ public enum UnreadDerivation {
     }
 
     /// Whether a loop status is genuinely waiting on the human (amber "needs you").
-    public static func isLoopNeedingYou(_ status: RelayState.Status) -> Bool {
+    public static func isLoopNeedingYou(_ status: LoopState.Status) -> Bool {
         switch status {
         case .escalated, .awaitingPM: return true
         case .running, .done, .stopped: return false
         }
     }
 
-    /// Rail attention colour derivation. Pass `relayStatus` from `RelayState.status`
+    /// Rail attention colour derivation. Pass `relayStatus` from `LoopState.status`
     /// (store-backed) when the thread is a relay; omit/`nil` for ordinary threads.
     public static func railAttention(
         thread: WorkThread,
-        relayStatus: RelayState.Status? = nil
+        relayStatus: LoopState.Status? = nil
     ) -> RailAttention {
         if let relayStatus {
             return isLoopNeedingYou(relayStatus) ? .needsYou : .none
@@ -89,7 +89,7 @@ public enum UnreadDerivation {
     /// Non-relay: today's failed/blocking-unread rule.
     public static func unreadNeedsAttention(
         thread: WorkThread,
-        relayStatus: RelayState.Status? = nil
+        relayStatus: LoopState.Status? = nil
     ) -> Bool {
         if let relayStatus {
             return isLoopNeedingYou(relayStatus)
@@ -111,7 +111,7 @@ public enum UnreadDerivation {
         }
     }
 
-    public static func loopsNeedingYouCount(statuses: [RelayState.Status]) -> Int {
+    public static func loopsNeedingYouCount(statuses: [LoopState.Status]) -> Int {
         statuses.reduce(0) { $0 + (isLoopNeedingYou($1) ? 1 : 0) }
     }
 
@@ -205,7 +205,7 @@ public enum UnreadDerivation {
 public extension WorkThread {
     var hasUnread: Bool { UnreadDerivation.hasUnread(thread: self) }
     /// Non-relay path (no store lookup). Callers that know a relay's
-    /// `RelayState.status` must use `UnreadDerivation.unreadNeedsAttention(thread:relayStatus:)`.
+    /// `LoopState.status` must use `UnreadDerivation.unreadNeedsAttention(thread:relayStatus:)`.
     var unreadNeedsAttention: Bool { UnreadDerivation.unreadNeedsAttention(thread: self) }
     var firstUnreadTurnId: String? { UnreadDerivation.firstUnreadTurnId(thread: self) }
     var latestUnreadTurnId: String? { UnreadDerivation.latestUnreadTurnId(thread: self) }

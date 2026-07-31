@@ -31,14 +31,14 @@ final class JSONStreamLawTests: XCTestCase {
     }
 
     func testRelayStreamingProgressAndTerminalLinesAllParse() throws {
-        let events: [RelayCoordinator.RelayEvent] = [
+        let events: [LoopCoordinator.RelayEvent] = [
             .roundStarted(round: 1),
             .pmTurnFinished(round: 1, verdict: .continueRelay),
             .devTurnFinished(round: 1),
         ]
-        var lines = events.map { RelayDispatch.progressJSONLine($0) }
-        let terminal = RelayJSON.project(
-            RelayState(
+        var lines = events.map { LoopDispatch.progressJSONLine($0) }
+        let terminal = LoopJSON.project(
+            LoopState(
                 id: "relay_stream", projectRoot: "/repo", docPath: "docs/spec.md",
                 pmModelId: "model_pm", devModelId: "model_dev", status: .awaitingPM,
                 createdAt: Date()
@@ -48,17 +48,17 @@ final class JSONStreamLawTests: XCTestCase {
         lines.append(AllnighterCLI.jsonLine(terminal))
         let objs = try parseLines(lines)
         XCTAssertEqual(objs.count, 4)
-        XCTAssertEqual(objs.last?["relayId"] as? String, "relay_stream")
+        XCTAssertEqual(objs.last?["loopId"] as? String, "relay_stream")
         XCTAssertEqual(objs.last?["status"] as? String, "awaitingPM")
     }
 
     func testPilotHandoffStreamingLinesAllParse() throws {
         var lines: [String] = [
-            RelayDispatch.progressJSONLine(.roundStarted(round: 1)),
-            RelayDispatch.progressJSONLine(.devTurnFinished(round: 1)),
+            LoopDispatch.progressJSONLine(.roundStarted(round: 1)),
+            LoopDispatch.progressJSONLine(.devTurnFinished(round: 1)),
         ]
-        let relayJSON = RelayJSON.project(
-            RelayState(
+        let relayJSON = LoopJSON.project(
+            LoopState(
                 id: "relay_pilot_stream", projectRoot: "/repo", docPath: "docs/spec.md",
                 pmModelId: "model_pm", devModelId: "model_dev", status: .awaitingPM, createdAt: Date()
             ),
@@ -72,8 +72,8 @@ final class JSONStreamLawTests: XCTestCase {
     }
 
     func testPilotWatchEnvelopeIsSingleLineJSON() throws {
-        let relayJSON = RelayJSON.project(
-            RelayState(
+        let relayJSON = LoopJSON.project(
+            LoopState(
                 id: "relay_watch", projectRoot: "/repo", docPath: "docs/spec.md",
                 pmModelId: "model_pm", devModelId: "model_dev", status: .awaitingPM, createdAt: Date()
             ),

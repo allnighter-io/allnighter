@@ -71,13 +71,13 @@ public struct RunNotificationSnapshot: Sendable, Equatable {
 
 /// Relay stream stall snapshot for URN (CLP-S08).
 public struct RelayStreamNotificationSnapshot: Sendable, Equatable {
-    public let relayId: String
+    public let loopId: String
     public let threadTitle: String
     public let devModelId: String
     public let streamSilenceWarning: Bool
 
-    public init(relayId: String, threadTitle: String, devModelId: String, streamSilenceWarning: Bool) {
-        self.relayId = relayId
+    public init(loopId: String, threadTitle: String, devModelId: String, streamSilenceWarning: Bool) {
+        self.loopId = loopId
         self.threadTitle = threadTitle
         self.devModelId = devModelId
         self.streamSilenceWarning = streamSilenceWarning
@@ -213,7 +213,7 @@ public enum NotificationCandidateDetection {
 
     /// CLP-S08: emit when a running relay's dev stream crosses the silence warning threshold.
     public static func relayStreamSnapshots(
-        relays: [RelayState],
+        relays: [LoopState],
         runStore: RunStoreReading,
         threadTitles: [String: String],
         now: Date
@@ -224,7 +224,7 @@ public enum NotificationCandidateDetection {
             let warning = StreamLiveness.streamSilenceWarning(lastActivityAt: last, now: now)
             let title = threadTitles[relay.id] ?? relay.docPathOrBrief
             return (relay.id, RelayStreamNotificationSnapshot(
-                relayId: relay.id,
+                loopId: relay.id,
                 threadTitle: title,
                 devModelId: relay.devModelId,
                 streamSilenceWarning: warning
@@ -239,11 +239,11 @@ public enum NotificationCandidateDetection {
     ) -> [NotificationCandidate] {
         guard let before else { return [] }
         var out: [NotificationCandidate] = []
-        for (relayId, snap) in after where snap.streamSilenceWarning {
-            if before[relayId]?.streamSilenceWarning == true { continue }
+        for (loopId, snap) in after where snap.streamSilenceWarning {
+            if before[loopId]?.streamSilenceWarning == true { continue }
             out.append(NotificationCandidate(
-                threadId: relayId,
-                turnId: relayId,
+                threadId: loopId,
+                turnId: loopId,
                 event: .relayStreamStalled,
                 threadTitle: snap.threadTitle,
                 modelId: snap.devModelId,
@@ -333,7 +333,7 @@ public enum NotificationCandidateDetection {
         case .teamRun, .designBoard, .reviewBoard, .mutatingRun:
             return .teamRunCompleted
         case .systemEvent:
-            // `.relayStopped` is always created terminal (`RelayThreadProjector.syncStopped`
+            // `.relayStopped` is always created terminal (`LoopThreadProjector.syncStopped`
             // appends it `.done` directly, never `.running`), so it always lands here rather
             // than through `isOpenBlockingSystem`/`blockingSystemEvent`. Every other terminal
             // system event (a resolved manual-paste/sign-in/relay-escalation note) already got

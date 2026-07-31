@@ -474,7 +474,7 @@ final class ProcessOwnershipScopedWriteLanesTests: XCTestCase {
             writeScope: scope,
             scopeViolation: violation
         )
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_scope_violation",
             projectRoot: repo.path,
             docPath: "docs/spec.md",
@@ -484,7 +484,7 @@ final class ProcessOwnershipScopedWriteLanesTests: XCTestCase {
             rounds: [round],
             createdAt: Date()
         )
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let json = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         XCTAssertEqual(json.roundLog[0].endReason, "reported")
         XCTAssertEqual(json.roundLog[0].scopeViolation?.code, "WRITE_SCOPE_VIOLATION")
         XCTAssertEqual(json.roundLog[0].writeScope?.pathPrefixes, ["docs/"])

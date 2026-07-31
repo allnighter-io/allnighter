@@ -5,8 +5,8 @@ import AllnighterEngine
 
 /// R-S08 — resume-from-GUI (`docs/phases/PM_Relay.md` §4.1: "escalate is a first-class
 /// outcome"). When a relay's PM turn escalated (a real founder question), the thread shows
-/// an open `relay_escalated` system event (`RelayThreadProjector.syncEscalation`); this
-/// controller routes the founder's typed answer through `RelayCoordinator.resume` — same
+/// an open `relay_escalated` system event (`LoopThreadProjector.syncEscalation`); this
+/// controller routes the founder's typed answer through `LoopCoordinator.resume` — same
 /// construction as launch (`RelayGUIRuntime.makeCoordinator`), never a normal chat turn.
 ///
 /// There is no existing "answer this open thing inline" seam in the thread composer today
@@ -24,17 +24,17 @@ final class RelayResumeController {
     private(set) var resumingRelayIds: Set<String> = []
     private(set) var lastError: [String: String] = [:]
 
-    private let makeCoordinator: (@escaping @Sendable () -> String) -> RelayCoordinator
-    private let stateStore: RelayStateStore
+    private let makeCoordinator: (@escaping @Sendable () -> String) -> LoopCoordinator
+    private let stateStore: LoopStateStore
     private let projectStore: ProjectStore
     /// Injected clock for `canResume`'s idFactory placeholder — resume never mints a NEW
     /// relay id, but `RelayGUIRuntime.makeCoordinator` always wants one (unused on the
-    /// resume path; `RelayCoordinator.resume` looks the relay up by the id it's given).
+    /// resume path; `LoopCoordinator.resume` looks the relay up by the id it's given).
     private let idFactory: @Sendable () -> String
 
     init(
-        makeCoordinator: @escaping (@escaping @Sendable () -> String) -> RelayCoordinator = RelayGUIRuntime.makeCoordinator,
-        stateStore: RelayStateStore = RelayStateStore(),
+        makeCoordinator: @escaping (@escaping @Sendable () -> String) -> LoopCoordinator = RelayGUIRuntime.makeCoordinator,
+        stateStore: LoopStateStore = LoopStateStore(),
         projectStore: ProjectStore = ProjectStore(),
         idFactory: @escaping @Sendable () -> String = { RelayGUIRuntime.newRelayId() }
     ) {
@@ -44,39 +44,39 @@ final class RelayResumeController {
         self.idFactory = idFactory
     }
 
-    /// Whether `relayId` is currently eligible to resume — an escalated relay (a real
+    /// Whether `loopId` is currently eligible to resume — an escalated relay (a real
     /// founder question) or one reconciled-`.stopped` after its owner process died
-    /// mid-round (`RelayState.isResumable` covers the first; the owner-liveness check here
-    /// covers the second, mirroring `RelayCLI.parseResumeRequest`'s pre-check — the actual
-    /// reconciliation happens inside `RelayCoordinator.resume` itself).
-    func canResume(relayId: String) -> Bool {
-        guard let state = stateStore.load(id: relayId) else { return false }
+    /// mid-round (`LoopState.isResumable` covers the first; the owner-liveness check here
+    /// covers the second, mirroring `LoopEngineCLI.parseResumeRequest`'s pre-check — the actual
+    /// reconciliation happens inside `LoopCoordinator.resume` itself).
+    func canResume(loopId: String) -> Bool {
+        guard let state = stateStore.load(id: loopId) else { return false }
         if state.isResumable { return true }
-        return state.status == .running && stateStore.isOwnerDead(id: relayId)
+        return state.status == .running && stateStore.isOwnerDead(id: loopId)
     }
 
-    func isResuming(_ relayId: String) -> Bool { resumingRelayIds.contains(relayId) }
+    func isResuming(_ loopId: String) -> Bool { resumingRelayIds.contains(loopId) }
 
-    /// Sends the founder's answer through `RelayCoordinator.resume` — the SAME construction
+    /// Sends the founder's answer through `LoopCoordinator.resume` — the SAME construction
     /// path (`RelayGUIRuntime.makeCoordinator`) `RelayLaunchViewModel.start` uses, so a
     /// resumed relay is dispatched identically whether it was launched from the CLI
     /// or this app. Returns `false` for an empty answer or an ineligible relay (no dispatch
     /// attempted); `true` once the resume `Task` has been kicked off.
     @discardableResult
     func resume(
-        relayId: String, answer: String, maxRounds: Int = 20,
-        onEvent: (@Sendable (RelayCoordinator.RelayEvent) -> Void)? = nil
+        loopId: String, answer: String, maxRounds: Int = 20,
+        onEvent: (@Sendable (LoopCoordinator.RelayEvent) -> Void)? = nil
     ) -> Bool {
         let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, !isResuming(relayId), let prior = stateStore.load(id: relayId),
-              canResume(relayId: relayId) else { return false }
+        guard !trimmed.isEmpty, !isResuming(loopId), let prior = stateStore.load(id: loopId),
+              canResume(loopId: loopId) else { return false }
 
         let projectId = RelayGUIRuntime.resolveProjectId(forRoot: prior.projectRoot, store: projectStore)
         // Every OTHER config field (`projectRoot`/`docPath`/worker ids)
-        // re-derives from the persisted `RelayState` inside `RelayCoordinator.resume`
+        // re-derives from the persisted `LoopState` inside `LoopCoordinator.resume`
         // itself — only the ceilings are per-invocation (PM_Relay.md, `resume`'s own doc
-        // comment). This mirrors `RelayCLI.parseResumeRequest`.
-        let config = RelayCoordinator.Config(
+        // comment). This mirrors `LoopEngineCLI.parseResumeRequest`.
+        let config = LoopCoordinator.Config(
             projectRoot: prior.projectRoot,
             projectId: projectId,
             docPath: prior.docPath,
@@ -85,19 +85,19 @@ final class RelayResumeController {
             maxRounds: maxRounds
         )
 
-        resumingRelayIds.insert(relayId)
-        lastError[relayId] = nil
+        resumingRelayIds.insert(loopId)
+        lastError[loopId] = nil
         let coordinator = makeCoordinator(idFactory)
         Task { @MainActor [weak self] in
             let result = await coordinator.resume(
-                relayId: relayId, founderAnswer: trimmed, config: config
+                loopId: loopId, founderAnswer: trimmed, config: config
             ) { event in
                 Task { @MainActor in onEvent?(event) }
             }
             guard let self else { return }
-            self.resumingRelayIds.remove(relayId)
+            self.resumingRelayIds.remove(loopId)
             if case .failure(let refusal) = result {
-                self.lastError[relayId] = Self.resumeFailureMessage(refusal)
+                self.lastError[loopId] = Self.resumeFailureMessage(refusal)
             }
         }
         return true
@@ -107,7 +107,7 @@ final class RelayResumeController {
     /// refusal (another process is actively dispatching right now) is a different,
     /// true statement from "not resumable" (the durable status itself is wrong), and
     /// asserting the wrong one names an unobserved cause.
-    private static func resumeFailureMessage(_ refusal: RelayCoordinator.DispatchRefusal) -> String {
+    private static func resumeFailureMessage(_ refusal: LoopCoordinator.DispatchRefusal) -> String {
         switch refusal {
         case .relayNotFound:
             return "This relay no longer exists."
@@ -117,7 +117,7 @@ final class RelayResumeController {
             return "Another process is already dispatching a round for this relay — try again in a moment."
         case .alreadyActive:
             // Unreachable from `resume` — `.alreadyActive` is only ever produced by
-            // `RelayCoordinator.run`'s start-time duplicate guard (RSC-S02). Kept for
+            // `LoopCoordinator.run`'s start-time duplicate guard (RSC-S02). Kept for
             // `DispatchRefusal`'s exhaustive switch, not a real resume outcome.
             return "This relay is no longer resumable."
         case .journalUnavailable:

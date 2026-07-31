@@ -4,7 +4,7 @@ import AllnighterCore
 import AllnighterEngine
 
 /// ATL-S04 — founder Stop from Delivery Loop thread chrome. Routes through
-/// `RelayCoordinator.stop` (same settlement as `alln loop stop`), never
+/// `LoopCoordinator.stop` (same settlement as `alln loop stop`), never
 /// `ProcessOwnershipSurface.kill` or `alln kill`.
 @MainActor
 @Observable
@@ -12,13 +12,13 @@ final class RelayStopController {
     private(set) var stoppingRelayIds: Set<String> = []
     private(set) var lastError: [String: String] = [:]
 
-    private let makeCoordinator: (@escaping @Sendable () -> String) -> RelayCoordinator
-    private let stateStore: RelayStateStore
+    private let makeCoordinator: (@escaping @Sendable () -> String) -> LoopCoordinator
+    private let stateStore: LoopStateStore
     private let idFactory: @Sendable () -> String
 
     init(
-        makeCoordinator: @escaping (@escaping @Sendable () -> String) -> RelayCoordinator = RelayGUIRuntime.makeCoordinator,
-        stateStore: RelayStateStore = RelayStateStore(),
+        makeCoordinator: @escaping (@escaping @Sendable () -> String) -> LoopCoordinator = RelayGUIRuntime.makeCoordinator,
+        stateStore: LoopStateStore = LoopStateStore(),
         idFactory: @escaping @Sendable () -> String = { RelayGUIRuntime.newRelayId() }
     ) {
         self.makeCoordinator = makeCoordinator
@@ -26,12 +26,12 @@ final class RelayStopController {
         self.idFactory = idFactory
     }
 
-    func isStopping(_ relayId: String) -> Bool { stoppingRelayIds.contains(relayId) }
+    func isStopping(_ loopId: String) -> Bool { stoppingRelayIds.contains(loopId) }
 
     /// Stop is meaningful while the relay can still be abandoned — not after
     /// terminal `done`/`stopped` (idempotent CLI stop still exists; hide the button).
-    func canStop(relayId: String) -> Bool {
-        guard let state = stateStore.load(id: relayId) else { return false }
+    func canStop(loopId: String) -> Bool {
+        guard let state = stateStore.load(id: loopId) else { return false }
         switch state.status {
         case .running, .escalated, .awaitingPM:
             return true
@@ -41,22 +41,22 @@ final class RelayStopController {
     }
 
     @discardableResult
-    func stop(relayId: String) -> Bool {
-        guard canStop(relayId: relayId), !isStopping(relayId) else { return false }
-        stoppingRelayIds.insert(relayId)
-        lastError[relayId] = nil
-        defer { stoppingRelayIds.remove(relayId) }
+    func stop(loopId: String) -> Bool {
+        guard canStop(loopId: loopId), !isStopping(loopId) else { return false }
+        stoppingRelayIds.insert(loopId)
+        lastError[loopId] = nil
+        defer { stoppingRelayIds.remove(loopId) }
         let coordinator = makeCoordinator(idFactory)
-        switch coordinator.stop(relayId: relayId) {
+        switch coordinator.stop(loopId: loopId) {
         case .success:
             return true
         case .failure(let refusal):
-            lastError[relayId] = Self.stopFailureMessage(refusal)
+            lastError[loopId] = Self.stopFailureMessage(refusal)
             return false
         }
     }
 
-    private static func stopFailureMessage(_ refusal: RelayCoordinator.StopRefusal) -> String {
+    private static func stopFailureMessage(_ refusal: LoopCoordinator.StopRefusal) -> String {
         switch refusal {
         case .relayNotFound:
             return "This relay no longer exists."

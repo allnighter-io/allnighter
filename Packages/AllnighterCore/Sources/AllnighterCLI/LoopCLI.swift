@@ -5,13 +5,13 @@ import AllnighterEngine
 /// `alln loop` — the durable PM↔dev loop object (LVC v7 `docs/phases/Loop_Verb_Cutover.md`
 /// §2). LVC-S02a/S02b/S02c wired `start|list|status|stop|resume|wait`; this slice
 /// (LVC-S02d) adds the last two verbs, `step` and `pm`. `loop start` builds
-/// `RelayCoordinator.Config`/
-/// `PilotCLI.StartRequest` directly and dispatches into the existing `PilotCLI`/`RelayCLI`
+/// `LoopCoordinator.Config`/
+/// `PilotCLI.StartRequest` directly and dispatches into the existing `PilotCLI`/`LoopEngineCLI`
 /// coordinator entry points — `docPath` is `nil` when `--spec` is omitted (LVC-S02b: a brief
 /// with no doc still starts a real loop); `pair pilot start`/`pair relay` themselves keep
 /// hard-requiring `--doc`, unchanged. `status|stop|resume|wait` are chair-neutral: the
-/// underlying `RelayState` is one substrate for both `--pm caller` and spawned-PM loops
-/// (`RelayJSON.project`/`RelayCLI.runStatus` carry no pmMode branching), so a single
+/// underlying `LoopState` is one substrate for both `--pm caller` and spawned-PM loops
+/// (`LoopJSON.project`/`LoopEngineCLI.runStatus` carry no pmMode branching), so a single
 /// positional `<loop-id>` forwards straight into the existing `--relay <id>` entry points —
 /// no chair lookup needed before dispatch.
 enum LoopCLI {
@@ -22,11 +22,11 @@ enum LoopCLI {
         case "start": await runStart(rest, runtime: runtime)
         case "list": runList(rest)
         case "status":
-            RelayCLI.runStatus(loopArgs(rest, usageLine: "loop status <loop-id> [--wait-for parked|terminal --timeout <seconds>] [--json]"))
+            LoopEngineCLI.runStatus(loopArgs(rest, usageLine: "loop status <loop-id> [--wait-for parked|terminal --timeout <seconds>] [--json]"))
         case "stop":
-            RelayCLI.runStop(loopArgs(rest, usageLine: "loop stop <loop-id> [--json]"), runtime: runtime)
+            LoopEngineCLI.runStop(loopArgs(rest, usageLine: "loop stop <loop-id> [--json]"), runtime: runtime)
         case "resume":
-            await RelayCLI.runResume(loopArgs(rest, usageLine: "loop resume <loop-id> --answer <text> [--until HH:MM] [--max-rounds N] [--no-wait] [--json]"), runtime: runtime)
+            await LoopEngineCLI.runResume(loopArgs(rest, usageLine: "loop resume <loop-id> --answer <text> [--until HH:MM] [--max-rounds N] [--no-wait] [--json]"), runtime: runtime)
         case "wait":
             PilotCLI.runWatch(loopArgs(rest, usageLine: "loop wait <loop-id> [--max-wait <seconds>] [--json]"))
         case "step":
@@ -74,12 +74,14 @@ enum LoopCLI {
     static func runList(
         _ args: [String],
         projectStore: ProjectStore = ProjectStore(),
-        relayStateStore: RelayStateStore = RelayStateStore()
+        loopStateStore: LoopStateStore = LoopStateStore()
     ) {
         let opts = Options(args)
         let project = resolveProject(opts: opts, store: projectStore)
 
-        let entries = relayStateStore.list()
+        let legacyNotice = legacyLoopsPathNotice(loopsRoot: loopStateStore.rootDirectory)
+
+        let entries = loopStateStore.list()
             .filter { $0.projectRoot == project.normalizedRootPath }
             .map { state -> LoopListJSON.Entry in
                 LoopListJSON.Entry(
@@ -92,9 +94,24 @@ enum LoopCLI {
                 )
             }
 
-        let payload = LoopListJSON(projectId: project.id, projectRoot: project.normalizedRootPath, loops: entries)
+        let payload = LoopListJSON(
+            projectId: project.id,
+            projectRoot: project.normalizedRootPath,
+            loops: entries,
+            legacyStatePathNotice: legacyNotice
+        )
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(payload))
+        } else if let legacyNotice {
+            FileHandle.standardError.write(Data(legacyNotice.utf8))
+            FileHandle.standardError.write(Data("\n".utf8))
+            if entries.isEmpty {
+                print("no loops listed for \(project.normalizedRootPath) (see notice above)")
+            } else {
+                for entry in entries {
+                    print("\(entry.id)  \(entry.status)  pm=\(entry.pm) dev=\(entry.dev)  \(entry.briefOrSpec)")
+                }
+            }
         } else if entries.isEmpty {
             print("no loops for \(project.normalizedRootPath)")
         } else {
@@ -102,6 +119,18 @@ enum LoopCLI {
                 print("\(entry.id)  \(entry.status)  pm=\(entry.pm) dev=\(entry.dev)  \(entry.briefOrSpec)")
             }
         }
+    }
+
+    /// When `Loops/` does not exist but legacy `Relays/` still has state, fail loud —
+    /// never imply no loops ever existed.
+    private static func legacyLoopsPathNotice(loopsRoot: URL) -> String? {
+        let fm = FileManager.default
+        let legacy = AllnighterPaths.legacyRelaysDirectory
+        guard !fm.fileExists(atPath: loopsRoot.path),
+              fm.fileExists(atPath: legacy.path) else {
+            return nil
+        }
+        return "loop state moved from \(legacy.path) to \(loopsRoot.path) in LVC-S09 — existing loops are not migrated; finish or stop in-flight loops under Relays/ before upgrading, or move state manually"
     }
 
     /// Shared with `runStart` — `--project <id|name|path>` or resolved from cwd.
@@ -155,16 +184,16 @@ enum LoopCLI {
 
         // LVC-S02b: `--spec` is a shortcut, not the shape (LVC v7 §2) — a brief with no
         // doc dispatches a real loop. `Config`/`StartRequest` are built here directly
-        // (not via `RelayCLI.parseStartConfig`/`PilotCLI.parseStartConfig`, which keep
+        // (not via `LoopEngineCLI.parseStartConfig`/`PilotCLI.parseStartConfig`, which keep
         // hard-requiring `--doc` for the retired `pair relay`/`pilot start` verbs) so
         // `docPath` can be `nil` while `brief` always carries the work.
-        guard let maxRounds = RelayCLI.parseMaxRounds(opts.value("max-rounds")) else {
+        guard let maxRounds = LoopEngineCLI.parseMaxRounds(opts.value("max-rounds")) else {
             AllnighterCLI.fail(
                 code: "CLI_USAGE_ERROR",
                 message: "--max-rounds must be a positive integer, got \"\(opts.value("max-rounds") ?? "")\""
             )
         }
-        let untilParsed = RelayDispatch.parseUntilValidated(opts.value("until"))
+        let untilParsed = LoopDispatch.parseUntilValidated(opts.value("until"))
         if let bad = untilParsed.invalid {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: "--until could not be parsed: \"\(bad)\"")
         }
@@ -178,12 +207,12 @@ enum LoopCLI {
             // Pilot has no clock and no PM prompt of its own — the live session IS the
             // PM and already holds the brief in its own context, so nothing needs it
             // injected. `--until` is refused by `startPilot` itself (untilNotSupported).
-            let config = RelayCoordinator.Config(
+            let config = LoopCoordinator.Config(
                 projectRoot: project.normalizedRootPath,
                 projectId: project.id,
                 docPath: specPath,
                 brief: brief,
-                pmModelId: RelayState.callerPMModelId,
+                pmModelId: LoopState.callerPMModelId,
                 devModelId: seats.dev,
                 maxRounds: maxRounds,
                 until: untilParsed.value,
@@ -196,13 +225,13 @@ enum LoopCLI {
         case .agent(let pmId):
             let kickoffMessage: String?
             do {
-                kickoffMessage = try RelayCLI.parseKickoffMessage(opts) ?? brief
-            } catch let error as RelayCLI.RelayCLIError {
-                RelayCLI.fail(error)
+                kickoffMessage = try LoopEngineCLI.parseKickoffMessage(opts) ?? brief
+            } catch let error as LoopEngineCLI.LoopEngineCLIError {
+                LoopEngineCLI.fail(error)
             } catch {
                 AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
             }
-            let config = RelayCoordinator.Config(
+            let config = LoopCoordinator.Config(
                 projectRoot: project.normalizedRootPath,
                 projectId: project.id,
                 docPath: specPath,
@@ -214,13 +243,13 @@ enum LoopCLI {
                 devTurnIdleTimeoutSeconds: idleParsed.value,
                 kickoffMessage: kickoffMessage
             )
-            await RelayCLI.runRelay(config: config, opts: opts, runtime: runtime)
+            await LoopEngineCLI.runRelay(config: config, opts: opts, runtime: runtime)
         }
     }
 
     /// `--pm` omitted → Frontier tier default. `--pm caller` → the reserved occupant,
     /// never resolved as a model id. `--pm <id>` → honor-or-fail exact-id resolution,
-    /// same choke point `pair relay --pm-model` uses (`RelayCLI.swift:402-405`).
+    /// same choke point `pair relay --pm-model` uses (`LoopEngineCLI.swift:402-405`).
     /// `--dev` mirrors this against the Balanced tier.
     static func resolveSeats(opts: Options, models: [Model]) -> ResolvedSeats {
         let settings = DefaultModelSettingsPersistence().load()
@@ -325,14 +354,14 @@ enum LoopCLI {
     /// (LVC v7 §2, Law 3 — `docs/phases/Loop_Verb_Cutover.md` §3). `step` is
     /// chair-neutral BY DEFINITION: it is accepted only when the loop's durable
     /// `status == .awaitingPM`, checked on the status alone, never on `pmMode`/who
-    /// holds the chair. `awaitingPM` is documented Pilot-only (`RelayState.swift:195-202`)
-    /// — an agent-occupied loop dispatches its own decision inside `RelayCoordinator`
+    /// holds the chair. `awaitingPM` is documented Pilot-only (`LoopState.swift:195-202`)
+    /// — an agent-occupied loop dispatches its own decision inside `LoopCoordinator`
     /// and so is never observably `awaitingPM`; that is what makes this chair-neutral
     /// without ever consulting the occupant. Do NOT add a `pmMode`/occupant check here —
     /// that was v5's Law 3 violation (corrected in v6/v7).
     static func runStep(
         _ args: [String], runtime: ToolRuntime,
-        stateStore: RelayStateStore = RelayStateStore(),
+        stateStore: LoopStateStore = LoopStateStore(),
         projectStore: ProjectStore = ProjectStore()
     ) async {
         let opts = Options(args)
@@ -373,12 +402,12 @@ enum LoopCLI {
 
         let projectId = projectStore.resolveFresh(state.projectRoot)?.id
         let emitJSON = opts.flag("json")
-        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
-        let progressSink: RelayCoordinator.EventSink? = emitJSON ? { @Sendable event in
-            print(RelayDispatch.progressJSONLine(event))
+        let coordinator = LoopDispatch.makeCoordinator(runtime: runtime)
+        let progressSink: LoopCoordinator.EventSink? = emitJSON ? { @Sendable event in
+            print(LoopDispatch.progressJSONLine(event))
         } : nil
         let result = await coordinator.runExternalRound(
-            relayId: loopId, submission: submission, projectId: projectId, events: progressSink
+            loopId: loopId, submission: submission, projectId: projectId, events: progressSink
         )
         switch result {
         case .success(let payload):
@@ -399,7 +428,7 @@ enum LoopCLI {
 
     /// `alln loop pm <loop-id> <occupant>` (LVC v7 §2 "Both adopts collapse under one
     /// verb — but they are NOT symmetric"). Which transition applies is decided by
-    /// the CURRENT chair, not the requested occupant — `RelayCoordinator.adopt`/
+    /// the CURRENT chair, not the requested occupant — `LoopCoordinator.adopt`/
     /// `.adoptToPilot` already enforce each column's own precondition from the loaded
     /// state (chair == caller vs. chair == an agent), so this only routes to the
     /// matching entry point for the requested occupant; it never re-derives or
@@ -408,7 +437,7 @@ enum LoopCLI {
     /// | `occupant` | was | requires current chair | eligible | effect |
     /// | --- | --- | --- | --- | --- |
     /// | an agent id | `relay adopt` | `caller` | `awaitingPM`\|`escalated` | dispatches a round |
-    /// | `caller` | `pilot adopt` | an agent | `RelayState.isResumable` | static relabel, no dispatch |
+    /// | `caller` | `pilot adopt` | an agent | `LoopState.isResumable` | static relabel, no dispatch |
     static func runPm(_ args: [String], runtime: ToolRuntime) async {
         let opts = Options(args)
         guard opts.positional.count >= 2,
@@ -436,7 +465,7 @@ enum LoopCLI {
             PilotCLI.runAdopt(forwarded)
         } else {
             forwarded.append(contentsOf: ["--pm-model", occupant])
-            await RelayCLI.runAdopt(forwarded, runtime: runtime)
+            await LoopEngineCLI.runAdopt(forwarded, runtime: runtime)
         }
     }
 }

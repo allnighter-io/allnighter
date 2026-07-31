@@ -13,7 +13,7 @@ final class StreamLivenessTests: XCTestCase {
 
     func testRelayStreamLastActivityAtUsesDevJournalOnly() {
         let frozen = Date().addingTimeInterval(-400)
-        var relay = RelayState(
+        var relay = LoopState(
             id: "r1", projectRoot: "/tmp", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )

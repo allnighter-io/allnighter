@@ -5,9 +5,9 @@ import AllnighterCore
 
 /// PL-S01/S02 works tests: Pilot (`docs/phases/Pilot_Relay.md`) is the SAME substrate
 /// as the shipped PM Relay — caller-chaired (`isCallerChair`), a parked `awaitingPM`
-/// status between rounds, and `RelayCoordinator.runExternalRound` standing in for a
+/// status between rounds, and `LoopCoordinator.runExternalRound` standing in for a
 /// spawned PM turn.
-/// Fixtures mirror `RelayCoordinatorTests` (real git repo, scripted dev CLI only — Pilot
+/// Fixtures mirror `LoopCoordinatorTests` (real git repo, scripted dev CLI only — Pilot
 /// never dispatches a PM seat at all).
 final class PilotCoordinatorTests: HermeticSupportTestCase {
     private var tmp: URL!
@@ -23,7 +23,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         try super.tearDownWithError()
     }
 
-    // MARK: - Fixtures (mirrors RelayCoordinatorTests)
+    // MARK: - Fixtures (mirrors LoopCoordinatorTests)
 
     private func runGit(_ args: [String], cwd: URL) {
         let p = Process()
@@ -73,11 +73,11 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testStartPilotCreatesParkedUnownedRelay() throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, _) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_1" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_1" })
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "ignored", devModelId: "model_dev", maxRounds: 7
         )
@@ -86,7 +86,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         XCTAssertTrue(state.isCallerChair)
         XCTAssertEqual(state.status, .awaitingPM)
-        XCTAssertEqual(state.pmModelId, RelayState.callerPMModelId)
+        XCTAssertEqual(state.pmModelId, LoopState.callerPMModelId)
         XCTAssertEqual(state.devModelId, "model_dev")
         XCTAssertTrue(state.rounds.isEmpty)
         XCTAssertEqual(state.pilotMaxRounds, 7)
@@ -99,11 +99,11 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testStartPilotRejectsUntilAsUsageError() throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, _) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "ignored", devModelId: "model_dev", until: Date().addingTimeInterval(3600)
         )
@@ -118,9 +118,9 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testContinueDispatchesOneDevTurnAndParksBackToAwaitingPM() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, runner) = makeService(devScripts: [.init(stdout: "Implemented and committed.")], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_continue" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_continue" })
 
         let started = coordinator.startPilot(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
@@ -128,7 +128,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         guard case .success = started else { return XCTFail("start failed") }
 
         let submission = "Reviewed the repo myself.\n\n" + verdictJSON("continue", handover: "Implement the thing.")
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_continue", submission: submission)
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_continue", submission: submission)
         guard case .success(let payload) = result else { return XCTFail("expected success") }
 
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 1)
@@ -152,15 +152,15 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testRelayPMTurnWritesBeforePilotParksWithSettledReport() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmTurnStore = PMTurnStore(
             runsRootDirectory: tmp.appendingPathComponent("runs"),
-            relaysRootDirectory: stateStore.rootDirectory
+            loopsRootDirectory: stateStore.rootDirectory
         )
         let (service, _) = makeService(
             devScripts: [.init(stdout: "Implemented the requested fix.")], runStore: runStore
         )
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service,
             stateStore: stateStore,
             runStore: runStore,
@@ -172,7 +172,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
         ))
         let result = await coordinator.runExternalRound(
-            relayId: "relay_pm_turn",
+            loopId: "relay_pm_turn",
             submission: verdictJSON("continue", handover: "Implement the requested fix.")
         )
         guard case .success(let payload) = result else { return XCTFail("expected a parked relay") }
@@ -195,14 +195,14 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
     // MARK: - PO-F7 dev-turn idle-timeout override (pilot)
 
-    /// `pilot start --idle-timeout` is persisted onto `RelayState.pilotDevTurnIdleTimeoutSeconds`
+    /// `pilot start --idle-timeout` is persisted onto `LoopState.pilotDevTurnIdleTimeoutSeconds`
     /// (Pilot has no long-lived process to re-supply `Config` at each later `pilot handoff`,
     /// same reasoning as `pilotMaxRounds`) and reaches `RunRequest.workerTimeoutSeconds` on
     /// the actual dev-turn dispatch.
     func testPilotStartIdleTimeoutPersistsAndReachesRunRequestOnHandoff() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let devModel = Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "dev_cli", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "dev_cli", command: "dev_cli")])
         let devSpy = TimeoutCapturingCommandRunner(
@@ -215,7 +215,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
                 [ToolProbeRecord(driverId: "dev_cli", status: .ready(version: "1"), lastProbeAt: .distantPast)]
             }
         )
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_idle_timeout" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_idle_timeout" })
 
         let started = coordinator.startPilot(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev",
@@ -225,7 +225,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(startedState.pilotDevTurnIdleTimeoutSeconds, 555, "persisted onto durable state at pilot start")
 
         let submission = "Reviewed the repo myself.\n\n" + verdictJSON("continue", handover: "Implement the thing.")
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_idle_timeout", submission: submission)
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_idle_timeout", submission: submission)
         guard case .success = result else { return XCTFail("expected success") }
 
         XCTAssertEqual(
@@ -239,9 +239,9 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testHandoverFilePathDeliversHandoverByteExactToDev() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, runner) = makeService(devScripts: [.init(stdout: "Implemented and committed.")], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_handover_file" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_handover_file" })
 
         _ = coordinator.startPilot(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"
@@ -260,7 +260,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
             "--relay", "relay_pilot_handover_file", "--verdict", "continue",
             "--handover-file", orderPath.path,
         ]))
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_handover_file", submission: submission)
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_handover_file", submission: submission)
         guard case .success = result else { return XCTFail("expected success") }
 
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 1)
@@ -278,13 +278,13 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         let repo = try makeGitRepo()
         try "dirty".write(to: repo.appendingPathComponent("scratch.txt"), atomically: true, encoding: .utf8)
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, _) = makeService(devScripts: [.init(stdout: "Done.")], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_dirty" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_dirty" })
         _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"))
 
         let submission = "Go.\n\n" + verdictJSON("continue", handover: "Build it.")
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_dirty", submission: submission)
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_dirty", submission: submission)
         guard case .success(let payload) = result else { return XCTFail("expected success") }
         XCTAssertEqual(payload.state.rounds.first?.dirtyFiles, ["scratch.txt"])
     }
@@ -294,13 +294,13 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testDoneSettlesRelayWithNoDevDispatch() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, runner) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_done" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_done" })
         _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"))
 
         let submission = "All acceptance criteria met.\n\n" + verdictJSON("done", note: "Shipped.")
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_done", submission: submission)
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_done", submission: submission)
         guard case .success(let payload) = result else { return XCTFail("expected success") }
 
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 0)
@@ -314,13 +314,13 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testEscalateParksRelayWithFounderQuestion() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, runner) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_escalate" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_escalate" })
         _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"))
 
         let submission = "Need to know which env.\n\n" + verdictJSON("escalate", note: "staging or prod?")
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_escalate", submission: submission)
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_escalate", submission: submission)
         guard case .success(let payload) = result else { return XCTFail("expected success") }
 
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 0)
@@ -333,12 +333,12 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testUnparseableSubmissionLeavesRelayAwaitingPMWithNoRound() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, runner) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_parse" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_parse" })
         _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"))
 
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_parse", submission: "No verdict tail here at all.")
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_parse", submission: "No verdict tail here at all.")
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .verdictUnparseable(.noVerdictFound))
         XCTAssertEqual(runner.callCount(for: "dev_cli"), 0)
@@ -351,14 +351,14 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testGateBlockedHandoverLeavesRelayAwaitingPMWithNoRoundAndNoEscalation() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, runner) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_gate" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_gate" })
         _ = coordinator.startPilot(config: .init(projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev"))
 
         let dangerousHandover = "Run git reset --hard on main to clean this up."
         let submission = "Reviewed.\n\n" + verdictJSON("continue", handover: dangerousHandover)
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_gate", submission: submission)
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_gate", submission: submission)
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         guard case .handoverBlocked(let dangerClass, let code, _, let snippet) = error else { return XCTFail("wrong error case") }
         XCTAssertEqual(dangerClass, "destructiveGit")
@@ -374,15 +374,15 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     // MARK: - preflightExternalRound (--no-wait must share this, not ack then dump)
 
     func testPreflightBlocksCredentialTokenHandoverSameAsBlockingPath() throws {
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_preflight_cred", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .awaitingPM, createdAt: Date()
         )
         // Same shape as the founder detour / HandoverGateTests: imperative credential exposure.
         let handover = "Please commit the API key to the repo so CI can read it."
         let submission = "Reviewed.\n\n" + verdictJSON("continue", handover: handover)
-        let result = RelayCoordinator.preflightExternalRound(state: state, submission: submission)
+        let result = LoopCoordinator.preflightExternalRound(state: state, submission: submission)
         guard case .failure(let error) = result else {
             return XCTFail("expected gate block, got \(result)")
         }
@@ -400,18 +400,18 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     }
 
     func testPreflightAllowsSafeContinueAndDone() throws {
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_preflight_ok", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .awaitingPM, createdAt: Date()
         )
-        let continueOK = RelayCoordinator.preflightExternalRound(
+        let continueOK = LoopCoordinator.preflightExternalRound(
             state: state,
             submission: verdictJSON("continue", handover: "Add unit tests for the new parser.")
         )
         XCTAssertNotNil(try? continueOK.get())
 
-        let doneOK = RelayCoordinator.preflightExternalRound(
+        let doneOK = LoopCoordinator.preflightExternalRound(
             state: state,
             submission: verdictJSON("done", note: "Shipped.")
         )
@@ -419,25 +419,25 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     }
 
     func testPreflightRefusesRoundInFlightAndUnparseable() throws {
-        var running = RelayState(
+        var running = LoopState(
             id: "relay_preflight_run", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .running, createdAt: Date()
         )
-        guard case .failure(.roundInFlight) = RelayCoordinator.preflightExternalRound(
+        guard case .failure(.roundInFlight) = LoopCoordinator.preflightExternalRound(
             state: running, submission: verdictJSON("done", note: "x")
         ) else {
             return XCTFail("expected roundInFlight")
         }
 
         running.status = .awaitingPM
-        guard case .failure(.verdictUnparseable(.noVerdictFound)) = RelayCoordinator.preflightExternalRound(
+        guard case .failure(.verdictUnparseable(.noVerdictFound)) = LoopCoordinator.preflightExternalRound(
             state: running, submission: "no verdict tail at all"
         ) else {
             return XCTFail("expected verdictUnparseable")
         }
 
-        guard case .failure(.relayNotFound) = RelayCoordinator.preflightExternalRound(
+        guard case .failure(.relayNotFound) = LoopCoordinator.preflightExternalRound(
             state: nil, submission: verdictJSON("done", note: "x")
         ) else {
             return XCTFail("expected relayNotFound")
@@ -449,18 +449,18 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testRoundInFlightRefusesAConcurrentHandoff() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, _) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let running = RelayState(
+        let running = LoopState(
             id: "relay_pilot_inflight", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .running, createdAt: Date()
         )
         try stateStore.save(running)
 
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_inflight", submission: verdictJSON("done", note: "x"))
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_inflight", submission: verdictJSON("done", note: "x"))
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .roundInFlight)
     }
@@ -468,29 +468,29 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testNotAwaitingPMRefusesADoneRelay() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, _) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let done = RelayState(
+        let done = LoopState(
             id: "relay_pilot_done_already", projectRoot: repo.path, docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .done, createdAt: Date(), note: "Shipped."
         )
         try stateStore.save(done)
 
-        let result = await coordinator.runExternalRound(relayId: "relay_pilot_done_already", submission: verdictJSON("done", note: "x"))
+        let result = await coordinator.runExternalRound(loopId: "relay_pilot_done_already", submission: verdictJSON("done", note: "x"))
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .notAwaitingPM(status: "done"))
     }
 
     func testNotFoundRelayReturnsRelayNotFound() async {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, _) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let result = await coordinator.runExternalRound(relayId: "relay_ghost", submission: verdictJSON("done", note: "x"))
+        let result = await coordinator.runExternalRound(loopId: "relay_ghost", submission: verdictJSON("done", note: "x"))
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .relayNotFound)
     }
@@ -498,17 +498,17 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testSpawnedRelayRefusesRunExternalRound() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, _) = makeService(devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let spawned = RelayState(
+        let spawned = LoopState(
             id: "relay_spawned_not_pilot", projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .escalated, createdAt: Date()
         )
         try stateStore.save(spawned)
 
-        let result = await coordinator.runExternalRound(relayId: "relay_spawned_not_pilot", submission: verdictJSON("done", note: "x"))
+        let result = await coordinator.runExternalRound(loopId: "relay_spawned_not_pilot", submission: verdictJSON("done", note: "x"))
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .notPilotRelay)
     }
@@ -518,21 +518,21 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testMaxRoundsStopsHonestlyOnTheHandoffThatWouldExceedIt() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, runner) = makeService(devScripts: [.init(stdout: "Round 1 done.")], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_ceiling" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_ceiling" })
         _ = coordinator.startPilot(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev", maxRounds: 1
         ))
 
         let round1 = await coordinator.runExternalRound(
-            relayId: "relay_pilot_ceiling", submission: "Go.\n\n" + verdictJSON("continue", handover: "Build round 1.")
+            loopId: "relay_pilot_ceiling", submission: "Go.\n\n" + verdictJSON("continue", handover: "Build round 1.")
         )
         guard case .success(let payload1) = round1 else { return XCTFail("round 1 should succeed") }
         XCTAssertEqual(payload1.state.status, .awaitingPM)
 
         let round2 = await coordinator.runExternalRound(
-            relayId: "relay_pilot_ceiling", submission: "Go again.\n\n" + verdictJSON("continue", handover: "Build round 2.")
+            loopId: "relay_pilot_ceiling", submission: "Go again.\n\n" + verdictJSON("continue", handover: "Build round 2.")
         )
         guard case .success(let payload2) = round2 else { return XCTFail("a ceiling stop is success(state), not an error") }
         XCTAssertEqual(payload2.state.status, .stopped)
@@ -543,11 +543,11 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testStagnationStopsAfterRepeatedNoChangeRounds() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         // The dev CLI is scripted and never touches git — the repo genuinely does not
         // change, exactly the deadlock signature stagnation exists to catch.
         let (service, runner) = makeService(devScripts: [.init(stdout: "Tried again, nothing changed.")], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_stagnation" })
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pilot_stagnation" })
         _ = coordinator.startPilot(config: .init(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "ignored", devModelId: "model_dev",
             maxRounds: 20, stagnationRoundCap: 2
@@ -555,12 +555,12 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         for _ in 0..<2 {
             let result = await coordinator.runExternalRound(
-                relayId: "relay_pilot_stagnation", submission: "Same flag again.\n\n" + verdictJSON("continue", handover: "Please fix the same thing.")
+                loopId: "relay_pilot_stagnation", submission: "Same flag again.\n\n" + verdictJSON("continue", handover: "Please fix the same thing.")
             )
             guard case .success = result else { return XCTFail("expected success") }
         }
         let third = await coordinator.runExternalRound(
-            relayId: "relay_pilot_stagnation", submission: "Still same.\n\n" + verdictJSON("continue", handover: "Same again.")
+            loopId: "relay_pilot_stagnation", submission: "Still same.\n\n" + verdictJSON("continue", handover: "Same again.")
         )
         guard case .success(let payload) = third else { return XCTFail("stagnation stop is success(state)") }
         XCTAssertEqual(payload.state.status, .stopped)
@@ -574,7 +574,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     /// (`isCallerChair`), so a relay.json from before `pmMode` ever existed decodes
     /// exactly as it did — no shim, no dual-read, just one field that was always
     /// durable enough to carry the answer.
-    func testLegacyRelayJSONWithoutPMModeDecodesAsSpawnedChair() throws {
+    func testLegacyLoopJSONWithoutPMModeDecodesAsSpawnedChair() throws {
         let legacyJSON = """
         {
           "id": "relay_legacy", "projectRoot": "/repo", "docPath": "docs/spec.md",
@@ -582,7 +582,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
           "rounds": [], "createdAt": "2026-01-01T00:00:00Z"
         }
         """
-        let decoded = try CoreJSON.decode(RelayState.self, from: Data(legacyJSON.utf8))
+        let decoded = try CoreJSON.decode(LoopState.self, from: Data(legacyJSON.utf8))
         XCTAssertFalse(decoded.isCallerChair)
         XCTAssertNil(decoded.pilotMaxRounds)
         XCTAssertNil(decoded.pilotStagnationRoundCap)
@@ -591,10 +591,10 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     // MARK: - Orphan reconciliation skips a parked awaitingPM relay (PL-S01)
 
     func testAwaitingPMRelaySurvivesOrphanReconcileSweep() throws {
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let parked = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let parked = LoopState(
             id: "relay_pilot_parked", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .awaitingPM, createdAt: Date()
         )
         try stateStore.save(parked)
@@ -603,7 +603,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         XCTAssertFalse(FileManager.default.fileExists(
             atPath: stateStore.rootDirectory.appendingPathComponent("relay_pilot_parked").appendingPathComponent("owner.pid").path))
 
-        let reconciled = RelayCoordinator.reconcileOrphan(parked, stateStore: stateStore, threadProjector: nil, now: Date.init)
+        let reconciled = LoopCoordinator.reconcileOrphan(parked, stateStore: stateStore, threadProjector: nil, now: Date.init)
         XCTAssertEqual(reconciled.status, .awaitingPM, "reconcileOrphan only ever touches .running — a parked relay passes through untouched")
         XCTAssertEqual(stateStore.load(id: "relay_pilot_parked")?.status, .awaitingPM)
     }
@@ -613,7 +613,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
     func testDevRunIdStampedBeforeDevTurnCompletes() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-pls"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-pls"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("relays-pls"))
         let slowRunner = SlowDevCommandRunner(delaySeconds: 1, stdout: "Implemented and committed.")
         let devModel = Model(id: "model_dev", displayName: "Dev", modelLabel: "dev", driverId: "dev_cli", role: .both)
         let registry = DriverRegistry([TestSupport.headlessManifest(id: "dev_cli", command: "dev_cli")])
@@ -624,7 +624,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
                 [ToolProbeRecord(driverId: "dev_cli", status: .ready(version: "1"), lastProbeAt: .distantPast)]
             }
         )
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore, idFactory: { "relay_pls_early" }
         )
         guard case .success = coordinator.startPilot(config: .init(
@@ -633,7 +633,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
 
         let submission = "Reviewed.\n\n" + verdictJSON("continue", handover: "Implement the thing.")
         let roundTask = Task {
-            await coordinator.runExternalRound(relayId: "relay_pls_early", submission: submission)
+            await coordinator.runExternalRound(loopId: "relay_pls_early", submission: submission)
         }
 
         var sawEarlyStamp = false

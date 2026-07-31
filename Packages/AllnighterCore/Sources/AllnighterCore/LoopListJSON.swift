@@ -2,17 +2,20 @@ import Foundation
 
 /// `alln loop list` — the smallest honest listing of loops for a project
 /// (LVC v7 `docs/phases/Loop_Verb_Cutover.md` §2/S02). Read-only, no quota:
-/// projects `RelayState` straight off disk, never a second copy of run-truth.
+/// projects `LoopState` straight off disk, never a second copy of run-truth.
 public struct LoopListJSON: Codable, Sendable, Equatable {
     public var schemaVersion: Int
     public var projectId: String
     public var projectRoot: String
     public var loops: [Entry]
+    /// Set when loop state still lives under the pre-LVC-S09 `Relays/` directory and
+    /// `Loops/` is missing — never report zero loops as if none had ever existed.
+    public var legacyStatePathNotice: String?
 
     public struct Entry: Codable, Sendable, Equatable {
         public var id: String
         /// `running`, `done`, `escalated`, `stopped`, or `awaitingPM` — the real
-        /// `RelayState.Status` names ("parked" is prose, never a wire value).
+        /// `LoopState.Status` names ("parked" is prose, never a wire value).
         public var status: String
         /// The spec doc path when this loop has one, otherwise the founder's brief.
         public var briefOrSpec: String
@@ -31,10 +34,17 @@ public struct LoopListJSON: Codable, Sendable, Equatable {
         }
     }
 
-    public init(schemaVersion: Int = 1, projectId: String, projectRoot: String, loops: [Entry]) {
+    public init(
+        schemaVersion: Int = 1,
+        projectId: String,
+        projectRoot: String,
+        loops: [Entry],
+        legacyStatePathNotice: String? = nil
+    ) {
         self.schemaVersion = schemaVersion
         self.projectId = projectId
         self.projectRoot = projectRoot
         self.loops = loops
+        self.legacyStatePathNotice = legacyStatePathNotice
     }
 }

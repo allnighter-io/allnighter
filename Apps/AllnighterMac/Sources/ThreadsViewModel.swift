@@ -53,7 +53,7 @@ final class ThreadsViewModel {
     private let runStore: RunStore
     /// Store-backed relay lifecycle for ATL-S05 rail attention (same owner as
     /// `RelayStatusLoader` — never inferred from thread turn prose).
-    private let relayStateStore: RelayStateStore
+    private let loopStateStore: LoopStateStore
     private let coordinator: AgentChatCoordinator
     /// Shared sink for default-chat streaming flushes (PERF-S04a). Wired after init.
     private let chatLivePartialObserver = ThreadSendCoordinator.LivePartialObserver()
@@ -188,7 +188,7 @@ final class ThreadsViewModel {
     ) {
         self.store = store
         self.runStore = runStore
-        self.relayStateStore = RelayStateStore()
+        self.loopStateStore = LoopStateStore()
         self.registry = registry
         self.models = models
         self.toolStatuses = toolStatuses
@@ -341,7 +341,7 @@ final class ThreadsViewModel {
     /// Rail summary with store-backed relay lifecycle when this thread is a loop
     /// (thread id == relay id). Same source as `RelayStatusLoader` / ATL-S04 chrome.
     private func makeRailRow(from thread: WorkThread) -> ThreadRailRowState {
-        let relayStatus = relayStateStore.load(id: thread.id)?.status
+        let relayStatus = loopStateStore.load(id: thread.id)?.status
         return ThreadsPresenter.railRow(from: thread, relayStatus: relayStatus)
     }
 

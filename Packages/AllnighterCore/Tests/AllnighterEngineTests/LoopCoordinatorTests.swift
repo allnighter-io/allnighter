@@ -2,19 +2,19 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// R-S04 works test: the RelayCoordinator loop against a real git repo and a scripted
+/// R-S04 works test: the LoopCoordinator loop against a real git repo and a scripted
 /// (never-real-network) worker CLI, mirroring PairCoordinatorTests' seam — a custom
 /// `CommandRunner` double keyed by command name, here extended to (a) return a DIFFERENT
 /// scripted answer on each successive call to the same command (a relay's PM seat is
 /// called more than once per relay) and (b) capture the args each call received so tests
 /// can assert on the ACTUAL prompt text a turn was given (e.g. that a resumed relay's
 /// founder note really reached the PM prompt).
-final class RelayCoordinatorTests: HermeticSupportTestCase {
+final class LoopCoordinatorTests: HermeticSupportTestCase {
     private var tmp: URL!
 
     /// `CoreJSON` encodes dates as ISO-8601 without fractional seconds, so a raw
     /// `Date()` fixture never round-trips byte-for-byte through disk. Tests that assert
-    /// on a reloaded `RelayState` equalling the in-memory one inject this instead of
+    /// on a reloaded `LoopState` equalling the in-memory one inject this instead of
     /// `Date.init` so both sides already carry whole-second precision.
     private static func flooredNow() -> Date {
         Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
@@ -97,7 +97,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testHappyTwoRoundRelayEndsInDone() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1 review.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
             .init(stdout: "Round 2 review, dev delivered.\n\n" + verdictJSON("done", note: "All criteria met.")),
@@ -106,9 +106,9 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             .init(stdout: "Implemented and committed. Verified with `true`."),
         ]
         let (service, _) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
@@ -134,16 +134,16 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testUnresolvableDevWorkerEscalatesWithAgentNotAvailable() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement something.")),
         ]
         let (service, runner) = makeService(
             pmScripts: pmScripts, devScripts: [], runStore: runStore
         )
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm",
             // Known catalog id but disabled on this service's bench (makeService only
@@ -171,7 +171,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testDevTurnPlaybookPreambleAppearsAtMostOnce() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the D1 fix.")),
             .init(stdout: "Shipped.\n\n" + verdictJSON("done", note: "Preamble is single.")),
@@ -180,9 +180,9 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             .init(stdout: "Fixed and committed."),
         ]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/phases/Pilot_Defect_Fixes.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
@@ -212,7 +212,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         )
         XCTAssertTrue(
             prompt.contains("# PM Relay — round 1 (dev seat)"),
-            "RelayDevPrompt wrapper must still be present after the single preamble"
+            "LoopDevPrompt wrapper must still be present after the single preamble"
         )
     }
 
@@ -221,20 +221,20 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testCommitThenStallSettlesDeliveredWithOneDevDispatch() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Commit a file.")),
             .init(stdout: "Shipped.\n\n" + verdictJSON("done", note: "Observed delivery.")),
         ]
         let devRunner = CommittingThenStallingCommandRunner(repoRoot: repo)
         let pmRunner = SequencedCommandRunner(queues: ["pm_cli": pmScripts])
-        let routingRunner = RelayTestCommandRouter(pm: pmRunner, dev: devRunner)
+        let routingRunner = LoopTestCommandRouter(pm: pmRunner, dev: devRunner)
         let (service, _) = makeService(
             pmScripts: pmScripts, devScripts: [], runStore: runStore, commandRunner: routingRunner
         )
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
@@ -256,7 +256,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testDevTurnIdleTimeoutOverrideReachesRunRequest() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
         ]
@@ -265,13 +265,13 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         ]
         let pmRunner = SequencedCommandRunner(queues: ["pm_cli": pmScripts])
         let devSpy = TimeoutCapturingCommandRunner(inner: SequencedCommandRunner(queues: ["dev_cli": devScripts]))
-        let routingRunner = RelayTestCommandRouter(pm: pmRunner, dev: devSpy)
+        let routingRunner = LoopTestCommandRouter(pm: pmRunner, dev: devSpy)
         let (service, _) = makeService(
             pmScripts: pmScripts, devScripts: devScripts, runStore: runStore, commandRunner: routingRunner
         )
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 1,
             devTurnIdleTimeoutSeconds: 555
@@ -287,7 +287,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testDevTurnIdleTimeoutDefaultLeavesRunnerTimeoutAtManifestDefault() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Implement the thing.")),
         ]
@@ -296,13 +296,13 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         ]
         let pmRunner = SequencedCommandRunner(queues: ["pm_cli": pmScripts])
         let devSpy = TimeoutCapturingCommandRunner(inner: SequencedCommandRunner(queues: ["dev_cli": devScripts]))
-        let routingRunner = RelayTestCommandRouter(pm: pmRunner, dev: devSpy)
+        let routingRunner = LoopTestCommandRouter(pm: pmRunner, dev: devSpy)
         let (service, _) = makeService(
             pmScripts: pmScripts, devScripts: devScripts, runStore: runStore, commandRunner: routingRunner
         )
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 1
         )
@@ -316,7 +316,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testAmbiguousStallRetryAppendsPartialCompletionHint() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Try the fix.")),
             .init(stdout: "Done.\n\n" + verdictJSON("done", note: "Eventually shipped.")),
@@ -326,9 +326,9 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             .init(stdout: "finished cleanly."),
         ]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
@@ -348,16 +348,16 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testContinueWithoutHandoverTriggersReaskThenContinues() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "No verdict tail here at all."),
             .init(stdout: "Recovered.\n\n" + verdictJSON("continue", handover: "Do the thing.")),
         ]
         let devScripts: [MockCommandRunner.Script] = [.init(stdout: "Done, committed.")]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 1
         )
@@ -377,15 +377,15 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testReaskFailsEscalates() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "No verdict at all."),
             .init(stdout: "Still no verdict tail."),
         ]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev"
         )
@@ -403,15 +403,15 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testGateBlockedHandoverEscalatesWithDangerClassInNote() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let dangerousHandover = "Run git reset --hard on main to clean this up."
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Reviewed.\n\n" + verdictJSON("continue", handover: dangerousHandover)),
         ]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev"
         )
@@ -430,15 +430,15 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testMaxRoundsStops() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Keep going.\n\n" + verdictJSON("continue", handover: "Keep building.")),
         ]
         let devScripts: [MockCommandRunner.Script] = [.init(stdout: "Some progress, no commit this time.")]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev",
             maxRounds: 2, stagnationRoundCap: 10
@@ -455,7 +455,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testStagnationStops() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Same flag again.\n\n" + verdictJSON("continue", handover: "Please fix the same thing.")),
         ]
@@ -463,9 +463,9 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         // which is exactly the deadlock signature stagnation exists to catch.
         let devScripts: [MockCommandRunner.Script] = [.init(stdout: "I tried again but nothing changed.")]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev",
             maxRounds: 20, stagnationRoundCap: 2
@@ -483,16 +483,16 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testResumeAfterEscalateInjectsFounderNoteIntoNextPMTurn() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "I need to know which env.\n\n" + verdictJSON("escalate", note: "staging or prod?")),
         ]
         let (service, runner) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore,
             idFactory: { "relay_resume_test" }
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev"
         )
@@ -503,11 +503,11 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         // Resume: the PM now delivers `done`. Assert the founder's answer actually reached
         // the PM prompt text for the resumed round (not just that the loop continued).
         runner.enqueue(command: "pm_cli", .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")))
-        let resumedConfig = RelayCoordinator.Config(
+        let resumedConfig = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
-        let resumedResult = await coordinator.resume(relayId: "relay_resume_test", founderAnswer: "use staging", config: resumedConfig)
+        let resumedResult = await coordinator.resume(loopId: "relay_resume_test", founderAnswer: "use staging", config: resumedConfig)
         guard case .success(let resumed) = resumedResult else { return XCTFail("expected success") }
 
         XCTAssertEqual(resumed.status, .done)
@@ -521,20 +521,20 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testResumeOnNonEscalatedRelayReturnsNil() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [.init(stdout: "Done.\n\n" + verdictJSON("done", note: "ok"))]
         let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore,
             idFactory: { "relay_done_test" }
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
         let done = try await coordinator.run(config: config).get()
         XCTAssertEqual(done.status, .done)
 
-        let result = await coordinator.resume(relayId: "relay_done_test", founderAnswer: "irrelevant", config: config)
+        let result = await coordinator.resume(loopId: "relay_done_test", founderAnswer: "irrelevant", config: config)
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .notResumable(status: "done"))
     }
@@ -544,18 +544,18 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testStatePersistedAfterEachRoundNotOnlyAtTheEnd() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Round 1.\n\n" + verdictJSON("continue", handover: "Build it.")),
             .init(stdout: "Round 2, done.\n\n" + verdictJSON("done", note: "Shipped.")),
         ]
         let devScripts: [MockCommandRunner.Script] = [.init(stdout: "Built and committed.")]
         let (service, _) = makeService(pmScripts: pmScripts, devScripts: devScripts, runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore,
             now: Self.flooredNow, idFactory: { "relay_durability_test" }
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
@@ -578,7 +578,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
     // MARK: - Orphan reconciliation (works-test hazard #1)
 
-    /// Simulates `RelayCoordinator.run()`'s own bootstrap up through the exact durable
+    /// Simulates `LoopCoordinator.run()`'s own bootstrap up through the exact durable
     /// checkpoint a real relay leaves on disk the instant it dispatches round 1's PM turn —
     /// `started` (creates the thread), append the round, `save` (records THIS test
     /// process's pid as owner) — then overwrites the marker with a pid that cannot
@@ -586,9 +586,9 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     /// to stand in for "the process was killed mid-round."
     @discardableResult
     private func makeOrphanedRunningRelay(
-        id: String, projectRoot: String, stateStore: RelayStateStore, projector: RelayThreadProjector
-    ) throws -> RelayState {
-        var state = RelayState(
+        id: String, projectRoot: String, stateStore: LoopStateStore, projector: LoopThreadProjector
+    ) throws -> LoopState {
+        var state = LoopState(
             id: id, projectRoot: projectRoot, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Self.flooredNow()
         )
@@ -604,17 +604,17 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
     func testStatusReconcilesDeadOwnerRunningRelayAndSettlesTheThread() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
-        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        let projector = LoopThreadProjector(store: threadStore, runStore: runStore)
         try makeOrphanedRunningRelay(id: "relay_orphan_status", projectRoot: tmp.path, stateStore: stateStore, projector: projector)
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, threadProjector: projector)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, threadProjector: projector)
 
-        let reconciled = coordinator.status(relayId: "relay_orphan_status")
+        let reconciled = coordinator.status(loopId: "relay_orphan_status")
         XCTAssertEqual(reconciled?.status, .stopped)
-        XCTAssertEqual(reconciled?.stoppedReason, RelayState.orphanReconciledReason)
+        XCTAssertEqual(reconciled?.stoppedReason, LoopState.orphanReconciledReason)
         XCTAssertEqual(reconciled?.rounds.last?.outcome, .stopped)
 
         // Durable: a fresh read (a different process re-opening the same file) sees the
@@ -626,28 +626,28 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(thread?.turn(id: "relay_orphan_status_pm1")?.status, .cancelled)
         let stopped = thread?.turn(id: "relay_orphan_status_stopped")
         XCTAssertNotNil(stopped)
-        XCTAssertEqual(stopped?.text, RelayState.orphanReconciledReason)
+        XCTAssertEqual(stopped?.text, LoopState.orphanReconciledReason)
     }
 
     func testResumeAfterOrphanReconciliationContinuesFromLastDurableRound() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
-        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        let projector = LoopThreadProjector(store: threadStore, runStore: runStore)
         try makeOrphanedRunningRelay(id: "relay_resume_after_kill", projectRoot: repo.path, stateStore: stateStore, projector: projector)
 
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Recovered after kill.\n\n" + verdictJSON("done", note: "Finished after resume.")),
         ]
         let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore, threadProjector: projector)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore, threadProjector: projector)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
-        let resumedResult = await coordinator.resume(relayId: "relay_resume_after_kill", founderAnswer: "continue please", config: config)
+        let resumedResult = await coordinator.resume(loopId: "relay_resume_after_kill", founderAnswer: "continue please", config: config)
         guard case .success(let resumed) = resumedResult else { return XCTFail("expected success") }
 
         XCTAssertEqual(resumed.status, .done)
@@ -660,19 +660,19 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
     func testResumeNeverAcceptsADoneRelayEvenThoughReconciliationOnlyTouchesRunning() async throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let state = LoopState(
             id: "relay_done_never_resumable", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .done, createdAt: Date(), note: "Shipped."
         )
         try stateStore.save(state)
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = LoopCoordinator.Config(
             projectRoot: "/repo", docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
-        let result = await coordinator.resume(relayId: "relay_done_never_resumable", founderAnswer: "anything", config: config)
+        let result = await coordinator.resume(loopId: "relay_done_never_resumable", founderAnswer: "anything", config: config)
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .notResumable(status: "done"))
         XCTAssertEqual(stateStore.load(id: "relay_done_never_resumable")?.status, .done, "never mutated")
@@ -683,8 +683,8 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     /// is never mistaken for one, and `relay-resume` must keep refusing it.
     func testCeilingStoppedRelayIsNeitherReconciledNorResumable() async throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let state = LoopState(
             id: "relay_ceiling_stopped", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .stopped, createdAt: Date(),
             stoppedReason: "reached --max-rounds (5)"
@@ -692,14 +692,14 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         try stateStore.save(state)
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
 
-        XCTAssertEqual(coordinator.status(relayId: "relay_ceiling_stopped")?.stoppedReason, "reached --max-rounds (5)", "untouched by reconciliation")
+        XCTAssertEqual(coordinator.status(loopId: "relay_ceiling_stopped")?.stoppedReason, "reached --max-rounds (5)", "untouched by reconciliation")
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: "/repo", docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
-        let result = await coordinator.resume(relayId: "relay_ceiling_stopped", founderAnswer: "anything", config: config)
+        let result = await coordinator.resume(loopId: "relay_ceiling_stopped", founderAnswer: "anything", config: config)
         guard case .failure(let error) = result else { return XCTFail("expected failure") }
         XCTAssertEqual(error, .notResumable(status: "stopped"))
     }
@@ -708,29 +708,29 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
     func testFounderStopOnRunningWithDeadOwnerStampsReasonAndPMTurn() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let pmTurnStore = PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let pmTurnStore = PMTurnStore(loopsRootDirectory: stateStore.rootDirectory)
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
-        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        let projector = LoopThreadProjector(store: threadStore, runStore: runStore)
         try makeOrphanedRunningRelay(
             id: "relay_founder_stop", projectRoot: tmp.path, stateStore: stateStore, projector: projector
         )
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore,
             pmTurnStore: pmTurnStore, threadProjector: projector
         )
 
-        let result = coordinator.stop(relayId: "relay_founder_stop")
+        let result = coordinator.stop(loopId: "relay_founder_stop")
         guard case .success(let state) = result else { return XCTFail("expected stop success, got \(result)") }
         XCTAssertEqual(state.status, .stopped)
-        XCTAssertEqual(state.stoppedReason, RelayState.founderStoppedReason)
+        XCTAssertEqual(state.stoppedReason, LoopState.founderStoppedReason)
         XCTAssertFalse(state.isResumable, "founder stop is never resumable")
         XCTAssertEqual(state.rounds.last?.outcome, .stopped)
 
         let durable = try XCTUnwrap(stateStore.load(id: "relay_founder_stop"))
         XCTAssertEqual(durable.status, .stopped)
-        XCTAssertEqual(durable.stoppedReason, RelayState.founderStoppedReason)
+        XCTAssertEqual(durable.stoppedReason, LoopState.founderStoppedReason)
 
         let turn = try XCTUnwrap(pmTurnStore.load(kind: .relay, subjectId: "relay_founder_stop"))
         XCTAssertEqual(turn.reason, "stopped")
@@ -740,25 +740,25 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
     func testFounderStopIdempotentOnDoneAndStoppedDoesNotRewriteReasonOrSecondPMTurn() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let pmTurnStore = PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let pmTurnStore = PMTurnStore(loopsRootDirectory: stateStore.rootDirectory)
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore, pmTurnStore: pmTurnStore
         )
 
-        let done = RelayState(
+        let done = LoopState(
             id: "relay_stop_done", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .done,
             createdAt: Self.flooredNow(), note: "shipped"
         )
         try stateStore.save(done)
-        let doneAgain = try coordinator.stop(relayId: "relay_stop_done").get()
+        let doneAgain = try coordinator.stop(loopId: "relay_stop_done").get()
         XCTAssertEqual(doneAgain.status, .done)
         XCTAssertNil(doneAgain.stoppedReason)
         XCTAssertNil(try pmTurnStore.load(kind: .relay, subjectId: "relay_stop_done"), "no PM Turn on idempotent done")
 
-        let ceiling = RelayState(
+        let ceiling = LoopState(
             id: "relay_stop_ceiling", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .stopped,
             createdAt: Self.flooredNow(), stoppedReason: "reached --max-rounds (3)"
@@ -770,7 +770,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             createdAt: Self.flooredNow(), reason: "stopped", lifecycleStatus: "stopped",
             nextCommands: ["alln pair relay-status --relay relay_stop_ceiling --json"]
         ))
-        let ceilingAgain = try coordinator.stop(relayId: "relay_stop_ceiling").get()
+        let ceilingAgain = try coordinator.stop(loopId: "relay_stop_ceiling").get()
         XCTAssertEqual(ceilingAgain.stoppedReason, "reached --max-rounds (3)", "leave existing reason alone")
         let turnAfter = try XCTUnwrap(pmTurnStore.load(kind: .relay, subjectId: "relay_stop_ceiling"))
         XCTAssertEqual(turnAfter.sequence, 1, "no second PM Turn on idempotent stopped")
@@ -778,30 +778,30 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
     func testFounderStopOnEscalatedAbandonsAndIsNotResumable() async throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let pmTurnStore = PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let pmTurnStore = PMTurnStore(loopsRootDirectory: stateStore.rootDirectory)
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore, pmTurnStore: pmTurnStore
         )
-        let escalated = RelayState(
+        let escalated = LoopState(
             id: "relay_stop_escalated", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Self.flooredNow(), note: "which env?"
         )
         try stateStore.save(escalated)
 
-        let stopped = try coordinator.stop(relayId: "relay_stop_escalated").get()
+        let stopped = try coordinator.stop(loopId: "relay_stop_escalated").get()
         XCTAssertEqual(stopped.status, .stopped)
-        XCTAssertEqual(stopped.stoppedReason, RelayState.founderStoppedReason)
+        XCTAssertEqual(stopped.stoppedReason, LoopState.founderStoppedReason)
         XCTAssertFalse(stopped.isResumable)
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev"
         )
         let resume = await coordinator.resume(
-            relayId: "relay_stop_escalated", founderAnswer: "staging", config: config
+            loopId: "relay_stop_escalated", founderAnswer: "staging", config: config
         )
         guard case .failure(let error) = resume else { return XCTFail("resume must refuse founder-stopped") }
         XCTAssertEqual(error, .notResumable(status: "stopped"))
@@ -810,23 +810,23 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
     func testFounderStopNotFound() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let result = coordinator.stop(relayId: "relay_nope")
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let result = coordinator.stop(loopId: "relay_nope")
         XCTAssertEqual(result, .failure(.relayNotFound))
     }
 
     func testFounderStopRefusesToLieWhenTurnOwnerStillAlive() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let pmTurnStore = PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let pmTurnStore = PMTurnStore(loopsRootDirectory: stateStore.rootDirectory)
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore, pmTurnStore: pmTurnStore
         )
 
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_stop_live_turn", projectRoot: tmp.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running,
             createdAt: Self.flooredNow()
@@ -845,7 +845,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         ProcessOwnership.terminateSignalHook = { pgid in signals.append(pgid) }
         defer { ProcessOwnership.terminateSignalHook = nil }
 
-        let result = coordinator.stop(relayId: "relay_stop_live_turn")
+        let result = coordinator.stop(loopId: "relay_stop_live_turn")
         guard case .failure(let error) = result else { return XCTFail("must not stamp stopped over live work") }
         if case .stopFailed = error {} else { return XCTFail("expected stopFailed, got \(error)") }
         XCTAssertFalse(signals.isEmpty, "must attempt identity-checked terminate")
@@ -863,8 +863,8 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testResumeGuardFlipsStateMatchingResumeMutation() throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let state = LoopState(
             id: "relay_guard_resume", projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Date(), note: "which env?"
@@ -872,12 +872,12 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         try stateStore.save(state)
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
 
-        let guardResult = coordinator.resumeGuard(relayId: "relay_guard_resume", founderAnswer: "use staging", config: config)
+        let guardResult = coordinator.resumeGuard(loopId: "relay_guard_resume", founderAnswer: "use staging", config: config)
         guard case .success(let (flipped, resumedConfig)) = guardResult else { return XCTFail("expected guard success") }
         XCTAssertEqual(flipped.status, .running, "the guard's own mutation, before any child exists")
         XCTAssertEqual(flipped.founderNote, "use staging")
@@ -893,23 +893,23 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testResumeGuardRefusesRoundInFlightAndLeavesStateUntouched() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let state = LoopState(
             id: "relay_guard_locked", projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Date(), note: "which env?"
         )
         try stateStore.save(state)
 
-        var heldLock = RelayDispatchLock.tryAcquire(relayId: "relay_guard_locked", relaysRoot: stateStore.rootDirectory)
+        var heldLock = LoopDispatchLock.tryAcquire(loopId: "relay_guard_locked", loopsRoot: stateStore.rootDirectory)
         XCTAssertNotNil(heldLock, "precondition: lock must be free before the simulated race")
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
-        let guardResult = coordinator.resumeGuard(relayId: "relay_guard_locked", founderAnswer: "use staging", config: config)
+        let guardResult = coordinator.resumeGuard(loopId: "relay_guard_locked", founderAnswer: "use staging", config: config)
         guard case .failure(let error) = guardResult else { return XCTFail("expected guard failure while the lock is held") }
         XCTAssertEqual(error, .roundInFlight)
         XCTAssertEqual(stateStore.load(id: "relay_guard_locked")?.status, .escalated, "a refused guard must never mutate durable state")
@@ -923,18 +923,18 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testRunWithSuppliedIdRefusesDuplicateStartOnSameRootAndDoc() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         // A genuinely live relay already occupies this root+doc — `save()` stamps
         // owner.pid with THIS test process's own pid, so `isOwnerDead` reads it alive.
-        let live = RelayState(
+        let live = LoopState(
             id: "relay_legit_start", projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(live)
 
         let (service, runner) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
 
@@ -942,7 +942,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         // the live relay above.
         let strayResult = await coordinator.run(config: config, id: "relay_stray_duplicate_start")
         guard case .failure(let refusal) = strayResult else { return XCTFail("expected the stray duplicate start to be refused") }
-        XCTAssertEqual(refusal, .alreadyActive(relayId: "relay_legit_start"))
+        XCTAssertEqual(refusal, .alreadyActive(loopId: "relay_legit_start"))
         XCTAssertNil(stateStore.load(id: "relay_stray_duplicate_start"), "the refused duplicate must never have been created")
         XCTAssertEqual(runner.callCount(for: "pm_cli"), 0)
         XCTAssertEqual(stateStore.list().count, 1, "no second relay landed on disk")
@@ -954,16 +954,16 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testRunWithPreMintedIdUsesSuppliedIdInsteadOfIdFactory() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [.init(stdout: "Done.\n\n" + verdictJSON("done", note: "ok"))]
         let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
         // idFactory would produce a DIFFERENT id than the one explicitly supplied —
         // proving `id:` wins, not merely that idFactory happens to agree with it.
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore,
             idFactory: { "relay_from_factory_should_not_be_used" }
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.run(config: config, id: "relay_preminted")
@@ -973,13 +973,13 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         XCTAssertNil(stateStore.load(id: "relay_from_factory_should_not_be_used"))
     }
 
-    /// `RelayCoordinator.mintRelayId()` — the format `pair relay --no-wait`'s
+    /// `LoopCoordinator.mintLoopId()` — the format `pair relay --no-wait`'s
     /// foreground pre-mint step uses — matches the coordinator's own default
     /// `idFactory` format (`"relay_" + lowercase UUID`), so a caller minting one
     /// externally can never drift from what `run(config:)` would have generated on
     /// its own.
     func testMintRelayIdMatchesDefaultIdFactoryFormat() {
-        let minted = RelayCoordinator.mintRelayId()
+        let minted = LoopCoordinator.mintLoopId()
         XCTAssertTrue(minted.hasPrefix("relay_"))
         let uuidPart = String(minted.dropFirst("relay_".count))
         XCTAssertEqual(uuidPart, uuidPart.lowercased())
@@ -991,14 +991,14 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     /// Two concurrent `resume` calls on the same relay id: exactly one dispatches a
     /// dev turn (via the PM's `done` verdict), the other is refused with
     /// `.roundInFlight` because it cannot take the dispatch lock. Simulates the second
-    /// caller by holding the lock directly (`RelayDispatchLock.tryAcquire`) — the same
-    /// primitive `RelayCoordinator.resume` itself contends on — while the first
+    /// caller by holding the lock directly (`LoopDispatchLock.tryAcquire`) — the same
+    /// primitive `LoopCoordinator.resume` itself contends on — while the first
     /// `resume` is in its read-check-write window.
     func testConcurrentResumeCallsYieldExactlyOneDispatchTheOtherRoundInFlight() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let state = LoopState(
             id: "relay_concurrent_resume", projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Date(), note: "which env?"
@@ -1006,15 +1006,15 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         try stateStore.save(state)
 
         // Hold the SAME lock a real racing `resume` call would contend on.
-        var heldLock = RelayDispatchLock.tryAcquire(relayId: "relay_concurrent_resume", relaysRoot: stateStore.rootDirectory)
+        var heldLock = LoopDispatchLock.tryAcquire(loopId: "relay_concurrent_resume", loopsRoot: stateStore.rootDirectory)
         XCTAssertNotNil(heldLock, "precondition: lock must be free before the simulated race")
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
-        let racedResult = await coordinator.resume(relayId: "relay_concurrent_resume", founderAnswer: "use staging", config: config)
+        let racedResult = await coordinator.resume(loopId: "relay_concurrent_resume", founderAnswer: "use staging", config: config)
         guard case .failure(let error) = racedResult else { return XCTFail("expected failure while the lock is held") }
         XCTAssertEqual(error, .roundInFlight)
         // The lock loser must never have mutated durable state.
@@ -1028,15 +1028,15 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")),
         ]
         let (service2, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator2 = RelayCoordinator(runService: service2, stateStore: stateStore, runStore: runStore)
-        let secondResult = await coordinator2.resume(relayId: "relay_concurrent_resume", founderAnswer: "use staging", config: config)
+        let coordinator2 = LoopCoordinator(runService: service2, stateStore: stateStore, runStore: runStore)
+        let secondResult = await coordinator2.resume(loopId: "relay_concurrent_resume", founderAnswer: "use staging", config: config)
         guard case .success(let resumed) = secondResult else { return XCTFail("expected success once the lock is released") }
         XCTAssertEqual(resumed.status, .done)
     }
 
     /// A stale lock file left by a process that has since died does not block a fresh
     /// acquire — a real child process (`python3`, always present on macOS, no compile
-    /// step) `flock`s the SAME lock file `RelayDispatchLock` uses, is `kill -9`'d, and a
+    /// step) `flock`s the SAME lock file `LoopDispatchLock` uses, is `kill -9`'d, and a
     /// fresh `resume` on the same relay id then succeeds. This is the host-boundary
     /// claim the spec calls out as needing a real process, not a mock: `flock`
     /// releases automatically when the holding process dies, with no cooperative
@@ -1044,15 +1044,15 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testStaleLockFromADeadProcessDoesNotBlockAFreshAcquire() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let state = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let state = LoopState(
             id: "relay_stale_lock", projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .escalated,
             createdAt: Date(), note: "which env?"
         )
         try stateStore.save(state)
 
-        let lockURL = RelayDispatchLock.lockURL(relayId: "relay_stale_lock", relaysRoot: stateStore.rootDirectory)
+        let lockURL = LoopDispatchLock.lockURL(loopId: "relay_stale_lock", loopsRoot: stateStore.rootDirectory)
         try FileManager.default.createDirectory(at: lockURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         let holderScript = """
         import os, fcntl, time
@@ -1076,7 +1076,7 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         // child has actually taken the flock — no IPC readiness signal needed.
         var childHoldsLock = false
         for _ in 0..<200 {
-            if let probe = RelayDispatchLock.tryAcquire(relayId: "relay_stale_lock", relaysRoot: stateStore.rootDirectory) {
+            if let probe = LoopDispatchLock.tryAcquire(loopId: "relay_stale_lock", loopsRoot: stateStore.rootDirectory) {
                 _ = probe // free — child hasn't locked yet; release and retry
                 try await Task.sleep(nanoseconds: 15_000_000)
                 continue
@@ -1088,11 +1088,11 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         // While held, a resume attempt is refused.
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
-        let blockedResult = await coordinator.resume(relayId: "relay_stale_lock", founderAnswer: "use staging", config: config)
+        let blockedResult = await coordinator.resume(loopId: "relay_stale_lock", founderAnswer: "use staging", config: config)
         guard case .failure(let blockedError) = blockedResult else { return XCTFail("expected failure while the child holds the lock") }
         XCTAssertEqual(blockedError, .roundInFlight)
 
@@ -1104,13 +1104,13 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
             .init(stdout: "Using staging.\n\n" + verdictJSON("done", note: "Shipped to staging.")),
         ]
         let (service2, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator2 = RelayCoordinator(runService: service2, stateStore: stateStore, runStore: runStore)
+        let coordinator2 = LoopCoordinator(runService: service2, stateStore: stateStore, runStore: runStore)
 
         // The stale flock releases the instant the process dies, but give the reaped
         // process table a brief moment to settle; poll rather than assert on one tick.
-        var settled: RelayState?
+        var settled: LoopState?
         for _ in 0..<50 {
-            let result = await coordinator2.resume(relayId: "relay_stale_lock", founderAnswer: "use staging", config: config)
+            let result = await coordinator2.resume(loopId: "relay_stale_lock", founderAnswer: "use staging", config: config)
             if case .success(let resumedState) = result { settled = resumedState; break }
             try await Task.sleep(nanoseconds: 50_000_000)
         }
@@ -1124,33 +1124,33 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     /// must get right: a live `.running` match refuses; a non-matching doc on the same
     /// root does not; a dead-owner `.running` relay does not.
     func testPreflightStartDirectScanShapes() throws {
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        try stateStore.save(RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        try stateStore.save(LoopState(
             id: "relay_live", projectRoot: "/repo/a", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         ))
 
-        let liveMatch = RelayCoordinator.preflightStart(
+        let liveMatch = LoopCoordinator.preflightStart(
             projectRoot: "/repo/a", docPath: "docs/spec.md", stateStore: stateStore
         )
         guard case .failure(.alreadyActive(let id)) = liveMatch else { return XCTFail("expected alreadyActive") }
         XCTAssertEqual(id, "relay_live")
 
-        let differentDoc = RelayCoordinator.preflightStart(
+        let differentDoc = LoopCoordinator.preflightStart(
             projectRoot: "/repo/a", docPath: "docs/other.md", stateStore: stateStore
         )
         guard case .success = differentDoc else { return XCTFail("expected success for a non-matching doc") }
 
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        let projector = LoopThreadProjector(store: threadStore, runStore: runStore)
         try makeOrphanedRunningRelay(id: "relay_dead_owner", projectRoot: "/repo/b", stateStore: stateStore, projector: projector)
-        let deadOwnerMatch = RelayCoordinator.preflightStart(
+        let deadOwnerMatch = LoopCoordinator.preflightStart(
             projectRoot: "/repo/b", docPath: "docs/spec.md", stateStore: stateStore
         )
         guard case .success = deadOwnerMatch else { return XCTFail("expected success — a dead-owner .running relay is not a live duplicate") }
 
-        let dotSlashMatch = RelayCoordinator.preflightStart(
+        let dotSlashMatch = LoopCoordinator.preflightStart(
             projectRoot: "/repo/a", docPath: "./docs/spec.md", stateStore: stateStore
         )
         guard case .failure(.alreadyActive(let id)) = dotSlashMatch else { return XCTFail("expected alreadyActive for ./docs prefix") }
@@ -1164,23 +1164,23 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testSecondStartOnSameRootAndDocWhileFirstIsLiveIsRefused() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         // `save()` stamps owner.pid with THIS test process's own pid for a `.running`
         // save — `isOwnerDead` reads that as alive, exactly like a genuinely live relay.
-        let existing = RelayState(
+        let existing = LoopState(
             id: "relay_first", projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(existing)
 
         let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-        let config = RelayCoordinator.Config(
+        let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.run(config: config)
         guard case .failure(let refusal) = result else { return XCTFail("expected failure while a live relay is active") }
-        XCTAssertEqual(refusal, .alreadyActive(relayId: "relay_first"))
+        XCTAssertEqual(refusal, .alreadyActive(loopId: "relay_first"))
         // The refused start must never have created (or mutated) a second relay.
         XCTAssertEqual(stateStore.list().count, 1)
         XCTAssertEqual(stateStore.load(id: "relay_first")?.status, .running)
@@ -1191,20 +1191,20 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testDeadOwnerRunningRelayDoesNotBlockANewStart() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
-        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
+        let projector = LoopThreadProjector(store: threadStore, runStore: runStore)
         try makeOrphanedRunningRelay(id: "relay_orphan_start", projectRoot: repo.path, stateStore: stateStore, projector: projector)
 
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Fresh start beside an orphan.\n\n" + verdictJSON("done", note: "Shipped.")),
         ]
         let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore,
             idFactory: { "relay_new_after_orphan" }
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.run(config: config)
@@ -1220,8 +1220,8 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testDifferentDocPathSameRootIsAllowed() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let existing = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let existing = LoopState(
             id: "relay_doc_a", projectRoot: repo.path, docPath: "docs/a.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
@@ -1229,11 +1229,11 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
 
         let pmScripts: [MockCommandRunner.Script] = [.init(stdout: "Different doc.\n\n" + verdictJSON("done", note: "ok"))]
         let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore,
             idFactory: { "relay_doc_b" }
         )
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: repo.path, docPath: "docs/b.md", pmModelId: "model_pm", devModelId: "model_dev"
         )
         let result = await coordinator.run(config: config)
@@ -1250,14 +1250,14 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testParkedRelayAwaitingPMOrEscalatedDoesNotBlockANewStart() async throws {
         let repo = try makeGitRepo()
         for (label, status, isCallerChair) in [
-            ("awaiting_pm", RelayState.Status.awaitingPM, true),
-            ("escalated", RelayState.Status.escalated, false),
+            ("awaiting_pm", LoopState.Status.awaitingPM, true),
+            ("escalated", LoopState.Status.escalated, false),
         ] {
             let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-\(label)"))
-            let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-\(label)"))
-            let parked = RelayState(
+            let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("relays-\(label)"))
+            let parked = LoopState(
                 id: "relay_parked_\(label)", projectRoot: repo.path, docPath: "docs/spec.md",
-                pmModelId: isCallerChair ? RelayState.callerPMModelId : "model_pm",
+                pmModelId: isCallerChair ? LoopState.callerPMModelId : "model_pm",
                 devModelId: "model_dev", status: status, createdAt: Date(),
                 note: status == .escalated ? "which env?" : nil
             )
@@ -1267,11 +1267,11 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
                 .init(stdout: "New start beside a parked relay.\n\n" + verdictJSON("done", note: "ok")),
             ]
             let (service, _) = makeService(pmScripts: pmScripts, devScripts: [], runStore: runStore)
-            let coordinator = RelayCoordinator(
+            let coordinator = LoopCoordinator(
                 runService: service, stateStore: stateStore, runStore: runStore,
                 idFactory: { "relay_new_beside_\(label)" }
             )
-            let config = RelayCoordinator.Config(
+            let config = LoopCoordinator.Config(
                 projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
             )
             let result = await coordinator.run(config: config)
@@ -1289,8 +1289,8 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
     func testRootNormalizationCatchesTrailingSlashDotDotAndSymlinkSpellings() async throws {
         let repo = try makeGitRepo()
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
-        let existing = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
+        let existing = LoopState(
             id: "relay_canonical", projectRoot: repo.path, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
@@ -1315,15 +1315,15 @@ final class RelayCoordinatorTests: HermeticSupportTestCase {
         ]
         for spelling in spellings {
             let (service, _) = makeService(pmScripts: [], devScripts: [], runStore: runStore)
-            let coordinator = RelayCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
-            let config = RelayCoordinator.Config(
+            let coordinator = LoopCoordinator(runService: service, stateStore: stateStore, runStore: runStore)
+            let config = LoopCoordinator.Config(
                 projectRoot: spelling, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev"
             )
             let result = await coordinator.run(config: config)
             guard case .failure(let refusal) = result else {
                 return XCTFail("spelling '\(spelling)' must normalize to the SAME key as the canonical root and be refused")
             }
-            XCTAssertEqual(refusal, .alreadyActive(relayId: "relay_canonical"), "spelling: \(spelling)")
+            XCTAssertEqual(refusal, .alreadyActive(loopId: "relay_canonical"), "spelling: \(spelling)")
         }
         XCTAssertEqual(stateStore.list().count, 1, "none of the differently-spelled attempts may have created a new relay")
     }
@@ -1335,20 +1335,20 @@ private func pythonStringLiteral(_ raw: String) -> String {
     "r\"\"\"\(raw)\"\"\""
 }
 
-// MARK: - RelayStateStore
+// MARK: - LoopStateStore
 
-final class RelayStateStoreTests: HermeticSupportTestCase {
+final class LoopStateStoreTests: HermeticSupportTestCase {
     func testSaveLoadRoundTripAndList() throws {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relaystore-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
 
-        let store = RelayStateStore(rootDirectory: tmp)
+        let store = LoopStateStore(rootDirectory: tmp)
         let fixedNow = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
         var round = RelayRound(roundNumber: 1, baselineHead: "abc123", startedAt: fixedNow)
-        round.verdict = RelayVerdict(verdict: .continueRelay, handover: "do it")
+        round.verdict = LoopVerdict(verdict: .continueRelay, handover: "do it")
         round.gate = RelayGateSummary(allowed: true)
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_roundtrip", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running,
             rounds: [round], createdAt: fixedNow
@@ -1368,7 +1368,7 @@ final class RelayStateStoreTests: HermeticSupportTestCase {
 
     func testLoadMissingReturnsNil() {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relaystore-missing-\(UUID().uuidString)")
-        let store = RelayStateStore(rootDirectory: tmp)
+        let store = LoopStateStore(rootDirectory: tmp)
         XCTAssertNil(store.load(id: "does_not_exist"))
         XCTAssertEqual(store.list(), [])
     }
@@ -1380,9 +1380,9 @@ final class RelayStateStoreTests: HermeticSupportTestCase {
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
 
-        let store = RelayStateStore(rootDirectory: tmp)
+        let store = LoopStateStore(rootDirectory: tmp)
         let ownerURL = tmp.appendingPathComponent("relay_owner").appendingPathComponent("owner.pid")
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_owner", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
@@ -1400,13 +1400,13 @@ final class RelayStateStoreTests: HermeticSupportTestCase {
         let tmp = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-relaystore-dead-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: tmp) }
-        let store = RelayStateStore(rootDirectory: tmp)
+        let store = LoopStateStore(rootDirectory: tmp)
 
         // No relay folder at all — missing counts as dead (never assumed alive without proof).
         XCTAssertTrue(store.isOwnerDead(id: "relay_never_saved"))
 
         // A live owner (this test process) is not dead.
-        let live = RelayState(
+        let live = LoopState(
             id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
@@ -1420,27 +1420,27 @@ final class RelayStateStoreTests: HermeticSupportTestCase {
     }
 }
 
-// MARK: - RelayTurnClassifier
+// MARK: - LoopTurnClassifier
 
-final class RelayTurnClassifierTests: HermeticSupportTestCase {
+final class LoopTurnClassifierTests: HermeticSupportTestCase {
     func testDeliveredOnDoneWithOutput() {
         let outcome = WorkerRunOutcome(status: .done, output: "the answer")
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .delivered(output: "the answer"))
+        XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .delivered(output: "the answer"))
     }
 
     func testEmptyResultOnDoneWithBlankOutput() {
         let outcome = WorkerRunOutcome(status: .done, output: "   \n")
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .emptyResult)
+        XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .emptyResult)
     }
 
     func testCompactionNeverClassifiedAsStalled() {
         let outcome = WorkerRunOutcome(status: .failed, output: "context compaction in progress, please retry")
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .compacting)
+        XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .compacting)
     }
 
     func testCompactionMarkerInReasoningAlsoWins() {
         let outcome = WorkerRunOutcome(status: .timedOut, reasoning: "running compaction now")
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .compacting)
+        XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .compacting)
     }
 
     func testInfraBackoffFromStructuredCapacityFact() {
@@ -1448,17 +1448,17 @@ final class RelayTurnClassifierTests: HermeticSupportTestCase {
             kind: .accountRateLimit, source: "pm_cli", sourceConfidence: .structured,
             rawSnippet: "rate limited", observedAt: Date())
         let outcome = WorkerRunOutcome(status: .failed, capacityObservation: observation)
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .infraBackoff)
+        XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .infraBackoff)
     }
 
     func testInfraBackoffFromTextSniff() {
         let outcome = WorkerRunOutcome(status: .failed, errorReason: "429 rate limit exceeded")
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .infraBackoff)
+        XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .infraBackoff)
     }
 
     func testStalledOnNotDoneWithoutInfraOrCompactionMarker() {
         let outcome = WorkerRunOutcome(status: .failed, errorReason: "unexpected exit")
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .stalled)
+        XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .stalled)
     }
 
     /// SR-7 (Sol F23): a bare `"busy"` in an application error must NOT be read as provider
@@ -1466,14 +1466,14 @@ final class RelayTurnClassifierTests: HermeticSupportTestCase {
     /// effects. This one is `.stalled` (escalates), not `.infraBackoff` (retries).
     func testDatabaseBusyIsNotInfraBackoff() {
         let outcome = WorkerRunOutcome(status: .failed, errorReason: "sqlite: database is busy")
-        XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .stalled)
+        XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .stalled)
     }
 
     /// SR-7 guard: genuine provider backoff phrasings still classify as `.infraBackoff`.
     func testProviderBusyPhrasingsStillInfraBackoff() {
         for reason in ["server is busy, try again", "the model is busy", "service temporarily unavailable", "overloaded_error"] {
             let outcome = WorkerRunOutcome(status: .failed, errorReason: reason)
-            XCTAssertEqual(RelayTurnClassifier.classify(.init(outcome: outcome)), .infraBackoff, "reason: \(reason)")
+            XCTAssertEqual(LoopTurnClassifier.classify(.init(outcome: outcome)), .infraBackoff, "reason: \(reason)")
         }
     }
 }
@@ -1544,7 +1544,7 @@ final class SequencedCommandRunner: CommandRunner, @unchecked Sendable {
 }
 
 /// Routes PM vs dev CLI invocations in relay coordinator tests.
-final class RelayTestCommandRouter: CommandRunner, @unchecked Sendable {
+final class LoopTestCommandRouter: CommandRunner, @unchecked Sendable {
     private let pm: CommandRunner
     private let dev: CommandRunner
 

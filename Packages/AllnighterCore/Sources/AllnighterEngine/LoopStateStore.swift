@@ -1,11 +1,11 @@
 import Foundation
 import AllnighterCore
 
-/// Persists `RelayState` to disk as one folder per relay — `relays/<id>/relay.json` —
+/// Persists `LoopState` to disk as one folder per relay — `relays/<id>/relay.json` —
 /// mirroring `RunStore`'s per-id folder + atomic-write pattern (PM_Relay.md §6 R-S04).
-/// `RelayCoordinator` saves after every round-level state change, so a relay is resumable
+/// `LoopCoordinator` saves after every round-level state change, so a relay is resumable
 /// from disk at any point mid-round, never only in memory.
-public struct RelayStateStore: Sendable {
+public struct LoopStateStore: Sendable {
     public enum RelayLoadFailure: Sendable, Equatable, Error {
         case notFound(id: String)
         case decodeFailed(DecodeFailed)
@@ -28,7 +28,7 @@ public struct RelayStateStore: Sendable {
     public let rootDirectory: URL
 
     public init(rootDirectory: URL? = nil) {
-        self.rootDirectory = rootDirectory ?? AllnighterPaths.relays
+        self.rootDirectory = rootDirectory ?? AllnighterPaths.loops
     }
 
     private func relayJSONURL(id: String) -> URL {
@@ -51,7 +51,7 @@ public struct RelayStateStore: Sendable {
     /// Also records/clears an `owner.pid` liveness marker — the SAME convention
     /// `RunStore.save` uses (owner.pid written FIRST for a non-terminal `.running`
     /// state so a reader can never see `relay.json` without it, removed on a terminal
-    /// save) — the signal `RelayCoordinator.reconcileIfOrphaned` reads to detect a
+    /// save) — the signal `LoopCoordinator.reconcileIfOrphaned` reads to detect a
     /// relay whose process died mid-round (works-test hazard #1).
     ///
     /// Pilot's `awaitingPM` (`docs/phases/Pilot_Relay.md` §2) is a PARKED, UNOWNED
@@ -60,11 +60,11 @@ public struct RelayStateStore: Sendable {
     /// terminal-shaped save) `owner.pid`. A pilot relay can sit parked for days with
     /// no process behind it; that is by design, not an oversight.
     @discardableResult
-    public func save(_ state: RelayState) throws -> URL {
+    public func save(_ state: LoopState) throws -> URL {
         let directory = try relayDirectory(id: state.id)
         let ownerURL = directory.appendingPathComponent("owner.pid")
         if state.status == .running {
-            try Data("\(RelayStateStore.currentPID)".utf8).write(to: ownerURL, options: .atomic)
+            try Data("\(LoopStateStore.currentPID)".utf8).write(to: ownerURL, options: .atomic)
         }
         try CoreJSON.encode(state).write(to: directory.appendingPathComponent("relay.json"), options: .atomic)
         if state.status != .running {
@@ -74,7 +74,7 @@ public struct RelayStateStore: Sendable {
     }
 
     /// Distinguishes a missing relay from a present-but-unreadable `relay.json`.
-    public func loadResult(id: String) -> Result<RelayState, RelayLoadFailure> {
+    public func loadResult(id: String) -> Result<LoopState, RelayLoadFailure> {
         let url = relayJSONURL(id: id)
         guard FileManager.default.fileExists(atPath: url.path) else {
             return .failure(.notFound(id: id))
@@ -83,7 +83,7 @@ public struct RelayStateStore: Sendable {
             return .failure(.decodeFailed(.init(id: id, path: url.path, retiredWorkerKeys: false)))
         }
         do {
-            return .success(try CoreJSON.decode(RelayState.self, from: data))
+            return .success(try CoreJSON.decode(LoopState.self, from: data))
         } catch {
             let raw = String(data: data, encoding: .utf8) ?? ""
             let retired = Self.containsRetiredWorkerKeys(in: raw)
@@ -91,7 +91,7 @@ public struct RelayStateStore: Sendable {
         }
     }
 
-    public func load(id: String) -> RelayState? {
+    public func load(id: String) -> LoopState? {
         switch loadResult(id: id) {
         case .success(let state): return state
         case .failure: return nil
@@ -102,7 +102,7 @@ public struct RelayStateStore: Sendable {
     /// that is no longer alive. Missing counts as dead — a relay whose folder predates
     /// this marker (or was hand-edited) is never assumed alive without proof, matching
     /// `RunStore`'s "never falsely running" rule. Pure read, no side effects; the
-    /// caller (`RelayCoordinator.reconcileIfOrphaned`) owns the write-back.
+    /// caller (`LoopCoordinator.reconcileIfOrphaned`) owns the write-back.
     public func isOwnerDead(id: String) -> Bool {
         let ownerURL = rootDirectory.appendingPathComponent(id, isDirectory: true).appendingPathComponent("owner.pid")
         guard let raw = try? String(contentsOf: ownerURL, encoding: .utf8),
@@ -113,8 +113,8 @@ public struct RelayStateStore: Sendable {
     private static var currentPID: Int32 { ProcessInfo.processInfo.processIdentifier }
 
     /// All relays, newest first. Skips folders whose `relay.json` fails to decode;
-    /// use `loadResult` or `RelayPersistenceDoctorCheck` to surface those rows.
-    public func list() -> [RelayState] {
+    /// use `loadResult` or `LoopPersistenceDoctorCheck` to surface those rows.
+    public func list() -> [LoopState] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
             at: rootDirectory, includingPropertiesForKeys: nil
         ) else {

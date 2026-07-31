@@ -57,7 +57,7 @@ public struct DeliveredNotificationLedgerStore: Sendable {
 public struct NotificationScheduler: Sendable {
     public var threadStore: ThreadStore
     public var runStore: RunStore
-    public var relayStore: RelayStateStore
+    public var loopStore: LoopStateStore
     public var policyStore: NotificationPolicyStore
     public var ledgerStore: DeliveredNotificationLedgerStore
     public var commandRunner: CommandRunner
@@ -70,7 +70,7 @@ public struct NotificationScheduler: Sendable {
     public init(
         threadStore: ThreadStore = ThreadStore(),
         runStore: RunStore = RunStore(),
-        relayStore: RelayStateStore = RelayStateStore(),
+        loopStore: LoopStateStore = LoopStateStore(),
         policyStore: NotificationPolicyStore = NotificationPolicyStore(),
         ledgerStore: DeliveredNotificationLedgerStore = DeliveredNotificationLedgerStore(),
         commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
@@ -82,7 +82,7 @@ public struct NotificationScheduler: Sendable {
     ) {
         self.threadStore = threadStore
         self.runStore = runStore
-        self.relayStore = relayStore
+        self.loopStore = loopStore
         self.policyStore = policyStore
         self.ledgerStore = ledgerStore
         self.commandRunner = commandRunner
@@ -153,7 +153,7 @@ public struct NotificationScheduler: Sendable {
         let threadSnapshots = NotificationCandidateDetection.snapshots(from: threads)
         let runSnapshots = NotificationCandidateDetection.runSnapshots(from: threads, runsById: runsById)
         let relaySnapshots = NotificationCandidateDetection.relayStreamSnapshots(
-            relays: relayStore.list(), runStore: runStore, threadTitles: threadTitles, now: tickTime
+            relays: loopStore.list(), runStore: runStore, threadTitles: threadTitles, now: tickTime
         )
 
         var candidates = NotificationCandidateDetection.candidates(

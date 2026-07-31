@@ -114,7 +114,7 @@ public struct SourceProbeService: Sendable {
             teachingInputs: TeachingInstalledCheck.defaultInputs(homeDirectory: FileManager.default.homeDirectoryForCurrentUser)
         )
         var result = DoctorReport.build(models: models, manifests: manifests, records: doctorRecords, inputs: inputs)
-        result.checks.append(RelayPersistenceDoctorCheck.doctorCheck(relaysRoot: AllnighterPaths.relays))
+        result.checks.append(LoopPersistenceDoctorCheck.doctorCheck(loopsRoot: AllnighterPaths.loops))
         if let sourceId = request.sourceId {
             let prefix = "source.\(sourceId)."
             let global = Set(["binaryVersion", "docsVersion", "configDir", "runsDir", "sources", "pilot"])

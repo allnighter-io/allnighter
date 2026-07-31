@@ -68,7 +68,7 @@ final class ConcurrentInvocationIsolationTests: XCTestCase {
         let store = RunStore(rootDirectory: support.appendingPathComponent("Runs"))
         let surface = ProcessOwnershipSurface(
             runStore: store,
-            relayStore: RelayStateStore(rootDirectory: support.appendingPathComponent("Relays")),
+            loopStore: LoopStateStore(rootDirectory: support.appendingPathComponent("Loops")),
             lanesRoot: support.appendingPathComponent("Lanes")
         )
 

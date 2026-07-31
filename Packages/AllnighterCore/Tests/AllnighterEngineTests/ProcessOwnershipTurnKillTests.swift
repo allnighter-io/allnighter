@@ -104,8 +104,8 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
             .appendingPathComponent("po-s02-reconcile-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
 
-        let store = RelayStateStore(rootDirectory: root)
-        var state = RelayState(
+        let store = LoopStateStore(rootDirectory: root)
+        var state = LoopState(
             id: "relay_orphan_1",
             projectRoot: "/tmp/repo",
             docPath: "docs/spec.md",
@@ -138,11 +138,11 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
         var signals: [Int32] = []
         ProcessOwnership.terminateSignalHook = { pgid in signals.append(pgid) }
 
-        let reconciled = RelayCoordinator.reconcileOrphan(
+        let reconciled = LoopCoordinator.reconcileOrphan(
             state, stateStore: store, threadProjector: nil, now: { Date(timeIntervalSince1970: 1_700_000_100) }
         )
         XCTAssertEqual(reconciled.status, .stopped)
-        XCTAssertEqual(reconciled.stoppedReason, RelayState.orphanReconciledReason)
+        XCTAssertEqual(reconciled.stoppedReason, LoopState.orphanReconciledReason)
         XCTAssertEqual(signals, [9_004], "orphan reconcile must PG-kill the recorded turn group")
         XCTAssertEqual(reconciled.rounds.last?.devTurnEndReason, .killed)
         XCTAssertNil(ProcessOwnership.readTurnOwner(in: relayDir), "turn owner file cleared after kill")
@@ -158,7 +158,7 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
 
         let repo = try makeGitRepo(in: tmp)
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Review.\n\n```json\n{\"verdict\": \"continue\", \"handover\": \"Do the thing.\"}\n```"),
             .init(stdout: "Done.\n\n```json\n{\"verdict\": \"done\", \"note\": \"Shipped.\"}\n```"),
@@ -169,7 +169,7 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
         let (service, _) = makeService(
             pmScripts: pmScripts, devScripts: devScripts, runStore: runStore
         )
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore
         )
         let state = try await coordinator.run(config: .init(
@@ -181,7 +181,7 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
         XCTAssertEqual(devRound.devTurnEndReason, .reported,
                        "successful dev turn must stamp endReason=reported (never inferred)")
 
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let json = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let logEntry = try XCTUnwrap(json.roundLog.first { $0.devRunId != nil })
         XCTAssertEqual(logEntry.endReason, "reported")
     }
@@ -194,9 +194,9 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
 
         let repo = try makeGitRepo(in: tmp)
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         // PM continues once; dev always fails (non-done exit) → stalled retries then escalate.
-        let maxStalled = RelayTurnClassifier.RetryCeiling.maxStalledAttempts
+        let maxStalled = LoopTurnClassifier.RetryCeiling.maxStalledAttempts
         let pmScripts: [MockCommandRunner.Script] = [
             .init(stdout: "Review.\n\n```json\n{\"verdict\": \"continue\", \"handover\": \"Do the thing.\"}\n```"),
         ]
@@ -207,7 +207,7 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
         let (service, _) = makeService(
             pmScripts: pmScripts, devScripts: devScripts, runStore: runStore
         )
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service, stateStore: stateStore, runStore: runStore
         )
         let state = try await coordinator.run(config: .init(
@@ -218,7 +218,7 @@ final class ProcessOwnershipTurnKillTests: HermeticSupportTestCase {
         let round = try XCTUnwrap(state.rounds.last)
         XCTAssertEqual(round.devTurnEndReason, .stalled,
                        "budget-exhausted stall must stamp endReason=stalled")
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let json = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         XCTAssertEqual(json.roundLog.last?.endReason, "stalled")
     }
 

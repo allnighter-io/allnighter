@@ -6,13 +6,13 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
     private struct Tree {
         var root: URL
         var runs: RunStore
-        var relays: RelayStateStore
+        var relays: LoopStateStore
         var threads: ThreadStore
 
         var collector: ProcessOwnershipGarbageCollector {
             ProcessOwnershipGarbageCollector(
                 runStore: runs,
-                relayStore: relays,
+                loopStore: relays,
                 threadStore: threads,
                 retentionCount: 0
             )
@@ -23,15 +23,15 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
         let root = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("ownership-gc-\(UUID().uuidString)", isDirectory: true)
         let runsRoot = root.appendingPathComponent("Runs", isDirectory: true)
-        let relaysRoot = root.appendingPathComponent("Relays", isDirectory: true)
+        let loopsRoot = root.appendingPathComponent("Loops", isDirectory: true)
         let threadsRoot = root.appendingPathComponent("Threads", isDirectory: true)
         try FileManager.default.createDirectory(at: runsRoot, withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: relaysRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: loopsRoot, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: threadsRoot, withIntermediateDirectories: true)
         return Tree(
             root: root,
             runs: RunStore(rootDirectory: runsRoot),
-            relays: RelayStateStore(rootDirectory: relaysRoot),
+            relays: LoopStateStore(rootDirectory: loopsRoot),
             threads: ThreadStore(rootDirectory: threadsRoot)
         )
     }
@@ -65,7 +65,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
         try Data("{ not a valid TeamRun }".utf8).write(to: dir.appendingPathComponent("run.json"))
         // Threshold -1 → any mtime counts as old → prunable.
         let gc = ProcessOwnershipGarbageCollector(
-            runStore: tree.runs, relayStore: tree.relays, threadStore: tree.threads,
+            runStore: tree.runs, loopStore: tree.relays, threadStore: tree.threads,
             retentionCount: 0, unreadableMinAgeSeconds: -1)
 
         let result = gc.collect()
@@ -82,7 +82,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
         try Data("{ corrupt }".utf8).write(to: dir.appendingPathComponent("run.json"))
         // Huge threshold → a just-written dir is NOT old → kept (could be a mid-write run).
         let gc = ProcessOwnershipGarbageCollector(
-            runStore: tree.runs, relayStore: tree.relays, threadStore: tree.threads,
+            runStore: tree.runs, loopStore: tree.relays, threadStore: tree.threads,
             retentionCount: 0, unreadableMinAgeSeconds: 1_000_000)
 
         let result = gc.collect()
@@ -130,7 +130,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
         try tree.runs.save(run(id: "recent", status: .complete, createdAt: recent), models: [])
         let collector = ProcessOwnershipGarbageCollector(
             runStore: tree.runs,
-            relayStore: tree.relays,
+            loopStore: tree.relays,
             threadStore: tree.threads,
             retentionCount: 1
         )
@@ -191,7 +191,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
     func testTerminalRelayPrunesButResumableRelayStaysNonTerminal() throws {
         let tree = try tree()
         defer { try? FileManager.default.removeItem(at: tree.root) }
-        let done = RelayState(
+        let done = LoopState(
             id: "relay-done",
             projectRoot: "/repo",
             docPath: "docs/spec.md",
@@ -200,7 +200,7 @@ final class ProcessOwnershipGarbageCollectorTests: XCTestCase {
             status: .done,
             createdAt: .distantPast
         )
-        let escalated = RelayState(
+        let escalated = LoopState(
             id: "relay-escalated",
             projectRoot: "/repo",
             docPath: "docs/spec.md",

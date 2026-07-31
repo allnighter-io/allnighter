@@ -2,7 +2,7 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// PL-S05 works test: `RelayThreadProjector` renders a Pilot relay (`isCallerChair`)
+/// PL-S05 works test: `LoopThreadProjector` renders a Pilot relay (`isCallerChair`)
 /// on the SAME `WorkThread` shape a spawned relay uses — an external
 /// round's submission renders verbatim as the PM turn, attributed distinctly
 /// (`author: .user`, no `workerId`) from a spawned PM turn's `author: .worker` +
@@ -54,7 +54,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
     }
 
     private struct Rig {
-        let coordinator: RelayCoordinator
+        let coordinator: LoopCoordinator
         let threadStore: ThreadStore
         let runner: SequencedCommandRunner
     }
@@ -72,10 +72,10 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
             }
         )
         let threadStore = ThreadStore(rootDirectory: tmp.appendingPathComponent("threads"))
-        let projector = RelayThreadProjector(store: threadStore, runStore: runStore)
-        let coordinator = RelayCoordinator(
+        let projector = LoopThreadProjector(store: threadStore, runStore: runStore)
+        let coordinator = LoopCoordinator(
             runService: service,
-            stateStore: RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays")),
+            stateStore: LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops")),
             runStore: runStore, threadProjector: projector, idFactory: idFactory
         )
         return Rig(coordinator: coordinator, threadStore: threadStore, runner: runner)
@@ -110,7 +110,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
         let submission = "My own review of the repo.\n\n" + verdictJSON("continue", handover: "Implement the thing.")
-        let result = await rig.coordinator.runExternalRound(relayId: relay.id, submission: submission)
+        let result = await rig.coordinator.runExternalRound(loopId: relay.id, submission: submission)
         guard case .success(let payload) = result else { return XCTFail("expected success") }
         XCTAssertEqual(payload.state.status, .awaitingPM)
 
@@ -145,7 +145,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
         let submission = "Reviewed.\n\n" + verdictJSON("continue", handover: "Run git reset --hard on main.")
-        let result = await rig.coordinator.runExternalRound(relayId: relay.id, submission: submission)
+        let result = await rig.coordinator.runExternalRound(loopId: relay.id, submission: submission)
         guard case .failure = result else { return XCTFail("expected a gate-blocked failure") }
 
         let thread = try XCTUnwrap(rig.threadStore.get(relay.id))
@@ -164,7 +164,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
         let submission = "All acceptance criteria met.\n\n" + verdictJSON("done", note: "Shipped.")
-        let result = await rig.coordinator.runExternalRound(relayId: relay.id, submission: submission)
+        let result = await rig.coordinator.runExternalRound(loopId: relay.id, submission: submission)
         guard case .success(let payload) = result else { return XCTFail("expected success") }
         XCTAssertEqual(payload.state.status, .done)
 
@@ -186,7 +186,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
         let submission = "Need to know which env.\n\n" + verdictJSON("escalate", note: "staging or prod?")
-        let result = await rig.coordinator.runExternalRound(relayId: relay.id, submission: submission)
+        let result = await rig.coordinator.runExternalRound(loopId: relay.id, submission: submission)
         guard case .success(let payload) = result else { return XCTFail("expected success") }
         XCTAssertEqual(payload.state.status, .escalated)
 
@@ -212,7 +212,7 @@ final class PilotThreadProjectionTests: HermeticSupportTestCase {
         guard case .success(let relay) = started else { return XCTFail("start failed") }
 
         let submission = "Go.\n\n" + verdictJSON("continue", handover: "Build it.")
-        let result = await rig.coordinator.runExternalRound(relayId: relay.id, submission: submission)
+        let result = await rig.coordinator.runExternalRound(loopId: relay.id, submission: submission)
         guard case .success(let payload) = result else { return XCTFail("expected success") }
         XCTAssertEqual(payload.state.status, .awaitingPM, "settled back to parked after the dev turn completed")
 

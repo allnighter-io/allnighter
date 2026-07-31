@@ -13,7 +13,7 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
     public static let defaultUnreadableMinAgeSeconds: TimeInterval = 24 * 60 * 60
 
     public var runStore: RunStore
-    public var relayStore: RelayStateStore
+    public var loopStore: LoopStateStore
     public var threadStore: ThreadStore
     public var retentionCount: Int
     /// When true, classify exactly as a real run would (including the under-lock re-check)
@@ -24,7 +24,7 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
 
     public init(
         runStore: RunStore = RunStore(),
-        relayStore: RelayStateStore? = nil,
+        loopStore: LoopStateStore? = nil,
         threadStore: ThreadStore? = nil,
         retentionCount: Int = ProcessOwnershipGarbageCollector.defaultRetentionCount,
         dryRun: Bool = false,
@@ -32,8 +32,8 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
     ) {
         let supportRoot = runStore.rootDirectory.deletingLastPathComponent()
         self.runStore = runStore
-        self.relayStore = relayStore ?? RelayStateStore(
-            rootDirectory: supportRoot.appendingPathComponent("Relays", isDirectory: true)
+        self.loopStore = loopStore ?? LoopStateStore(
+            rootDirectory: supportRoot.appendingPathComponent("Loops", isDirectory: true)
         )
         self.threadStore = threadStore ?? ThreadStore(
             rootDirectory: supportRoot.appendingPathComponent("Threads", isDirectory: true)
@@ -151,13 +151,13 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
 
     private func relaySnapshots(into result: inout MutableResult) -> [Snapshot] {
         guard let entries = try? FileManager.default.contentsOfDirectory(
-            at: relayStore.rootDirectory,
+            at: loopStore.rootDirectory,
             includingPropertiesForKeys: nil
         ) else { return [] }
 
         return entries.compactMap { directory in
             guard let data = try? Data(contentsOf: directory.appendingPathComponent("relay.json")),
-                  let relay = try? CoreJSON.decode(RelayState.self, from: data) else {
+                  let relay = try? CoreJSON.decode(LoopState.self, from: data) else {
                 classifyUnreadable(
                     directory, id: directory.lastPathComponent, kind: "relay", into: &result)
                 return nil
@@ -211,7 +211,7 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
     private func pruneRelay(_ snapshot: Snapshot, into result: inout MutableResult) {
         ProcessOwnership.withRunLock(in: snapshot.directory) {
             guard let data = try? Data(contentsOf: snapshot.directory.appendingPathComponent("relay.json")),
-                  let relay = try? CoreJSON.decode(RelayState.self, from: data) else {
+                  let relay = try? CoreJSON.decode(LoopState.self, from: data) else {
                 result.keptUnreadable.append(snapshot.row(detail: "relay.json became unreadable"))
                 return
             }
@@ -305,7 +305,7 @@ public struct ProcessOwnershipGarbageCollector: Sendable {
     }
 }
 
-private extension RelayState {
+private extension LoopState {
     /// Done and deliberate ceiling stops are terminal. Escalated/awaiting-PM and
     /// orphan-reconciled stops remain resumable and must survive GC.
     var isGarbageCollectionTerminal: Bool {

@@ -126,14 +126,14 @@ final class RSCHostileDetachedTests: XCTestCase {
     // MARK: - Relay start-key doc path normalization
 
     func testNormalizeDocPathCollapsesLeadingDotSlash() {
-        XCTAssertEqual(RelayDispatchLock.normalizeDocPath("./docs/spec.md"), "docs/spec.md")
-        XCTAssertEqual(RelayDispatchLock.normalizeDocPath("docs/spec.md"), "docs/spec.md")
+        XCTAssertEqual(LoopDispatchLock.normalizeDocPath("./docs/spec.md"), "docs/spec.md")
+        XCTAssertEqual(LoopDispatchLock.normalizeDocPath("docs/spec.md"), "docs/spec.md")
     }
 
     func testStartKeyEqualForEquivalentDocPaths() {
         let root = "/Users/test/project"
-        let keyPlain = RelayDispatchLock.startKey(projectRoot: root, docPath: "docs/spec.md")
-        let keyDotted = RelayDispatchLock.startKey(projectRoot: root, docPath: "./docs/spec.md")
+        let keyPlain = LoopDispatchLock.startKey(projectRoot: root, docPath: "docs/spec.md")
+        let keyDotted = LoopDispatchLock.startKey(projectRoot: root, docPath: "./docs/spec.md")
         XCTAssertEqual(keyPlain, keyDotted)
     }
 }

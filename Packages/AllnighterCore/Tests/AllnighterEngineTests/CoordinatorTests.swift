@@ -211,7 +211,7 @@ final class CoordinatorRunTests: XCTestCase {
         let invoked = BoolBox()
         let scheduler = PMTurnWakeScheduler(
             runsRootDirectory: runs,
-            relaysRootDirectory: root.appendingPathComponent("Relays", isDirectory: true),
+            loopsRootDirectory: root.appendingPathComponent("Loops", isDirectory: true),
             configurationStore: config,
             ledgerStore: .init(fileURL: root.appendingPathComponent("ledger.json")),
             invoke: { _, stdin in

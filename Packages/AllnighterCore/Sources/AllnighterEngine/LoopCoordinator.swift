@@ -17,7 +17,7 @@ import AllnighterCore
 /// ordinary chat/execution, under `build_slice` (a single mutating worker), with
 /// `workerId` pinned to the relay's PM or dev seat. Allnighter never invents a second
 /// dispatch route (PM_Relay.md §5 item 2).
-public struct RelayCoordinator: Sendable {
+public struct LoopCoordinator: Sendable {
     public struct Config: Sendable {
         public var projectRoot: String
         public var projectId: String?
@@ -38,7 +38,7 @@ public struct RelayCoordinator: Sendable {
         public var until: Date?
         /// Consecutive rounds with zero repo change AND verdict `continue` before the
         /// relay stops itself as a probable PM↔dev deadlock. Approximates the doc's
-        /// `--max-consecutive-flags` (§5 item 3) — see `RelayCoordinator.loop`.
+        /// `--max-consecutive-flags` (§5 item 3) — see `LoopCoordinator.loop`.
         public var stagnationRoundCap: Int
         /// The single-mutating-worker team both seats run under. Defaults to
         /// `build_slice` (`PairCoordinator.Seats` uses the same team for its
@@ -102,7 +102,7 @@ public struct RelayCoordinator: Sendable {
     /// them to anything else — this type carries no opinion about presentation.
     public enum RelayEvent: Sendable, Equatable {
         case roundStarted(round: Int)
-        case pmTurnFinished(round: Int, verdict: RelayVerdict.Verdict)
+        case pmTurnFinished(round: Int, verdict: LoopVerdict.Verdict)
         case gateBlocked(round: Int, dangerClass: String, reason: String)
         case devTurnFinished(round: Int)
         case escalated(note: String)
@@ -135,25 +135,25 @@ public struct RelayCoordinator: Sendable {
         /// The relay is in some OTHER non-`awaitingPM` status (`done`/`escalated`/
         /// `stopped`) — there's nothing to hand off to.
         case notAwaitingPM(status: String)
-        /// `submission`'s tail didn't parse as a `RelayVerdict`. No re-ask machinery
+        /// `submission`'s tail didn't parse as a `LoopVerdict`. No re-ask machinery
         /// in Pilot — the piloting session is live and just resubmits.
-        case verdictUnparseable(RelayVerdictParser.ExtractError)
+        case verdictUnparseable(LoopVerdictParser.ExtractError)
         /// `HandoverGate` blocked the `continue` verdict's handover before it ever
         /// reached the dev seat. Pilot never escalates on a gate block (unlike a
         /// spawned relay) — the piloting session is right there to rephrase.
         case handoverBlocked(dangerClass: String, code: String, reason: String, snippet: String)
     }
 
-    /// `runExternalRound`'s success payload: the updated `RelayState` plus, when a dev
+    /// `runExternalRound`'s success payload: the updated `LoopState` plus, when a dev
     /// turn actually dispatched and delivered this call, its report text verbatim —
     /// so the CLI can print it without a second `RunStore` lookup keyed off
     /// `state.rounds.last?.devRunId` (`docs/phases/Pilot_Relay.md` §2 "read dev report
     /// ← report + round log returned in the same call").
     public struct PilotRoundResult: Sendable, Equatable {
-        public var state: RelayState
+        public var state: LoopState
         public var devReport: String?
 
-        public init(state: RelayState, devReport: String? = nil) {
+        public init(state: LoopState, devReport: String? = nil) {
             self.state = state
             self.devReport = devReport
         }
@@ -161,15 +161,15 @@ public struct RelayCoordinator: Sendable {
 
     private let runService: RunService
     private let gitObserver: GitObserver
-    private let stateStore: RelayStateStore
+    private let stateStore: LoopStateStore
     private let runStore: RunStore
     /// PTD-1b: durable delivery receipt written before a relay parks or settles.
     private let pmTurnStore: PMTurnStore
     /// Optional (PM_Relay.md §6 R-S07): projects the relay onto a `WorkThread` so the
     /// Mac inbox shows the loop live. Pure composition — `nil` by default so every
     /// existing test/headless caller keeps working unchanged; CLI/MCP construct one via
-    /// `RelayDispatch.makeCoordinator` so real relays always show in the inbox.
-    private let threadProjector: RelayThreadProjector?
+    /// `LoopDispatch.makeCoordinator` so real relays always show in the inbox.
+    private let threadProjector: LoopThreadProjector?
     /// Per-root build/execution lane (PO-S03). Shared with `RunWriteLock` — one system.
     private let executionLane: ExecutionLaneRegistry
     /// PO-S04: process-group runner for harness proofs only. Separate from
@@ -188,17 +188,17 @@ public struct RelayCoordinator: Sendable {
     public init(
         runService: RunService,
         gitObserver: GitObserver = GitObserver(),
-        stateStore: RelayStateStore = RelayStateStore(),
+        stateStore: LoopStateStore = LoopStateStore(),
         runStore: RunStore = RunStore(),
         pmTurnStore: PMTurnStore? = nil,
-        threadProjector: RelayThreadProjector? = nil,
+        threadProjector: LoopThreadProjector? = nil,
         executionLane: ExecutionLaneRegistry = .shared,
         proofCommandRunner: CommandRunner = ProcessGroupCommandRunner(
             environmentPolicy: AllnighterSpawnEnvironmentPolicy(),
             spawnKind: .harnessProof
         ),
         now: @escaping @Sendable () -> Date = Date.init,
-        idFactory: @escaping @Sendable () -> String = RelayCoordinator.mintRelayId
+        idFactory: @escaping @Sendable () -> String = LoopCoordinator.mintLoopId
     ) {
         self.runService = runService
         self.gitObserver = gitObserver
@@ -207,7 +207,7 @@ public struct RelayCoordinator: Sendable {
         // A supplied state-store root (the normal test seam) must carry its PM
         // receipt beside it; production's default state store resolves to the same
         // Allnighter relays root as `PMTurnStore()`.
-        self.pmTurnStore = pmTurnStore ?? PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+        self.pmTurnStore = pmTurnStore ?? PMTurnStore(loopsRootDirectory: stateStore.rootDirectory)
         self.threadProjector = threadProjector
         self.executionLane = executionLane
         self.proofCommandRunner = proofCommandRunner
@@ -219,7 +219,7 @@ public struct RelayCoordinator: Sendable {
     /// foreground step can pre-mint an id in the SAME format `run(config:)` would have
     /// generated internally — one format, not two drifting copies of the string
     /// template.
-    public static func mintRelayId() -> String {
+    public static func mintLoopId() -> String {
         "relay_\(UUID().uuidString.lowercased())"
     }
 
@@ -238,17 +238,17 @@ public struct RelayCoordinator: Sendable {
     /// call this standalone for an early, lock-free read — a `.success` here is not a
     /// guarantee against a start that lands between the check and the real call.
     public static func preflightStart(
-        projectRoot: String, docPath: String?, brief: String = "", stateStore: RelayStateStore
+        projectRoot: String, docPath: String?, brief: String = "", stateStore: LoopStateStore
     ) -> Result<Void, DispatchRefusal> {
         let normalizedRoot = RootNormalization.normalize(projectRoot).key
-        let identity = RelayDispatchLock.identityKey(docPath: docPath, brief: brief)
+        let identity = LoopDispatchLock.identityKey(docPath: docPath, brief: brief)
         for candidate in stateStore.list() {
             guard candidate.status == .running,
-                  RelayDispatchLock.identityKey(docPath: candidate.docPath, brief: candidate.brief ?? "") == identity
+                  LoopDispatchLock.identityKey(docPath: candidate.docPath, brief: candidate.brief ?? "") == identity
             else { continue }
             guard RootNormalization.normalize(candidate.projectRoot).key == normalizedRoot else { continue }
             guard !stateStore.isOwnerDead(id: candidate.id) else { continue }
-            return .failure(.alreadyActive(relayId: candidate.id))
+            return .failure(.alreadyActive(loopId: candidate.id))
         }
         return .success(())
     }
@@ -256,9 +256,9 @@ public struct RelayCoordinator: Sendable {
     /// RSC-HF: durable start claim only (lock + preflight + first `.running` persist).
     /// GUI navigates after this succeeds; `complete` runs the round loop in the background.
     /// `run` is claimStart + complete.
-    public func claimStart(config: Config, id: String? = nil) -> Result<RelayState, DispatchRefusal> {
-        let key = RelayDispatchLock.startKey(projectRoot: config.projectRoot, docPath: config.docPath, brief: config.brief)
-        guard let acquired = RelayDispatchLock.acquireStart(startKey: key, relaysRoot: stateStore.rootDirectory) else {
+    public func claimStart(config: Config, id: String? = nil) -> Result<LoopState, DispatchRefusal> {
+        let key = LoopDispatchLock.startKey(projectRoot: config.projectRoot, docPath: config.docPath, brief: config.brief)
+        guard let acquired = LoopDispatchLock.acquireStart(startKey: key, loopsRoot: stateStore.rootDirectory) else {
             if case .failure(let refusal) = Self.preflightStart(
                 projectRoot: config.projectRoot, docPath: config.docPath, brief: config.brief, stateStore: stateStore
             ) { return .failure(refusal) }
@@ -273,7 +273,7 @@ public struct RelayCoordinator: Sendable {
             return .failure(refusal)
         }
 
-        let state = RelayState(
+        let state = LoopState(
             id: id ?? idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
@@ -298,7 +298,7 @@ public struct RelayCoordinator: Sendable {
     /// Runs the round loop for a relay that `claimStart` (or an equivalent guard) already
     /// flipped to `.running`.
     public func complete(
-        _ claimed: RelayState,
+        _ claimed: LoopState,
         config: Config,
         events: EventSink? = nil
     ) async {
@@ -306,9 +306,9 @@ public struct RelayCoordinator: Sendable {
         await loop(state: &state, config: config, events: events)
     }
 
-    /// Starts a new relay and runs it to a terminal `RelayState` (`done`, `escalated`, or
+    /// Starts a new relay and runs it to a terminal `LoopState` (`done`, `escalated`, or
     /// `stopped`). Every round is persisted the moment it changes (durable mid-round).
-    public func run(config: Config, id: String? = nil, events: EventSink? = nil) async -> Result<RelayState, DispatchRefusal> {
+    public func run(config: Config, id: String? = nil, events: EventSink? = nil) async -> Result<LoopState, DispatchRefusal> {
         switch claimStart(config: config, id: id) {
         case .failure(let refusal):
             return .failure(refusal)
@@ -326,19 +326,19 @@ public struct RelayCoordinator: Sendable {
     /// `config.until` is a usage error rather than silently ignored — the founder
     /// should learn immediately that `--until` doesn't apply here, not have it
     /// quietly do nothing. `config.maxRounds`/`config.stagnationRoundCap` are captured
-    /// onto the durable state (`RelayState.pilotMaxRounds`/`pilotStagnationRoundCap`)
+    /// onto the durable state (`LoopState.pilotMaxRounds`/`pilotStagnationRoundCap`)
     /// because, unlike a spawned relay's `run`/`resume`, there is no long-lived process
     /// to re-supply them at every later round — each `pilot handoff` is a fresh CLI
     /// invocation. `config.pmModelId` is ignored; the durable `pmModelId` is always
-    /// `RelayState.callerPMModelId` (there is no PM model to dispatch).
-    public func startPilot(config: Config) -> Result<RelayState, PilotStartError> {
+    /// `LoopState.callerPMModelId` (there is no PM model to dispatch).
+    public func startPilot(config: Config) -> Result<LoopState, PilotStartError> {
         guard config.until == nil else { return .failure(.untilNotSupported) }
-        let state = RelayState(
+        let state = LoopState(
             id: idFactory(),
             projectRoot: config.projectRoot,
             docPath: config.docPath,
             brief: config.docPath == nil && !config.brief.isEmpty ? config.brief : nil,
-            pmModelId: RelayState.callerPMModelId,
+            pmModelId: LoopState.callerPMModelId,
             devModelId: config.devModelId,
             status: .awaitingPM,
             createdAt: now(),
@@ -360,9 +360,9 @@ public struct RelayCoordinator: Sendable {
     /// runs `HandoverGate` so a detached dispatch cannot ack `"dispatched"`
     /// while the child silently dumps `RELAY_HANDOVER_UNSAFE` to `/dev/null`.
     public static func preflightExternalRound(
-        state: RelayState?,
+        state: LoopState?,
         submission: String
-    ) -> Result<(state: RelayState, extraction: RelayVerdictParser.Extraction), PilotRoundError> {
+    ) -> Result<(state: LoopState, extraction: LoopVerdictParser.Extraction), PilotRoundError> {
         guard let state else { return .failure(.relayNotFound) }
         guard state.isCallerChair else { return .failure(.notPilotRelay) }
         if state.status == .running { return .failure(.roundInFlight) }
@@ -370,8 +370,8 @@ public struct RelayCoordinator: Sendable {
             return .failure(.notAwaitingPM(status: state.status.rawValue))
         }
 
-        let extraction: RelayVerdictParser.Extraction
-        switch RelayVerdictParser.extract(from: submission) {
+        let extraction: LoopVerdictParser.Extraction
+        switch LoopVerdictParser.extract(from: submission) {
         case .success(let ex):
             extraction = ex
         case .failure(let parseError):
@@ -398,7 +398,7 @@ public struct RelayCoordinator: Sendable {
 
     /// `pilot handoff` — runs exactly ONE external round: the piloting session's raw
     /// markdown `submission` stands in for a spawned PM turn. Reuses the shipped round
-    /// machinery end to end (`RelayVerdictParser`, `HandoverGate`, `RelayDevPrompt`,
+    /// machinery end to end (`LoopVerdictParser`, `HandoverGate`, `LoopDevPrompt`,
     /// `dispatchTurn`'s classifier/retries) — Pilot never invents a second dispatch
     /// path (Pilot_Relay.md §1 decision 1).
     ///
@@ -416,12 +416,12 @@ public struct RelayCoordinator: Sendable {
     /// entire run-truth, not a payload to discard) and settle the relay exactly like
     /// a spawned round would.
     public func runExternalRound(
-        relayId: String, submission: String, projectId: String? = nil, events: EventSink? = nil
+        loopId: String, submission: String, projectId: String? = nil, events: EventSink? = nil
     ) async -> Result<PilotRoundResult, PilotRoundError> {
-        let loaded = stateStore.load(id: relayId)
+        let loaded = stateStore.load(id: loopId)
         let preflight = Self.preflightExternalRound(state: loaded, submission: submission)
-        var state: RelayState
-        let extraction: RelayVerdictParser.Extraction
+        var state: LoopState
+        let extraction: LoopVerdictParser.Extraction
         switch preflight {
         case .failure(let error):
             // Preserve the gateBlocked progress event the blocking JSON path used
@@ -501,7 +501,7 @@ public struct RelayCoordinator: Sendable {
 
             let devDisplayName = await runService.workerDisplayName(forModelId: state.devModelId)
             let devRequest = RunRequest(
-                message: RelayDevPrompt.assemble(context: .init(
+                message: LoopDevPrompt.assemble(context: .init(
                     handover: handover, docPath: state.docPath, roundNumber: roundNumber,
                     workerDisplayName: devDisplayName)),
                 repoRoot: state.projectRoot, projectId: projectId,
@@ -518,7 +518,7 @@ public struct RelayCoordinator: Sendable {
             let devResult = await dispatchDevTurn(
                 devRequest,
                 config: dispatchConfig,
-                relayId: state.id,
+                loopId: state.id,
                 deliveryGuard: .init(
                     projectRoot: state.projectRoot,
                     baselineHead: round.baselineHead ?? gitObserver.observe(rootPath: state.projectRoot).head ?? ""
@@ -607,7 +607,7 @@ public struct RelayCoordinator: Sendable {
         /// round in flight (`running`), a finished relay (`done`), or a ceiling-fired
         /// one (`stopped`). Only a genuinely parked relay can be handed to a spawned PM.
         case notAdoptable(status: String)
-        /// RSC-S01: another process currently holds this relay's `RelayDispatchLock` —
+        /// RSC-S01: another process currently holds this relay's `LoopDispatchLock` —
         /// a concurrent `adopt`/`resume` is already mid read-check-write. Distinct from
         /// `.notAdoptable(status: "running")`, which means the durable state itself is
         /// already `.running`; this means the lock couldn't even be taken to check.
@@ -644,22 +644,22 @@ public struct RelayCoordinator: Sendable {
     /// RSC-HF (`--no-wait`): the guard-only half of `adopt` below — same
     /// lock/load/check/flip/persist/release discipline, minus the round loop. Returns
     /// the flipped state, the resolved config, and the one-time `adoptionNote` (it is
-    /// NOT persisted onto `RelayState` — see `adopt`'s doc comment). `adopt` is built
+    /// NOT persisted onto `LoopState` — see `adopt`'s doc comment). `adopt` is built
     /// on top of this so there is exactly one guard implementation.
     public func adoptGuard(
-        relayId: String, pmModelId: String, config: Config
-    ) -> Result<(state: RelayState, config: Config, adoptionNote: String), AdoptError> {
+        loopId: String, pmModelId: String, config: Config
+    ) -> Result<(state: LoopState, config: Config, adoptionNote: String), AdoptError> {
         // RSC-S01: the lock covers ONLY the read-check-write window below — released
         // (by dropping this handle) right before the round loop, never held across it.
         // A crashed holder never wedges the relay: `flock` is released by the kernel on
         // process death, and liveness after the flip to `.running` is separately owned
         // by `owner.pid` + `reconcileOrphan` (unchanged).
-        var lockHandle: ThreadFlockLock.Handle? = RelayDispatchLock.tryAcquire(
-            relayId: relayId, relaysRoot: stateStore.rootDirectory
+        var lockHandle: ThreadFlockLock.Handle? = LoopDispatchLock.tryAcquire(
+            loopId: loopId, loopsRoot: stateStore.rootDirectory
         )
         guard lockHandle != nil else { return .failure(.roundInFlight) }
 
-        guard var state = stateStore.load(id: relayId) else {
+        guard var state = stateStore.load(id: loopId) else {
             lockHandle = nil
             return .failure(.relayNotFound)
         }
@@ -699,9 +699,9 @@ public struct RelayCoordinator: Sendable {
     }
 
     public func adopt(
-        relayId: String, pmModelId: String, config: Config, events: EventSink? = nil
-    ) async -> Result<RelayState, AdoptError> {
-        switch adoptGuard(relayId: relayId, pmModelId: pmModelId, config: config) {
+        loopId: String, pmModelId: String, config: Config, events: EventSink? = nil
+    ) async -> Result<LoopState, AdoptError> {
+        switch adoptGuard(loopId: loopId, pmModelId: pmModelId, config: config) {
         case .failure(let error):
             return .failure(error)
         case .success(let (flipped, adoptedConfig, note)):
@@ -738,7 +738,7 @@ public struct RelayCoordinator: Sendable {
         /// The relay isn't a spawned relay (caller already holds the PM seat) —
         /// nothing to hand to a piloting session (it's already Pilot's).
         case notSpawnedRelay
-        /// Anything other than a parked spawned relay (`RelayState.isResumable`) — a
+        /// Anything other than a parked spawned relay (`LoopState.isResumable`) — a
         /// round in flight, a finished relay, or a ceiling-`stopped` one that never
         /// reconciled. Only a relay `relay-resume` would also accept is eligible here.
         case notAdoptable(status: String)
@@ -748,26 +748,26 @@ public struct RelayCoordinator: Sendable {
     /// PARKED SPAWNED relay's PM seat to a piloting session. Genuinely trivial (`docs/
     /// phases/Pilot_Relay.md` §5 "falls out of the same move"): unlike `adopt`, this
     /// never dispatches anything and needs no `RunService` at all — a parked spawned
-    /// relay (`RelayState.isResumable`: `escalated`, or ceiling-`stopped` and
+    /// relay (`LoopState.isResumable`: `escalated`, or ceiling-`stopped` and
     /// reconciled) is EXACTLY the set `relay-resume` already accepts, so this simply
     /// re-labels it `status: .awaitingPM`,
-    /// `pmModelId: RelayState.callerPMModelId` and persists — the round log and
+    /// `pmModelId: LoopState.callerPMModelId` and persists — the round log and
     /// thread carry over untouched, and the piloting session picks it up with an
     /// ordinary `pilot handoff` next. `static` for the same reason `reconcileOrphan`
-    /// is: a plain state mutation shouldn't need a full `RelayCoordinator` (and the
+    /// is: a plain state mutation shouldn't need a full `LoopCoordinator` (and the
     /// `RunService` its initializer requires) built just to flip two fields.
     @discardableResult
     public static func adoptToPilot(
-        relayId: String, stateStore: RelayStateStore, threadProjector: RelayThreadProjector?,
+        loopId: String, stateStore: LoopStateStore, threadProjector: LoopThreadProjector?,
         now: @escaping @Sendable () -> Date = Date.init
-    ) -> Result<RelayState, ReverseAdoptError> {
-        guard let loaded = stateStore.load(id: relayId) else { return .failure(.relayNotFound) }
+    ) -> Result<LoopState, ReverseAdoptError> {
+        guard let loaded = stateStore.load(id: loopId) else { return .failure(.relayNotFound) }
         let reconciled = reconcileOrphan(loaded, stateStore: stateStore, threadProjector: threadProjector, now: now)
         guard !reconciled.isCallerChair else { return .failure(.notSpawnedRelay) }
         guard reconciled.isResumable else { return .failure(.notAdoptable(status: reconciled.status.rawValue)) }
 
         var state = reconciled
-        state.pmModelId = RelayState.callerPMModelId
+        state.pmModelId = LoopState.callerPMModelId
         state.status = .awaitingPM
         state.finishedAt = nil
         state.stoppedReason = nil
@@ -791,11 +791,11 @@ public struct RelayCoordinator: Sendable {
     }
 
     /// Resumes an `.escalated` relay (a real founder question) OR a reconciled-`.stopped`
-    /// one (`RelayState.isReconciledStopped` — its owner process died mid-round; works-test
+    /// one (`LoopState.isReconciledStopped` — its owner process died mid-round; works-test
     /// hazard #1: "escalated-only was too narrow"): injects the founder's answer as
     /// `founderNote` for the next PM turn, then continues the loop from the last durable
     /// round. `config` re-supplies the ceilings (`maxRounds`/`until`/`stagnationRoundCap`)
-    /// — these are per-invocation, not part of the persisted `RelayState`, so a resumed run
+    /// — these are per-invocation, not part of the persisted `LoopState`, so a resumed run
     /// can widen or tighten them (e.g. a fresh `--until` for the next stretch);
     /// `projectRoot`/`docPath`/worker ids are taken from the loaded state, not `config`, so
     /// a resume can never silently redirect a relay at a different doc or repo. Fails with
@@ -807,7 +807,7 @@ public struct RelayCoordinator: Sendable {
     public enum DispatchRefusal: Swift.Error, Sendable, Equatable {
         case relayNotFound
         case notResumable(status: String)
-        /// RSC-S01: another process currently holds this relay's `RelayDispatchLock` —
+        /// RSC-S01: another process currently holds this relay's `LoopDispatchLock` —
         /// a concurrent `resume`/`adopt` is already mid read-check-write.
         case roundInFlight
         /// RSC-S02: `run`'s start-time duplicate guard — a live-owner `.running` relay
@@ -815,7 +815,7 @@ public struct RelayCoordinator: Sendable {
         /// existing relay id so the caller can resume/adopt/inspect it instead of
         /// guessing. A dead-owner `.running` relay (orphan) never produces this — see
         /// `preflightStart`.
-        case alreadyActive(relayId: String)
+        case alreadyActive(loopId: String)
         /// The durable claim write (`stateStore.save`) failed after eligibility passed.
         case journalUnavailable
     }
@@ -830,15 +830,15 @@ public struct RelayCoordinator: Sendable {
     /// one guard implementation — this is the same mutate-under-lock step either way,
     /// not a second, weaker check.
     public func resumeGuard(
-        relayId: String, founderAnswer: String, config: Config
-    ) -> Result<(state: RelayState, config: Config), DispatchRefusal> {
+        loopId: String, founderAnswer: String, config: Config
+    ) -> Result<(state: LoopState, config: Config), DispatchRefusal> {
         // RSC-S01: same lock/window discipline as `adoptGuard` below — see its comment.
-        var lockHandle: ThreadFlockLock.Handle? = RelayDispatchLock.tryAcquire(
-            relayId: relayId, relaysRoot: stateStore.rootDirectory
+        var lockHandle: ThreadFlockLock.Handle? = LoopDispatchLock.tryAcquire(
+            loopId: loopId, loopsRoot: stateStore.rootDirectory
         )
         guard lockHandle != nil else { return .failure(.roundInFlight) }
 
-        guard let loaded = stateStore.load(id: relayId) else {
+        guard let loaded = stateStore.load(id: loopId) else {
             lockHandle = nil
             return .failure(.relayNotFound)
         }
@@ -873,9 +873,9 @@ public struct RelayCoordinator: Sendable {
     }
 
     public func resume(
-        relayId: String, founderAnswer: String, config: Config, events: EventSink? = nil
-    ) async -> Result<RelayState, DispatchRefusal> {
-        switch resumeGuard(relayId: relayId, founderAnswer: founderAnswer, config: config) {
+        loopId: String, founderAnswer: String, config: Config, events: EventSink? = nil
+    ) async -> Result<LoopState, DispatchRefusal> {
+        switch resumeGuard(loopId: loopId, founderAnswer: founderAnswer, config: config) {
         case .failure(let refusal):
             return .failure(refusal)
         case .success(let (flipped, resumedConfig)):
@@ -888,8 +888,8 @@ public struct RelayCoordinator: Sendable {
     /// `pair relay-status` / MCP `pair_relay(action: status)` — the read path that also
     /// reconciles (works-test hazard #1: "on load/list/status/start"). Returns `nil` only
     /// when no such relay exists.
-    public func status(relayId: String) -> RelayState? {
-        guard let state = stateStore.load(id: relayId) else { return nil }
+    public func status(loopId: String) -> LoopState? {
+        guard let state = stateStore.load(id: loopId) else { return nil }
         return reconcileIfOrphaned(state)
     }
 
@@ -910,13 +910,13 @@ public struct RelayCoordinator: Sendable {
     /// terminate helpers inside this path — never calls `ProcessOwnershipSurface.kill`
     /// as the whole product path (that path lacks PM Turn + founder reason + escalated abandon).
     public func stop(
-        relayId: String,
-        reason: String = RelayState.founderStoppedReason
-    ) -> Result<RelayState, StopRefusal> {
+        loopId: String,
+        reason: String = LoopState.founderStoppedReason
+    ) -> Result<LoopState, StopRefusal> {
         // Prefer the per-id dispatch flock so stop cannot race a concurrent
         // resume/adopt claim. Blocking acquire: stop must win over in-flight
         // dispatch, not refuse with RELAY_ROUND_IN_FLIGHT.
-        let lockURL = RelayDispatchLock.lockURL(relayId: relayId, relaysRoot: stateStore.rootDirectory)
+        let lockURL = LoopDispatchLock.lockURL(loopId: loopId, loopsRoot: stateStore.rootDirectory)
         var lockHandle: ThreadFlockLock.Handle?
         do {
             try FileManager.default.createDirectory(
@@ -931,7 +931,7 @@ public struct RelayCoordinator: Sendable {
         defer { lockHandle = nil }
 
         // 1. Load durable state.
-        guard let loaded = stateStore.load(id: relayId) else {
+        guard let loaded = stateStore.load(id: loopId) else {
             return .failure(.relayNotFound)
         }
 
@@ -1052,24 +1052,24 @@ public struct RelayCoordinator: Sendable {
 
     /// Reconciles a `.running` relay whose owner process died mid-round back to a durable
     /// `.stopped`, using this coordinator's own `stateStore`/`threadProjector`. Delegates to
-    /// `RelayCoordinator.reconcileOrphan` — the standalone, static, `RunService`-free
-    /// implementation `RelayCLI.runStatus`/`MCPRelayHandlers.status` also call directly for a
+    /// `LoopCoordinator.reconcileOrphan` — the standalone, static, `RunService`-free
+    /// implementation `LoopEngineCLI.runStatus`/`MCPRelayHandlers.status` also call directly for a
     /// plain status read (building a full coordinator there would mean spinning up a
     /// `RunService` for a read-only check).
     @discardableResult
-    private func reconcileIfOrphaned(_ state: RelayState) -> RelayState {
+    private func reconcileIfOrphaned(_ state: LoopState) -> LoopState {
         Self.reconcileOrphan(state, stateStore: stateStore, threadProjector: threadProjector, now: now)
     }
 
     /// The ONE place orphan reconciliation happens (works-test hazard #1: "on
-    /// load/list/status/start") — `RelayCoordinator.status`/`resume` (above) and
-    /// `RelayCLI.runStatus`/`MCPRelayHandlers.status` (which have no `RunService` to build a
+    /// load/list/status/start") — `LoopCoordinator.status`/`resume` (above) and
+    /// `LoopEngineCLI.runStatus`/`MCPRelayHandlers.status` (which have no `RunService` to build a
     /// full coordinator from) all funnel through this static, `RunService`-free function, so
     /// the brief's four read paths can never drift into separate half-implementations.
     /// Mirrors `PairCoordinator.reconcileStaleRunning`'s write-back-on-detection shape,
-    /// using `RelayStateStore.isOwnerDead`'s owner.pid liveness signal (the same convention
+    /// using `LoopStateStore.isOwnerDead`'s owner.pid liveness signal (the same convention
     /// `RunStore` uses). Settles the round in flight (if it hadn't already recorded an
-    /// outcome) so `RelayThreadProjector.sync`'s existing self-heal branches in
+    /// outcome) so `LoopThreadProjector.sync`'s existing self-heal branches in
     /// `syncPMTurn`/`syncDevTurn` close the open PM/dev thread turn and `syncStopped` records
     /// the stopped system event. A no-op — returns `state` unchanged, no save, no sync — for
     /// anything other than a dead-owner `.running` relay: a genuinely live `.running` relay,
@@ -1084,9 +1084,9 @@ public struct RelayCoordinator: Sendable {
     /// reconciliation-eligible, exactly like a spawned round.
     @discardableResult
     public static func reconcileOrphan(
-        _ state: RelayState, stateStore: RelayStateStore,
-        threadProjector: RelayThreadProjector?, now: @escaping @Sendable () -> Date
-    ) -> RelayState {
+        _ state: LoopState, stateStore: LoopStateStore,
+        threadProjector: LoopThreadProjector?, now: @escaping @Sendable () -> Date
+    ) -> LoopState {
         guard state.status == .running, stateStore.isOwnerDead(id: state.id) else { return state }
         var reconciled = state
 
@@ -1119,7 +1119,7 @@ public struct RelayCoordinator: Sendable {
             reconciled.rounds[lastIndex].finishedAt = now()
         }
         reconciled.status = .stopped
-        reconciled.stoppedReason = RelayState.orphanReconciledReason
+        reconciled.stoppedReason = LoopState.orphanReconciledReason
         reconciled.finishedAt = now()
         try? stateStore.save(reconciled)
         threadProjector?.sync(state: reconciled, now: now())
@@ -1133,10 +1133,10 @@ public struct RelayCoordinator: Sendable {
     /// continued — a round that ends any other way (`done`/`escalated`/a mid-round
     /// deadline stop) already returned from `runRound` having persisted its own terminal
     /// state, so the loop just returns.
-    private func loop(state: inout RelayState, config: Config, events: EventSink?, adoptionNote: String? = nil) async {
+    private func loop(state: inout LoopState, config: Config, events: EventSink?, adoptionNote: String? = nil) async {
         var stagnationStreak = 0
         // Consumed after the FIRST round attempt this `loop` call makes (win or lose) —
-        // `RelayCoordinator.adopt`'s note is a one-time "here's the story so far" for
+        // `LoopCoordinator.adopt`'s note is a one-time "here's the story so far" for
         // the very next PM turn, never repeated on later rounds of the same call.
         var pendingAdoptionNote = adoptionNote
         while true {
@@ -1190,7 +1190,7 @@ public struct RelayCoordinator: Sendable {
     /// unparseable verdict), `HandoverGate`, dev turn, pin the post-dev HEAD. Persists the
     /// round after EVERY state change so a crash or `--until` stop mid-round leaves a
     /// resumable, honest record rather than a half-written one.
-    private func runRound(state: inout RelayState, config: Config, roundNumber: Int, events: EventSink?, adoptionNote: String? = nil) async -> RoundResult {
+    private func runRound(state: inout LoopState, config: Config, roundNumber: Int, events: EventSink?, adoptionNote: String? = nil) async -> RoundResult {
         events?(.roundStarted(round: roundNumber))
 
         let baselineHead = gitObserver.observe(rootPath: config.projectRoot).head
@@ -1262,8 +1262,8 @@ public struct RelayCoordinator: Sendable {
         }
 
         // Parse the verdict tail; one re-ask (same PM seat) on failure, then escalate.
-        var extraction: RelayVerdictParser.Extraction
-        switch RelayVerdictParser.extract(from: pmOutput) {
+        var extraction: LoopVerdictParser.Extraction
+        switch LoopVerdictParser.extract(from: pmOutput) {
         case .success(let ex):
             extraction = ex
         case .failure(let parseError):
@@ -1293,12 +1293,12 @@ public struct RelayCoordinator: Sendable {
                 round.pmRunId = reaskRun.id
                 state.rounds[state.rounds.count - 1] = round
                 persist(state)
-                switch RelayVerdictParser.extract(from: reaskOutput) {
+                switch LoopVerdictParser.extract(from: reaskOutput) {
                 case .success(let ex):
                     extraction = ex
                 case .failure:
                     return finishRound(&state, &round, outcome: .escalated, events: events) {
-                        escalate(&$0, note: "PM did not produce a parseable RelayVerdict after one re-ask (round \(roundNumber))")
+                        escalate(&$0, note: "PM did not produce a parseable LoopVerdict after one re-ask (round \(roundNumber))")
                         events?(.escalated(note: $0.note ?? ""))
                     }
                 }
@@ -1322,7 +1322,7 @@ public struct RelayCoordinator: Sendable {
                 events?(.escalated(note: $0.note ?? ""))
             }
         case .continueRelay:
-            // `RelayVerdictParser` already guarantees a non-empty `handover` for `continue`.
+            // `LoopVerdictParser` already guarantees a non-empty `handover` for `continue`.
             guard let handover = extraction.verdict.handover else {
                 return finishRound(&state, &round, outcome: .escalated, events: events) {
                     escalate(&$0, note: "PM verdict continue but handover was empty after parsing (round \(roundNumber))")
@@ -1345,7 +1345,7 @@ public struct RelayCoordinator: Sendable {
 
             let devDisplayName = await runService.workerDisplayName(forModelId: config.devModelId)
             let devRequest = RunRequest(
-                message: RelayDevPrompt.assemble(context: .init(
+                message: LoopDevPrompt.assemble(context: .init(
                     handover: handover, docPath: config.docPath, brief: config.brief, roundNumber: roundNumber,
                     workerDisplayName: devDisplayName)),
                 repoRoot: config.projectRoot, projectId: config.projectId,
@@ -1354,7 +1354,7 @@ public struct RelayCoordinator: Sendable {
             let devResult = await dispatchDevTurn(
                 devRequest,
                 config: config,
-                relayId: state.id,
+                loopId: state.id,
                 deliveryGuard: .init(
                     projectRoot: config.projectRoot,
                     baselineHead: round.baselineHead ?? baselineHead ?? ""
@@ -1414,12 +1414,12 @@ public struct RelayCoordinator: Sendable {
     }
 
     /// Stamps the round's outcome/finishedAt, persists it, applies the terminal
-    /// `RelayState` transition (`apply`, which itself persists), and returns the matching
+    /// `LoopState` transition (`apply`, which itself persists), and returns the matching
     /// `RoundResult`.
     @discardableResult
     private func finishRound(
-        _ state: inout RelayState, _ round: inout RelayRound,
-        outcome: RelayRound.Outcome, events: EventSink?, apply: (inout RelayState) -> Void
+        _ state: inout LoopState, _ round: inout RelayRound,
+        outcome: RelayRound.Outcome, events: EventSink?, apply: (inout LoopState) -> Void
     ) -> RoundResult {
         round.outcome = outcome
         round.finishedAt = now()
@@ -1434,7 +1434,7 @@ public struct RelayCoordinator: Sendable {
         }
     }
 
-    // MARK: - Turn dispatch (bounded retry, RelayTurnClassifier)
+    // MARK: - Turn dispatch (bounded retry, LoopTurnClassifier)
 
     private enum TurnDispatch {
         case delivered(TeamRun, String)
@@ -1468,7 +1468,7 @@ public struct RelayCoordinator: Sendable {
         "A prior attempt may have partially completed; verify existing state before redoing work."
 
     /// Dispatches ONE turn through `RunService`, retrying on `.stalled`/`.emptyResult`/
-    /// `.infraBackoff`/`.compacting` per `RelayTurnClassifier.RetryCeiling` (a bare retry —
+    /// `.infraBackoff`/`.compacting` per `LoopTurnClassifier.RetryCeiling` (a bare retry —
     /// simpler than `PairCoordinator`'s nudge-prompt retries, since the relay's retries are
     /// for infra hiccups/compaction/hangs, not "your check failed, try differently"; the PM
     /// or dev's own free prose already carries anything it needs to try differently).
@@ -1499,7 +1499,7 @@ public struct RelayCoordinator: Sendable {
             let outcome = run.answers.first?.result
                 ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
 
-            switch RelayTurnClassifier.classify(.init(outcome: outcome)) {
+            switch LoopTurnClassifier.classify(.init(outcome: outcome)) {
             case .delivered(let text):
                 return .delivered(run, text)
             case .stalled:
@@ -1507,7 +1507,7 @@ public struct RelayCoordinator: Sendable {
                     run: run, outcome: outcome, request: &request, deliveryGuard: deliveryGuard
                 ) { return delivered }
                 stalledAttempts += 1
-                if stalledAttempts > RelayTurnClassifier.RetryCeiling.maxStalledAttempts {
+                if stalledAttempts > LoopTurnClassifier.RetryCeiling.maxStalledAttempts {
                     return .budgetExhausted("stalled repeatedly (\(stalledAttempts) attempts)")
                 }
             case .emptyResult:
@@ -1515,21 +1515,21 @@ public struct RelayCoordinator: Sendable {
                     run: run, outcome: outcome, request: &request, deliveryGuard: deliveryGuard
                 ) { return delivered }
                 emptyAttempts += 1
-                if emptyAttempts > RelayTurnClassifier.RetryCeiling.maxEmptyResultAttempts {
+                if emptyAttempts > LoopTurnClassifier.RetryCeiling.maxEmptyResultAttempts {
                     return .budgetExhausted("returned empty output repeatedly (\(emptyAttempts) attempts)")
                 }
             case .infraBackoff:
                 infraAttempts += 1
-                if infraAttempts > RelayTurnClassifier.RetryCeiling.maxInfraBackoffAttempts {
+                if infraAttempts > LoopTurnClassifier.RetryCeiling.maxInfraBackoffAttempts {
                     return .budgetExhausted("infra backoff budget exhausted (\(infraAttempts) attempts)")
                 }
-                await sleepClampedToDeadline(config, seconds: RelayTurnClassifier.RetryCeiling.infraBackoffGraceSeconds)
+                await sleepClampedToDeadline(config, seconds: LoopTurnClassifier.RetryCeiling.infraBackoffGraceSeconds)
             case .compacting:
                 compactionAttempts += 1
-                if compactionAttempts > RelayTurnClassifier.RetryCeiling.maxCompactionAttempts {
+                if compactionAttempts > LoopTurnClassifier.RetryCeiling.maxCompactionAttempts {
                     return .budgetExhausted("still compacting after \(compactionAttempts) retries")
                 }
-                await sleepClampedToDeadline(config, seconds: RelayTurnClassifier.RetryCeiling.compactionGraceSeconds)
+                await sleepClampedToDeadline(config, seconds: LoopTurnClassifier.RetryCeiling.compactionGraceSeconds)
             }
 
             if isPastDeadline(config) { return .deadline }
@@ -1546,8 +1546,8 @@ public struct RelayCoordinator: Sendable {
     /// soon as dispatch starts (before the long worker wait) and again before harness
     /// proof. If the coordinator dies mid-turn, `pilot status` can still read stream
     /// liveness from the linked journal instead of falling back to relay heartbeat.
-    private func persistDeliveredDevRun(relayId: String, runId: String, rootPath: String) {
-        guard var state = stateStore.load(id: relayId), !state.rounds.isEmpty else { return }
+    private func persistDeliveredDevRun(loopId: String, runId: String, rootPath: String) {
+        guard var state = stateStore.load(id: loopId), !state.rounds.isEmpty else { return }
         var round = state.rounds[state.rounds.count - 1]
         if round.devRunId == nil { round.devRunId = runId }
         if round.headAfterDev == nil {
@@ -1560,13 +1560,13 @@ public struct RelayCoordinator: Sendable {
     private func dispatchDevTurn(
         _ request: RunRequest,
         config: Config,
-        relayId: String,
+        loopId: String,
         deliveryGuard: TurnDeliveryGuard? = nil,
         site: ExecutionLaneSite = .relayDevTurn,
         turnStateProofCommands: [String] = [],
         turnStateWriteScope: TurnWriteScope? = nil
     ) async -> DevTurnDispatch {
-        let relayDir = try? stateStore.directory(for: relayId)
+        let relayDir = try? stateStore.directory(for: loopId)
         if let relayDir {
             ProcessOwnership.TurnOwnerDirectory.shared.set(relayDir)
         }
@@ -1606,9 +1606,9 @@ public struct RelayCoordinator: Sendable {
         let laneKey = ExecutionLane.key(repoRoot: config.projectRoot)
         let claimKind = site.rawValue
         let claim = ExecutionLane.Claim.current(
-            id: relayId, kind: claimKind, writeScope: acquireScope
+            id: loopId, kind: claimKind, writeScope: acquireScope
         ) ?? ExecutionLane.Claim(
-            id: relayId,
+            id: loopId,
             kind: claimKind,
             identity: ProcessOwnership.OwnerIdentity(
                 pid: ProcessInfo.processInfo.processIdentifier,
@@ -1621,12 +1621,12 @@ public struct RelayCoordinator: Sendable {
 
         let store = stateStore
         let onTicket: @Sendable (ExecutionLaneTicket) -> Void = { ticket in
-            guard var state = try? store.load(id: relayId) else { return }
+            guard var state = try? store.load(id: loopId) else { return }
             state.laneBlocked = ticket
             try? store.save(state)
         }
         let clearBlocked: @Sendable () -> Void = {
-            guard var state = try? store.load(id: relayId) else { return }
+            guard var state = try? store.load(id: loopId) else { return }
             state.laneBlocked = nil
             try? store.save(state)
         }
@@ -1737,7 +1737,7 @@ public struct RelayCoordinator: Sendable {
             // any (slow) proof commands run.
             if case .delivered(let deliveredRun, _) = dispatch {
                 persistDeliveredDevRun(
-                    relayId: relayId, runId: deliveredRun.id, rootPath: config.projectRoot
+                    loopId: loopId, runId: deliveredRun.id, rootPath: config.projectRoot
                 )
             }
             let baseline = deliveryGuard?.baselineHead
@@ -1770,11 +1770,11 @@ public struct RelayCoordinator: Sendable {
 
             // Harness proof is always build-class (full exclusive) — legacy claim.
             let proofClaim = ExecutionLane.Claim.current(
-                id: "\(relayId):proof",
+                id: "\(loopId):proof",
                 kind: ExecutionLaneSite.harnessProof.rawValue,
                 writeScope: .legacyFullBuild
             ) ?? ExecutionLane.Claim(
-                id: "\(relayId):proof",
+                id: "\(loopId):proof",
                 kind: ExecutionLaneSite.harnessProof.rawValue,
                 identity: ProcessOwnership.OwnerIdentity(
                     pid: ProcessInfo.processInfo.processIdentifier,
@@ -1861,7 +1861,7 @@ public struct RelayCoordinator: Sendable {
 
             let attemptRunId = RunService.mintRunId()
             persistDeliveredDevRun(
-                relayId: relayId, runId: attemptRunId, rootPath: config.projectRoot
+                loopId: loopId, runId: attemptRunId, rootPath: config.projectRoot
             )
             let result = await runService.run(request, origin: .cli, runId: attemptRunId)
             captureOwner()
@@ -1879,7 +1879,7 @@ public struct RelayCoordinator: Sendable {
             let outcome = run.answers.first?.result
                 ?? WorkerRunOutcome(status: .failed, errorReason: "no worker answer")
 
-            switch RelayTurnClassifier.classify(.init(outcome: outcome)) {
+            switch LoopTurnClassifier.classify(.init(outcome: outcome)) {
             case .delivered(let text):
                 // Reported success: reap agent group, then harness-owned proof of record.
                 killTurnGroup()
@@ -1902,7 +1902,7 @@ public struct RelayCoordinator: Sendable {
                 // Retry: kill this attempt's group before the next spawn.
                 killTurnGroup()
                 stalledAttempts += 1
-                if stalledAttempts > RelayTurnClassifier.RetryCeiling.maxStalledAttempts {
+                if stalledAttempts > LoopTurnClassifier.RetryCeiling.maxStalledAttempts {
                     return DevTurnDispatch(
                         dispatch: .budgetExhausted("stalled repeatedly (\(stalledAttempts) attempts)"),
                         endReason: .stalled, owner: lastOwner
@@ -1921,7 +1921,7 @@ public struct RelayCoordinator: Sendable {
                 }
                 killTurnGroup()
                 emptyAttempts += 1
-                if emptyAttempts > RelayTurnClassifier.RetryCeiling.maxEmptyResultAttempts {
+                if emptyAttempts > LoopTurnClassifier.RetryCeiling.maxEmptyResultAttempts {
                     return DevTurnDispatch(
                         dispatch: .budgetExhausted("returned empty output repeatedly (\(emptyAttempts) attempts)"),
                         endReason: .stalled, owner: lastOwner
@@ -1930,24 +1930,24 @@ public struct RelayCoordinator: Sendable {
             case .infraBackoff:
                 killTurnGroup()
                 infraAttempts += 1
-                if infraAttempts > RelayTurnClassifier.RetryCeiling.maxInfraBackoffAttempts {
+                if infraAttempts > LoopTurnClassifier.RetryCeiling.maxInfraBackoffAttempts {
                     return DevTurnDispatch(
                         dispatch: .budgetExhausted("infra backoff budget exhausted (\(infraAttempts) attempts)"),
                         endReason: .stalled, owner: lastOwner
                     )
                 }
-                await sleepClampedToDeadline(config, seconds: RelayTurnClassifier.RetryCeiling.infraBackoffGraceSeconds)
+                await sleepClampedToDeadline(config, seconds: LoopTurnClassifier.RetryCeiling.infraBackoffGraceSeconds)
             case .compacting:
                 // Compaction is not a kill — leave the worker group alone and wait.
                 compactionAttempts += 1
-                if compactionAttempts > RelayTurnClassifier.RetryCeiling.maxCompactionAttempts {
+                if compactionAttempts > LoopTurnClassifier.RetryCeiling.maxCompactionAttempts {
                     killTurnGroup()
                     return DevTurnDispatch(
                         dispatch: .budgetExhausted("still compacting after \(compactionAttempts) retries"),
                         endReason: .stalled, owner: lastOwner
                     )
                 }
-                await sleepClampedToDeadline(config, seconds: RelayTurnClassifier.RetryCeiling.compactionGraceSeconds)
+                await sleepClampedToDeadline(config, seconds: LoopTurnClassifier.RetryCeiling.compactionGraceSeconds)
             }
 
             if isPastDeadline(config) {
@@ -2017,7 +2017,7 @@ public struct RelayCoordinator: Sendable {
 
     /// Dev report for a settled round — the same `RunStore` lookup `runExternalRound`
     /// uses when building `PilotRoundResult.devReport` (`Pilot_DX.md` §DX5).
-    public static func settledDevReport(for state: RelayState, runStore: RunStore = RunStore()) -> String? {
+    public static func settledDevReport(for state: LoopState, runStore: RunStore = RunStore()) -> String? {
         guard let devRunId = state.rounds.last?.devRunId else { return nil }
         return runStore.load(runId: devRunId)?.answers.first?.output
     }
@@ -2026,14 +2026,14 @@ public struct RelayCoordinator: Sendable {
         runStore.load(runId: runId)?.answers.first?.output
     }
 
-    private func stop(_ state: inout RelayState, reason: String) {
+    private func stop(_ state: inout LoopState, reason: String) {
         state.status = .stopped
         state.stoppedReason = reason
         state.finishedAt = now()
         persistPMBoundary(state)
     }
 
-    private func escalate(_ state: inout RelayState, note: String) {
+    private func escalate(_ state: inout LoopState, note: String) {
         state.status = .escalated
         state.note = note
         state.finishedAt = now()
@@ -2046,7 +2046,7 @@ public struct RelayCoordinator: Sendable {
         "\(error.code): \(turn) turn failed to dispatch: \(error.description)"
     }
 
-    private func finish(_ state: inout RelayState, note: String?) {
+    private func finish(_ state: inout LoopState, note: String?) {
         state.status = .done
         state.note = note
         state.finishedAt = now()
@@ -2057,7 +2057,7 @@ public struct RelayCoordinator: Sendable {
     /// relay's parked or terminal state is persisted. Receipt persistence is a required
     /// boundary invariant, so a failure stops instead of publishing an undeliverable
     /// relay state.
-    private func persistPMBoundary(_ state: RelayState) {
+    private func persistPMBoundary(_ state: LoopState) {
         let report = Self.settledDevReport(for: state, runStore: runStore)
         do {
             try writePMTurn(
@@ -2073,7 +2073,7 @@ public struct RelayCoordinator: Sendable {
     }
 
     private func writePMTurn(
-        for state: RelayState,
+        for state: LoopState,
         reason: String,
         report: String?,
         nextCommands: [String]
@@ -2096,7 +2096,7 @@ public struct RelayCoordinator: Sendable {
         try pmTurnStore.save(turn)
     }
 
-    private func pmTurnNextCommands(for state: RelayState) -> [String] {
+    private func pmTurnNextCommands(for state: LoopState) -> [String] {
         let status = "alln loop status \(state.id) --json"
         guard state.status == .awaitingPM, state.isCallerChair else {
             return [status]
@@ -2107,18 +2107,18 @@ public struct RelayCoordinator: Sendable {
         ]
     }
 
-    /// The single choke point every `RelayState` mutation already runs through — the
+    /// The single choke point every `LoopState` mutation already runs through — the
     /// natural, minimal-diff hook for `threadProjector?.sync` (R-S07): it fires
     /// synchronously right after each state change, so a round's escalation note is
     /// always captured before a LATER round could overwrite `state.note`.
-    private func persist(_ state: RelayState) {
+    private func persist(_ state: LoopState) {
         try? stateStore.save(state)
         threadProjector?.sync(state: state, now: now())
     }
 
     /// Hard-fail claim persist for the first `.running` write in `run`/`resumeGuard`/
     /// `adoptGuard`. Mid-loop mutations keep using `persist(_:)` (`try?`) for now.
-    private func persistClaim(_ state: RelayState) throws {
+    private func persistClaim(_ state: LoopState) throws {
         try stateStore.save(state)
         threadProjector?.sync(state: state, now: now())
         DetachedHandoff.reportAccepted(id: state.id)

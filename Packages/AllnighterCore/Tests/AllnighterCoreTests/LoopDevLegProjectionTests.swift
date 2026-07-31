@@ -4,7 +4,7 @@ import XCTest
 /// CD-S01a Works Tests — shared dev-leg projection for pilot status + relay-status.
 /// Distinguishes running / settling / parked so aggregate relay `running` never
 /// stands in for a terminal linked dev worker.
-final class RelayDevLegProjectionTests: XCTestCase {
+final class LoopDevLegProjectionTests: XCTestCase {
 
     // MARK: - CD-WT-02: one-shot never presents pure "running" for a dead dev leg
 
@@ -14,9 +14,9 @@ final class RelayDevLegProjectionTests: XCTestCase {
         round.headAfterDev = "abc123def"
         round.devTurnEndReason = .reported
 
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_settle", projectRoot: "/tmp/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .running, createdAt: Date()
         )
         state.rounds = [round]
@@ -44,7 +44,7 @@ final class RelayDevLegProjectionTests: XCTestCase {
     func testRunningWhenDevJournalNonTerminal() {
         var round = RelayRound(roundNumber: 1, startedAt: Date())
         round.devRunId = "run_dev_live"
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_live", projectRoot: "/tmp", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
@@ -67,9 +67,9 @@ final class RelayDevLegProjectionTests: XCTestCase {
         round.finishedAt = Date().addingTimeInterval(-30)
         round.outcome = .continued
 
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_parked", projectRoot: "/tmp", docPath: "d.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "dev",
             status: .awaitingPM, createdAt: Date()
         )
         state.rounds = [round]
@@ -91,9 +91,9 @@ final class RelayDevLegProjectionTests: XCTestCase {
         var round = RelayRound(roundNumber: 1, startedAt: Date())
         round.devRunId = "run_dev_fail"
         round.devTurnEndReason = .reported
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_fail", projectRoot: "/tmp", docPath: "d.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "dev",
             status: .awaitingPM, createdAt: Date()
         )
         state.rounds = [round]
@@ -108,7 +108,7 @@ final class RelayDevLegProjectionTests: XCTestCase {
     }
 
     func testNoneWhenNoDevRunIdWhileRunning() {
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_no_dev", projectRoot: "/tmp", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .running,
             rounds: [RelayRound(roundNumber: 1, startedAt: Date())],
@@ -124,7 +124,7 @@ final class RelayDevLegProjectionTests: XCTestCase {
         round.devRunId = "run_missing"
         round.devTurnEndReason = .stalled
         round.headAfterDev = "cafebabe"
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_missing", projectRoot: "/tmp", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .running, createdAt: Date()
         )
@@ -138,13 +138,13 @@ final class RelayDevLegProjectionTests: XCTestCase {
 
     // MARK: - CD-WT-03: pilot / relay-status pair-equality (same helper)
 
-    func testPilotAndRelayJSONShareDevLegFacts() {
+    func testPilotAndLoopJSONShareDevLegFacts() {
         var round = RelayRound(roundNumber: 1, startedAt: Date())
         round.devRunId = "run_pair"
         round.headAfterDev = "111aaa"
-        var state = RelayState(
+        var state = LoopState(
             id: "relay_pair", projectRoot: "/tmp", docPath: "d.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "dev",
             status: .running, createdAt: Date()
         )
         state.rounds = [round]
@@ -153,7 +153,7 @@ final class RelayDevLegProjectionTests: XCTestCase {
         let store = FakeRunStore(runs: ["run_pair": run])
 
         let fromHelper = StreamLiveness.devLegProjection(state: state, runStore: store)
-        let relayJSON = RelayJSON.project(
+        let relayJSON = LoopJSON.project(
             state, contractVersion: ContractRegistry.contractVersion, runStore: store
         )
 
@@ -167,12 +167,12 @@ final class RelayDevLegProjectionTests: XCTestCase {
         XCTAssertNotEqual(relayJSON.devLeg?.phase.rawValue, "running")
     }
 
-    func testRelayJSONOmitsDevLegWithoutRunStore() {
-        let state = RelayState(
+    func testLoopJSONOmitsDevLegWithoutRunStore() {
+        let state = LoopState(
             id: "r", projectRoot: "/tmp", docPath: "d.md",
             pmModelId: "pm", devModelId: "dev", status: .awaitingPM, createdAt: Date()
         )
-        let json = RelayJSON.project(state, contractVersion: "test")
+        let json = LoopJSON.project(state, contractVersion: "test")
         XCTAssertNil(json.devLeg)
     }
 }

@@ -7,7 +7,7 @@ import Foundation
 /// `RunStore` under `pmRunId`/`devRunId`; this is never a second copy of run-truth.
 public struct RelayRound: Sendable, Codable, Equatable {
     /// How this round settled. `continued` is the only outcome that leads to another round;
-    /// every other case ends the relay (the coordinator persists the terminal `RelayState`
+    /// every other case ends the relay (the coordinator persists the terminal `LoopState`
     /// alongside it).
     public enum Outcome: String, Sendable, Codable, CaseIterable {
         case continued
@@ -28,13 +28,13 @@ public struct RelayRound: Sendable, Codable, Equatable {
     public var pmRunId: String?
     /// `RunStore` id for the dev turn. `nil` when the round never reached the dev turn.
     public var devRunId: String?
-    public var verdict: RelayVerdict?
+    public var verdict: LoopVerdict?
     /// `HandoverGate.evaluate` result for this round's handover, when one was checked.
     public var gate: RelayGateSummary?
     public var startedAt: Date
     public var finishedAt: Date?
     public var outcome: Outcome?
-    /// Pilot only (`pmModelId == RelayState.callerPMModelId`, `docs/phases/Pilot_Relay.md`
+    /// Pilot only (`pmModelId == LoopState.callerPMModelId`, `docs/phases/Pilot_Relay.md`
     /// §2 "round log truth"): the piloting session's raw markdown submission for this round,
     /// verbatim — the PM turn's run-truth when there is no `pmRunId`/`RunStore` entry
     /// to point at (there was no PM dispatch; the submission itself IS the record).
@@ -77,7 +77,7 @@ public struct RelayRound: Sendable, Codable, Equatable {
         headAfterDev: String? = nil,
         pmRunId: String? = nil,
         devRunId: String? = nil,
-        verdict: RelayVerdict? = nil,
+        verdict: LoopVerdict? = nil,
         gate: RelayGateSummary? = nil,
         startedAt: Date,
         finishedAt: Date? = nil,
@@ -121,7 +121,7 @@ public struct RelayRound: Sendable, Codable, Equatable {
         headAfterDev = try c.decodeIfPresent(String.self, forKey: .headAfterDev)
         pmRunId = try c.decodeIfPresent(String.self, forKey: .pmRunId)
         devRunId = try c.decodeIfPresent(String.self, forKey: .devRunId)
-        verdict = try c.decodeIfPresent(RelayVerdict.self, forKey: .verdict)
+        verdict = try c.decodeIfPresent(LoopVerdict.self, forKey: .verdict)
         gate = try c.decodeIfPresent(RelayGateSummary.self, forKey: .gate)
         startedAt = try c.decode(Date.self, forKey: .startedAt)
         finishedAt = try c.decodeIfPresent(Date.self, forKey: .finishedAt)
@@ -170,10 +170,10 @@ public struct RelayGateSummary: Sendable, Codable, Equatable {
     }
 }
 
-/// One PM↔dev relay (docs/phases/PM_Relay.md) — the durable ledger `RelayCoordinator`
+/// One PM↔dev relay (docs/phases/PM_Relay.md) — the durable ledger `LoopCoordinator`
 /// reads/writes after every state change so the loop is resumable from disk at any point,
 /// never held only in memory (R-S04).
-public struct RelayState: Sendable, Codable, Equatable {
+public struct LoopState: Sendable, Codable, Equatable {
     public enum Status: String, Sendable, Codable, CaseIterable {
         case running
         case done
@@ -183,9 +183,9 @@ public struct RelayState: Sendable, Codable, Equatable {
         case stopped
         /// Pilot only (`isCallerChair`, `docs/phases/Pilot_Relay.md` §2): parked
         /// between rounds, waiting on the piloting session's next `pilot handoff`. A
-        /// **parked, UNOWNED** state — no process lives here, `RelayStateStore.save`
+        /// **parked, UNOWNED** state — no process lives here, `LoopStateStore.save`
         /// never writes an `owner.pid` marker for it (only `.running` does), and
-        /// `RelayCoordinator.reconcileOrphan`'s `.running`-only guard means orphan
+        /// `LoopCoordinator.reconcileOrphan`'s `.running`-only guard means orphan
         /// reconciliation always skips it. A pilot relay can sit `awaitingPM` for days;
         /// that is the mode's definition, not a bug.
         case awaitingPM
@@ -209,7 +209,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     public var finishedAt: Date?
     /// The founder-facing text: the PM's closing summary when `done`, or the specific
     /// question the founder must answer when `escalated` — verbatim from
-    /// `RelayVerdict.note` (or a coordinator-authored explanation for a structural failure
+    /// `LoopVerdict.note` (or a coordinator-authored explanation for a structural failure
     /// that never reached a PM verdict, e.g. a dispatch error or a blocked handover).
     public var note: String?
     /// Set only when `status == .stopped` — which ceiling fired and why.
@@ -224,7 +224,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     public var kickoffMessage: String?
     /// Pilot only (`isCallerChair`): the round ceiling set once at `pilot start`
     /// and re-read at every later `pilot handoff`. A spawned relay gets its ceiling
-    /// fresh from `RelayCoordinator.Config` on every `run`/`resume` call (one
+    /// fresh from `LoopCoordinator.Config` on every `run`/`resume` call (one
     /// long-lived process holds it); a pilot relay has no such process — each
     /// `handoff` is a brand-new CLI invocation — so the ceiling has to be durable.
     /// `nil` reads as the house default (20), matching `Config.maxRounds`'s default.
@@ -284,7 +284,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     }
 
     /// Pilot only: the sentinel `pmModelId` stamped when the caller (a live human/agent
-    /// session outside Allnighter, driven by `RelayCoordinator.runExternalRound`) holds
+    /// session outside Allnighter, driven by `LoopCoordinator.runExternalRound`) holds
     /// the PM seat — there is no PM model to dispatch, so this documents the field's
     /// meaning rather than leaving it a real, dispatchable worker id. Never resolved
     /// through `RunService`. The chair is `caller` iff `pmModelId == callerPMModelId`
@@ -293,7 +293,7 @@ public struct RelayState: Sendable, Codable, Equatable {
 
     /// True when the caller — a live human/agent session outside Allnighter — holds
     /// the PM seat (Pilot), false when Allnighter dispatches a PM model each round
-    /// (the shipped PM Relay). Same `RelayState`, same rounds, same thread either way;
+    /// (the shipped PM Relay). Same `LoopState`, same rounds, same thread either way;
     /// this is the only fork ("one substrate, two entries").
     public var isCallerChair: Bool {
         pmModelId == Self.callerPMModelId
@@ -326,15 +326,15 @@ public struct RelayState: Sendable, Codable, Equatable {
     // MARK: - Orphan reconciliation (works-test hazard #1)
 
     /// Stamped as `stoppedReason` when a `.running` relay is reconciled after its
-    /// owner process died mid-round (`RelayCoordinator.reconcileIfOrphaned`, mirroring
+    /// owner process died mid-round (`LoopCoordinator.reconcileIfOrphaned`, mirroring
     /// `RunStore`'s owner.pid liveness signal + `PairCoordinator.reconcileStaleRunning`'s
     /// write-back-on-detection). A stable string, not a new field, so the wire contract
-    /// (`RelayJSON.stoppedReason`) needs no shape change — CLI/MCP callers that only
+    /// (`LoopJSON.stoppedReason`) needs no shape change — CLI/MCP callers that only
     /// look at `status`/`stoppedReason` already see everything they need.
     public static let orphanReconciledReason = "owner process died mid-round (reconciled)"
 
     /// ATL-S02: stamped as `stoppedReason` when the founder stops a Loop via
-    /// `RelayCoordinator.stop` / `pair relay stop`. Distinct from ceiling /
+    /// `LoopCoordinator.stop` / `pair relay stop`. Distinct from ceiling /
     /// orphan / ownership-kill reasons so resume eligibility and teaching stay honest.
     public static let founderStoppedReason = "founder stopped"
 
@@ -359,7 +359,7 @@ public struct RelayState: Sendable, Codable, Equatable {
     /// (thread titles, status/JSON, notifications) — the real spec doc when this
     /// relay has one, otherwise the founder's brief (LVC-S02b). Never fabricated,
     /// never empty: `docPath`/`brief` are mutually exclusive by construction
-    /// (`RelayCoordinator.claimStart`/`startPilot` always set exactly one).
+    /// (`LoopCoordinator.claimStart`/`startPilot` always set exactly one).
     public var docPathOrBrief: String {
         docPath ?? brief ?? ""
     }

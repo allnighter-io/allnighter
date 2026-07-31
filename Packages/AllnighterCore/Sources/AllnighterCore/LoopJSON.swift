@@ -1,28 +1,28 @@
 import Foundation
 
-/// `RelayJSON` — the public machine contract for `alln pair relay` /
+/// `LoopJSON` — the public machine contract for `alln pair relay` /
 /// `pair relay-status` / `pair relay-resume` and their MCP projections
 /// (docs/phases/PM_Relay.md §6 R-S05/R-S06, §7 works-test output shape). A thin,
-/// versioned projection of `RelayState` — the durable truth stays in
-/// `RelayState`/`RelayStateStore`; this is never a second copy of run-truth, only
+/// versioned projection of `LoopState` — the durable truth stays in
+/// `LoopState`/`LoopStateStore`; this is never a second copy of run-truth, only
 /// its wire shape (mirrors `ProjectJSON`'s schemaVersion + contractVersion style).
-public struct RelayJSON: Codable, Equatable, Sendable {
+public struct LoopJSON: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var contractVersion: String
     public var relayId: String
-    /// `RelayState.Status` raw value: running | done | escalated | stopped | awaitingPM
+    /// `LoopState.Status` raw value: running | done | escalated | stopped | awaitingPM
     /// (`awaitingPM` is Pilot only — a parked relay between `pilot handoff` calls).
     public var status: String
-    /// `RelayState.PMMode` raw value: spawned | external. `external` is Pilot
+    /// `LoopState.PMMode` raw value: spawned | external. `external` is Pilot
     /// (`docs/phases/Pilot_Relay.md`) — a live session outside Allnighter holds the
     /// PM seat; `spawned` is the shipped PM Relay.
     public var pmMode: String
     public var rounds: Int
-    /// The last round's `RelayVerdict.Verdict` raw value (continue | done | escalate),
+    /// The last round's `LoopVerdict.Verdict` raw value (continue | done | escalate),
     /// or nil before any round has produced one.
     public var verdict: String?
     /// Founder-facing text: closing summary (`done`) or the question to answer
-    /// (`escalated`) — verbatim from `RelayState.note`.
+    /// (`escalated`) — verbatim from `LoopState.note`.
     public var note: String?
     public var roundLog: [RelayRoundLogEntry]
     public var docPath: String
@@ -87,22 +87,22 @@ public struct RelayJSON: Codable, Equatable, Sendable {
         self.devLeg = devLeg
     }
 
-    /// Projects a durable `RelayState` to its wire shape. The one place CLI and MCP
+    /// Projects a durable `LoopState` to its wire shape. The one place CLI and MCP
     /// both call, so `alln pair relay` output and MCP `pair_relay` output can never
     /// drift (Agent-First Product Law: MCP never richer than the CLI).
     ///
     /// Pass `runStore` to attach the shared CD-S01a dev-leg projection (pilot +
     /// relay-status pair-equality). Without it, `devLeg` is omitted.
     public static func project(
-        _ state: RelayState,
+        _ state: LoopState,
         contractVersion: String,
         pmTurn: PMTurnJSON? = nil,
         notes: [String] = [],
         pmTurnDelivery: PMTurnDeliveryJSON? = nil,
         runStore: (any RunStoreReading)? = nil
-    ) -> RelayJSON {
+    ) -> LoopJSON {
         let devLeg = runStore.map { StreamLiveness.devLegProjection(state: state, runStore: $0) }
-        return RelayJSON(
+        return LoopJSON(
             contractVersion: contractVersion,
             relayId: state.id,
             status: state.status.rawValue,
@@ -164,7 +164,7 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
     public var head: String?
     public var pmRunId: String?
     public var devRunId: String?
-    /// This round's `RelayVerdict.Verdict` raw value, or nil if the round never
+    /// This round's `LoopVerdict.Verdict` raw value, or nil if the round never
     /// reached a parsed verdict (e.g. a dispatch failure).
     public var verdict: String?
     public var gate: RelayGateSummary?
@@ -246,8 +246,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
 }
 
 /// NDJSON progress events emitted during `alln pair relay --json` before the final
-/// `RelayJSON` envelope (mirrors `PairQueueProgressJSON`). The wire shape only —
-/// the mapping from `RelayCoordinator.RelayEvent` lives in `AllnighterCLI` (that
+/// `LoopJSON` envelope (mirrors `PairQueueProgressJSON`). The wire shape only —
+/// the mapping from `LoopCoordinator.RelayEvent` lives in `AllnighterCLI` (that
 /// type is Engine-only; this type is Core so CLI and MCP share one contract).
 public struct RelayProgressJSON: Codable, Equatable, Sendable {
     public var contractVersion: String

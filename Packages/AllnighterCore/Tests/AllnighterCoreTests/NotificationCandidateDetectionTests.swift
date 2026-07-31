@@ -68,10 +68,10 @@ final class NotificationCandidateDetectionTests: XCTestCase {
 
     func testRelayStreamStallEmitsOnceOnTransition() {
         let before = ["relay_1": RelayStreamNotificationSnapshot(
-            relayId: "relay_1", threadTitle: "Smoke", devModelId: "model_dev", streamSilenceWarning: false
+            loopId: "relay_1", threadTitle: "Smoke", devModelId: "model_dev", streamSilenceWarning: false
         )]
         let after = ["relay_1": RelayStreamNotificationSnapshot(
-            relayId: "relay_1", threadTitle: "Smoke", devModelId: "model_dev", streamSilenceWarning: true
+            loopId: "relay_1", threadTitle: "Smoke", devModelId: "model_dev", streamSilenceWarning: true
         )]
         let candidates = NotificationCandidateDetection.relayStreamCandidates(
             before: before, after: after, now: now

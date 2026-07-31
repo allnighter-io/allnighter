@@ -31,7 +31,7 @@ final class RelayLaunchViewModel {
     let registry: DriverRegistry
     let readyModels: [Model]
 
-    private let stateStore: RelayStateStore
+    private let stateStore: LoopStateStore
     private let detachedLaunch: (_ cwd: String, _ arguments: [String]) -> RelayDetachedLauncher.Outcome
 
     init(
@@ -41,7 +41,7 @@ final class RelayLaunchViewModel {
         registry: DriverRegistry,
         readyModels: [Model],
         initialKickoffMessage: String = "",
-        stateStore: RelayStateStore = RelayStateStore(),
+        stateStore: LoopStateStore = LoopStateStore(),
         detachedLaunch: @escaping (_ cwd: String, _ arguments: [String]) -> RelayDetachedLauncher.Outcome = {
             RelayDetachedLauncher.launchAndAwaitAcceptance(cwd: $0, arguments: $1)
         }
@@ -132,7 +132,7 @@ final class RelayLaunchViewModel {
         let trimmedDoc = docPath.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedKickoff = kickoffMessage.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        if case .failure(let refusal) = RelayCoordinator.preflightStart(
+        if case .failure(let refusal) = LoopCoordinator.preflightStart(
             projectRoot: projectRoot, docPath: trimmedDoc, stateStore: stateStore
         ) {
             mapPreflightRefusal(refusal)
@@ -179,7 +179,7 @@ final class RelayLaunchViewModel {
         }
     }
 
-    private func mapPreflightRefusal(_ refusal: RelayCoordinator.DispatchRefusal) {
+    private func mapPreflightRefusal(_ refusal: LoopCoordinator.DispatchRefusal) {
         switch refusal {
         case .alreadyActive(let existingRelayId):
             startRefusalIssue = ValidationIssue(

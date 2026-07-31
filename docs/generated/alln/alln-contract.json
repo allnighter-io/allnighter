@@ -337,7 +337,6 @@
       "visibility" : "public"
     },
     {
-      "antiExample" : "Do NOT use this for per-run token usage on receipts — that is a different system. Do NOT pass --source without --refresh.",
       "args" : [
 
       ],
@@ -348,35 +347,33 @@
         "repoWrite" : "never",
         "workerStart" : "never"
       },
-      "example" : "alln capacity --refresh --source cursor_agent",
+      "example" : "alln capacity --source cursor_agent",
       "exampleIds" : [
 
       ],
       "flagConstraints" : [
-        {
-          "kind" : "requires",
-          "peers" : [
-            "refresh"
-          ],
-          "subject" : "source"
-        }
+
       ],
       "flags" : [
         {
           "name" : "json",
-          "summary" : "Structured CapacityStripJSON (contractVersion + per-source rows).",
+          "summary" : "Emit JSON instead of the human-readable strip.",
           "takesValue" : false
         },
         {
-          "name" : "refresh",
-          "summary" : "Run tier-3 PTY probes (agy\/kimi\/cursor\/claude \/usage). Bare capacity never spawns. Combine with --source to probe one seat.",
+          "name" : "cached",
+          "summary" : "Skip PTY probes; return disk-only cached view instantly (no spawns). Alias: --no-refresh.",
+          "takesValue" : false
+        },
+        {
+          "name" : "no-refresh",
+          "summary" : "Alias for --cached.",
           "takesValue" : false
         },
         {
           "name" : "source",
-          "summary" : "With --refresh only: probe one bench source (codex|claude_code|cursor_agent|grok|kimi|agy). Tier-1 is disk-only (no spawn). Full strip still renders.",
-          "takesValue" : true,
-          "valueType" : "sourceId"
+          "summary" : "Probe one seat only (still runs the full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.",
+          "takesValue" : true
         }
       ],
       "menuAction" : false,
@@ -387,8 +384,7 @@
       "name" : "capacity",
       "outputSchema" : "capacityStripJSON",
       "spendsQuota" : false,
-      "summary" : "Show vendor capacity\/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy\/kimi\/cursor\/claude); --refresh --source <id> probes one seat only. Unknown never blocks.",
-      "trigger" : "Before seating work when you need remaining weekly\/5-hour headroom, reset clocks, or which vendors expose nothing. Use --refresh --source <id> when about to dispatch to one seat.",
+      "summary" : "Show vendor capacity\/quota headroom. Default runs tier-3 PTY probes for all seats (agy\/kimi\/cursor\/claude\/codex\/grok) and returns fresh data; --cached (or --no-refresh) gives an instant disk-only view with no spawns. --source <id> probes one seat only. Unknown never blocks.",
       "visibility" : "public"
     },
     {
@@ -2769,7 +2765,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit structured JSON (LoopStartDryRunJSON with --dry-run; RelayJSON otherwise).",
+          "summary" : "Emit structured JSON (LoopStartDryRunJSON with --dry-run; LoopJSON otherwise).",
           "takesValue" : false
         }
       ],
@@ -2782,7 +2778,7 @@
       "name" : "loop start",
       "outputSchema" : "relayJSON",
       "spendsQuota" : true,
-      "summary" : "Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself (the `pair pilot start` path); `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended (the `pair relay` path).",
+      "summary" : "Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself; `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended.",
       "trigger" : "Use when the user wants a multi-round PM↔dev loop that reviews real commits round after round until the work is done — with or without naming who sits in which chair.",
       "visibility" : "public"
     },
@@ -2882,7 +2878,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
           "takesValue" : false
         }
       ],
@@ -2938,7 +2934,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit RelayJSON.",
+          "summary" : "Emit LoopJSON.",
           "takesValue" : false
         }
       ],
@@ -3019,7 +3015,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
           "takesValue" : false
         }
       ],
@@ -3100,7 +3096,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
+          "summary" : "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
           "takesValue" : false
         }
       ],
@@ -3141,7 +3137,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit RelayJSON (status=stopped, stoppedReason=\"founder stopped\" on transition).",
+          "summary" : "Emit LoopJSON (status=stopped, stoppedReason=\"founder stopped\" on transition).",
           "takesValue" : false
         }
       ],
@@ -3264,7 +3260,7 @@
             "escalate"
           ],
           "name" : "verdict",
-          "summary" : "Required with --handover-file\/--handover-stdin; synthesizes the RelayVerdict tail internally.",
+          "summary" : "Required with --handover-file\/--handover-stdin; synthesizes the LoopVerdict tail internally.",
           "takesValue" : true,
           "valueType" : "verdict"
         },
@@ -3326,7 +3322,7 @@
       "name" : "pair pilot handoff",
       "outputSchema" : "relayJSON",
       "spendsQuota" : false,
-      "summary" : "Retired — use `alln loop step <loop-id>` instead. Submits this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.",
+      "summary" : "Retired — use `alln loop step <loop-id>` instead. Submits this round's review (LoopVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.",
       "visibility" : "public"
     },
     {
@@ -3455,7 +3451,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit RelayJSON.",
+          "summary" : "Emit LoopJSON.",
           "takesValue" : false
         }
       ],
@@ -6546,10 +6542,10 @@
       "ruleId" : "relay.not_awaiting_pm"
     },
     {
-      "agentAction" : "The PM's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.",
+      "agentAction" : "The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.",
       "code" : "RELAY_VERDICT_UNPARSEABLE",
       "exitClass" : "operational",
-      "explain" : "A `loop step` submission didn't end with a parseable RelayVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits.",
+      "explain" : "A `loop step` submission didn't end with a parseable LoopVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits.",
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "relay.verdict.unparseable"

@@ -74,7 +74,7 @@ final class RelayLaunchViewModelTests: XCTestCase {
 
     func testStartReturnsRelayIdFromDetachedAccept() async {
         let config = AppConfig.loadConfiguration()
-        let stateStore = RelayStateStore(
+        let stateStore = LoopStateStore(
             rootDirectory: tempRoot("detach").appendingPathComponent("relay", isDirectory: true)
         )
         let vm = RelayLaunchViewModel(
@@ -88,15 +88,15 @@ final class RelayLaunchViewModelTests: XCTestCase {
         vm.pmModelId = "pm_worker"
         vm.devModelId = "dev_worker"
 
-        let relayId = await vm.start()
-        XCTAssertEqual(relayId, "relay_detached_test")
+        let loopId = await vm.start()
+        XCTAssertEqual(loopId, "relay_detached_test")
         XCTAssertFalse(vm.isStarting)
     }
 
     func testStartRefusesWhenPreflightFindsActiveRelay() async throws {
         let config = AppConfig.loadConfiguration()
         let root = tempRoot("dup")
-        let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        let stateStore = LoopStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
         let projectRoot = repoRoot()
         let vm = RelayLaunchViewModel(
             projectId: "prj_test", projectRoot: projectRoot,
@@ -109,15 +109,15 @@ final class RelayLaunchViewModelTests: XCTestCase {
         vm.pmModelId = "pm_worker"
         vm.devModelId = "dev_worker"
 
-        let existing = RelayState(
+        let existing = LoopState(
             id: "relay_existing_active", projectRoot: projectRoot, docPath: "docs/spec.md",
             pmModelId: "pm_worker", devModelId: "dev_worker",
             status: .running, createdAt: Date()
         )
         try stateStore.save(existing)
 
-        let relayId = await vm.start()
-        XCTAssertNil(relayId)
+        let loopId = await vm.start()
+        XCTAssertNil(loopId)
         XCTAssertEqual(vm.startRefusalIssue?.id, "already-active")
     }
 
@@ -135,8 +135,8 @@ final class RelayLaunchViewModelTests: XCTestCase {
         vm.pmModelId = "pm_worker"
         vm.devModelId = "dev_worker"
 
-        let relayId = await vm.start()
-        XCTAssertNil(relayId)
+        let loopId = await vm.start()
+        XCTAssertNil(loopId)
         XCTAssertEqual(vm.startRefusalIssue?.id, "already-active")
     }
 
@@ -146,8 +146,8 @@ final class RelayLaunchViewModelTests: XCTestCase {
             projectId: "prj_test", projectRoot: repoRoot(),
             models: config.models, registry: config.registry, readyModels: []
         )
-        let relayId = await vm.start()
-        XCTAssertNil(relayId)
+        let loopId = await vm.start()
+        XCTAssertNil(loopId)
     }
 
     func testRelayDetachedLauncherStripsNoWaitFromChildArgv() {

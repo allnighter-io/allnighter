@@ -243,7 +243,7 @@ public actor RunService {
     /// RSC-S04: the default id format `run(runId:)` mints internally (`UUID().uuidString`,
     /// below), exposed so `alln run --no-wait`'s foreground step can pre-mint an id in the
     /// SAME format the run would have generated on its own — one format, not two drifting
-    /// copies of the string template. Mirrors `RelayCoordinator.mintRelayId()`.
+    /// copies of the string template. Mirrors `LoopCoordinator.mintLoopId()`.
     public static func mintRunId() -> String {
         UUID().uuidString
     }

@@ -20,12 +20,12 @@ public enum ThreadStateDerivation {
     /// item queued. Failed/blocking attention is a separate axis
     /// (`WorkThread.needsAttention`), not folded in here.
     ///
-    /// ATL-S05: pass store-backed `RelayState.status` for relay threads so terminal
+    /// ATL-S05: pass store-backed `LoopState.status` for relay threads so terminal
     /// loops never paint amber from stale unread turns.
     public static func displayState(
         thread: WorkThread,
         hasPendingItem: Bool,
-        relayStatus: RelayState.Status? = nil
+        relayStatus: LoopState.Status? = nil
     ) -> ThreadDisplayState {
         let attention = UnreadDerivation.railAttention(thread: thread, relayStatus: relayStatus)
         // Escalated / awaitingPM is "needs you", not a live run — even when an open

@@ -18,11 +18,11 @@ public struct PMTurnStore: Sendable {
     }
 
     public let runsRootDirectory: URL
-    public let relaysRootDirectory: URL
+    public let loopsRootDirectory: URL
 
-    public init(runsRootDirectory: URL? = nil, relaysRootDirectory: URL? = nil) {
+    public init(runsRootDirectory: URL? = nil, loopsRootDirectory: URL? = nil) {
         self.runsRootDirectory = runsRootDirectory ?? AllnighterPaths.runs
-        self.relaysRootDirectory = relaysRootDirectory ?? AllnighterPaths.relays
+        self.loopsRootDirectory = loopsRootDirectory ?? AllnighterPaths.loops
     }
 
     /// The PM turn's durable location. This read-only helper does not create a
@@ -35,7 +35,7 @@ public struct PMTurnStore: Sendable {
             // Match RunStore's established `run_<id>` directory convention.
             directory = runsRootDirectory.appendingPathComponent("run_\(subjectId)", isDirectory: true)
         case .relay:
-            directory = relaysRootDirectory.appendingPathComponent(subjectId, isDirectory: true)
+            directory = loopsRootDirectory.appendingPathComponent(subjectId, isDirectory: true)
         }
         return directory.appendingPathComponent("pm-turn.json")
     }

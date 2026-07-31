@@ -26,7 +26,7 @@ enum ServeAutoLaunchCLI {
     }
 
     /// Reports an auto-launch outcome to stderr, one line — used by the three
-    /// verbs whose JSON envelope is the shared `RelayJSON` (no `serveAutoLaunch`
+    /// verbs whose JSON envelope is the shared `LoopJSON` (no `serveAutoLaunch`
     /// field there by design) and by the blocking `pilot handoff` path.
     /// `.failed` is not re-reported here: `ServeAutoLaunch.ensureRunning`
     /// already wrote its one stderr line for that case. `.skipped` stays

@@ -66,3 +66,8 @@ trr-s01-artifact-html  Packages/AllnighterCore/Sources/AllnighterCore/ArtifactPr
 70137a941a8b1f8708039de79d3ca8c7884bf108  Apps/AllnighterMac/Sources/TeamEditorView.swift  # WTA-S02b: pure identifier rename TeamPreset.workerSpecs -> agentSpecs; no visual, layout, or behavioural change to any rendered surface (2026-07-29)
 acf6db4dbbefd7759fa7e78582f7139545b82f52  Apps/AllnighterMac/Sources/TeamStudioView.swift  # WTA-S02b: pure identifier rename TeamPreset.workerSpecs -> agentSpecs; no visual, layout, or behavioural change to any rendered surface (2026-07-29)
 9ce2d42432a2ee05124bf3b49106be8307af95d6  Apps/AllnighterMac/Sources/RoutingComposer.swift  # WTA-S02b: pure identifier rename TeamPreset.workerSpecs -> agentSpecs; no visual, layout, or behavioural change to any rendered surface (2026-07-29)
+d9f2d057fc126088cb108a4ce074c3f08b0065b2  Apps/AllnighterMac/Sources/RelayLaunchView.swift  # LVC-S09 mechanical Relay* to Loop* symbol rename, zero visual change (2026-07-31)
+b1772529308f5bd3cf5d076f9b3fdb6ea913d57d  Apps/AllnighterMac/Sources/RelayThreadChrome.swift  # LVC-S09 mechanical Relay* to Loop* symbol rename, zero visual change (2026-07-31)
+73f195a59e07fbc6a9beba320916ddeb0f806cc3  Apps/AllnighterMac/Sources/RoutingComposer.swift  # LVC-S09 mechanical Relay* to Loop* symbol rename, zero visual change (2026-07-31)
+9bbf7b03218854e2ca2323cd124afb9c3baf370e  Apps/AllnighterMac/Sources/ThreadRailComponents.swift  # LVC-S09 mechanical Relay* to Loop* symbol rename, zero visual change (2026-07-31)
+14309071d2d3449e57d505eff5afff3152983829  Apps/AllnighterMac/Sources/ThreadView.swift  # LVC-S09 mechanical Relay* to Loop* symbol rename, zero visual change (2026-07-31)

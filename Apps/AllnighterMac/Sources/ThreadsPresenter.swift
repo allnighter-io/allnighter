@@ -140,15 +140,15 @@ enum ThreadsPresenter {
     /// lifecycle from turn prose.
     static func unreadNeedsAttention(
         _ thread: WorkThread,
-        relayStatus: RelayState.Status? = nil
+        relayStatus: LoopState.Status? = nil
     ) -> Bool {
         UnreadDerivation.unreadNeedsAttention(thread: thread, relayStatus: relayStatus)
     }
 
-    /// Rail attention colour (amber). Relay rows are gated by `RelayState.status`.
+    /// Rail attention colour (amber). Relay rows are gated by `LoopState.status`.
     static func railAttention(
         _ thread: WorkThread,
-        relayStatus: RelayState.Status? = nil
+        relayStatus: LoopState.Status? = nil
     ) -> UnreadDerivation.RailAttention {
         UnreadDerivation.railAttention(thread: thread, relayStatus: relayStatus)
     }

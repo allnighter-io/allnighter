@@ -7,8 +7,8 @@ final class PMTurnWakeSchedulerTests: XCTestCase {
         let root = makeRoot()
         defer { try? FileManager.default.removeItem(at: root) }
         let runs = root.appendingPathComponent("Runs", isDirectory: true)
-        let relays = root.appendingPathComponent("Relays", isDirectory: true)
-        let turns = PMTurnStore(runsRootDirectory: runs, relaysRootDirectory: relays)
+        let relays = root.appendingPathComponent("Loops", isDirectory: true)
+        let turns = PMTurnStore(runsRootDirectory: runs, loopsRootDirectory: relays)
         let run = makeTurn(kind: .run, subjectId: "run_one", sequence: 1)
         let relay = makeTurn(kind: .relay, subjectId: "relay_one", sequence: 2)
         try turns.save(run)
@@ -21,7 +21,7 @@ final class PMTurnWakeSchedulerTests: XCTestCase {
         let invocations = WakeInvocationRecorder()
         let scheduler = PMTurnWakeScheduler(
             runsRootDirectory: runs,
-            relaysRootDirectory: relays,
+            loopsRootDirectory: relays,
             configurationStore: configuration,
             ledgerStore: ledger,
             invoke: { command, stdin in
@@ -57,7 +57,7 @@ final class PMTurnWakeSchedulerTests: XCTestCase {
         let ledger = PMTurnWakeReceiptLedgerStore(fileURL: root.appendingPathComponent("ledger.json"))
         let scheduler = PMTurnWakeScheduler(
             runsRootDirectory: runs,
-            relaysRootDirectory: root.appendingPathComponent("Relays", isDirectory: true),
+            loopsRootDirectory: root.appendingPathComponent("Loops", isDirectory: true),
             configurationStore: configuration,
             ledgerStore: ledger,
             invoke: { _, _ in .init(succeeded: false, message: "receiver unavailable") },

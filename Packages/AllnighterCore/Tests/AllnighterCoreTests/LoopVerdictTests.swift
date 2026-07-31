@@ -1,11 +1,11 @@
 import XCTest
 @testable import AllnighterCore
 
-/// The PM's turn ends with one small `RelayVerdict` JSON tail; everything else is prose
+/// The PM's turn ends with one small `LoopVerdict` JSON tail; everything else is prose
 /// (docs/phases/PM_Relay.md §4). These tests cover the three verdicts, fenced/bare tails,
 /// the tail-not-last-JSON case, the continue-without-handover re-ask trigger, and that
 /// `strippedOutput` is exactly the prose a founder would have pasted.
-final class RelayVerdictTests: XCTestCase {
+final class LoopVerdictTests: XCTestCase {
 
     // MARK: - Happy paths
 
@@ -17,7 +17,7 @@ final class RelayVerdictTests: XCTestCase {
         {"verdict": "continue", "handover": "Add a test for the empty-list case."}
         ```
         """
-        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        let extraction = try unwrap(LoopVerdictParser.extract(from: output))
         XCTAssertEqual(extraction.verdict.verdict, .continueRelay)
         XCTAssertEqual(extraction.verdict.handover, "Add a test for the empty-list case.")
         XCTAssertNil(extraction.verdict.note)
@@ -30,7 +30,7 @@ final class RelayVerdictTests: XCTestCase {
 
         {"verdict": "done", "note": "Doc fully delivered, tests green."}
         """
-        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        let extraction = try unwrap(LoopVerdictParser.extract(from: output))
         XCTAssertEqual(extraction.verdict.verdict, .done)
         XCTAssertEqual(extraction.verdict.note, "Doc fully delivered, tests green.")
         XCTAssertNil(extraction.verdict.handover)
@@ -48,7 +48,7 @@ final class RelayVerdictTests: XCTestCase {
         {"verdict": "escalate", "note": "76/77 or 88 — say which."}
         ```
         """
-        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        let extraction = try unwrap(LoopVerdictParser.extract(from: output))
         XCTAssertEqual(extraction.verdict.verdict, .escalate)
         XCTAssertEqual(extraction.verdict.note, "76/77 or 88 — say which.")
     }
@@ -69,7 +69,7 @@ final class RelayVerdictTests: XCTestCase {
         {"verdict": "continue", "handover": "Proceed with slice 2."}
         ```
         """
-        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        let extraction = try unwrap(LoopVerdictParser.extract(from: output))
         XCTAssertEqual(extraction.verdict.verdict, .continueRelay)
         XCTAssertEqual(extraction.verdict.handover, "Proceed with slice 2.")
         // The earlier analysis block is prose to the dev too — only the verdict tail is stripped.
@@ -83,7 +83,7 @@ final class RelayVerdictTests: XCTestCase {
 
         {"verdict": "done", "note": "Shipped."}
         """
-        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        let extraction = try unwrap(LoopVerdictParser.extract(from: output))
         XCTAssertEqual(extraction.verdict.verdict, .done)
         XCTAssertTrue(extraction.strippedOutput.contains("timeoutSeconds"))
     }
@@ -98,7 +98,7 @@ final class RelayVerdictTests: XCTestCase {
         {"verdict": "continue"}
         ```
         """
-        let result = RelayVerdictParser.extract(from: output)
+        let result = LoopVerdictParser.extract(from: output)
         XCTAssertEqual(result.failureError, .continueWithoutHandover)
     }
 
@@ -106,18 +106,18 @@ final class RelayVerdictTests: XCTestCase {
         let output = """
         {"verdict": "continue", "handover": "   "}
         """
-        let result = RelayVerdictParser.extract(from: output)
+        let result = LoopVerdictParser.extract(from: output)
         XCTAssertEqual(result.failureError, .continueWithoutHandover)
     }
 
     func testNoVerdictAtAllErrors() {
         let output = "Ran the tests, all green, will keep going next round."
-        let result = RelayVerdictParser.extract(from: output)
+        let result = LoopVerdictParser.extract(from: output)
         XCTAssertEqual(result.failureError, .noVerdictFound)
     }
 
     func testGarbageInputErrors() {
-        let result = RelayVerdictParser.extract(from: "asdf 1234 {{{ not json at all ]]]")
+        let result = LoopVerdictParser.extract(from: "asdf 1234 {{{ not json at all ]]]")
         XCTAssertEqual(result.failureError, .noVerdictFound)
     }
 
@@ -127,7 +127,7 @@ final class RelayVerdictTests: XCTestCase {
         {"verdict": "maybe", "note": "unsure"}
         ```
         """
-        let result = RelayVerdictParser.extract(from: output)
+        let result = LoopVerdictParser.extract(from: output)
         XCTAssertEqual(result.failureError, .unknownVerdict("maybe"))
     }
 
@@ -141,13 +141,13 @@ final class RelayVerdictTests: XCTestCase {
         {"verdict": "done", "note": "All good."}
         ```
         """
-        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        let extraction = try unwrap(LoopVerdictParser.extract(from: output))
         XCTAssertEqual(extraction.verdict.verdict, .done)
     }
 
     func testProseBracesAloneYieldNoVerdictFound() {
         let output = "Style note: use `{}` for empty objects, not `[]`."
-        let result = RelayVerdictParser.extract(from: output)
+        let result = LoopVerdictParser.extract(from: output)
         XCTAssertEqual(result.failureError, .noVerdictFound)
     }
 
@@ -163,7 +163,7 @@ final class RelayVerdictTests: XCTestCase {
         {"verdict": "continue", "handover": \(handoverJSON)}
         ```
         """
-        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        let extraction = try unwrap(LoopVerdictParser.extract(from: output))
         XCTAssertEqual(extraction.verdict.verdict, .continueRelay)
         XCTAssertEqual(extraction.verdict.handover, handover)
     }
@@ -183,7 +183,7 @@ final class RelayVerdictTests: XCTestCase {
         {"verdict": "continue", "handover": "Debounce the spinner by 150ms before the next round."}
         ```
         """
-        let extraction = try unwrap(RelayVerdictParser.extract(from: output))
+        let extraction = try unwrap(LoopVerdictParser.extract(from: output))
         XCTAssertFalse(extraction.strippedOutput.contains("```json"))
         XCTAssertFalse(extraction.strippedOutput.contains("verdict"))
         XCTAssertTrue(extraction.strippedOutput.contains("# Round 3 review"))
@@ -195,11 +195,11 @@ final class RelayVerdictTests: XCTestCase {
     // MARK: - Codable roundtrip (wire value for `continue`)
 
     func testContinueRelayEncodesAsBareContinue() throws {
-        let verdict = RelayVerdict(verdict: .continueRelay, handover: "go")
+        let verdict = LoopVerdict(verdict: .continueRelay, handover: "go")
         let data = try CoreJSON.encode(verdict)
         let json = try XCTUnwrap(String(data: data, encoding: .utf8))
         XCTAssertTrue(json.contains("\"continue\""))
-        let decoded = try CoreJSON.decode(RelayVerdict.self, from: data)
+        let decoded = try CoreJSON.decode(LoopVerdict.self, from: data)
         XCTAssertEqual(decoded, verdict)
     }
 }
@@ -207,9 +207,9 @@ final class RelayVerdictTests: XCTestCase {
 // MARK: - Test helpers
 
 private func unwrap(
-    _ result: Result<RelayVerdictParser.Extraction, RelayVerdictParser.ExtractError>,
+    _ result: Result<LoopVerdictParser.Extraction, LoopVerdictParser.ExtractError>,
     file: StaticString = #filePath, line: UInt = #line
-) throws -> RelayVerdictParser.Extraction {
+) throws -> LoopVerdictParser.Extraction {
     switch result {
     case .success(let extraction): return extraction
     case .failure(let error):
@@ -218,8 +218,8 @@ private func unwrap(
     }
 }
 
-private extension Result where Failure == RelayVerdictParser.ExtractError {
-    var failureError: RelayVerdictParser.ExtractError? {
+private extension Result where Failure == LoopVerdictParser.ExtractError {
+    var failureError: LoopVerdictParser.ExtractError? {
         if case .failure(let error) = self { return error }
         return nil
     }

@@ -22,8 +22,8 @@ enum PairCLI {
         case "revoke": runRevoke(Array(args.dropFirst()), store: store)
         case "begin": runBegin(Array(args.dropFirst()), sessionStore: directSessionStore)
         // LVC-S02/Piece 1 — hard cutover, no aliases. `relay`/`pilot` no longer
-        // dispatch into RelayCLI/PilotCLI from here; each errors naming the
-        // `alln loop` replacement. RelayCLI/PilotCLI remain as LoopCLI's internal
+        // dispatch into LoopEngineCLI/PilotCLI from here; each errors naming the
+        // `alln loop` replacement. LoopEngineCLI/PilotCLI remain as LoopCLI's internal
         // engines (LoopCLI.swift) — only the `pair` surface is retired.
         case "relay": retiredRelay(Array(args.dropFirst()))
         case "relay-status": retired(old: "pair relay-status", replacement: "alln loop status <loop-id>")
@@ -208,7 +208,7 @@ enum PairCLI {
 
     /// LVC-S02/Piece 1 — `pair relay` (and its nested `adopt`/`stop`) are retired
     /// in favor of `alln loop` (`docs/archive/phases/Loop_Verb_Cutover.md` §2). The
-    /// nested verbs are checked the same way `RelayCLI.runRelay` used to dispatch
+    /// nested verbs are checked the same way `LoopEngineCLI.runRelay` used to dispatch
     /// them, so each gets its own precise replacement instead of a generic one.
     private static func retiredRelay(_ rest: [String]) -> Never {
         switch rest.first {

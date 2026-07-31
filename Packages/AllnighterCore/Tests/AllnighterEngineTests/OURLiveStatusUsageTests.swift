@@ -21,13 +21,13 @@ final class OURLiveStatusUsageTests: XCTestCase {
 
     func testAliveElapsedAndTokWhenJournalHasUsage() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let devRunId = "run_our_tok"
         var round = RelayRound(roundNumber: 1, startedAt: Date().addingTimeInterval(-160))
         round.devRunId = devRunId
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_our", projectRoot: "/repo", docPath: "d.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_grok",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_grok",
             status: .running, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: Date())
@@ -43,7 +43,7 @@ final class OURLiveStatusUsageTests: XCTestCase {
         try runStore.save(run, models: [])
 
         let status = PilotCLI.makeStatusJSON(
-            state: state, recovery: .handoffAlive, stateStore: relayStore, runStore: runStore
+            state: state, recovery: .handoffAlive, stateStore: loopStore, runStore: runStore
         )
         XCTAssertEqual(status.ownerAlive, true)
         XCTAssertNotNil(status.elapsedSeconds)
@@ -56,13 +56,13 @@ final class OURLiveStatusUsageTests: XCTestCase {
 
     func testRunningSilentSeatNotYetReported() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs2"))
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays2"))
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("relays2"))
         let devRunId = "run_silent"
         var round = RelayRound(roundNumber: 1, startedAt: Date().addingTimeInterval(-60))
         round.devRunId = devRunId
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_silent", projectRoot: "/repo", docPath: "d.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_grok",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_grok",
             status: .running, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: Date())
@@ -76,7 +76,7 @@ final class OURLiveStatusUsageTests: XCTestCase {
         try runStore.save(run, models: [])
 
         let status = PilotCLI.makeStatusJSON(
-            state: state, recovery: .handoffAlive, stateStore: relayStore, runStore: runStore
+            state: state, recovery: .handoffAlive, stateStore: loopStore, runStore: runStore
         )
         XCTAssertTrue(
             status.usagePresentation?.contains("not yet reported") == true,
@@ -87,16 +87,16 @@ final class OURLiveStatusUsageTests: XCTestCase {
     }
 
     func testNoDevRunIdOmitsUsageSegment() throws {
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays3"))
-        let state = RelayState(
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("relays3"))
+        let state = LoopState(
             id: "relay_nodev", projectRoot: "/repo", docPath: "d.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_grok",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_grok",
             status: .running,
             rounds: [RelayRound(roundNumber: 1, startedAt: Date())],
             createdAt: Date()
         )
         let status = PilotCLI.makeStatusJSON(
-            state: state, recovery: .handoffAlive, stateStore: relayStore
+            state: state, recovery: .handoffAlive, stateStore: loopStore
         )
         XCTAssertNil(status.observedUsage)
         XCTAssertNil(status.usagePresentation)
@@ -106,13 +106,13 @@ final class OURLiveStatusUsageTests: XCTestCase {
 
     func testDeadOwnerStillEmitsLongJobWithDevRunId() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs4"))
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays4"))
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("relays4"))
         let devRunId = "run_dead"
         var round = RelayRound(roundNumber: 1, startedAt: Date().addingTimeInterval(-250))
         round.devRunId = devRunId
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_dead", projectRoot: "/repo", docPath: "d.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_grok",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_grok",
             status: .running, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: Date())
@@ -120,7 +120,7 @@ final class OURLiveStatusUsageTests: XCTestCase {
         try runStore.save(run, models: [])
 
         let status = PilotCLI.makeStatusJSON(
-            state: state, recovery: .none, stateStore: relayStore, runStore: runStore
+            state: state, recovery: .none, stateStore: loopStore, runStore: runStore
         )
         XCTAssertEqual(status.ownerAlive, false)
         XCTAssertNotNil(status.elapsedSeconds)

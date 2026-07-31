@@ -515,7 +515,7 @@ struct ThreadsFixtureSeeder {
         // 1) Escalated — waiting on the human (the only amber relay). Newest.
         do {
             let id = "fixture-loop-escalated"
-            let state = RelayState(
+            let state = LoopState(
                 id: id,
                 projectRoot: "/Users/you/code/allnighter",
                 docPath: "docs/phases/SPEC.md",
@@ -556,7 +556,7 @@ struct ThreadsFixtureSeeder {
         // 2) Running — live loop, no attention colour.
         do {
             let id = "fixture-loop-running"
-            let state = RelayState(
+            let state = LoopState(
                 id: id,
                 projectRoot: "/Users/you/code/allnighter",
                 docPath: "docs/phases/Agent_Team_Loop.md",
@@ -597,7 +597,7 @@ struct ThreadsFixtureSeeder {
         do {
             let id = "fixture-loop-stopped"
             let finished = base.addingTimeInterval(-60)
-            let state = RelayState(
+            let state = LoopState(
                 id: id,
                 projectRoot: "/Users/you/code/allnighter",
                 docPath: "docs/phases/SPEC.md",
@@ -615,7 +615,7 @@ struct ThreadsFixtureSeeder {
                 createdAt: base.addingTimeInterval(-1000),
                 finishedAt: finished,
                 note: "Founder stopped the loop.",
-                stoppedReason: RelayState.founderStoppedReason
+                stoppedReason: LoopState.founderStoppedReason
             )
             saveRelayFixtureState(state)
             guard (try? store.create(
@@ -638,7 +638,7 @@ struct ThreadsFixtureSeeder {
             let stopped = ThreadTurn(
                 id: "\(id)_stopped", threadId: id, kind: .systemEvent, status: .done,
                 createdAt: finished, completedAt: finished, author: .system,
-                text: RelayState.founderStoppedReason, systemEvent: .relayStopped
+                text: LoopState.founderStoppedReason, systemEvent: .relayStopped
             )
             _ = try? store.appendTurn(stopped, toThreadId: id, now: base.addingTimeInterval(-3))
         }
@@ -661,12 +661,12 @@ struct ThreadsFixtureSeeder {
         reload()
     }
 
-    /// R-S08 proof: a PM Relay thread (id == relayId, `RelayThreadProjector`'s identity
+    /// R-S08 proof: a PM Relay thread (id == loopId, `LoopThreadProjector`'s identity
     /// rule) two rounds in, with round 2's PM turn escalated and still OPEN — the one
     /// actionable system-event row (`RelayEscalationRow` in ThreadView.swift). Built
-    /// directly from `ThreadTurn`s in the SAME shape `RelayThreadProjector.sync` produces
+    /// directly from `ThreadTurn`s in the SAME shape `LoopThreadProjector.sync` produces
     /// (`.workerChat` PM/dev turns, an open `.systemEvent`/`.relayEscalated` turn) — no
-    /// `RelayCoordinator`/`RelayState` involved, this is pure UI-fixture data.
+    /// `LoopCoordinator`/`LoopState` involved, this is pure UI-fixture data.
     private func seedFixtureRelayEscalated() {
         let id = "fixture-relay-escalated"
         let pmModelId = models.first { $0.id == "model_claude_code" }?.id
@@ -723,7 +723,7 @@ struct ThreadsFixtureSeeder {
             finishedAt: base.addingTimeInterval(120),
             outcome: .continued
         )
-        let state = RelayState(
+        let state = LoopState(
             id: id,
             projectRoot: "/Users/you/code/allnighter",
             docPath: "docs/phases/Agent_Team_Loop.md",
@@ -749,7 +749,7 @@ struct ThreadsFixtureSeeder {
     }
 
     /// ATL-S04: founder-stopped relay — open escalation turn exists but Answer & resume
-    /// is gated off by `RelayState.isResumable` (inference ban negative test).
+    /// is gated off by `LoopState.isResumable` (inference ban negative test).
     private func seedFixtureRelayFounderStopped() {
         let id = "fixture-relay-stopped"
         let (pmModelId, devModelId) = relayFixtureSeatIds()
@@ -763,7 +763,7 @@ struct ThreadsFixtureSeeder {
             finishedAt: base.addingTimeInterval(120),
             outcome: .continued
         )
-        let state = RelayState(
+        let state = LoopState(
             id: id,
             projectRoot: "/Users/you/code/allnighter",
             docPath: "docs/phases/Agent_Team_Loop.md",
@@ -774,7 +774,7 @@ struct ThreadsFixtureSeeder {
             createdAt: base,
             finishedAt: finished,
             note: "Founder stopped the loop.",
-            stoppedReason: RelayState.founderStoppedReason
+            stoppedReason: LoopState.founderStoppedReason
         )
         saveRelayFixtureState(state)
         let pmTurn = PMTurnJSON(
@@ -786,7 +786,7 @@ struct ThreadsFixtureSeeder {
             reason: "stopped",
             lifecycleStatus: "stopped",
             report: "Loop abandoned after round 1.",
-            nextCommands: [RelayStatusLoader.statusCommand(relayId: id)]
+            nextCommands: [RelayStatusLoader.statusCommand(loopId: id)]
         )
         try? PMTurnStore().save(pmTurn)
 
@@ -819,8 +819,8 @@ struct ThreadsFixtureSeeder {
         return (pmModelId, devModelId)
     }
 
-    private func saveRelayFixtureState(_ state: RelayState) {
-        try? RelayStateStore().save(state)
+    private func saveRelayFixtureState(_ state: LoopState) {
+        try? LoopStateStore().save(state)
     }
 
     private func appendRelayFixtureTurns(

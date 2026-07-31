@@ -26,7 +26,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
 
         let repo = try makeGitRepo(in: tmp)
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let lane = ExecutionLaneRegistry()
 
         let report = """
@@ -50,7 +50,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             environmentPolicy: AllnighterSpawnEnvironmentPolicy(),
             spawnKind: .harnessProof
         )
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service,
             stateStore: stateStore,
             runStore: runStore,
@@ -88,7 +88,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
         )
         XCTAssertNil(devRound.standingFailed)
 
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let json = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let logEntry = try XCTUnwrap(json.roundLog.first { $0.devRunId != nil })
         XCTAssertEqual(logEntry.endReason, "proofTimeout")
         XCTAssertEqual(logEntry.proofResults.filter { !$0.standing }.count, 1)
@@ -250,7 +250,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             proofResults: [],
             proofCommands: ["true"]
         )
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_lane_busy",
             projectRoot: repo.path,
             docPath: "docs/spec.md",
@@ -262,7 +262,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             note: "harness proof blocked on execution lane",
             laneBlocked: ticket
         )
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let json = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         XCTAssertEqual(json.roundLog[0].endReason, "laneBusy")
         XCTAssertTrue(json.roundLog[0].proofResults.isEmpty)
         XCTAssertEqual(json.laneBlocked?.holder.id, "foreign-holder")
@@ -338,7 +338,7 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
         XCTAssertFalse(ProcessOwnership.OwnerKind.inProcess.isProcessGroupKillable)
     }
 
-    func testProofResultsProjectedOnRelayJSON() {
+    func testProofResultsProjectedOnLoopJSON() {
         var round = RelayRound(
             roundNumber: 1,
             startedAt: Date(timeIntervalSince1970: 1),
@@ -355,12 +355,12 @@ final class ProcessOwnershipHarnessProofTests: XCTestCase {
             proofCommands: ["sleep 300"]
         )
         round.devRunId = "run_dev"
-        let state = RelayState(
+        let state = LoopState(
             id: "r1", projectRoot: "/r", docPath: "d", pmModelId: "pm",
             devModelId: "dev", status: .done, rounds: [round],
             createdAt: Date(timeIntervalSince1970: 1)
         )
-        let json = RelayJSON.project(state, contractVersion: "1.0.0")
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
         XCTAssertEqual(json.roundLog[0].endReason, "proofTimeout")
         XCTAssertEqual(json.roundLog[0].proofResults.count, 1)
         XCTAssertEqual(json.roundLog[0].proofResults[0].durationMs, 1001)

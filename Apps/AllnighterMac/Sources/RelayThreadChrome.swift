@@ -2,15 +2,15 @@ import SwiftUI
 import AppKit
 import AllnighterCore
 
-/// ATL-S04 live control on an open relay thread — Status (store-backed `RelayJSON`)
-/// and Stop (`RelayCoordinator.stop`). Pilot must not appear in copy here.
+/// ATL-S04 live control on an open relay thread — Status (store-backed `LoopJSON`)
+/// and Stop (`LoopCoordinator.stop`). Pilot must not appear in copy here.
 struct RelayThreadChrome: View {
     @Environment(RelayStopController.self) private var relayStop
     @Environment(ThreadsViewModel.self) private var threads
 
-    let relayId: String
+    let loopId: String
 
-    @State private var relayJSON: RelayJSON?
+    @State private var relayJSON: LoopJSON?
     @State private var statusPopoverOpen = false
     @State private var confirmStop = false
 
@@ -25,18 +25,18 @@ struct RelayThreadChrome: View {
             Color.clear.frame(width: 0, height: 0)
             if let relayJSON {
                 statusControl(relayJSON)
-                if relayStop.canStop(relayId: relayId) {
+                if relayStop.canStop(loopId: loopId) {
                     stopButton
                 }
             }
-            if let error = relayStop.lastError[relayId] {
+            if let error = relayStop.lastError[loopId] {
                 Text(error)
                     .font(.system(size: 11))
                     .foregroundStyle(ALPalette.red400)
                     .lineLimit(2)
             }
         }
-        .task(id: relayId) { refreshStatus() }
+        .task(id: loopId) { refreshStatus() }
         .onChange(of: threads.selectedThread?.turns.count) { _, _ in refreshStatus() }
         .onAppear {
             refreshStatus()
@@ -47,10 +47,10 @@ struct RelayThreadChrome: View {
             isPresented: $confirmStop,
             titleVisibility: .visible
         ) {
-            Button(relayStop.isStopping(relayId) ? "Stopping…" : "Stop loop", role: .destructive) {
+            Button(relayStop.isStopping(loopId) ? "Stopping…" : "Stop loop", role: .destructive) {
                 performStop()
             }
-            .disabled(relayStop.isStopping(relayId))
+            .disabled(relayStop.isStopping(loopId))
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This loop will not resume. Work in flight is abandoned.")
@@ -58,14 +58,14 @@ struct RelayThreadChrome: View {
     }
 
     private var stopButton: some View {
-        Button(relayStop.isStopping(relayId) ? "Stopping…" : "Stop") {
+        Button(relayStop.isStopping(loopId) ? "Stopping…" : "Stop") {
             confirmStop = true
         }
         .buttonStyle(.alLight)
-        .disabled(relayStop.isStopping(relayId))
+        .disabled(relayStop.isStopping(loopId))
     }
 
-    private func statusControl(_ json: RelayJSON) -> some View {
+    private func statusControl(_ json: LoopJSON) -> some View {
         Button {
             statusPopoverOpen.toggle()
         } label: {
@@ -73,16 +73,16 @@ struct RelayThreadChrome: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $statusPopoverOpen, arrowEdge: .bottom) {
-            RelayStatusPanel(json: json, relayId: relayId)
+            RelayStatusPanel(json: json, loopId: loopId)
         }
     }
 
     private func refreshStatus() {
-        relayJSON = RelayStatusLoader.loadRelayJSON(relayId: relayId)
+        relayJSON = RelayStatusLoader.loadLoopJSON(loopId: loopId)
     }
 
     private func performStop() {
-        guard relayStop.stop(relayId: relayId) else { return }
+        guard relayStop.stop(loopId: loopId) else { return }
         refreshStatus()
         threads.requestReload()
     }
@@ -115,8 +115,8 @@ struct RelayThreadChrome: View {
 }
 
 private struct RelayStatusPanel: View {
-    let json: RelayJSON
-    let relayId: String
+    let json: LoopJSON
+    let loopId: String
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -147,7 +147,7 @@ private struct RelayStatusPanel: View {
     }
 
     private func copyStatusCommand() {
-        let cmd = RelayStatusLoader.statusCommand(relayId: relayId)
+        let cmd = RelayStatusLoader.statusCommand(loopId: loopId)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(cmd, forType: .string)
     }

@@ -32,7 +32,7 @@ final class CompletionDeliveryWorksTests: XCTestCase {
         )
 
         let ack = PilotHandoffDispatchJSON(
-            relayId: "relay_cd_wt04", status: "dispatched", roundInFlight: false,
+            loopId: "relay_cd_wt04", status: "dispatched", roundInFlight: false,
             pid: 99, serveAutoLaunch: "alreadyRunning", delivery: delivery
         )
         let data = try XCTUnwrap(AllnighterCLI.jsonLine(ack).data(using: .utf8))
@@ -73,7 +73,7 @@ final class CompletionDeliveryWorksTests: XCTestCase {
     func testRelayNoWaitSourceEmitsWaitDelivery() throws {
         let cliDir = sourcesRoot().appendingPathComponent("AllnighterCLI")
         let relay = try String(
-            contentsOf: cliDir.appendingPathComponent("RelayCLI.swift"), encoding: .utf8
+            contentsOf: cliDir.appendingPathComponent("LoopEngineCLI.swift"), encoding: .utf8
         )
         XCTAssertTrue(relay.contains("DetachedDispatch.waitDelivery"), "relay emitDispatchAck")
         XCTAssertTrue(relay.contains("func emitDispatchAck"), "shared relay ack helper")
@@ -85,7 +85,7 @@ final class CompletionDeliveryWorksTests: XCTestCase {
 
     func testWaiterThenStatusShowsParkedWithDevTerminalFacts() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let devRunId = "run_cd_wt01"
 
         var round = RelayRound(roundNumber: 1, startedAt: Date().addingTimeInterval(-500))
@@ -96,7 +96,7 @@ final class CompletionDeliveryWorksTests: XCTestCase {
         round.outcome = .continued
 
         // Simulate: waiter observes transition running → awaitingPM (only that command).
-        var liveStatus: RelayState.Status = .running
+        var liveStatus: LoopState.Status = .running
         let wait = PMTurnStatusWait.wait(
             target: .parked,
             timeout: 1,
@@ -115,18 +115,18 @@ final class CompletionDeliveryWorksTests: XCTestCase {
         XCTAssertEqual(wait.outcome, .matched)
         XCTAssertEqual(wait.status, .awaitingPM)
 
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_wt01", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .awaitingPM, rounds: [round], createdAt: Date()
         )
-        try relayStore.save(state)
+        try loopStore.save(state)
         var run = TeamRun(id: devRunId, prompt: "p", status: .done, createdAt: Date())
         run.endReason = .completed
         try runStore.save(run, models: [])
 
         var status = PilotCLI.makeStatusJSON(
-            state: state, recovery: .none, stateStore: relayStore, runStore: runStore
+            state: state, recovery: .none, stateStore: loopStore, runStore: runStore
         )
         status.waitOutcome = wait.outcome.rawValue
 
@@ -166,15 +166,15 @@ final class CompletionDeliveryWorksTests: XCTestCase {
 
     func testFailedDevStillParksWithFailureFactsVisible() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-fail"))
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-fail"))
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("relays-fail"))
         let devRunId = "run_cd_wt06"
         var round = RelayRound(roundNumber: 1, startedAt: Date())
         round.devRunId = devRunId
         round.devTurnEndReason = .reported
         round.headAfterDev = "failc0mm1t"
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_wt06", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .awaitingPM, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .failed, createdAt: Date())
@@ -182,9 +182,9 @@ final class CompletionDeliveryWorksTests: XCTestCase {
         try runStore.save(run, models: [])
 
         let pilot = PilotCLI.makeStatusJSON(
-            state: state, recovery: .none, stateStore: relayStore, runStore: runStore
+            state: state, recovery: .none, stateStore: loopStore, runStore: runStore
         )
-        let relay = RelayJSON.project(
+        let relay = LoopJSON.project(
             state, contractVersion: ContractRegistry.contractVersion, runStore: runStore
         )
         XCTAssertEqual(pilot.devLeg, relay.devLeg)

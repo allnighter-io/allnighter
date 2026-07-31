@@ -170,7 +170,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         try plantFakeAlln(scratchPath: scratch)
 
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let lane = ExecutionLaneRegistry()
 
         // Zero declared proofCommands — standing must still run on product tree.
@@ -189,7 +189,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             checkExitCode: 1,
             checkTail: "stale docs/generated/alln/alln-contract.json"
         )
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service,
             stateStore: stateStore,
             runStore: runStore,
@@ -217,7 +217,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         XCTAssertEqual(standing.invariant, StandingInvariants.contractDrift)
         XCTAssertFalse(standing.passed)
 
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let json = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let logEntry = try XCTUnwrap(json.roundLog.first { $0.devRunId != nil })
         XCTAssertEqual(logEntry.standingFailed, [StandingInvariants.contractDrift])
         XCTAssertEqual(logEntry.endReason, "reported")
@@ -241,7 +241,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         let scratch = ExecutionLaneFlock.ensuredScratchPath(repoRoot: repo.path)
 
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let stateStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
         let lane = ExecutionLaneRegistry()
 
         let report = "Clean turn. Contracts already regenerated."
@@ -258,7 +258,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         let proofRunner = StandingProofScriptRunner(
             checkExitCode: 0, checkTail: "fresh",
             plantAllnOnBuild: true, plantScratchPath: scratch)
-        let coordinator = RelayCoordinator(
+        let coordinator = LoopCoordinator(
             runService: service,
             stateStore: stateStore,
             runStore: runStore,
@@ -281,7 +281,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         XCTAssertEqual(standing.invariant, StandingInvariants.contractDrift)
         XCTAssertTrue(standing.passed)
 
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let json = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         let logEntry = try XCTUnwrap(json.roundLog.first { $0.devRunId != nil })
         XCTAssertNil(logEntry.standingFailed)
         XCTAssertTrue(logEntry.proofResults.contains { $0.standing && $0.passed })
@@ -289,7 +289,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
 
     // MARK: - Wire surface + catalog
 
-    func testStandingFailedProjectedOnRelayJSONAndErrorCatalog() throws {
+    func testStandingFailedProjectedOnLoopJSONAndErrorCatalog() throws {
         let round = RelayRound(
             roundNumber: 1,
             startedAt: Date(timeIntervalSince1970: 1),
@@ -308,7 +308,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
         )
         var r = round
         r.devRunId = "run_dev"
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_standing",
             projectRoot: "/r",
             docPath: "d",
@@ -318,7 +318,7 @@ final class ProcessOwnershipStandingInvariantTests: XCTestCase {
             rounds: [r],
             createdAt: Date(timeIntervalSince1970: 1)
         )
-        let json = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let json = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         XCTAssertEqual(json.roundLog[0].standingFailed, ["contractDrift"])
         XCTAssertEqual(json.roundLog[0].endReason, "reported")
         XCTAssertTrue(json.roundLog[0].proofResults[0].standing)

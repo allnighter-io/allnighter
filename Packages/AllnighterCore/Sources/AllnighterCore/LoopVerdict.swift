@@ -3,7 +3,7 @@ import Foundation
 /// The only structured artifact in the PM Relay loop (docs/phases/PM_Relay.md §4).
 /// Every PM turn ends with one small JSON block; everything else is prose. `done` is
 /// **declared, never inferred** — the loop only ends happily on `verdict == .done`.
-public struct RelayVerdict: Sendable, Codable, Equatable {
+public struct LoopVerdict: Sendable, Codable, Equatable {
     /// The three ways a PM turn can end. `continueRelay` is the Swift-safe name for
     /// the wire value `"continue"` — `continue` itself is a reserved word.
     public enum Verdict: String, Sendable, Codable, CaseIterable {
@@ -27,18 +27,18 @@ public struct RelayVerdict: Sendable, Codable, Equatable {
     }
 }
 
-/// Tolerant tail-extraction of a `RelayVerdict` from a PM turn's raw output (§4.1).
+/// Tolerant tail-extraction of a `LoopVerdict` from a PM turn's raw output (§4.1).
 /// The PM may emit other JSON earlier in its answer (analysis, artifacts) — the verdict
 /// is always the LAST JSON object in the output that carries a `verdict` key, fenced in
 /// a ```json block or bare. This lifts it, validates it, and returns the PM's prose with
 /// the verdict block removed — exactly what the founder would have pasted to the dev.
-public enum RelayVerdictParser {
+public enum LoopVerdictParser {
     /// The parsed verdict plus the handover-ready prose (verdict block stripped).
     public struct Extraction: Sendable, Equatable {
-        public var verdict: RelayVerdict
+        public var verdict: LoopVerdict
         public var strippedOutput: String
 
-        public init(verdict: RelayVerdict, strippedOutput: String) {
+        public init(verdict: LoopVerdict, strippedOutput: String) {
             self.verdict = verdict
             self.strippedOutput = strippedOutput
         }
@@ -79,7 +79,7 @@ public enum RelayVerdictParser {
         }
 
         let rawVerdict = object["verdict"] as? String
-        guard let rawVerdict, let verdict = RelayVerdict.Verdict(rawValue: rawVerdict) else {
+        guard let rawVerdict, let verdict = LoopVerdict.Verdict(rawValue: rawVerdict) else {
             return .failure(.unknownVerdict(rawVerdict ?? String(describing: object["verdict"] as Any)))
         }
 
@@ -92,7 +92,7 @@ public enum RelayVerdictParser {
         }
 
         let extraction = Extraction(
-            verdict: RelayVerdict(verdict: verdict, handover: handover, note: note),
+            verdict: LoopVerdict(verdict: verdict, handover: handover, note: note),
             strippedOutput: strippedText(pmOutput, removing: removalRange)
         )
         return .success(extraction)

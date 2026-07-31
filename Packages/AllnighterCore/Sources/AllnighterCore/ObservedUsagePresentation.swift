@@ -89,7 +89,7 @@ public enum ObservedUsagePresentation {
     /// - non-terminal without usage: `not yet reported`
     /// - terminal without usage: `not reported` (settle / receipt path)
     public static func liveDevUsage(
-        state: RelayState,
+        state: LoopState,
         runStore: some RunStoreReading,
         models: [Model] = []
     ) -> LiveUsageProjection? {

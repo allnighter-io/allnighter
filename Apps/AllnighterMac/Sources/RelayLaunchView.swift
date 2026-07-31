@@ -151,9 +151,9 @@ struct RelayLaunchView: View {
                 Spacer()
                 Button("Start loop") {
                     Task {
-                        guard let relayId = await viewModel.start() else { return }
+                        guard let loopId = await viewModel.start() else { return }
                         threads.reload()
-                        threads.select(threadId: relayId)
+                        threads.select(threadId: loopId)
                         threads.markLoopComposerCleared()
                         dismiss()
                     }
@@ -317,7 +317,7 @@ struct RelayLaunchView: View {
     }
 
     // RSC-S02: `startRefusalIssue` is a dynamic, disk-backed fact (a duplicate-relay
-    // refusal from `RelayCoordinator.preflightStart`) rather than a form-completeness
+    // refusal from `LoopCoordinator.preflightStart`) rather than a form-completeness
     // issue, so it is not folded into `validationIssues`/`canStart` — but it renders in
     // the same block so a refused Start click is never silent. It clears at the top of
     // every `start()` attempt, so retrying re-checks fresh.

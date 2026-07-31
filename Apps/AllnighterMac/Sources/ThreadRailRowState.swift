@@ -17,7 +17,7 @@ struct ThreadRailRowState: Identifiable, Equatable {
     let isRunning: Bool
     let hasUnread: Bool
     /// ATL-S05: precomputed rail attention (amber). Relay rows are gated by
-    /// store-backed `RelayState.status`, not unread turn counts alone.
+    /// store-backed `LoopState.status`, not unread turn counts alone.
     let railAttention: UnreadDerivation.RailAttention
     let hasNeverRun: Bool
     let lane: ComposeLane?
@@ -45,11 +45,11 @@ struct ThreadRailRowState: Identifiable, Equatable {
 
 extension ThreadsPresenter {
     /// Build a rail-row summary from a full thread — the once-per-reload derivation point.
-    /// `relayStatus` is `RelayState.status` from the store (same owner as
+    /// `relayStatus` is `LoopState.status` from the store (same owner as
     /// `RelayStatusLoader`); `nil` for ordinary non-relay threads.
     static func railRow(
         from thread: WorkThread,
-        relayStatus: RelayState.Status? = nil
+        relayStatus: LoopState.Status? = nil
     ) -> ThreadRailRowState {
         var search = thread.title.lowercased()
         for turn in thread.turns where !(turn.text ?? "").isEmpty {

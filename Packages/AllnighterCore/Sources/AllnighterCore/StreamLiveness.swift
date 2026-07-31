@@ -12,7 +12,7 @@ public enum StreamLiveness {
 
     /// PRIMARY stream timestamp for a relay's in-flight dev turn.
     public static func relayStreamLastActivityAt(
-        state: RelayState,
+        state: LoopState,
         runStore: some RunStoreReading
     ) -> Date? {
         guard let runId = state.rounds.last?.devRunId else { return nil }
@@ -32,7 +32,7 @@ public enum StreamLiveness {
     /// Shared dev-leg facts for `pilot status` and `relay-status` (CD-S01a).
     /// Reconcile-on-read against the linked `devRunId` journal — not a second clock.
     public static func devLegProjection(
-        state: RelayState,
+        state: LoopState,
         runStore: some RunStoreReading
     ) -> RelayDevLegProjection {
         RelayDevLegProjection.project(state: state, runStore: runStore)
@@ -42,7 +42,7 @@ public enum StreamLiveness {
 /// Linked-dev facts on pilot/relay status. Distinguishes three states so agents
 /// never treat aggregate relay `running` as proof the dev worker is still live.
 public struct RelayDevLegProjection: Codable, Equatable, Sendable {
-    /// Operational phase of the **linked dev leg**, not a re-encoding of `RelayState.status`.
+    /// Operational phase of the **linked dev leg**, not a re-encoding of `LoopState.status`.
     public enum Phase: String, Codable, Sendable, CaseIterable {
         /// No `devRunId` on the last round.
         case none
@@ -78,7 +78,7 @@ public struct RelayDevLegProjection: Codable, Equatable, Sendable {
     }
 
     public static func project(
-        state: RelayState,
+        state: LoopState,
         runStore: some RunStoreReading
     ) -> RelayDevLegProjection {
         guard let round = state.rounds.last, let devRunId = round.devRunId else {
@@ -134,7 +134,7 @@ public struct RelayDevLegProjection: Codable, Equatable, Sendable {
         )
     }
 
-    private static func isRelayParked(_ status: RelayState.Status) -> Bool {
+    private static func isRelayParked(_ status: LoopState.Status) -> Bool {
         switch status {
         case .awaitingPM, .escalated, .done, .stopped:
             return true

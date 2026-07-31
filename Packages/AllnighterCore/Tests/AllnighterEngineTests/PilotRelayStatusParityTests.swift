@@ -17,9 +17,9 @@ final class PilotRelayStatusParityTests: XCTestCase {
         try? FileManager.default.removeItem(at: tmp)
     }
 
-    func testMakeStatusJSONSettlingMatchesRelayJSONDevLeg() throws {
+    func testMakeStatusJSONSettlingMatchesLoopJSONDevLeg() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
 
         let devRunId = "run_parity_settle"
         var round = RelayRound(roundNumber: 1, startedAt: Date().addingTimeInterval(-200))
@@ -27,12 +27,12 @@ final class PilotRelayStatusParityTests: XCTestCase {
         round.headAfterDev = "parityc0mm1t"
         round.devTurnEndReason = .reported
 
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_parity", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .running, rounds: [round], createdAt: Date()
         )
-        try relayStore.save(state)
+        try loopStore.save(state)
 
         var run = TeamRun(
             id: devRunId, prompt: "p", status: .done,
@@ -42,9 +42,9 @@ final class PilotRelayStatusParityTests: XCTestCase {
         try runStore.save(run, models: [])
 
         let pilot = PilotCLI.makeStatusJSON(
-            state: state, recovery: .handoffAlive, stateStore: relayStore, runStore: runStore
+            state: state, recovery: .handoffAlive, stateStore: loopStore, runStore: runStore
         )
-        let relay = RelayJSON.project(
+        let relay = LoopJSON.project(
             state, contractVersion: ContractRegistry.contractVersion, runStore: runStore
         )
 
@@ -63,7 +63,7 @@ final class PilotRelayStatusParityTests: XCTestCase {
 
     func testMakeStatusJSONParkedSurfacesDevTerminalAndReviewNextAction() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-parked"))
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-parked"))
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("relays-parked"))
 
         let devRunId = "run_parity_parked"
         var round = RelayRound(roundNumber: 1, startedAt: Date().addingTimeInterval(-400))
@@ -73,21 +73,21 @@ final class PilotRelayStatusParityTests: XCTestCase {
         round.finishedAt = Date()
         round.outcome = .continued
 
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_parked_parity", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .awaitingPM, rounds: [round], createdAt: Date()
         )
-        try relayStore.save(state)
+        try loopStore.save(state)
 
         var run = TeamRun(id: devRunId, prompt: "p", status: .done, createdAt: Date())
         run.endReason = .completed
         try runStore.save(run, models: [])
 
         let pilot = PilotCLI.makeStatusJSON(
-            state: state, recovery: .none, stateStore: relayStore, runStore: runStore
+            state: state, recovery: .none, stateStore: loopStore, runStore: runStore
         )
-        let relay = RelayJSON.project(
+        let relay = LoopJSON.project(
             state, contractVersion: ContractRegistry.contractVersion, runStore: runStore
         )
 
@@ -101,13 +101,13 @@ final class PilotRelayStatusParityTests: XCTestCase {
     /// CD-WT-05 shape: live dev → phase running; next action still wait-for-parked.
     func testLiveDevKeepsRunningPhaseAndWaitAction() throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs-live"))
-        let relayStore = RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays-live"))
+        let loopStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("relays-live"))
         let devRunId = "run_live_dev"
         var round = RelayRound(roundNumber: 1, startedAt: Date())
         round.devRunId = devRunId
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_live", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev",
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev",
             status: .running, rounds: [round], createdAt: Date()
         )
         var run = TeamRun(id: devRunId, prompt: "p", status: .running, createdAt: Date())
@@ -115,7 +115,7 @@ final class PilotRelayStatusParityTests: XCTestCase {
         try runStore.save(run, models: [])
 
         let pilot = PilotCLI.makeStatusJSON(
-            state: state, recovery: .handoffAlive, stateStore: relayStore, runStore: runStore
+            state: state, recovery: .handoffAlive, stateStore: loopStore, runStore: runStore
         )
         XCTAssertEqual(pilot.devLeg?.phase, .running)
         XCTAssertEqual(pilot.nextActions.first?.kind, "pilotStatus")

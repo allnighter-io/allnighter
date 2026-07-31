@@ -24,7 +24,7 @@ public enum ThreadAgentPresentation {
         threadId.hasPrefix("relay_")
     }
 
-    /// PM/dev seat encoded in relay projector turn ids (`<relayId>_pm<round>`, `_dev<round>`).
+    /// PM/dev seat encoded in relay projector turn ids (`<loopId>_pm<round>`, `_dev<round>`).
     public static func relaySeat(threadId: String, turnId: String) -> RelaySeat? {
         guard isRelayThread(threadId: threadId) else { return nil }
         if turnId.range(of: "_pm\\d+$", options: .regularExpression) != nil { return .pm }

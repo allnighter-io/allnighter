@@ -8,7 +8,7 @@ import AllnighterEngine
 /// exit-free `parse*` helpers are the unit-testable surface (the thin `run*` entry
 /// points that call `exit()` on failure are not, matching the house pattern —
 /// `PairProgrammingCLI.runSlice/runQueue/runStatus` are untested the same way).
-final class RelayCLITests: XCTestCase {
+final class LoopEngineCLITests: XCTestCase {
     private var tmp: URL!
 
     override func setUpWithError() throws {
@@ -24,8 +24,8 @@ final class RelayCLITests: XCTestCase {
         ProjectStore(rootDirectory: tmp.appendingPathComponent("projects"))
     }
 
-    private func makeRelayStateStore() -> RelayStateStore {
-        RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+    private func makeLoopStateStore() -> LoopStateStore {
+        LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
     }
 
     @discardableResult
@@ -47,51 +47,51 @@ final class RelayCLITests: XCTestCase {
     // MARK: - parseStartConfig
 
     func testParseStartConfigMissingDocThrows() {
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(["--project", "x", "--pm-model", "a", "--dev-model", "b"])) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .missingRequired("--doc <path>"))
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(["--project", "x", "--pm-model", "a", "--dev-model", "b"])) { error in
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .missingRequired("--doc <path>"))
         }
     }
 
     func testParseStartConfigMissingProjectThrows() {
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(["--doc", "docs/spec.md", "--pm-model", "a", "--dev-model", "b"])) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .missingRequired("--project <id|path>"))
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(["--doc", "docs/spec.md", "--pm-model", "a", "--dev-model", "b"])) { error in
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .missingRequired("--project <id|path>"))
         }
     }
 
     func testParseStartConfigMissingPmWorkerThrows() {
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(["--doc", "docs/spec.md", "--project", "x", "--dev-model", "b"])) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .missingRequired("--pm-model <modelId>"))
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(["--doc", "docs/spec.md", "--project", "x", "--dev-model", "b"])) { error in
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .missingRequired("--pm-model <modelId>"))
         }
     }
 
     func testParseStartConfigMissingDevWorkerThrows() {
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(["--doc", "docs/spec.md", "--project", "x", "--pm-model", "a"])) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .missingRequired("--dev-model <modelId>"))
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(["--doc", "docs/spec.md", "--project", "x", "--pm-model", "a"])) { error in
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .missingRequired("--dev-model <modelId>"))
         }
     }
 
     func testParseStartConfigUnknownProjectThrowsProjectNotFound() throws {
         let store = makeProjectStore()
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "does_not_exist", "--pm-model", "model_pm", "--dev-model", "model_dev"],
             projectStore: store,
             models: testModels
         )) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .projectNotFound("does_not_exist"))
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .projectNotFound("does_not_exist"))
         }
     }
 
     func testParseStartConfigInvalidMaxRoundsThrows() throws {
         let store = makeProjectStore()
         try addProject(store)
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev", "--max-rounds", "0"],
             projectStore: store,
             models: testModels
         )) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .invalidMaxRounds("0"))
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .invalidMaxRounds("0"))
         }
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev", "--max-rounds", "nope"],
             projectStore: store,
             models: testModels
@@ -101,7 +101,7 @@ final class RelayCLITests: XCTestCase {
     func testParseStartConfigHappyPathResolvesProjectAndDefaults() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        let config = try RelayCLI.parseStartConfig(
+        let config = try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--pm-model", "model_pm", "--dev-model", "model_dev"],
             projectStore: store,
             models: testModels
@@ -122,7 +122,7 @@ final class RelayCLITests: XCTestCase {
     func testParseStartConfigMessageThreadsIntoKickoffMessage() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        let config = try RelayCLI.parseStartConfig(
+        let config = try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--pm-model", "model_pm", "--dev-model", "model_dev",
              "--message", "Ship the parser fix; do not touch UI"],
             projectStore: store,
@@ -138,7 +138,7 @@ final class RelayCLITests: XCTestCase {
         // Long body — must survive intact (negative: silent truncation fails the slice).
         let body = String(repeating: "Ship ATL-S01 kickoff. ", count: 200) + "END_MARKER"
         try body.write(to: file, atomically: true, encoding: .utf8)
-        let config = try RelayCLI.parseStartConfig(
+        let config = try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--pm-model", "model_pm", "--dev-model", "model_dev",
              "--message-file", file.path],
             projectStore: store,
@@ -151,13 +151,13 @@ final class RelayCLITests: XCTestCase {
     func testParseStartConfigMessageAndMessageFileMutexThrows() throws {
         let store = makeProjectStore()
         try addProject(store)
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev",
              "--message", "x", "--message-file", "y"],
             projectStore: store,
             models: testModels
         )) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .kickoffMessageMutex)
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .kickoffMessageMutex)
         }
     }
 
@@ -165,13 +165,13 @@ final class RelayCLITests: XCTestCase {
         let store = makeProjectStore()
         try addProject(store)
         for empty in ["", "   ", "\n\t"] {
-            XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+            XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
                 ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev",
                  "--message", empty],
                 projectStore: store,
                 models: testModels
             )) { error in
-                XCTAssertEqual(error as? RelayCLI.RelayCLIError, .kickoffMessageEmpty, "empty=\(empty.debugDescription)")
+                XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .kickoffMessageEmpty, "empty=\(empty.debugDescription)")
             }
         }
     }
@@ -181,13 +181,13 @@ final class RelayCLITests: XCTestCase {
         try addProject(store)
         let file = tmp.appendingPathComponent("empty-kickoff.md")
         try "   \n".write(to: file, atomically: true, encoding: .utf8)
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev",
              "--message-file", file.path],
             projectStore: store,
             models: testModels
         )) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .kickoffMessageEmpty)
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .kickoffMessageEmpty)
         }
     }
 
@@ -195,20 +195,20 @@ final class RelayCLITests: XCTestCase {
         let store = makeProjectStore()
         try addProject(store)
         let missing = tmp.appendingPathComponent("no-such-kickoff.md").path
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev",
              "--message-file", missing],
             projectStore: store,
             models: testModels
         )) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .kickoffMessageFileUnreadable(missing))
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .kickoffMessageFileUnreadable(missing))
         }
     }
 
     func testParseStartConfigCustomMaxRoundsAndUntil() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        let config = try RelayCLI.parseStartConfig(
+        let config = try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--pm-model", "model_pm", "--dev-model", "model_dev",
              "--max-rounds", "7", "--until", "23:59"],
             projectStore: store,
@@ -224,12 +224,12 @@ final class RelayCLITests: XCTestCase {
         let store = makeProjectStore()
         let project = try addProject(store)
         for bad in ["7am", "25:00", "12:99", "noon"] {
-            XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+            XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
                 ["--doc", "docs/spec.md", "--project", project.id, "--pm-model", "model_pm", "--dev-model", "model_dev", "--until", bad],
                 projectStore: store,
                 models: testModels
             )) { error in
-                XCTAssertEqual(error as? RelayCLI.RelayCLIError, .invalidUntil(bad), "bad=\(bad)")
+                XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .invalidUntil(bad), "bad=\(bad)")
             }
         }
     }
@@ -238,7 +238,7 @@ final class RelayCLITests: XCTestCase {
     func testParseStartConfigIdleTimeoutFlowsToConfig() throws {
         let store = makeProjectStore()
         let project = try addProject(store)
-        let config = try RelayCLI.parseStartConfig(
+        let config = try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id, "--pm-model", "model_pm", "--dev-model", "model_dev",
              "--idle-timeout", "900"],
             projectStore: store,
@@ -250,12 +250,12 @@ final class RelayCLITests: XCTestCase {
     func testParseStartConfigInvalidIdleTimeoutThrows() throws {
         let store = makeProjectStore()
         try addProject(store)
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_dev", "--idle-timeout", "0"],
             projectStore: store,
             models: testModels
         )) { error in
-            guard case .invalidIdleTimeout(let message) = error as? RelayCLI.RelayCLIError else {
+            guard case .invalidIdleTimeout(let message) = error as? LoopEngineCLI.LoopEngineCLIError else {
                 return XCTFail("expected invalidIdleTimeout, got \(error)")
             }
             XCTAssertTrue(message.contains("--idle-timeout"), message)
@@ -269,12 +269,12 @@ final class RelayCLITests: XCTestCase {
     func testParseStartConfigUnknownPmWorkerThrowsWorkerNotAvailable() throws {
         let store = makeProjectStore()
         try addProject(store)
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_ghost", "--dev-model", "model_dev"],
             projectStore: store,
             models: testModels
         )) { error in
-            guard case .workerNotAvailable(let failure) = error as? RelayCLI.RelayCLIError else {
+            guard case .workerNotAvailable(let failure) = error as? LoopEngineCLI.LoopEngineCLIError else {
                 return XCTFail("expected workerNotAvailable, got \(error)")
             }
             XCTAssertEqual(failure.code, "AGENT_NOT_AVAILABLE")
@@ -286,12 +286,12 @@ final class RelayCLITests: XCTestCase {
     func testParseStartConfigUnknownDevWorkerThrowsWorkerNotAvailable() throws {
         let store = makeProjectStore()
         try addProject(store)
-        XCTAssertThrowsError(try RelayCLI.parseStartConfig(
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", "repo", "--pm-model", "model_pm", "--dev-model", "model_ghost"],
             projectStore: store,
             models: testModels
         )) { error in
-            guard case .workerNotAvailable(let failure) = error as? RelayCLI.RelayCLIError else {
+            guard case .workerNotAvailable(let failure) = error as? LoopEngineCLI.LoopEngineCLIError else {
                 return XCTFail("expected workerNotAvailable, got \(error)")
             }
             XCTAssertEqual(failure.code, "AGENT_NOT_AVAILABLE")
@@ -303,43 +303,43 @@ final class RelayCLITests: XCTestCase {
     // MARK: - parseResumeRequest
 
     func testParseResumeRequestMissingRelayThrows() {
-        XCTAssertThrowsError(try RelayCLI.parseResumeRequest(["--answer", "76"])) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .missingRequired("--relay <id>"))
+        XCTAssertThrowsError(try LoopEngineCLI.parseResumeRequest(["--answer", "76"])) { error in
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .missingRequired("--relay <id>"))
         }
     }
 
     func testParseResumeRequestMissingAnswerThrows() {
-        XCTAssertThrowsError(try RelayCLI.parseResumeRequest(["--relay", "relay_1"])) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .missingRequired("--answer <text>"))
+        XCTAssertThrowsError(try LoopEngineCLI.parseResumeRequest(["--relay", "relay_1"])) { error in
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .missingRequired("--answer <text>"))
         }
     }
 
     func testParseResumeRequestBlankAnswerThrows() {
-        XCTAssertThrowsError(try RelayCLI.parseResumeRequest(["--relay", "relay_1", "--answer", "   "])) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .missingRequired("--answer <text>"))
+        XCTAssertThrowsError(try LoopEngineCLI.parseResumeRequest(["--relay", "relay_1", "--answer", "   "])) { error in
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .missingRequired("--answer <text>"))
         }
     }
 
     func testParseResumeRequestUnknownRelayThrowsRelayNotFound() {
-        let stateStore = makeRelayStateStore()
-        XCTAssertThrowsError(try RelayCLI.parseResumeRequest(
+        let stateStore = makeLoopStateStore()
+        XCTAssertThrowsError(try LoopEngineCLI.parseResumeRequest(
             ["--relay", "relay_ghost", "--answer", "76"], stateStore: stateStore
         )) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .relayNotFound("relay_ghost"))
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .relayNotFound("relay_ghost"))
         }
     }
 
     func testParseResumeRequestNonEscalatedRelayThrowsInvalidState() throws {
-        let stateStore = makeRelayStateStore()
-        let running = RelayState(
+        let stateStore = makeLoopStateStore()
+        let running = LoopState(
             id: "relay_running", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
         try stateStore.save(running)
-        XCTAssertThrowsError(try RelayCLI.parseResumeRequest(
+        XCTAssertThrowsError(try LoopEngineCLI.parseResumeRequest(
             ["--relay", "relay_running", "--answer", "76"], stateStore: stateStore
         )) { error in
-            XCTAssertEqual(error as? RelayCLI.RelayCLIError, .relayNotEscalated(status: "running"))
+            XCTAssertEqual(error as? LoopEngineCLI.LoopEngineCLIError, .relayNotEscalated(status: "running"))
         }
     }
 
@@ -348,8 +348,8 @@ final class RelayCLITests: XCTestCase {
     /// way a genuinely-still-running relay correctly is (see
     /// `testParseResumeRequestNonEscalatedRelayThrowsInvalidState` above).
     func testParseResumeRequestOrphanedRunningRelayIsEligible() throws {
-        let stateStore = makeRelayStateStore()
-        let running = RelayState(
+        let stateStore = makeLoopStateStore()
+        let running = LoopState(
             id: "relay_orphaned", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
@@ -361,28 +361,28 @@ final class RelayCLITests: XCTestCase {
             .appendingPathComponent("owner.pid")
         try Data("2000000".utf8).write(to: ownerURL)
 
-        let request = try RelayCLI.parseResumeRequest(
+        let request = try LoopEngineCLI.parseResumeRequest(
             ["--relay", "relay_orphaned", "--answer", "76"], stateStore: stateStore
         )
-        XCTAssertEqual(request.relayId, "relay_orphaned")
+        XCTAssertEqual(request.loopId, "relay_orphaned")
     }
 
     func testParseResumeRequestEscalatedRelayResolvesConfigFromPersistedState() throws {
-        let stateStore = makeRelayStateStore()
+        let stateStore = makeLoopStateStore()
         let projectStore = makeProjectStore()
         let project = try addProject(projectStore)
-        let escalated = RelayState(
+        let escalated = LoopState(
             id: "relay_escalated", projectRoot: project.normalizedRootPath, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .escalated, createdAt: Date(),
             note: "76/77 or 88 — say which"
         )
         try stateStore.save(escalated)
 
-        let request = try RelayCLI.parseResumeRequest(
+        let request = try LoopEngineCLI.parseResumeRequest(
             ["--relay", "relay_escalated", "--answer", "77", "--max-rounds", "5"],
             stateStore: stateStore, projectStore: projectStore
         )
-        XCTAssertEqual(request.relayId, "relay_escalated")
+        XCTAssertEqual(request.loopId, "relay_escalated")
         XCTAssertEqual(request.answer, "77")
         XCTAssertEqual(request.priorState.status, .escalated)
         // docPath/pmModelId/devModelId/projectRoot are taken from the persisted state,
@@ -399,7 +399,7 @@ final class RelayCLITests: XCTestCase {
 
     func testErrorEnvelopeMapsEveryCaseToACatalogCode() {
         let known = Set(ContractRegistry.milestone1.errors.map(\.code))
-        let cases: [RelayCLI.RelayCLIError] = [
+        let cases: [LoopEngineCLI.LoopEngineCLIError] = [
             .missingRequired("--doc <path>"),
             .invalidMaxRounds("0"),
             .invalidUntil("7am"),
@@ -416,68 +416,68 @@ final class RelayCLITests: XCTestCase {
             .kickoffMessageEmpty,
         ]
         for c in cases {
-            let (code, message) = RelayCLI.errorEnvelope(c)
+            let (code, message) = LoopEngineCLI.errorEnvelope(c)
             XCTAssertTrue(known.contains(code), "\(code) missing from error catalog")
             XCTAssertFalse(message.isEmpty)
         }
     }
 
-    /// RSC-S01: `RelayCoordinator.resume`'s `DispatchRefusal` channel, including the
+    /// RSC-S01: `LoopCoordinator.resume`'s `DispatchRefusal` channel, including the
     /// new `.roundInFlight` case, maps to a real catalog code — specifically
     /// `RELAY_ROUND_IN_FLIGHT` (reused, not invented) for the dispatch-lock refusal.
     func testResumeErrorEnvelopeMapsEveryCaseToACatalogCode() {
         let known = Set(ContractRegistry.milestone1.errors.map(\.code))
-        let cases: [RelayCoordinator.DispatchRefusal] = [
+        let cases: [LoopCoordinator.DispatchRefusal] = [
             .relayNotFound,
             .notResumable(status: "done"),
             .roundInFlight,
             // RSC-S02: unreachable from `resume` in practice, but `DispatchRefusal` is
             // shared with `run` now — the exhaustive mapping must still cover it.
-            .alreadyActive(relayId: "relay_other"),
+            .alreadyActive(loopId: "relay_other"),
         ]
         for c in cases {
-            let (code, message) = RelayCLI.resumeErrorEnvelope(c, relayId: "relay_1")
+            let (code, message) = LoopEngineCLI.resumeErrorEnvelope(c, loopId: "relay_1")
             XCTAssertTrue(known.contains(code), "\(code) missing from error catalog")
             XCTAssertFalse(message.isEmpty)
         }
-        let (roundInFlightCode, _) = RelayCLI.resumeErrorEnvelope(.roundInFlight, relayId: "relay_1")
+        let (roundInFlightCode, _) = LoopEngineCLI.resumeErrorEnvelope(.roundInFlight, loopId: "relay_1")
         XCTAssertEqual(roundInFlightCode, "RELAY_ROUND_IN_FLIGHT", "reuses the existing pilot code, never a new one")
     }
 
-    /// RSC-S02: `RelayCoordinator.run`'s `DispatchRefusal` channel — `.alreadyActive`
+    /// RSC-S02: `LoopCoordinator.run`'s `DispatchRefusal` channel — `.alreadyActive`
     /// is the only case `run` actually produces — maps to the new `RELAY_ALREADY_ACTIVE`
     /// catalog code and names the existing relay id in the message.
     func testStartErrorEnvelopeMapsAlreadyActiveToRelayAlreadyActive() {
         let known = Set(ContractRegistry.milestone1.errors.map(\.code))
-        let (code, message) = RelayCLI.startErrorEnvelope(.alreadyActive(relayId: "relay_existing"))
+        let (code, message) = LoopEngineCLI.startErrorEnvelope(.alreadyActive(loopId: "relay_existing"))
         XCTAssertEqual(code, "RELAY_ALREADY_ACTIVE")
         XCTAssertTrue(known.contains(code), "\(code) missing from error catalog")
         XCTAssertTrue(message.contains("relay_existing"), "message must name the existing relay id, not just refuse silently")
     }
 
-    /// RSC-S01: `RelayCoordinator.adopt`'s `AdoptError` channel, including the new
+    /// RSC-S01: `LoopCoordinator.adopt`'s `AdoptError` channel, including the new
     /// `.roundInFlight` case, maps to a real catalog code the same way.
     func testAdoptErrorEnvelopeMapsEveryCaseToACatalogCode() {
         let known = Set(ContractRegistry.milestone1.errors.map(\.code))
-        let cases: [RelayCoordinator.AdoptError] = [
+        let cases: [LoopCoordinator.AdoptError] = [
             .relayNotFound,
             .notPilotRelay,
             .notAdoptable(status: "running"),
             .roundInFlight,
         ]
         for c in cases {
-            let (code, message) = RelayCLI.adoptErrorEnvelope(c)
+            let (code, message) = LoopEngineCLI.adoptErrorEnvelope(c)
             XCTAssertTrue(known.contains(code), "\(code) missing from error catalog")
             XCTAssertFalse(message.isEmpty)
         }
-        let (roundInFlightCode, _) = RelayCLI.adoptErrorEnvelope(.roundInFlight)
+        let (roundInFlightCode, _) = LoopEngineCLI.adoptErrorEnvelope(.roundInFlight)
         XCTAssertEqual(roundInFlightCode, "RELAY_ROUND_IN_FLIGHT", "reuses the existing pilot code, never a new one")
     }
 
-    // MARK: - RelayDispatch progress/human mappings
+    // MARK: - LoopDispatch progress/human mappings
 
     func testProgressJSONMapsEveryEventCase() {
-        let events: [RelayCoordinator.RelayEvent] = [
+        let events: [LoopCoordinator.RelayEvent] = [
             .roundStarted(round: 1),
             .pmTurnFinished(round: 1, verdict: .continueRelay),
             .gateBlocked(round: 1, dangerClass: "destructiveGit", reason: "destructive git instruction"),
@@ -487,24 +487,24 @@ final class RelayCLITests: XCTestCase {
             .stopped(reason: "reached --max-rounds (20)"),
         ]
         for event in events {
-            let json = RelayDispatch.progressJSON(event)
+            let json = LoopDispatch.progressJSON(event)
             XCTAssertEqual(json.contractVersion, ContractRegistry.contractVersion)
             XCTAssertFalse(json.event.isEmpty)
-            XCTAssertFalse(RelayDispatch.humanProgressLine(event).isEmpty)
+            XCTAssertFalse(LoopDispatch.humanProgressLine(event).isEmpty)
         }
     }
 
     func testProgressJSONCarriesEventSpecificFields() {
-        XCTAssertEqual(RelayDispatch.progressJSON(.roundStarted(round: 3)).round, 3)
-        let pm = RelayDispatch.progressJSON(.pmTurnFinished(round: 2, verdict: .done))
+        XCTAssertEqual(LoopDispatch.progressJSON(.roundStarted(round: 3)).round, 3)
+        let pm = LoopDispatch.progressJSON(.pmTurnFinished(round: 2, verdict: .done))
         XCTAssertEqual(pm.round, 2)
         XCTAssertEqual(pm.verdict, "done")
-        let gate = RelayDispatch.progressJSON(.gateBlocked(round: 1, dangerClass: "massDeletion", reason: "mass-deletion instruction"))
+        let gate = LoopDispatch.progressJSON(.gateBlocked(round: 1, dangerClass: "massDeletion", reason: "mass-deletion instruction"))
         XCTAssertEqual(gate.dangerClass, "massDeletion")
         XCTAssertEqual(gate.reason, "mass-deletion instruction")
-        XCTAssertEqual(RelayDispatch.progressJSON(.escalated(note: "q?")).note, "q?")
-        XCTAssertEqual(RelayDispatch.progressJSON(.done(note: "ok")).note, "ok")
-        XCTAssertEqual(RelayDispatch.progressJSON(.stopped(reason: "ceiling")).reason, "ceiling")
+        XCTAssertEqual(LoopDispatch.progressJSON(.escalated(note: "q?")).note, "q?")
+        XCTAssertEqual(LoopDispatch.progressJSON(.done(note: "ok")).note, "ok")
+        XCTAssertEqual(LoopDispatch.progressJSON(.stopped(reason: "ceiling")).reason, "ceiling")
     }
 
     // MARK: - ATL-S02: pair relay stop CLI surface
@@ -523,12 +523,12 @@ final class RelayCLITests: XCTestCase {
     }
 
     func testStopErrorEnvelopeMapsNotFoundAndStopFailed() {
-        let notFound = RelayCLI.stopErrorEnvelope(.relayNotFound, relayId: "relay_x")
+        let notFound = LoopEngineCLI.stopErrorEnvelope(.relayNotFound, loopId: "relay_x")
         XCTAssertEqual(notFound.code, "RELAY_NOT_FOUND")
         XCTAssertTrue(notFound.message.contains("relay_x"))
 
-        let failed = RelayCLI.stopErrorEnvelope(
-            .stopFailed(detail: "turn still alive"), relayId: "relay_y"
+        let failed = LoopEngineCLI.stopErrorEnvelope(
+            .stopFailed(detail: "turn still alive"), loopId: "relay_y"
         )
         XCTAssertEqual(failed.code, "RELAY_STOP_FAILED")
         XCTAssertTrue(failed.message.contains("relay_y"))
@@ -562,7 +562,7 @@ final class RelayCLITests: XCTestCase {
     }
 
     /// ATL-S01 completion: kickoff flags must clear the registry allowlist that
-    /// `AllnighterCLI.main` runs *before* `RelayCLI.parseStartConfig`. A pure
+    /// `AllnighterCLI.main` runs *before* `LoopEngineCLI.parseStartConfig`. A pure
     /// parse-helper test cannot catch this class of unreachable-flag gap.
     func testKickoffFlagsPassCommandEntryAllowlist() {
         let cmd = "pair relay"

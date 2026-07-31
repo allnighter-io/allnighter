@@ -159,7 +159,7 @@ public struct PMTurnWakeScheduler: Sendable {
     public typealias Invoker = @Sendable ([String], Data) -> InvocationResult
 
     public var runsRootDirectory: URL
-    public var relaysRootDirectory: URL
+    public var loopsRootDirectory: URL
     public var configurationStore: PMTurnWakeConfigurationStore
     public var ledgerStore: PMTurnWakeReceiptLedgerStore
     public var invoke: Invoker
@@ -169,7 +169,7 @@ public struct PMTurnWakeScheduler: Sendable {
 
     public init(
         runsRootDirectory: URL = AllnighterPaths.runs,
-        relaysRootDirectory: URL = AllnighterPaths.relays,
+        loopsRootDirectory: URL = AllnighterPaths.loops,
         configurationStore: PMTurnWakeConfigurationStore = PMTurnWakeConfigurationStore(),
         ledgerStore: PMTurnWakeReceiptLedgerStore = PMTurnWakeReceiptLedgerStore(),
         invoke: Invoker? = nil,
@@ -178,7 +178,7 @@ public struct PMTurnWakeScheduler: Sendable {
         pollInterval: TimeInterval = 5
     ) {
         self.runsRootDirectory = runsRootDirectory
-        self.relaysRootDirectory = relaysRootDirectory
+        self.loopsRootDirectory = loopsRootDirectory
         self.configurationStore = configurationStore
         self.ledgerStore = ledgerStore
         self.invoke = invoke ?? Self.invokeHook
@@ -246,7 +246,7 @@ public struct PMTurnWakeScheduler: Sendable {
 
     private func discoverTurns() -> [PMTurnJSON] {
         readTurns(in: runsRootDirectory, kind: .run, stripPrefix: "run_")
-            + readTurns(in: relaysRootDirectory, kind: .relay, stripPrefix: nil)
+            + readTurns(in: loopsRootDirectory, kind: .relay, stripPrefix: nil)
     }
 
     private func readTurns(in root: URL, kind: PMTurnJSON.Kind, stripPrefix: String?) -> [PMTurnJSON] {

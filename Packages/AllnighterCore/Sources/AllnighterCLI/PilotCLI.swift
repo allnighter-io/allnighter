@@ -7,9 +7,9 @@ import Darwin
 
 /// Pilot engine (`docs/archive/phases/Pilot_Relay.md`, superseded by
 /// `docs/archive/phases/Loop_Verb_Cutover.md`): this session is the PM, Allnighter
-/// runs the crew (dev seat + rails). Same substrate as `RelayCLI`/`RelayCoordinator` —
-/// `RelayCoordinator.startPilot`/`runExternalRound` do all the work; this file is a
-/// thin CLI-shaped projection, mirroring `RelayCLI`'s throwing, store-injectable,
+/// runs the crew (dev seat + rails). Same substrate as `LoopEngineCLI`/`LoopCoordinator` —
+/// `LoopCoordinator.startPilot`/`runExternalRound` do all the work; this file is a
+/// thin CLI-shaped projection, mirroring `LoopEngineCLI`'s throwing, store-injectable,
 /// exit-free `parse*` helpers so the recovery ladder is unit-testable without a
 /// subprocess.
 ///
@@ -20,7 +20,7 @@ import Darwin
 enum PilotCLI {
     /// Resolved `pilot start` inputs after flag parsing, alias resolution, and optional recall.
     struct StartRequest {
-        var config: RelayCoordinator.Config
+        var config: LoopCoordinator.Config
         var devModelId: String
         /// The raw `--dev-model` token when it differed from the resolved model id.
         var devWorkerAlias: String?
@@ -35,12 +35,12 @@ enum PilotCLI {
     /// requirement (that requirement is `parseStartConfig`'s own contract, kept for
     /// its direct unit tests; nothing live calls it anymore).
     static func runStart(request: StartRequest, opts: Options, runtime: ToolRuntime) async {
-        let coordinator = RelayDispatch.makeCoordinator(runtime: runtime)
+        let coordinator = LoopDispatch.makeCoordinator(runtime: runtime)
         switch coordinator.startPilot(config: request.config) {
         case .success(let state):
             let scaffoldPath: String
             do {
-                scaffoldPath = try PilotHandoverScaffold.writeRoundFile(relayId: state.id, round: 1)
+                scaffoldPath = try PilotHandoverScaffold.writeRoundFile(loopId: state.id, round: 1)
             } catch {
                 AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not write handover scaffold: \(error)")
             }
@@ -78,7 +78,7 @@ enum PilotCLI {
         guard let project = projectStore.resolveFresh(projectToken) else {
             throw PilotCLIError.projectNotFound(projectToken)
         }
-        guard let maxRounds = RelayCLI.parseMaxRounds(opts.value("max-rounds")) else {
+        guard let maxRounds = LoopEngineCLI.parseMaxRounds(opts.value("max-rounds")) else {
             throw PilotCLIError.invalidMaxRounds(opts.value("max-rounds") ?? "")
         }
         // PO-F7: reuses PO-F5's `alln run --idle-timeout` parse helper — no second idle system.
@@ -130,11 +130,11 @@ enum PilotCLI {
             )
         }
 
-        let config = RelayCoordinator.Config(
+        let config = LoopCoordinator.Config(
             projectRoot: project.normalizedRootPath,
             projectId: project.id,
             docPath: docPath,
-            pmModelId: RelayState.callerPMModelId,
+            pmModelId: LoopState.callerPMModelId,
             devModelId: devModelId,
             maxRounds: maxRounds,
             devTurnIdleTimeoutSeconds: idleParsed.value
@@ -152,12 +152,12 @@ enum PilotCLI {
     // The raw-args `pilot handoff` CLI entry point is deleted (`pair pilot` no
     // longer dispatches here, Piece 1). `LoopCLI.runStep` (`alln loop step`) is
     // the live equivalent — it calls `parseHandoffSubmission`'s sibling
-    // `synthesizeSubmission` and `RelayCoordinator.runExternalRound` directly, and
+    // `synthesizeSubmission` and `LoopCoordinator.runExternalRound` directly, and
     // shares `emitHandoffResult`/`failPilotRound` below. The parse helpers here
     // stay: they're exercised directly by `PilotCLITests`.
 
     /// Resolves a `pilot handoff` submission: the legacy `--file`/stdin path (markdown +
-    /// RelayVerdict tail) or the frictionless `--verdict` + `--handover-file`/`--handover-stdin`
+    /// LoopVerdict tail) or the frictionless `--verdict` + `--handover-file`/`--handover-stdin`
     /// path that synthesizes the tail internally (`docs/phases/Pilot_Polish_And_Agent_UX.md` P1).
     static func parseHandoffSubmission(_ opts: Options) throws -> String {
         let hasFile = opts.value("file") != nil
@@ -218,7 +218,7 @@ enum PilotCLI {
         guard let verdictRaw = opts.value("verdict") else {
             throw PilotCLIError.missingRequired("--verdict continue|done|escalate")
         }
-        guard let verdict = RelayVerdict.Verdict(rawValue: verdictRaw) else {
+        guard let verdict = LoopVerdict.Verdict(rawValue: verdictRaw) else {
             throw PilotCLIError.invalidVerdict(verdictRaw)
         }
 
@@ -238,11 +238,11 @@ enum PilotCLI {
     }
 
     /// Builds the markdown `runExternalRound` expects: optional prose + a trailing fenced
-    /// RelayVerdict block. The dev seat receives `handover` byte-exact from the verdict JSON.
+    /// LoopVerdict block. The dev seat receives `handover` byte-exact from the verdict JSON.
     static func synthesizeSubmission(
-        verdict: RelayVerdict.Verdict, handover: String?, note: String?
+        verdict: LoopVerdict.Verdict, handover: String?, note: String?
     ) throws -> String {
-        let relayVerdict = RelayVerdict(verdict: verdict, handover: handover, note: note)
+        let relayVerdict = LoopVerdict(verdict: verdict, handover: handover, note: note)
         let json = String(decoding: try CoreJSON.encode(relayVerdict), as: UTF8.self)
         let tail = "```json\n\(json)\n```"
         if let handover, !handover.isEmpty {
@@ -256,8 +256,8 @@ enum PilotCLI {
         try readLegacySubmission(opts)
     }
 
-    private static func loadedProjectRoot(_ relayId: String, stateStore: RelayStateStore) -> String? {
-        stateStore.load(id: relayId)?.projectRoot
+    private static func loadedProjectRoot(_ loopId: String, stateStore: LoopStateStore) -> String? {
+        stateStore.load(id: loopId)?.projectRoot
     }
 
     /// Launch configuration for `--no-wait` detached `pilot handoff`.
@@ -276,16 +276,16 @@ enum PilotCLI {
     }
 
     static func detachedHandoffLaunch(
-        relayId: String,
-        stateStore: RelayStateStore,
+        loopId: String,
+        stateStore: LoopStateStore,
         argv0: String? = CommandLine.arguments.first,
         pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
         currentExecutablePath: () -> String? = ProcessOwnership.currentExecutablePath
     ) throws -> DetachedHandoffLaunch {
-        switch stateStore.loadResult(id: relayId) {
+        switch stateStore.loadResult(id: loopId) {
         case .success(let state):
             guard !state.projectRoot.isEmpty else {
-                throw DetachedHandoffLaunchError.missingProjectRoot(relayId)
+                throw DetachedHandoffLaunchError.missingProjectRoot(loopId)
             }
             let executablePath = ProcessOwnership.resolveRunningExecutablePath(
                 argv0: argv0,
@@ -300,7 +300,7 @@ enum PilotCLI {
                 currentDirectoryURL: URL(fileURLWithPath: state.projectRoot)
             )
         case .failure(.notFound):
-            throw DetachedHandoffLaunchError.relayNotFound(relayId)
+            throw DetachedHandoffLaunchError.relayNotFound(loopId)
         case .failure(.decodeFailed(let detail)):
             AllnighterCLI.fail(
                 code: "RELAY_STATE_DECODE_FAILED",
@@ -318,16 +318,16 @@ enum PilotCLI {
 
     /// Not `private` — `LoopCLI.runStep` (`alln loop step`, LVC-S02d) shares this
     /// exact print path with `pilot handoff`.
-    static func emitHandoffResult(_ payload: RelayCoordinator.PilotRoundResult, json: Bool) {
-        let relayJSON = RelayJSON.project(payload.state, contractVersion: ContractRegistry.contractVersion)
+    static func emitHandoffResult(_ payload: LoopCoordinator.PilotRoundResult, json: Bool) {
+        let relayJSON = LoopJSON.project(payload.state, contractVersion: ContractRegistry.contractVersion)
         if json {
             print(AllnighterCLI.jsonLine(PilotHandoffJSON(relay: relayJSON, devReport: payload.devReport)))
         } else {
-            print(RelayDispatch.humanRelaySummary(relayJSON))
+            print(LoopDispatch.humanLoopSummary(relayJSON))
             if let devReport = payload.devReport {
                 print("\n----- dev report (round \(relayJSON.rounds)) -----\n\(devReport)")
             }
-            let log = RelayDispatch.humanRoundLog(relayJSON)
+            let log = LoopDispatch.humanRoundLog(relayJSON)
             if !log.isEmpty { print("\n" + log) }
             print("\n" + nextActionLine(for: payload.state))
         }
@@ -345,14 +345,14 @@ enum PilotCLI {
     }
 
     /// Loads relay state, optionally reconciling a dead-owner `.running` relay.
-    static func loadRelayState(
-        relayId: String,
-        stateStore: RelayStateStore,
-        threadProjector: RelayThreadProjector?,
+    static func loadLoopState(
+        loopId: String,
+        stateStore: LoopStateStore,
+        threadProjector: LoopThreadProjector?,
         reconcileOrphans: Bool
-    ) -> (state: RelayState, recovery: InFlightRecovery)? {
-        let base: RelayState
-        switch stateStore.loadResult(id: relayId) {
+    ) -> (state: LoopState, recovery: InFlightRecovery)? {
+        let base: LoopState
+        switch stateStore.loadResult(id: loopId) {
         case .success(let loaded):
             base = loaded
         case .failure(.notFound):
@@ -366,9 +366,9 @@ enum PilotCLI {
         }
         var state = base
         guard state.status == .running else { return (state, .none) }
-        if stateStore.isOwnerDead(id: relayId) {
+        if stateStore.isOwnerDead(id: loopId) {
             if reconcileOrphans {
-                state = RelayCoordinator.reconcileOrphan(
+                state = LoopCoordinator.reconcileOrphan(
                     state, stateStore: stateStore, threadProjector: threadProjector, now: Date.init
                 )
             }
@@ -379,7 +379,7 @@ enum PilotCLI {
 
     // The raw-args `pilot status` CLI entry point (and its `parseStatusWait`
     // validator) is deleted along with it (`pair pilot` no longer dispatches here,
-    // Piece 1) — `alln loop status` is `RelayCLI.runStatus`, a separate, chair-
+    // Piece 1) — `alln loop status` is `LoopEngineCLI.runStatus`, a separate, chair-
     // neutral implementation (§2). `makeStatusJSON`/`recoveryActionLine`/
     // `recoveryNextActions`/`statusNextActions` below stay: they're exercised
     // directly by tests as the `PilotStatusJSON` builder.
@@ -444,16 +444,16 @@ enum PilotCLI {
         #endif
     }
 
-    static func watchStillRunning(state: RelayState, recovery: InFlightRecovery) -> Bool {
+    static func watchStillRunning(state: LoopState, recovery: InFlightRecovery) -> Bool {
         state.status == .running && recovery == .handoffAlive
     }
 
-    static func pilotStatusReattachCommand(relayId: String) -> String {
-        "alln loop status \(relayId) --wait-for parked --timeout 7200 --json"
+    static func pilotStatusReattachCommand(loopId: String) -> String {
+        "alln loop status \(loopId) --wait-for parked --timeout 7200 --json"
     }
 
-    static func watchGoodbyeNote(relayId: String, reason: WatchEndReason, stillRunning: Bool) -> String {
-        let statusCmd = pilotStatusReattachCommand(relayId: relayId)
+    static func watchGoodbyeNote(loopId: String, reason: WatchEndReason, stillRunning: Bool) -> String {
+        let statusCmd = pilotStatusReattachCommand(loopId: loopId)
         switch reason {
         case .interrupted:
             if stillRunning {
@@ -474,8 +474,8 @@ enum PilotCLI {
     /// handoff: `relay` + verbatim `devReport` + optional `note`.
     static func runWatch(
         _ args: [String],
-        stateStore: RelayStateStore = RelayStateStore(),
-        threadProjector: RelayThreadProjector? = RelayThreadProjector(),
+        stateStore: LoopStateStore = LoopStateStore(),
+        threadProjector: LoopThreadProjector? = LoopThreadProjector(),
         runStore: RunStore = RunStore(),
         pollInterval: TimeInterval = 1.0,
         heartbeatInterval: TimeInterval = watchHeartbeatSeconds,
@@ -487,7 +487,7 @@ enum PilotCLI {
     ) {
         guard !args.isEmpty else { usage("pilot watch --relay <id> [--max-wait <seconds>] [--json]") }
         let opts = Options(args)
-        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
+        guard let loopId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
         let maxWait: (seconds: TimeInterval?, applied: Bool)
         do {
             maxWait = try resolveWatchMaxWait(opts: opts, stdoutIsTTY: stdoutIsTTY())
@@ -497,9 +497,9 @@ enum PilotCLI {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "\(error)")
         }
 
-        guard var loaded = loadRelayState(
-            relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: false
-        ) else { fail(.relayNotFound(relayId)) }
+        guard var loaded = loadLoopState(
+            loopId: loopId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: false
+        ) else { fail(.relayNotFound(loopId)) }
 
         let json = opts.flag("json")
         let note: String?
@@ -514,7 +514,7 @@ enum PilotCLI {
             while loaded.state.status == .running {
                 if interruptFlag.isInterrupted {
                     finishWatchEarly(
-                        relayId: relayId, reason: .interrupted, maxWaitApplied: maxWait.applied,
+                        loopId: loopId, reason: .interrupted, maxWaitApplied: maxWait.applied,
                         stateStore: stateStore, threadProjector: threadProjector,
                         runStore: runStore, json: json
                     )
@@ -522,7 +522,7 @@ enum PilotCLI {
                 let elapsed = now().timeIntervalSince(startedAt)
                 if let cap = maxWait.seconds, elapsed >= cap {
                     finishWatchEarly(
-                        relayId: relayId, reason: .maxWaitExpired, maxWaitApplied: maxWait.applied,
+                        loopId: loopId, reason: .maxWaitExpired, maxWaitApplied: maxWait.applied,
                         stateStore: stateStore, threadProjector: threadProjector,
                         runStore: runStore, json: json
                     )
@@ -532,13 +532,13 @@ enum PilotCLI {
                     emitWatchHeartbeat(elapsedSeconds: Int(elapsed), json: json)
                 }
                 sleep(pollInterval)
-                guard let reloaded = loadRelayState(
-                    relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
-                ) else { fail(.relayNotFound(relayId)) }
+                guard let reloaded = loadLoopState(
+                    loopId: loopId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: true
+                ) else { fail(.relayNotFound(loopId)) }
                 loaded = reloaded
             }
         }
-        refreshPilotProjectGit(relayId: relayId, stateStore: stateStore)
+        refreshPilotProjectGit(loopId: loopId, stateStore: stateStore)
         emitWatchResult(
             loaded.state, note: note, json: json, runStore: runStore,
             maxWaitApplied: maxWait.applied ? true : nil
@@ -547,19 +547,19 @@ enum PilotCLI {
 
     /// SIGTERM/SIGINT or max-wait: load once without orphan reconcile, emit goodbye, exit 0.
     private static func finishWatchEarly(
-        relayId: String,
+        loopId: String,
         reason: WatchEndReason,
         maxWaitApplied: Bool,
-        stateStore: RelayStateStore,
-        threadProjector: RelayThreadProjector?,
+        stateStore: LoopStateStore,
+        threadProjector: LoopThreadProjector?,
         runStore: RunStore,
         json: Bool
     ) -> Never {
-        guard let loaded = loadRelayState(
-            relayId: relayId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: false
-        ) else { fail(.relayNotFound(relayId)) }
+        guard let loaded = loadLoopState(
+            loopId: loopId, stateStore: stateStore, threadProjector: threadProjector, reconcileOrphans: false
+        ) else { fail(.relayNotFound(loopId)) }
         let stillRunning = watchStillRunning(state: loaded.state, recovery: loaded.recovery)
-        let note = watchGoodbyeNote(relayId: relayId, reason: reason, stillRunning: stillRunning)
+        let note = watchGoodbyeNote(loopId: loopId, reason: reason, stillRunning: stillRunning)
         emitWatchResult(
             loaded.state, note: note, json: json, runStore: runStore,
             stillRunning: stillRunning, maxWaitApplied: maxWaitApplied ? true : nil,
@@ -584,7 +584,7 @@ enum PilotCLI {
     private static func emitWatchHeartbeat(elapsedSeconds: Int, json: Bool) {
         if json {
             print(AllnighterCLI.jsonLine(PilotWatchHeartbeatJSON(
-                elapsedSeconds: elapsedSeconds, status: RelayState.Status.running.rawValue
+                elapsedSeconds: elapsedSeconds, status: LoopState.Status.running.rawValue
             )))
         } else {
             print("[pilot watch] \(elapsedSeconds)s elapsed — status=running")
@@ -595,18 +595,18 @@ enum PilotCLI {
 
     /// `alln pair pilot adopt --relay <id>` (docs/phases/Pilot_Relay.md §5 "falls out
     /// of the same move") — hands a PARKED SPAWNED relay's PM seat to a piloting
-    /// session. Genuinely trivial: `RelayCoordinator.adoptToPilot` is a static state
+    /// session. Genuinely trivial: `LoopCoordinator.adoptToPilot` is a static state
     /// flip, no dispatch, so this needs no `ToolRuntime`/`RunService` at all — the
     /// only CLI verb in this file that doesn't.
     static func runAdopt(
         _ args: [String],
-        stateStore: RelayStateStore = RelayStateStore(),
-        threadProjector: RelayThreadProjector? = RelayThreadProjector()
+        stateStore: LoopStateStore = LoopStateStore(),
+        threadProjector: LoopThreadProjector? = LoopThreadProjector()
     ) {
         guard !args.isEmpty else { usage("pilot adopt --relay <id> [--json]") }
         let opts = Options(args)
-        guard let relayId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
-        let result = RelayCoordinator.adoptToPilot(relayId: relayId, stateStore: stateStore, threadProjector: threadProjector)
+        guard let loopId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
+        let result = LoopCoordinator.adoptToPilot(loopId: loopId, stateStore: stateStore, threadProjector: threadProjector)
         switch result {
         case .success(let state):
             emitState(state, json: opts.flag("json"))
@@ -617,8 +617,8 @@ enum PilotCLI {
 
     // MARK: - Output
 
-    static func handoffNextCommand(relayId: String, scaffoldPath: String) -> String {
-        "alln loop step \(relayId) \"<order for the dev>\" (or --done <summary> to close the loop) — draft it from \(shellQuote(scaffoldPath))"
+    static func handoffNextCommand(loopId: String, scaffoldPath: String) -> String {
+        "alln loop step \(loopId) \"<order for the dev>\" (or --done <summary> to close the loop) — draft it from \(shellQuote(scaffoldPath))"
     }
 
     /// POSIX single-quote so the printed `next:` command survives copy-paste as ONE argument.
@@ -630,16 +630,16 @@ enum PilotCLI {
     }
 
     private static func emitStartResult(
-        _ state: RelayState,
+        _ state: LoopState,
         devModelId: String,
         devWorkerAlias: String?,
         rememberedDevWorker: Bool,
         scaffoldPath: String,
         json: Bool
     ) {
-        let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
-        let nextCommand = handoffNextCommand(relayId: state.id, scaffoldPath: scaffoldPath)
-        let nextArgv = PilotStartJSON.defaultHandoffArgv(relayId: state.id, scaffoldPath: scaffoldPath)
+        let relayJSON = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let nextCommand = handoffNextCommand(loopId: state.id, scaffoldPath: scaffoldPath)
+        let nextArgv = PilotStartJSON.defaultHandoffArgv(loopId: state.id, scaffoldPath: scaffoldPath)
         if json {
             print(AllnighterCLI.jsonString(PilotStartJSON(
                 relay: relayJSON,
@@ -650,7 +650,7 @@ enum PilotCLI {
                 rememberedDevWorker: rememberedDevWorker ? true : nil
             )))
         } else {
-            print(RelayDispatch.humanRelaySummary(relayJSON))
+            print(LoopDispatch.humanLoopSummary(relayJSON))
             if let alias = devWorkerAlias {
                 print("dev seat: \(devModelId) (resolved from alias \"\(alias)\")")
             } else if rememberedDevWorker {
@@ -663,13 +663,13 @@ enum PilotCLI {
         }
     }
 
-    private static func emitState(_ state: RelayState, json: Bool) {
-        let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+    private static func emitState(_ state: LoopState, json: Bool) {
+        let relayJSON = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
         if json {
             print(AllnighterCLI.jsonString(relayJSON))
         } else {
-            print(RelayDispatch.humanRelaySummary(relayJSON))
-            let log = RelayDispatch.humanRoundLog(relayJSON)
+            print(LoopDispatch.humanLoopSummary(relayJSON))
+            let log = LoopDispatch.humanRoundLog(relayJSON)
             if !log.isEmpty { print(log) }
             print(nextActionLine(for: state))
         }
@@ -689,9 +689,9 @@ enum PilotCLI {
     /// Builds `pilot status --json` — long-job fields only while `.running` + handoff alive.
     /// CD-S01a: always attaches shared `devLeg` (running / settling / parked).
     static func makeStatusJSON(
-        state: RelayState,
+        state: LoopState,
         recovery: InFlightRecovery,
-        stateStore: RelayStateStore,
+        stateStore: LoopStateStore,
         runStore: RunStore = RunStore(),
         pmTurnStore: PMTurnStore? = nil,
         gitObserver: GitObserver = GitObserver(),
@@ -721,10 +721,10 @@ enum PilotCLI {
             kind: .relay,
             subjectId: state.id,
             atPMBoundary: PMTurnStatusProjection.isRelayPMBoundary(state.status),
-            store: pmTurnStore ?? PMTurnStore(relaysRootDirectory: stateStore.rootDirectory)
+            store: pmTurnStore ?? PMTurnStore(loopsRootDirectory: stateStore.rootDirectory)
         )
         return PilotStatusJSON(
-            relay: RelayJSON.project(
+            relay: LoopJSON.project(
                 state,
                 contractVersion: ContractRegistry.contractVersion,
                 pmTurn: pmTurn.pmTurn,
@@ -764,9 +764,9 @@ enum PilotCLI {
     /// Emit while `.running` with a live handoff **or** a linked `devRunId`
     /// (dead-owner / silent-stream still need hero duration + usage segments).
     static func longJobStatusFields(
-        state: RelayState,
+        state: LoopState,
         recovery: InFlightRecovery,
-        stateStore: RelayStateStore,
+        stateStore: LoopStateStore,
         runStore: RunStore = RunStore(),
         gitObserver: GitObserver = GitObserver(),
         now: Date = Date()
@@ -808,7 +808,7 @@ enum PilotCLI {
     /// (RLR-L6 `lastActivityAt`). Never merges relay-dir heartbeat / `pgid_activity`
     /// (PLS-S01) — those clocks are for the stall watchdog, not agent-facing status.
     static func resolveLastProgressAt(
-        state: RelayState,
+        state: LoopState,
         runStore: RunStore
     ) -> Date? {
         StreamLiveness.relayStreamLastActivityAt(state: state, runStore: runStore)
@@ -816,7 +816,7 @@ enum PilotCLI {
 
     /// SUPPLEMENTARY only — not liveness. Nil when no baseline/HEAD to observe.
     static func commitsSinceBaseline(
-        state: RelayState,
+        state: LoopState,
         gitObserver: GitObserver = GitObserver()
     ) -> Int? {
         guard let baseline = state.rounds.last?.baselineHead,
@@ -830,27 +830,27 @@ enum PilotCLI {
     }
 
     private static func emitWatchResult(
-        _ state: RelayState, note: String?, json: Bool, runStore: RunStore,
+        _ state: LoopState, note: String?, json: Bool, runStore: RunStore,
         stillRunning: Bool? = nil, maxWaitApplied: Bool? = nil,
         exitOnTerminalFailure: Bool = true
     ) {
-        let relayJSON = RelayJSON.project(state, contractVersion: ContractRegistry.contractVersion)
-        let devReport = stillRunning == true ? nil : RelayCoordinator.settledDevReport(for: state, runStore: runStore)
+        let relayJSON = LoopJSON.project(state, contractVersion: ContractRegistry.contractVersion)
+        let devReport = stillRunning == true ? nil : LoopCoordinator.settledDevReport(for: state, runStore: runStore)
         if json {
             print(AllnighterCLI.jsonLine(PilotWatchJSON(
                 relay: relayJSON, devReport: devReport, note: note,
                 stillRunning: stillRunning, maxWaitApplied: maxWaitApplied
             )))
         } else {
-            print(RelayDispatch.humanRelaySummary(relayJSON))
+            print(LoopDispatch.humanLoopSummary(relayJSON))
             if let note { print(note) }
             if let devReport {
                 print("\n----- dev report (round \(relayJSON.rounds)) -----\n\(devReport)")
             }
-            let log = RelayDispatch.humanRoundLog(relayJSON)
+            let log = LoopDispatch.humanRoundLog(relayJSON)
             if !log.isEmpty { print("\n" + log) }
             if stillRunning == true {
-                print("\nreattach: \(pilotStatusReattachCommand(relayId: state.id))")
+                print("\nreattach: \(pilotStatusReattachCommand(loopId: state.id))")
             } else {
                 print("\n" + nextActionLine(for: state))
             }
@@ -860,12 +860,12 @@ enum PilotCLI {
 
     /// Re-observe git metadata for the relay's project — pilot paths must never serve
     /// stale branch/head/dirty from the project cache (`Pilot_DX.md` §DX5).
-    private static func refreshPilotProjectGit(relayId: String, stateStore: RelayStateStore) {
-        guard let root = stateStore.load(id: relayId)?.projectRoot else { return }
+    private static func refreshPilotProjectGit(loopId: String, stateStore: LoopStateStore) {
+        guard let root = stateStore.load(id: loopId)?.projectRoot else { return }
         _ = ProjectStore().resolveFresh(root)
     }
 
-    static func watchSettledNote(recovery: InFlightRecovery, status: RelayState.Status) -> String {
+    static func watchSettledNote(recovery: InFlightRecovery, status: LoopState.Status) -> String {
         switch recovery {
         case .handoffAlive:
             return "note: no round was in flight — relay is \(status.rawValue)."
@@ -877,7 +877,7 @@ enum PilotCLI {
     }
 
     static func recoveryActionLine(
-        for state: RelayState,
+        for state: LoopState,
         recovery: InFlightRecovery,
         streamSilenceWarning: Bool? = nil,
         devLeg: RelayDevLegProjection? = nil
@@ -899,12 +899,12 @@ enum PilotCLI {
             }
             return line
         case .orphanReconciled:
-            return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? RelayState.orphanReconciledReason)); inspect `alln loop status \(state.id) --json` and the repo before any new handoff — do not blind retry."
+            return "handoff owner died mid-round — relay reconciled (\(state.stoppedReason ?? LoopState.orphanReconciledReason)); inspect `alln loop status \(state.id) --json` and the repo before any new handoff — do not blind retry."
         }
     }
 
     static func recoveryNextActions(
-        for state: RelayState,
+        for state: LoopState,
         recovery: InFlightRecovery,
         streamSilenceWarning: Bool? = nil
     ) -> [AgentSurfaceNextAction] {
@@ -943,7 +943,7 @@ enum PilotCLI {
 
     /// CD-S01a: prefer settling / parked next-actions over "wait as if dev still live".
     static func statusNextActions(
-        for state: RelayState,
+        for state: LoopState,
         recovery: InFlightRecovery,
         streamSilenceWarning: Bool? = nil,
         devLeg: RelayDevLegProjection
@@ -1017,7 +1017,7 @@ enum PilotCLI {
 
     /// The next-action discipline (Pilot_Relay.md §1 decision 5): every non-JSON print
     /// says, in one line, what the piloting session should do next.
-    static func nextActionLine(for state: RelayState, devLeg: RelayDevLegProjection? = nil) -> String {
+    static func nextActionLine(for state: LoopState, devLeg: RelayDevLegProjection? = nil) -> String {
         if devLeg?.phase == .settling {
             return "dev leg terminal (settling) — wait with `alln loop status \(state.id) --wait-for parked --timeout 7200 --json`; do not treat relay running as proof the dev worker is still live (check devRunId)."
         }
@@ -1090,7 +1090,7 @@ enum PilotCLI {
         }
     }
 
-    static func pilotRoundErrorEnvelope(_ error: RelayCoordinator.PilotRoundError) -> (code: String, message: String) {
+    static func pilotRoundErrorEnvelope(_ error: LoopCoordinator.PilotRoundError) -> (code: String, message: String) {
         switch error {
         case .relayNotFound:
             return ("RELAY_NOT_FOUND", "relay not found")
@@ -1107,7 +1107,7 @@ enum PilotCLI {
         }
     }
 
-    static func reverseAdoptErrorEnvelope(_ error: RelayCoordinator.ReverseAdoptError) -> (code: String, message: String) {
+    static func reverseAdoptErrorEnvelope(_ error: LoopCoordinator.ReverseAdoptError) -> (code: String, message: String) {
         switch error {
         case .relayNotFound:
             return ("RELAY_NOT_FOUND", "relay not found")
@@ -1118,7 +1118,7 @@ enum PilotCLI {
         }
     }
 
-    private static func describeParseError(_ error: RelayVerdictParser.ExtractError) -> String {
+    private static func describeParseError(_ error: LoopVerdictParser.ExtractError) -> String {
         switch error {
         case .noVerdictFound:
             return "no JSON object anywhere in the submission carried a `verdict` key — the tail was missing entirely."
@@ -1135,12 +1135,12 @@ enum PilotCLI {
     }
 
     /// Not `private` — shared with `LoopCLI.runStep` (LVC-S02d).
-    static func failPilotRound(_ error: RelayCoordinator.PilotRoundError) -> Never {
+    static func failPilotRound(_ error: LoopCoordinator.PilotRoundError) -> Never {
         let (code, message) = pilotRoundErrorEnvelope(error)
         AllnighterCLI.fail(code: code, message: message)
     }
 
-    private static func failReverseAdopt(_ error: RelayCoordinator.ReverseAdoptError) -> Never {
+    private static func failReverseAdopt(_ error: LoopCoordinator.ReverseAdoptError) -> Never {
         let (code, message) = reverseAdoptErrorEnvelope(error)
         AllnighterCLI.fail(code: code, message: message)
     }
@@ -1153,7 +1153,7 @@ enum PilotCLI {
 
 /// Single-line JSON ack on `pilot handoff --no-wait --json` before the detached child runs.
 struct PilotHandoffDispatchJSON: Encodable {
-    let relayId: String
+    let loopId: String
     let status: String
     let roundInFlight: Bool
     let pid: Int32
@@ -1163,11 +1163,11 @@ struct PilotHandoffDispatchJSON: Encodable {
     let delivery: DetachedDispatchJSON.Delivery
 }
 
-/// `pilot handoff --json` envelope: the same `RelayJSON` every other relay verb emits,
+/// `pilot handoff --json` envelope: the same `LoopJSON` every other relay verb emits,
 /// plus the dev's report verbatim when a dev turn delivered in THIS call (nil for a
 /// done/escalate/ceiling/stagnation round, or when the dev turn never delivered).
 struct PilotHandoffJSON: Encodable {
-    let relay: RelayJSON
+    let relay: LoopJSON
     let devReport: String?
 }
 
@@ -1179,7 +1179,7 @@ struct PilotHandoffJSON: Encodable {
 /// is SUPPLEMENTARY only (not proof of life).
 /// CD-S01a: `devLeg` is always present (shared with `relay-status`).
 struct PilotStatusJSON: Encodable {
-    var relay: RelayJSON
+    var relay: LoopJSON
     let pmTurn: PMTurnJSON?
     let notes: [String]
     let pmTurnDelivery: PMTurnDeliveryJSON?
@@ -1203,7 +1203,7 @@ struct PilotStatusJSON: Encodable {
     let liveLine: String?
 
     init(
-        relay: RelayJSON,
+        relay: LoopJSON,
         pmTurn: PMTurnJSON? = nil,
         notes: [String] = [],
         pmTurnDelivery: PMTurnDeliveryJSON? = nil,
@@ -1279,14 +1279,14 @@ struct PilotStatusJSON: Encodable {
 /// optional note when nothing was in flight. On signal/max-wait while still running,
 /// carries `stillRunning` + reattach guidance instead of looking like round failure.
 struct PilotWatchJSON: Encodable {
-    let relay: RelayJSON
+    let relay: LoopJSON
     let devReport: String?
     let note: String?
     let stillRunning: Bool?
     let maxWaitApplied: Bool?
 
     init(
-        relay: RelayJSON, devReport: String?, note: String?,
+        relay: LoopJSON, devReport: String?, note: String?,
         stillRunning: Bool? = nil, maxWaitApplied: Bool? = nil
     ) {
         self.relay = relay

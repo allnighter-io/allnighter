@@ -4,7 +4,7 @@ import AllnighterEngine
 @testable import AllnighterMac
 
 /// R-S08 — resume-from-GUI. `RelayResumeController.resume` must route through
-/// `RelayCoordinator.resume` (same construction path as launch), never a normal chat
+/// `LoopCoordinator.resume` (same construction path as launch), never a normal chat
 /// turn, and must refuse an empty answer or a relay that isn't actually resumable.
 @MainActor
 final class RelayResumeControllerTests: XCTestCase {
@@ -71,13 +71,13 @@ final class RelayResumeControllerTests: XCTestCase {
     }
 
     private func stubbedFactory(root: URL, models: [Model], registry: DriverRegistry)
-        -> (@escaping @Sendable () -> String) -> RelayCoordinator {
+        -> (@escaping @Sendable () -> String) -> LoopCoordinator {
         let store = ThreadStore(rootDirectory: root.appendingPathComponent("threads", isDirectory: true))
         let runStore = RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true))
-        let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        let stateStore = LoopStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
         let stubDriverIdValue = Self.stubDriverId
         return { idFactory in
-            RelayCoordinator(
+            LoopCoordinator(
                 runService: RunService(
                     models: models, registry: registry, runStore: runStore,
                     commandRunner: DoneVerdictRunner(),
@@ -93,20 +93,20 @@ final class RelayResumeControllerTests: XCTestCase {
                 ),
                 stateStore: stateStore,
                 runStore: runStore,
-                threadProjector: RelayThreadProjector(store: store, runStore: runStore),
+                threadProjector: LoopThreadProjector(store: store, runStore: runStore),
                 idFactory: idFactory
             )
         }
     }
 
-    /// A directly-persisted `.escalated` `RelayState` — the shape a real escalated round
-    /// leaves behind (`RelayCoordinator.escalate`), written straight to the store so the
+    /// A directly-persisted `.escalated` `LoopState` — the shape a real escalated round
+    /// leaves behind (`LoopCoordinator.escalate`), written straight to the store so the
     /// test doesn't need a full round to reach it.
     private func seedEscalated(
         id: String, root: URL, projectRoot: String, pmModelId: String, devModelId: String
-    ) -> RelayStateStore {
-        let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
-        let state = RelayState(
+    ) -> LoopStateStore {
+        let stateStore = LoopStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        let state = LoopState(
             id: id, projectRoot: projectRoot, docPath: "docs/spec.md",
             pmModelId: pmModelId, devModelId: devModelId, status: .escalated,
             createdAt: Date(), note: "76/77 or 88 — say which?"
@@ -131,14 +131,14 @@ final class RelayResumeControllerTests: XCTestCase {
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
             stateStore: stateStore
         )
-        XCTAssertTrue(controller.canResume(relayId: "relay_a"))
-        XCTAssertFalse(controller.canResume(relayId: "relay_does_not_exist"))
+        XCTAssertTrue(controller.canResume(loopId: "relay_a"))
+        XCTAssertFalse(controller.canResume(loopId: "relay_does_not_exist"))
     }
 
     func testCanResumeFalseForDoneRelay() {
         let root = tempRoot("done")
-        let stateStore = RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
-        let state = RelayState(
+        let stateStore = LoopStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+        let state = LoopState(
             id: "relay_done", projectRoot: repoRoot(), docPath: "docs/spec.md",
             pmModelId: "pm", devModelId: "dev", status: .done, createdAt: Date())
         try? stateStore.save(state)
@@ -146,7 +146,7 @@ final class RelayResumeControllerTests: XCTestCase {
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
             stateStore: stateStore
         )
-        XCTAssertFalse(controller.canResume(relayId: "relay_done"), "a done relay is never resumable")
+        XCTAssertFalse(controller.canResume(loopId: "relay_done"), "a done relay is never resumable")
     }
 
     // MARK: - Resume routing
@@ -160,7 +160,7 @@ final class RelayResumeControllerTests: XCTestCase {
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
             stateStore: stateStore
         )
-        XCTAssertFalse(controller.resume(relayId: "relay_b", answer: "   "))
+        XCTAssertFalse(controller.resume(loopId: "relay_b", answer: "   "))
         XCTAssertFalse(controller.isResuming("relay_b"))
     }
 
@@ -168,36 +168,36 @@ final class RelayResumeControllerTests: XCTestCase {
         let root = tempRoot("ineligible")
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
-            stateStore: RelayStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
+            stateStore: LoopStateStore(rootDirectory: root.appendingPathComponent("relay", isDirectory: true))
         )
-        XCTAssertFalse(controller.resume(relayId: "relay_never_existed", answer: "76/77"))
+        XCTAssertFalse(controller.resume(loopId: "relay_never_existed", answer: "76/77"))
     }
 
     /// End-to-end: an escalated relay resumed with a real answer routes through
-    /// `RelayCoordinator.resume` and reaches `done` via the stubbed PM turn — proving the
+    /// `LoopCoordinator.resume` and reaches `done` via the stubbed PM turn — proving the
     /// wiring dispatches through the coordinator, not a normal chat send (there is no
     /// chat path in this test's stores at all).
     func testResumeRoutesThroughCoordinatorAndReachesDone() async throws {
         let seatable = stubWorkers()
         let root = tempRoot("full")
-        let relayId = "relay_full_\(UUID().uuidString)"
+        let loopId = "relay_full_\(UUID().uuidString)"
         let stateStore = seedEscalated(
-            id: relayId, root: root, projectRoot: repoRoot(),
+            id: loopId, root: root, projectRoot: repoRoot(),
             pmModelId: seatable[0].id, devModelId: seatable[1].id)
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: seatable, registry: stubRegistry()),
             stateStore: stateStore
         )
 
-        XCTAssertTrue(controller.resume(relayId: relayId, answer: "Go with 88."))
-        XCTAssertTrue(controller.isResuming(relayId))
+        XCTAssertTrue(controller.resume(loopId: loopId, answer: "Go with 88."))
+        XCTAssertTrue(controller.isResuming(loopId))
 
         // The seed state is ALREADY `.escalated` — wait for the stubbed PM turn's `done`
         // verdict specifically (not merely "no longer .running"), since the pre-resume
         // status would otherwise satisfy a weaker check on the very first poll.
-        var settled: RelayState?
+        var settled: LoopState?
         for _ in 0..<200 {
-            if let state = stateStore.load(id: relayId), state.status == .done {
+            if let state = stateStore.load(id: loopId), state.status == .done {
                 settled = state; break
             }
             try await Task.sleep(nanoseconds: 15_000_000)
@@ -208,10 +208,10 @@ final class RelayResumeControllerTests: XCTestCase {
         // (the flag clears only once `coordinator.resume`'s `await` actually returns
         // control) — poll briefly rather than asserting on the exact same tick.
         for _ in 0..<50 {
-            if !controller.isResuming(relayId) { break }
+            if !controller.isResuming(loopId) { break }
             try await Task.sleep(nanoseconds: 15_000_000)
         }
-        XCTAssertFalse(controller.isResuming(relayId))
+        XCTAssertFalse(controller.isResuming(loopId))
     }
 
     // MARK: - RSC-S01: cause-specific refusal copy
@@ -219,35 +219,35 @@ final class RelayResumeControllerTests: XCTestCase {
     /// A lock-contention refusal (another process is actively dispatching right now)
     /// is a different, true statement from "not resumable" — asserting the latter
     /// would name an unobserved cause. Simulates the race by holding the SAME
-    /// dispatch lock `RelayCoordinator.resume` contends on before calling
+    /// dispatch lock `LoopCoordinator.resume` contends on before calling
     /// `RelayResumeController.resume`.
     func testResumeSurfacesRoundInFlightCauseWhenAnotherProcessHoldsTheDispatchLock() async throws {
         let root = tempRoot("inflight")
-        let relayId = "relay_inflight_\(UUID().uuidString)"
+        let loopId = "relay_inflight_\(UUID().uuidString)"
         let stateStore = seedEscalated(
-            id: relayId, root: root, projectRoot: repoRoot(),
+            id: loopId, root: root, projectRoot: repoRoot(),
             pmModelId: "pm", devModelId: "dev")
         let controller = RelayResumeController(
             makeCoordinator: stubbedFactory(root: root, models: [], registry: DriverRegistry()),
             stateStore: stateStore
         )
 
-        var heldLock = RelayDispatchLock.tryAcquire(relayId: relayId, relaysRoot: stateStore.rootDirectory)
+        var heldLock = LoopDispatchLock.tryAcquire(loopId: loopId, loopsRoot: stateStore.rootDirectory)
         XCTAssertNotNil(heldLock, "precondition: lock must be free before the simulated race")
 
-        XCTAssertTrue(controller.resume(relayId: relayId, answer: "Go with 88."))
+        XCTAssertTrue(controller.resume(loopId: loopId, answer: "Go with 88."))
 
         for _ in 0..<100 {
-            if !controller.isResuming(relayId) { break }
+            if !controller.isResuming(loopId) { break }
             try await Task.sleep(nanoseconds: 15_000_000)
         }
-        XCTAssertFalse(controller.isResuming(relayId))
+        XCTAssertFalse(controller.isResuming(loopId))
         XCTAssertEqual(
-            controller.lastError[relayId],
+            controller.lastError[loopId],
             "Another process is already dispatching a round for this relay — try again in a moment."
         )
         // The relay's durable state must be untouched — the lock loser never mutated it.
-        XCTAssertEqual(stateStore.load(id: relayId)?.status, .escalated)
+        XCTAssertEqual(stateStore.load(id: loopId)?.status, .escalated)
 
         heldLock = nil // release; avoids leaking the flock past the test
     }

@@ -11,7 +11,7 @@ final class PMTurnStoreTests: XCTestCase {
             .appendingPathComponent("pm-turn-store-\(UUID().uuidString)", isDirectory: true)
         store = PMTurnStore(
             runsRootDirectory: root.appendingPathComponent("Runs", isDirectory: true),
-            relaysRootDirectory: root.appendingPathComponent("Relays", isDirectory: true)
+            loopsRootDirectory: root.appendingPathComponent("Loops", isDirectory: true)
         )
     }
 

@@ -23,14 +23,14 @@ public enum PilotHandoverScaffold {
         """
     }
 
-    /// Writes `round<N>.md` into the relay's state folder (`RelayStateStore` directory).
+    /// Writes `round<N>.md` into the relay's state folder (`LoopStateStore` directory).
     public static func writeRoundFile(
-        relayId: String,
+        loopId: String,
         round: Int = 1,
-        stateStore: RelayStateStore = RelayStateStore()
+        stateStore: LoopStateStore = LoopStateStore()
     ) throws -> String {
         let directory = stateStore.rootDirectory
-            .appendingPathComponent(relayId, isDirectory: true)
+            .appendingPathComponent(loopId, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let url = directory.appendingPathComponent("round\(round).md")
         try template(round: round).write(to: url, atomically: true, encoding: .utf8)

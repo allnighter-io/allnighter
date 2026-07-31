@@ -196,7 +196,7 @@ private struct ThreadPaneHeader: View {
             if let lane = inferredLane {
                 laneChip(lane)
             }
-            RelayThreadChrome(relayId: thread.id)
+            RelayThreadChrome(loopId: thread.id)
             Spacer(minLength: 8)
             if thread.isArchived {
                 Button("Unarchive") { threads.unarchiveThread(thread.id) }
@@ -665,7 +665,7 @@ private struct ThreadTurnRow: View {
         case .systemEvent where turn.systemEvent == .relayEscalated && turn.status == .running:
             // R-S08: the ONE open, actionable system event — a PM Relay round asked the
             // founder a real question and is waiting. ATL-S04: resume gating reads
-            // `RelayState.isResumable` via `RelayResumeController` — never turn prose.
+            // `LoopState.isResumable` via `RelayResumeController` — never turn prose.
             RelayEscalationRow(turn: turn)
         default:
             stubTurn
@@ -795,7 +795,7 @@ private struct ThreadTurnRow: View {
 
 /// The one place a PM Relay round asks the founder a real question
 /// (`docs/phases/PM_Relay.md` §4.1) and stops. `turn.threadId` IS the relay id
-/// (`RelayThreadProjector`'s identity rule — no separate lookup). No existing composer
+/// (`LoopThreadProjector`'s identity rule — no separate lookup). No existing composer
 /// seam answers an open system event inline (`ThreadTurnRow` had no case for
 /// `.systemEvent` at all before this), so this ships as its own affordance rather than
 /// routing through `RoutingComposer`/`sendRouting` — see `RelayResumeController`'s doc
@@ -807,9 +807,9 @@ private struct RelayEscalationRow: View {
     @State private var answer = ""
     @FocusState private var answerFocused: Bool
 
-    private var relayId: String { turn.threadId }
-    private var isResuming: Bool { relayResume.isResuming(relayId) }
-    private var canResume: Bool { relayResume.canResume(relayId: relayId) }
+    private var loopId: String { turn.threadId }
+    private var isResuming: Bool { relayResume.isResuming(loopId) }
+    private var canResume: Bool { relayResume.canResume(loopId: loopId) }
     private var canSubmit: Bool {
         canResume && !answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isResuming
     }
@@ -857,7 +857,7 @@ private struct RelayEscalationRow: View {
                     .buttonStyle(.alPrimary)
                     .disabled(!canSubmit)
             }
-            if let error = relayResume.lastError[relayId] {
+            if let error = relayResume.lastError[loopId] {
                 Text(error).font(.system(size: 11)).foregroundStyle(ALPalette.red400)
             }
         }
@@ -869,9 +869,9 @@ private struct RelayEscalationRow: View {
     private func submit() {
         guard canSubmit else { return }
         let text = answer
-        // `RelayCoordinator.resume` — same construction path as launch
+        // `LoopCoordinator.resume` — same construction path as launch
         // (`RelayGUIRuntime.makeCoordinator`), never a normal chat turn.
-        guard relayResume.resume(relayId: relayId, answer: text, onEvent: { _ in
+        guard relayResume.resume(loopId: loopId, answer: text, onEvent: { _ in
             Task { @MainActor in threads.requestReload() }
         }) else { return }
         answer = ""

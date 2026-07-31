@@ -146,7 +146,7 @@ final class VendorBackoffReconcilerTests: HermeticSupportTestCase {
         XCTAssertEqual(secondProcessView.phase, .waitingForVendor)
         let ps = ProcessOwnershipSurface(
             runStore: rig.store,
-            relayStore: RelayStateStore(
+            loopStore: LoopStateStore(
                 rootDirectory: rig.root.appendingPathComponent("relays", isDirectory: true)
             )
         ).list(scopeRoot: rig.repo.path)

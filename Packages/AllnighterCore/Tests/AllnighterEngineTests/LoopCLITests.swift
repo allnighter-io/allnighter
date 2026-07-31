@@ -7,7 +7,7 @@ import AllnighterEngine
 /// the PART A defect fix (`nextAction.command` must reproduce every explicitly
 /// supplied flag) and the `list`/`status`/`stop`/`resume`/`wait` delegation —
 /// exit-free/injectable helpers are the unit-testable surface, matching
-/// `RelayCLITests`.
+/// `LoopEngineCLITests`.
 final class LoopCLITests: XCTestCase {
     private var tmp: URL!
 
@@ -24,8 +24,8 @@ final class LoopCLITests: XCTestCase {
         ProjectStore(rootDirectory: tmp.appendingPathComponent("projects"))
     }
 
-    private func makeRelayStateStore() -> RelayStateStore {
-        RelayStateStore(rootDirectory: tmp.appendingPathComponent("relays"))
+    private func makeLoopStateStore() -> LoopStateStore {
+        LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
     }
 
     @discardableResult
@@ -88,68 +88,68 @@ final class LoopCLITests: XCTestCase {
 
     func testRunListFiltersToTheResolvedProject() throws {
         let projectStore = makeProjectStore()
-        let relayStateStore = makeRelayStateStore()
+        let loopStateStore = makeLoopStateStore()
         let projectA = try addProject(projectStore, path: "a")
         let projectB = try addProject(projectStore, path: "b")
 
-        let inProject = RelayState(
+        let inProject = LoopState(
             id: "loop_a", projectRoot: projectA.normalizedRootPath, docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
-        let outsideProject = RelayState(
+        let outsideProject = LoopState(
             id: "loop_b", projectRoot: projectB.normalizedRootPath, docPath: nil, brief: "other repo's brief",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev", status: .awaitingPM, createdAt: Date()
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev", status: .awaitingPM, createdAt: Date()
         )
-        try relayStateStore.save(inProject)
-        try relayStateStore.save(outsideProject)
+        try loopStateStore.save(inProject)
+        try loopStateStore.save(outsideProject)
 
         // runList prints to stdout; assert via the injected stores instead of capturing
         // output — the filter predicate is what this test is protecting.
-        let all = relayStateStore.list()
+        let all = loopStateStore.list()
         let filtered = all.filter { $0.projectRoot == projectA.normalizedRootPath }
         XCTAssertEqual(filtered.map(\.id), ["loop_a"])
 
         // Smoke: runList must not crash/exit for a project with loops.
-        LoopCLI.runList(["--project", projectA.id, "--json"], projectStore: projectStore, relayStateStore: relayStateStore)
+        LoopCLI.runList(["--project", projectA.id, "--json"], projectStore: projectStore, loopStateStore: loopStateStore)
     }
 
     func testLoopListEntryPMOccupantReflectsChair() throws {
-        let relayStateStore = makeRelayStateStore()
-        let callerChair = RelayState(
+        let loopStateStore = makeLoopStateStore()
+        let callerChair = LoopState(
             id: "loop_pilot", projectRoot: "/repo", docPath: nil, brief: "fix everything",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev", status: .awaitingPM, createdAt: Date()
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev", status: .awaitingPM, createdAt: Date()
         )
-        let agentChair = RelayState(
+        let agentChair = LoopState(
             id: "loop_relay", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running, createdAt: Date()
         )
-        try relayStateStore.save(callerChair)
-        try relayStateStore.save(agentChair)
+        try loopStateStore.save(callerChair)
+        try loopStateStore.save(agentChair)
 
-        let states = relayStateStore.list()
+        let states = loopStateStore.list()
         let pilot = states.first { $0.id == "loop_pilot" }!
         let relay = states.first { $0.id == "loop_relay" }!
         XCTAssertEqual(pilot.isCallerChair ? "caller" : pilot.pmModelId, "caller")
         XCTAssertEqual(relay.isCallerChair ? "caller" : relay.pmModelId, "model_pm")
     }
 
-    // MARK: - loop status is chair-neutral (RelayCLI.runStatus carries no pmMode branching)
+    // MARK: - loop status is chair-neutral (LoopEngineCLI.runStatus carries no pmMode branching)
 
     func testRunStatusAcceptsTerminalWaitForACallerChairLoop() throws {
-        let relayStateStore = makeRelayStateStore()
-        let done = RelayState(
+        let loopStateStore = makeLoopStateStore()
+        let done = LoopState(
             id: "loop_pilot_done", projectRoot: "/repo", docPath: nil, brief: "fix everything",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev", status: .done, createdAt: Date(), finishedAt: Date()
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev", status: .done, createdAt: Date(), finishedAt: Date()
         )
-        try relayStateStore.save(done)
+        try loopStateStore.save(done)
 
         // Would `exit(2)`/fail if `--wait-for terminal` were rejected for an
         // external-chair (pilot) loop — LVC v7 §2 requires it to be accepted
         // "regardless of who holds the chair." `threadProjector: nil` + a hermetic
         // `RunStore` keep this off the real user data directory.
-        RelayCLI.runStatus(
+        LoopEngineCLI.runStatus(
             ["--relay", "loop_pilot_done", "--wait-for", "terminal", "--timeout", "1", "--json"],
-            stateStore: relayStateStore,
+            stateStore: loopStateStore,
             threadProjector: nil,
             runStore: RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         )

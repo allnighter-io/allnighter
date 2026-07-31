@@ -97,14 +97,13 @@ Headless first-run CLI detection — probes sources, assembles the Bench/default
 
 ### `alln capacity`
 
-Show vendor capacity/quota headroom. Bare call is tier-1 on-disk only (instant, no spawns); --refresh adds tier-3 PTY probes (agy/kimi/cursor/claude); --refresh --source <id> probes one seat only. Unknown never blocks.
+Show vendor capacity/quota headroom. Default runs tier-3 PTY probes for all seats (agy/kimi/cursor/claude/codex/grok) and returns fresh data; --cached (or --no-refresh) gives an instant disk-only view with no spawns. --source <id> probes one seat only. Unknown never blocks.
 
 Flags:
-- `--json` — Structured CapacityStripJSON (contractVersion + per-source rows).
-- `--refresh` — Run tier-3 PTY probes (agy/kimi/cursor/claude /usage). Bare capacity never spawns. Combine with --source to probe one seat.
-- `--source <sourceId>` — With --refresh only: probe one bench source (codex|claude_code|cursor_agent|grok|kimi|agy). Tier-1 is disk-only (no spawn). Full strip still renders.
-
-Requires: `--source` requires `--refresh`.
+- `--json` — Emit JSON instead of the human-readable strip.
+- `--cached` — Skip PTY probes; return disk-only cached view instantly (no spawns). Alias: --no-refresh.
+- `--no-refresh` — Alias for --cached.
+- `--source <value>` — Probe one seat only (still runs the full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.
 
 Output schema: `capacityStripJSON`.
 
@@ -762,7 +761,7 @@ Flags:
 
 ### `alln loop start`
 
-Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself (the `pair pilot start` path); `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended (the `pair relay` path).
+Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself; `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended.
 
 Arguments:
 - `brief` (required) — What you want done. The brief handed to the PM at round 1 — no other flag is required.
@@ -774,7 +773,7 @@ Flags:
 - `--project <id>` — Project id, name, or repo path. Omitted → resolved from the current working directory.
 - `--dry-run` — Resolve the brief/spec/both seats/project and report readiness; exit 0, create nothing, spend nothing.
 - `--no-wait` — Spawn the same registered `loop start` verb in a detached child; return only after the child durably claims delivery.
-- `--json` — Emit structured JSON (LoopStartDryRunJSON with --dry-run; RelayJSON otherwise).
+- `--json` — Emit structured JSON (LoopStartDryRunJSON with --dry-run; LoopJSON otherwise).
 
 Output schema: `relayJSON`.
 
@@ -795,7 +794,7 @@ Flags:
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
 Mutually exclusive: `--message`, `--message-file`.
 
@@ -811,7 +810,7 @@ Flags:
 - `--relay <id>` — Relay id (required).
 - `--wait-for <string>` — Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout.
 - `--timeout <number>` — Non-negative wait limit in seconds; required with --wait-for.
-- `--json` — Emit RelayJSON.
+- `--json` — Emit LoopJSON.
 
 Output schema: `relayJSON`.
 
@@ -827,7 +826,7 @@ Flags:
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
 Requires: `--delivery` requires `--no-wait`.
 
@@ -845,7 +844,7 @@ Flags:
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
-- `--json` — Emit NDJSON RelayProgressJSON events, then a final RelayJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+- `--json` — Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
 Requires: `--delivery` requires `--no-wait`.
 
@@ -857,7 +856,7 @@ Retired — use `alln loop stop <loop-id>` instead. Founder stop of a Loop: iden
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit RelayJSON (status=stopped, stoppedReason="founder stopped" on transition).
+- `--json` — Emit LoopJSON (status=stopped, stoppedReason="founder stopped" on transition).
 
 Output schema: `relayJSON`.
 
@@ -877,12 +876,12 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot handoff`
 
-Retired — use `alln loop step <loop-id>` instead. Submits this round's review (RelayVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.
+Retired — use `alln loop step <loop-id>` instead. Submits this round's review (LoopVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.
 
 Flags:
 - `--relay <id>` — Relay id (required).
 - `--file <path>` — Read the full submission markdown from a file (verdict tail included; omit to read stdin).
-- `--verdict <continue|done|escalate>` — Required with --handover-file/--handover-stdin; synthesizes the RelayVerdict tail internally.
+- `--verdict <continue|done|escalate>` — Required with --handover-file/--handover-stdin; synthesizes the LoopVerdict tail internally.
 - `--handover-file <path>` — Raw order markdown for the dev seat (mutually exclusive with --file).
 - `--handover-stdin` — Read the handover markdown from stdin (mutually exclusive with --file).
 - `--note <string>` — Optional closing note for done/escalate verdicts.
@@ -930,7 +929,7 @@ Retired — use `alln loop pm <loop-id> caller` instead. Hands a parked spawned 
 
 Flags:
 - `--relay <id>` — Relay id (required).
-- `--json` — Emit RelayJSON.
+- `--json` — Emit LoopJSON.
 
 Output schema: `relayJSON`.
 
@@ -1635,7 +1634,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_STOP_FAILED` | yes | yes | `operational` | Inspect with `alln ps --json`; retry `alln loop stop <id> --json`. Do not invent resume while live trees remain. |
 | `RUN_ID_IN_USE` | yes | no | `operational` | Attach with `alln run resume <id> --json`, or omit an explicit id. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
-| `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The PM's submission needs exactly one trailing ```json RelayVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs. |
+| `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs. |
 | `OWNERSHIP_NOT_FOUND` | no | no | `operational` | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
 | `OWNERSHIP_ALREADY_TERMINAL` | no | no | `operational` | No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`. |
 | `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | `operational` | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |

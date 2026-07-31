@@ -16,7 +16,7 @@ import AllnighterCore
 /// `.stalled` (not-done, aged past a packet-scoped timeout) from `.failed` (not-done, fast)
 /// so the slice queue's nudge prompt could pick a failure-reason string. The relay has no
 /// per-outcome nudge — every not-done, non-infra, non-compacting turn gets the SAME bounded
-/// retry-then-escalate treatment (`RelayCoordinator`'s turn dispatch loop), so that
+/// retry-then-escalate treatment (`LoopCoordinator`'s turn dispatch loop), so that
 /// elapsed-time split collapses into one `.stalled` case here; the caller's retry count is
 /// what actually decides retry vs. escalate, not how the turn failed.
 public enum RelayTurnOutcome: Sendable, Equatable {
@@ -35,7 +35,7 @@ public enum RelayTurnOutcome: Sendable, Equatable {
     case compacting
 }
 
-public enum RelayTurnClassifier {
+public enum LoopTurnClassifier {
     /// Retry ceilings for one relay turn's dispatch loop (PM or dev), mirroring
     /// `PairCoordinator`'s per-failure-mode caps (QUEUE-S01/S02: `maxCompactionRetries`,
     /// `maxInfraBackoffRetries`, `infraBackoffGraceSeconds`, executor attempt budget) —

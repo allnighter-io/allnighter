@@ -2,18 +2,18 @@ import XCTest
 @testable import AllnighterCore
 import AllnighterEngine
 
-/// `RelayJSON` is the one wire shape `alln pair relay*` and MCP `pair_relay*` both
+/// `LoopJSON` is the one wire shape `alln pair relay*` and MCP `pair_relay*` both
 /// project (docs/phases/PM_Relay.md §6 R-S05/R-S06, §7 works-test output shape).
-/// These tests cover the `RelayState` → `RelayJSON` projection — never a second
+/// These tests cover the `LoopState` → `LoopJSON` projection — never a second
 /// copy of run-truth, only its wire mapping.
-final class RelayJSONTests: XCTestCase {
+final class LoopJSONTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_752_000_000)
 
     private func makeRound(
         _ n: Int,
         baseline: String?, head: String?,
         pmRunId: String?, devRunId: String?,
-        verdict: RelayVerdict?, gate: RelayGateSummary? = nil,
+        verdict: LoopVerdict?, gate: RelayGateSummary? = nil,
         outcome: RelayRound.Outcome? = nil
     ) -> RelayRound {
         RelayRound(
@@ -27,8 +27,8 @@ final class RelayJSONTests: XCTestCase {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("relay-json-pm-turn-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        let store = PMTurnStore(relaysRootDirectory: root)
-        let state = RelayState(
+        let store = PMTurnStore(loopsRootDirectory: root)
+        let state = LoopState(
             id: "relay_receipt", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .done, createdAt: now
         )
@@ -42,7 +42,7 @@ final class RelayJSONTests: XCTestCase {
         let loaded = PMTurnStatusProjection.load(
             kind: .relay, subjectId: state.id, atPMBoundary: true, store: store
         )
-        let json = RelayJSON.project(
+        let json = LoopJSON.project(
             state, contractVersion: "1.0.0", pmTurn: loaded.pmTurn, notes: loaded.notes
         )
         XCTAssertEqual(json.pmTurn, turn)
@@ -56,14 +56,14 @@ final class RelayJSONTests: XCTestCase {
     }
 
     func testProjectsRunningRelayWithNoVerdictYet() {
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_1", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running,
             rounds: [makeRound(1, baseline: "abc123", head: nil, pmRunId: "run_pm_1", devRunId: nil, verdict: nil)],
             createdAt: now
         )
 
-        let json = RelayJSON.project(state, contractVersion: "1.0.0")
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
 
         XCTAssertEqual(json.schemaVersion, 1)
         XCTAssertEqual(json.contractVersion, "1.0.0")
@@ -88,21 +88,21 @@ final class RelayJSONTests: XCTestCase {
     func testProjectsDoneRelayWithFullRoundLog() {
         let round1 = makeRound(
             1, baseline: "aaa111", head: "bbb222", pmRunId: "run_pm_1", devRunId: "run_dev_1",
-            verdict: RelayVerdict(verdict: .continueRelay, handover: "Implement the thing."),
+            verdict: LoopVerdict(verdict: .continueRelay, handover: "Implement the thing."),
             outcome: .continued
         )
         let round2 = makeRound(
             2, baseline: "bbb222", head: "bbb222", pmRunId: "run_pm_2", devRunId: nil,
-            verdict: RelayVerdict(verdict: .done, note: "All criteria met."),
+            verdict: LoopVerdict(verdict: .done, note: "All criteria met."),
             outcome: .done
         )
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_2", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .done,
             rounds: [round1, round2], createdAt: now, finishedAt: now, note: "All criteria met."
         )
 
-        let json = RelayJSON.project(state, contractVersion: "1.0.0")
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
 
         XCTAssertEqual(json.status, "done")
         XCTAssertEqual(json.rounds, 2)
@@ -123,17 +123,17 @@ final class RelayJSONTests: XCTestCase {
         )
         let round = makeRound(
             1, baseline: "abc123", head: nil, pmRunId: "run_pm_1", devRunId: nil,
-            verdict: RelayVerdict(verdict: .continueRelay, handover: "git reset --hard the branch"),
+            verdict: LoopVerdict(verdict: .continueRelay, handover: "git reset --hard the branch"),
             gate: gate, outcome: .escalated
         )
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_3", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .escalated,
             rounds: [round], createdAt: now, finishedAt: now,
             note: "HandoverGate blocked (destructiveGit, RELAY_HANDOVER_UNSAFE): destructive git instruction"
         )
 
-        let json = RelayJSON.project(state, contractVersion: "1.0.0")
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
 
         XCTAssertEqual(json.status, "escalated")
         XCTAssertEqual(json.verdict, "continue")
@@ -143,14 +143,14 @@ final class RelayJSONTests: XCTestCase {
     }
 
     func testProjectsStoppedRelayWithStoppedReason() {
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_4", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .stopped,
             rounds: [], createdAt: now, finishedAt: now,
             stoppedReason: "reached --max-rounds (20)"
         )
 
-        let json = RelayJSON.project(state, contractVersion: "1.0.0")
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
 
         XCTAssertEqual(json.status, "stopped")
         XCTAssertEqual(json.stoppedReason, "reached --max-rounds (20)")
@@ -162,29 +162,29 @@ final class RelayJSONTests: XCTestCase {
     // MARK: - Pilot (pmMode, dirtyFilesCount, hasExternalSubmission)
 
     func testProjectsSpawnedRelayWithSpawnedPMMode() {
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_spawned", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .running,
             createdAt: now
         )
-        XCTAssertEqual(RelayJSON.project(state, contractVersion: "1.0.0").pmMode, "spawned")
+        XCTAssertEqual(LoopJSON.project(state, contractVersion: "1.0.0").pmMode, "spawned")
     }
 
     func testProjectsPilotRelayWithExternalPMModeAndAwaitingPMStatus() {
         let round = RelayRound(
             roundNumber: 1, baselineHead: "abc123", headAfterDev: "def456", devRunId: "run_dev_1",
-            verdict: RelayVerdict(verdict: .continueRelay, handover: "Implement the thing."),
+            verdict: LoopVerdict(verdict: .continueRelay, handover: "Implement the thing."),
             gate: RelayGateSummary(allowed: true), startedAt: now, finishedAt: now, outcome: .continued,
             externalSubmission: "PM review text.\n\n```json\n{\"verdict\": \"continue\", \"handover\": \"Implement the thing.\"}\n```",
             dirtyFiles: ["a.swift", "b.swift"]
         )
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_pilot", projectRoot: "/repo", docPath: "docs/spec.md",
-            pmModelId: RelayState.callerPMModelId, devModelId: "model_dev", status: .awaitingPM,
+            pmModelId: LoopState.callerPMModelId, devModelId: "model_dev", status: .awaitingPM,
             rounds: [round], createdAt: now
         )
 
-        let json = RelayJSON.project(state, contractVersion: "1.0.0")
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
 
         XCTAssertEqual(json.pmMode, "caller")
         XCTAssertEqual(json.status, "awaitingPM")
@@ -194,8 +194,8 @@ final class RelayJSONTests: XCTestCase {
     }
 
     func testSpawnedRoundNeverCarriesPilotOnlyFields() {
-        let json = RelayJSON.project(
-            RelayState(
+        let json = LoopJSON.project(
+            LoopState(
                 id: "relay_spawned_round", projectRoot: "/repo", docPath: "docs/spec.md",
                 pmModelId: "model_pm", devModelId: "model_dev", status: .running,
                 rounds: [makeRound(1, baseline: "a", head: "b", pmRunId: "p1", devRunId: "d1", verdict: nil)],
@@ -208,16 +208,16 @@ final class RelayJSONTests: XCTestCase {
     }
 
     func testRoundTripsThroughCoreJSON() throws {
-        let state = RelayState(
+        let state = LoopState(
             id: "relay_5", projectRoot: "/repo", docPath: "docs/spec.md",
             pmModelId: "model_pm", devModelId: "model_dev", status: .done,
             rounds: [makeRound(1, baseline: "a", head: "b", pmRunId: "p1", devRunId: "d1",
-                                verdict: RelayVerdict(verdict: .done, note: "done"), outcome: .done)],
+                                verdict: LoopVerdict(verdict: .done, note: "done"), outcome: .done)],
             createdAt: now, finishedAt: now, note: "done"
         )
-        let json = RelayJSON.project(state, contractVersion: "1.0.0")
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
         let data = try CoreJSON.encode(json)
-        let decoded = try CoreJSON.decode(RelayJSON.self, from: data)
+        let decoded = try CoreJSON.decode(LoopJSON.self, from: data)
         XCTAssertEqual(decoded, json)
     }
 }

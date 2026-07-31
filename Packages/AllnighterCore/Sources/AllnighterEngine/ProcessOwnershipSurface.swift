@@ -4,7 +4,7 @@ import AllnighterCore
 /// Observable ownership surface for `alln ps` / `alln kill` (PO-S05).
 ///
 /// Reads durable state — run dirs, relay dirs, lane `holder.json` files —
-/// via existing ProcessOwnership / RunStore / RelayStateStore / ExecutionLaneFlock
+/// via existing ProcessOwnership / RunStore / LoopStateStore / ExecutionLaneFlock
 /// readers. No new process machinery.
 ///
 /// Law:
@@ -15,20 +15,20 @@ import AllnighterCore
 ///   write `endReason: killed`. Refuses on identity mismatch (recycled pid).
 public struct ProcessOwnershipSurface: Sendable {
     public var runStore: RunStore
-    public var relayStore: RelayStateStore
+    public var loopStore: LoopStateStore
     public var lanesRoot: URL
-    public var threadProjector: RelayThreadProjector?
+    public var threadProjector: LoopThreadProjector?
     public var now: @Sendable () -> Date
 
     public init(
         runStore: RunStore = RunStore(),
-        relayStore: RelayStateStore = RelayStateStore(),
+        loopStore: LoopStateStore = LoopStateStore(),
         lanesRoot: URL? = nil,
-        threadProjector: RelayThreadProjector? = RelayThreadProjector(),
+        threadProjector: LoopThreadProjector? = LoopThreadProjector(),
         now: @escaping @Sendable () -> Date = { Date() }
     ) {
         self.runStore = runStore
-        self.relayStore = relayStore
+        self.loopStore = loopStore
         self.lanesRoot = lanesRoot ?? AllnighterPaths.lanes
         self.threadProjector = threadProjector
         self.now = now
@@ -76,7 +76,7 @@ public struct ProcessOwnershipSurface: Sendable {
         if row.identityAlive { return true }
         if row.kind == "worker" { return false }
         switch row.status {
-        case RelayState.Status.awaitingPM.rawValue, RelayState.Status.escalated.rawValue:
+        case LoopState.Status.awaitingPM.rawValue, LoopState.Status.escalated.rawValue:
             return true
         default:
             break
@@ -87,13 +87,13 @@ public struct ProcessOwnershipSurface: Sendable {
 
     /// Eager reconcile before status inventory (CLP-S02).
     private func reconcileOnRead(scopeRoot: String?) {
-        for relay in relayStore.list() {
+        for relay in loopStore.list() {
             if let scopeRoot,
                !ProjectScope.matches(scopeRoot: scopeRoot, recordRoot: relay.projectRoot) {
                 continue
             }
-            _ = RelayCoordinator.reconcileOrphan(
-                relay, stateStore: relayStore, threadProjector: threadProjector, now: now
+            _ = LoopCoordinator.reconcileOrphan(
+                relay, stateStore: loopStore, threadProjector: threadProjector, now: now
             )
         }
         _ = runStore.reconcileAll(scopeRoot: scopeRoot)
@@ -149,7 +149,7 @@ public struct ProcessOwnershipSurface: Sendable {
         if let run = runStore.loadRaw(runId: id) ?? runStore.load(runId: id) {
             return killRun(run)
         }
-        if let relay = relayStore.load(id: id) {
+        if let relay = loopStore.load(id: id) {
             return killRelay(relay)
         }
         if let holder = findProofHolder(id: id) {
@@ -370,10 +370,10 @@ public struct ProcessOwnershipSurface: Sendable {
     // MARK: - Relays / pilots
 
     private func listRelays(now: Date) -> [OwnershipProcessJSON] {
-        relayStore.list().map { relay in
+        loopStore.list().map { relay in
             let kind = "loop"
-            let dir = (try? relayStore.directory(for: relay.id))
-                ?? relayStore.rootDirectory.appendingPathComponent(relay.id, isDirectory: true)
+            let dir = (try? loopStore.directory(for: relay.id))
+                ?? loopStore.rootDirectory.appendingPathComponent(relay.id, isDirectory: true)
             let turnOwner = ProcessOwnership.readTurnOwner(in: dir)
             let lastRoundOwner = relay.rounds.last?.devTurnOwner
                 .flatMap(ProcessOwnership.OwnerIdentity.fromRecord)
@@ -381,7 +381,7 @@ public struct ProcessOwnershipSurface: Sendable {
             let alive = identity.map { ProcessOwnership.isIdentityAlive($0) } ?? false
             let terminal = relay.status != .running
             // Would reconcile: .running + owner dead (same guard as reconcileOrphan).
-            let would = relay.status == .running && relayStore.isOwnerDead(id: relay.id)
+            let would = relay.status == .running && loopStore.isOwnerDead(id: relay.id)
             // CLP-S01: stream-primary liveness — dev journal only, not relay heartbeat.
             let streamLast = StreamLiveness.relayStreamLastActivityAt(state: relay, runStore: runStore)
             let age = streamLast.map { now.timeIntervalSince($0) }
@@ -392,7 +392,7 @@ public struct ProcessOwnershipSurface: Sendable {
             if let stamped = relay.rounds.last?.devTurnEndReason {
                 endReason = stamped.rawValue
             } else if terminal, let stopped = relay.stoppedReason {
-                endReason = stopped == RelayState.orphanReconciledReason ? "reconciledOrphan" : nil
+                endReason = stopped == LoopState.orphanReconciledReason ? "reconciledOrphan" : nil
             } else {
                 endReason = nil
             }
@@ -437,23 +437,23 @@ public struct ProcessOwnershipSurface: Sendable {
         }
     }
 
-    private func killRelay(_ state: RelayState) -> Result<OwnershipKillRowJSON, OwnershipKillError> {
+    private func killRelay(_ state: LoopState) -> Result<OwnershipKillRowJSON, OwnershipKillError> {
         let kind = "loop"
         // Terminal parked states (done/escalated/stopped/awaitingPM without a live tree).
         if state.status != .running {
             // Still allow kill when an in-flight turn owner file exists (edge).
-            if let dir = try? relayStore.directory(for: state.id),
+            if let dir = try? loopStore.directory(for: state.id),
                ProcessOwnership.readTurnOwner(in: dir) == nil {
                 let end = state.rounds.last?.devTurnEndReason?.rawValue
                 return .failure(.alreadyTerminal(id: state.id, endReason: end))
             }
         }
-        guard var current = relayStore.load(id: state.id) else {
+        guard var current = loopStore.load(id: state.id) else {
             return .failure(.notFound(id: state.id))
         }
         let dir: URL
         do {
-            dir = try relayStore.directory(for: current.id)
+            dir = try loopStore.directory(for: current.id)
         } catch {
             return .failure(.notFound(id: state.id))
         }
@@ -496,7 +496,7 @@ public struct ProcessOwnershipSurface: Sendable {
             current.finishedAt = current.finishedAt ?? now()
         }
         current.laneBlocked = nil
-        _ = try? relayStore.save(current)
+        _ = try? loopStore.save(current)
         return .success(OwnershipKillRowJSON(id: current.id, kind: kind, signalled: signalled))
     }
 

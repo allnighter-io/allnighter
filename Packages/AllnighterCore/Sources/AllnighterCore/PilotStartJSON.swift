@@ -7,7 +7,7 @@ import Foundation
 /// (token array with unquoted path). Do **not** parse `nextCommand` — that string is
 /// shell-quoted for human paste under paths with spaces (`Application Support/…`).
 public struct PilotStartJSON: Codable, Equatable, Sendable {
-    public var relay: RelayJSON
+    public var relay: LoopJSON
     /// Shell-ready one-liner for human paste (trailing scaffold path single-quoted).
     public var nextCommand: String
     /// Absolute scaffold path — raw, never shell-quoted. Prefer this over parsing `nextCommand`.
@@ -20,7 +20,7 @@ public struct PilotStartJSON: Codable, Equatable, Sendable {
     public var rememberedDevWorker: Bool?
 
     public init(
-        relay: RelayJSON,
+        relay: LoopJSON,
         nextCommand: String,
         scaffoldPath: String,
         nextCommandArgv: [String]? = nil,
@@ -31,7 +31,7 @@ public struct PilotStartJSON: Codable, Equatable, Sendable {
         self.nextCommand = nextCommand
         self.scaffoldPath = scaffoldPath
         self.nextCommandArgv = nextCommandArgv
-            ?? Self.defaultHandoffArgv(relayId: relay.relayId, scaffoldPath: scaffoldPath)
+            ?? Self.defaultHandoffArgv(loopId: relay.relayId, scaffoldPath: scaffoldPath)
         self.devModelId = devModelId
         self.rememberedDevWorker = rememberedDevWorker
     }
@@ -40,7 +40,7 @@ public struct PilotStartJSON: Codable, Equatable, Sendable {
     /// `loop step <loop-id> <message>` only reads the first two positionals; the
     /// scaffold path rides along as a trailing hint so programmatic consumers don't
     /// have to cross-reference `scaffoldPath` separately.
-    public static func defaultHandoffArgv(relayId: String, scaffoldPath: String) -> [String] {
-        ["loop", "step", relayId, "<order for the dev>", scaffoldPath]
+    public static func defaultHandoffArgv(loopId: String, scaffoldPath: String) -> [String] {
+        ["loop", "step", loopId, "<order for the dev>", scaffoldPath]
     }
 }

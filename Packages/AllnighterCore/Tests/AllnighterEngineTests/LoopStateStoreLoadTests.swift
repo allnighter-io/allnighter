@@ -2,11 +2,11 @@ import XCTest
 @testable import AllnighterEngine
 import AllnighterCore
 
-final class RelayStateStoreLoadTests: XCTestCase {
-    func testLoadResultNotFoundWhenRelayJSONMissing() {
+final class LoopStateStoreLoadTests: XCTestCase {
+    func testLoadResultNotFoundWhenLoopJSONMissing() {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("relay-load-\(UUID().uuidString)", isDirectory: true)
-        let store = RelayStateStore(rootDirectory: root)
+        let store = LoopStateStore(rootDirectory: root)
         switch store.loadResult(id: "relay_missing") {
         case .failure(.notFound(let id)):
             XCTAssertEqual(id, "relay_missing")
@@ -18,7 +18,7 @@ final class RelayStateStoreLoadTests: XCTestCase {
     func testLoadResultDecodeFailedFlagsRetiredWorkerKeys() throws {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent("relay-load-\(UUID().uuidString)", isDirectory: true)
-        let store = RelayStateStore(rootDirectory: root)
+        let store = LoopStateStore(rootDirectory: root)
         let directory = root.appendingPathComponent("relay_legacy", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let json = """
@@ -49,6 +49,6 @@ final class RelayStateStoreLoadTests: XCTestCase {
         let prose = """
         {"externalSubmission":"see devWorkerId in the migration doc","devModelId":"model_dev"}
         """
-        XCTAssertFalse(RelayStateStore.containsRetiredWorkerKeys(in: prose))
+        XCTAssertFalse(LoopStateStore.containsRetiredWorkerKeys(in: prose))
     }
 }

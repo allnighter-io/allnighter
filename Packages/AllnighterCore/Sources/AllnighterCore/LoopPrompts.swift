@@ -22,7 +22,7 @@ public enum RelayPMPrompt {
         public var devReport: String?
         /// Injected on `--resume` after an escalation — the founder's answer.
         public var founderNote: String?
-        /// Injected exactly once, on the FIRST spawned PM turn after `RelayCoordinator.
+        /// Injected exactly once, on the FIRST spawned PM turn after `LoopCoordinator.
         /// adopt` (`docs/phases/Pilot_Relay.md` §5, PL-S06 "adopt (unattended handover)"):
         /// tells the incoming spawned PM that earlier rounds on this SAME relay ran in
         /// Pilot mode (a live session held the seat directly, no `pmRunId`), so it reads
@@ -172,7 +172,7 @@ public enum RelayPMPrompt {
 /// preamble wrapped around the PM's handover, passed through untouched — the dev sees
 /// exactly what the founder would have pasted. No verdict contract; the dev's report is
 /// free prose.
-public enum RelayDevPrompt {
+public enum LoopDevPrompt {
     public struct Context: Sendable, Equatable {
         /// The PM's handover text, verbatim — never paraphrased or decorated.
         public var handover: String
@@ -237,11 +237,11 @@ public enum RelayDevPrompt {
 /// The one-re-ask nudge (§4.1) when a PM turn's verdict tail was missing or malformed. Asks
 /// for the SAME review conclusion re-emitted with a valid tail — never a redo of the review.
 public enum RelayReaskPrompt {
-    public static func assemble(previousOutput: String, parseError: RelayVerdictParser.ExtractError) -> String {
+    public static func assemble(previousOutput: String, parseError: LoopVerdictParser.ExtractError) -> String {
         let parts = [
             "# PM Relay — verdict re-ask",
             """
-            Your last reply didn't end with a usable `RelayVerdict` tail: \(describe(parseError))
+            Your last reply didn't end with a usable `LoopVerdict` tail: \(describe(parseError))
             """,
             """
             ## What you just wrote (for reference — verbatim, unedited)
@@ -251,13 +251,13 @@ public enum RelayReaskPrompt {
             """
             ## What to do
             Do not redo the review. Re-emit the SAME conclusion you already reached, ending this \
-            reply with exactly one valid ```json fenced `RelayVerdict` object per the contract above.
+            reply with exactly one valid ```json fenced `LoopVerdict` object per the contract above.
             """,
         ]
         return parts.joined(separator: "\n\n")
     }
 
-    private static func describe(_ error: RelayVerdictParser.ExtractError) -> String {
+    private static func describe(_ error: LoopVerdictParser.ExtractError) -> String {
         switch error {
         case .noVerdictFound:
             return "no JSON object anywhere in the reply carried a `verdict` key — the tail was missing entirely."
@@ -280,11 +280,11 @@ private func memoryPointerLine() -> String {
     """
 }
 
-/// The `RelayVerdict` contract, restated identically wherever the PM needs to see it. Kept
+/// The `LoopVerdict` contract, restated identically wherever the PM needs to see it. Kept
 /// as one source of truth so the PM prompt and the re-ask prompt never drift apart.
 private func verdictContractBlock() -> String {
     """
-    ## End every reply with exactly one RelayVerdict
+    ## End every reply with exactly one LoopVerdict
     Everything above is free prose. End this reply with exactly one ```json fenced object — \
     the only structure in this loop:
 
@@ -303,7 +303,7 @@ private func verdictContractBlock() -> String {
 
 /// Sentinel markers for embedding verbatim third-party text (dev reports, handovers, prior
 /// PM output) inside a prompt. Plain text lines rather than ``` fences on purpose: the
-/// embedded content itself may contain ```json fences (a dev report quoting a RelayVerdict
+/// embedded content itself may contain ```json fences (a dev report quoting a LoopVerdict
 /// example, a code sample with triple backticks) — nesting fences would either terminate
 /// early at the embedded content's own closing fence or force escaping that mutates the
 /// "verbatim" guarantee. A unique-enough text sentinel needs no escaping and can never be

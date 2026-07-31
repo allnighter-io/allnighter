@@ -66,10 +66,18 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Stalled", isDirectory: true)
     }
 
-    /// `…/Allnighter/Relays/` — durable PM Relay state (`docs/phases/PM_Relay.md`), one
-    /// folder per relay (`relays/<id>/relay.json`), mirroring the `Runs/` layout.
-    public static var relays: URL {
-        support.appendingPathComponent("Relays", isDirectory: true)
+    /// `…/Allnighter/Loops/` — durable loop state, one folder per loop
+    /// (`Loops/<id>/relay.json`), mirroring the `Runs/` layout. On-disk `relay.json`
+    /// filenames are unchanged (wire-stable); only the parent directory moved from
+    /// `Relays/` (LVC-S09).
+    public static var loops: URL {
+        support.appendingPathComponent("Loops", isDirectory: true)
+    }
+
+    /// Pre-LVC-S09 loop state directory. Used only to detect a silent empty list after
+    /// the `Relays/` → `Loops/` path move — never read for normal operation.
+    public static var legacyRelaysDirectory: URL {
+        support.appendingPathComponent("Loops", isDirectory: true)
     }
 
     /// `…/Allnighter/Evals/` — eval-harness runs, kept OUT of `Runs/` so history

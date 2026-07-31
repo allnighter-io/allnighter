@@ -148,7 +148,7 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
         let service = makeMutatingService(repo: repo, commandRunner: CommittingCommandRunner(repoRoot: repo))
         let result = await service.run(
             RunRequest(
-                message: RelayDevPrompt.assemble(context: .init(
+                message: LoopDevPrompt.assemble(context: .init(
                     handover: "Commit a file.", docPath: "docs/spec.md", roundNumber: 1,
                     workerDisplayName: "Dev Seat")),
                 repoRoot: repo.path, presetId: "build_slice", pinnedModelId: "model_grok"),

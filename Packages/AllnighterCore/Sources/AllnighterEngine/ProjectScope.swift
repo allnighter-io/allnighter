@@ -4,7 +4,7 @@ import Foundation
 /// (`docs/phases/Concurrent_Invocation_Isolation.md` F1/F3).
 ///
 /// Scope IS the canonical project root (`TeamRun.repoRoot` /
-/// `RelayState.projectRoot`), normalized through the one existing key system
+/// `LoopState.projectRoot`), normalized through the one existing key system
 /// (`RunWriteLock.normalize` — symlinks resolved, trailing slashes stripped).
 /// No second registry, lane, or ownership system.
 ///

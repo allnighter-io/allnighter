@@ -157,7 +157,7 @@ final class RunActivityJournalTests: XCTestCase {
         let now = activityAt.addingTimeInterval(10)
         let surface = ProcessOwnershipSurface(
             runStore: store,
-            relayStore: RelayStateStore(rootDirectory: dir.appendingPathComponent("relays")),
+            loopStore: LoopStateStore(rootDirectory: dir.appendingPathComponent("loops")),
             lanesRoot: dir.appendingPathComponent("lanes"),
             now: { now })
         let row = try XCTUnwrap(surface.list().processes.first { $0.id == "run-1" })
@@ -182,7 +182,7 @@ final class RunActivityJournalTests: XCTestCase {
         let now = t0.addingTimeInterval(10_000)
         let surface = ProcessOwnershipSurface(
             runStore: store,
-            relayStore: RelayStateStore(rootDirectory: dir.appendingPathComponent("relays")),
+            loopStore: LoopStateStore(rootDirectory: dir.appendingPathComponent("loops")),
             lanesRoot: dir.appendingPathComponent("lanes"),
             now: { now })
         // The terminal "run-done" row is history (CLP-S03 hides identity-dead
