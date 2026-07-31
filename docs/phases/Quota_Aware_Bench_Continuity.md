@@ -39,10 +39,30 @@ deltas from the v2 draft; the slice plan already reflects them.
    `MenuCatalog` / `MenuJSON` / `Bootstrap` live in **AllnighterCore**. Core
    cannot import Engine. Capacity must be **injected downward** from
    AllnighterCLI, never acquired inside `MenuCatalog.project`.
-3. **The payload type already exists.** `CapacityStripJSON` /
-   `CapacityStripJSONRow` (`CapacityStripRenderer.swift:7,26`) are in **Core**,
-   are `Codable`, and are exactly what `alln capacity --json` emits. Do not
-   invent a new row shape. Measured: **4,084 bytes for 6 bench rows.**
+3. **Do not embed the strip type — it is a display type.** `CapacityStripJSON`
+   (`CapacityStripRenderer.swift:7,26`) is what `alln capacity --json` emits, and
+   reusing it verbatim costs a measured **4,113 bytes for 6 rows**. That is 12%
+   of the whole menu for six numbers, and the breakdown shows why it is the
+   wrong type to embed:
+
+   | Key | Bytes across 6 rows | Verdict for a planner |
+   | --- | --- | --- |
+   | `pools[]` | 958 (35%) | **Cut** — for flat sources it verbatim restates the row-level fields. Only `agy` has genuinely distinct pools, and its ceiling is already `effectiveRemainingPercent` |
+   | `observedAt` | 210 | **Cut** — `observedAgeSeconds` carries the same honesty in fewer bytes, and the envelope already has `generatedAt` |
+   | `displayName` | 140 | **Cut** — derivable from `source` |
+   | `color` | 88 | **Cut** — TTY/GUI presentation, meaningless to a planner |
+   | pretty-printing | 1,265 (31%) | Structural; shrinks with the field count |
+
+   The menu needs a **decision** row, not a display row: `source`,
+   `effectiveRemainingPercent`, `resetAt`, `scope`, `shortRemainingPercent`,
+   `observedAgeSeconds`, `unknownReason`. Measured on this bench: **815 bytes
+   pretty / 562 compact — 2.3% of the menu**, a 5× reduction. Project it from
+   `CapacityBenchRow`, which is **already in Core** — so this stays a
+   Core→Core projection with no new acquisition and no Engine dependency.
+
+   **Rounding law:** the live strip emits `"age":818.8028600215912` and
+   `74.22`. Sub-millisecond precision on a staleness number is both byte waste
+   and false confidence. Percentages and ages round to `Int` in the menu row.
 4. **The byte budget is already blown, before this packet.** Live
    `alln menu --json` on the founder's bench is **35,037 bytes** — over the
    32,768 cap. `MenuSelectionGradeTests:159` only asserts against the *built-in
@@ -171,8 +191,8 @@ AllnighterCLI                      RunService.run                 dispatchTurn /
   └─ CapacityDisplayAcquisition      └─ park: queued +             dispatchDevTurn
        .windows(refresh: false)           waitingForVendor           └─ vendorPark(run)?
   └─ CapacityBenchProjection.rows       + blocker.wakeAfter              │  (BEFORE classify)
-  └─ CapacityStripRenderer.json         → .success(run)                  ▼
-       │  (4,084 B, 6 rows)                                       sleep→ claim-or-adopt
+  └─ MenuJSON.Capacity(rows:now:)       → .success(run)                  ▼
+       │  (815 B, 6 rows)                                         sleep→ claim-or-adopt
        ▼ injected                                                        │
   MenuCatalog.project(capacity:)   VendorBackoffReconciler                ▼
   Bootstrap(capacity:)              (dead owners + standalone)    same run settles →
@@ -203,7 +223,8 @@ AllnighterCLI                      RunService.run                 dispatchTurn /
    parked-run problem applies and the fix is the same three lines.
 3. Wake is **claim-or-adopt**, never claim-or-escalate. Serve winning the race is
    a normal outcome, not a failure.
-4. Reuse `CapacityStripJSON`; introduce no new capacity row type.
+4. The menu carries a lean **decision** row (~815 B), not the `CapacityStripJSON`
+   **display** row (~4,113 B). Percentages and ages round to `Int`.
 5. Menu byte budget is re-set and the gate is extended to a realistic catalog
    **before** capacity is added (prerequisite, S00).
 6. S02 (acks/help) folds into S01. S03 (counsel string) is **cut** — see below.
@@ -220,17 +241,28 @@ honestly aged capacity snapshot, with no probe spawned.
 **S00a — prerequisite: fix the byte gate.** Live menu is 35,037 B against a
 32,768 B documented cap that only the built-in fixture is tested against. Extend
 `MenuSelectionGradeTests` to project a realistic large catalog and set the
-budget to a number the real surface meets (40 KiB with capacity included is the
-recommendation). Shipping S00 on top of an untested-and-already-exceeded budget
-would make the gate a lie.
+budget to a number the real surface meets. Shipping S00 on top of an
+untested-and-already-exceeded budget would make the gate a lie.
+
+Note the sizes: `models` 11,664 B, `teams` 10,433 B, `commands` 8,447 B. Capacity
+at 815 B is 2.3% and is **not** what broke the budget. Do not let this packet
+absorb blame for a gate that was already failing — but do not stack onto it
+either. If the re-set proves contentious, the fallback is to trim `commands`
+(the least-read section), not to drop capacity.
 
 | Surface | Change |
 | --- | --- |
-| `MenuJSON` | `public var capacity: CapacityStripJSON?` — one optional field, existing Codable type |
-| `MenuCatalog.project` | New `capacity: CapacityStripJSON? = nil` parameter, passed straight through. No acquisition, no Engine import |
+| `MenuJSON.Capacity` | New lean Core type: `generatedAt` + `rows[]` of `{source, effectiveRemainingPercent: Int?, resetAt, scope, shortRemainingPercent: Int?, observedAgeSeconds: Int, unknownReason}`. ~15 lines. **Not** `CapacityStripJSON` (correction 3) |
+| `MenuJSON` | `public var capacity: Capacity?` — one optional field |
+| `MenuCatalog.project` | New `capacity: Capacity? = nil` parameter, passed straight through. No acquisition, no Engine import |
 | `Bootstrap` | Same optional parameter, same passthrough |
-| `MenuCLI` / `HelpCLI` / bootstrap CLI | Acquire and inject: `CapacityDisplayAcquisition.windows(now:, refresh: false)` → `CapacityBenchProjection.rows` → `CapacityStripRenderer.json(rows:now:contractVersion:)` |
+| `MenuJSON.Capacity.init(rows: [CapacityBenchRow], now:)` | The projection — Core→Core, drops `pools`/`color`/`displayName`, rounds to `Int` |
+| `MenuCLI` / `HelpCLI` / bootstrap CLI | Acquire and inject: `CapacityDisplayAcquisition.windows(now:, refresh: false)` → `CapacityBenchProjection.rows` → `MenuJSON.Capacity(rows:now:)` |
 | `alln menu show model:<id>` | Filter injected rows to that model's source |
+
+**Measured budget:** 815 B pretty (2.3% of the live 35,037 B menu), against
+4,113 B (11.7%) if the strip type were embedded. `alln capacity --json` keeps
+emitting the full strip — disclosure lives there, decisions live in the menu.
 
 **Constraints:**
 
