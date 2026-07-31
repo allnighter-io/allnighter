@@ -3,13 +3,11 @@
 # and no code_red_works_test. See docs/archive/phases/Test_Infrastructure_Upgrade.md (TIU-S01).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=ensure-test-guard-path.sh disable=SC1091
+source "$ROOT/scripts/ensure-test-guard-path.sh"
 
 echo "==> check-fast: test guard liveness"
-if ! bash "$ROOT/scripts/check-test-guard-liveness.sh"; then
-  # Loud warning is required; do not silently pass. Hygiene still continues so
-  # agents can fix other gates before install-test-guard lands in their shell.
-  echo "check-fast: continuing after guard warning (install-test-guard.sh)" >&2
-fi
+bash "$ROOT/scripts/check-test-guard-liveness.sh"
 
 echo "==> check Code Red architecture policy"
 bash "$ROOT/scripts/check_architecture_policy.sh"

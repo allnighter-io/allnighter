@@ -215,11 +215,15 @@ history: `docs/archive/phases/Test_Infrastructure_Upgrade.md`)
 7. Wedged Mac: `scripts/kill-stale-tests.sh`, then continue — do not stack full suites.
 
 ```text
-scripts/install-test-guard.sh   # one-time per clone (direnv + PATH shim)
+scripts/install-test-guard.sh   # optional: direnv for interactive shells (agents auto-activate via test scripts)
 scripts/swift-test.sh --filter LoopDispatch   # iteration proof
-bash scripts/check.sh           # closeout / founder-requested full wall
+bash scripts/check.sh           # closeout / founder-requested full wall (prints wall-clock at end)
 scripts/kill-stale-tests.sh     # emergency stale runner cleanup
 ```
+
+Test PATH shims auto-activate when any agent runs `check-fast.sh`, `swift-test.sh`,
+or `check.sh` (`scripts/ensure-test-guard-path.sh` prepends `scripts/bin` — no
+human `direnv allow` step required).
 
 Until Xcode targets exist, name the missing proof in closeout. Do not claim
 behavior is proven without a Works Test or explicit waiver.

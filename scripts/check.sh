@@ -2,8 +2,9 @@
 # Allnighter green wall — extend as Swift targets land.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-
-ran_any=false
+CHECK_STARTED_AT=$SECONDS
+# shellcheck source=ensure-test-guard-path.sh disable=SC1091
+source "$ROOT/scripts/ensure-test-guard-path.sh"
 
 # TIU-S01: cheap hygiene first (no compile/test suites).
 bash "$ROOT/scripts/check-fast.sh"
@@ -80,3 +81,6 @@ fi
 if [[ "$ran_any" == false ]]; then
   echo "check: no Swift targets yet (docs-only bootstrap OK)"
 fi
+
+elapsed=$((SECONDS - CHECK_STARTED_AT))
+printf 'check: done in %ds (%.1fm wall)\n' "$elapsed" "$(awk "BEGIN {printf \"%.1f\", $elapsed / 60}")"

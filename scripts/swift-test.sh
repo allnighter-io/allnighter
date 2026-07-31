@@ -3,6 +3,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=ensure-test-guard-path.sh disable=SC1091
+source "$ROOT/scripts/ensure-test-guard-path.sh"
 LOCK_FILE="$ROOT/.alln-test.lock"
 PACKAGE_PATH="$ROOT/Packages/AllnighterCore"
 

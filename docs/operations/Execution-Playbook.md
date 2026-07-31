@@ -55,12 +55,16 @@ When Swift targets exist, follow Green Wall rules below (promoted from archived
 7. Wedged Mac: `scripts/kill-stale-tests.sh`, then continue — do not stack full suites.
 
 ```text
-scripts/install-test-guard.sh              # one-time per clone
-scripts/swift-test.sh --filter LoopDispatch  # iteration proof
+scripts/install-test-guard.sh              # optional: direnv for interactive shells
+scripts/swift-test.sh --filter LoopDispatch  # iteration proof (auto-activates PATH shim)
 bash scripts/check-fast.sh                 # hygiene only (TIU-S01)
-bash scripts/check.sh                        # closeout / founder-requested full wall
+bash scripts/check.sh                        # closeout / founder-requested full wall (prints wall-clock)
 scripts/kill-stale-tests.sh                # emergency
 ```
+
+Agents do not run `install-test-guard.sh` manually — `check-fast.sh`, `swift-test.sh`,
+and `check.sh` source `scripts/ensure-test-guard-path.sh` first, which prepends
+`scripts/bin` to PATH for that shell.
 
 Until targets exist, closeout names missing proof explicitly.
 
