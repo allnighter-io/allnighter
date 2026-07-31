@@ -52,6 +52,9 @@ and CLI Implementation Contract are archived — do not revive.
 
 > Recently completed and archived — do not reopen the phase packet; read the
 > **successor** (code and/or standing docs named in the archive index):
+> [`Menu_Envelope_Compression.md`](../archive/phases/Menu_Envelope_Compression.md)
+> (CLOSED / NO BUILD 2026-07-31 — raise menu byte cap only; gzip/encoding rejected;
+> size gate in menu tests; capacity stays with QABC);
 > [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md)
 > (Complete 2026-07-31 — LVC-S00–S09: `alln loop` grammar, contract 7.0.0 /
 > binary 0.11.0, `Relay*`→`Loop*` symbols, `Relays/`→`Loops/`; code SSOT
