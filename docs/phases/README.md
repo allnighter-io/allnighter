@@ -36,8 +36,8 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 **Execution stop-gate:** test infra — agents running full `check.sh` / concurrent
 `swift test` against one `.build/` have caused multi-hour pile-ups (2026-07-31).
-See [`Test_Infrastructure_Upgrade.md`](Test_Infrastructure_Upgrade.md) (FINAL —
-S00–S02 core; S03 deferred).
+See [`Test_Infrastructure_Upgrade.md`](Test_Infrastructure_Upgrade.md) (FINAL rev 2 —
+S00–S03 all core; GitHub Actions CI deferred separately).
 
 **Top priority:** quota-aware bench continuity — plan-time capacity in the
 selection envelope plus loop honor of vendor park/wake (founder 2026-07-30).
@@ -47,7 +47,7 @@ and CLI Implementation Contract are archived — do not revive.
 
 | Doc | Status | Purpose |
 | --- | --- | --- |
-| [`Test_Infrastructure_Upgrade.md`](Test_Infrastructure_Upgrade.md) | **FINAL — ready to implement** | Stop pile-ups / wedged Mac: lock + kill + filtered wrapper, `check-fast`, serialize hang-prone suites. Single-dev cut — no shell-guard platform, no CI in core. TIU-S00–S02 (~1–1.5 days); S03 optional. |
+| [`Test_Infrastructure_Upgrade.md`](Test_Infrastructure_Upgrade.md) | **FINAL rev 2 — ready to implement** | Stop pile-ups / wedged Mac / agent retry-loops: lock + kill + timeout wrapper, `check-fast`, serialize hang-prone suites, thin deny-list guard. Single-dev cut — no policy engine, no CI in core. TIU-S00–S03 all core (~2 days); GitHub Actions CI deferred separately. |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — founder priority** | **Plan-time:** inject tier-1 capacity snapshot into `alln menu --json` + bootstrap so every PM plan is quota-aware (Codex 0% → seat Grok; Claude Fable 90% → route away). **Run-time:** relay yields to `waitingForVendor` + `wakeAfter` instead of 5s infra thrash — long `alln loop` dev turns resume at session reset. Reuses `CapacityDisplayAcquisition`, `VendorBackoffReconciler`, `VendorSubstitutionPolicy`. Moat: cross-vendor arbitrage no single vendor can copy. Slices QABC-S00 (menu envelope), S01 (relay park-yield), S02 (delivery acks). Does **not** resume naked vendor sessions never started via alln. |
 | [`Worker_To_Agent_Migration.md`](Worker_To_Agent_Migration.md) | **CLOSED — optional hygiene only** | Ship line complete (2026-07-29): living contracts + teaching use `agentId` + `modelId`. **Do not start** unless founder allocates time. Backlog: journal rename, lying locals, S07. SSOT: `Product_Vocabulary.md`; history: [`archive`](../archive/phases/Worker_To_Agent_Migration.md). |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |

@@ -128,7 +128,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Bug report / fix a bug / broken workflow | `docs/operations/Debugger.md` (+ `docs/operations/debugger/`) |
 | Code cleanup, maintainability, file hygiene | `docs/operations/code-maintainer/` |
 | Stack, Xcode, Swift package, commands | `docs/operations/TechStack.md` |
-| Test / CI / `check.sh` / agent proof commands / test pile-ups | `docs/phases/Test_Infrastructure_Upgrade.md` (open packet; runbook lands TIU-S05) |
+| Test / CI / `check.sh` / agent proof commands / test pile-ups | `docs/phases/Test_Infrastructure_Upgrade.md` (FINAL rev 2, TIU-S00–S03 all core; no separate runbook — rules land in Execution Playbook) |
 | iOS simulator dev / test loop (preview vs live) | `docs/operations/ios-testing-loop.md` |
 | Marketing, positioning, pricing copy | `docs/marketing/README.md` |
 | Strategy, control-loop thesis, A/B extension | `docs/strategy/` |
