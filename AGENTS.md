@@ -132,6 +132,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Test / CI / `check.sh` / agent proof commands / test pile-ups | `docs/operations/Execution-Playbook.md` § Green Wall (PATH shim + token makes the wrapper the only working path on every agent host; history: `docs/archive/phases/Test_Infrastructure_Upgrade.md`) |
 | iOS simulator dev / test loop (preview vs live) | `docs/operations/ios-testing-loop.md` |
 | Marketing, positioning, pricing copy | `docs/marketing/README.md` |
+| Changing a price, tier, trial length, or the free core | `docs/phases/Pricing_Change_Process.md` (founder ruling required; offer SSOT is `docs/marketing/Pricing_Recommendation.md`) |
+| EULA, terms, acceptance gate, credential/compliance posture | `docs/legal/README.md` |
 | Strategy, control-loop thesis, A/B extension | `docs/strategy/` |
 
 This table is first routing only. Narrower docs named by the target phase doc,

@@ -1,69 +1,143 @@
 # Pricing Recommendation
 
-Status: Draft v1  
+Status: **v2 — recommended offer** (supersedes v1 "3 free Team runs / $9.95")  
 Owner: Founder  
-Created: 2026-06-15
+Created: 2026-06-15  
+Updated: 2026-07-31 (free core + degrade-don't-brick + $12/$120 + founding cohort)
 
-## Recommendation
+Change process: `docs/phases/Pricing_Change_Process.md`. Do not edit numbers in
+this doc without running it.
 
-Launch with:
+## The Offer
 
 ```text
-Free download
-3 free Team runs
-$9.95/month after that
+Free forever core
+14-day full trial, starts at your first team run
+$12/month or $120/year after that
+Founding Builder: $199 once, first 100 only
 Mac app + iPhone app included
 Bring your own AI subscriptions
-No per-run fee
-No model markup
+No per-run fee, no model markup
 ```
 
-Call it:
+| Tier | Price | What you get |
+| --- | --- | --- |
+| **Free** | $0, forever | Capacity view (CLI + Mac app) · doctor / setup / readiness · menu, bootstrap, help · run history + Markdown export · **one worker, one round** |
+| **Trial** | $0, 14 days | Everything in Builder. Starts at **first team run** (2+ workers), not at install |
+| **Builder** | **$12/mo** or **$120/yr** | Unlimited fan-out and multi-round loops within your own provider limits · Mac command center · iPhone floor manager · team presets · synthesis presets |
+| **Founding Builder** | **$199 once** | Everything in Builder, for life. **First 100 buyers only**, then retired permanently |
 
-```text
-Allnighter Founding Builder
-```
+Later, after iOS ships and the surface deepens: $19–24/month for **new**
+customers. Everyone earlier is grandfathered.
 
-Offer copy:
+## The Line: Free = See. Paid = Do.
 
-```text
-Free to download. Run your first teams free. Then $9.95/month for Mac plus
-iPhone. Bring your own Claude, Grok, Codex, Gemini, Aider, Cursor, or local
-workers.
-```
+Free forever is not a crippled demo. It is a working tool that observes.
 
-## Why This Is The Best Launch Price
+- **`alln capacity` is free in both CLI and Mac app.** It is a read-only mirror
+  of the user's own quota. Charging for a mirror is indefensible — commercially
+  (it's a weekend clone) and morally.
+- **One worker, one round is free.** A single `claude -p` is something the user
+  can already do in their own terminal. Charging for convenience they don't need
+  us for is a bad line to defend.
+- **Fan-out (2+ workers) and multi-round loops are paid.** These are the things
+  that are genuinely hard by hand: parallel judgment across vendors plus
+  synthesis, and a lead steering execution seats over rounds. We charge when we
+  save real work.
 
-The product is an arbitrage product first.
+Why this line and not a run counter:
 
-The customer is already paying for intelligence. Allnighter should not feel like
-another expensive AI bill. It should feel like the missing $9.95 switch that makes
-their existing spend finally behave like a team.
+1. **It keeps the binary installed.** A free user with `alln` on PATH is a call
+   option. An uninstalled user is a permanently closed door — and the installed
+   binary is the entire distribution asset.
+2. **It generates the upgrade prompt at the moment of pain.** "Codex 4%, Claude
+   80% headroom" is free-tier output; the next thought is "so run it on Claude
+   instead," which is the paid action. The free tier *is* the marketing for the
+   arbitrage story, better than any copy we can write.
+3. **It is enforceable at one call site.** Seat count is already on hand
+   (`MenuJSON.Team.seatCount`) and dispatch already funnels through
+   `RunService`. One check, one place, few bugs. A run counter needs durable
+   counting, retry semantics, and an answer to "did that failed run count?" —
+   which is pure support load.
+4. **It costs nothing to serve.** Everything free is local.
 
-At $9.95/month:
+## Degrade, Never Brick
 
-- The offer is impulse-buy cheap for anyone already paying for Claude Max,
-  SuperGrok, Codex, Gemini, Cursor, or local hardware.
-- The value comparison is absurd without sounding scammy: "I pay $9.95 to
-  coordinate tools that cost me $20-$200+/month."
-- The price supports the "no model markup" trust position.
-- Flat pricing encourages usage, which is the whole point.
-- Including iPhone creates a simple, memorable value punch.
+When the trial ends, the product **falls back to the free core**. It never
+becomes a brick, and it never withholds data the user already produced.
+
+This is the most important pricing decision in the doc, ahead of the number:
+
+- A bricked tool gets uninstalled. An uninstall removes the distribution asset
+  and closes the door on every future conversion.
+- Word of mouth is the whole GTM. People do not recommend software that turned
+  itself off on them.
+- It de-risks trial anti-abuse: a false positive in the machine-hash ledger
+  (`docs/phases/One_Paste_Cold_Start.md` §Trial) drops someone to a working free
+  tier instead of bricking a paying-intent user.
+
+Never hold run history or exports hostage. It is cheap to give and enraging to
+withhold.
+
+## Why 14 Days, Starting At First Team Run
+
+The buying decision requires the user to hit a real "I need a second opinion on
+something that matters" moment. That does not happen daily for everyone.
+
+- **7 days** risks missing it, especially across a weekend.
+- **30 days** delays revenue and teaches people to treat the product as free.
+- **14 days** covers two working weeks.
+
+Start the clock at the **first team run**, not at install. An agent that installs
+`alln` on a Friday must not burn the weekend. Enforcement detail and the
+anti-reinstall ledger live in `docs/phases/One_Paste_Cold_Start.md` §Trial.
+
+## Why $12
+
+The anchor is not "what is this worth." It is "is this a rounding error next to
+the cheapest thing already in my stack." That thing is $20 (Claude Pro, Cursor,
+ChatGPT Plus).
+
+The category is also not "AI product" ($20+ anchor) — it is prosumer Mac dev
+utility (Raycast, Warp, CleanShot: $8–20). Pricing at or above $20 forces a
+comparison we lose: *"I'd rather add another Claude seat."*
+
+- **Above $10**, because sub-$10 signals "utility that might disappear." We are
+  asking users to trust that we will keep working against six moving vendor
+  CLIs. $9.95 undersells that commitment.
+- **Well under $20**, so it reads as obviously cheaper than one model
+  subscription.
+- **$12 vs $9.95 costs approximately zero conversion.** Nobody's budget breaks
+  at $2, in an audience spending $60–250/month on AI.
+- **It leaves headroom.** $12 → $19–24 later is a raise. $9.95 → $19.95 is a 2x
+  and reads as a bait-and-switch.
+
+**$120/year** because it is rounder and more marketable than $140, and
+"**$10/month, billed annually**" is a strong second line.
+
+## Why A Capped Founding Cohort
+
+100 × $199 ≈ $20k now. The same 100 users at $12/month takes ~17 months to get
+there. At zero funding, cash timing beats lifetime value, and early buyers
+convert into evangelists.
+
+The risk is real and is why it is capped: lifetime users are perpetual support
+with no recurring revenue. **First 100, then retired permanently.** Never a
+standing tier, never reopened.
 
 ## Why Not Usage-Based
 
-Do not charge per Team run in v1.
+Do not charge per team run.
 
-Per-run pricing fights the behavior we want. The product promise is: use the
-capacity you already paid for, ask the team more often, and stop rationing
-review. A meter makes users think twice right before the magic moment.
+Per-run pricing fights the behavior we want. The promise is: use the capacity you
+already paid for, ask the team more often, stop rationing review. A meter makes
+users think twice right before the magic moment.
 
-Usage-based pricing also confuses responsibility:
+Usage pricing also confuses responsibility:
 
 ```text
 Is this Allnighter cost?
 Is this Claude cost?
-Is this Grok cost?
 Did I just spend tokens twice?
 ```
 
@@ -74,68 +148,40 @@ You pay vendors for model access.
 You pay Allnighter for orchestration.
 ```
 
-## Why Not $19.95 Yet
+## Pricing Principle
 
-$19.95 is plausible later, especially after iPhone, direct dispatch, return
-review, history, presets, review lenses, and quota harvesting are polished.
+**Charge for coordination, not intelligence.** The customer already bought the
+intelligence. Allnighter sells the missing operating layer: fan-out, synthesis,
+comparison, dispatch, history, and mobile control.
 
-Do not start there.
+Free core extends it: **observation is free, coordination is paid.**
 
-The launch wedge is not "enterprise agent ops." The launch wedge is "holy hell,
-this removes the dumbest part of using all these tools." The fastest path to word
-of mouth is a no-brainer price that makes buyers feel clever.
+## Claim Discipline (pricing surfaces)
 
-Move later:
+Pricing copy is a compliance surface, not just marketing
+(`docs/legal/Terms_of_Service.md`, `docs/legal/EULA.md`).
 
-```text
-Founding Builder: $9.95/month, grandfathered
-Builder: $19.95/month after public launch or iOS floor manager
-Team: later, priced per worker
-```
+**Never say:**
 
-## Free Trial Mechanics
+- "quota harvesting" / "harvest your limits" — reads as circumvention
+- "unlimited Claude/Grok/Codex" — we grant no model access
+- "get more out of your limits" / "stretch your quota"
+- anything implying Allnighter provides, pools, resells, or extends model access
 
-Recommended trial:
+**Say instead:**
 
-```text
-3 free Team runs
-```
+- "Runs the CLIs you already installed, with your own login."
+- "Unlimited Allnighter orchestration, within your own provider limits."
+- "Allnighter never sees your provider credentials."
+- "Bring your own AI subscriptions. Allnighter does not include model access."
 
-Definition:
-
-```text
-A Team run counts when Allnighter successfully dispatches to 2+ automated
-workers or completes a synthesis step.
-```
-
-Do not count:
-
-- Doctor checks
-- Failed CLI launches
-- Manual-paste-only runs
-- Viewing history
-- Editing presets
-- Exporting prior runs
-
-Why 3:
-
-- One run proves it works.
-- Two runs prove it was not luck.
-- Three runs lets the user try one serious decision.
-- "A couple prompts free" becomes specific enough to build and market.
-
-Trial copy:
-
-```text
-Your first 3 teams are free. They use your own connected AI subscriptions, not
-Allnighter-provided model credits.
-```
+The credential posture is both the trust claim and the compliance position: we
+spawn the vendor's own CLI, which authenticates itself. We never read, store,
+proxy, or transmit provider tokens.
 
 ## The Claude Credit Offer
 
-This is the strongest paid-plan conversion angle for Claude Max users.
-
-Copy:
+Strongest paid-plan conversion angle for Claude Max users.
 
 ```text
 On Claude Max 5x? Anthropic currently offers a $100/month Agent SDK credit for
@@ -143,25 +189,21 @@ eligible subscribers after opt-in. Allnighter helps you route real work through
 your own local `claude -p` setup, then combines it with Grok and other workers.
 ```
 
-Value framing:
+Framing:
 
 ```text
 Allnighter does not sell you Claude. It helps you use the Claude capacity you may
 already have.
 ```
 
-Do not imply:
-
-- Allnighter grants the credit.
-- Allnighter pools credits.
-- Allnighter can access credits without the user's own Claude Code login.
-- The credit applies to every Claude interaction.
+Do not imply: that Allnighter grants the credit, pools credits, can access
+credits without the user's own Claude Code login, or that the credit applies to
+every Claude interaction. Verify the offer is still live before publishing —
+third-party program terms change.
 
 ## The Grok Offer
 
-Grok should be in the value stack, but not as a hard unlimited claim.
-
-Copy:
+In the value stack, never as a hard unlimited claim.
 
 ```text
 Add Grok as another worker in the team. If your Grok plan gives you generous
@@ -169,127 +211,49 @@ limits, Allnighter helps turn that capacity into useful second opinions and
 synthesis inputs.
 ```
 
-Internal product note:
-
-```text
-If Grok remains effectively high-limit in practice, it becomes one of the best
-default team workers. Product should track observed failures/rate-limit errors
-and surface them honestly in Doctor and run history.
-```
-
-## Offer Ladder
-
-### Free
-
-```text
-$0
-Download Mac app
-Connect local CLIs
-Run Doctor
-3 Team runs
-Manual-paste fallback
-View/export run history from trial
-```
-
-### Founding Builder
-
-```text
-$9.95/month
-Everything in Free
-Unlimited Allnighter orchestration within your own provider limits
-Mac app
-iPhone app included when available
-Run history
-Team presets
-Synthesis presets
-Doctor
-Markdown export
-```
-
-### Later: Pro Builder
-
-```text
-$19.95/month
-Only after more shipped value:
-review lenses
-direct dispatch
-return review
-quota harvester
-Team-as-tool CLI/MCP
-advanced history/search
-```
-
-### Later: Team
-
-```text
-Not now.
-```
-
-Team pricing introduces workers, admin, policy, support, shared configs, and
-compliance questions. It is a separate product motion.
-
-## The Single Best Price
-
-Use:
-
-```text
-$9.95/month
-```
-
-Do not use:
-
-```text
-$9.99/month
-```
-
-Reason:
-
-`$9.95` feels direct-response and intentional. `$9.99` feels like another app
-subscription. The product is slightly weird, founder-led, and arbitrage-driven.
-The price can carry that personality.
-
-Annual:
-
-```text
-$95/year
-```
-
-Annual is nice to have, not the headline. Monthly is the conversion engine.
+Internal note: if Grok stays effectively high-limit in practice it becomes one of
+the best default workers. Track observed rate-limit failures and surface them
+honestly in doctor and run history.
 
 ## Price Page Copy
 
 ```text
 Free
-$0
-Try the team.
+$0 forever
+See your whole bench.
 
-- 3 Team runs
-- Connect your own CLIs
-- Doctor checks
-- Manual-paste fallback
-- Export trial results
+- Live capacity across every connected CLI
+- Doctor checks and setup
+- Run history and Markdown export
+- One worker, one round
 
-Founding Builder
-$9.95/month
+Builder
+$12/month — or $120/year
 Make your AI team show up.
 
-- Unlimited Allnighter runs within your own provider limits
+- Unlimited fan-out and multi-round loops, within your own provider limits
 - Mac command center
-- iPhone floor manager included
+- iPhone floor manager
 - Claude Code, Grok, Codex, Gemini, Aider, and local workers
-- Team presets
-- Synthesis presets
-- Run history
-- Markdown export
+- Team presets and synthesis presets
 - No model markup
+
+14-day free trial, starting at your first team run.
+When it ends, you keep the free core — and all your history.
+
+Founding Builder
+$199 once — first 100 only
+Everything in Builder, for life.
 
 Bring your own AI subscriptions. Allnighter does not include model access.
 ```
 
-## Pricing Principle
+## Superseded (v1, 2026-06-15)
 
-Charge for coordination, not intelligence.
-
-The customer already bought the intelligence. Allnighter sells the missing
-operating layer: fan-out, synthesis, comparison, dispatch, history, and mobile
-control.
+| v1 | v2 | Why |
+| --- | --- | --- |
+| 3 free Team runs, then dark | Free core forever + 14-day full trial | A brick gets uninstalled; the installed binary is the distribution asset |
+| $9.95/month | $12/month | Sub-$10 signals disposable; $2 costs no conversion; headroom to $19–24 |
+| $95/year | $120/year | Rounder; "$10/month billed annually" |
+| No lifetime option | $199 capped at 100 | Cash timing beats LTV at zero funding |
+| "quota harvester" as a feature name | Retired from all public copy | Reads as circumvention |
