@@ -16,12 +16,19 @@ final class DefaultModelViewModel {
     private var benchModels: [Model] = []
     private var sourceReadyIds: Set<ModelID> = []
     private var driverName: (String) -> String = { $0 }
+    private var refreshBenchModels: () -> [Model] = { [] }
 
     /// Feed in the app's live bench + readiness. Recompute whenever they change.
-    func load(benchModels: [Model], sourceReadyIds: Set<ModelID>, driverName: @escaping (String) -> String) {
+    func load(
+        benchModels: [Model],
+        sourceReadyIds: Set<ModelID>,
+        driverName: @escaping (String) -> String,
+        refreshBenchModels: @escaping () -> [Model] = { [] }
+    ) {
         self.benchModels = benchModels
         self.sourceReadyIds = sourceReadyIds
         self.driverName = driverName
+        self.refreshBenchModels = refreshBenchModels
         reproject()
     }
 
@@ -43,17 +50,32 @@ final class DefaultModelViewModel {
         project(from: s)   // reuse the in-memory settings; no second disk read
     }
 
+    private func applyTierMutation(_ change: () throws -> DefaultModelSettings) {
+        guard let s = try? change() else { return }
+        benchModels = refreshBenchModels()
+        project(from: s)
+    }
+
     // MARK: - Mutations (mirror `alln defaults …`)
 
     func setDefaultTier(_ tier: SubstitutionTier) { mutate { $0.defaultTier = tier } }
     func setSubstitutions(_ on: Bool) { mutate { $0.allowHealthySubstitutions = on } }
 
     /// Drag-to-top equivalent: make this model the tier's default (index 0).
-    func makeDefault(_ id: ModelID, in tier: SubstitutionTier) { mutate { $0.tiers.assign(id, to: tier, position: 0) } }
+    func makeDefault(_ id: ModelID, in tier: SubstitutionTier) {
+        applyTierMutation { try DefaultModelTierActions.assign(id, to: tier, position: 0,
+                                                               settingsPersistence: persistence) }
+    }
     /// Add a model to a tier (append). Many-to-many: never removes it from others.
-    func assign(_ id: ModelID, to tier: SubstitutionTier) { mutate { $0.tiers.assign(id, to: tier) } }
+    func assign(_ id: ModelID, to tier: SubstitutionTier) {
+        applyTierMutation { try DefaultModelTierActions.assign(id, to: tier,
+                                                               settingsPersistence: persistence) }
+    }
     /// Remove from one tier (or all tiers when `tier == nil`).
-    func unassign(_ id: ModelID, from tier: SubstitutionTier?) { mutate { $0.tiers.unassign(id, from: tier) } }
+    func unassign(_ id: ModelID, from tier: SubstitutionTier?) {
+        applyTierMutation { try DefaultModelTierActions.unassign(id, from: tier,
+                                                                 settingsPersistence: persistence) }
+    }
     /// Toggle tier membership from the Available Models shelf (same as `×` on a tier card).
     func toggleTierMembership(_ id: ModelID, tier: SubstitutionTier) {
         if isInTier(id, tier) { unassign(id, from: tier) } else { assign(id, to: tier) }

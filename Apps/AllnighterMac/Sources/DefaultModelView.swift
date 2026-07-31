@@ -37,7 +37,14 @@ struct DefaultModelView: View {
         let readyIds = Set(appModel.models.filter { readyDrivers.contains($0.driverId) }.map(\.id))
         let names = Dictionary(appModel.models.map { ($0.driverId, appModel.driverName(for: $0)) },
                                uniquingKeysWith: { a, _ in a })
-        vm.load(benchModels: appModel.models, sourceReadyIds: readyIds, driverName: { names[$0] ?? $0 })
+        vm.load(
+            benchModels: appModel.models,
+            sourceReadyIds: readyIds,
+            driverName: { names[$0] ?? $0 },
+            refreshBenchModels: {
+                appModel.reloadModelsFromCatalog()
+                return appModel.models
+            })
     }
 
     // MARK: - Header
@@ -228,6 +235,11 @@ struct DefaultModelView: View {
                     .font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
+            if !m.enabled {
+                Text("Off bench")
+                    .font(ALFont.mono(9.5, .semibold))
+                    .foregroundStyle(ALColor.textFaint)
+            }
             statusDot(ready: m.ready, enabled: m.enabled)
             if !m.isTierDefault {
                 iconButton("arrow.up.to.line") { vm.makeDefault(m.id, in: tier) }
@@ -272,6 +284,11 @@ struct DefaultModelView: View {
                     .font(ALFont.mono(11)).foregroundStyle(ALColor.textFaint)
             }
             Spacer(minLength: 0)
+            if !m.enabled {
+                Text("Off bench")
+                    .font(ALFont.mono(9.5, .semibold))
+                    .foregroundStyle(ALColor.textFaint)
+            }
             statusDot(ready: m.ready, enabled: m.enabled)
             HStack(spacing: 4) {
                 ForEach(tiers, id: \.self) { tier in
@@ -311,7 +328,7 @@ struct DefaultModelView: View {
     private func statusDot(ready: Bool, enabled: Bool) -> some View {
         Circle().fill(ready ? ALPalette.green500 : (enabled ? ALPalette.yellow500 : ALColor.textFaint))
             .frame(width: 7, height: 7)
-            .help(ready ? "ready" : (enabled ? "down" : "off"))
+            .help(ready ? "ready" : (enabled ? "down" : "off bench"))
     }
 
     private func iconButton(_ symbol: String, _ action: @escaping () -> Void) -> some View {

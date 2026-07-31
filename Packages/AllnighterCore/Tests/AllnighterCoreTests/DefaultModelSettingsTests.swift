@@ -234,6 +234,32 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertNil(r.resolvedModelId)
     }
 
+    // MARK: - Tier + bench parity
+
+    func testAssignToTierEnablesOffBenchModel() throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("dms-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let settingsFile = dir.appendingPathComponent("default_model_settings.json")
+        let rosterURL = dir.appendingPathComponent("model_roster.json")
+        ModelCatalog.overrideRosterForTesting(fileURL: rosterURL)
+        defer { ModelCatalog.resetTestingOverrides() }
+
+        try ModelRosterPersistence(fileURL: rosterURL).save(
+            ModelRosterState(enabledModelIds: ["model_opus"]))
+        XCTAssertFalse(ModelCatalog.isEnabled("model_kimi_k27"))
+
+        var settings = DefaultModelSettings.fresh
+        settings.tiers.economy = settings.tiers.economy.filter { $0 != "model_kimi_k27" }
+        let persistence = DefaultModelSettingsPersistence(fileURL: settingsFile)
+        try persistence.save(settings)
+
+        _ = try DefaultModelTierActions.assign("model_kimi_k27", to: .economy,
+                                               settingsPersistence: persistence)
+
+        XCTAssertTrue(ModelCatalog.isEnabled("model_kimi_k27"))
+        XCTAssertTrue(persistence.load().tiers.economy.contains("model_kimi_k27"))
+    }
+
     // MARK: - Persistence
 
     func testPersistenceRoundTripPreservesMultiTierAndDedupesWithinTier() throws {

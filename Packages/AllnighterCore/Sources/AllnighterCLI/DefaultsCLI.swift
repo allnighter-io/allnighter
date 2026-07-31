@@ -60,9 +60,15 @@ enum DefaultsCLI {
         } else {
             position = nil   // append
         }
-        var s = persistence().load()
-        s.tiers.assign(model, to: tier, position: position)
-        save(s); emit(s, opts, runtime)
+        let s: DefaultModelSettings
+        do {
+            s = try DefaultModelTierActions.assign(model, to: tier, position: position,
+                                                   settingsPersistence: persistence())
+        } catch {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR",
+                               message: "could not assign model to tier: \(error.localizedDescription)")
+        }
+        emit(s, opts, runtime)
     }
 
     private static func unassign(_ args: [String], _ runtime: ToolRuntime) {
@@ -77,9 +83,15 @@ enum DefaultsCLI {
         } else {
             tier = nil   // remove from all tiers
         }
-        var s = persistence().load()
-        s.tiers.unassign(model, from: tier)
-        save(s); emit(s, opts, runtime)
+        let s: DefaultModelSettings
+        do {
+            s = try DefaultModelTierActions.unassign(model, from: tier,
+                                                     settingsPersistence: persistence())
+        } catch {
+            AllnighterCLI.fail(code: "CLI_USAGE_ERROR",
+                               message: "could not unassign model from tier: \(error.localizedDescription)")
+        }
+        emit(s, opts, runtime)
     }
 
     private static func substitutions(_ args: [String], _ runtime: ToolRuntime) {

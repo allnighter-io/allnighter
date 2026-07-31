@@ -334,6 +334,38 @@ public enum SubstitutionResolver {
     }
 }
 
+/// Tier membership mutations that keep bench enablement aligned with the Default model
+/// screen and `alln defaults assign`. Adding a model to a tier puts it on the bench
+/// (`model_roster.json`) so agents and `alln models` agree — tier columns are not a
+/// separate "shadow bench."
+public enum DefaultModelTierActions {
+    public static func assign(
+        _ id: ModelID,
+        to tier: SubstitutionTier,
+        position: Int? = nil,
+        settingsPersistence: DefaultModelSettingsPersistence = DefaultModelSettingsPersistence()
+    ) throws -> DefaultModelSettings {
+        var settings = settingsPersistence.load()
+        settings.tiers.assign(id, to: tier, position: position)
+        try settingsPersistence.save(settings)
+        if ModelCatalog.get(id) != nil, !ModelCatalog.isEnabled(id) {
+            try ModelCatalog.setEnabled(id, true)
+        }
+        return settingsPersistence.load()
+    }
+
+    public static func unassign(
+        _ id: ModelID,
+        from tier: SubstitutionTier?,
+        settingsPersistence: DefaultModelSettingsPersistence = DefaultModelSettingsPersistence()
+    ) throws -> DefaultModelSettings {
+        var settings = settingsPersistence.load()
+        settings.tiers.unassign(id, from: tier)
+        try settingsPersistence.save(settings)
+        return settingsPersistence.load()
+    }
+}
+
 /// Persists `DefaultModelSettings` to `Config/default_model_settings.json`. IO is
 /// behind a plain persistence helper (no public "Store" vocabulary, per the SSOT
 /// directive). Load returns the fresh seed when no file exists.
