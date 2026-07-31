@@ -12,7 +12,7 @@ turns hit session caps and die because the loop ignores a successful vendor park
 and thrash-retries as infra backoff.
 
 Related shipped substrate (reuse, do not re-build):
-[`Capacity_Hardening_Hotfix.md`](Capacity_Hardening_Hotfix.md),
+archived [`Capacity_Hardening_Hotfix.md`](../archive/phases/Capacity_Hardening_Hotfix.md),
 archived `Rate_Limit_Continuity.md` (`VendorBackoffPolicy`,
 `VendorBackoffReconciler`, `VendorSubstitutionPolicy`),
 [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md),
@@ -424,7 +424,7 @@ seating wrong.
 | --- | --- |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | Composes — WRC recovers after seat death; QABC prevents/survives capacity walls |
 | [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md) | Status set **unchanged** (correction 8); product surface stays `alln loop` |
-| [`Capacity_Hardening_Hotfix.md`](Capacity_Hardening_Hotfix.md) | Prerequisite — QABC consumes the projection path unmodified |
+| [`Capacity_Hardening_Hotfix.md`](../archive/phases/Capacity_Hardening_Hotfix.md) | Prerequisite (archived, shipped) — QABC consumes the projection path unmodified |
 | [`CLI_Park.md`](CLI_Park.md) | Orthogonal — parks a driver from probes; QABC parks runs on quota |
 
 ---

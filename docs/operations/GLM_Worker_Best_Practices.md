@@ -6,8 +6,9 @@ Updated: 2026-07-20
 
 This is the **eternal playbook** for seating GLM (OpenCode / Featherless, ~32K context)
 productively in Allnighter. It captures lessons that survive any single batch or tool
-version. The active hardening queue lives in
-[`docs/phases/code_review/`](../phases/code_review/README.md); this doc is the *why* and
+version. The CR-01–CR-32 hardening queue is fully triaged and shipped, archived at
+[`docs/archive/phases/code_review/`](../archive/phases/code_review/README.md); a future
+review batch would recreate `docs/phases/code_review/` fresh. This doc is the *why* and
 *how*, not the task list.
 
 ---
@@ -264,8 +265,8 @@ Fifteen sprint work orders from Phase 1 planner triage (2026-06-28).
 
 | Doc | Role |
 | --- | --- |
-| [`docs/phases/code_review/README.md`](../phases/code_review/README.md) | Active queue, packets, runlog |
-| [`docs/phases/code_review/phase2-hardening-queue.md`](../phases/code_review/phase2-hardening-queue.md) | Next slices (CR-07–32) |
+| [`docs/archive/phases/code_review/README.md`](../archive/phases/code_review/README.md) | Closed queue, packets, runlog (CR-01–32, all triaged/shipped) |
+| [`docs/archive/phases/code_review/phase2-hardening-queue.md`](../archive/phases/code_review/phase2-hardening-queue.md) | Phase-2 slice history (CR-07–32) |
 | [`docs/archive/phases/PM_Relay.md`](../archive/phases/PM_Relay.md) | F1–F4 origin (`Pair_Programming_Team.md`, implement mode) — deleted R-S09 |
 | [`docs/phases/sprint/README.md`](../phases/sprint/README.md) | Work orders from triaged findings |
 | [`docs/operations/Execution-Playbook.md`](Execution-Playbook.md) | Slice closeout, commits, proof |

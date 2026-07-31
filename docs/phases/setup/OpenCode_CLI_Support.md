@@ -272,7 +272,7 @@ Router: `docs/phases/sprint/README.md`
 
 | Order | Sprint doc | Scope |
 | --- | --- | --- |
-| 1 | [OC-S01a](../../sprint/opencode/OC-S01a-extractor-tests.md) | Tests + fixture |
+| 1 | [OC-S01a](../../archive/phases/sprint/opencode/OC-S01a-extractor-tests.md) | Tests + fixture (shipped, archived) |
 | 2 | [OC-S01b](../../sprint/opencode/OC-S01b-worker-runner.md) | WorkerRunner wire |
 | 3 | [OC-S01c](../../sprint/opencode/OC-S01c-serve-coordinator.md) | Serve coordinator |
 | 4 | [OC-S01d](../../sprint/opencode/OC-S01d-detector-smoke.md) | Detector + spawn hook |
@@ -293,8 +293,8 @@ Already shipped (prior work): `opencode.json`, `DefaultConfig` embed,
 6. DefaultConfigDriftTests …
 7. Live `alln doctor --agent opencode` …
 
-**Blocked:** see [`OpenCode_Smoke_Probe_Blocker.md`](../OpenCode_Smoke_Probe_Blocker.md) —
-headless stdout contract unproven; do not claim driver ready until OC-B0/B1 complete.
+**Resolved:** see archived [`OpenCode_Smoke_Probe_Blocker.md`](../../archive/phases/OpenCode_Smoke_Probe_Blocker.md) —
+OC-B0/B1 complete; OpenCode works end to end (HTTP-API driver).
 
 </details>
 
