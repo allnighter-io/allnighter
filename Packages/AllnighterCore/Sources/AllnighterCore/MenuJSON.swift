@@ -282,6 +282,40 @@ public struct MenuShowJSON: Codable, Sendable, Equatable {
         public var capabilities: ModelCapabilities
         public var runTemplate: String
         public var validateTemplate: String
+        /// QABC-S00d — rows from the injected menu capacity narrowed to this
+        /// model's source only. Nil when no capacity was injected or no row
+        /// matches this model's driver.
+        public var capacity: MenuJSON.Capacity?
+
+        public init(
+            ref: String,
+            id: String,
+            displayName: String,
+            driverId: String,
+            driverName: String,
+            enabled: Bool,
+            ready: Bool,
+            status: String,
+            blockedReason: String?,
+            capabilities: ModelCapabilities,
+            runTemplate: String,
+            validateTemplate: String,
+            capacity: MenuJSON.Capacity? = nil
+        ) {
+            self.ref = ref
+            self.id = id
+            self.displayName = displayName
+            self.driverId = driverId
+            self.driverName = driverName
+            self.enabled = enabled
+            self.ready = ready
+            self.status = status
+            self.blockedReason = blockedReason
+            self.capabilities = capabilities
+            self.runTemplate = runTemplate
+            self.validateTemplate = validateTemplate
+            self.capacity = capacity
+        }
     }
 
     public struct RecipeDetail: Codable, Sendable, Equatable {

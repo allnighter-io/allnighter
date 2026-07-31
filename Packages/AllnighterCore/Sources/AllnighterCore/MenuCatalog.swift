@@ -405,14 +405,16 @@ public enum MenuCatalog {
         registry: ContractRegistry = .milestone1,
         teams: [TeamPreset]? = nil,
         modelEntries: [ModelListJSON.Entry]? = nil,
-        recipes: [RecipeCatalog.Recipe]? = nil
+        recipes: [RecipeCatalog.Recipe]? = nil,
+        capacity: MenuJSON.Capacity? = nil
     ) throws -> MenuShowJSON {
         let trimmed = ref.trimmingCharacters(in: .whitespacesAndNewlines)
         let menu = project(
             registry: registry,
             teams: teams,
             modelEntries: modelEntries,
-            recipes: recipes
+            recipes: recipes,
+            capacity: capacity
         )
         guard let colon = trimmed.firstIndex(of: ":") else {
             throw MenuRefError(
@@ -435,7 +437,7 @@ public enum MenuCatalog {
         case "team":
             return try showTeam(id: id, ref: trimmed, teams: teams ?? TeamCatalog.all.filter { !$0.isLabTeam }, menu: menu)
         case "model":
-            return try showModel(id: id, ref: trimmed, modelEntries: modelEntries, menu: menu)
+            return try showModel(id: id, ref: trimmed, modelEntries: modelEntries, menu: menu, capacity: capacity)
         case "recipe":
             return try showRecipe(id: id, ref: trimmed, recipes: recipes ?? RecipeCatalog.list(), menu: menu)
         default:
@@ -625,7 +627,8 @@ public enum MenuCatalog {
         id: String,
         ref: String,
         modelEntries: [ModelListJSON.Entry]?,
-        menu: MenuJSON
+        menu: MenuJSON,
+        capacity: MenuJSON.Capacity? = nil
     ) throws -> MenuShowJSON {
         let entries = (modelEntries ?? builtInModelEntries()).sorted { $0.id < $1.id }
         guard let entry = entries.first(where: { $0.id == id }) else {
@@ -636,6 +639,10 @@ public enum MenuCatalog {
                 message: "Unknown model ref \(ref)",
                 suggestions: Array((suggestions.isEmpty ? menu.models.prefix(5).map(\.ref) : suggestions).prefix(8))
             )
+        }
+        let modelCapacity: MenuJSON.Capacity? = capacity.flatMap { cap in
+            let rows = cap.rows.filter { $0.source == entry.driverId }
+            return rows.isEmpty ? nil : MenuJSON.Capacity(generatedAt: cap.generatedAt, rows: rows)
         }
         return MenuShowJSON(
             contractVersion: menu.contractVersion,
@@ -653,7 +660,8 @@ public enum MenuCatalog {
                 blockedReason: modelBlockedReason(entry),
                 capabilities: entry.capabilities,
                 runTemplate: "alln run \"{message}\" --model \(entry.id) --json",
-                validateTemplate: "alln run \"{message}\" --model \(entry.id) --dry-run"
+                validateTemplate: "alln run \"{message}\" --model \(entry.id) --dry-run",
+                capacity: modelCapacity
             )
         )
     }

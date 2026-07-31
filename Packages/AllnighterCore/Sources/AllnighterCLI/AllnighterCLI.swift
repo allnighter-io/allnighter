@@ -378,6 +378,34 @@ struct AllnighterCLI {
         }
     }
 
+    /// QABC-S00d — plan-time capacity for `alln menu` / `alln menu show` /
+    /// `alln bootstrap`. LAW: always acquires with `refresh: false` — reading
+    /// the menu must never spawn a probe or cost latency. `alln capacity`
+    /// itself keeps its own refresh-by-default path untouched (`runCapacity`
+    /// above). `probeExecutor` only exists so tests can assert zero probe
+    /// invocations; production callers never pass one.
+    ///
+    /// Returns `nil` (never crashes, never blocks) if acquisition yields
+    /// nothing usable — unknown capacity must never block menu or seating.
+    static func menuCapacity(
+        now: Date,
+        probeExecutor: (any CapacityProbeExecuting)? = nil
+    ) -> MenuJSON.Capacity? {
+        let windows = CapacityDisplayAcquisition.windows(
+            now: now,
+            refresh: false,
+            probeExecutor: probeExecutor
+        )
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        guard !rows.isEmpty else { return nil }
+        let strip = CapacityStripRenderer.json(
+            rows: rows,
+            now: now,
+            contractVersion: ContractRegistry.contractVersion
+        )
+        return MenuJSON.Capacity(strip: strip)
+    }
+
     /// Local TTY probe for the capacity strip (mirrors PilotCLI — not shared).
     private static func capacityStdoutIsTTY() -> Bool {
         #if canImport(Darwin)
@@ -1830,7 +1858,12 @@ struct AllnighterCLI {
         }
         let ctx = Bootstrap.liveContext()
         if opts.flag("json") {
-            print(Bootstrap.jsonString(host: host, binaryPath: ctx.binaryPath, onPath: ctx.onPath))
+            print(Bootstrap.jsonString(
+                host: host,
+                binaryPath: ctx.binaryPath,
+                onPath: ctx.onPath,
+                capacity: menuCapacity(now: Date())
+            ))
         } else {
             print(Bootstrap.render(host: host, binaryPath: ctx.binaryPath, onPath: ctx.onPath))
         }

@@ -8,7 +8,8 @@ enum MenuCLI {
         _ = Options(args) // accept --json like peers; always emit machine JSON
         let menu = MenuCatalog.project(
             teams: runtime.teams.filter { !$0.isLabTeam },
-            modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models
+            modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models,
+            capacity: AllnighterCLI.menuCapacity(now: Date())
         )
         do {
             print(String(decoding: try MenuCatalog.encodeCompact(menu), as: UTF8.self))
@@ -29,7 +30,8 @@ enum MenuCLI {
             let detail = try MenuCatalog.show(
                 ref: ref,
                 teams: runtime.teams.filter { !$0.isLabTeam },
-                modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models
+                modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models,
+                capacity: AllnighterCLI.menuCapacity(now: Date())
             )
             print(String(decoding: try MenuCatalog.encodeCompact(detail), as: UTF8.self))
         } catch let error as MenuRefError {

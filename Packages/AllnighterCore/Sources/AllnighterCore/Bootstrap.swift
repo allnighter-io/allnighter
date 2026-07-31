@@ -114,8 +114,8 @@ public enum Bootstrap {
         )
     }
 
-    public static func jsonString(host: Host, binaryPath: String, onPath: Bool) -> String {
-        let data = (try? CoreJSON.encode(json(host: host, binaryPath: binaryPath, onPath: onPath))) ?? Data()
+    public static func jsonString(host: Host, binaryPath: String, onPath: Bool, capacity: MenuJSON.Capacity? = nil) -> String {
+        let data = (try? CoreJSON.encode(json(host: host, binaryPath: binaryPath, onPath: onPath, capacity: capacity))) ?? Data()
         return String(decoding: data, as: UTF8.self)
     }
 
