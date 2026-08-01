@@ -1,8 +1,10 @@
 # Agent-Facing Run Observability
 
-Status: **v2 — incident-derived 2026-07-30, hardened by review 2026-07-30. Not started.**
+Status: **SUPERSEDED before implementation (2026-08-01)** by
+[`One_Run_Surface.md`](../../phases/One_Run_Surface.md). Historical incident and
+rejected incremental approach only; do not resume OBS-S00–S04.
 Owner: Founder ruling pending; implementer TBD
-Updated: 2026-07-30
+Updated: 2026-08-01
 
 Founder intent: an agent supervising `alln` work could not tell whether a
 delegated seat was advancing, stalled, or dead. It fell back to `pgrep`.

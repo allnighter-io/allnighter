@@ -1,0 +1,485 @@
+# One Run Surface
+
+Status: **Ready for implementation — founder-authorized hard cutover; not started**
+Owner: Shared Core + CLI
+Updated: 2026-08-01
+
+Supersedes archived
+[`Agent_Facing_Run_Observability.md`](../archive/phases/Agent_Facing_Run_Observability.md).
+Amends the pull path shipped by archived
+[`PM_Turn_Delivery.md`](../archive/phases/PM_Turn_Delivery.md) and
+[`Completion_Delivery.md`](../archive/phases/Completion_Delivery.md): terminal
+delivery remains required, but the one returned command must observe the middle
+and deliver the end.
+
+## Founder intent
+
+Allnighter should be incredibly easy for agents to use as reliable project
+managers for humans. An agent must not need to know which command owns result
+truth, live status, process ownership, activity, or terminal delivery.
+
+There are zero external users. Make a clean cold product now:
+
+- one obvious single-run read surface;
+- no aliases;
+- no compatibility shims;
+- no parallel JSON contracts;
+- no public filesystem escape hatch;
+- a hard cutover through code, contracts, help, fixtures, and living docs in one
+  ship.
+
+Founder summary:
+
+> `alln menu` answers “what can I do?” One canonical run surface must answer
+> “what is happening?”
+
+## Product value
+
+The current product contains much of the needed truth, but splits it across
+`alln show`, `alln team status`, `alln team result`, `alln ps`, `alln run
+--stream`, the detached terminal waiter, and private run files. Agents try one
+surface, reasonably assume its answer is complete, and either miss available
+truth or conclude Allnighter cannot observe the work.
+
+This phase does not add another observability feature. It consolidates existing
+capabilities behind one door and deletes the competing public doors.
+
+## User-visible claim
+
+```text
+Start work once. Reattach anytime. One run view tells you what is true,
+what Allnighter observed, whether you are needed, and what came back.
+```
+
+Trusted workflow slice:
+
+```text
+alln menu
+-> alln run "…" --no-wait --json
+-> run the one returned nextAction.command
+-> see an immediate snapshot + live activity + terminal PM Turn
+```
+
+The observing process is disposable. Killing it never kills the run. Running
+the same command later catches up from durable run truth and continues.
+
+## Prior art
+
+Mature CLIs keep background execution separate from observation, then make
+observation reattachable:
+
+- Docker starts detached work with `up --detach` and observes it later with a
+  replayable/followable log surface (`logs --follow`, optionally bounded by
+  `--tail`).
+- GitHub CLI uses `gh run watch <id>` to show progress until terminal.
+- Kubernetes exposes a resource snapshot and a followable log stream by stable
+  resource identity.
+
+Allnighter adopts the convention, not the command count: the existing `show`
+verb owns both snapshot and follow behavior for one run.
+
+References:
+
+- <https://docs.docker.com/reference/cli/docker/compose/up/>
+- <https://docs.docker.com/reference/cli/docker/compose/logs/>
+- <https://cli.github.com/manual/gh_run_watch>
+- <https://kubernetes.io/docs/reference/kubectl/generated/kubectl_logs/>
+
+## Current state
+
+The machinery is present but fragmented:
+
+| Truth/capability | Current surface | Defect |
+| --- | --- | --- |
+| Durable run, answers, plan, terminal receipt | `alln show` / `TeamRunJSON` | Mid-run projection omits live reconciliation and activity truth. |
+| Owner reconciliation, silence, `progressStale` | `alln team status` / `TeamStatusResponse` | A second schema and a non-obvious command. |
+| Terminal result | `alln team result` | Third read path for the same run identity. |
+| Attached narration | `alln run --stream` | Launch-time attachment; not a durable reattach command. |
+| Detached completion | `delivery.command` → terminal waiter | Intentionally silent through the middle. |
+| Process inventory | `alln ps` | Fleet/operator view; agents misuse it to reconstruct a single run. |
+| Durable events | `RemoteRunEventJournal` | Replay machinery exists, but persistence depends on execution path and is not the canonical CLI read surface. |
+| Private journal/audit | `Runs/run_<id>/run.json`, `events.jsonl` | Internal storage leaks when public commands omit truth. |
+
+Code truth owners today:
+
+- run semantics: `RunService.run`;
+- durable run state: `RunStore` / `TeamRun`;
+- public run contract: `TeamRunJSON` / `TeamRunJSONMapper`;
+- owner reconciliation: `ProcessOwnership` / `RunStore.reconcileRun`;
+- durable events and sequence: `RemoteRunEventJournal` / `RunEvent`;
+- terminal PM boundary: `PMTurnStore` / `PMTurnStatusProjection`;
+- command/help truth: `ContractRegistry` / `HelpTopicRegistry`.
+
+## First-principles model
+
+A project-managing agent needs four answers about delegated work:
+
+1. **Lifecycle** — accepted, queued, running, parked, or terminal?
+2. **Health** — is the recorded owner alive, dead, contradictory, or unknown?
+3. **Activity** — what did Allnighter actually observe, and when?
+4. **Attention/result** — is caller action required, or what came back?
+
+These are separate axes. Do not compress them into a guessed `progress` boolean.
+A process can be alive and silent. A repo can change while the agent is stuck.
+Recent output does not prove semantic forward motion. Silence from a
+terminal-only driver can be expected.
+
+The product reports observed facts and one next action. It never asserts
+“progressing” or “stuck” without an owned deterministic rule.
+
+## Binding decision: one canonical single-run surface
+
+```text
+alln show <run-id|latest> [--json | --stream] [--full]
+```
+
+### Snapshot
+
+```bash
+alln show <run-id> --json
+```
+
+Emits exactly one canonical `TeamRunJSON`. Before mapping, the read path
+reconciles process truth and attaches the live observation fields. It works for
+queued, running, parked, and terminal runs. The caller never chooses between a
+status schema and a result schema.
+
+Plain `alln show <run-id>` renders the same truth compactly for a human.
+`--full` remains the explicit audit expansion for prompt snapshots. It is not a
+progress mode and is mutually exclusive with `--stream`.
+
+### Reattachable stream
+
+```bash
+alln show <run-id> --stream
+```
+
+Emits NDJSON and:
+
+1. immediately emits the current run snapshot;
+2. replays a bounded recent semantic activity window with durable sequence;
+3. follows new run events;
+4. emits exactly one terminal event containing the terminal `TeamRunJSON` and
+   `pmTurn`, then exits with the run's terminal exit class;
+5. if the run is already terminal, emits the snapshot + terminal event and exits
+   immediately;
+6. if the observer is killed, leaves the run untouched; a later invocation
+   replays and reattaches.
+
+`--stream` is already the product's NDJSON word. Do not add `watch`, `follow`,
+`tail`, or `attach` synonyms.
+
+### Detached acknowledgement
+
+Default pull delivery returns one recommended command:
+
+```json
+{
+  "kind": "run",
+  "id": "run_123",
+  "status": "dispatched",
+  "nextAction": {
+    "kind": "showRun",
+    "command": "alln show run_123 --stream"
+  }
+}
+```
+
+The returned command is both observation and terminal delivery. There is no
+separate waiter decision for the agent to remember.
+
+`--delivery wake` remains an orthogonal notification receipt. It does not create
+another run read surface, and the acknowledgement still carries the canonical
+`show --stream` next action for optional inspection.
+
+## Canonical live projection
+
+Add one `observation` section to every `TeamRunJSON`; do not mint a parallel
+`RunObservationJSON`, `TeamStatusResponse`, or GUI-only model.
+
+Illustrative shape (field names finalize in the contract slice):
+
+```json
+{
+  "teamRun": {
+    "id": "run_123",
+    "status": "running"
+  },
+  "observation": {
+    "phase": "working",
+    "ownerState": "alive",
+    "activityMode": "incremental",
+    "activityState": "recent",
+    "lastActivityAt": "2026-08-01T20:14:00Z",
+    "lastActivityKind": "tool",
+    "silenceSeconds": 12,
+    "blocker": null,
+    "contradiction": null,
+    "recentActivity": []
+  },
+  "nextActions": [
+    {
+      "kind": "showRun",
+      "command": "alln show run_123 --stream"
+    }
+  ]
+}
+```
+
+Binding semantics:
+
+- `ownerState`: `alive | dead | unknown`; identity checked, never inferred from
+  output recency.
+- `activityMode`: `incremental | terminalOnly | unknown`; known from the resolved
+  driver/runtime capability. This preserves the strongest finding from the
+  superseded observability packet: expected silence must be distinguishable from
+  missing measurement.
+- `activityState`: `notYetObserved | recent | silent | unavailable`; derived from
+  the activity clock and configured budget, not semantic judgment.
+- `lastActivityAt` and `lastActivityKind`: observed activity only. Rename away
+  from `lastProgressAt` / `progressStale`; those names claim more than measured.
+- `recentActivity`: small, bounded, normalized summaries. No unbounded raw stdout
+  or reasoning transcript in a default snapshot.
+- `blocker`: the existing sourced write-lock/vendor blocker, not a new model.
+- `contradiction`: existing owner/journal contradiction truth.
+- fields are present with explicit states; an unsupported or unobserved value
+  never silently masquerades as “fine.”
+
+Terminal `repoDelta`, `outcome`, `answer`, `plan`, `pmTurn`, and artifacts remain
+on the same `TeamRunJSON` contract. No feature is lost by consolidating the live
+fields into it.
+
+## Always-on bounded activity journal
+
+Reattachment only works if detached and non-streaming launches record the same
+semantic activity as attached launches.
+
+Binding rules:
+
+1. `RunService.run` produces one event sequence regardless of CLI output mode.
+2. Status/phase/agent transitions, blockers, bounded tool/activity summaries,
+   and terminal settlement are durable for every accepted run.
+3. `alln run --stream` may render live high-frequency deltas, but choosing that
+   flag must not decide whether the durable run is observable later.
+4. Persist bounded summaries, not unlimited accumulated reasoning/output.
+5. `RemoteRunEventJournal` remains internal storage. No public `eventsPath`.
+6. The journal is a history of the same run truth, never a second run owner.
+7. Sequence gaps and journal corruption fail loud with typed errors.
+
+## Hard cutover and deletion manifest
+
+There are no external users. Replace the public grammar in one ship; do not
+deprecate it gradually.
+
+| Delete from the public product | Replacement | Cutover rule |
+| --- | --- | --- |
+| `alln team status <id>` | `alln show <id> --json` | Remove command registration, parser branch, help, examples, fixtures, and generated contracts. No forwarding alias. |
+| `alln team result <id>` | `alln show <id> --json` | Same hard deletion. Terminal and non-terminal use one command. |
+| `team status --wait-for terminal --timeout …` pull waiter | `alln show <id> --stream` | Replace detached acknowledgement atomically. No old waiter field. |
+| Public `TeamStatusResponse` / `PersistedTeamStatusResponse` schemas | `TeamRunJSON.observation` | Delete or internalize after all consumers cut over. No dual public schema. |
+| `delivery.path=wait` + `delivery.command` | one `nextAction.command` | Wake receipt may remain; pull delivery gets one observe-and-deliver action. |
+| Proposed `alln ps --wait-for-change` | `alln show <id> --stream` | Do not build. `ps` stays fleet/operator inventory. |
+| Private `run.json` / `events.jsonl` instructions | documented `alln show` | Remove from agent teaching and recovery text. Paths remain audit internals only. |
+
+Also remove and deny-list any retired grammar in:
+
+- `ContractRegistry` and generated schemas/examples;
+- `HelpTopicRegistry`, `TeachingSnippet`, bootstrap, menu next actions, doctor,
+  error `agentAction` / `fixCommand` text;
+- living operation/phase docs and scripts;
+- CLI tests and fixtures;
+- Mac/iOS command consumers;
+- `RetiredVocabulary`, so the old commands cannot be re-taught accidentally.
+
+Old invocations fail with `CLI_USAGE_ERROR` and may name the one replacement in
+the error explanation. They never execute, forward, or alias.
+
+Contract/binary versions bump in the cutover. Public backward compatibility is
+explicitly waived. Persisted journal decoding is an internal storage concern,
+not permission to keep the old public commands or schemas.
+
+## Surfaces that remain distinct
+
+Consolidation does not mean forcing unrelated jobs into `show`:
+
+- `alln menu --json`: what is available and runnable;
+- `alln run`: start one run;
+- `alln show`: inspect, observe, and receive one run;
+- `alln history`: find prior run IDs;
+- `alln ps`: operator/fleet inventory and ownership control, not routine
+  single-run supervision;
+- `alln artifact show|export`: polished terminal receipt handling;
+- `alln floor show`: human/GUI floor visualization, not the agent's live truth
+  source;
+- `alln kill`: explicit destructive process control;
+- `alln loop`: durable multi-round PM↔dev object.
+
+No capability above becomes an alias for `show`.
+
+## Explicit non-goals
+
+- No `delivery.eventsPath` or documented support-directory path.
+- No legal `--no-wait --stream` launch combination as the solution. Detach and
+  observation compose through reattachment.
+- No new `watch`, `follow`, `tail`, `activity`, `logs`, or `attach` verb.
+- No raw stdout dump in the default contract.
+- No required free-text progress label written by the delegated agent.
+- No prompt-only checkpoint law or requirement to write reports incrementally.
+- No semantic “progressing” inference from process existence, output bytes, CPU,
+  repository changes, or elapsed time.
+- No mid-run object named `repoDelta`. Terminal `repoDelta` retains its existing
+  meaning.
+- No new daemon, cloud transport, or change to `RunService` ownership.
+- No broad `ps` redesign in this phase.
+
+## Deferred evidence, only if the hero proof still needs it
+
+The following feedback is useful but must not inflate the first ship:
+
+1. **Repository activity.** A later additive field may compare a run-start
+   worktree snapshot with the current worktree and report
+   `changedDuringRunWindow`, bounded paths, and `attribution: notProven`.
+   It is supplementary evidence, never liveness or progress. This is not free:
+   uncommitted/untracked files require a real baseline, and other local actors
+   can change the repo.
+2. **Richer activity excerpts.** If normalized recent activity remains too thin,
+   extend the existing event summaries. Do not expose arbitrary stdout or add a
+   second log protocol.
+3. **Worker-authored checkpoints.** May be displayed when voluntarily emitted,
+   but never become required reliability truth.
+
+Do not authorize these until the hero Works Test proves the consolidated surface
+and identifies a remaining concrete decision gap.
+
+## Inference bans
+
+| Junction | Owner | Possible bad inference | Ban | Negative proof |
+| --- | --- | --- | --- | --- |
+| owner identity → activity | `ProcessOwnership` + observation mapper | alive means advancing | Owner state and activity state remain separate fields. | Alive terminal-only fixture stays `ownerState=alive`, `activityState=notYetObserved|silent`. |
+| stream silence → stuck | activity projection | silence means dead/stalled | Surface `activityMode`; never derive semantic stuck from silence alone. | Terminal-only run remains healthy without fabricated activity. |
+| repo change → agent progress | terminal `RepoDelta` / future repo observation | changed files prove agent advancement | Repository evidence is supplementary and unattributed. | External fixture change cannot flip activity/owner state. |
+| event journal → run truth | `RunStore` / `RunService` | replay becomes a second state machine | Events project the journal; reconciliation and terminal state come from run/ownership owners. | Dropped event cannot change terminal run truth. |
+| observer process → run ownership | `show --stream` adapter | watcher death means run death | Observer is read-only and disposable. | Kill watcher; run remains live and reattach succeeds. |
+| old command → new command | CLI parser / retired vocabulary | compatibility forwarding preserves convenience | Old grammar fails; no alias or shim. | Old commands exit usage error without touching a run. |
+
+## Implementation slices
+
+### ORS-S00 — contract and red deletion gates
+
+Before production edits:
+
+1. Add contract tests for the canonical grammar and the absence of `team status`,
+   `team result`, proposed `ps --wait-for-change`, and any `watch|follow|tail`
+   alias.
+2. Add a `TeamRunJSON.observation` fixture for incremental, terminal-only,
+   unknown, blocked, contradictory, and terminal runs.
+3. Add a hostile teaching test: every generated/help/bootstrap/error command
+   resolves, and retired single-run read grammar is denied.
+4. Lock `show --stream` framing: immediate snapshot, replay, live events, exactly
+   one terminal event, correct exit class.
+
+Truth owner: `ContractRegistry` + `TeamRunJSON`.
+
+### ORS-S01 — one snapshot projection
+
+1. Make `alln show` reconcile ownership before mapping.
+2. Move live phase/blocker/activity/owner/contradiction projection into
+   `TeamRunJSON.observation`.
+3. Cut Mac/iOS/shared consumers to that contract.
+4. Delete/internalize the public status projection and duplicate mapping paths.
+
+Truth owner: `RunStore`/`ProcessOwnership` facts projected once by
+`TeamRunJSONMapper`.
+
+### ORS-S02 — always-on event record + reattach
+
+1. Make accepted runs durably record the bounded semantic event sequence
+   regardless of output mode.
+2. Implement `alln show <id> --stream` replay/follow/terminal behavior.
+3. Prove observer cancellation cannot signal or settle the run.
+4. Prove reattachment after observer death and after run terminal.
+
+Truth owner: `RunService.run` + `RemoteRunEventJournal` as derived history.
+
+### ORS-S03 — detached delivery flip + hard deletion
+
+1. Replace the pull acknowledgement with one `nextAction.command` pointing to
+   `alln show <id> --stream`.
+2. Remove `team status`, `team result`, their flags/schemas, and the old waiter
+   from all public and teaching surfaces.
+3. Add retired-vocabulary gates; regenerate contracts.
+4. Bump contract/binary versions.
+5. Sweep living docs and scripts in the same slice. No mixed old/new release.
+
+Truth owner: `DetachedDispatch`/`RunCLI` acknowledgement + `ContractRegistry`.
+
+### ORS-S04 — live host Works Test and closeout
+
+Run the complete flow from inside at least Codex and one other supported host.
+Promote keepable vocabulary/help law, archive this packet, and do not claim
+completion from fixture-only proof.
+
+## Works Test
+
+Hero scenario:
+
+1. From a supported host agent, dispatch a real mutating run:
+
+   ```bash
+   alln run "<bounded work>" --project . --model <id> --no-wait --json
+   ```
+
+2. Execute **only** the returned `nextAction.command`.
+3. Assert an immediate snapshot identifies lifecycle, phase, owner state,
+   activity mode/state, and any blocker.
+4. Observe at least one normalized activity event on an incremental driver.
+5. Kill only the `show --stream` observer. Verify the agent seat remains alive.
+6. Execute the same command again. Verify bounded replay, no duplicate terminal,
+   and continued observation.
+7. Receive the terminal `TeamRunJSON` + `pmTurn` with the correct exit class.
+8. Repeat with a genuinely terminal-only/silent fixture. Verify silence is
+   explicitly expected, owner truth remains separate, and no progress is
+   fabricated.
+9. Run the old commands and assert usage failure without execution or forwarding.
+10. Confirm no step uses `ps`, `git status`, a private journal path, a polling
+    loop, or a packet-specific checkpoint instruction.
+
+Focused proof commands must use the repository wrappers:
+
+```text
+scripts/swift-test.sh --filter OneRunSurface
+scripts/swift-test.sh --filter RunCLIStreamAdapter
+scripts/swift-test.sh --filter RetiredVocabulary
+bash scripts/check.sh
+```
+
+The exact focused test family is created in ORS-S00. `bash scripts/check.sh` is
+closeout only.
+
+## Proof gap
+
+Not waived: a real host-boundary run is required. Fixtures prove framing,
+deletion, and projection; they cannot prove that an actual vendor CLI emits,
+detaches, survives observer death, reattaches, and terminal-delivers from inside
+a supported host.
+
+## Done when
+
+- An agent learns only `alln menu`, `alln run`, and `alln show` for the hero
+  single-run workflow.
+- `alln show --json` is the complete snapshot for every lifecycle state.
+- `alln show --stream` replays, follows, and terminal-delivers.
+- Detached acknowledgement returns one canonical observe-and-deliver action.
+- Observer death cannot affect run ownership.
+- `team status`, `team result`, old wait flags/schema, and private-path teaching
+  are deleted from every public/living surface.
+- No alias, shim, dual schema, or transition period exists.
+- Unknown and expected silence are explicit; liveness and activity are not
+  conflated.
+- The owner-visible host Works Test passes from two real agent hosts.
+- Keepable law is promoted to code/standing docs and this packet is archived.
+
+## Blocking questions
+
+None. The founder authorized the hard-cutover posture and the packet chooses the
+canonical command, contract, deletion set, and proof boundary.

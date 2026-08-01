@@ -4,6 +4,12 @@ Status: CLI M1 BUILT; living product spine — owns forward naming/agent-first l
 Owner: Founder + Shared Core + CLI + Mac
 Updated: 2026-07-24
 
+> **Forward run-observation cutover (2026-08-01):** command examples below that
+> teach `alln team status` / `alln team result` are current-code history, not the
+> target grammar. [`One_Run_Surface.md`](One_Run_Surface.md) owns the authorized
+> hard cutover to `alln show <id> --json|--stream`, with no aliases or shims.
+> Do not implement or extend the older status/result split.
+
 > **Resolved 2026-07-19 — do not re-fix.** This doc previously carried a
 > standing warning that the run journal was one-shot-at-end, so an interrupted
 > run left no record. That is closed: `AsyncTeamService` persists incrementally

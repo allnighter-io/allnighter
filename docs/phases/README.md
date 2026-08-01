@@ -40,7 +40,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 founder-blocked** | DNS (`get.allnighter.app`) + Developer ID + notarization. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
-| [`Agent_Facing_Run_Observability.md`](Agent_Facing_Run_Observability.md) | **Draft — not started** | OBS-S01 `alln ps --wait-for-change` is the headline fix. Code SSOT: `ProcessOwnershipSurface`, `StreamLiveness`. |
+| [`One_Run_Surface.md`](One_Run_Surface.md) | **READY — founder-authorized hard cutover** | One single-run read surface: `alln show --json|--stream`; delete `team status` / `team result`, old waiter, and parallel status schema. |
 
 ### Forward feature packets
 
@@ -82,6 +82,7 @@ Verified against code/commits; full index:
 | [`threads/04_Observed_Usage.md`](../archive/phases/threads/04_Observed_Usage.md) | Superseded by OUR packet | `ObservedUsagePresentation`, archived `Observed_Usage_On_Receipts_And_Live_Status.md` |
 | `sprint/team-run-receipt/TRR-S00*` | Founder disposition only; TRR product shipped | `ArtifactProjector` / `ArtifactCLI` |
 | `sprint/opencode/OC-S01b–d` | Superseded by AgentOS HTTP driver | AgentOS `OpenCodeServeClient`, archived blocker resolution |
+| [`Agent_Facing_Run_Observability.md`](../archive/phases/Agent_Facing_Run_Observability.md) | Superseded before implementation | [`One_Run_Surface.md`](One_Run_Surface.md) consolidates snapshot, activity, reattachment, and terminal delivery under `alln show`. |
 
 Earlier 2026-07-31 cleanup archived Loop Verb Cutover, Menu Envelope Compression,
 Worker/Skill Sharing, Capacity Hardening, and orphaned sprint work orders — see
@@ -149,7 +150,7 @@ Open questions:
 | Cold start — no `alln` on PATH | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) |
 | Composer `@` file references | [`Composer_File_References.md`](Composer_File_References.md) |
 | PM continuity after seat death | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) |
-| Agent cannot tell if a delegated seat is advancing | [`Agent_Facing_Run_Observability.md`](Agent_Facing_Run_Observability.md) |
+| Agent needs status, activity, reattachment, or result for one delegated run | [`One_Run_Surface.md`](One_Run_Surface.md) |
 | Send to team / delegation surface | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) + `docs/gui/surfaces/send-to-team/brief.md` |
 | Persistent chat / thread backend | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) |
 | First-run setup, CLI detection | [`setup/README.md`](setup/README.md) |
