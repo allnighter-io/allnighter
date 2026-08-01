@@ -1,8 +1,7 @@
 # One-Paste Cold Start (+ shared release channel)
 
-Status: **OPEN — S02/S03/S00/S01/S06(core) shipped 2026-07-31; S05 (public
-cutover) blocked on founder DNS + Apple Developer ID access; Mac update UI
-(part of S06) not started**  
+Status: **OPEN — S02–S03/S00–S01/S06 (CLI+Mac+publish) agent-complete 2026-08-01;
+S05 (public cutover) blocked on founder DNS + Apple Developer ID + notarization**  
 Owner: install script + release manifest + CLI projection + Mac update UI  
 Created: 2026-07-31  
 Updated: 2026-07-31 (hardening pass: publish race, injection, self-overwrite,
@@ -11,6 +10,9 @@ Updated: 2026-07-31 (delivery pass — PM: Fable 5, dev: Grok 4.5 via `alln
 loop`) — S02/S03/S00/S01/S06(core) code-complete and independently verified,
 commits `11af7bcc` `5feeb78c` `3699d2fb` `e9e45fbf` `bba67abe` `b9a43085`;
 see the Slices table below for exact per-slice state.  
+Updated: 2026-08-01 (orchestration — Grok 4.5) — OPC-S06b Mac About/status +
+OPC-S06c `publish-release.sh` writes `latest.json` (assets-then-manifest);
+binary `0.11.4`; GUI proof `docs/qa/gui/about-updates/2026-08-01-opc-s06b`.  
 Origin: Hermes / OpenClaw users with **no `alln`** need one paste so agents run
 on **subscription CLIs**, not API keys. Follow-on: once installed, **CLI-only
 users and agents never open the Mac app** — they still need to learn when a
@@ -601,7 +603,7 @@ hashed and sent, in `doctor` and in the privacy line, before it ships.
 | **OPC-S03** | Help/README recovery = one-liner | **Shipped 2026-07-31 (`5feeb78c`).** Search hits; no install-cli chicken-egg; `ReleaseChannel.installCommand` grep-gated |
 | **OPC-S00** | Universal build + versioned asset layout + publish recipe | **Shipped 2026-07-31 (`3699d2fb`).** `scripts/build-universal.sh` + `scripts/publish-release.sh`; immutable paths locked; local/dogfood URL proven — dual-arch SPM fails on this toolchain (BuildInfoPlugin), two `--arch` builds + `lipo -create` used instead |
 | **OPC-S01** | `scripts/get-alln.sh` + fixture proof | **Shipped 2026-07-31 (`e9e45fbf`).** Laws 1–2 green on temp HOME **through a pipe**; BUG-0/1/3/6/7 gated; `scripts/test-get-alln.sh` proof |
-| **OPC-S06** | Shared release channel: `latest.json` + `ReleaseChannel` + `menu.update` + `version --json` + doctor + Mac reads same feed | **Core/CLI shipped 2026-07-31 (`bba67abe`, `b9a43085`).** Contract 7.4.0, binary 0.11.3. Mac About/status projection **not done this round** (CLI/Core scope only) |
+| **OPC-S06** | Shared release channel: `latest.json` + `ReleaseChannel` + `menu.update` + `version --json` + doctor + Mac reads same feed | **Shipped 2026-07-31 core (`bba67abe`, `b9a43085`) + 2026-08-01 Mac/publish.** Contract 7.4.0, binary 0.11.4. Mac Settings › About & updates + quiet title-bar badge; `publish-release.sh` writes `latest.json` last |
 | **OPC-S05** | Public cutover | **Blocked on founder** — needs real DNS control (`get.allnighter.app`), an Apple Developer ID signing certificate, and notarization credentials; none of these can be provisioned by an agent |
 | **OPC-S04** | npm (optional) | Only if founder reopens BQ-3 |
 
@@ -633,12 +635,13 @@ keyboard (DNS + Apple Developer account access).
       manifest's fields as init parameters) plus a hostile-fixture test;
       live-verified with a hand-crafted hostile manifest across all three
       projections + `update --check`
-- [ ] Mac: About/status reads the same base URL + `appVersion`; no parallel
-      "latest" constant in app-only code — **not done**, CLI/Core only this round
-- [ ] Publish recipe documents assets-then-manifest ordering — `publish-release.sh`
-      (OPC-S00) intentionally does not write `latest.json` yet; no publish
-      script currently writes the manifest at all — **open**, needs a follow-up
-      slice or founder decision on where that step lives
+- [x] Mac: About/status reads the same base URL + `appVersion`; no parallel
+      "latest" constant in app-only code — OPC-S06b (`ReleaseChannel.checkAppUpdate`
+      / `announceApp`, Settings › About & updates, quiet title-bar badge, App ›
+      About routes to the same page; GUI proof sealed 2026-08-01)
+- [x] Publish recipe documents assets-then-manifest ordering — OPC-S06c
+      `scripts/publish-release.sh` writes versioned assets first, then
+      `latest.json` last (atomic rename); `scripts/test-publish-release.sh`
 - [x] Negative: no GH API; no auto binary replace; check failure does not fail
       `run`; `run` performs no update network call at all — confirmed by
       grepping `RunService`/`RunCLI`/`LoopDispatch`/`LoopEngineCLI` for any
