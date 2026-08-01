@@ -338,8 +338,16 @@ struct RoutingComposer: View {
     private func adoptContinuationModelIfNeeded() {
         guard !locksTeam, team == nil, let id = continuationModelId,
               appModel.composeBench.contains(where: { $0.id == id }) else { return }
-        pinnedModelId = id
+        pinBenchModel(id)
         targetTab = .model
+    }
+
+    private func pinBenchModel(_ id: String) {
+        pinnedModelId = id
+        if let raw = ModelCatalog.benchDefaultEffort(for: id)?.rawValue,
+           let level = ComposeEffort(rawValue: raw) {
+            effort = level
+        }
     }
 
     private var effectivePlaceholder: String {
@@ -1095,7 +1103,7 @@ struct RoutingComposer: View {
                     team = nil; pinnedModelId = nil; targetOpen = false
                 case .model(let id):
                     if bench.first(where: { $0.id == id })?.ready == true {
-                        pinnedModelId = id; if !locksTeam { team = nil }; targetOpen = false
+                        pinBenchModel(id); if !locksTeam { team = nil }; targetOpen = false
                     }
                 case .team(let id):
                     if let t = teams.first(where: { $0.id == id }) { selectTeam(t) }
@@ -1423,7 +1431,7 @@ struct RoutingComposer: View {
         if let m = appModel.composeBench.first(where: { $0.id == id }) {
             HStack(spacing: 4) {
                 Button {
-                    if m.ready { pinnedModelId = id; if !locksTeam { team = nil }; targetOpen = false }
+                    if m.ready { pinBenchModel(id); if !locksTeam { team = nil }; targetOpen = false }
                 } label: { modelRow(m) }
                     .buttonStyle(.plain)
                     .disabled(!m.ready)

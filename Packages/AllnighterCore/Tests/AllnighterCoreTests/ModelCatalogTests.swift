@@ -40,7 +40,8 @@ final class ModelCatalogTests: XCTestCase {
         // Kimi K2.7 Code added default-on 2026-07-27 (11 → 12).
         // Cursor Fable/Opus/Sonnet seats added default-on 2026-07-28 (12 → 15).
         // Antigravity Opus/Sonnet 4.6 re-added default-on for Claude quota harvest (15 → 17).
-        XCTAssertEqual(models.filter(\.enabled).count, 17)
+        // GPT-5.6 Luna added default-on on Economy bench (17 → 18).
+        XCTAssertEqual(models.filter(\.enabled).count, 18)
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
         XCTAssertEqual(models.first { $0.id == "model_agy_sonnet" }?.displayName, "Sonnet 4.6 (Antigravity)")
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.modelLabel, "Claude Opus 4.6 (Thinking)")
@@ -56,6 +57,7 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertEqual(models.first { $0.id == "model_cursor_opus" }?.displayName, "Opus 5 (Cursor)")
         XCTAssertEqual(models.first { $0.id == "model_opus" }?.modelLabel, "opus")
         XCTAssertEqual(models.first { $0.id == "model_gpt_sol" }?.displayName, "GPT-5.6 Sol")
+        XCTAssertEqual(models.first { $0.id == "model_gpt_luna" }?.displayName, "GPT-5.6 Luna")
         XCTAssertEqual(models.first { $0.id == "model_cursor_gpt_sol" }?.displayName, "GPT-5.6 Sol (Cursor)")
     }
 

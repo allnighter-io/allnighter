@@ -16,17 +16,21 @@ public struct CatalogOverlay: Codable, Sendable, Equatable {
 public struct CatalogOverlayModel: Codable, Sendable, Equatable {
     public var defaultOn: Bool?
     public var hidden: Bool?
+    /// Bench default reasoning effort when the run does not pass an explicit `--effort`.
+    public var defaultEffort: String?
     public var caliber: ModelCapabilities?
     public var menuHint: CatalogMenuHint?
 
     public init(
         defaultOn: Bool? = nil,
         hidden: Bool? = nil,
+        defaultEffort: String? = nil,
         caliber: ModelCapabilities? = nil,
         menuHint: CatalogMenuHint? = nil
     ) {
         self.defaultOn = defaultOn
         self.hidden = hidden
+        self.defaultEffort = defaultEffort
         self.caliber = caliber
         self.menuHint = menuHint
     }
@@ -132,10 +136,14 @@ public enum CatalogOverlayLoader {
                 guard let row = value as? [String: Any] else { continue }
                 validateKnownKeys(
                     row,
-                    allowed: ["defaultOn", "hidden", "caliber", "menuHint"],
+                    allowed: ["defaultOn", "hidden", "defaultEffort", "caliber", "menuHint"],
                     path: "$.models.\(modelId)",
                     problems: &problems
                 )
+                if let raw = row["defaultEffort"] as? String,
+                   EffortLevel(rawValue: raw) == nil {
+                    problems.append("$.models.\(modelId).defaultEffort must be low, med, or high")
+                }
                 if row["hidden"] as? Bool == true, row["defaultOn"] as? Bool == true {
                     problems.append("$.models.\(modelId): hidden and defaultOn cannot both be true")
                 }

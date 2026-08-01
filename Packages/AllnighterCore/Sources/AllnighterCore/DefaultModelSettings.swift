@@ -232,7 +232,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// Frontier: Fable, Codex Sol, Kimi K3. Balanced: everyday seats including
     /// Antigravity Opus 4.6 (separate Claude quota pool) and Composer 2.5 (not
     /// the vendor "Fast" SKUs) spans Balanced + Economy. Economy: Antigravity
-    /// Sonnet 4.6, K2.7, Composer 2.5, Auto, Gemini.
+    /// Sonnet 4.6, GPT-5.6 Luna, K2.7, Composer 2.5, Auto, Gemini.
     /// Vendor *Fast* model ids stay Unassigned — never tiered by default.
     /// Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
@@ -245,7 +245,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
             ],
             economy: [
-                "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
+                "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
                 "model_cursor_auto", "model_gemini"
             ]))
 
@@ -258,6 +258,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         var merged = self
         let backfill: [(SubstitutionTier, ModelID)] = [
             (.economy, "model_agy_sonnet"),
+            (.economy, "model_gpt_luna"),
         ]
         for (tier, id) in backfill where !merged.tiers[tier].contains(id) {
             merged.tiers.assign(id, to: tier)

@@ -18,7 +18,7 @@ final class DefaultModelSettingsTests: XCTestCase {
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
         ])
         XCTAssertEqual(s.tiers.economy, [
-            "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
+            "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
             "model_cursor_auto", "model_gemini"
         ])
         for fastId in ["model_cursor_composer_25_fast", "model_grok_composer_25_fast"] {
@@ -105,15 +105,16 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testModelCanBelongToMultipleTiers() {
         let s = DefaultModelSettings.fresh
         // K3 is Frontier-only; medium Terra is in Balanced; Gemini spans Balanced + Economy;
-        // Antigravity Sonnet 4.6 is the Economy-tier default; K2.7 is Economy-only.
+        // GPT-5.6 Luna is the Economy-tier default; Antigravity Sonnet 4.6 and K2.7 are Economy-only.
         XCTAssertEqual(s.tiers.tiers(of: "model_gpt_sol"), [.frontier])
         XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k3"), [.frontier])
         XCTAssertEqual(s.tiers.highestTier(of: "model_kimi_k3"), .frontier)
         XCTAssertEqual(s.tiers.tiers(of: "model_gpt_terra"), [.balanced])
         XCTAssertEqual(s.tiers.tiers(of: "model_gemini"), [.balanced, .economy])
+        XCTAssertEqual(s.tiers.tiers(of: "model_gpt_luna"), [.economy])
         XCTAssertEqual(s.tiers.tiers(of: "model_agy_sonnet"), [.economy])
         XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k27"), [.economy])
-        XCTAssertEqual(s.tierDefault(.economy), "model_agy_sonnet")
+        XCTAssertEqual(s.tierDefault(.economy), "model_gpt_luna")
         XCTAssertEqual(s.tiers.tiers(of: "model_agy_opus"), [.balanced])
         XCTAssertTrue(s.tiers.isUnassigned("model_grok_composer_25_fast"))
         XCTAssertTrue(s.tiers.isUnassigned("model_cursor_composer_25_fast"))

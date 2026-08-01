@@ -22,6 +22,7 @@ enum CatalogMerge {
                 role: record.role,
                 origin: .builtIn,
                 defaultEnabled: overlayRow?.defaultOn ?? false,
+                defaultEffort: overlayRow?.defaultEffort.flatMap(EffortLevel.init(rawValue:)),
                 capabilities: capabilities,
                 effortVariants: materialized.effortVariants
             )

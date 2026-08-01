@@ -152,6 +152,24 @@
       },
       "defaultOn": true
     },
+    "model_gpt_luna": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 74
+      },
+      "defaultEffort": "high",
+      "defaultOn": true
+    },
     "model_gpt_spark": {
       "caliber": {
         "capabilityTags": [

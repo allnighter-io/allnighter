@@ -17,6 +17,8 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
     public var role: ModelRole
     public var origin: ModelOrigin
     public var defaultEnabled: Bool
+    /// Bench default reasoning effort when a run does not pass an explicit effort.
+    public var defaultEffort: EffortLevel?
     public var capabilities: ModelCapabilities
     /// Per-effort model label overrides for CLIs that encode effort IN the model
     /// name (Antigravity, e.g. low → "Gemini 3.5 Flash (Low)"). nil = the model
@@ -36,6 +38,7 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         role: ModelRole,
         origin: ModelOrigin,
         defaultEnabled: Bool,
+        defaultEffort: EffortLevel? = nil,
         capabilities: ModelCapabilities,
         effortVariants: [EffortLevel: String]? = nil,
         createdAt: Date? = nil,
@@ -50,6 +53,7 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         self.role = role
         self.origin = origin
         self.defaultEnabled = defaultEnabled
+        self.defaultEffort = defaultEffort
         self.capabilities = capabilities
         self.effortVariants = effortVariants
         self.createdAt = createdAt

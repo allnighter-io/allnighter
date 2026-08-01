@@ -52,7 +52,7 @@ public enum ModelCatalog {
              "model_agy_opus", "model_agy_sonnet",
              "model_cursor_fable", "model_cursor_opus", "model_cursor_sonnet":
             return "claude"
-        case "model_gpt_sol", "model_cursor_gpt_sol", "model_gpt_terra",
+        case "model_gpt_sol", "model_cursor_gpt_sol", "model_gpt_terra", "model_gpt_luna",
              "model_gpt_54", "model_gpt_54_mini", "model_gpt_spark":
             return "gpt"
         case "model_agy_gptoss":
@@ -159,6 +159,11 @@ public enum ModelCatalog {
     public static func get(_ id: ModelID) -> ModelDefinition? {
         builtIns.first { $0.id == id }
             ?? CatalogFileIO.loadOne(id: id, kind: .model, root: CatalogRoots.models, as: ModelDefinition.self)
+    }
+
+    /// Bench default reasoning effort for a built-in seat (overlay policy only).
+    public static func benchDefaultEffort(for modelId: ModelID) -> EffortLevel? {
+        builtIns.first { $0.id == modelId }?.defaultEffort
     }
 
     public static func resolvedModels(registry: DriverRegistry) -> [Model] {

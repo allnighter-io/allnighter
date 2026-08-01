@@ -12,6 +12,7 @@ final class CatalogOverlayTests: XCTestCase {
               "models": {
                 "model_grok": {
                   "defaultOn": true,
+                  "defaultEffort": "high",
                   "caliber": {
                     "laneTags": ["code"],
                     "capabilityTags": ["code"],
@@ -90,5 +91,15 @@ final class CatalogOverlayTests: XCTestCase {
         )
         XCTAssertEqual(agy.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
         XCTAssertEqual(agy.first { $0.id == "model_agy_sonnet" }?.displayName, "Sonnet 4.6 (Antigravity)")
+    }
+
+    func testLunaShipsOnEconomyBenchWithHighDefaultEffort() {
+        let luna = ModelCatalog.builtIns.first { $0.id == "model_gpt_luna" }
+        XCTAssertEqual(luna?.displayName, "GPT-5.6 Luna")
+        XCTAssertEqual(luna?.modelLabel, "gpt-5.6-luna")
+        XCTAssertTrue(luna?.defaultEnabled ?? false)
+        XCTAssertEqual(luna?.defaultEffort, .high)
+        XCTAssertTrue(DefaultModelSettings.fresh.tiers.economy.contains("model_gpt_luna"))
+        XCTAssertEqual(DefaultModelSettings.fresh.tierDefault(.economy), "model_gpt_luna")
     }
 }

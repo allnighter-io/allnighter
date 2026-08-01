@@ -39,7 +39,7 @@ public enum ModelDisplayName {
              "model_agy_opus", "model_agy_sonnet",
              "model_cursor_fable", "model_cursor_opus", "model_cursor_sonnet":
             return "claude_code"
-        case "model_gpt_sol", "model_cursor_gpt_sol", "model_gpt_terra",
+        case "model_gpt_sol", "model_cursor_gpt_sol", "model_gpt_terra", "model_gpt_luna",
              "model_gpt_54", "model_gpt_54_mini", "model_gpt_spark":
             return "codex"
         case "model_grok", "model_grok_composer_25_fast":

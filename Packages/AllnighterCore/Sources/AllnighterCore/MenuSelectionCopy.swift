@@ -275,6 +275,10 @@ public enum MenuSelectionCopy {
             useWhen: "GPT-5.6 Terra, Codex (medium)",
             dontUseWhen: "Not Sol; use model_gpt_sol"
         ),
+        "model_gpt_luna": Pair(
+            useWhen: "GPT-5.6 Luna, Codex economy seat (high effort default)",
+            dontUseWhen: "Not Sol/Terra; use model_gpt_sol or model_gpt_terra"
+        ),
         "model_gpt_54": Pair(
             useWhen: "GPT-5.4, Codex (non-Sol)",
             dontUseWhen: "Not Sol; use model_gpt_sol"

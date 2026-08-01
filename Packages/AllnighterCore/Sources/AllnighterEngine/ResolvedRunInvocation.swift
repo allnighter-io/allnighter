@@ -517,7 +517,7 @@ public enum RunInvocationResolver {
             typeEcho = nil
         }
 
-        let effort = input.flags.effort ?? preset.defaultEffort
+        var effort = input.flags.effort ?? preset.defaultEffort
         let lane = input.flags.lane ?? preset.lane
         let explicitSeatModelIds = input.flags.explicitSeatModelIds ?? []
         let explicitSeatsChosen = !explicitSeatModelIds.isEmpty
@@ -572,6 +572,11 @@ public enum RunInvocationResolver {
                 blockedReason = "Auto waits — no ready model on the \(context.defaultSettings.defaultTier.displayName) tier"
                 blockedSeatCount = 1
             }
+        }
+
+        if input.flags.effort == nil, let wid = workerId,
+           let modelEffort = ModelCatalog.benchDefaultEffort(for: wid) {
+            effort = modelEffort
         }
 
         // --- Seats (execution shape = one seat; answer = team seats or pin) ---

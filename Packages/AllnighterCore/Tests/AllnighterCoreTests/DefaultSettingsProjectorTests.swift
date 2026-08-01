@@ -14,7 +14,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
     /// Full catalog covering the fresh seed + one unassigned-on + one off-and-unassigned.
     private func catalog(ready: Set<String> = [
-        "model_fable", "model_cursor_gpt_sol", "model_gpt_sol", "model_gpt_terra", "model_opus", "model_sonnet",
+        "model_fable", "model_cursor_gpt_sol", "model_gpt_sol", "model_gpt_terra", "model_gpt_luna", "model_opus", "model_sonnet",
         "model_agy_opus", "model_agy_sonnet",
         "model_kimi_k3", "model_kimi_k27", "model_cursor_grok_45", "model_grok", "model_cursor_composer_25",
         "model_cursor_composer_25_fast", "model_gemini", "model_cursor_auto", "model_grok_composer_25_fast", "model_extra"
@@ -25,6 +25,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
                   ready: ready.contains("model_cursor_gpt_sol")),
             entry("model_gpt_sol", "GPT-5.6", driver: "codex", ready: ready.contains("model_gpt_sol")),
             entry("model_gpt_terra", "GPT-5.6 Terra", driver: "codex", ready: ready.contains("model_gpt_terra")),
+            entry("model_gpt_luna", "GPT-5.6 Luna", driver: "codex", ready: ready.contains("model_gpt_luna")),
             entry("model_opus", "Opus 5", ready: ready.contains("model_opus")),
             entry("model_sonnet", "Sonnet 5", ready: ready.contains("model_sonnet")),
             entry("model_agy_opus", "Opus 4.6", driver: "antigravity", ready: ready.contains("model_agy_opus")),
@@ -73,10 +74,10 @@ final class DefaultSettingsProjectorTests: XCTestCase {
 
         let economy = p.tiers[2]
         XCTAssertEqual(economy.members.map(\.id), [
-            "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
+            "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
             "model_cursor_auto", "model_gemini"
         ])
-        XCTAssertEqual(economy.defaultModelId, "model_agy_sonnet")
+        XCTAssertEqual(economy.defaultModelId, "model_gpt_luna")
         let k27 = economy.members.first { $0.id == "model_kimi_k27" }
         XCTAssertEqual(k27?.tiers, ["economy"])
         let composer = economy.members.first { $0.id == "model_cursor_composer_25" }
