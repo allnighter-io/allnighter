@@ -315,7 +315,7 @@ bump land **inside** the S01 PR (budgeted work, not open design).
 | **Method** | 1. Collect fixed **N = 20** recent multi-seat terminal hero-ish runs (`outputKind` plan/review preferred). 2. Score each against rubric classes (a) disagreement-with-a-call (b) consensus-with-a-call (c) lead-vs-seat reversal — count how many would make a stranger-worthy screenshot **for a growth series**. 3. Hand-build **3** HTML artifacts using design tokens (no projector code required) from the best stories. 4. Founder pass/fail: “would I post or show this.” |
 | **Kill condition** | If fewer than **3**/20 score as stranger-worthy **for series** → kill growth packaging / series ambition; **keep S01 product path**. |
 | **CLI / Mac / contract** | None. |
-| **Scaffold** | `docs/phases/sprint/team-run-receipt/TRR-S00-scorecard.md` + `hand-renders/` (commit `2e312af4`). |
+| **Scaffold** | `docs/archive/phases/sprint/team-run-receipt/TRR-S00-scorecard.md` + `hand-renders/` (commit `2e312af4`). |
 | **Works Test** | Scorecard exists with N=20 rows + 3 hand files linked; founder written disposition (kill growth packaging \| proceed with optional series). |
 | **Done when** | Disposition recorded in this packet’s review log or a one-line addendum under this slice. |
 

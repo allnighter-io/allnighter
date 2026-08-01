@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-07-31
+Updated: 2026-08-01
 
 ## Purpose
 
@@ -26,284 +26,92 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 `docs/mvp/` remains the record of what shipped in the MVP substrate.
 
-> **Trust rule:** a phase doc's own "SHIPPED/BUILT/DONE" banner is not evidence
-> that phases owns the truth. Verify the **successor** (code and/or standing
-> doc). A shipped banner means **promote + archive is overdue**.
+> **Trust rule:** verify against **code and git commits**, not a phase doc's own
+> SHIPPED/DONE banner. A shipped banner in `phases/` means **promote + archive is
+> overdue**.
 
 ## Current Phase Board
 
-### Active priorities
+### Active priorities (founder-ordered)
 
-**Top priority:** quota-aware bench continuity — plan-time capacity in the
-selection envelope plus loop honor of vendor park/wake (founder 2026-07-30).
-**Distribution wedge:** one-paste cold start for Hermes/OpenClaw (founder
-2026-07-31). One other founder-decision packet open. Forward work otherwise is
-optional feature packets below (or dogfood of shipped surfaces). Signal Graph
-deep-build and CLI Implementation Contract are archived — do not revive.
-
-| Doc | Status | Purpose |
+| Doc | Status | Next action |
 | --- | --- | --- |
-| [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete, two live dogfood proofs remain** | **Plan-time:** inject tier-1 capacity snapshot into `alln menu --json` + bootstrap so every PM plan is quota-aware (Codex 0% → seat Grok; Claude Fable 90% → route away). **Run-time:** `alln loop` yields to `waitingForVendor` + `wakeAfter` instead of 5s infra thrash — long dev turns resume at session reset, and a parked loop now posts an OS notification too. Reuses `CapacityDisplayAcquisition`, `VendorBackoffReconciler`, `VendorSubstitutionPolicy`. Moat: cross-vendor arbitrage no single vendor can copy. Slices QABC-S00 (menu envelope), S01 (loop park-yield; S02/S03 cut, folded in) — all shipped. Open: planner dogfood, one on-host wall-crossing dogfood. Does **not** resume naked vendor sessions never started via alln. |
-| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 public cutover blocked on founder** | Cold install + shared release channel shipped (S00–S03/S06 incl. Mac About + publish `latest.json`). **S05** needs DNS (`get.allnighter.app`) + Developer ID + notarization. **No MCP.** npm deferred (S04). |
-| [`Worker_To_Agent_Migration.md`](Worker_To_Agent_Migration.md) | **CLOSED — optional hygiene only** | Ship line complete (2026-07-29): living contracts + teaching use `agentId` + `modelId`. **Do not start** unless founder allocates time. Backlog: journal rename, lying locals, S07. SSOT: `Product_Vocabulary.md`; history: [`archive`](../archive/phases/Worker_To_Agent_Migration.md). |
-| [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | Should the shipped artifact become portable and checkable off the machine that made it? RP-S00 room test is free; RP-S01 digest needs a ruling against the TRR-S02 signing cut. |
-| [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — incident-driven** | When any seat dies, a recovery agent finds work in 30s (commits + uncommitted + resume commands), gets notified when dev lands, and can substitute PM model. WRC-S00–S04: workRecovery envelope, `relayAwaitingPM` notify, `--pm` on `loop resume`, `work scan`, relay guard. Origin: 2026-07-29 PM outage mid relay. |
-| [`Agent_Facing_Run_Observability.md`](Agent_Facing_Run_Observability.md) | **Draft — incident-derived 2026-07-30, not started** | A supervising agent could not tell whether a delegated seat was advancing; `pgrep` outperformed `ps`, `status`, and the journal. Three bounded fixes, no new subsystem: **OBS-S01 `alln ps --wait-for-change --timeout N`** (the fix — turns a PM agent from a poller into a listener; the agent-facing counterpart to the human notification spine), OBS-S02 populate `streamAge` (null on every row — a bug), OBS-S03 make the live row findable when settled history floods the default view. Explicitly rejects a naive `live: bool` — it cannot help a row that is absent, and sourcing it from pgid would re-create the shipped liveness lie. Code SSOT `ProcessOwnershipSurface`, `StreamLiveness`. |
-| [`CLI_Park.md`](CLI_Park.md) | **Implementing** | Park a CLI (ignore, not delete): skip probe, gray UI, out of Ready/pickers; `alln drivers park|unpark`; parked last for future capacity/status. Code SSOT `SetupStore.parkedDriverIds`. |
-
-> Recently completed and archived — do not reopen the phase packet; read the
-> **successor** (code and/or standing docs named in the archive index):
-> [`Worker_Skill_Sharing.md`](../archive/phases/Worker_Skill_Sharing.md)
-> (Complete, archived 2026-07-31 — founder-signed owner-visible Works Test
-> passed all 7 steps; same-ID shared Skill overrides + Restore, roster-only
-> Team Save, CLI 5.2.0, Mac worker editor cutover; code SSOT `SkillCatalog`,
-> `ContractRegistry`, `RunService`);
-> [`Capacity_Hardening_Hotfix.md`](../archive/phases/Capacity_Hardening_Hotfix.md)
-> (SHIPPED (code), archived 2026-07-31 — HF-00 hydrate last-known + HF-claude
-> reliability batch; all six seats resolve live-or-last-known correctly; code
-> SSOT `CapacityDisplayAcquisition`, `CapacityHistoryStore`, `CapacityProbe`);
-> orphaned execution briefs for already-shipped work, found un-archived during
-> the 2026-07-31 cleanup and archived alongside their parent packets:
-> `atl/ATL_S01_S02_execution.md` (parent: archived `Agent_Team_Loop.md`),
-> `capacity/CAP-S01_slice.md` + `CAP-S05_slice.md` + capacity-strip mockups,
-> `closeout/ATL_S05_sidebar_quieting.md` + `CAP-S08_tier3_probe.md` +
-> `Open_Items_Closeout.md` (parents: archived `Agent_Team_Loop.md` and
-> `CLI_Capacity_TUI_Sampling.md`) — all now under `docs/archive/phases/`;
-> `docs/phases/sprint/` also had a matching backlog of "ready"/"done" work
-> orders whose parent packets had already archived (RunWriteLock/CheckRunner/
-> SliceGate/Classifier/Queue/Watchdog/Driver/Timeline/Streaming CR-01–CR-10,
-> Design Lane, most of Team Run Receipt, OC-S01a, the deleted pair-programming
-> slice-queue PPT docs, and the PM Turn Delivery `ptd/` work orders) — moved to
-> `docs/archive/phases/sprint/<topic>/`; see `docs/phases/sprint/README.md` for
-> what's still open;
-> [`Menu_Envelope_Compression.md`](../archive/phases/Menu_Envelope_Compression.md)
-> (CLOSED / NO BUILD 2026-07-31 — raise menu byte cap only; gzip/encoding rejected;
-> size gate in menu tests; capacity stays with QABC);
-> [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md)
-> (Complete 2026-07-31 — LVC-S00–S09: `alln loop` grammar, contract 7.0.0 /
-> binary 0.11.0, `Relay*`→`Loop*` symbols, `Relays/`→`Loops/`; code SSOT
-> `LoopCLI`, `LoopCoordinator`, `LoopState`; standing law
-> `Product_Vocabulary.md` §Loop);
-> [`Completion_Delivery.md`](../archive/phases/Completion_Delivery.md)
-> (Complete 2026-07-30 — CD-S01a/S02/S03: shared dev-leg projection running/settling/parked,
-> detached-ack waiters, teaching `devRunId`; code SSOT `StreamLiveness.devLegProjection`,
-> `PilotCLI`/`RelayCLI` status);
-> [`Agent_Visible_Queuing.md`](../archive/phases/Agent_Visible_Queuing.md)
-> (Complete 2026-07-30 — AVQ-S04 `--read-only`, S01 status ticket/`inspectStall`, S02
-> `STREAM_AGE`, S03 teaching; code SSOT `RunRequest.readOnly`, `AsyncTeamStatusMapper`,
-> `ProcessOwnershipSurface.humanTable`);
-> [`Observed_Usage_On_Receipts_And_Live_Status.md`](../archive/phases/Observed_Usage_On_Receipts_And_Live_Status.md)
-> (Complete 2026-07-30 — OUR-S01–S03: per-answer usage, live pilot/relay tok/blame line,
-> receipt chips; code SSOT `ObservedUsagePresentation`, `TeamRunJSONMapper`, `PilotCLI.liveLine`);
-> [`Round_Survives_The_Caller.md`](../archive/phases/Round_Survives_The_Caller.md)
-> + [`Round_Survives_The_Caller_Hot_Fixes.md`](../archive/phases/Round_Survives_The_Caller_Hot_Fixes.md)
-> (Complete 2026-07-28 — S01–S05 + HF redesign: ack-after-accept, no hidden
-> relay verbs, public `--run-id` removed, contract 5.0.0 / binary 0.10.6; code
-> SSOT `DetachedHandoff`, `DetachedDispatch`, `RelayCoordinator.claimStart`);
-> [`Model_Catalog_Simplification.md`](../archive/phases/Model_Catalog_Simplification.md)
-> (Complete 2026-07-28 — MCAT-S01a–S07: AgentOS `catalog.json` + Allnighter
-> `catalog_overlay.json` cutover, legacy driver JSON removed, `alln catalog
-> validate`; S06 live-label smoke opt-in manual; code SSOT `CatalogLoader`,
-> `ModelCatalog`, `CatalogOverlayLoader`, `ModelCatalogValidator`);
-> [`Ephemeral_Teams.md`](../archive/phases/Ephemeral_Teams.md)
-> (Complete 2026-07-28 — RSO-S01/S02: runtime `--seat` on `alln run` for
-> one-off judgment-team crew staffing; contract 5.0.0→5.1.0; code SSOT
-> `TeamExplicitSeats`, `RunInvocationResolver`, `TeamRun.explicitSeatModelIds`,
-> `SandboxHandoffSpool.Request`);
-> [`Pilot_Status_Liveness_Lie_Hotfix.md`](../archive/phases/Pilot_Status_Liveness_Lie_Hotfix.md)
-> (Complete 2026-07-28 — PLS-S01/S02: `pilot status` stream-primary liveness +
-> `streamSilenceWarning`, early `devRunId` stamp; PLS-S03 deferred; code SSOT
-> `PilotCLI.resolveLastProgressAt`, `RelayCoordinator` early `persistDeliveredDevRun`);
-> [`Core_Loop_Improvements.md`](../archive/phases/Core_Loop_Improvements.md)
-> (Complete 2026-07-28 — CLP-S01 stream liveness on `ps`/status, S02 reconcile-on-read,
-> S03 default `ps` floor + `--all`, S05 golden-path teaching, S08 stream-stall URN;
-> code SSOT `StreamLiveness`, `ProcessOwnershipSurface`, `NotificationScheduler`);
-> [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md)
-> (Code Complete 2026-07-27 — URN-S01/S02/S03 shipped: `alln serve` posts local
-> notifications for relay/pilot/team-run state and auto-launches itself, silent
-> default-on, so CLI-only work notifies the founder without the Mac app open;
-> full automated proof green, deslop+audit CLEAN; **on-host banner confirmation
-> still needed** on the founder's own Mac before calling it fully proven;
-> URN-S04–S06 deferred, don't resume without fresh scoping; code SSOT
-> `NotificationScheduler.swift`, `ServeAutoLaunch.swift`,
-> `NotificationCandidateDetection.swift`, `PilotCLI.swift`, `RelayCLI.swift`);
-> [`Cross_Model_Review_Hardening.md`](../archive/phases/Cross_Model_Review_Hardening.md)
-> (CLOSED 2026-07-27 — partial ship: CMR-S03 staffing invariant + CMR-S05
-> writer/reviewer pairing line shipped; CMR-S01/S02/S04 deferred pending real
-> pairing telemetry, re-scope as a fresh packet, don't resume this one; code
-> SSOT `BuiltInTeamsTests.testLeadCaliberDominatesWorkers`,
-> `ArtifactProjector.Card.writerReviewerLine`);
-> [`Unattended_Worker_Auth_Prompt_Stall.md`](../archive/phases/Unattended_Worker_Auth_Prompt_Stall.md)
-> (Complete 2026-07-27 — non-interactive spawn env + stall diagnosis; does **not**
-> claim Security.framework prompt-proof; code SSOT `AllnighterSpawnEnvironmentPolicy` /
-> `ProcessOwnership` stall diagnosis);
-> Hygiene promote 2026-07-26 — standing homes (not phases):
-> [`Product_Vocabulary.md`](../workflows/Product_Vocabulary.md)
-> (from Language_Cutover + Work_Order_Team_Model + Team_Depth_Naming),
-> [`Visual_Proof_Gate.md`](../gui/Visual_Proof_Gate.md),
-> [`Design_Lane.md`](../operations/Design_Lane.md),
-> [`Spec_Review.md`](../operations/Spec_Review.md);
-> archived packets under `docs/archive/phases/` for those names;
-> [`Signal_Scout_Triangulation_And_Graph.md`](../archive/phases/Signal_Scout_Triangulation_And_Graph.md)
-> (ARCHIVED 2026-07-26 — keep Research; Graph = not now),
-> [`CLI_Implementation_Contract.md`](../archive/phases/CLI_Implementation_Contract.md)
-> (ARCHIVED 2026-07-26 — Remaining list ruled stale; code/`ContractRegistry` SSOT;
-> do not resume June Pending/SWW leftovers),
-> [`Team_Run_Receipt.md`](../archive/phases/Team_Run_Receipt.md)
-> (ARCHIVED 2026-07-26 — artifact product shipped; code SSOT `ArtifactProjector` /
-> `ArtifactWriter` / `ArtifactCLI`; S00 growth disposition still historical),
-> [`Pilot_Long_Turn_Survival.md`](../archive/phases/Pilot_Long_Turn_Survival.md)
-> (Complete 2026-07-26 — S01/S03/S04/S02 + audit `5761dd59`/`abb00890`/`c06c3f3d`/`9074f9ae`/`01402ab3`;
-> contract 4.0.9; durable round vs disposable waiter),
-> [`Idle_Stall_False_Kill_Hotfix.md`](../archive/phases/Idle_Stall_False_Kill_Hotfix.md)
-> (Complete 2026-07-25 — S01 1800 idle floors + drift guard; S04 stall demotion +
-> silence telemetry; S02 pgid child/CPU progress; S03 deferred),
-> [`Capacity_False_Auth_Mislabel_Hotfix.md`](../archive/phases/Capacity_False_Auth_Mislabel_Hotfix.md)
-> (Complete 2026-07-25 — AgentOS `bec4f9e` stderr-only auth blockers + idle kill-reason
-> priority; CAP-HF-S03 dropped; Allnighter mirror `CapacityClassifierTests`),
-> [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md)
-> (Complete 2026-07-25 — S1–S3 `6c3dff3d`/`dd319f72`/`70e045c4`, contract 4.0.2;
-> unrated customs@40 + family/CLI diversity + dry-run `seats[]`),
-> [`Model_Catalog_Quick_Fixes.md`](../archive/phases/Model_Catalog_Quick_Fixes.md)
-> (Complete 2026-07-25 — MCV-S03 shipped `a26a264d` / contract 4.0.1; remaining
-> ledger items unauthorized — do not resume without a new founder ruling),
-> [`CODE_RED_Core_Infrastructure_Repair.md`](../archive/phases/CODE_RED_Core_Infrastructure_Repair.md)
-> (CLOSED 2026-07-24, CR-S00–S07, live proof GREEN ×3; resident control plane
-> deleted to zero; `Resident_Execution_Broker.md` archived with it),
-> [`Alln_Sharpening.md`](../archive/phases/Alln_Sharpening.md),
-> [`CLI_Agent_Surface_Fidelity.md`](../archive/phases/CLI_Agent_Surface_Fidelity.md),
-> [`Concurrent_Invocation_Isolation.md`](../archive/phases/Concurrent_Invocation_Isolation.md),
-> [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md),
-> [`Team_Run_Load_Performance.md`](../archive/phases/Team_Run_Load_Performance.md),
-> [`Unified_Run_Model.md`](../archive/phases/Unified_Run_Model.md) (root run-model
-> law, CLOSED 2026-07-24 — code SSOT `RunService.swift`, `TeamPreset`/
-> `TeamCatalog`, `RunWriteLockRegistry`; enforcement `config/architecture-policy.json`
-> + `scripts/check_architecture_policy.sh`),
-> [`CLI_Agent_Ergonomics.md`](../archive/phases/CLI_Agent_Ergonomics.md)
-> (Complete, AE-S00–S15). Team Lab is **SHUT DOWN** (founder ruling
-> 2026-07-24 — we have all the teams we want/need for now) and its specs
-> archived un-rebased: [`Team_Lab_Run_Factory.md`](../archive/phases/Team_Lab_Run_Factory.md),
-> [`Team_Lab_Composition_And_Seat_Economics.md`](../archive/phases/Team_Lab_Composition_And_Seat_Economics.md),
-> [`Team_Lab_Slice_1_Full_Package.md`](../archive/phases/Team_Lab_Slice_1_Full_Package.md).
-
-### Agent front door (V1 Complete — gates 1–3 archived)
-
-| Doc | Status | Purpose |
-| --- | --- | --- |
-| [`Team_Catalog_Normalization.md`](../archive/Team_Catalog_Normalization.md) | **SHIPPED 2026-07-19, archived** (founder-approved; CN-S01–S06 + Law 4 guards landed) | Decisive normalized family list: obvious job names, optional Min/Default/Max tiers (Spec Review, Bug Hunt, Growth, Design), Law 3 caliber+capability staffing, Law 4 unique typeTags. The catalog in `BuiltInTeams.swift` now matches this doc. |
-| [`Menu_Not_Router.md`](../archive/phases/Menu_Not_Router.md) | **Complete 2026-07-20, archived** — MR-S01–S06 (`2ef2ed43` / `e1519edd` / `e724595d` / `e2ab104f` / `f0bd3e02` / `9fd50e19`) | Live `alln menu --json` owns discovery; caller chooses; no intent router. Code SSOT: `MenuCatalog`, `TeachingSnippet`, exact-id resolvers; harness `scripts/agent_eval.sh --suite menu-not-router`. |
-| [`Agent_Front_Door.md`](../archive/phases/Agent_Front_Door.md) | **SHIPPED, archived** (gate 1 — findable) | `install-cli` / `bootstrap` / no empty silence. Code SSOT: `InstallCLI.swift`, `Bootstrap.swift`. |
-| [`Agent_Onboarding.md`](../archive/phases/Agent_Onboarding.md) | **Complete 2026-07-20, archived** — ONB-S01–S03 (`b6083575` / `bd28ebf0` / `a732d234` / `99fb5778`); PARKED remain parked | From findable to suggested: Teach your CLIs + recipe cards + `teaching.installed` doctor. Code SSOT: `TeachingSnippet.swift`, `GlobalTeachingInstaller.swift`, `RecipeCatalog`. |
-| [`Agent_Intent_Router.md`](../archive/phases/Agent_Intent_Router.md) | **TOMBSTONED** — superseded by archived `Menu_Not_Router.md` | Historical intent-router phase. Do not implement; selection truth is the live menu. |
-
-### Open phase packets (not SSOT — archive when the open work closes)
-
-These may still have **forward** slices. They are build packets, not durable
-law. Shipped subsections already belong to code; do not cite these paths as
-“the SSOT.”
-
-| Doc | Status | Purpose |
-| --- | --- | --- |
-| [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open / M1 built — **archive when no forward CLI naming work remains** | `alln` agent-first naming while still evolving. Code owns shipped contract bits. |
-
-### Team catalog & delegation (forward)
-
-Team Lab is **SHUT DOWN** (founder ruling 2026-07-24 — we have all the teams we
-want/need for now). Its three specs are archived un-rebased (their scripts still
-reference the dead `code_bug_hunt_lite` team); see
-[`docs/archive/phases/README.md`](../archive/phases/README.md). Do not resume
-without a new founder ruling.
-
-| Doc | Status | Purpose |
-| --- | --- | --- |
-| [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | **Draft — needs re-base** against `Unified_Run_Model.md` (its Execute-approval mutating gate is retired ceremony); Core routing built, GUI browse surface unbuilt | Send-to-team as the discoverable delegation surface: Team Card projection, family map, direct team send. |
-| [`Live_Team_Board.md`](Live_Team_Board.md) | **Draft feature packet** — no-theater contract | In-thread live board for running answer-team runs: sourced per-worker states + real deltas only when emitted. Forbids fake activity/progress. |
+| [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete; one dogfood proof remains** | Wall-crossing resume half blocked on Codex real reset (2026-08-04). Code SSOT: `CapacityDisplayAcquisition`, `MenuCatalog`, `LoopCoordinator`, `VendorBackoffReconciler`. |
+| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 founder-blocked** | DNS (`get.allnighter.app`) + Developer ID + notarization. S00–S03/S06 shipped. |
+| [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
+| [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
+| [`Agent_Facing_Run_Observability.md`](Agent_Facing_Run_Observability.md) | **Draft — not started** | OBS-S01 `alln ps --wait-for-change` is the headline fix. Code SSOT: `ProcessOwnershipSurface`, `StreamLiveness`. |
 
 ### Forward feature packets
 
-| Doc | Status | Purpose |
+| Doc | Status | Notes |
 | --- | --- | --- |
-| [`Buzz_Harness_Spike.md`](Buzz_Harness_Spike.md) | **SPIKE — deferred**; throwaway-permitted | After artifacts exist: does the same object feel valuable in an attended Buzz thread? Strategy: `docs/strategy/Buzz_And_The_Judgment_Layer.md`. |
-| [`Share_To_Research.md`](Share_To_Research.md) | **Draft feature packet — not started**; pre-launch, not urgent | Share an X post / video / article from the iOS share sheet, confirm once, and the Mac's Research team returns a project-aware read. Mostly wiring: typed `startRun`, the cloud relay drain loop, the Research team, and `SignalSourceRouter` all exist — new work is the iOS Share Extension + confirm sheet. The iOS app's first defensible feature (needs the user's own multi-CLI bench; no vendor can copy it). |
-| [`Composer_File_References.md`](Composer_File_References.md) | **Backend built** (FR-S00–S03 + picker); FR-S04 `@`-palette + FR-S05/06/07 forward | `@` file references. Remaining: Mac `@` palette (ranking/highlight/paste/DnD/persistence), pending/work-order revalidation, context reveal, GUI proof seal. |
-| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | **Parent/router** — MLP core delivered | Work-thread lane router; index for still-open children below. |
-| [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) | **Unbuilt** (USG-S01–S07) | Source-labeled observed usage: `ObservedUsage` model, driver parsers, attach-to-chat, scorecard, UI display. Engine token capture exists; the model/UI do not. |
-| [`threads/09_Thread_Forking.md`](threads/09_Thread_Forking.md) | **Draft — unbuilt** (needs CLI-only reframe) | Fork a thread from a terminal turn prefix into a new child thread. No code yet. |
-| [`Keyboard_Shortcuts.md`](Keyboard_Shortcuts.md) | **KBD-S00/S01 done**; S02–S06 forward | Tier-2 list nav (j/k), ⌘P quick-switcher, output/manage keys, PM/pending keys, settings override page. |
-| [`Folder_Native_Memory.md`](Folder_Native_Memory.md) | **Pointer only shipped** — consolidation engine unbuilt | Only the memory pointer line ships (referenced by relay/pilot scaffolds); the consolidation round, seat-line loop, and second-run works-test are unbuilt. |
-| [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | **Plan — not started** | Consolidate Allnighter's two chat substrates and extract into the shared AgentOS `AgentOSChatCore`/`AgentOSChatUI` packages. |
-| [`Contradiction_Pass.md`](Contradiction_Pass.md) | **Draft — NOT AUTHORIZED**; queued behind Code Red + Menu Relations | Give Max a structural difference instead of more bodies: mechanical contradiction/co-attribution detection from anchored findings (all tiers, zero model cost), false/factual/judgment classification, and one bounded Max-only resolution seat. Default escalates via `escalationRecommended`, never silently spends. Extends archived Spec Review packet. |
+| [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
+| [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |
+| [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | Draft — needs re-base | Core routing built; GUI browse unbuilt. |
+| [`Live_Team_Board.md`](Live_Team_Board.md) | Draft | Honest in-thread team-run progress only. |
+| [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) | Parent/router | MLP core delivered; open child: [`threads/09_Thread_Forking.md`](threads/09_Thread_Forking.md). |
+| [`Keyboard_Shortcuts.md`](Keyboard_Shortcuts.md) | KBD-S00/S01 done | S02–S06 forward; re-base KBD-S05 away from retired approve ceremony. |
+| [`Folder_Native_Memory.md`](Folder_Native_Memory.md) | Pointer only shipped | Consolidation engine unbuilt. |
+| [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | Plan — not started | AgentOS chat package extraction. |
+| [`Share_To_Research.md`](Share_To_Research.md) | Draft — not started | iOS share sheet → Mac Research run. |
+| [`Buzz_Harness_Spike.md`](Buzz_Harness_Spike.md) | SPIKE — deferred | Receipt prerequisite met; strategy in `docs/strategy/`. |
+| [`Contradiction_Pass.md`](Contradiction_Pass.md) | **NOT AUTHORIZED** | Extends `docs/operations/Spec_Review.md`; do not start without founder ruling. |
+| [`Pricing_Change_Process.md`](Pricing_Change_Process.md) | Standing process | Offer SSOT: `docs/marketing/Pricing_Recommendation.md`. |
 
 ### Subdirectories
 
 | Dir | Status | Purpose |
 | --- | --- | --- |
-| [`setup/`](setup/README.md) | Detection engine built; WOW-experience is live design source | First-Run Setup ("assemble your team"): `CLIDetector`/`ShellResolver`/`SetupStore` built (`alln detect`); remaining work is the first-run UX + per-CLI support docs (Antigravity, Grok Build, OpenCode). |
-| [`copy/`](copy/README.md) | **Draft** post-MVP lane — unbuilt | Copy work orders: prompt-first `/copy`, copy type, Copy team, copy board. |
-| [`ios/`](ios/README.md) | **Parked** — deferred until macOS app is done | Future remote Project Manager spine; must not block Mac delivery. |
-| [`parked/`](parked/README.md) | **Parked** — intentionally out of the active board | e.g. `Utilization_Admission_Control.md` (premature scheduler machinery). |
-| [`sprint/`](sprint/README.md) | Mostly `done` — mixed | One-slice implementer work orders (32K-context agents). Done topics should migrate to `archive/phases/sprint/`; the pair-queue topics are historical (slice queue deleted at R-S09). Active: `opencode/` OC-S01 chain. |
-| `wiring/`, `mockups/` | Design-handoff assets/tokens | Design source material for specific composer/setup/send-to-team surfaces. |
+| [`setup/`](setup/README.md) | Detection engine built; WOW UX forward | First-run setup, per-CLI support docs. OpenCode driver **built** (HTTP serve path). |
+| [`copy/`](copy/README.md) | Draft — unbuilt | Copy lane work orders. |
+| [`ios/`](ios/README.md) | **Parked** | Future remote PM; must not block Mac delivery. |
+| [`parked/`](parked/README.md) | **Parked** | Premature scheduler ideas (e.g. utilization admission). |
+| [`sprint/`](sprint/README.md) | **No active work orders** | All sprint docs archived; open new ones here when slicing. |
+| `wiring/`, `mockups/` | Design-handoff assets | Pixel reference for composer/setup/send-to-team surfaces. |
+
+## Recently archived (2026-08-01 cleanup)
+
+Verified against code/commits; full index:
+[`docs/archive/phases/README.md`](../archive/phases/README.md).
+
+| Packet | Why archived | Successor |
+| --- | --- | --- |
+| [`CLI_Park.md`](../archive/phases/CLI_Park.md) | `alln drivers park\|unpark` shipped `073522c7` | `SetupStore.parkedDriverIds`, `DriversCLI`, `Product_Vocabulary.md` |
+| [`Worker_To_Agent_Migration.md`](../archive/phases/Worker_To_Agent_Migration.md) | Ship line complete 2026-07-29 | `Product_Vocabulary.md`; optional hygiene backlog in archive doc |
+| [`threads/04_Observed_Usage.md`](../archive/phases/threads/04_Observed_Usage.md) | Superseded by OUR packet | `ObservedUsagePresentation`, archived `Observed_Usage_On_Receipts_And_Live_Status.md` |
+| `sprint/team-run-receipt/TRR-S00*` | Founder disposition only; TRR product shipped | `ArtifactProjector` / `ArtifactCLI` |
+| `sprint/opencode/OC-S01b–d` | Superseded by AgentOS HTTP driver | AgentOS `OpenCodeServeClient`, archived blocker resolution |
+
+Earlier 2026-07-31 cleanup archived Loop Verb Cutover, Menu Envelope Compression,
+Worker/Skill Sharing, Capacity Hardening, and orphaned sprint work orders — see
+archive index (do not reopen).
 
 ## Operating Rules
 
-- Founder input is intent. While building, capture it in a phase **packet**.
-  Durable semantics land in **code** and/or **standing docs outside phases**
-  (operations, workflows, design-system, gui, strategy) — never as a permanent
-  resident of `docs/phases/`.
+- Founder input is intent. Durable semantics land in **code** and/or **standing
+  docs outside phases** — never as a permanent resident of `docs/phases/`.
 - New phase docs must name one trusted workflow slice, one truth owner, and one
-  Works Test or proof waiver. Use the template in **Adding a Phase Doc** below.
-- Closeout = **promote keepable law** into the right standing doc and/or code,
-  then **archive** the phase packet. Skipping promotion dumps truth into the
-  archive where agents stop reading it.
-- SwiftUI may render truth; it must not invent it.
-- Generated output is derived. Change the source contract, then regenerate.
-- Do not leave “Product shipped” / “Living SSOT” docs in `docs/phases/`. A hard
-  cleanup pass on 2026-07-18 archived ~40 delivered docs; a second pass on
-  2026-07-31 found a whole class of the same failure one level down — shipped
-  *sprint work orders* whose parent packet had already been archived, left
-  behind under `docs/phases/sprint/<topic>/` and three orphaned execution-brief
-  directories (`atl/`, `capacity/`, `closeout/`) never linked from this README
-  at all. Keep that habit — with promotion, not archive-only amnesia — and
-  check one level below the phase-packet doc, not just the packet itself.
+  Works Test or proof waiver.
+- Closeout = **promote keepable law**, then **archive**. Skipping promotion dumps
+  truth into the archive where agents stop reading it.
+- Check one level below the phase packet (sprint work orders, execution briefs)
+  when auditing — parent archived while children left behind is a recurring failure
+  mode (fixed again 2026-08-01).
 
 ## Post-MVP Product Laws
 
 - Allnighter coordinates workers the user already pays for. It is not a model
   provider, IDE, chat aggregator, cloud coding service, or terminal viewer.
 - Allnighter uses the user's existing CLI subscriptions/logins, **never** API
-  keys / BYOK. Setup/login flows must not suggest API keys.
-- Allnighter has nothing to do with git. It sends orders; the repo + CLIs own
-  all git. Safety = one mutating worker + write lock + bounded order + proof
-  surface + hard stops + the user's own undo.
-- The agent-facing contract is CLI-only. **MCP was retired 2026-07-16** — never
-  reintroduce MCP surfaces. CLI/MCP parity was total; nothing was lost.
-- A Project is the durable local repo/folder floor. A work thread is the durable
-  conversation unit inside a Project. Chat is the default turn; team run, design
-  board, and execution are stronger turn types inside the same thread.
+  keys / BYOK.
+- Allnighter has nothing to do with git. Safety = one mutating worker + write
+  lock + bounded order + proof surface.
+- The agent-facing contract is CLI-only. **MCP was retired 2026-07-16**.
+- Execution lane serialization is INVIOLABLE: one Running worker per repo root.
 - Workers fail honestly. A failed worker is shown failed, never hidden or faked.
-- Team selection owns work shape. Effort (Low/Med/High) is per-worker model
-  reasoning level only — never a generic team-depth toggle. Depth is a bigger
-  team (Min/Default/Max families), not an effort dial.
-- Healthy model substitution is same-tier only (user-governed Frontier /
-  Balanced / Economy tiers); it may cross CLIs inside a tier, never silently
-  upgrades/downgrades or leaves the selected shelf.
-- Do not estimate future cost, quota burn, runtime, or task complexity.
-- Capacity state is observed, sourced, timestamped, and local by default.
-- Pending separates Project-scoped user intent from immediate execution. It is
-  public CLI-first (`alln pending`) before any GUI promises Draft/Pending/Running.
-- Execution lane serialization is INVIOLABLE: one Running worker per branch/
-  session lane. Mixed-source teams are for judgment; anything mutating resolves
-  to one source/driver before any mutating spawn.
-- Every built-in and custom team/skill belongs to exactly one lane. Duplicate
-  and tune when a lineup or hat belongs in another lane.
-- Code, Design, Copy are the peer creation lanes (+ Signal as the 4th craft). A
-  new lane requires a new substrate or output class. Send-to-team never infers
-  lane from prompt prose — the user chooses the lane.
-- Settings navigation is lane-first: CLIs, then BUILD / DESIGN / COPY, each with
-  Teams and Skills.
-- Forward Mac app work targets a standalone Dock app plus explicit background
-  coordinator. iOS is a future remote surface that must not block macOS delivery.
+
+Full laws: prior README sections and `docs/workflows/Product_Vocabulary.md`.
 
 ## Adding a Phase Doc
 
@@ -323,13 +131,6 @@ Current state:
 Truth owner:
 Lie-prone layers:
 New/changed semantic rules:
-Duplicate truth to delete:
-
-Implementation impact:
-Mac app impact:
-iOS app impact:
-Driver/protocol impact:
-Auth/privacy/permissions impact:
 
 Works Test:
 Proof command:
@@ -339,68 +140,26 @@ Done when:
 Open questions:
 ```
 
-## Routing
-
-Live docs on the left; historical truth points into the archive or code SSOT.
+## Routing (active work)
 
 | Work | Read first |
 | --- | --- |
-| Plan-time quota routing, capacity in menu/bootstrap, loop dies on session cap instead of waking at reset, cross-vendor seat arbitrage | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) — code SSOT `CapacityDisplayAcquisition`, `MenuCatalog`, `VendorBackoffReconciler`, `LoopCoordinator.dispatchDevTurn`, `VendorSubstitutionPolicy` |
-| Core execution is broken, Team research does not return real answers, execution does not change the real repo, or any “fixed again” incident | Code SSOT: `RunService.swift` (the one run owner), `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry`; enforcement — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` |
-| Codex/host sandbox blocks child CLIs, source processes absent from ownership | The sandbox blocks the Keychain, not the repo. Code SSOT: `SandboxHandoffSpool.swift`, `SandboxHandoffRunner.swift`, `HostSandboxAdvice.swift` |
-| `alln serve`, background scheduler scope | A scheduler only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay). Owns no run semantics; `alln run` never needs it. Code SSOT: `ServeDaemon.swift` |
-| Foreground/async run stuck, journal/status mismatch, opaque blocker, orphan worker, kill/retry failure, missing lifecycle stream | archived `Run_Lifecycle_Reliability.md` (Complete; extends archived Process Ownership + Concurrent Invocation Isolation) |
-| Vendor usage limit / session cap, parked run, wake/resume, authorized substitute | archived `Rate_Limit_Continuity.md` (code SSOT: `VendorBackoffReconciler`, `VendorSubstitutionPolicy`) |
-| Two `alln`s on different projects colliding, scoped reconcile/kill, per-invocation isolation | archived `Concurrent_Invocation_Isolation.md` (code SSOT; extends archived `Process_Ownership.md`) |
-| Default-chat / team-run latency, streaming throughput, rail click stalls, scroll jank | archived `Team_Run_Load_Performance.md` (code SSOT; warm path: archived `Warm_Single_Lane_Chat.md`) |
-| GUI visual bugs, SwiftUI "fixed" claims, screenshot/proof gates | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
-| Agent front door — findable/suggested/selection, catalog normalization | Front door V1 Complete — archived `Agent_Front_Door.md` (gate 1) → archived `Agent_Onboarding.md` (gate 2) → archived `Menu_Not_Router.md` (selection; gate 3 router tombstone: `Agent_Intent_Router.md`); catalog: archived `Team_Catalog_Normalization.md` |
-| Cold start / CLI+Mac updates — no `alln` yet; one-paste install; agents learn about releases without opening the app | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) — install script + `latest.json` channel + `bootstrap --host hermes\|openclaw`; MCP stays dead; npm deferred |
-| Stale MCP/help language, empty help search, invented flags, dead retired verbs in living docs, version freshness | archived `CLI_Agent_Surface_Fidelity.md` (Complete; code SSOT `RetiredVocabulary` + HelpTopicRegistry) |
-| CLI-first product spine, `alln`, product grammar, agent-first posture | `CLI_Product_Spine.md`; shipped schemas/commands = `ContractRegistry` / code |
-| Team authoring shape (`teams duplicate`/`new`/`edit` JSON), model-catalog quick fixes | archived [`Model_Catalog_Quick_Fixes.md`](../archive/phases/Model_Catalog_Quick_Fixes.md) — MCV-S03 shipped (code SSOT: `AllnighterCLI` authoring printers + `ContractRegistry` `teamPreset`/`teamShowJSON`); remaining ledger items unauthorized |
-| Run model, answer vs execution teams, dispatch/source safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` + `docs/workflows/Product_Vocabulary.md` |
-| Public vocabulary, model/skill/worker/team language | `docs/workflows/Product_Vocabulary.md` |
-| Send to team, delegation surface, Team Cards | `Team_Delegation_Surface.md` + `docs/gui/surfaces/send-to-team/brief.md` |
-| Live in-thread team run progress, honest streaming excerpts | `Live_Team_Board.md` |
-| Team naming, depth tiers (Min/Default/Max), family names | `docs/workflows/Product_Vocabulary.md` (applied by `Team_Catalog_Normalization.md`) |
-| Team lab — benchmarking, seat economics, roster ablation, calibration | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; archived `Team_Lab_Run_Factory.md` + `Team_Lab_Composition_And_Seat_Economics.md` + `Team_Lab_Slice_1_Full_Package.md` (un-rebased) |
-| Spec Review hero loop, review lenses, positioning | `docs/operations/Spec_Review.md` |
-| Team seating, Haiku/custom rank inheritance, CLI/family diversity | archived [`Seating_Tier_And_CLI_Diversity.md`](../archive/phases/Seating_Tier_And_CLI_Diversity.md) — Complete 2026-07-25 (S1–S3, contract 4.0.2); code SSOT `ModelCatalog` + `TeamResolver` + `RunDryRunJSON.seats` |
-| One-off crew staffing, custom-Team picker sprawl, `teams duplicate` for throwaways | archived [`Ephemeral_Teams.md`](../archive/phases/Ephemeral_Teams.md) — Complete 2026-07-28; `alln run --team <built-in> --seat <model_id>…` (Option C); code SSOT `TeamExplicitSeats`, `RunInvocationResolver`, `TeamRun.explicitSeatModelIds` |
-| Menu byte budget, cold-agent selection and composition | Code SSOT: `MenuCatalog.swift`, `MenuSelectionCopy.swift`; gate `scripts/verify_menu_contract.py`; matrix `scripts/agent_eval.sh --suite menu-not-router`. The relations phase was killed by its own measurement — do not reopen. |
-| Panel disagreement, contradiction detection, what Max does beyond more seats, anchored findings | `Contradiction_Pass.md` (extends `docs/operations/Spec_Review.md`) |
-| Gorgeous private team run report / artifact, deliberate share (not Mac-only) | Code SSOT: `ArtifactProjector` / `ArtifactWriter` / `ArtifactCLI`; closed record: archived `Team_Run_Receipt.md` |
-| Design team / design edits — code mockup → host screenshot (not Midjourney) | `docs/operations/Design_Lane.md` |
-| Buzz / attended agent-chat rooms as a call site for alln (after receipts) | `Buzz_Harness_Spike.md` + `docs/strategy/Buzz_And_The_Judgment_Layer.md` (firm-member mythology retired; receipt-first) |
-| Share a link from the phone into a Research run, iOS share sheet intake | `Share_To_Research.md` (reuses `RemoteCommandRouter` `startRun` + `SignalSourceRouter`; no new protocol operation) |
-| Pilot/Relay long deploy or ops turn; harness killed `pilot watch`; detached handoff cwd/binary; status vs watch recovery | archived [`Pilot_Long_Turn_Survival.md`](../archive/phases/Pilot_Long_Turn_Survival.md) — code SSOT `PilotCLI.swift` / `RelayCoordinator.swift` (substrate: archived `Pilot_Relay.md` / `Pilot_DX.md`; idle floors: archived `Idle_Stall_False_Kill_Hotfix.md`) |
-| `pair pilot status` fresh silenceAge while `alln ps` says no stream for Ns; hung child under worker (e.g. wrangler tail); pgid heartbeat lie | archived `docs/archive/phases/Pilot_Status_Liveness_Lie_Hotfix.md` — Complete 2026-07-28; code SSOT `PilotCLI.resolveLastProgressAt`, `PilotStatusJSON.streamSilenceWarning`, `RelayCoordinator` early `persistDeliveredDevRun` |
-| Relay/pilot round lands or escalates with nobody notified (Mac app closed, caller already gone) | archived [`Unattended_Round_Notification.md`](../archive/phases/Unattended_Round_Notification.md) — Code Complete 2026-07-27, on-host banner confirmation still needed; code SSOT `NotificationScheduler.swift`, `ServeAutoLaunch.swift`, `NotificationCandidateDetection.swift`; extends archived `threads/02_Notifications.md` (Mac-app-only NOTIF-S01–S05) |
-| Mac Compose Loop / Agent Team Loop; remove relay spinner; kickoff handoff; Stop+Status parity with CLI | [`Agent_Team_Loop.md`](../archive/phases/Agent_Team_Loop.md) — **ARCHIVED 2026-07-30**, S01–S05 all shipped (S05 sidebar quieting shipped 2026-07-30, `f15017ee`) |
-| `pair relay`/`relay-resume`/`relay adopt`/`alln run` die when the caller dies (no `--no-wait` equivalent); relay dispatch has no in-flight guard | **Archived** — `docs/archive/phases/Round_Survives_The_Caller.md` + Hot Fixes; code SSOT `DetachedHandoff` / `DetachedDispatch` / `RelayCoordinator` |
-| Composer `@` file references, file chips, prompt file-read blocks | `Composer_File_References.md` |
-| Persistent chat, routable turns, thread backend | `Persistent_Work_Threads.md` → `threads/04_Observed_Usage.md`, `threads/09_Thread_Forking.md` |
-| Keyboard shortcuts, quick-switcher, list nav | `Keyboard_Shortcuts.md` |
-| Folder-native memory / seat-line consolidation | `Folder_Native_Memory.md` |
-| Signal / Research team | Code: `BuiltInTeams.signalPostToProject` + `SignalSourceRouter`; deep Graph packet archived |
-| Chat module consolidation + AgentOS extraction | `Chat_Module_Extraction.md` |
-| First-run setup, CLI detection/auth, per-CLI support | `setup/README.md` |
-| Copy lane, `/copy`, copy board | `copy/README.md` |
-| iOS remote Project Manager | `ios/README.md` |
-| Sprint work orders (one-slice implementer prompts) | `sprint/README.md` |
-| Built MVP behavior, worker drivers, team-run/design-board substrate | `docs/mvp/README.md` |
-| Feature semantics before implementation | `docs/workflows/SSOT_Feature_Workflow.md` |
+| Plan-time quota routing, loop park-yield, cross-vendor arbitrage | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) |
+| Core execution broken, team research/execution lies | Code SSOT: `RunService.swift`, `TeamCatalog`, `RunWriteLockRegistry` |
+| Cold start — no `alln` on PATH | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) |
+| Composer `@` file references | [`Composer_File_References.md`](Composer_File_References.md) |
+| PM continuity after seat death | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) |
+| Agent cannot tell if a delegated seat is advancing | [`Agent_Facing_Run_Observability.md`](Agent_Facing_Run_Observability.md) |
+| Send to team / delegation surface | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) + `docs/gui/surfaces/send-to-team/brief.md` |
+| Persistent chat / thread backend | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) |
+| First-run setup, CLI detection | [`setup/README.md`](setup/README.md) |
+| Sprint work orders (one-slice agents) | [`sprint/README.md`](sprint/README.md) — none active; create new when slicing |
+| Built MVP / run model law | `docs/mvp/README.md` + code `RunService.swift` |
 | Sprint execution and closeout | `docs/operations/Execution-Playbook.md` |
-| Stack and proof commands | `docs/operations/TechStack.md` |
-| Post-Sharpening dogfood batch — reproduce selector round-trip, dry-run read-only steer, team-name disclosure, authoring findability, single-source binary version | archived `Agent_Dogfood_Papercuts.md` (Done — code SSOT: `TeamRun.explicitWorkerIds`, `RunDryRunJSON.alternatives`, `TeamPreset.disclosedDisplayName`, `AllnighterVersionIdentity.binaryVersion`) |
-| Piloted-delivery field reports #10/#11 — lane-label truth, `--json` stream law, retry idempotency, unattended vocabulary, commit fidelity, proof surfacing, token truth | archived `Field_Reports_3.md` + `Field_Reports_4.md` (Shipped 2026-07-16 — FR7–FR14 all in code with tests) |
-| **Anything shipped & archived** (MCP, Pilot/Relay/Panel, Process Ownership, Pending, Stalled Watchdog, Try-Fix, Warm chat, Team/Model catalogs, Composer image, thread MLP/notifications/streaming/unread, Field Reports 1–4, Agent Dogfood Papercuts, GLM code-review logs) | [`docs/archive/phases/README.md`](../archive/phases/README.md) — code is SSOT |
+| **Anything shipped & archived** | [`docs/archive/phases/README.md`](../archive/phases/README.md) |
 
 ## Retired Content
 
 Old numbered roadmap docs and worktree-era plans were removed long ago. Do not
-infer active product truth from missing `XX_*.md` links. The 2026-07-18 cleanup
-also removed several already-dangling references from this board
-(`Project_Spine_And_Project_Manager.md`, `Team_Configuration_UX_Rescue.md`) that
-no longer exist in the repo. New forward phases are added explicitly here.
+infer active product truth from missing `XX_*.md` links. New forward phases are
+added explicitly to this board.

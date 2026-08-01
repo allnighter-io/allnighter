@@ -20,7 +20,7 @@ headline tok suffix when present — both **first-answer only** (bug). Live
 `pilot status` / `relay-status` have stream liveness fields but **no usage
 segment and no human long-job line**.
 
-Prior art (not SSOT): `docs/phases/threads/04_Observed_Usage.md` — this packet
+Prior art (not SSOT): `docs/archive/phases/threads/04_Observed_Usage.md` — this packet
 wins for receipts + live: CLI blame, no omit-as-mystery.
 
 Phases are ephemeral. Closeout: promote law to standing docs; code stays field

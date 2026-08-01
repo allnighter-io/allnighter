@@ -1,10 +1,9 @@
 # 04 - Observed Usage
 
-Status: Fast follow after Work Threads MLP — **superseded for execution path by**
-[`../Observed_Usage_On_Receipts_And_Live_Status.md`](../Observed_Usage_On_Receipts_And_Live_Status.md)
-(receipts + pilot/relay) and AgentOS
-`Observed_Token_Usage_Capture.md` (capture). Keep this file for product-law
-history; do not implement new slices here without reconciling those packets.
+Status: **Superseded — archived 2026-08-01.** Execution path shipped in archived
+`Observed_Usage_On_Receipts_And_Live_Status.md` (OUR-S01–S03). Keep for product-law
+history only; do not implement new slices here without reconciling code SSOT
+`ObservedUsagePresentation`.
 Owner: AllnighterCore + AllnighterEngine
 Updated: 2026-07-29 (pointer to active packets)
 

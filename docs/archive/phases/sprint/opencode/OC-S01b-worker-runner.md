@@ -1,6 +1,6 @@
 # OC-S01b — WorkerRunner OpenCode extractor wire
 
-Status: **ready** (requires OC-S01a done)
+Status: **superseded — shipped via AgentOS HTTP driver** (archive 2026-08-01)
 SSOT: `docs/phases/setup/OpenCode_CLI_Support.md` (Output Contract — one paragraph)
 
 ## Goal

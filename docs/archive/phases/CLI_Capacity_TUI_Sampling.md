@@ -110,7 +110,7 @@ CLI surface (target — refine at implementation):
   alias, do not create a second command (see §The CLI strip).
   **Parked CLIs** (`SetupStore.parkedDriverIds` / `alln drivers`): list **last**
   with status `parked` and do not sample them. Reuse `DriverListProjector` order
-  (active A→Z, then parked A→Z). See `docs/phases/CLI_Park.md`.
+  (active A→Z, then parked A→Z). See archived `docs/archive/phases/CLI_Park.md`.
 
 GUI surface (target):
   Tab 1 — Capacity strip: the launch screen (founder ruling 2026-07-29) plus a

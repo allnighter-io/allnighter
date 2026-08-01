@@ -148,7 +148,7 @@ Existing truth owners:
 - `docs/archive/phases/CLI_Implementation_Contract.md` owns public command grammar, JSON/NDJSON,
   generated docs, doctor checks, and proof gates.
 - `threads/01_Work_Threads_MLP.md` owns thread turns and context packets.
-- `threads/04_Observed_Usage.md` owns observed usage metadata; this doc consumes
+- `docs/archive/phases/threads/04_Observed_Usage.md` owns observed usage metadata (historical); live presentation in `ObservedUsagePresentation` — this doc consumes
   only admission signals from the shared provider observation layer.
 
 Existing useful pieces:
@@ -398,7 +398,7 @@ ProviderObservation
 ```
 
 `Utilization_Admission_Control.md` consumes `admissionEvent`.
-`threads/04_Observed_Usage.md` consumes `observedUsage`.
+`docs/archive/phases/threads/04_Observed_Usage.md` (historical) + code `ObservedUsagePresentation` consume `observedUsage`.
 
 One fixture should prove both views when a CLI output contains both a usage
 footer and an admission signal. Parser failure fails closed: admission becomes

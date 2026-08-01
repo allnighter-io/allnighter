@@ -149,11 +149,8 @@ Build in this order:
    - May ship Mac-only first.
    - This is the stare-at-it loop: make long turns feel alive.
 
-9. [`threads/04_Observed_Usage.md`](threads/04_Observed_Usage.md) — **not started**
-   **defer here**
-   - Fast follow for provider-reported usage only.
-   - No estimates, no fake dollar math, no opaque quota percentages.
-   - Duration stays first-class and already partially exists.
+9. [`threads/04_Observed_Usage.md`](../archive/phases/threads/04_Observed_Usage.md) — **superseded**
+   (receipts/live status shipped — archived `Observed_Usage_On_Receipts_And_Live_Status.md`)
 
 10. [`threads/09_Thread_Forking.md`](threads/09_Thread_Forking.md) — **Draft
    feature packet; MCP/CLI-first**

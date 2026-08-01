@@ -122,7 +122,8 @@ artifact directories. These stay until an explicit process-layer cutover.
 
 Historical cutover record: `docs/archive/phases/Worker_To_Agent_Migration.md`.
 Optional hygiene backlog (do not start by default):
-`docs/phases/Worker_To_Agent_Migration.md`.
+`docs/archive/phases/Worker_To_Agent_Migration.md` (ship line complete; optional
+hygiene backlog only).
 
 Shortcut: *Model at rest. Agent at work (model + skill).*
 

@@ -1,6 +1,6 @@
 # OC-S01d — CLIDetector smoke + coordinator before OpenCode spawn
 
-Status: **ready** (requires OC-S01c done)
+Status: **superseded — shipped** (archive 2026-08-01)
 SSOT: `docs/phases/setup/OpenCode_CLI_Support.md` (Trusted Workflow Slice)
 
 ## Goal

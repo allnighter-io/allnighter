@@ -1,12 +1,10 @@
 # Worker → Agent Migration
 
-> **Router:** optional future work and standing status live in
-> [`docs/phases/Worker_To_Agent_Migration.md`](../../phases/Worker_To_Agent_Migration.md).
-> This file is the **historical execution record** (S00–S08). Do not treat it as
-> an active work order.
-
-Status: **Complete — 2026-07-29** (machine contracts + teaching scrub shipped; Layer E
-exceptions documented in `Product_Vocabulary.md`)
+Status: **Ship line complete — 2026-07-29** (machine contracts + teaching scrub
+shipped; Layer E exceptions documented in `Product_Vocabulary.md`). **Optional
+hygiene only** — do not start WTA work by default; see §Optional hygiene backlog
+below. This file is the historical execution record (S00–S08) plus the optional
+backlog router.
 Owner: code SSOT for runs (`RunService.swift`, `TeamCatalog` / `TeamAgentSpec`,
 `TeamRunJSON`); standing vocabulary `docs/workflows/Product_Vocabulary.md`
 Created: 2026-07-28
@@ -25,7 +23,51 @@ Related:
 - User-facing retirement already shipped (GUI / `--model` / `RetiredVocabulary`):
   commit history on `feat/design-chain` (vocab cutover)
 - Prior hard cutover pattern: `docs/archive/phases/Language_Cutover.md`
-- Shared skills context: `docs/phases/Worker_Skill_Sharing.md`
+- Shared skills context: `docs/archive/phases/Worker_Skill_Sharing.md`
+
+---
+
+## Optional hygiene backlog
+
+Do **not** start WTA work by default. Remaining slices are **optional cleanup**
+only when the founder explicitly allocates time. Dogfood, feature packets, and
+floor reliability always win.
+
+**Standing law (SSOT):** `docs/workflows/Product_Vocabulary.md`  
+**Code SSOT:** `TeamRunJSON`, `TeamAgentSpec` / `TeamPreset.agentSpecs`,
+`RetiredVocabulary`, `RunService.swift`
+
+### How optional work must be continued
+
+Only when the founder explicitly opens a backlog row below. Then follow the
+Migration law in this file (§Migration law). **Read the historical sections
+before editing.**
+
+**Founder gate:** no WTA work during an active feature packet in the same files;
+exactly one optional slice open at a time; if the slice cannot land in one
+session → split smaller or stop.
+
+**Classify before rename (mandatory):** every symbol is **model pin** (catalog
+id), **seat id** (composite `model_x#0`), or **Layer E** (process/journal wire —
+do not touch). **Never ship** `run.workerAnswer(agentId:)` — label/semantics
+mismatch.
+
+**One symbol per commit:** `one symbol → all call sites → build + tests green →
+commit`. Not one file. Not a grep sweep.
+
+**Proof wall:** Core-only → `swift test`; Mac app → `allapp`; contract/teaching →
+`alln dev export-contracts --check`; GUI-visible → Visual Proof Gate or waiver.
+
+**Banned:** global `sed` on `worker`/`workerId`; grep-count-as-progress; wire-key
+renames without founder + contract bump.
+
+| Id | Slice | Scope |
+| --- | --- | --- |
+| **WTA-OPT-A** | High-value lying locals | Params/locals where name contradicts type |
+| **WTA-OPT-B** | Journal rename | `TeamRun.workers` → `agents`, on-disk migration — **single atomic PR** |
+| **WTA-OPT-C** | Panel/workflow `workerSpecs` | `PanelPreset` / `Workflow` only |
+| **WTA-OPT-D** | Wire compat keys | `workerToken`, `resolvedWorkerIds` — founder + contract bump |
+| **WTA-S07** | Process/session rename | `WarmWorker` → session — **separate packet, founder-only** |
 
 ---
 

@@ -1,6 +1,8 @@
 # OpenCode CLI Support (Headless Final Output)
 
-Status: **Ready for OC-S01 implementation**
+Status: **Built — HTTP serve driver shipped** (AgentOS `OpenCodeServeClient` +
+`OpenCodeRoutingWorkerRunner`; blocker resolved in archived
+`OpenCode_Smoke_Probe_Blocker.md`)
 Owner: AllnighterCore + AllnighterCLI + Mac GUI
 Updated: 2026-06-26
 Pinned OpenCode version for fixtures: **1.17.11** (founder machine)
@@ -273,10 +275,10 @@ Router: `docs/phases/sprint/README.md`
 | Order | Sprint doc | Scope |
 | --- | --- | --- |
 | 1 | [OC-S01a](../../archive/phases/sprint/opencode/OC-S01a-extractor-tests.md) | Tests + fixture (shipped, archived) |
-| 2 | [OC-S01b](../../sprint/opencode/OC-S01b-worker-runner.md) | WorkerRunner wire |
-| 3 | [OC-S01c](../../sprint/opencode/OC-S01c-serve-coordinator.md) | Serve coordinator |
-| 4 | [OC-S01d](../../sprint/opencode/OC-S01d-detector-smoke.md) | Detector + spawn hook |
-| — | **OC-S02** | `alln detect` / doctor / models (future sprint) |
+| 2 | [OC-S01b](../../archive/phases/sprint/opencode/OC-S01b-worker-runner.md) | WorkerRunner wire (superseded — shipped via AgentOS) |
+| 3 | [OC-S01c](../../archive/phases/sprint/opencode/OC-S01c-serve-coordinator.md) | Serve coordinator (superseded — shipped) |
+| 4 | [OC-S01d](../../archive/phases/sprint/opencode/OC-S01d-detector-smoke.md) | Detector + spawn hook (superseded — shipped) |
+| — | [OC-S02](../../archive/phases/sprint/opencode/OC-S02-serve-lifecycle-hardening.md) | Serve lifecycle hardening (shipped) |
 | — | **OC-S03** | Mac setup card (future sprint) |
 
 Already shipped (prior work): `opencode.json`, `DefaultConfig` embed,

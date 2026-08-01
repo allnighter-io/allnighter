@@ -1,8 +1,7 @@
 # Contradiction Pass — disagreement as a product, not a defect
 
-Status: **DRAFT — NOT AUTHORIZED. Queued behind
-`CODE_RED_Core_Infrastructure_Repair.md` and `Menu_Relations.md`.**
-Founder sequencing (2026-07-24): Code Red first, then Menu Relations, then this.
+Status: **DRAFT — NOT AUTHORIZED.** Founder sequencing (2026-07-24): Code Red
+(archived complete) first; this packet needs fresh founder scoping before start.
 Owner: `docs/operations/Spec_Review.md` mechanism + team-run synthesis contract
 (finding schema, synthesizer/gatekeeper, defensive seats)
 Updated: 2026-07-24

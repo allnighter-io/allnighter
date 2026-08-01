@@ -209,7 +209,7 @@ Read with:
 - `docs/phases/Stalled_Work_Watchdog.md`
 - `docs/phases/Mac_Standalone_App_And_Background_Coordinator.md`
 - `docs/phases/CLI_Implementation_Contract.md`
-- `docs/phases/threads/04_Observed_Usage.md`
+- `docs/archive/phases/threads/04_Observed_Usage.md`
 - `docs/phases/Team_And_Skill_Catalogs.md` for Settings navigation
 
 ## Non-Goals

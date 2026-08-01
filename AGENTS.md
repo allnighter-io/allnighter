@@ -93,7 +93,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | `pair pilot status` fresh silenceAge while `alln ps` says no stream for Ns; hung child under worker (e.g. wrangler tail); pgid heartbeat lie | archived `docs/archive/phases/Pilot_Status_Liveness_Lie_Hotfix.md` + `Core_Loop_Improvements.md` — Complete 2026-07-28; code SSOT `StreamLiveness`, `PilotCLI.resolveLastProgressAt`, `ProcessOwnershipSurface` |
 | `alln ps` museum rows, manual reconcile before session, ghost `running` relays | archived `docs/archive/phases/Core_Loop_Improvements.md` — Complete 2026-07-28; code SSOT `ProcessOwnershipSurface.list` (reconcile-on-read, `--all` history), `StreamLiveness` |
 | `pair relay`/`relay-resume`/`relay adopt`/`alln run` die when the caller dies; relay dispatch race (no in-flight guard) | Archived `docs/archive/phases/Round_Survives_The_Caller.md` + Hot Fixes — Code Complete 2026-07-28; code SSOT `DetachedHandoff.swift`, `DetachedDispatch.swift`, `LoopCoordinator.swift` (`claimStart`/`persistClaim`), `RunCLI.swift` |
-| Model/skill/agent/team vocabulary | `docs/workflows/Product_Vocabulary.md` + code catalogs; optional hygiene backlog: `docs/phases/Worker_To_Agent_Migration.md` (ship line complete); historical cutover: `docs/archive/phases/Worker_To_Agent_Migration.md` |
+| Model/skill/agent/team vocabulary | `docs/workflows/Product_Vocabulary.md` + code catalogs; historical cutover + optional hygiene backlog: `docs/archive/phases/Worker_To_Agent_Migration.md` |
 | Model catalog sprawl, effort variants, adding/removing default seats | archived `docs/archive/phases/Model_Catalog_Simplification.md` — Complete 2026-07-28; code SSOT AgentOS `CatalogLoader` + `catalog.json`, Allnighter `CatalogOverlayLoader` + `catalog_overlay.json`, `ModelCatalog.bundledRegistry()` |
 | GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
@@ -121,8 +121,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
 | PM↔dev unattended loop (mechanized copy-paste relay) | archived `docs/archive/phases/PM_Relay.md` + `Pilot_Relay.md` (code SSOT: `LoopCoordinator`, `PilotCLI`) |
 | Pilot/Relay long turn; harness reaped `pilot watch`; detached handoff binary/cwd; status vs watch | archived `docs/archive/phases/Pilot_Long_Turn_Survival.md` — code SSOT `PilotCLI.swift`, `LoopCoordinator.swift` |
-| GLM advisory review / serial hardening pass | `docs/operations/GLM_Worker_Best_Practices.md` + `docs/phases/code_review/README.md` |
-| OpenCode smoke probe blocked (handoff) | `docs/phases/OpenCode_Smoke_Probe_Blocker.md` |
+| GLM advisory review / serial hardening pass | `docs/operations/GLM_Worker_Best_Practices.md` + `docs/archive/phases/code_review/README.md` |
+| OpenCode smoke probe blocked (handoff) | archived `docs/archive/phases/OpenCode_Smoke_Probe_Blocker.md` (RESOLVED) |
 | Sprint closeout / committing work | `docs/operations/Execution-Playbook.md` § Commits |
 | Deslop pass (slice slop cleanup) | `docs/operations/Deslop.md` |
 | Code Audit (structural verdict at closeout) | `docs/operations/Code_Audit.md` |

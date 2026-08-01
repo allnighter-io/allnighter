@@ -1,6 +1,6 @@
 # OC-S01c — OpenCode serve coordinator
 
-Status: **ready** (requires OC-S01b done)
+Status: **superseded — shipped** (archive 2026-08-01)
 SSOT: `docs/phases/setup/OpenCode_CLI_Support.md` (V1 Integration Model section)
 
 ## Goal

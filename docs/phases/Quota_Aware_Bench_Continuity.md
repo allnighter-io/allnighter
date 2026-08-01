@@ -483,7 +483,7 @@ seating wrong.
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | Composes — WRC recovers after seat death; QABC prevents/survives capacity walls |
 | [`Loop_Verb_Cutover.md`](../archive/phases/Loop_Verb_Cutover.md) | Status set **unchanged** (correction 8); product surface stays `alln loop` |
 | [`Capacity_Hardening_Hotfix.md`](../archive/phases/Capacity_Hardening_Hotfix.md) | Prerequisite (archived, shipped) — QABC consumes the projection path unmodified |
-| [`CLI_Park.md`](CLI_Park.md) | Orthogonal — parks a driver from probes; QABC parks runs on quota |
+| [`CLI_Park.md`](../archive/phases/CLI_Park.md) | Orthogonal — parks a driver from probes; QABC parks runs on quota |
 
 ---
 

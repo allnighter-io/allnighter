@@ -1,12 +1,13 @@
 # CLI Park (On bench / Parked)
 
-Status: **Implementing** (founder directed 2026-07-29)
+Status: **Complete — 2026-07-29** (code SSOT `SetupStore.parkedDriverIds`, `DriversCLI`,
+`DriverParkTests`; contract examples in `ContractRegistry`)
 Owner: Shared Core + CLI + Mac
 Updated: 2026-07-29
 
 Ephemeral build packet. Runtime SSOT is code (`SetupStore.parkedDriverIds`,
-`DriverPark`, `alln drivers`). Closeout: promote vocabulary (done in
-`Product_Vocabulary.md`), archive this packet.
+`DriverPark`, `alln drivers`). Archived 2026-08-01 after `073522c7` shipped
+park/unpark + Mac setup UI. Vocabulary in `Product_Vocabulary.md`.
 
 ## Claim
 
