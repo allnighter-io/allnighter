@@ -98,6 +98,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
 | Spec Review hero loop | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope` |
+| Green suite over a real defect; a proof that could never fail; tolerance fitted until the test passed; "we measured the wrong thing" | `docs/operations/Spec_Review.md` §3 Measurement + §4 instrumentation rule — code SSOT `measurement_auditor` (Spec Review Max, Release Proof) |
+| Adding/removing a seat at a Min or Max tier | `docs/operations/Spec_Review.md` §Depth splits charters — a dropped seat's questions must be absorbed by a named pass on a seat that remains, never silently lost |
 | Execution/answer teams, mutating runs, source/write safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` |
 | CLI product surface, `alln`, TeamRunJSON | Code SSOT: `ContractRegistry` / CLI; naming packet: `CLI_Product_Spine.md` (not SSOT) |
 | Team run artifact / `alln artifact` | Code SSOT: `ArtifactProjector.swift`, `ArtifactWriter.swift`, `ArtifactCLI.swift`; closed record: archived `Team_Run_Receipt.md` |

@@ -4,7 +4,9 @@ Standing law for the Spec Review hero loop. **Not a phase packet.**
 
 **Code SSOT:** `BuiltInTeams` (`code_spec_review` / `_min` / `_max`),
 `SkillCatalog.leadCallEnvelope` (universal Lead / `.planWriter`),
-`SkillCatalog` Spec Review craft skills.
+`SkillCatalog` Spec Review craft skills, `measurement_auditor` (the instrument
+seat, shared with Release Proof), and the bundled Min charters
+(`spec_min_*`, `bug_min_fix_planner`, `design_min_visual_system`).
 **Closed build/marketing record:** `docs/archive/phases/Spec_Review.md`.
 **Depth naming:** `docs/workflows/Product_Vocabulary.md`.
 
@@ -61,15 +63,65 @@ claim the ledger can *measure* (§7), not assert.
 
 ### Built-in depth tiers
 
-- **Spec Review Min:** three workers + Lead; prefers Kimi, Cursor Grok, and Grok.
+- **Spec Review Min:** three workers + Lead, each carrying a **bundled charter**
+  (premise / evidence / delivery — see §Depth splits charters).
 - **Spec Review (default):** five workers + Lead for the everyday send.
-- **Spec Review Max:** seven workers + outside scout + Lead for launch/hard cases.
+- **Spec Review Max:** eight workers + outside scout + Lead for launch/hard cases;
+  Max is where the measurement audit earns a standalone seat.
 
 Each row has an ordered cross-CLI fallback chain. All three tiers must remain
 runnable when Claude and ChatGPT/Codex are unavailable; Kimi K3, Grok 4.5, and
 Cursor Grok 4.5 are first-class preferred workers, not weak last resorts. The
 canonical roster and fallback order live in `BuiltInTeams.swift`; naming and
 routing law live in `docs/workflows/Product_Vocabulary.md`.
+
+### Depth splits charters — it never deletes them
+
+**Standing law, all lanes.** A seat removed at a lower tier must have its
+questions absorbed by a seat that remains, named explicitly in that seat's
+prompt — or the tier is silently narrower than its description claims.
+
+A three-seat panel is a startup, not a seven-seat panel with four people on
+vacation. Startups have no vacancies; they have people wearing three hats and
+knowing it. The failure this law prevents is specific: Min tiers used to run the
+Default's *specialist* prompts, each written narrow because four other
+specialists covered the rest of the ground. At Min those four were simply gone
+and nobody was told — so the questions that matter most (is this measuring the
+right thing? can this proof fail?) were absent exactly where the panel was
+thinnest.
+
+Two rules make bundling work:
+
+1. **Bundle vertically, never horizontally.** A bundled seat runs several
+   *named, enumerated passes in sequence* and reports each under its own
+   heading. It never gets a blurred mandate like "review the premise and the
+   proof." Three labeled passes in one head is a person wearing three hats; one
+   vague mandate is a person wearing none — and §3's warning applies, the panel
+   collapses into N copies of the same generic answer.
+2. **Order the passes adversary-first.** A seat that designs a proof plan and
+   then audits it is auditing its own homework; models are sycophantic toward
+   their own output. Audit what the spec already claims, *then* design what is
+   missing.
+
+Current bundles (code SSOT `SkillCatalog` / `BuiltInTeams`):
+
+| Tier | Seat | Absorbs |
+|---|---|---|
+| Spec Review Min | `spec_min_premise_reviewer` | first principles + target validity + the rival approach (Min otherwise has no challenger at all) |
+| Spec Review Min | `spec_min_proof_auditor` | measurement audit + outside yardstick + proof design |
+| Spec Review Min | `spec_min_delivery_steward` | scope + doc/agent-routing hygiene + contract gaps |
+| Bug Hunt Min | `bug_min_fix_planner` | correct-fix plan + regression proof |
+| Design Min | `design_min_visual_system` | visual system + interaction behavior and states |
+| Doc Review (solo) | `doc_reviewer` | a panel of one — carries a compressed **Claims audit** and the target-validity question itself |
+
+Growth Min/Max need no bundling: the family runs one shared prompt across N
+diverse models, so a lower tier removes *models*, not charters. Depth that
+subtracts model count is fine; depth that subtracts questions is not.
+
+**What Min still cannot do, and must say so.** With three seats, the bundled
+proof auditor's findings are never refuted by a second seat. `spec_min_proof_auditor`
+closes by stating that plainly. Bundling restores the *questions*, not the
+independence — do not let the tier description imply otherwise.
 
 ## 2. The impact ledger (the product IS this)
 
@@ -124,7 +176,8 @@ answer and the loop is worthless. Each lens ships with 2–3 exemplar findings i
 | **Failure modes** | Where does this break? Concurrency, partial failure, bad input, empty/huge state. Each finding must name a concrete scenario, not a category. |
 | **Maintainability** | What will the person changing this in six months curse? Naming, coupling, hidden state, unstated invariants. |
 | **Sequencing** | Is this ordered so each slice lands green and testable? What's mis-ordered or should be deferred? |
-| **Proof** | What commands or visible behaviors would prove each part works? Writes the proof plan. If a requirement can't be proven, flag the requirement. |
+| **Proof** | What commands or visible behaviors would prove each part works? Writes the proof plan. If a requirement can't be proven, flag the requirement. For every proof, names the failure it catches **and** the failure it misses. |
+| **Measurement** | Audits the *instrument*, never the subject. What state of the world makes each named check fail? A check that cannot be made to fail is decoration. Catches: no discrimination (a broken build passes it half the time), fitted validators (tolerance chosen after watching it fail), thresholds widened until the outcome fired, proven-here-asserted-everywhere, missing outside yardstick, and right-math-wrong-quantity. Code SSOT `measurement_auditor`; standalone seat in Max and in Release Proof, bundled into `spec_min_proof_auditor` at Min. |
 
 ### Challengers
 
@@ -153,12 +206,16 @@ Lens rules:
 
 ## 4. Convergence and stop rules
 
-Two different things, never blurred:
+Three different things, never blurred:
 
 - **Convergence is the STOP rule.** "Everyone stopped finding new material things" tells you
   when to exit the loop. It never tells you a finding was right.
 - **Refutation-survival is the TRUTH rule.** A finding earns acceptance by surviving attack,
   not by being popular.
+- **Instrumentation is the EVIDENCE rule.** Neither of the other two produces it. A refuter
+  attacks a *finding*; convergence counts *findings*. Nobody in that loop attacks the
+  yardstick. "This proof cannot fail" is a finding no critic lens is asked for and no
+  refuter is pointed at — which is why it gets its own seat (§3 Measurement).
 
 Mechanics:
 - **The bar is outcome-relevance:** a finding is accepted only if it would change what gets
@@ -204,6 +261,9 @@ gate, §4).
 | Spec bloat | Cut lens in every full panel + length vitals + "hardening ≠ lengthening" as an explicit synthesizer instruction. |
 | Re-litigation loops | Rejected-findings ledger travels with the spec into every later pass. |
 | Six walls of text (manual fan-out with nicer chrome) | Structured finding schema everywhere; the human reads the ledger, never raw worker output (raw available one click deeper). |
+| **Green-test theater** — the suite passes because the test asked the wrong question, was fitted to the code after the fact, or could never have failed. Green means the code did what the test asked; it never means the test asked the right thing. | Measurement seat (§3) at every depth — standalone in Max/Release Proof, bundled at Min, compressed into Doc Review's Claims audit. Proof findings must name a discriminating failure. Post-hoc-fitted tolerances are non-binding until re-derived. A threshold widened because the outcome would not fire is a finding, always. |
+| **Right reasoning, wrong quantity** — a rigorous, well-argued spec aimed at a proxy. First-principles thinking is only worth anything if it is aimed at the right thing. | Target validity is now the second question the premise lens asks: name what actually matters and what the spec measures, and if they differ that is the finding regardless of how good the reasoning is. |
+| **Duplicated truth, non-atomic transitions** — the same fact lives in a registry and in the blob actually served; each store is individually consistent, so the suite stays green while they diverge. A class of bug, not a bug. | Contract Auditor hunts it explicitly (Min: `spec_min_delivery_steward` Pass C). |
 
 ## 6. Substrate fit (build notes, not a new system)
 
@@ -244,4 +304,10 @@ definition, a lens gap — something the panel should have caught. Capture them,
 periodically, and turn recurring gaps into new lenses or sharper exemplars. The lens catalog
 is a living asset that compounds; it (plus the rotated scoreboard) is the part of this
 feature nobody can copy by reading the marketing page.
+
+One split matters when mining them: a defect that shipped **while the suite was
+green** is not a lens gap, it is a *measurement* gap — the panel may have asked
+the right questions and simply believed the evidence. Those feed the Measurement
+seat's exemplars, not the critic lenses. The best exemplars are real and carry
+numbers; invented ones train nothing.
 
