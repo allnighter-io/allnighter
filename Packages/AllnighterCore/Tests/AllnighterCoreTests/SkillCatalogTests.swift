@@ -89,7 +89,8 @@ final class SkillCatalogTests: XCTestCase {
 
     func testDesignBoardAnswerSeatsReceiveCaptureBrief() {
         let designAnswerIds = [
-            "visual_system_designer", "minimal_direction", "bold_direction", "editorial_direction",
+            "visual_system_designer", "design_min_visual_system",
+            "minimal_direction", "bold_direction", "editorial_direction",
             "minimal", "bold", "editorial"
         ]
         for skillId in designAnswerIds {

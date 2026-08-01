@@ -58,8 +58,10 @@ final class BuiltInTeamsTests: XCTestCase {
             XCTAssertEqual(team.lead.skillId, "spec_review_writer")
             XCTAssertEqual(team.lead.preferredModelId, "model_fable")
         }
+        // Min runs BUNDLED charters, not the Default's specialist prompts minus two
+        // seats (Spec_Review.md §Depth splits charters).
         XCTAssertEqual(min.agentSpecs.map(\.skillId), [
-            "spec_first_principles_reviewer", "spec_proof_planner", "spec_scope_steward"
+            "spec_min_premise_reviewer", "spec_min_proof_auditor", "spec_min_delivery_steward"
         ])
         XCTAssertEqual(standard.agentSpecs.map(\.skillId), [
             "spec_first_principles_reviewer", "spec_doc_hygiene_reviewer",
@@ -67,8 +69,8 @@ final class BuiltInTeamsTests: XCTestCase {
         ])
         XCTAssertEqual(max.agentSpecs.map(\.skillId), [
             "spec_first_principles_reviewer", "spec_doc_hygiene_reviewer",
-            "spec_contract_auditor", "spec_proof_planner", "spec_scope_steward",
-            "spec_hype_skeptic", "spec_contrarian_reviewer"
+            "spec_contract_auditor", "spec_proof_planner", "measurement_auditor",
+            "spec_scope_steward", "spec_hype_skeptic", "spec_contrarian_reviewer"
         ])
         XCTAssertNil(min.scout)
         XCTAssertNil(standard.scout)
@@ -83,6 +85,100 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertTrue([min, standard, max].flatMap(\.agentSpecs).allSatisfy {
             $0.preferredModelId == nil && $0.requiredCapabilityTags.contains(.code)
         })
+    }
+
+    // MARK: - Depth splits charters (docs/operations/Spec_Review.md)
+
+    /// A smaller team has no vacancies. Every seat a lower tier drops must have its
+    /// questions absorbed by a seat that remains, as NAMED sequential passes — never
+    /// a blurred "general review" charter, which is how a small panel collapses into
+    /// N copies of the same generic answer. This is the drift gate: rewrite a bundled
+    /// prompt and drop an absorbed pass, and this fails.
+    func testMinTiersBundleAbsorbedChartersAsNamedPasses() {
+        let seeds = Dictionary(SkillCatalog.builtIns.map { ($0.id, $0.template) },
+                               uniquingKeysWith: { a, _ in a })
+
+        // skill id -> phrases the absorbed charters must still be asking for.
+        let bundles: [String: [String]] = [
+            // Spec Review Min: premise + target validity + rival.
+            "spec_min_premise_reviewer": [
+                "Pass A", "Pass B", "Pass C",
+                "first principles", "quantity that actually matters", "different approach"
+            ],
+            // Spec Review Min: instrument audit + outside yardstick + proof design.
+            "spec_min_proof_auditor": [
+                "Pass A", "Pass B", "Pass C",
+                "cannot be made to fail", "yardstick", "worst case", "unrefuted"
+            ],
+            // Spec Review Min: scope + buildability + contract.
+            "spec_min_delivery_steward": [
+                "Pass A", "Pass B", "Pass C",
+                "slices", "flail", "two places"
+            ],
+            // Bug Hunt Min: fix plan + regression proof.
+            "bug_min_fix_planner": [
+                "Pass A", "Pass B",
+                "smallest correct fix", "fail BEFORE the fix", "still miss"
+            ],
+            // Design Min: visual system + interaction behavior.
+            "design_min_visual_system": [
+                "Pass A", "Pass B",
+                "design system", "states"
+            ]
+        ]
+
+        for (skillId, phrases) in bundles {
+            let template = seeds[skillId]
+            XCTAssertNotNil(template, "bundled Min skill \(skillId) missing from the catalog")
+            for phrase in phrases {
+                XCTAssertTrue(template?.contains(phrase) == true,
+                              "\(skillId) no longer asks for '\(phrase)' — an absorbed charter was dropped")
+            }
+        }
+
+        // Min tiers must not silently fall back to the Default's specialist prompts
+        // for the charters they bundle.
+        let specMin = BuiltInTeams.team("code_spec_review_min")!.agentSpecs.map(\.skillId)
+        for dropped in ["spec_first_principles_reviewer", "spec_proof_planner", "spec_scope_steward",
+                        "spec_doc_hygiene_reviewer", "spec_contract_auditor"] {
+            XCTAssertFalse(specMin.contains(dropped),
+                           "Spec Review Min must run bundled charters, not the Default's \(dropped)")
+        }
+        XCTAssertFalse(BuiltInTeams.team("code_bug_hunt_min")!.agentSpecs
+            .contains { $0.skillId == "correct_fix_planner" })
+        XCTAssertFalse(BuiltInTeams.team("design_design_min")!.agentSpecs
+            .contains { $0.skillId == "visual_system_designer" })
+    }
+
+    /// The instrument audit: every other seat in Spec Review Max and Release Proof
+    /// interrogates the subject and treats the suite as the instrument. This seat
+    /// inverts that, and it must be seated in both teams.
+    func testMeasurementAuditorSeatedWhereGreenIsTrusted() {
+        for teamId in ["code_spec_review_max", "code_release_proof"] {
+            let team = BuiltInTeams.team(teamId)!
+            XCTAssertTrue(team.agentSpecs.contains { $0.skillId == "measurement_auditor" },
+                          "\(teamId) must seat the measurement auditor")
+        }
+        let template = SkillCatalog.builtIns.first { $0.id == "measurement_auditor" }?.template
+        XCTAssertNotNil(template)
+        for phrase in ["what state of the world makes this", "cannot be made to fail",
+                       "half the time", "after watching the implementation fail",
+                       "worst case, never the average", "yardstick", "gone red"] {
+            XCTAssertTrue(template?.contains(phrase) == true,
+                          "measurement_auditor no longer asks: \(phrase)")
+        }
+    }
+
+    /// The solo seat is a startup of one: nobody behind it doubts the evidence, so
+    /// it carries a compressed claims audit itself.
+    func testDocReviewSoloSeatCarriesClaimsAudit() {
+        let template = SkillCatalog.builtIns.first { $0.id == SkillCatalog.docReviewerSkillId }?.template
+        XCTAssertNotNil(template)
+        for phrase in ["Claims audit", "panel of one", "the test asked",
+                       "what the doc measures", "the failure it misses"] {
+            XCTAssertTrue(template?.contains(phrase) == true,
+                          "doc_reviewer no longer carries: \(phrase)")
+        }
     }
 
     func testSynthesisTeamsPreferFableLeadAndDiverseWorkersOnFullBench() {
@@ -106,12 +202,26 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertEqual(r.planWriter?.modelId, "model_fable")
         XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
         let crew = r.answerWorkers + r.reviewWorkers
-        // Law 3: no row pins Sol by identity. Codex Sol may be recruited once;
-        // Cursor Sol is never an automatic substitute even if present on the bench.
+        // Law 3: no row pins Sol by identity. Cursor Sol is never an automatic
+        // substitute even if present on the bench (paid quota, manual opt-in only).
         let cursorSolWorkers = crew.filter { $0.modelId == "model_cursor_gpt_sol" }
         XCTAssertEqual(cursorSolWorkers.count, 0, "Cursor Sol must never auto-seat")
-        let codexSolWorkers = crew.filter { $0.modelId == "model_gpt_sol" }
-        XCTAssertLessThanOrEqual(codexSolWorkers.count, 1, "Codex Sol at most once")
+
+        // Max is 8 crew rows; this bench offers 6 auto-seatable models once the Lead
+        // and Cursor Sol are set aside, so reuse is expected. The invariant is that
+        // reuse is the DOCUMENTED degrade path, not sloppiness: nothing repeats while
+        // another capable model is still unclaimed, and reuse spreads rather than
+        // stacking on one model.
+        let perModel = Dictionary(grouping: crew, by: \.modelId).mapValues(\.count)
+        let claimable = ready.map(\.id).filter {
+            $0 != r.planWriter?.modelId && $0 != "model_cursor_gpt_sol"
+        }
+        if perModel.values.contains(where: { $0 > 1 }) {
+            for id in claimable where id != r.scoutWorker?.modelId {
+                XCTAssertNotNil(perModel[id], "\(id) left unclaimed while another model was reused")
+            }
+        }
+        XCTAssertTrue(perModel.values.allSatisfy { $0 <= 2 }, "reuse must spread, not stack: \(perModel)")
         XCTAssertGreaterThan(Set(crew.map(\.modelId)).count, 2, "fan-out should spread across multiple models")
         let composerHits = crew.filter { $0.modelId == "model_cursor_composer_25" }.count
         XCTAssertLessThanOrEqual(composerHits, 1, "Composer at most once in the rotation")

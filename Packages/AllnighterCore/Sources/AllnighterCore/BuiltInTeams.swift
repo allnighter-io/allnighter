@@ -154,18 +154,20 @@ public enum BuiltInTeams {
                    "Plan the smallest correct slice for <feature>."])
 
     /// Bug Hunt Min — the fastest credible cause hunt: reproduce, name the truth
-    /// owner (the root-cause seat), plan the smallest fix. Drops the Default's
-    /// regression_guard seat — Min races to the cause, not to prevention. Bug
-    /// Hunt Default carries no reviewer rows, so there is no A/B judge pair for
-    /// Min to preserve; it simply runs the three load-bearing answer seats. Same
+    /// owner (the root-cause seat), plan the smallest fix and the proof that would
+    /// catch it. Bug Hunt Default carries no reviewer rows, so there is no A/B judge
+    /// pair for Min to preserve. Depth splits charters rather than deleting them
+    /// (`docs/operations/Spec_Review.md` §Depth splits charters): Min does not drop
+    /// `regression_guard`'s job, it folds it into `bug_min_fix_planner` as a second
+    /// named pass, so no Min run ships a fix with no proof thinking behind it. Same
     /// writer/output as the family (Team_Catalog_Normalization.md, Min pattern).
     static let buildBugHuntMin = make(
         id: "code_bug_hunt_min", name: "Bug Hunt Min", lane: .code, output: .bugPacket, defaultEffort: .high,
-        description: "Fastest credible cause hunt: reproduce it, name the truth owner, plan the smallest correct fix.",
+        description: "Fastest credible cause hunt: reproduce it, name the truth owner, plan the smallest correct fix and the test that would have caught it.",
         rows: needRows([
             ("bug_reproducer", .answer),
             ("truth_owner_mapper", .answer),
-            ("correct_fix_planner", .answer)
+            ("bug_min_fix_planner", .answer)
         ], tags: [.code]),
         writer: "bug_packet_writer",
         typeTags: ["bug-hunt-min"],
@@ -312,14 +314,21 @@ public enum BuiltInTeams {
     /// (capability), not identity, so it stays useful without Claude or ChatGPT —
     /// the resolver spreads distinct models across the three lenses itself (Law 3;
     /// no exemption for locked families).
+    ///
+    /// Depth splits charters; it never deletes them
+    /// (`docs/operations/Spec_Review.md` §Depth splits charters). Min does NOT run
+    /// the Default's specialist prompts minus two seats — that would ship four
+    /// vacancies nobody covers. It runs three BUNDLED charters (premise / evidence
+    /// / delivery), each enumerating the absorbed passes, so the wrong-thing and
+    /// wrong-instrument questions are present at every depth.
     static let buildSpecReviewMin = make(
         id: "code_spec_review_min", name: "Spec Review Min", lane: .code,
         output: .specReview, defaultEffort: .high,
-        description: "A lean Spec Review: first-principles, proof, and scope. Lead emits Lead Call (Ready|Partial) then craft body — not a founder checklist.",
+        description: "A lean Spec Review — three seats wearing two hats each: premise + rival, proof audit + proof design, scope + buildability + contract. Lead emits Lead Call (Ready|Partial) then craft body — not a founder checklist.",
         rows: needRows([
-            ("spec_first_principles_reviewer", .answer),
-            ("spec_proof_planner", .answer),
-            ("spec_scope_steward", .answer)
+            ("spec_min_premise_reviewer", .answer),
+            ("spec_min_proof_auditor", .answer),
+            ("spec_min_delivery_steward", .answer)
         ], tags: [.code]),
         writer: "spec_review_writer", dissent: .compareOptions,
         typeTags: ["spec-review-min"],
@@ -364,12 +373,15 @@ public enum BuiltInTeams {
             "Harden docs/phases/<Spec>.md: premise, contract, proof, cuts. Exit = Lead Call + craft body, not a rewritten phase doc dump."]
     )
 
-    /// Spec Review Max — the full launch/hard-case panel: seven blind lenses spanning
-    /// premise, operations, contract, proof, scope, simplicity, and a rival approach.
+    /// Spec Review Max — the full launch/hard-case panel: eight blind lenses spanning
+    /// premise, operations, contract, proof, measurement, scope, simplicity, and a
+    /// rival approach. Max is where the instrument audit earns a standalone seat:
+    /// every other lens interrogates the subject, `measurement_auditor` interrogates
+    /// the evidence itself (`docs/operations/Spec_Review.md` §4).
     static let buildSpecReviewMax = make(
         id: "code_spec_review_max", name: "Spec Review Max", lane: .code,
         output: .specReview, defaultEffort: .high,
-        description: "Full-depth Spec Review for launch and hard specs. Lead emits Lead Call (Ready|Partial) then craft body.",
+        description: "Full-depth Spec Review for launch and hard specs, including a standalone measurement audit of the proof itself. Lead emits Lead Call (Ready|Partial) then craft body.",
         scout: row("spec_outside_scout", .answer, preferred: grok,
                    fallbacks: [cursorGrok], fallback: .laneCapable),
         rows: needRows([
@@ -377,6 +389,7 @@ public enum BuiltInTeams {
             ("spec_doc_hygiene_reviewer", .answer),
             ("spec_contract_auditor", .answer),
             ("spec_proof_planner", .answer),
+            ("measurement_auditor", .answer),
             ("spec_scope_steward", .answer),
             ("spec_hype_skeptic", .review),
             ("spec_contrarian_reviewer", .review)
@@ -388,12 +401,17 @@ public enum BuiltInTeams {
             "Harden docs/phases/<Spec>.md at full depth. Exit = Lead Call + craft body, not a full doc rewrite."]
     )
 
+    /// Release Proof — the team that decides whether the owner-visible claim is true.
+    /// Every other seat here reads the code and treats the suite as the instrument;
+    /// `measurement_auditor` treats the suite as the subject, which is the only way
+    /// a green-but-undiscriminating check gets caught at closeout.
     static let buildReleaseProof = make(
         id: "code_release_proof", name: "Release Proof", lane: .code, output: .proofPacket, defaultEffort: .high,
-        description: "Before a slice closes, prove that the owner-visible claim is actually true.",
+        description: "Before a slice closes, prove that the owner-visible claim is actually true — and that the proof itself could have failed.",
         // acceptance_auditor declared first so it claims the strongest ready model.
         rows: needRows([
             ("acceptance_auditor", .answer),
+            ("measurement_auditor", .answer),
             ("test_runner_planner", .answer),
             ("risk_register", .review),
             ("edge_case_hunter", .answer),
@@ -445,13 +463,16 @@ public enum BuiltInTeams {
 
     /// Design Min — the leanest credible design take: structure plus one visual
     /// system seat that builds and lands a screenshot receipt. Same writer/output
-    /// as the family.
+    /// as the family. Depth splits charters rather than deleting them
+    /// (`docs/operations/Spec_Review.md` §Depth splits charters): the Default's
+    /// `interaction_designer` job is absorbed as a second named pass on the visual
+    /// seat, so a Min board still owes states and flow — not just a happy-path skin.
     static let designMin = make(
         id: "design_design_min", name: "Design Min", lane: .design, output: .designBoard, defaultEffort: .med,
-        description: "Quick credible design take — the essential structure plus one rendered mockup.",
+        description: "Quick credible design take — the essential structure plus one rendered mockup that still owes its states and flow.",
         rows: [
             needRow("information_architect", .answer, tags: [.design]),
-            needRow("visual_system_designer", .answer, tags: [.design])
+            needRow("design_min_visual_system", .answer, tags: [.design])
         ],
         writer: "design_board_writer", dissent: .compareOptions,
         typeTags: ["design-min"],
