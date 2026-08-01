@@ -30,6 +30,40 @@ public struct ReleaseUpdateInfo: Codable, Sendable, Equatable {
     }
 }
 
+/// Mac-app update announcement (About / status). Same channel as CLI.
+///
+/// Humans may see `notes` as **plain text** and `downloadURL` as an
+/// informational link. Neither is a shell command. `cliInstallCommand` is
+/// always the compiled-in one-liner (law 9 / BUG-4). Not projected into
+/// agent-facing `menu --json` / `version --json`.
+public struct ReleaseAppUpdateInfo: Sendable, Equatable {
+    public var available: Bool
+    public var current: String
+    public var latest: String
+    /// Human-only release notes from the manifest (plain text; never execute).
+    public var notes: String?
+    /// Optional app asset URL from the manifest (informational download path).
+    public var downloadURL: String?
+    /// Compiled-in CLI one-liner — never a remote string.
+    public var cliInstallCommand: String
+
+    public init(
+        available: Bool = true,
+        current: String,
+        latest: String,
+        notes: String? = nil,
+        downloadURL: String? = nil,
+        cliInstallCommand: String = ReleaseChannel.installCommand
+    ) {
+        self.available = available
+        self.current = current
+        self.latest = latest
+        self.notes = notes
+        self.downloadURL = downloadURL
+        self.cliInstallCommand = cliInstallCommand
+    }
+}
+
 // MARK: - Wire manifest
 
 /// `latest.json` wire shape (OPC-S06). Unknown fields are ignored by Codable.
@@ -211,12 +245,12 @@ public struct ReleaseCheckRecord: Codable, Sendable, Equatable {
 
 /// Shared release channel: one-liner constant + cached `latest.json` check.
 ///
-/// **One owner, three projections** (menu / version --json / doctor) plus
-/// `alln update --check`. Never call from `alln run` or loop dispatch — menu,
-/// version, doctor, and update only. Auto-apply is out of scope (BQ-4).
+/// **One owner** for CLI projections (menu / version --json / doctor /
+/// `alln update --check`) **and** the Mac app About/status surface. Never call
+/// from `alln run` or loop dispatch. Auto-apply is out of scope (BQ-4).
 ///
-/// Remote `installCommand` and `notes` are decoded for completeness but **never**
-/// projected or executed (law 9 / BUG-4).
+/// Remote `installCommand` is never projected or executed. Remote `notes` are
+/// human-only on the Mac app (plain text) — never agent JSON (law 9 / BUG-4).
 public enum ReleaseChannel {
     /// Public install and upgrade command. Never invent cousins; cite this string.
     public static let installCommand = "curl -fsSL https://get.allnighter.app | sh"
@@ -234,6 +268,9 @@ public enum ReleaseChannel {
     public static let noUpdateCheckEnvKey = "ALLN_NO_UPDATE_CHECK"
     public static let baseURLEnvKey = "ALLN_INSTALL_BASE_URL"
 
+    /// Stable home for the cold-start standalone binary (law 1).
+    public static let standaloneBinaryRelativePath = ".local/share/allnighter/bin/alln"
+
     /// `…/Allnighter/Release/` (honors `ALLNIGHTER_SUPPORT_DIR`).
     public static var releaseDirectory: URL {
         AllnighterSupportRoot.support.appendingPathComponent("Release", isDirectory: true)
@@ -242,6 +279,11 @@ public enum ReleaseChannel {
     /// `…/Allnighter/Release/latest-check.json`
     public static var defaultCacheURL: URL {
         releaseDirectory.appendingPathComponent("latest-check.json")
+    }
+
+    /// Absolute path of the cold-start standalone home for `homeDirectory`.
+    public static func standaloneBinaryPath(homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser) -> String {
+        homeDirectory.appendingPathComponent(standaloneBinaryRelativePath).path
     }
 
     /// Resolve whether a newer CLI release should be announced.
@@ -254,27 +296,67 @@ public enum ReleaseChannel {
         now: Date = Date(),
         cacheURL: URL? = nil,
         fetcher: (any ReleaseHTTPFetching)? = nil,
-        environment: [String: String]? = nil
+        environment: [String: String]? = nil,
+        forceRefresh: Bool = false
     ) -> ReleaseUpdateInfo? {
+        guard let manifest = loadManifest(
+            now: now,
+            cacheURL: cacheURL,
+            fetcher: fetcher,
+            environment: environment,
+            forceRefresh: forceRefresh
+        ) else { return nil }
+        return announce(
+            manifest: manifest,
+            currentVersion: currentVersion,
+            binaryPath: binaryPath
+        )
+    }
+
+    /// Resolve whether a newer **Mac app** release should be announced.
+    ///
+    /// Same cache / TTL / fail-open laws as `checkUpdate`. Returns `nil` when
+    /// there is nothing to show. Carries human-only `notes` (plain text).
+    public static func checkAppUpdate(
+        currentVersion: String,
+        now: Date = Date(),
+        cacheURL: URL? = nil,
+        fetcher: (any ReleaseHTTPFetching)? = nil,
+        environment: [String: String]? = nil,
+        forceRefresh: Bool = false
+    ) -> ReleaseAppUpdateInfo? {
+        guard let manifest = loadManifest(
+            now: now,
+            cacheURL: cacheURL,
+            fetcher: fetcher,
+            environment: environment,
+            forceRefresh: forceRefresh
+        ) else { return nil }
+        return announceApp(manifest: manifest, currentVersion: currentVersion)
+    }
+
+    /// Shared cache/fetch path for CLI + Mac projections (one network reflex).
+    public static func loadManifest(
+        now: Date = Date(),
+        cacheURL: URL? = nil,
+        fetcher: (any ReleaseHTTPFetching)? = nil,
+        environment: [String: String]? = nil,
+        forceRefresh: Bool = false
+    ) -> ReleaseManifest? {
         let env = environment ?? ProcessInfo.processInfo.environment
         if isUpdateCheckDisabled(environment: env) {
             return nil
         }
-
         let cachePath = cacheURL ?? defaultCacheURL
         let activeFetcher = fetcher ?? URLSessionReleaseHTTPFetcher()
         let record = loadOrRefresh(
             now: now,
             cacheURL: cachePath,
             fetcher: activeFetcher,
-            environment: env
+            environment: env,
+            forceRefresh: forceRefresh
         )
-        guard let manifest = record?.manifest else { return nil }
-        return announce(
-            manifest: manifest,
-            currentVersion: currentVersion,
-            binaryPath: binaryPath
-        )
+        return record?.manifest
     }
 
     /// Decode + schema gate only (no network). Future schema → nil.
@@ -288,7 +370,7 @@ public enum ReleaseChannel {
         return manifest
     }
 
-    /// Pure announce decision from an already-trusted manifest.
+    /// Pure CLI announce decision from an already-trusted manifest.
     public static func announce(
         manifest: ReleaseManifest,
         currentVersion: String,
@@ -305,6 +387,28 @@ public enum ReleaseChannel {
             latest: manifest.cliVersion,
             binaryPath: binaryPath,
             command: installCommand
+        )
+    }
+
+    /// Pure Mac-app announce decision. Notes are human plain text only.
+    public static func announceApp(
+        manifest: ReleaseManifest,
+        currentVersion: String
+    ) -> ReleaseAppUpdateInfo? {
+        guard manifest.schemaVersion <= knownManifestSchemaVersion else { return nil }
+        guard let current = ReleaseVersion.parse(currentVersion),
+              let latest = ReleaseVersion.parse(manifest.appVersion)
+        else { return nil }
+        guard current < latest else { return nil }
+        let notes = manifest.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let url = manifest.app?.url.trimmingCharacters(in: .whitespacesAndNewlines)
+        return ReleaseAppUpdateInfo(
+            available: true,
+            current: currentVersion,
+            latest: manifest.appVersion,
+            notes: (notes?.isEmpty == false) ? notes : nil,
+            downloadURL: (url?.isEmpty == false) ? url : nil,
+            cliInstallCommand: installCommand
         )
     }
 
@@ -336,24 +440,27 @@ public enum ReleaseChannel {
         now: Date,
         cacheURL: URL,
         fetcher: any ReleaseHTTPFetching,
-        environment: [String: String]
+        environment: [String: String],
+        forceRefresh: Bool = false
     ) -> ReleaseCheckRecord? {
         let existing = loadCache(at: cacheURL)
 
-        // Failure backoff: never pay the network timeout until nextAttemptAt.
-        if let existing, let next = existing.nextAttemptAt, next > now {
-            return existing
+        if !forceRefresh {
+            // Failure backoff: never pay the network timeout until nextAttemptAt.
+            if let existing, let next = existing.nextAttemptAt, next > now {
+                return existing
+            }
+
+            // Fresh success within TTL — zero network.
+            if let existing,
+               existing.manifest != nil,
+               !isCacheStale(existing, now: now)
+            {
+                return existing
+            }
         }
 
-        // Fresh success within TTL — zero network.
-        if let existing,
-           existing.manifest != nil,
-           !isCacheStale(existing, now: now)
-        {
-            return existing
-        }
-
-        // Miss, stale, corrupt (load returned nil), or backoff expired.
+        // Miss, stale, corrupt (load returned nil), backoff expired, or forced.
         return refresh(now: now, cacheURL: cacheURL, fetcher: fetcher, environment: environment, previous: existing)
     }
 

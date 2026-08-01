@@ -54,7 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         mainMenu.addItem(appItem)
         let appMenu = NSMenu()
         appItem.submenu = appMenu
-        appMenu.addItem(withTitle: "About \(appName)", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        // OPC-S06b: About opens Settings › About & updates (shared release channel),
+        // not the stock empty about panel.
+        appMenu.addItem(
+            withTitle: "About \(appName)",
+            action: #selector(AppDelegate.openAboutUpdates(_:)),
+            keyEquivalent: ""
+        )
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide \(appName)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthers = appMenu.addItem(withTitle: "Hide Others", action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
@@ -90,6 +96,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         NSApp.mainMenu = mainMenu
     }
+
+    /// Posted when the user chooses App › About — RootView opens Settings › About.
+    @objc func openAboutUpdates(_ sender: Any?) {
+        NotificationCenter.default.post(name: .allnighterOpenAboutUpdates, object: nil)
+    }
+}
+
+extension Notification.Name {
+    static let allnighterOpenAboutUpdates = Notification.Name("allnighter.openAboutUpdates")
 }
 
 @main
@@ -100,6 +115,7 @@ struct AllnighterMacApp: App {
     @State private var floorStatus = FloorManagerStatus()
     @State private var threads: ThreadsViewModel
     @State private var projects = ProjectsViewModel()
+    @State private var releaseUpdates = ReleaseUpdateModel()
 
     init() {
         #if DEBUG
@@ -118,6 +134,7 @@ struct AllnighterMacApp: App {
                 .environment(remoteAccount)
                 .environment(threads)
                 .environment(projects)
+                .environment(releaseUpdates)
                 .environment(floorStatus)
                 .frame(minWidth: 1100, minHeight: 720)
                 .task {

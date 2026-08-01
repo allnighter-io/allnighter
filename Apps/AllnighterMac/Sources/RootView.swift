@@ -7,6 +7,7 @@ struct RootView: View {
     @Environment(AppModel.self) private var model
     @Environment(RemoteAccountModel.self) private var remoteAccount
     @Environment(ProjectsViewModel.self) private var projects
+    @Environment(ReleaseUpdateModel.self) private var releaseUpdates
     @Environment(\.openWindow) private var openWindow
     @Bindable var threads: ThreadsViewModel
     @State private var showDoctor = false
@@ -177,11 +178,16 @@ struct RootView: View {
                 onRepair: openReadiness(focus:),
                 onManageTeam: { openTeamStudio() },
                 onOpenPending: { showPending = true },
+                onOpenAbout: { openTeamStudio(route: .about) },
                 devSimActive: devSimLabel,
                 onSettings: openSettings
             )
                 .zIndex(10)
-                .onAppear { if pendingVM == nil { pendingVM = PendingViewModel(service: pendingService) } }
+                .onAppear {
+                    if pendingVM == nil { pendingVM = PendingViewModel(service: pendingService) }
+                    // Fail-open release check (cache/TTL); never blocks launch.
+                    releaseUpdates.refresh()
+                }
             ZStack {
                 // The app launches into the clean conversation home. Setup (CLI
                 // readiness) and the composer specimen open OVER it on intent;
@@ -325,6 +331,9 @@ struct RootView: View {
         }
         .onChange(of: showDoctor) { _, open in
             if open { showTeamDropdown = false }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .allnighterOpenAboutUpdates)) { _ in
+            openTeamStudio(route: .about)
         }
         .onAppear {
             GlobalHotKey.enable()

@@ -34,7 +34,7 @@ final class VersionIdentityTests: XCTestCase {
     /// enum is deleted. Pin the value so an accidental revert is caught here,
     /// not discovered downstream.
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.11.3")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.11.4")
     }
 
     /// Drift gate: no OTHER hardcoded `"0.9.0"` string literal survives in the

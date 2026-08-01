@@ -16,9 +16,12 @@ struct TitleBar: View {
     var onRepair: (String) -> Void
     var onManageTeam: () -> Void
     var onOpenPending: () -> Void = {}
+    /// OPC-S06b: open Settings › About & updates (quiet badge).
+    var onOpenAbout: () -> Void = {}
     var devSimActive: String?
     var onSettings: () -> Void
     @Environment(AppModel.self) private var model
+    @Environment(ReleaseUpdateModel.self) private var releaseUpdates
 
     var body: some View {
         HStack(spacing: 10) {
@@ -32,6 +35,14 @@ struct TitleBar: View {
             HStack(spacing: 6) {
                 if pendingCount > 0 {
                     PendingPill(count: pendingCount, action: onOpenPending)
+                }
+                // Quiet release badge — only when channel says we are behind (no modal).
+                if let badge = releaseUpdates.badgeText {
+                    Button(action: onOpenAbout) {
+                        Badge(text: badge, tone: .neutral, mono: true)
+                    }
+                    .buttonStyle(.plain)
+                    .help("A published release is available — open About & updates")
                 }
                 BenchHealthBadge(isOpen: $showDoctor)
                 TeamControlView(

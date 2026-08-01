@@ -114,6 +114,7 @@ enum GUIFixture {
         return name.hasPrefix("studio")
             || name == "settings-use-from-cli"
             || name == "settings-teach-your-clis"
+            || name == "settings-about-updates"
     }
 
     /// Which Studio page a `studio-*` / settings fixture deep-links to.
@@ -126,6 +127,7 @@ enum GUIFixture {
         case "studio-boost-window": return .boostWindow
         case "settings-use-from-cli", "studio-use-from-cli": return .useFromCLI
         case "settings-teach-your-clis", "studio-teach-your-clis": return .teachYourCLIs
+        case "settings-about-updates", "studio-about-updates": return .about
         default: return .clis
         }
     }

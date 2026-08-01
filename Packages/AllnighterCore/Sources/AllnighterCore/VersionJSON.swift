@@ -36,8 +36,12 @@ import Foundation
 /// **0.11.2 → 0.11.3 (OPC-S06).** `contractVersion` additive minor (7.3.0 →
 /// 7.4.0): optional top-level `MenuJSON.update` / `VersionJSON.update` from the
 /// shared release channel (`latest.json` + fail-open cache). Not a major cut.
+///
+/// **0.11.3 → 0.11.4 (OPC-S06b).** Mac About/status reads the same channel via
+/// `ReleaseChannel.checkAppUpdate` / `announceApp` (appVersion + human notes).
+/// No contract wire change.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.11.3"
+    public static let binaryVersion = "0.11.4"
 }
 
 /// `alln version` / `alln --version` machine contract.

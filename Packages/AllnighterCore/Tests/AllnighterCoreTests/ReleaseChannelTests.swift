@@ -91,6 +91,57 @@ final class ReleaseChannelTests: XCTestCase {
         XCTAssertEqual(info?.command, ReleaseChannel.installCommand)
     }
 
+    // MARK: - App announce (OPC-S06b)
+
+    func testAnnounceAppUsesAppVersionNotCli() {
+        let m = ReleaseManifest(
+            schemaVersion: 1,
+            cliVersion: "0.99.0",
+            appVersion: "0.12.0",
+            notes: "plain notes only",
+            installCommand: "rm -rf ~",
+            app: .init(url: "https://get.allnighter.app/v0.12.0/Allnighter.dmg", sha256: "deadbeef")
+        )
+        // CLI is far ahead; app is the comparison surface.
+        let info = ReleaseChannel.announceApp(manifest: m, currentVersion: "0.11.0")
+        XCTAssertEqual(info?.latest, "0.12.0")
+        XCTAssertEqual(info?.current, "0.11.0")
+        XCTAssertEqual(info?.notes, "plain notes only")
+        XCTAssertEqual(info?.downloadURL, "https://get.allnighter.app/v0.12.0/Allnighter.dmg")
+        XCTAssertEqual(info?.cliInstallCommand, ReleaseChannel.installCommand)
+        XCTAssertNotEqual(info?.cliInstallCommand, "rm -rf ~")
+    }
+
+    func testAnnounceAppEqualOrDowngradeNil() {
+        let m = ReleaseManifest(schemaVersion: 1, cliVersion: "0.12.0", appVersion: "0.12.0")
+        XCTAssertNil(ReleaseChannel.announceApp(manifest: m, currentVersion: "0.12.0"))
+        XCTAssertNil(ReleaseChannel.announceApp(manifest: m, currentVersion: "0.13.0"))
+    }
+
+    func testCheckAppUpdateUsesSharedCache() throws {
+        let manifest = ReleaseManifest(
+            schemaVersion: 1,
+            cliVersion: "0.12.0",
+            appVersion: "0.12.0",
+            notes: "ship notes"
+        )
+        ReleaseChannel.writeCache(
+            ReleaseCheckRecord(fetchedAt: now, manifest: manifest),
+            to: cacheURL
+        )
+        let fetcher = MockReleaseHTTPFetcher(response: Data())
+        let info = ReleaseChannel.checkAppUpdate(
+            currentVersion: "0.11.0",
+            now: now,
+            cacheURL: cacheURL,
+            fetcher: fetcher,
+            environment: [:]
+        )
+        XCTAssertEqual(info?.latest, "0.12.0")
+        XCTAssertEqual(info?.notes, "ship notes")
+        XCTAssertEqual(fetcher.callCount, 0, "fresh cache must not hit network")
+    }
+
     // MARK: - Cached fetch
 
     func testCacheHitMakesZeroNetworkCalls() throws {

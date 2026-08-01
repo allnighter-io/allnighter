@@ -19,6 +19,7 @@ enum StudioRoute: Hashable {
     case defaultModel
     case boostWindow
     case iphoneRemote
+    case about
     case teams(ComposeLane)
 }
 
@@ -73,6 +74,8 @@ struct TeamStudioView: View {
             BoostWindowView()
         case .iphoneRemote:
             IPhoneRemoteControlView()
+        case .about:
+            AboutUpdatesView()
         case .teams(let lane):
             StudioTeamListView(lane: lane, customizeTeamId: customizeTeamId, startNewTeam: startNewTeam,
                                onOpenDefaultModel: { route = .defaultModel })
@@ -111,6 +114,7 @@ private struct StudioNav: View {
             item("Default model", icon: "infinity", target: .defaultModel)
             item("Boost window", icon: "gauge.with.dots.needle.33percent", target: .boostWindow)
             item("iPhone remote control", icon: "iphone", target: .iphoneRemote)
+            item("About & updates", icon: "info.circle", target: .about)
 
             ForEach(ComposeLane.allCases, id: \.self) { lane in
                 laneHeader(lane)
