@@ -385,6 +385,19 @@ enum LoopCLI {
             )
         }
 
+        // LOOP-TWIN: free twin — no coordinator, no ServeAutoLaunch, no durable writes.
+        if opts.flag("dry-run") {
+            let payload = await dryRunStep(
+                loopId: loopId,
+                message: message,
+                doneSummary: doneSummary,
+                stateStore: stateStore,
+                projectStore: projectStore
+            )
+            print(AllnighterCLI.jsonString(payload))
+            return
+        }
+
         let submission: String
         do {
             if let doneSummary {
@@ -425,9 +438,98 @@ enum LoopCLI {
         }
     }
 
+    /// LOOP-TWIN: pure resolve for `loop step --dry-run`. Load-only; never
+    /// `runExternalRound`, never appends a round, never starts a worker.
+    static func dryRunStep(
+        loopId: String,
+        message: String?,
+        doneSummary: String?,
+        stateStore: LoopStateStore = LoopStateStore(),
+        projectStore: ProjectStore = ProjectStore()
+    ) async -> LoopStartDryRunJSON {
+        var warnings: [String] = []
+        let payloadBrief: String
+        if let doneSummary {
+            payloadBrief = doneSummary
+        } else if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            payloadBrief = message
+        } else {
+            payloadBrief = ""
+            warnings.append("loop step takes a message or --done <summary>")
+        }
+
+        // Resolve the submission shape the real path would use (pure; no dispatch).
+        if payloadBrief.isEmpty == false {
+            do {
+                if doneSummary != nil {
+                    _ = try PilotCLI.synthesizeSubmission(verdict: .done, handover: nil, note: doneSummary)
+                } else if let message {
+                    _ = try PilotCLI.synthesizeSubmission(verdict: .continueRelay, handover: message, note: nil)
+                }
+            } catch {
+                warnings.append("could not synthesize step payload: \(error)")
+            }
+        }
+
+        var projectId = ""
+        var projectRoot = ""
+        var specPath: String?
+        var pmOccupant = "?"
+        var devOccupant = "?"
+        var ready = warnings.isEmpty
+
+        switch stateStore.loadResult(id: loopId) {
+        case .failure(.notFound):
+            warnings.append("loop not found: \(loopId)")
+            ready = false
+        case .failure(.decodeFailed(let detail)):
+            warnings.append(detail.agentMessage)
+            ready = false
+        case .success(let state):
+            projectRoot = state.projectRoot
+            projectId = projectStore.resolveFresh(state.projectRoot)?.id ?? ""
+            specPath = state.docPath
+            let seats = LoopDryRunSupport.seatOccupant(from: state)
+            pmOccupant = seats.pm
+            devOccupant = seats.dev
+            if state.status != .awaitingPM {
+                warnings.append(
+                    "loop is not awaiting a PM decision (status: \(state.status.rawValue))"
+                )
+                ready = false
+            }
+            if doneSummary == nil, message != nil {
+                // continue path would dispatch a dev turn — surface write-lock.
+                if let lockWarning = await LoopDryRunSupport.writeLockWarning(projectRoot: state.projectRoot) {
+                    warnings.append(lockWarning)
+                }
+            }
+        }
+
+        if payloadBrief.isEmpty { ready = false }
+
+        return LoopStartDryRunJSON(
+            brief: payloadBrief,
+            specPath: specPath,
+            projectId: projectId,
+            projectRoot: projectRoot,
+            pm: .init(occupant: pmOccupant, source: "loop"),
+            dev: .init(occupant: devOccupant, source: "loop"),
+            ready: ready,
+            warnings: warnings,
+            nextAction: AgentNextAction(
+                kind: "startTeamRun",
+                label: doneSummary != nil ? "Close the loop for real" : "Step the loop for real",
+                command: LoopDryRunSupport.stepCommand(
+                    loopId: loopId, message: message, doneSummary: doneSummary
+                )
+            )
+        )
+    }
+
     private static func stepUsage() -> Never {
         FileHandle.standardError.write(Data(
-            "usage: alln loop step <loop-id> <message>\n       alln loop step <loop-id> --done <summary>\n".utf8
+            "usage: alln loop step <loop-id> <message> [--dry-run] [--json]\n       alln loop step <loop-id> --done <summary> [--dry-run] [--json]\n".utf8
         ))
         exit(2)
     }
@@ -446,19 +548,38 @@ enum LoopCLI {
     /// | --- | --- | --- | --- | --- |
     /// | an agent id | `relay adopt` | `caller` | `awaitingPM`\|`escalated` | dispatches a round |
     /// | `caller` | `pilot adopt` | an agent | `LoopState.isResumable` | static relabel, no dispatch |
-    static func runPm(_ args: [String], runtime: ToolRuntime) async {
+    static func runPm(
+        _ args: [String],
+        runtime: ToolRuntime,
+        stateStore: LoopStateStore = LoopStateStore(),
+        projectStore: ProjectStore = ProjectStore()
+    ) async {
         let opts = Options(args)
         guard opts.positional.count >= 2,
               !opts.positional[0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               !opts.positional[1].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else {
             FileHandle.standardError.write(Data(
-                "usage: alln loop pm <loop-id> <caller|agent-id> [--max-rounds N] [--until HH:MM] [--no-wait] [--json]\n".utf8
+                "usage: alln loop pm <loop-id> <caller|agent-id> [--max-rounds N] [--until HH:MM] [--dry-run] [--no-wait] [--json]\n".utf8
             ))
             exit(2)
         }
         let loopId = opts.positional[0]
         let occupant = opts.positional[1]
+
+        // LOOP-TWIN: free twin — no adopt, no ServeAutoLaunch, no durable writes.
+        if opts.flag("dry-run") {
+            let payload = await dryRunPm(
+                loopId: loopId,
+                occupant: occupant,
+                opts: opts,
+                models: runtime.models,
+                stateStore: stateStore,
+                projectStore: projectStore
+            )
+            print(AllnighterCLI.jsonString(payload))
+            return
+        }
 
         var forwarded: [String] = ["--relay", loopId]
         for key in opts.flags where key != "relay" {
@@ -470,10 +591,132 @@ enum LoopCLI {
         }
 
         if occupant == "caller" {
-            PilotCLI.runAdopt(forwarded)
+            PilotCLI.runAdopt(forwarded, stateStore: stateStore)
         } else {
             forwarded.append(contentsOf: ["--pm-model", occupant])
-            await LoopEngineCLI.runAdopt(forwarded, runtime: runtime)
+            await LoopEngineCLI.runAdopt(forwarded, runtime: runtime, stateStore: stateStore, projectStore: projectStore)
         }
+    }
+
+    /// LOOP-TWIN: pure resolve for `loop pm --dry-run`. Load-only — never
+    /// `adopt` / `adoptToPilot` (those flip occupant / dispatch). Does not call
+    /// `reconcileOrphan` either (that can write when owner is dead).
+    static func dryRunPm(
+        loopId: String,
+        occupant: String,
+        opts: Options,
+        models: [Model],
+        stateStore: LoopStateStore = LoopStateStore(),
+        projectStore: ProjectStore = ProjectStore()
+    ) async -> LoopStartDryRunJSON {
+        var warnings: [String] = []
+        let brief = "pm → \(occupant)"
+
+        // Resolve agent id when not handing to caller (same choke point as real adopt).
+        var resolvedPmOccupant = occupant
+        var pmSource = "requested"
+        if occupant != "caller" {
+            switch ExactIdResolver.resolveWorker(occupant, flag: "occupant", models: models) {
+            case .success(let model):
+                resolvedPmOccupant = model.id
+                pmSource = "explicit"
+            case .failure(let failure):
+                warnings.append(failure.message)
+            }
+        } else {
+            pmSource = "caller"
+        }
+
+        if opts.value("max-rounds") != nil, LoopEngineCLI.parseMaxRounds(opts.value("max-rounds")) == nil {
+            warnings.append("--max-rounds must be a positive integer, got \"\(opts.value("max-rounds") ?? "")\"")
+        }
+        let untilParsed = LoopDispatch.parseUntilValidated(opts.value("until"))
+        if let bad = untilParsed.invalid {
+            warnings.append("--until could not be parsed: \"\(bad)\"")
+        }
+
+        var projectId = ""
+        var projectRoot = ""
+        var specPath: String?
+        var currentPm = "?"
+        var devOccupant = "?"
+        var ready = warnings.isEmpty
+
+        switch stateStore.loadResult(id: loopId) {
+        case .failure(.notFound):
+            warnings.append("loop not found: \(loopId)")
+            ready = false
+        case .failure(.decodeFailed(let detail)):
+            warnings.append(detail.agentMessage)
+            ready = false
+        case .success(let state):
+            projectRoot = state.projectRoot
+            projectId = projectStore.resolveFresh(state.projectRoot)?.id ?? ""
+            specPath = state.docPath
+            let seats = LoopDryRunSupport.seatOccupant(from: state)
+            currentPm = seats.pm
+            devOccupant = seats.dev
+
+            if occupant == "caller" {
+                // Real path: adoptToPilot — parked spawned loop only (isResumable).
+                // No reconcileOrphan here (that mutates dead-owner running).
+                if state.isCallerChair {
+                    warnings.append("loop already has caller as PM — nothing to hand over")
+                    ready = false
+                } else if !state.isResumable {
+                    warnings.append(
+                        "loop is not adoptable to caller (status: \(state.status.rawValue)) — requires escalated or orphan-reconciled stopped"
+                    )
+                    ready = false
+                }
+                // caller path: status flip only, no worker dispatch / no write lock spend.
+            } else {
+                // Real path: adopt — caller-chair awaitingPM|escalated → agent PM + dispatch.
+                if !state.isCallerChair {
+                    warnings.append(
+                        "loop PM is already an agent (\(currentPm)) — agent-PM adopt requires a caller-held loop"
+                    )
+                    ready = false
+                } else if state.status != .awaitingPM && state.status != .escalated {
+                    warnings.append(
+                        "loop is not adoptable to an agent PM (status: \(state.status.rawValue)) — requires awaitingPM or escalated"
+                    )
+                    ready = false
+                } else if let lockWarning = await LoopDryRunSupport.writeLockWarning(projectRoot: state.projectRoot) {
+                    warnings.append(lockWarning)
+                }
+            }
+        }
+
+        if opts.value("max-rounds") != nil && LoopEngineCLI.parseMaxRounds(opts.value("max-rounds")) == nil {
+            ready = false
+        }
+        if untilParsed.invalid != nil { ready = false }
+        // Unresolved agent id keeps ready false.
+        if occupant != "caller", pmSource != "explicit" { ready = false }
+
+        let reportPm = occupant == "caller" ? "caller" : resolvedPmOccupant
+        return LoopStartDryRunJSON(
+            brief: brief,
+            specPath: specPath,
+            projectId: projectId,
+            projectRoot: projectRoot,
+            pm: .init(occupant: reportPm, source: pmSource),
+            dev: .init(occupant: devOccupant, source: "loop"),
+            ready: ready,
+            warnings: warnings,
+            nextAction: AgentNextAction(
+                kind: "startTeamRun",
+                label: occupant == "caller"
+                    ? "Hand PM seat to caller for real"
+                    : "Hand PM seat to agent and continue for real",
+                command: LoopDryRunSupport.pmCommand(
+                    loopId: loopId,
+                    occupant: occupant,
+                    maxRounds: opts.value("max-rounds"),
+                    until: opts.value("until")
+                )
+            )
+        )
     }
 }

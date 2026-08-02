@@ -10,7 +10,7 @@ public extension ContractRegistry {
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
     // ORS-S03c: major cut — delete public audit.runJournalPath (filesystem escape hatch).
     // LOOP-REG: minor — declare the seven already-implemented `alln loop` verbs.
-    static let contractVersion = "9.1.0"
+    static let contractVersion = "9.2.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -614,13 +614,19 @@ public extension ContractRegistry {
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the resumed stretch."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the resumed stretch (default 20)."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
-                FlagSpec("no-wait", summary: "Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud."),
-                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
-                FlagSpec("json", summary: "Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
+                FlagSpec("dry-run", summary: "Resolve the loop id, founder answer, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state."),
+                FlagSpec("no-wait", summary: "Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud. Mutually exclusive with --dry-run."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command. Mutually exclusive with --dry-run."),
+                FlagSpec("json", summary: "Emit structured JSON (LoopStartDryRunJSON with --dry-run; NDJSON progress + final LoopJSON otherwise; detached ack with --no-wait)."),
+            ],
+            mutuallyExclusiveFlags: [
+                ["no-wait", "dry-run"],
+                ["delivery", "dry-run"],
             ],
             flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON,
-            spendsQuota: true
+            spendsQuota: true,
+            freeTwinCommand: "alln loop resume <loop-id> --answer <text> --dry-run"
         ),
         CommandSpec(
             "loop wait",
@@ -647,10 +653,12 @@ public extension ContractRegistry {
             ],
             flags: [
                 FlagSpec("done", takesValue: true, valueType: "string", summary: "Close the loop with a done summary instead of dispatching a continue message."),
-                FlagSpec("json", summary: "Emit structured handoff/result JSON (progress NDJSON while running)."),
+                FlagSpec("dry-run", summary: "Resolve the loop id, step payload, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state."),
+                FlagSpec("json", summary: "Emit structured JSON (LoopStartDryRunJSON with --dry-run; handoff/result + progress NDJSON otherwise)."),
             ],
             outputSchema: .relayJSON,
-            spendsQuota: true
+            spendsQuota: true,
+            freeTwinCommand: "alln loop step <loop-id> <message> --dry-run"
         ),
         CommandSpec(
             "loop pm",
@@ -664,13 +672,19 @@ public extension ContractRegistry {
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the adopted agent-PM stretch — counts TOTAL rounds including prior ones (default 20). Ignored for `caller`."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted agent-PM stretch. Ignored for `caller`."),
                 FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch (agent-PM path)."),
-                FlagSpec("no-wait", summary: "Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud."),
-                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
-                FlagSpec("json", summary: "Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
+                FlagSpec("dry-run", summary: "Resolve the loop id, requested PM occupant, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state (no occupant change)."),
+                FlagSpec("no-wait", summary: "Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud. Mutually exclusive with --dry-run."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command. Mutually exclusive with --dry-run."),
+                FlagSpec("json", summary: "Emit structured JSON (LoopStartDryRunJSON with --dry-run; NDJSON progress + final LoopJSON otherwise; detached ack with --no-wait)."),
+            ],
+            mutuallyExclusiveFlags: [
+                ["no-wait", "dry-run"],
+                ["delivery", "dry-run"],
             ],
             flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
             outputSchema: .relayJSON,
-            spendsQuota: true
+            spendsQuota: true,
+            freeTwinCommand: "alln loop pm <loop-id> <occupant> --dry-run"
         ),
         CommandSpec(
             "pair relay", summary: "Retired — use `alln loop start \"<what you want done>\"` instead. Runs the PM↔dev loop unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.", milestone: .m1,

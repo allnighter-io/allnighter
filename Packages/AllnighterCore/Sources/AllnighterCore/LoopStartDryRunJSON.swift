@@ -1,8 +1,18 @@
 import Foundation
 
-/// `alln loop start --dry-run` — the free twin (LVC v7 §1, LVC-S08). Resolves
-/// the brief, spec, both seats, and project against live state without
-/// spending quota, starting a worker, or writing anything.
+/// Free twin JSON for `alln loop * --dry-run` (LVC v7 §1, LVC-S08; LOOP-TWIN).
+/// Shared by `loop start`, `loop resume`, `loop step`, and `loop pm` — one schema,
+/// not a fourth dry-run shape. Resolves seats/payload/project against live state
+/// without spending quota, starting a worker, or mutating durable loop/run state.
+///
+/// Field mapping for non-start verbs:
+/// - `brief` — the payload that would be used (founder answer / step message /
+///   PM reassignment description)
+/// - `specPath` / `project*` / `pm` / `dev` — resolved from the existing loop
+///   (or from start flags for `loop start`)
+/// - `ready` — whether the real verb can proceed from current durable state
+/// - `warnings` — illegal state, missing loop, write-lock hold, seat issues
+/// - `nextAction.command` — the real (spending) invocation without `--dry-run`
 public struct LoopStartDryRunJSON: Codable, Sendable, Equatable {
     public var schemaVersion: Int
     public var brief: String

@@ -195,12 +195,28 @@ enum LoopEngineCLI {
         return (target, timeout)
     }
 
-    static func runResume(_ args: [String], runtime: ToolRuntime) async {
+    static func runResume(
+        _ args: [String],
+        runtime: ToolRuntime,
+        stateStore: LoopStateStore = LoopStateStore(),
+        projectStore: ProjectStore = ProjectStore()
+    ) async {
         guard !args.isEmpty else { usage("relay-resume --relay <id> --answer <text> [--until HH:MM] [--max-rounds N] [--no-wait] [--json]") }
         let opts = Options(args)
+
+        // LOOP-TWIN: free twin — resolve + report only. Never ServeAutoLaunch,
+        // DetachedDispatch, coordinator.resume, or durable state writes.
+        if opts.flag("dry-run") {
+            let payload = await dryRunResume(
+                opts: opts, stateStore: stateStore, projectStore: projectStore
+            )
+            print(AllnighterCLI.jsonString(payload))
+            return
+        }
+
         let request: (loopId: String, answer: String, priorState: LoopState, config: LoopCoordinator.Config)
         do {
-            request = try parseResumeRequest(args)
+            request = try parseResumeRequest(args, stateStore: stateStore, projectStore: projectStore)
         } catch let error as LoopEngineCLIError {
             fail(error)
         } catch {
@@ -231,6 +247,104 @@ enum LoopEngineCLI {
         case .failure(let refusal):
             failResume(refusal, loopId: request.loopId)
         }
+    }
+
+    /// LOOP-TWIN: pure resolve for `loop resume --dry-run`. Load-only — never
+    /// reconciles orphans (that writes), never flips status, never dispatches.
+    /// Illegal/missing state → `ready: false` + warnings, still a successful dry-run.
+    static func dryRunResume(
+        opts: Options,
+        stateStore: LoopStateStore = LoopStateStore(),
+        projectStore: ProjectStore = ProjectStore()
+    ) async -> LoopStartDryRunJSON {
+        let loopId = opts.value("relay") ?? ""
+        let answer = opts.value("answer") ?? ""
+        var warnings: [String] = []
+
+        if loopId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            warnings.append("missing required --relay / loop-id")
+        }
+        if answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            warnings.append("missing required --answer <text>")
+        }
+        if opts.value("max-rounds") != nil, parseMaxRounds(opts.value("max-rounds")) == nil {
+            warnings.append("--max-rounds must be a positive integer, got \"\(opts.value("max-rounds") ?? "")\"")
+        }
+        let untilParsed = LoopDispatch.parseUntilValidated(opts.value("until"))
+        if let bad = untilParsed.invalid {
+            warnings.append("--until could not be parsed: \"\(bad)\"")
+        }
+
+        var projectId = ""
+        var projectRoot = ""
+        var specPath: String?
+        var pmOccupant = "?"
+        var devOccupant = "?"
+        var ready = warnings.isEmpty
+
+        if !loopId.isEmpty {
+            switch stateStore.loadResult(id: loopId) {
+            case .failure(.notFound):
+                warnings.append("loop not found: \(loopId)")
+                ready = false
+            case .failure(.decodeFailed(let detail)):
+                warnings.append(detail.agentMessage)
+                ready = false
+            case .success(let state):
+                projectRoot = state.projectRoot
+                projectId = projectStore.resolveFresh(state.projectRoot)?.id
+                    ?? AllnighterCLI.resolveProject(state.projectRoot, store: projectStore)?.id
+                    ?? ""
+                specPath = state.docPath
+                pmOccupant = state.isCallerChair ? "caller" : state.pmModelId
+                devOccupant = state.devModelId
+                // Same eligibility as parseResumeRequest — pure read, including
+                // orphaned-running (isOwnerDead is non-mutating).
+                let orphaned = state.status == .running && stateStore.isOwnerDead(id: loopId)
+                if !(state.isResumable || orphaned) {
+                    warnings.append(
+                        "loop is not resumable (status: \(state.status.rawValue)) — resume requires escalated or orphan-reconciled stopped"
+                    )
+                    ready = false
+                }
+                if let lockWarning = await LoopDryRunSupport.writeLockWarning(projectRoot: state.projectRoot) {
+                    warnings.append(lockWarning)
+                    // Write lock busy is advisory queue, not a hard refuse — keep ready.
+                }
+            }
+        } else {
+            ready = false
+        }
+
+        // Usage-level problems keep ready false even when state would allow resume.
+        if answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || loopId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || (opts.value("max-rounds") != nil && parseMaxRounds(opts.value("max-rounds")) == nil)
+            || untilParsed.invalid != nil {
+            ready = false
+        }
+
+        let nextCommand = LoopDryRunSupport.resumeCommand(
+            loopId: loopId.isEmpty ? "<loop-id>" : loopId,
+            answer: answer.isEmpty ? "<text>" : answer,
+            maxRounds: opts.value("max-rounds"),
+            until: opts.value("until")
+        )
+        return LoopStartDryRunJSON(
+            brief: answer,
+            specPath: specPath,
+            projectId: projectId,
+            projectRoot: projectRoot,
+            pm: .init(occupant: pmOccupant, source: "loop"),
+            dev: .init(occupant: devOccupant, source: "loop"),
+            ready: ready,
+            warnings: warnings,
+            nextAction: AgentNextAction(
+                kind: "startTeamRun",
+                label: "Resume the loop for real",
+                command: nextCommand
+            )
+        )
     }
 
     /// RSC-HF: `pair relay-resume --no-wait`. Parent does not mutate — the child runs
@@ -268,7 +382,12 @@ enum LoopEngineCLI {
     /// `relay-resume`. `projectRoot`/`docPath`/`devModelId` are always read from the
     /// loaded relay (never from a flag here) — an adopt can never silently redirect a
     /// relay at a different doc or repo, same discipline `resume` already follows.
-    static func runAdopt(_ args: [String], runtime: ToolRuntime) async {
+    static func runAdopt(
+        _ args: [String],
+        runtime: ToolRuntime,
+        stateStore: LoopStateStore = LoopStateStore(),
+        projectStore: ProjectStore = ProjectStore()
+    ) async {
         guard !args.isEmpty else { usage("relay adopt --relay <id> --pm-model <modelId> [--max-rounds N] [--until HH:MM] [--no-wait] [--json]") }
         let opts = Options(args)
         guard let loopId = opts.value("relay") else { fail(.missingRequired("--relay <id>")) }
@@ -279,9 +398,8 @@ enum LoopEngineCLI {
         let untilParsed = LoopDispatch.parseUntilValidated(opts.value("until"))
         if let bad = untilParsed.invalid { fail(.invalidUntil(bad)) }
 
-        let stateStore = LoopStateStore()
         let priorState = LoopEngineCLILoad.requireState(id: loopId, store: stateStore)
-        let projectId = AllnighterCLI.resolveProject(priorState.projectRoot, store: ProjectStore())?.id
+        let projectId = AllnighterCLI.resolveProject(priorState.projectRoot, store: projectStore)?.id
         let config = LoopCoordinator.Config(
             projectRoot: priorState.projectRoot, projectId: projectId, docPath: priorState.docPath,
             pmModelId: pmModelId, devModelId: priorState.devModelId,

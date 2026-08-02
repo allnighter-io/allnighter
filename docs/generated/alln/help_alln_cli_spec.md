@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.1.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.2.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -806,9 +806,14 @@ Flags:
 - `--until <time>` — Hard stop HH:MM (local) for the resumed stretch.
 - `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
-- `--no-wait` — Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.
-- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
-- `--json` — Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+- `--dry-run` — Resolve the loop id, founder answer, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state.
+- `--no-wait` — Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud. Mutually exclusive with --dry-run.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command. Mutually exclusive with --dry-run.
+- `--json` — Emit structured JSON (LoopStartDryRunJSON with --dry-run; NDJSON progress + final LoopJSON otherwise; detached ack with --no-wait).
+
+Mutually exclusive: `--no-wait`, `--dry-run`.
+
+Mutually exclusive: `--delivery`, `--dry-run`.
 
 Requires: `--delivery` requires `--no-wait`.
 
@@ -837,7 +842,8 @@ Arguments:
 
 Flags:
 - `--done <string>` — Close the loop with a done summary instead of dispatching a continue message.
-- `--json` — Emit structured handoff/result JSON (progress NDJSON while running).
+- `--dry-run` — Resolve the loop id, step payload, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state.
+- `--json` — Emit structured JSON (LoopStartDryRunJSON with --dry-run; handoff/result + progress NDJSON otherwise).
 
 Output schema: `relayJSON`.
 
@@ -853,9 +859,14 @@ Flags:
 - `--max-rounds <integer>` — Round ceiling for the adopted agent-PM stretch — counts TOTAL rounds including prior ones (default 20). Ignored for `caller`.
 - `--until <time>` — Hard stop HH:MM (local) for the adopted agent-PM stretch. Ignored for `caller`.
 - `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch (agent-PM path).
-- `--no-wait` — Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud.
-- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
-- `--json` — Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+- `--dry-run` — Resolve the loop id, requested PM occupant, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state (no occupant change).
+- `--no-wait` — Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud. Mutually exclusive with --dry-run.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command. Mutually exclusive with --dry-run.
+- `--json` — Emit structured JSON (LoopStartDryRunJSON with --dry-run; NDJSON progress + final LoopJSON otherwise; detached ack with --no-wait).
+
+Mutually exclusive: `--no-wait`, `--dry-run`.
+
+Mutually exclusive: `--delivery`, `--dry-run`.
 
 Requires: `--delivery` requires `--no-wait`.
 

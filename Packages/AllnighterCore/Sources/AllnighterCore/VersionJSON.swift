@@ -43,7 +43,7 @@ import Foundation
 ///
 /// **0.11.4 → 0.12.0 (ORS-S03e, `docs/phases/One_Run_Surface.md`).**
 /// `contractVersion` took major cuts in this ship batch (7.x → 8.0.0 → 9.0.0,
-/// then additive 9.1.0 for declared `alln loop` verbs): public `team status` /
+/// then additive 9.1.0/9.2.0 for declared `alln loop` verbs + free-twin dry-runs): public `team status` /
 /// `team result`, old waiter flags, and `audit.runJournalPath` are deleted;
 /// one `alln show --json|--stream` surface owns single-run read + delivery.
 /// One binary minor bump for the whole batch (+0.1.0 on contract major cut).
