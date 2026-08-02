@@ -131,7 +131,8 @@ public enum HelpTopicRegistry {
             (lock policy only — not a team, not FS isolation). Do **not** use `--no-commit` for this.
             - `alln run --team <id>` — multi-seat team in the project root.
             - `alln run` — foreground Team run in the registered repository by default; \
-            with `--no-wait`, run the returned `delivery.command` once to wait for its terminal pmTurn.
+            with `--no-wait --json`, run the one returned `nextAction.command` once \
+            (`alln show <id> --stream`) to observe mid-run and receive the terminal pmTurn.
             - `alln thread send` — continue an existing work thread (not a fresh one-shot).
             - Pending — defer work with `alln pending add`; run later with `alln pending run`.
 
@@ -215,8 +216,8 @@ public enum HelpTopicRegistry {
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
                 .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` on `run`."),
                 .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--model`, and the selected subscription CLI's own supported flags."),
-                .init("delivery", "Terminal delivery", "Use one `alln show <run-id> --stream` call to reattach and receive the terminal pmTurn; do not poll or use run resume for terminal delivery."),
-                .init("no-wait", "Detached runs", "`alln run --no-wait` returns delivery.path=wait and an exact delivery.command. Do other work, then run that command once; its stream delivers the terminal pmTurn. `--idempotency-key` is the explicit, deliberate retry-safety contract — it is opt-in, not derived, so two intentionally identical runs are never silently collapsed into one."),
+                .init("delivery", "Terminal delivery", "Use one `alln show <run-id> --stream` call to reattach and receive the terminal pmTurn; do not poll or use run resume for terminal delivery. Killing the observer never kills the run; re-running the same command reattaches."),
+                .init("no-wait", "Detached runs", "`alln run … --no-wait --json` returns one `nextAction.command` = `alln show <id> --stream`. Do other work, then run that command once — it observes the middle and delivers the terminal pmTurn. `--idempotency-key` is the explicit, deliberate retry-safety contract — it is opt-in, not derived, so two intentionally identical runs are never silently collapsed into one."),
                 .init("read-only", "Parallel feedback", "Doc/spec feedback without competing for the mutator: `alln run --read-only --model <id>`. Build work uses default mutating `alln run`. `--no-commit` is commit instruction only — it still takes the write lock and queues FIFO."),
                 .init("usage", "Observed tokens & duration", "Live `pilot status` / `relay-status` show elapsed + observed tokens (or CLI blame when unreported). Terminal receipts and TeamRunJSON answers carry per-seat duration and usage when the driver reported it — never invented totals."),
             ],

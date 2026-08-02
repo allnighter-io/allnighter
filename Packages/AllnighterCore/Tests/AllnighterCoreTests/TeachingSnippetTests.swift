@@ -27,17 +27,21 @@ final class TeachingSnippetTests: XCTestCase {
         XCTAssertTrue(TeachingSnippet.body.contains("dontUseWhen"))
         XCTAssertTrue(TeachingSnippet.body.contains("validation template"))
         XCTAssertTrue(TeachingSnippet.body.contains("never trust a pasted catalog"))
-        XCTAssertTrue(TeachingSnippet.body.contains("returned delivery command once"))
-        XCTAssertTrue(TeachingSnippet.body.contains("never poll or use resume"))
+        XCTAssertTrue(TeachingSnippet.body.contains("nextAction.command"))
+        XCTAssertTrue(TeachingSnippet.body.contains("alln show <id> --stream"))
+        XCTAssertTrue(TeachingSnippet.body.contains("never poll or resume"))
         // CD-S03: relay aggregate ≠ dev leg.
         XCTAssertTrue(TeachingSnippet.body.contains("devRunId"))
         XCTAssertTrue(TeachingSnippet.body.contains("Relay running"))
         // AVQ-S04: parallel feedback lock policy.
         XCTAssertTrue(TeachingSnippet.body.contains("--read-only"))
         XCTAssertTrue(TeachingSnippet.body.contains("--no-commit"))
-        // AVQ-S03: one mutator + running ≠ progress.
+        // AVQ-S03: one mutator + running ≠ progress; observation block replaces progressStale.
         XCTAssertTrue(TeachingSnippet.body.contains("One mutator"))
-        XCTAssertTrue(TeachingSnippet.body.contains("progressStale"))
+        XCTAssertTrue(TeachingSnippet.body.contains("observation"))
+        XCTAssertTrue(TeachingSnippet.body.contains("alln show <id> --json"))
+        XCTAssertFalse(TeachingSnippet.body.contains("progressStale"))
+        XCTAssertFalse(TeachingSnippet.body.contains("delivery command"))
         XCTAssertFalse(TeachingSnippet.body.contains("team hello"))
         XCTAssertFalse(TeachingSnippet.body.contains("route --for"))
         XCTAssertFalse(TeachingSnippet.body.contains("resolve --for"))

@@ -28,10 +28,10 @@ public enum TeachingSnippet {
         "2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.",
         "3. Before an unfamiliar agent-starting action, run its validation template.",
         "4. Re-read the live menu in a new session; never trust a pasted catalog.",
-        "5. After `--no-wait`, run the returned delivery command once; never poll or use resume for terminal delivery.",
+        "5. After `--no-wait`, run the returned `nextAction.command` once (`alln show <id> --stream`); never poll or resume — re-run reattaches, kill never kills the run.",
         "6. Relay running ≠ dev running — check devRunId.",
         "7. Parallel feedback: `alln run --read-only --model …` — not `--no-commit` (that still queues).",
-        "8. One mutator per repo root; `running` is not progress — inspect queue ticket and progressStale.",
+        "8. One mutator per repo root; `running` is not progress — inspect queue ticket and `observation` on `alln show <id> --json`.",
         "9. Pilot/relay dev report is `pmTurn.report` (not `devLeg` — that is settle/liveness only).",
         "10. After a terminal team run, surface `artifact.path` / `artifact.openCommand` to the user — not only the lead answer.",
     ]

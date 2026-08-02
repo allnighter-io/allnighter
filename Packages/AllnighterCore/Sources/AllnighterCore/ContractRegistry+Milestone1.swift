@@ -481,9 +481,9 @@ public extension ContractRegistry {
                 FlagSpec("conversation-id", takesValue: true, valueType: "id", summary: "Origin conversation id."),
                 FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id."),
                 FlagSpec("dry-run", summary: "Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote."),
-                FlagSpec("json", summary: "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait."),
+                FlagSpec("json", summary: "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with one nextAction.command (`alln show <id> --stream`) with --no-wait."),
                 FlagSpec("stream", summary: CommandProjection.streamFlagSummary),
-                FlagSpec("no-wait", summary: "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix."),
+                FlagSpec("no-wait", summary: "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with one nextAction.command = `alln show <id> --stream` (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
             ],
             mutuallyExclusiveFlags: [
@@ -1139,7 +1139,7 @@ public extension ContractRegistry {
         ErrorSpec(
             "JOURNAL_CORRUPT",
             ruleId: "run.journal.corrupt",
-            agentAction: "Do not retry the same run id; treat the id as unreadable and start a new run if the work still matters. A corrupt journal is never silently treated as not-found or coerced to an invented status.",
+            agentAction: "Do not retry the same run id; confirm via `alln show <id> --json` (typed error), then start a new run if the work still matters. Never inspect private journal paths by hand — a corrupt journal is never silently treated as not-found or coerced to an invented status.",
             requiresManual: true,
             retryable: false,
             explain: "A durable journal exists for the id but failed to decode (e.g. an unknown/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8)."
@@ -1359,7 +1359,7 @@ public extension ContractRegistry {
         ExampleRecipe("skills_gc_json", title: "Purge lab and orphan custom skills", command: "alln skills gc --json"),
         ExampleRecipe("run_foreground_json", title: "Run in foreground", command: "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\""),
         ExampleRecipe("try_fix_bug", title: "Auto Fix: Bug Hunt then one bounded fix", command: "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json"),
-        ExampleRecipe("show_latest_json", title: "Show the latest run", command: "alln show latest --json"),
+        ExampleRecipe("show_latest_json", title: "Show one run by id", command: "alln show <run-id> --json"),
         ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),
         ExampleRecipe("export_md", title: "Export the latest result", command: "alln export latest --format md"),
         ExampleRecipe("export_contracts_check", title: "Verify no contract drift", command: "alln dev export-contracts --check"),

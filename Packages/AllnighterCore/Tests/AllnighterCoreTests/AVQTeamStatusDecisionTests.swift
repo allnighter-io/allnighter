@@ -19,7 +19,10 @@ final class AVQTeamStatusDecisionTests: XCTestCase {
     func testInspectStallAndInspectBlockerHelpers() {
         let stall = AsyncTeamNextAction.inspectStall(runId: "r1")
         XCTAssertEqual(stall.kind, "inspectStall")
-        XCTAssertTrue(stall.command.contains("ps"))
+        XCTAssertTrue(stall.command.contains("alln show r1 --json"),
+                      "stall inspect must reattach via show, not fleet ps alone (got: \(stall.command))")
+        XCTAssertFalse(stall.label.contains("progressStale"),
+                       "ORS: progressStale is not the public stall label")
         let block = AsyncTeamNextAction.inspectBlocker(runId: "r1")
         XCTAssertEqual(block.kind, "inspectBlocker")
     }

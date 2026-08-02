@@ -90,8 +90,8 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
     public static func inspectStall(runId: String) -> AsyncTeamNextAction {
         AsyncTeamNextAction(
             kind: "inspectStall",
-            label: "Inspect stall (progressStale) — correlate with alln ps before waiting again",
-            command: "alln ps --json",
+            label: "Inspect stall — read observation on alln show, correlate with alln ps before waiting again",
+            command: "alln show \(runId) --json",
             runId: runId)
     }
 

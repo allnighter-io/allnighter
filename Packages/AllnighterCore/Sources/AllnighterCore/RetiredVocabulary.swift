@@ -99,6 +99,14 @@ public enum RetiredVocabulary {
         "alln team result",
         "--wait-for terminal",
         "--persisted",
+        // ORS-S03d — no surviving teacher of retired single-run read grammar.
+        // Loop/relay may still teach delivery.path=wait; these are single-run forms only.
+        "alln team status --wait-for",
+        "alln show latest",
+        "returned delivery command once",
+        "inspect queue ticket and progressStale",
+        "inspect run.json",
+        "events.jsonl",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible
