@@ -10,7 +10,10 @@ public extension ContractRegistry {
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
     // ORS-S03c: major cut — delete public audit.runJournalPath (filesystem escape hatch).
     // LOOP-REG: minor — declare the seven already-implemented `alln loop` verbs.
-    static let contractVersion = "9.2.0"
+    // ORS-P2-NULL: minor — Observation.required gains always-present nullable
+    // `lastActivityAt` (key never omitted; null when unobserved). Additive optional
+    // `workerActivity.data.tool` is wire-only and does not change EventSpec.
+    static let contractVersion = "9.3.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,

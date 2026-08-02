@@ -653,7 +653,8 @@
       },
       "required" : [
         "ownerState",
-        "activityMode"
+        "activityMode",
+        "lastActivityAt"
       ],
       "type" : "object"
     },

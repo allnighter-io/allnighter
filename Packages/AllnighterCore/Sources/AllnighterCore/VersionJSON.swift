@@ -47,8 +47,12 @@ import Foundation
 /// `team result`, old waiter flags, and `audit.runJournalPath` are deleted;
 /// one `alln show --json|--stream` surface owns single-run read + delivery.
 /// One binary minor bump for the whole batch (+0.1.0 on contract major cut).
+///
+/// **0.12.0 → 0.12.1 (ORS-P2-NULL regen).** `contractVersion` additive minor
+/// (9.2.0 → 9.3.0): Observation.required gains always-present nullable
+/// `lastActivityAt`. Not a major cut, so standard +0.0.1 batch bump.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.12.0"
+    public static let binaryVersion = "0.12.1"
 }
 
 /// `alln version` / `alln --version` machine contract.
