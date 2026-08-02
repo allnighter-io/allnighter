@@ -335,18 +335,20 @@ public enum HelpTopicRegistry {
             id: "capacity", title: "Capacity & Quota", audience: .both,
             summary: "`alln capacity` shows vendor-printed quota headroom when sampled; unknown means no surface / not recent / parse failed — never blocks.",
             bodyMarkdown: """
-            `alln capacity` reads what vendors already wrote on disk (tier-1: Codex, Grok). \
-            Bare capacity is instant and **spawns nothing**. `alln capacity --refresh` adds \
-            tier-3 PTY one-shots into vendor `/usage` panes (agy, Kimi, Cursor, Claude). \
-            `alln capacity --refresh --source <id>` probes **only** that bench seat \
-            (`codex`, `claude_code`, `cursor_agent`, `grok`, `kimi`, `agy`); every other \
-            row still renders from disk or as never-sampled — the strip is never truncated. \
-            Tier-1 ids with `--source` are allowed and cheap (disk only, no spawn). \
-            `--source` without `--refresh` is a usage error. Capacity is \
-            **vendor-printed when acquired** — Allnighter does not invent percentages. \
-            `unknown` means the seat was not sampled, the probe timed out / failed, or the \
-            parser could not read the capture. Missing data never blocks (exit 0) and never \
-            fabricates 0%.
+            `alln capacity` is a **trust-critical** six-row snapshot. Bare capacity is \
+            instant and **spawns nothing**: Codex and Grok read structured disk/log truth; \
+            Claude / Cursor / Kimi / Antigravity show last-known (with honest age) or \
+            unknown. `alln capacity --refresh` live-acquires — disk re-read for Codex/Grok, \
+            one PTY adapter per PTY-only seat (Claude, Cursor, Kimi, Antigravity). Progress \
+            prints on **stderr**; the complete table/JSON is on **stdout** (TTY or piped). \
+            `alln capacity --refresh --source <id>` targets one seat; every other row still \
+            renders — the strip is never truncated. Disk-only ids with `--source` re-read \
+            disk only (no spawn). `--source` without `--refresh` is a usage error. \
+            A failed refresh keeps the failure reason for that seat — it does **not** paint \
+            stale history as live. Capacity is **vendor-printed when acquired** — Allnighter \
+            does not invent percentages. `unknown` means the seat was not sampled, the probe \
+            timed out / failed, or the parser could not read the capture. Missing data never \
+            blocks (exit 0) and never fabricates 0%.
 
             Per-run token usage on team receipts is a **different system** — do not confuse \
             receipt token counts with the capacity strip. Use `alln capacity --json` for the \

@@ -104,14 +104,15 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "capacity",
-            summary: "Show vendor capacity/quota headroom. Default runs tier-3 PTY probes for all seats (agy/kimi/cursor/claude/codex/grok) and returns fresh data; --cached (or --no-refresh) gives an instant disk-only view with no spawns. --source <id> probes one seat only. Unknown never blocks.",
+            summary: "Show vendor capacity/quota headroom. Bare is an instant no-spawn six-row snapshot (disk + last-known); --refresh live-acquires (PTY for claude/cursor/kimi/agy; disk re-read for codex/grok). --refresh --source <id> targets one seat; still returns all six rows. Unknown never blocks.",
             milestone: .m1,
-            example: "alln capacity --source cursor_agent",
+            example: "alln capacity --refresh --source cursor_agent",
             flags: [
                 FlagSpec("json", summary: "Emit JSON instead of the human-readable strip."),
-                FlagSpec("cached", summary: "Skip PTY probes; return disk-only cached view instantly (no spawns). Alias: --no-refresh."),
-                FlagSpec("no-refresh", summary: "Alias for --cached."),
-                FlagSpec("source", takesValue: true, summary: "Probe one seat only (still runs the full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy."),
+                FlagSpec("refresh", summary: "Live re-acquire now (PTY probes for PTY-only seats; disk re-read for codex/grok). Progress on stderr."),
+                FlagSpec("source", takesValue: true, summary: "With --refresh: target one seat (still full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy."),
+                FlagSpec("cached", summary: "Legacy no-op alias for bare snapshot (no spawns). Cannot combine with --refresh."),
+                FlagSpec("no-refresh", summary: "Legacy alias for --cached."),
             ],
             outputSchema: .capacityStripJSON,
             spendsQuota: false

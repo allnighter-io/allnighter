@@ -72,7 +72,8 @@ final class CapacityHydrationTests: XCTestCase {
         XCTAssertEqual(kimi?.observedAt, older)
     }
 
-    func testParserFailedFallsBackToHistory() {
+    func testParserFailedFallsBackToHistoryWhenNotSuppressed() {
+        // Bare / unprobed path: history is honest last-known with real age.
         let live = [parserFailed("claude_code")]
         let history = [known(source: "claude_code", used: 48, observedAt: older)]
         let out = CapacityHydration.apply(live: live, history: history, now: now)
@@ -80,6 +81,22 @@ final class CapacityHydrationTests: XCTestCase {
         XCTAssertEqual(claude?.usedPercent, 48)
         XCTAssertEqual(claude?.observedAt, older)
         XCTAssertNil(claude?.unknownReason)
+    }
+
+    func testRefreshFailureDoesNotHydrateHistoryAsLive() {
+        // Failed current attempt must keep the failure — not paint history as live.
+        let live = [parserFailed("claude_code")]
+        let history = [known(source: "claude_code", used: 48, observedAt: older)]
+        let out = CapacityHydration.apply(
+            live: live,
+            history: history,
+            now: now,
+            suppressHistoryForSources: ["claude_code"]
+        )
+        let claude = out.first { $0.source == "claude_code" }
+        XCTAssertEqual(claude?.unknownReason, .parserFailed(observedAt: now))
+        XCTAssertNil(claude?.usedPercent)
+        XCTAssertTrue(CapacityHydration.isFailedAttempt(live))
     }
 
     func testNoHistoryKeepsNeverSampled() {

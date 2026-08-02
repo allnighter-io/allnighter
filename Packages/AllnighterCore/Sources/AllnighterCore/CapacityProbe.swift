@@ -79,17 +79,63 @@ public enum CapacityProbe {
             )
     }
 
-    /// Tier-3 seats this probe knows how to drive today.
+    /// PTY-only seats this probe knows how to drive.
+    /// Disk-structured sources (`codex`, `grok`) are **not** probeable — their
+    /// sole acquisition path is on-disk (CapacityAcquisition disk adapters).
     /// Claude Code: `/usage` opens the Usage pane directly (no tab navigation).
-    /// Codex: `/status` shows the weekly-limit bar at the top of the status screen.
     public static let probeableSources: [String] = [
         "agy",
         "kimi",
         "cursor_agent",
         "claude_code",
-        "codex",
-        "grok",
     ]
+
+    /// Active probe child process groups — reaped on timeout / parent cancel.
+    /// Lock-protected mutable set; `nonisolated(unsafe)` is required because
+    /// Swift 6 treats static vars as global shared state even when locked.
+    private final class ActiveProbeRegistry: @unchecked Sendable {
+        private let lock = NSLock()
+        private var pids: Set<pid_t> = []
+
+        func insert(_ pid: pid_t) {
+            guard pid > 0 else { return }
+            lock.lock(); pids.insert(pid); lock.unlock()
+        }
+
+        func remove(_ pid: pid_t) {
+            guard pid > 0 else { return }
+            lock.lock(); pids.remove(pid); lock.unlock()
+        }
+
+        func drain() -> Set<pid_t> {
+            lock.lock()
+            let out = pids
+            pids.removeAll()
+            lock.unlock()
+            return out
+        }
+    }
+
+    private static let activeProbes = ActiveProbeRegistry()
+
+    /// Force-kill every still-running capacity probe child (process group).
+    /// Safe to call when no probes are live. Used after a strip-level timeout
+    /// or when the parent capacity command is interrupted.
+    public static func terminateAllActiveProbes() {
+        #if os(macOS)
+        for pid in activeProbes.drain() {
+            terminateProcessGroup(pid)
+        }
+        #endif
+    }
+
+    private static func trackActiveProbe(_ pid: pid_t) {
+        activeProbes.insert(pid)
+    }
+
+    private static func untrackActiveProbe(_ pid: pid_t) {
+        activeProbes.remove(pid)
+    }
 
     /// Candidate executable names per source (PATH order).
     public static let commandCandidates: [String: [String]] = [
@@ -97,8 +143,6 @@ public enum CapacityProbe {
         "kimi": ["kimi"],
         "cursor_agent": ["agent", "cursor-agent"],
         "claude_code": ["claude"],
-        "codex": ["codex"],
-        "grok": ["grok"],
     ]
 
     /// Home-relative known install paths (checked when PATH misses).
@@ -107,18 +151,70 @@ public enum CapacityProbe {
         "kimi": [".kimi-code/bin/kimi", ".local/bin/kimi"],
         "cursor_agent": [".local/bin/agent", ".local/bin/cursor-agent"],
         "claude_code": [".local/bin/claude", ".local/share/claude/versions"],
-        "codex": [".local/bin/codex"],
-        "grok": [".local/bin/grok"],
     ]
 
     /// Default slash command sent after the TUI is ready.
     /// Claude Code's `/usage` lands on the Usage tab with session/weekly bars.
     public static let usageCommand = "/usage"
 
-    /// Per-source TUI command to invoke the usage/status surface.
-    /// Codex uses `/status`; all others use `/usage`.
+    /// Per-source TUI command to invoke the usage surface.
     public static func probeCommand(for source: String) -> String {
-        source == "codex" ? "/status" : usageCommand
+        usageCommand
+    }
+
+    // MARK: - Trust / ready matching (space-stripped TUI safe)
+
+    /// Collapse whitespace so space-stripped TUI renders (CSI cursor paint) still match.
+    public static func collapsedForMatch(_ text: String) -> String {
+        text.lowercased().filter { !$0.isWhitespace && $0 != "\u{00A0}" }
+    }
+
+    /// Claude workspace-trust dialog — matches spaced and space-stripped forms.
+    /// Real ProbeScratch dumps paint as `Yes,Itrustthisfolder` with no spaces.
+    public static func looksLikeWorkspaceTrustDialog(_ text: String) -> Bool {
+        let c = collapsedForMatch(text)
+        if c.contains("trustthisfolder") { return true }
+        if c.contains("yes,itrust") || c.contains("yesitrustthisfolder") { return true }
+        if c.contains("accessingworkspace") { return true }
+        if c.contains("quicksafetycheck") && c.contains("trust") { return true }
+        return false
+    }
+
+    /// Recent paint window — PTY buffers accumulate; trust dialog text stays in
+    /// the head after accept, so readiness must look at the tail.
+    public static func recentPaintWindow(_ text: String, maxChars: Int = 2000) -> String {
+        guard text.count > maxChars else { return text }
+        return String(text.suffix(maxChars))
+    }
+
+    /// Interactive prompt / boot chrome after any trust dialog is gone.
+    ///
+    /// Always evaluates the **recent paint window** so a previously accepted
+    /// trust dialog still sitting in the buffer head cannot block readiness
+    /// (real dogfood: welcome screen paints under stale "Yes,Itrustthisfolder").
+    public static func looksReadyForUsageCommand(_ text: String) -> Bool {
+        let window = recentPaintWindow(text)
+        // If the *recent* paint is still the trust dialog, not ready.
+        if looksLikeWorkspaceTrustDialog(window) { return false }
+        let lower = window.lowercased()
+        let collapsed = collapsedForMatch(window)
+        let spacedMarkers = [
+            "shortcuts", "session:", "cursor agent", "│ > ", "\n> ", "tip:",
+            "bypass permissions", "? for shortcuts", "welcome back",
+            "tips for getting started", "what's new", "what would you like",
+            "try \"", "shift+tab", "haiku", "opus",
+        ]
+        if spacedMarkers.contains(where: { lower.contains($0) }) { return true }
+        let collapsedMarkers = [
+            "shortcuts", "session:", "cursoragent", "tip:",
+            "bypasspermissions", "?forshortcuts", "welcomeback",
+            "tipsforgettingstarted", "what'snew", "whatsnew",
+            "whatwouldyoulike", "try\"", "shift+tab",
+            "claudecodev", // version banner "Claude Code v…"
+        ]
+        if collapsedMarkers.contains(where: { collapsed.contains($0) }) { return true }
+        // Product name alone is not enough (trust dialog also says Claude Code).
+        return false
     }
 
     /// Neutral CWD for tier-3 probes — mirrors `AllnighterPaths.probeScratch` (Engine
@@ -392,8 +488,10 @@ public enum CapacityProbe {
         // Parent keeps master only; child owns slave via dup2.
         close(slave)
 
+        trackActiveProbe(pid)
         defer {
             terminateProcessGroup(pid)
+            untrackActiveProbe(pid)
             close(master)
         }
 
@@ -402,43 +500,61 @@ public enum CapacityProbe {
         var usageSent = false
         var sawReady = false
         var sawUsagePane = false
+        var trustAccepts = 0
 
         // 1) Wait for the interactive prompt / boot chrome. Handle Claude's
-        // workspace trust dialog (Enter accepts default "Yes, I trust…").
-        let readyMarkers = [
-            "shortcuts", "session:", "cursor agent", "│ > ", "\n> ", "tip:",
-            "bypass permissions", "? for shortcuts", "welcome back", "claude code",
-            // codex: status screen paints immediately with version header
-            "openai codex", ">_ openai", "weekly limit",
-            // grok: standard TUI boot chrome
-            "grok build", ">grok",
-        ]
+        // workspace trust dialog — real captures often strip spaces
+        // (`Yes,Itrustthisfolder`), so match on collapsed text. Always inspect
+        // the *recent paint window* so accepted-trust text left in the buffer
+        // head cannot mask the welcome screen that painted after it.
         while Date() < deadline {
             appendAvailable(from: master, into: &buffer)
             let text = decodeAndStrip(buffer)
-            let lower = text.lowercased()
-            if lower.contains("trust this folder") || lower.contains("yes, i trust") {
-                // Accept trust so the main prompt can paint.
-                let cr: [UInt8] = [0x0D]
-                _ = cr.withUnsafeBufferPointer { ptr in
-                    write(master, ptr.baseAddress!, ptr.count)
+            let recent = recentPaintWindow(text)
+            if looksLikeWorkspaceTrustDialog(recent) {
+                // Default selection is option 1 ("Yes, I trust this folder").
+                // Send "1" then Enter — plain Enter alone is flaky when focus
+                // is not yet on the radio list under a non-TTY host.
+                if trustAccepts < 4 {
+                    let one: [UInt8] = [UInt8(ascii: "1")]
+                    _ = one.withUnsafeBufferPointer { ptr in
+                        write(master, ptr.baseAddress!, ptr.count)
+                    }
+                    _ = waitBrief(0.15)
+                    let cr: [UInt8] = [0x0D]
+                    _ = cr.withUnsafeBufferPointer { ptr in
+                        write(master, ptr.baseAddress!, ptr.count)
+                    }
+                    trustAccepts += 1
+                    _ = waitBrief(0.9)
+                } else {
+                    _ = waitBrief(0.2)
                 }
-                _ = waitBrief(0.6)
                 continue
             }
-            if readyMarkers.contains(where: { lower.contains($0) }) {
-                // Trust dialog also contains "claude code" in some skins — require
-                // a prompt-ish marker once trust is gone.
-                if !lower.contains("trust this folder") {
-                    sawReady = true
-                    break
-                }
+            if looksReadyForUsageCommand(text) {
+                sawReady = true
+                break
             }
             if childExited(pid) {
                 appendAvailable(from: master, into: &buffer)
                 break
             }
             _ = waitBrief(0.05)
+        }
+
+        if !sawReady {
+            let text = decodeAndStrip(buffer)
+            if looksLikeWorkspaceTrustDialog(recentPaintWindow(text)) {
+                // Still on trust in the recent window — dump; fail closed.
+                writeDebugDump(
+                    source: source.isEmpty ? "unknown" : source,
+                    text: text,
+                    tag: "trustStuck",
+                    directory: debugDumpDirectory
+                )
+                return buffer.isEmpty ? .timeout : .empty
+            }
         }
 
         guard sawReady || !buffer.isEmpty else {
@@ -591,9 +707,8 @@ public enum CapacityProbe {
         return .captured(finalText)
     }
 
-    /// Type the usage/status slash command. Claude needs per-keystroke delay so the
+    /// Type the usage slash command. Claude needs per-keystroke delay so the
     /// slash menu binds to `/usage` instead of leaving bare chat chrome.
-    /// Codex uses `/status`; all other sources use `/usage`.
     private static func sendUsageCommand(master: Int32, source: String) {
         let cmd = Array(probeCommand(for: source).utf8)
         if source == "claude_code" {
@@ -683,13 +798,17 @@ public enum CapacityProbe {
         let context: String
     }
 
-    private static func terminateProcessGroup(_ pid: pid_t) {
+    static func terminateProcessGroup(_ pid: pid_t) {
         guard pid > 0 else { return }
         // SIGTERM the group first; escalate to SIGKILL if it lingers.
         _ = killpg(pid, SIGTERM)
         let graceDeadline = Date().addingTimeInterval(0.6)
         while Date() < graceDeadline {
-            if childExited(pid) { return }
+            if childExited(pid) {
+                var status: Int32 = 0
+                _ = waitpid(pid, &status, WNOHANG)
+                return
+            }
             _ = waitBrief(0.05)
         }
         _ = killpg(pid, SIGKILL)
@@ -697,6 +816,9 @@ public enum CapacityProbe {
         var status: Int32 = 0
         _ = waitpid(pid, &status, WNOHANG)
         _ = waitBrief(0.05)
+        _ = waitpid(pid, &status, WNOHANG)
+        // One more killpg in case grandchildren reparented under the group.
+        _ = killpg(pid, SIGKILL)
         _ = waitpid(pid, &status, WNOHANG)
     }
 

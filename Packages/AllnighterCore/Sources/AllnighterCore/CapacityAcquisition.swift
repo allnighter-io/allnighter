@@ -1,18 +1,26 @@
 import Foundation
 
-/// Capacity acquisition boundary: tier-1 on-disk reads + optional tier-3 PTY probes.
+/// Capacity acquisition boundary — **one canonical adapter per bench source**.
 ///
-/// **Bare call** (`refresh: false`, the default) reads what is already on disk —
-/// no probes, no PTY, no process spawns. Instant.
+/// | Source | Sole mechanism |
+/// | --- | --- |
+/// | `codex`, `grok` | Structured disk/log (never PTY) |
+/// | `claude_code`, `cursor_agent`, `kimi`, `agy` | One PTY probe adapter (refresh only) |
 ///
-/// **Refresh** (`refresh: true` / `alln capacity --refresh`) additionally runs a
-/// per-driver PTY probe for seats we can drive (agy, kimi, cursor, Claude Code).
-/// Probes are never idle-backgrounded; only explicit refresh starts them.
+/// **Bare call** (`refresh: false`, the default) — disk adapters + neverSampled
+/// for PTY seats. No probes, no process spawns. Instant.
 ///
-/// **Targeted refresh** (`refresh: true` + `refreshSource:`) probes only that
-/// seat when it is tier-3 probeable. Tier-1 ids are allowed and cheap (disk
-/// only — no spawn). Every other seat still appears: tier-1 from disk, unprobed
-/// tier-3 as `neverSampled`. The strip is never truncated to one row.
+/// **Refresh** (`refresh: true` / `alln capacity --refresh`) — re-read disk
+/// sources and run the single PTY adapter per selected PTY seat. Never idle-
+/// backgrounded; only explicit refresh starts probes.
+///
+/// **Targeted refresh** (`refreshSource:`) — re-reads disk for every disk seat,
+/// probes only the named PTY seat (disk seats with `--source` are disk-only,
+/// no spawn). Unprobed PTY siblings are `neverSampled`. Full six-row strip
+/// always.
+///
+/// There is no parallel fallback that can silently disagree with the canonical
+/// adapter (no disk+PTY dual path for the same source).
 ///
 /// Injectable `homeRoot` / `probeExecutor` keep tests off the real home and off
 /// real vendor CLIs.
@@ -33,20 +41,25 @@ public enum CapacityAcquisition {
         "agy",
     ]
 
-    /// Tier-3 seats with a PTY probe path.
-    /// Codex and Grok have disk-read fallbacks when the probe fails;
-    /// the others have no disk surface and show `neverSampled` on failure.
-    public static let tier3DisklessSources: [String] = [
-        "claude_code",
-        "cursor_agent",
-        "kimi",
-        "agy",
+    /// Sources whose sole acquisition path is structured disk/log truth.
+    public static let diskOnlySources: [String] = [
         "codex",
         "grok",
     ]
 
-    /// Tier-3 seats the PTY probe drives on `--refresh` (includes Claude Code).
-    public static let tier3ProbeableSources: [String] = CapacityProbe.probeableSources
+    /// Sources whose sole acquisition path is one isolated PTY probe adapter.
+    public static let ptyOnlySources: [String] = [
+        "claude_code",
+        "cursor_agent",
+        "kimi",
+        "agy",
+    ]
+
+    /// Full bench roster (disk + PTY). Prefer `benchSourceOrder` for display order.
+    public static let tier3DisklessSources: [String] = benchSourceOrder
+
+    /// PTY seats driven on `--refresh`. Disk-only seats are never in this set.
+    public static let tier3ProbeableSources: [String] = ptyOnlySources
 
     /// Valid bench source ids for `alln capacity --refresh --source <id>`.
     /// Same set as `benchSourceOrder` — the product bench, not only probeable seats.
@@ -66,23 +79,36 @@ public enum CapacityAcquisition {
         return nil
     }
 
+    /// PTY sources that will be attempted on this refresh (empty when `refresh` is false).
+    public static func sourcesProbed(
+        refresh: Bool,
+        refreshSource: String? = nil
+    ) -> [String] {
+        guard refresh else { return [] }
+        let probeable = Set(ptyOnlySources)
+        if let refreshSource {
+            return probeable.contains(refreshSource) ? [refreshSource] : []
+        }
+        return ptyOnlySources
+    }
+
     /// Acquire capacity windows for the fixed bench under `homeRoot`.
     ///
     /// - Parameters:
     ///   - homeRoot: Home directory root (default: real home). Tests inject a temp tree.
     ///   - now: Wall clock for unknown stamps. Callers pass it — no wall-clock reads
     ///     for observation stamps inside tier-1 paths.
-    ///   - refresh: When `true`, run tier-3 PTY probes (explicit refresh only).
-    ///     When `false` (default), tier-3 seats are `neverSampled` and **no** probe
+    ///   - refresh: When `true`, run PTY adapters (explicit refresh only).
+    ///     When `false` (default), PTY seats are `neverSampled` and **no** probe
     ///     executor is invoked — bare `alln capacity` spawns nothing.
-    ///   - refreshSource: When non-nil with `refresh`, probe only this bench source
-    ///     if it is tier-3 probeable. Tier-1 ids are accepted and do not spawn.
+    ///   - refreshSource: When non-nil with `refresh`, probe only this PTY seat
+    ///     when applicable. Disk-only ids re-read disk and do not spawn.
     ///     Ignored when `refresh` is false (caller must reject that combination).
     ///   - probeExecutor: Injectable probe seam. `nil` + `refresh` uses the live PTY
     ///     executor. Tests inject a counter / fixture runner.
     ///   - probeTimeout: Per-probe wall-clock budget (default 20s).
     /// - Returns: Windows for every bench source. Never empty for a known source;
-    ///   never throws. Tier-1 seats are always acquired; a failed probe never
+    ///   never throws. Disk seats are always acquired; a failed PTY probe never
     ///   degrades them. The strip always covers the full bench — never one row only.
     public static func windows(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
@@ -92,85 +118,45 @@ public enum CapacityAcquisition {
         probeExecutor: (any CapacityProbeExecuting)? = nil,
         probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
     ) -> [CapacityWindow] {
-        var result: [CapacityWindow] = []
-        // Tier-3 covers all bench sources now, including codex and grok.
-        // Codex and Grok fall back to disk reads when their probe fails.
-        result.append(contentsOf: acquireTier3(
-            homeRoot: homeRoot,
-            now: now,
-            refresh: refresh,
-            refreshSource: refreshSource,
-            probeExecutor: probeExecutor,
-            probeTimeout: probeTimeout
-        ))
-        return result
-    }
+        // Always run disk adapters first — sole path for codex/grok, refresh or bare.
+        var bySource: [String: [CapacityWindow]] = [
+            "codex": acquireCodex(homeRoot: homeRoot, now: now),
+            "grok": acquireGrok(homeRoot: homeRoot, now: now),
+        ]
 
-    // MARK: - Tier 3
+        let sourcesToProbe = Set(sourcesProbed(refresh: refresh, refreshSource: refreshSource))
 
-    private static func acquireTier3(
-        homeRoot: URL,
-        now: Date,
-        refresh: Bool,
-        refreshSource: String?,
-        probeExecutor: (any CapacityProbeExecuting)?,
-        probeTimeout: TimeInterval
-    ) -> [CapacityWindow] {
-        if !refresh {
-            // Bare/cached path: return disk reads for codex and grok, neverSampled for others.
-            return tier3DisklessSources.map { source -> [CapacityWindow] in
-                switch source {
-                case "codex": return acquireCodexDisk(homeRoot: homeRoot, now: now)
-                case "grok":  return acquireGrokDisk(homeRoot: homeRoot, now: now)
-                default:
-                    return [CapacityWindow.unknown(
+        if sourcesToProbe.isEmpty {
+            for source in ptyOnlySources {
+                bySource[source] = [
+                    CapacityWindow.unknown(
                         reason: .neverSampled,
                         source: source,
                         scope: .weekly,
                         observedAt: now,
                         sourceTier: .tuiProbe
-                    )]
-                }
-            }.flatMap { $0 }
-        }
-
-        let probeable = Set(tier3ProbeableSources)
-        // Targeted refresh: only the named seat if probeable. Full refresh: all.
-        // Tier-1 / non-probeable --source → empty probe set (disk path already ran).
-        let sourcesToProbe: Set<String>
-        if let refreshSource {
-            if probeable.contains(refreshSource) {
-                sourcesToProbe = [refreshSource]
-            } else {
-                sourcesToProbe = []
+                    ),
+                ]
             }
-        } else {
-            sourcesToProbe = probeable
-        }
-
-        // No seats to probe (targeted tier-1, or empty filter) — neverSampled for
-        // every tier-3 row. Still return a complete strip.
-        if sourcesToProbe.isEmpty {
-            return tier3DisklessSources.map { source in
-                CapacityWindow.unknown(
-                    reason: .neverSampled,
-                    source: source,
-                    scope: .weekly,
-                    observedAt: now,
-                    sourceTier: .tuiProbe
-                )
-            }
+            return orderedBenchWindows(bySource, now: now)
         }
 
         let executor = probeExecutor ?? LiveCapacityProbeExecutor()
-
-        // Run selected seats concurrently — each has its own timeout, so one
-        // slow CLI cannot block a sibling beyond its own budget.
-        let lock = NSLock()
-        var bySource: [String: [CapacityWindow]] = [:]
         let group = DispatchGroup()
+        // Box concurrent probe results so we do not mutate a captured Dictionary.
+        final class ProbeResults: @unchecked Sendable {
+            private let lock = NSLock()
+            private var map: [String: [CapacityWindow]] = [:]
+            func set(_ source: String, _ windows: [CapacityWindow]) {
+                lock.lock(); map[source] = windows; lock.unlock()
+            }
+            func snapshot() -> [String: [CapacityWindow]] {
+                lock.lock(); defer { lock.unlock() }
+                return map
+            }
+        }
+        let probeResults = ProbeResults()
 
-        // Group wait must cover the slowest seat (Claude 35s) when using defaults.
         let effectiveTimeouts = sourcesToProbe.map { source -> TimeInterval in
             if probeTimeout == CapacityProbe.defaultTimeout {
                 return CapacityProbe.timeout(for: source)
@@ -179,7 +165,7 @@ public enum CapacityAcquisition {
         }
         let maxProbeTimeout = effectiveTimeouts.max() ?? probeTimeout
 
-        for source in tier3DisklessSources where sourcesToProbe.contains(source) {
+        for source in ptyOnlySources where sourcesToProbe.contains(source) {
             group.enter()
             DispatchQueue.global(qos: .userInitiated).async {
                 defer { group.leave() }
@@ -191,7 +177,6 @@ public enum CapacityAcquisition {
                 )
                 let safe: [CapacityWindow]
                 if windows.isEmpty {
-                    // Executor contract is "at least one"; belt-and-suspenders.
                     safe = [
                         CapacityProbe.unknown(
                             source: source,
@@ -212,50 +197,70 @@ public enum CapacityAcquisition {
                         return window
                     }
                 }
-                lock.lock()
-                bySource[source] = safe
-                lock.unlock()
+                probeResults.set(source, safe)
             }
         }
 
-        // Wait for every probe: each is internally bounded by its seat timeout,
-        // plus a small reaping margin so terminate can finish.
+        // Each probe is internally bounded; wait with reaping margin, then force-kill
+        // any still-tracked vendor children so a hung seat cannot outlive the strip.
         let margin = max(2.0, maxProbeTimeout * 0.1)
         let groupTimeout = maxProbeTimeout + margin
-        _ = group.wait(timeout: .now() + groupTimeout)
+        let waitResult = group.wait(timeout: .now() + groupTimeout)
+        if waitResult == .timedOut {
+            CapacityProbe.terminateAllActiveProbes()
+            // Brief reaping window after killpg.
+            _ = group.wait(timeout: .now() + 1.0)
+        }
 
-        var result: [CapacityWindow] = []
-        for source in tier3DisklessSources {
+        let probed = probeResults.snapshot()
+        for source in ptyOnlySources {
             if sourcesToProbe.contains(source) {
-                if let windows = bySource[source] {
-                    result.append(contentsOf: windows)
+                if let windows = probed[source] {
+                    bySource[source] = windows
                 } else {
-                    // Group timed out before this seat reported — fail closed.
-                    result.append(
+                    bySource[source] = [
                         CapacityProbe.unknown(
                             source: source,
-                            reason: .parserFailed(observedAt: now),
+                            reason: .probeTimeout(observedAt: now),
                             now: now
-                        )
-                    )
+                        ),
+                    ]
                 }
             } else {
-                // Not selected for this refresh (targeted other seat, or deferred).
-                // Codex and grok fall back to their disk reads; others: neverSampled.
-                switch source {
-                case "codex": result.append(contentsOf: acquireCodexDisk(homeRoot: homeRoot, now: now))
-                case "grok":  result.append(contentsOf: acquireGrokDisk(homeRoot: homeRoot, now: now))
-                default:
-                    result.append(
-                        CapacityWindow.unknown(
-                            reason: .neverSampled,
-                            source: source,
-                            scope: .weekly,
-                            observedAt: now,
-                            sourceTier: .tuiProbe
-                        )
+                bySource[source] = [
+                    CapacityWindow.unknown(
+                        reason: .neverSampled,
+                        source: source,
+                        scope: .weekly,
+                        observedAt: now,
+                        sourceTier: .tuiProbe
+                    ),
+                ]
+            }
+        }
+        return orderedBenchWindows(bySource, now: now)
+    }
+
+    private static func orderedBenchWindows(
+        _ bySource: [String: [CapacityWindow]],
+        now: Date
+    ) -> [CapacityWindow] {
+        var result: [CapacityWindow] = []
+        for source in benchSourceOrder {
+            if let windows = bySource[source], !windows.isEmpty {
+                result.append(contentsOf: windows)
+            } else {
+                let tier: CapacityAcquisitionTier =
+                    diskOnlySources.contains(source) ? .onDisk : .tuiProbe
+                result.append(
+                    CapacityWindow.unknown(
+                        reason: .neverSampled,
+                        source: source,
+                        scope: .weekly,
+                        observedAt: now,
+                        sourceTier: tier
                     )
-                }
+                )
             }
         }
         return result
@@ -263,11 +268,8 @@ public enum CapacityAcquisition {
 
     // MARK: - Codex
 
-    /// Disk fallback: newest `rollout-*.jsonl` under `~/.codex/sessions/`.
-    /// Called when the PTY probe is skipped (cached path) or fails.
-    private static func acquireCodexDisk(homeRoot: URL, now: Date) -> [CapacityWindow] {
-        acquireCodex(homeRoot: homeRoot, now: now)
-    }
+    /// Canonical codex adapter: newest `rollout-*.jsonl` under `~/.codex/sessions/`.
+    /// Sole acquisition path — never PTY.
 
     /// `~/.codex/sessions/<yyyy>/<mm>/<dd>/rollout-*.jsonl` — newest file first;
     /// stop at the first file that yields a usable rate-limit record.
@@ -343,14 +345,8 @@ public enum CapacityAcquisition {
 
     // MARK: - Grok
 
-    /// Disk fallback: `~/.grok/logs/unified.jsonl` reverse-scan.
-    /// Called when the PTY probe is skipped (cached path) or fails.
-    private static func acquireGrokDisk(homeRoot: URL, now: Date) -> [CapacityWindow] {
-        acquireGrok(homeRoot: homeRoot, now: now)
-    }
-
-    /// `~/.grok/logs/unified.jsonl` — one large file. Read backwards from EOF
-    /// and stop at the first billing weekly match (newest record).
+    /// Canonical grok adapter: `~/.grok/logs/unified.jsonl` reverse-scan.
+    /// Sole acquisition path — never PTY.
     private static func acquireGrok(homeRoot: URL, now: Date) -> [CapacityWindow] {
         let logURL = homeRoot
             .appendingPathComponent(".grok", isDirectory: true)

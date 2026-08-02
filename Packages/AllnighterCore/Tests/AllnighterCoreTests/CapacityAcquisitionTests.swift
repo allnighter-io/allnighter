@@ -199,19 +199,14 @@ final class CapacityAcquisitionTests: XCTestCase {
 
     // MARK: - Tier 3
 
-    /// Tier-3 TUI-probe-only seats (no disk fallback) are `neverSampled` when no refresh.
-    /// Codex and Grok are also tier-3 probeable but have disk-read fallbacks:
-    /// when the bare/cached path runs, they return disk data (not neverSampled).
+    /// PTY-only seats are `neverSampled` when no refresh. Disk-only seats with no
+    /// files are also neverSampled — never vendorExposesNothing.
     func testTier3SourcesReportNeverSampledNotVendorGap() {
-        // Use empty homeRoot so codex/grok disk fallbacks also yield neverSampled.
+        // Use empty homeRoot so codex/grok disk adapters also yield neverSampled.
         let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now, refresh: false)
         let bySource = Dictionary(grouping: windows, by: \.source)
 
-        // Pure-probe seats (no disk fallback): must be neverSampled, tuiProbe tier.
-        let pureProbeSources = CapacityAcquisition.tier3DisklessSources.filter {
-            $0 != "codex" && $0 != "grok"
-        }
-        for source in pureProbeSources {
+        for source in CapacityAcquisition.ptyOnlySources {
             let group = bySource[source] ?? []
             XCTAssertEqual(group.count, 1, source)
             XCTAssertEqual(group[0].unknownReason, .neverSampled, source)
@@ -254,16 +249,15 @@ final class CapacityAcquisitionTests: XCTestCase {
         )
         try writeGrokLog(grokBillingLine + "\n")
 
-        // Use --cached path so disk fallback runs for codex/grok.
+        // Bare path: disk adapters only; no PTY spawns.
         let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now, refresh: false)
         let codex = windows.filter { $0.source == "codex" }
         let grok = windows.filter { $0.source == "grok" }
         XCTAssertEqual(codex.first?.usedPercent, 52.0)
         XCTAssertEqual(grok.first?.usedPercent, 42.0)
-        // Pure-probe seats (not codex/grok) are neverSampled on cached path.
-        let pureProbeSources = Set(CapacityAcquisition.tier3DisklessSources).subtracting(["codex", "grok"])
+        // PTY-only seats are neverSampled on bare path.
         let neverSampledCount = windows.filter { $0.unknownReason == .neverSampled }.count
-        XCTAssertEqual(neverSampledCount, pureProbeSources.count)
+        XCTAssertEqual(neverSampledCount, CapacityAcquisition.ptyOnlySources.count)
         XCTAssertTrue(
             windows.allSatisfy { $0.unknownReason != .vendorExposesNothing },
             "no seat may claim the vendor exposes nothing while we ship a parser for it"
@@ -394,21 +388,17 @@ final class CapacityAcquisitionTests: XCTestCase {
             mtime: now
         )
         let counter = CountingProbeExecutor()
-        // Use refresh: false explicitly (the --cached path — no PTY spawns).
+        // Bare path (refresh: false) — no PTY spawns.
         let windows = CapacityAcquisition.windows(
             homeRoot: homeRoot,
             now: now,
             refresh: false,
             probeExecutor: counter
         )
-        XCTAssertTrue(counter.calls.isEmpty, "cached capacity must spawn nothing; calls=\(counter.calls)")
-        // Codex has a disk fallback, so it returns real data even in cached path.
+        XCTAssertTrue(counter.calls.isEmpty, "bare capacity must spawn nothing; calls=\(counter.calls)")
+        // Codex disk adapter returns real data.
         XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
-        // Pure-probe tier-3 seats (no disk fallback) are still neverSampled.
-        let pureProbeSources = CapacityAcquisition.tier3DisklessSources.filter {
-            $0 != "codex" && $0 != "grok"
-        }
-        for source in pureProbeSources {
+        for source in CapacityAcquisition.ptyOnlySources {
             let row = windows.first { $0.source == source }
             XCTAssertEqual(row?.unknownReason, .neverSampled, source)
         }
@@ -423,17 +413,31 @@ final class CapacityAcquisitionTests: XCTestCase {
             probeExecutor: counter
         )
         let called = Set(counter.calls)
-        XCTAssertEqual(called, Set(CapacityAcquisition.tier3ProbeableSources))
+        XCTAssertEqual(called, Set(CapacityAcquisition.ptyOnlySources))
         XCTAssertTrue(called.contains("claude_code"), "Claude /usage probe is shipped")
+        // Disk-only sources must never appear in the probe wave.
+        XCTAssertFalse(called.contains("codex"))
+        XCTAssertFalse(called.contains("grok"))
+    }
+
+    func testOnePathInvariantDiskSourcesAreNeverProbeable() {
+        XCTAssertEqual(
+            Set(CapacityAcquisition.diskOnlySources).intersection(Set(CapacityAcquisition.ptyOnlySources)),
+            []
+        )
+        XCTAssertEqual(
+            Set(CapacityAcquisition.ptyOnlySources),
+            Set(CapacityProbe.probeableSources)
+        )
+        XCTAssertFalse(CapacityProbe.probeableSources.contains("codex"))
+        XCTAssertFalse(CapacityProbe.probeableSources.contains("grok"))
     }
 
     // MARK: - CAP-S09 targeted --source refresh
 
-    /// `--source` is now valid without `--cached`/`--refresh` flag — the flag
-    /// constraint was removed when refresh became the default.
-    func testSourceWithoutRefreshIsNowValid() {
-        // validateRefreshSourceId only checks that the id is a known source.
-        // A nil return means the id is valid.
+    /// validateRefreshSourceId only checks that the id is a known source.
+    /// CLI requires `--refresh` with `--source` separately.
+    func testValidateRefreshSourceIdAcceptsKnownBenchIds() {
         XCTAssertNil(CapacityAcquisition.validateRefreshSourceId("cursor_agent"))
         XCTAssertNil(CapacityAcquisition.validateRefreshSourceId("codex"))
         XCTAssertNil(CapacityAcquisition.validateRefreshSourceId("grok"))
@@ -506,27 +510,20 @@ final class CapacityAcquisitionTests: XCTestCase {
             27.0
         )
 
-        // Other tier-3 seats: those without disk fallback stay neverSampled.
-        // Codex and Grok have disk fallbacks — when not the targeted source,
-        // they return disk data (not neverSampled).
-        let pureProbeSources = CapacityAcquisition.tier3DisklessSources.filter {
-            $0 != "cursor_agent" && $0 != "codex" && $0 != "grok"
-        }
-        for source in pureProbeSources {
+        // Other PTY seats stay neverSampled (not probed this turn).
+        for source in CapacityAcquisition.ptyOnlySources where source != "cursor_agent" {
             let row = windows.first { $0.source == source }
             XCTAssertEqual(row?.unknownReason, .neverSampled, source)
             XCTAssertNil(row?.usedPercent, source)
         }
 
-        // Codex and Grok: targeted-source refresh with disk log files → disk data.
+        // Codex and Grok: always disk — never PTY, even during a sibling refresh.
         XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
         XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
     }
 
-    /// `--source codex` with a disk log → probe runs (codex is now tier-3),
-    /// but only the codex seat is probed. Other tier-3 seats use disk fallbacks
-    /// (codex/grok) or neverSampled (pure-probe seats).
-    func testRefreshSourceCodexIsNowTier3Probeable() throws {
+    /// `--source codex` with a disk log → disk adapter only; **never** PTY.
+    func testRefreshSourceCodexIsDiskOnlyNeverProbes() throws {
         try writeCodexRollout(
             year: "2026", month: "07", day: "28",
             name: "rollout-2026-07-28T12-09-28-new.jsonl",
@@ -541,19 +538,21 @@ final class CapacityAcquisitionTests: XCTestCase {
             refreshSource: "codex",
             probeExecutor: counter
         )
-        // Codex IS now tier-3 — probe is called.
-        XCTAssertEqual(counter.calls, ["codex"], "must probe exactly codex; calls=\(counter.calls)")
-        // CountingProbeExecutor returns parserFailed, not real data.
-        XCTAssertEqual(
-            windows.first { $0.source == "codex" }?.unknownReason,
-            .parserFailed(observedAt: now),
-            "probe executor returned parserFailed — no disk fallback since probe was attempted"
-        )
-        // Full strip still present.
+        XCTAssertTrue(counter.calls.isEmpty, "codex must never PTY-probe; calls=\(counter.calls)")
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.sourceTier, .onDisk)
+        // Full strip still present; unprobed PTY seats are neverSampled.
         XCTAssertEqual(
             Set(windows.map(\.source)).intersection(Set(CapacityAcquisition.benchSourceOrder)).count,
             CapacityAcquisition.benchSourceOrder.count
         )
+        for source in CapacityAcquisition.ptyOnlySources {
+            XCTAssertEqual(
+                windows.first { $0.source == source }?.unknownReason,
+                .neverSampled,
+                source
+            )
+        }
     }
 
     /// Counting wrapper around a fixture executor for targeted-refresh tests.
@@ -663,20 +662,13 @@ final class CapacityAcquisitionTests: XCTestCase {
             probeExecutor: executor
         )
 
-        // Codex and Grok are now tier-3 probeable. With a FixtureProbeExecutor that
-        // only has results for agy/kimi/cursor/claude, codex and grok will get
-        // parserFailed from the executor. Disk-read fallback applies when probes fail.
-        // So here the fixture returns parserFailed for codex/grok — we verify the
-        // tier-3 probe path runs (not the disk path) since refresh=true drove it.
-        let codexRow = windows.first { $0.source == "codex" }
-        let grokRow = windows.first { $0.source == "grok" }
-        // The FixtureProbeExecutor returns parserFailed for unknown sources.
-        // The disk data from the log files is NOT used when a probe was dispatched
-        // (the probe result wins; fail closed to parserFailed, not disk data).
-        XCTAssertEqual(codexRow?.unknownReason, .parserFailed(observedAt: now), "codex probe ran and failed closed")
-        XCTAssertEqual(grokRow?.unknownReason, .parserFailed(observedAt: now), "grok probe ran and failed closed")
+        // Codex and Grok are disk-only: refresh re-reads disk, never PTY.
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
+        XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.sourceTier, .onDisk)
+        XCTAssertEqual(windows.first { $0.source == "grok" }?.sourceTier, .onDisk)
 
-        // Probeable seats carry real numbers.
+        // PTY seats carry real numbers from the fixture adapters.
         XCTAssertNotNil(windows.first { $0.source == "agy" && $0.remainingPercent != nil })
         XCTAssertNotNil(windows.first { $0.source == "kimi" && $0.usedPercent != nil })
         XCTAssertNotNil(windows.first { $0.source == "cursor_agent" && $0.usedPercent != nil })
@@ -727,6 +719,15 @@ final class CapacityAcquisitionTests: XCTestCase {
                     sourceTier: .tuiProbe
                 ),
             ],
+            "claude_code": [
+                CapacityWindow.unknown(
+                    reason: .parserFailed(observedAt: now),
+                    source: "claude_code",
+                    scope: .weekly,
+                    observedAt: now,
+                    sourceTier: .tuiProbe
+                ),
+            ],
         ])
         let windows = CapacityAcquisition.windows(
             homeRoot: homeRoot,
@@ -735,21 +736,13 @@ final class CapacityAcquisitionTests: XCTestCase {
             probeExecutor: executor
         )
 
-        // Codex and Grok are now tier-3 probeable.
-        // The fixture executor returns parserFailed for codex/grok (no entry in results).
-        // Disk-read fallback applies only in the --cached path, not when a probe was dispatched.
-        XCTAssertEqual(
-            windows.first { $0.source == "codex" }?.unknownReason,
-            .parserFailed(observedAt: now),
-            "codex probe dispatched → parserFailed (not disk data)"
-        )
-        XCTAssertEqual(
-            windows.first { $0.source == "grok" }?.unknownReason,
-            .parserFailed(observedAt: now),
-            "grok probe dispatched → parserFailed (not disk data)"
-        )
+        // Codex and Grok are disk-only — probe failures must not touch them.
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
+        XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
+        XCTAssertNil(windows.first { $0.source == "codex" }?.unknownReason)
+        XCTAssertNil(windows.first { $0.source == "grok" }?.unknownReason)
 
-        for source in CapacityAcquisition.tier3ProbeableSources {
+        for source in CapacityAcquisition.ptyOnlySources {
             let row = windows.first { $0.source == source }
             XCTAssertEqual(row?.unknownReason, .parserFailed(observedAt: now), source)
             XCTAssertNil(row?.usedPercent, source)
@@ -759,46 +752,98 @@ final class CapacityAcquisitionTests: XCTestCase {
 
     func testProbeRejectsVendorExposesNothingFromExecutor() {
         // Even a buggy executor claiming vendorExposesNothing is rewritten.
-        let executor = FixtureProbeExecutor(results: [
-            "agy": [
+        var results: [String: [CapacityWindow]] = [:]
+        for source in CapacityAcquisition.ptyOnlySources {
+            results[source] = [
                 CapacityWindow.unknown(
                     reason: .vendorExposesNothing,
-                    source: "agy",
+                    source: source,
                     scope: .weekly,
                     observedAt: now,
                     sourceTier: .tuiProbe
                 ),
-            ],
-            "kimi": [
-                CapacityWindow.unknown(
-                    reason: .vendorExposesNothing,
-                    source: "kimi",
-                    scope: .weekly,
-                    observedAt: now,
-                    sourceTier: .tuiProbe
-                ),
-            ],
-            "cursor_agent": [
-                CapacityWindow.unknown(
-                    reason: .vendorExposesNothing,
-                    source: "cursor_agent",
-                    scope: .weekly,
-                    observedAt: now,
-                    sourceTier: .tuiProbe
-                ),
-            ],
-        ])
+            ]
+        }
+        let executor = FixtureProbeExecutor(results: results)
         let windows = CapacityAcquisition.windows(
             homeRoot: homeRoot,
             now: now,
             refresh: true,
             probeExecutor: executor
         )
-        for source in CapacityAcquisition.tier3ProbeableSources {
+        for source in CapacityAcquisition.ptyOnlySources {
             let row = windows.first { $0.source == source }
             XCTAssertNotEqual(row?.unknownReason, .vendorExposesNothing, source)
             XCTAssertEqual(row?.unknownReason, .parserFailed(observedAt: now), source)
         }
+    }
+
+    // MARK: - Claude trust dialog (space-stripped TUI)
+
+    func testClaudeTrustDialogMatcherHandlesSpaceStrippedRender() {
+        // Real ProbeScratch dump shape (spaces stripped by CSI paint).
+        let dump = """
+        Accessingworkspace:
+        /Users/mike/Library/ApplicationSupport/Allnighter/ProbeScratch
+        Quicksafetycheck:Isthisaprojectyoucreatedoroneyoutrust?
+        ClaudeCode'llbeabletoread,edit,andexecutefileshere.
+        ❯1.Yes,Itrustthisfolder
+        2.No,exit
+        """
+        XCTAssertTrue(CapacityProbe.looksLikeWorkspaceTrustDialog(dump))
+        XCTAssertFalse(CapacityProbe.looksReadyForUsageCommand(dump))
+        // Spaced form also matches.
+        XCTAssertTrue(CapacityProbe.looksLikeWorkspaceTrustDialog(
+            "Yes, I trust this folder\nDo you trust this folder?"
+        ))
+        // Usage pane is not trust.
+        XCTAssertFalse(CapacityProbe.looksLikeWorkspaceTrustDialog(
+            "Current session\n83% used\nCurrent week (all models)"
+        ))
+    }
+
+    func testClaudeReadyIgnoresStaleTrustTextInBufferHead() {
+        // Dogfood 2026-08-02: after accepting trust, the buffer still holds the
+        // dialog at the head while welcome chrome paints at the tail. Readiness
+        // must use the recent window or we never leave the trust loop.
+        let trustDialog = """
+        Accessingworkspace:
+        /Users/mike/Library/ApplicationSupport/Allnighter/ProbeScratch
+        Quicksafetycheck:Isthisaprojectyoucreatedoroneyoutrust?
+        ❯1.Yes,Itrustthisfolder
+        2.No,exit
+        """
+        // Neutral paint after trust (no trust keywords) so the recent window is clean.
+        let postTrustPaint = String(repeating: "·", count: 2200)
+        let welcomeTail = """
+        Welcome back Mike!
+        Tips for getting started
+        Ask Claude to create a new app
+        What's new
+        Haiku 4.5 · Claude Max
+        """
+        let combined = trustDialog + postTrustPaint + welcomeTail
+        XCTAssertTrue(CapacityProbe.looksLikeWorkspaceTrustDialog(combined))
+        XCTAssertTrue(
+            CapacityProbe.looksReadyForUsageCommand(combined),
+            "welcome tail must beat stale trust head"
+        )
+        XCTAssertFalse(
+            CapacityProbe.looksLikeWorkspaceTrustDialog(
+                CapacityProbe.recentPaintWindow(combined)
+            )
+        )
+    }
+
+    func testClaudeUsageFixtureStillParsesAfterTrustCleared() {
+        // Prove the canonical Claude parser reaches the usage surface text.
+        let windows = ClaudeCapacityLog.capacityWindows(
+            fromRender: claudeUsageFixture,
+            observedAt: now
+        )
+        XCTAssertFalse(windows.isEmpty)
+        XCTAssertNotNil(windows.first { $0.scope == .session })
+        XCTAssertNotNil(windows.first { $0.scope == .weekly })
     }
 
     func testNeutralWorkingDirectoryUsesProbeScratch() {

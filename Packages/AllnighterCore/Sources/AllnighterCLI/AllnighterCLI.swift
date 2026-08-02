@@ -344,33 +344,59 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln capacity [--json] [--cached] [--source <id>]` — vendor quota strip.
-    /// Live acquire (tier-3 PTY probes by default; use `--cached` for instant
-    /// disk-only display), record successes, then hydrate last-known for unknowns
-    /// (CAP-HF-00). Unknown never blocks (exit 0). Non-TTY path is plain ASCII,
-    /// zero ANSI.
+    /// `alln capacity [--json] [--refresh] [--source <id>]` — vendor quota strip.
     ///
-    /// Default behaviour: all seats are probed (tier-3 PTY, 20–35 s budget).
-    /// Use `--cached` (or `--no-refresh`) for the old instant disk-only view.
+    /// **Bare** (default): instant, no-spawn snapshot — disk adapters for
+    /// codex/grok + last-known hydrate for PTY seats. Always prints the full
+    /// six-row table (TTY or piped).
+    ///
+    /// **`--refresh`**: live re-acquire (disk re-read + PTY probes). Progress on
+    /// stderr; complete six-row table/JSON on stdout. Targeted `--source`
+    /// requires `--refresh` and still returns all six rows.
+    ///
+    /// Unknown never blocks (exit 0). Non-TTY path is plain ASCII, zero ANSI.
     static func runCapacity(_ args: [String]) {
         let opts = Options(args)
         let now = Date()
-        // Refresh is ON by default. --cached / --no-refresh restores the fast
-        // disk-only path (no spawns). This means bare `alln capacity` always
-        // returns fresh data — agents and users never see stale numbers by default.
-        let cached = opts.flag("cached") || opts.flag("no-refresh")
-        let refresh = !cached
-        // --source without a refresh-capable context is still validated.
-        let refreshSource = opts.value("source")
-        if let refreshSource, let message = CapacityAcquisition.validateRefreshSourceId(refreshSource) {
-            fail(code: "CLI_USAGE_ERROR", message: message)
+        let refreshFlag = opts.flag("refresh")
+        // Legacy aliases still force the bare/no-spawn path if someone passes them
+        // without --refresh (harmless). --refresh wins when both appear.
+        let forceCached = opts.flag("cached") || opts.flag("no-refresh")
+        if refreshFlag && forceCached {
+            fail(
+                code: "CLI_USAGE_ERROR",
+                message: "conflicting flags: --refresh cannot be combined with --cached / --no-refresh"
+            )
         }
-        // Single display path with Mac (`CapacityDisplayAcquisition`).
+        let refresh = refreshFlag
+        let refreshSource = opts.value("source")
+        if let refreshSource {
+            if !refresh {
+                fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: "--source requires --refresh (bare capacity is a no-spawn snapshot)"
+                )
+            }
+            if let message = CapacityAcquisition.validateRefreshSourceId(refreshSource) {
+                fail(code: "CLI_USAGE_ERROR", message: message)
+            }
+        }
+
+        if refresh {
+            let target = refreshSource.map { " \($0)" } ?? ""
+            capacityProgress("capacity: refreshing\(target)…")
+        }
+
+        // Single CLI display path (`CapacityDisplayAcquisition`). Mac GUI is
+        // out of Phase 1 scope — do not reconnect it here.
         let windows = CapacityDisplayAcquisition.windows(
             now: now,
             refresh: refresh,
             refreshSource: refreshSource
         )
+        if refresh {
+            capacityProgress("capacity: done")
+        }
         let rows = CapacityBenchProjection.rows(from: windows, now: now)
         if opts.flag("json") {
             let payload = CapacityStripRenderer.json(
@@ -381,6 +407,9 @@ struct AllnighterCLI {
             print(jsonString(payload))
             return
         }
+        // Always print the full human table — TTY colour when interactive,
+        // plain ASCII when piped by another agent (founder law: complete table
+        // on stdout either way).
         if capacityStdoutIsTTY() {
             print(CapacityStripRenderer.renderTTY(rows: rows, now: now))
         } else {
@@ -388,12 +417,21 @@ struct AllnighterCLI {
         }
     }
 
+    /// Progress / diagnostics for capacity refresh — stderr only so stdout stays
+    /// a clean table or JSON contract for agents.
+    private static func capacityProgress(_ line: String) {
+        let message = line + "\n"
+        if let data = message.data(using: .utf8) {
+            try? FileHandle.standardError.write(contentsOf: data)
+        }
+    }
+
     /// QABC-S00d — plan-time capacity for `alln menu` / `alln menu show` /
     /// `alln bootstrap`. LAW: always acquires with `refresh: false` — reading
-    /// the menu must never spawn a probe or cost latency. `alln capacity`
-    /// itself keeps its own refresh-by-default path untouched (`runCapacity`
-    /// above). `probeExecutor` only exists so tests can assert zero probe
-    /// invocations; production callers never pass one.
+    /// the menu must never spawn a probe or cost latency. `alln capacity` bare
+    /// is also no-spawn; only `--refresh` probes. `probeExecutor` only exists
+    /// so tests can assert zero probe invocations; production callers never
+    /// pass one.
     ///
     /// Returns `nil` (never crashes, never blocks) if acquisition yields
     /// nothing usable — unknown capacity must never block menu or seating.

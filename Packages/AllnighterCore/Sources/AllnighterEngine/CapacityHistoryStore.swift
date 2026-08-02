@@ -257,7 +257,7 @@ extension CapacityWindowRecord {
     /// for display. `observedAt` is `lastObservedAt` — never "now".
     public func asCapacityWindow() -> CapacityWindow {
         let tier: CapacityAcquisitionTier =
-            CapacityAcquisition.tier3DisklessSources.contains(sourceId) ? .tuiProbe : .onDisk
+            CapacityAcquisition.diskOnlySources.contains(sourceId) ? .onDisk : .tuiProbe
         return CapacityWindow(
             used: peakUsedPercent,
             source: sourceId,
@@ -274,12 +274,16 @@ extension CapacityWindowRecord {
 
 // MARK: - Display acquisition (live + hydrate)
 
-/// Single display path for CLI and Mac strip (CAP-HF-00).
+/// Single display path for CLI capacity (CAP-HF-00 + Phase 1 recovery).
 ///
-/// Records **live** successes only. By default hydrates unknowns from history so
-/// bare `alln capacity` shows last-known + real age. Mac launch strip passes
-/// `hydrateFromHistory: false` — founder law 2026-08-02: never paint a percentage
-/// that was not just acquired live (stale history made the app look broken).
+/// Records **live** successes only. Bare path hydrates unknowns from history so
+/// `alln capacity` shows last-known + real age. On **refresh**, seats that were
+/// attempted and failed keep their failure reason — history is not painted as
+/// live for those rows (GUI must be able to show only successfully refreshed
+/// seats from this attempt). Unprobed siblings may still hydrate.
+///
+/// Mac launch strip may pass `hydrateFromHistory: false` — founder law
+/// 2026-08-02 for the app surface. Phase 1 does not reconnect GUI.
 public enum CapacityDisplayAcquisition {
     public static func windows(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
@@ -306,6 +310,23 @@ public enum CapacityDisplayAcquisition {
             sourceIds: CapacityAcquisition.benchSourceOrder,
             now: now
         )
-        return CapacityHydration.apply(live: live, history: history, now: now)
+        let suppress: Set<String>
+        if refresh {
+            let attempted = Set(
+                CapacityAcquisition.sourcesProbed(refresh: true, refreshSource: refreshSource)
+            )
+            let liveBy = Dictionary(grouping: live, by: \.source)
+            suppress = Set(attempted.filter { source in
+                CapacityHydration.isFailedAttempt(liveBy[source] ?? [])
+            })
+        } else {
+            suppress = []
+        }
+        return CapacityHydration.apply(
+            live: live,
+            history: history,
+            now: now,
+            suppressHistoryForSources: suppress
+        )
     }
 }
