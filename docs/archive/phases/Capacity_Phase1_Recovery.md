@@ -42,6 +42,15 @@ the **recent paint window** so stale trust text in the buffer head cannot mask
 the welcome/`/usage` surface. Failed attempts return explicit unknown reasons
 (`emptyCapture` / `parserFailed` / …) — never stale-as-live.
 
+## Claude primary weekly normalization (PM correction)
+
+Space-stripped Usage paints `(allmodels)` for "Current week (all models)". That
+is the **unlabeled primary** weekly pool — never a third strip line. Parser +
+history identity collapse `all models` / `allmodels` → `poolLabel: nil`. Session
++ all-models project into one primary Claude row (weekly + short); genuine
+`Fable` stays a secondary pool. Plan tier accepts space-stripped `·ClaudeMax`
+when present and never invents a tier when absent.
+
 ## Dogfood (founder Mac, 2026-08-02)
 
 | Command | Result |

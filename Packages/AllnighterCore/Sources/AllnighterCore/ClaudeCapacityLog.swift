@@ -83,6 +83,7 @@ public enum ClaudeCapacityLog {
     /// Two surfaces carry it and the probe already captures the first for free:
     ///
     /// - the boot banner every session paints — `Opus 5 (1M context) · Claude Max`
+    ///   (CSI paint often space-strips to `·ClaudeMax`)
     /// - the `/status` pane — `Login method:  Claude Max account`
     ///
     /// `/status` wins when present because it is a labeled field rather than a
@@ -91,18 +92,19 @@ public enum ClaudeCapacityLog {
     ///
     /// Returns the bare tier (`Max`, `Pro`) to match the other seats — the row is
     /// already labeled Claude, so "Claude Max" would stutter next to Cursor's
-    /// "Ultra".
+    /// "Ultra". Never invents a tier when the render does not state one.
     public static func planTier(fromRender renderText: String) -> String? {
         let clean = stripANSI(renderText)
-        // Labeled field first.
+        // Labeled field first. Spaces optional so space-stripped CSI paint still hits.
         if let tier = firstMatch(
-            pattern: #"Login\s+method:\s*Claude\s+(Max|Pro|Team|Enterprise|Free)(\s+\d+x)?"#,
+            pattern: #"Login\s*method:\s*Claude\s*(Max|Pro|Team|Enterprise|Free)(?:\s*(\d+)\s*x)?"#,
             in: clean
         ) {
             return tier
         }
+        // Banner suffix: `· Claude Max` / `·ClaudeMax` / `·ClaudeMax20x`.
         return firstMatch(
-            pattern: #"·\s*Claude\s+(Max|Pro|Team|Enterprise|Free)(\s+\d+x)?"#,
+            pattern: #"·\s*Claude\s*(Max|Pro|Team|Enterprise|Free)(?:\s*(\d+)\s*x)?"#,
             in: clean
         )
     }
@@ -118,11 +120,33 @@ public enum ClaudeCapacityLog {
         else { return nil }
         var tier = ns.substring(with: match.range(at: 1))
         if match.numberOfRanges >= 3, match.range(at: 2).location != NSNotFound {
-            let suffix = ns.substring(with: match.range(at: 2))
+            let digits = ns.substring(with: match.range(at: 2))
                 .trimmingCharacters(in: .whitespaces)
-            if !suffix.isEmpty { tier += " \(suffix)" }
+            if !digits.isEmpty { tier += " \(digits)x" }
         }
         return tier
+    }
+
+    /// Collapse vendor whitespace so space-stripped CSI paint and spaced copy share one identity.
+    public static func collapsedWhitespace(_ text: String) -> String {
+        text.lowercased().filter { !$0.isWhitespace }
+    }
+
+    /// Vendor week-pool name that is really the unlabeled primary weekly bar.
+    ///
+    /// Claude paints `"Current week (all models)"`; CSI paint often strips to
+    /// `"Current week (allmodels)"` or `"Currentweek(allmodels)"`. That is still
+    /// the primary weekly pool — never a secondary `poolLabel`.
+    public static func isPrimaryWeeklyPoolLabel(_ label: String) -> Bool {
+        collapsedWhitespace(label) == "allmodels"
+    }
+
+    /// Canonical stored/projected pool label: primary aliases → `nil`, else untouched.
+    /// Fable and other real secondary pools keep their vendor name.
+    public static func canonicalPoolLabel(_ label: String?) -> String? {
+        guard let label else { return nil }
+        if isPrimaryWeeklyPoolLabel(label) { return nil }
+        return label
     }
 
     /// Parses capacity windows from a Claude Usage render.
@@ -169,9 +193,11 @@ public enum ClaudeCapacityLog {
         for line in lines {
             if line.isEmpty { continue }
             let lower = line.lowercased()
+            // CSI paint often collapses inter-word spaces (`Currentweek(allmodels)`).
+            let collapsed = collapsedWhitespace(line)
 
             // Section headers open a new window.
-            if lower.hasPrefix("current session") {
+            if lower.hasPrefix("current session") || collapsed.hasPrefix("currentsession") {
                 flush()
                 pending = PendingWindow(kind: .session, poolLabel: nil)
                 // Same-line percent is rare but accept it.
@@ -180,13 +206,18 @@ public enum ClaudeCapacityLog {
                 }
                 continue
             }
-            if lower.hasPrefix("current week") {
+            if lower.hasPrefix("current week") || collapsed.hasPrefix("currentweek") {
                 flush()
                 if let pool = extractWeekPool(from: line) {
-                    if pool.lowercased() == "all models" {
+                    // "all models" / "allmodels" → unlabeled primary weekly pool.
+                    // Fable and other real secondaries keep their vendor label.
+                    if isPrimaryWeeklyPoolLabel(pool) {
                         pending = PendingWindow(kind: .weeklyAllModels, poolLabel: nil)
                     } else {
-                        pending = PendingWindow(kind: .weeklyPool, poolLabel: pool)
+                        pending = PendingWindow(
+                            kind: .weeklyPool,
+                            poolLabel: canonicalPoolLabel(pool)
+                        )
                     }
                 } else {
                     pending = PendingWindow(kind: .weeklyAllModels, poolLabel: nil)
@@ -199,9 +230,13 @@ public enum ClaudeCapacityLog {
 
             // Stop absorbing once we leave the limit bars.
             if lower.contains("what's contributing")
+                || collapsed.contains("whatscontributing")
                 || lower.contains("usage credits")
-                || lower.hasPrefix("session") && lower.contains("total cost")
+                || collapsed.contains("usagecredits")
+                || (lower.hasPrefix("session") || collapsed.hasPrefix("session"))
+                    && (lower.contains("total cost") || collapsed.contains("totalcost"))
                 || lower.hasPrefix("total cost")
+                || collapsed.hasPrefix("totalcost")
             {
                 // "Session" cost block sits above the limit bars — only stop if we already
                 // finished at least one window, else keep scanning.
@@ -217,7 +252,7 @@ public enum ClaudeCapacityLog {
             if let used = parseUsedPercent(from: line), pending?.usedPercent == nil {
                 pending?.usedPercent = used
             }
-            if lower.contains("resets") {
+            if lower.contains("resets") || collapsed.contains("resets") {
                 if let (resetAt, precision) = parseReset(from: line, observedAt: observedAt) {
                     pending?.resetAt = resetAt
                     pending?.resetPrecision = precision
@@ -299,6 +334,7 @@ public enum ClaudeCapacityLog {
     /// Parse Claude reset lines into absolute time + precision.
     /// - `Resets 8:49am (America/Vancouver)` → today/tomorrow at that clock, minute precision
     /// - `Resets Aug 3 at 8pm (America/Vancouver)` → next matching date, minute precision
+    /// - Space-stripped CSI forms (`Resets8:49am`, `ResetsAug3at8pm`) also parse.
     private static func parseReset(
         from line: String,
         observedAt: Date
@@ -307,8 +343,8 @@ public enum ClaudeCapacityLog {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = tz
 
-        // "Resets Aug 3 at 8pm" / "Resets August 3 at 8:00pm"
-        let dated = #"Resets\s+([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?\s+at\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)"#
+        // "Resets Aug 3 at 8pm" / "Resets August 3 at 8:00pm" / "ResetsAug3at8pm"
+        let dated = #"Resets\s*([A-Za-z]+)\s*(\d{1,2})(?:st|nd|rd|th)?\s*at\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)"#
         if let regex = try? NSRegularExpression(pattern: dated, options: .caseInsensitive) {
             let ns = line as NSString
             if let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: ns.length)),
@@ -347,8 +383,8 @@ public enum ClaudeCapacityLog {
             }
         }
 
-        // "Resets 8:49am (America/Vancouver)" — same calendar day, roll forward if past.
-        let clock = #"Resets\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)"#
+        // "Resets 8:49am (America/Vancouver)" / "Resets8:49am" — same day, roll if past.
+        let clock = #"Resets\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)"#
         if let regex = try? NSRegularExpression(pattern: clock, options: .caseInsensitive) {
             let ns = line as NSString
             if let match = regex.firstMatch(in: line, range: NSRange(location: 0, length: ns.length)),

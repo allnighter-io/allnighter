@@ -99,13 +99,17 @@ public struct CapacityHistoryStore: Sendable {
     /// Records newest-first. Missing, unreadable, or pre-`currentSchemaVersion`
     /// file → empty, never throws. Dropping an older payload costs one refresh;
     /// keeping it would serve a known-wrong number as last-known truth.
+    ///
+    /// Claude primary weekly aliases (`allmodels` / `all models`) are collapsed to
+    /// unlabeled and same-identity duplicates are merged on read so a one-shot
+    /// bad parse cannot keep a phantom pool alive across bare hydrates.
     public func load(sourceId: String) -> [CapacityWindowRecord] {
         let url = fileURL(sourceId: sourceId)
         guard let data = try? Data(contentsOf: url),
               let file = try? CoreJSON.decode(FilePayload.self, from: data),
               file.schemaVersion >= Self.currentSchemaVersion
         else { return [] }
-        return file.windows.sorted(by: Self.newestFirst)
+        return Self.dedupeCanonical(file.windows).sorted(by: Self.newestFirst)
     }
 
     /// Open last-known windows for strip hydrate (CAP-HF-00).
@@ -146,8 +150,12 @@ public struct CapacityHistoryStore: Sendable {
     // MARK: - Merge
 
     private func mergeAndWrite(sourceId: String, seeds: [CapacityWindowRecord]) throws {
-        var existing = load(sourceId: sourceId)
+        // Re-canonicalize on write so a prior parse that stored Claude's primary
+        // weekly as `poolLabel: "allmodels"` merges into the unlabeled primary
+        // and never re-escapes on bare hydrate.
+        var existing = load(sourceId: sourceId).map(Self.canonicalized)
         for seed in seeds {
+            let seed = Self.canonicalized(seed)
             if let index = existing.firstIndex(where: { Self.sameWindow($0, as: seed) }) {
                 existing[index] = Self.merge(existing: existing[index], incoming: seed)
             } else {
@@ -176,8 +184,47 @@ public struct CapacityHistoryStore: Sendable {
     private static func sameWindow(_ a: CapacityWindowRecord, as b: CapacityWindowRecord) -> Bool {
         a.sourceId == b.sourceId
             && a.scope == b.scope
-            && a.poolLabel == b.poolLabel
+            && canonicalPoolLabel(sourceId: a.sourceId, poolLabel: a.poolLabel)
+                == canonicalPoolLabel(sourceId: b.sourceId, poolLabel: b.poolLabel)
             && abs(a.resetAt.timeIntervalSince(b.resetAt)) <= resetAtMergeTolerance
+    }
+
+    /// Claude primary weekly aliases (`all models` / `allmodels`) collapse to nil.
+    /// Other sources keep the vendor label verbatim.
+    private static func canonicalPoolLabel(sourceId: String, poolLabel: String?) -> String? {
+        guard sourceId == "claude_code" else { return poolLabel }
+        return ClaudeCapacityLog.canonicalPoolLabel(poolLabel)
+    }
+
+    private static func canonicalized(_ record: CapacityWindowRecord) -> CapacityWindowRecord {
+        let label = canonicalPoolLabel(sourceId: record.sourceId, poolLabel: record.poolLabel)
+        guard label != record.poolLabel else { return record }
+        return CapacityWindowRecord(
+            sourceId: record.sourceId,
+            scope: record.scope,
+            resetAt: record.resetAt,
+            resetPrecision: record.resetPrecision,
+            peakUsedPercent: record.peakUsedPercent,
+            firstObservedAt: record.firstObservedAt,
+            lastObservedAt: record.lastObservedAt,
+            observationCount: record.observationCount,
+            planTier: record.planTier,
+            poolLabel: label
+        )
+    }
+
+    /// Collapse primary aliases then merge same-identity rows (monotone peaks).
+    private static func dedupeCanonical(_ records: [CapacityWindowRecord]) -> [CapacityWindowRecord] {
+        var out: [CapacityWindowRecord] = []
+        for raw in records {
+            let record = canonicalized(raw)
+            if let index = out.firstIndex(where: { sameWindow($0, as: record) }) {
+                out[index] = merge(existing: out[index], incoming: record)
+            } else {
+                out.append(record)
+            }
+        }
+        return out
     }
 
     /// Monotone merge: peaks and counts only rise; last observation only advances.
@@ -212,6 +259,9 @@ public struct CapacityHistoryStore: Sendable {
               let resetAt = window.resetAt
         else { return nil }
 
+        let poolLabel: String? = window.source == "claude_code"
+            ? ClaudeCapacityLog.canonicalPoolLabel(window.poolLabel)
+            : window.poolLabel
         return CapacityWindowRecord(
             sourceId: window.source,
             scope: window.scope,
@@ -222,7 +272,7 @@ public struct CapacityHistoryStore: Sendable {
             lastObservedAt: window.observedAt,
             observationCount: 1,
             planTier: window.planTier,
-            poolLabel: window.poolLabel
+            poolLabel: poolLabel
         )
     }
 
@@ -258,6 +308,11 @@ extension CapacityWindowRecord {
     public func asCapacityWindow() -> CapacityWindow {
         let tier: CapacityAcquisitionTier =
             CapacityAcquisition.diskOnlySources.contains(sourceId) ? .onDisk : .tuiProbe
+        // Collapse Claude primary weekly aliases so bare hydrate never re-emits
+        // a phantom `allmodels` pool line next to the unlabeled primary.
+        let label: String? = sourceId == "claude_code"
+            ? ClaudeCapacityLog.canonicalPoolLabel(poolLabel)
+            : poolLabel
         return CapacityWindow(
             used: peakUsedPercent,
             source: sourceId,
@@ -266,7 +321,7 @@ extension CapacityWindowRecord {
             resetPrecision: resetPrecision,
             observedAt: lastObservedAt,
             sourceTier: tier,
-            poolLabel: poolLabel,
+            poolLabel: label,
             planTier: planTier
         )
     }

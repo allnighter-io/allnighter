@@ -380,6 +380,27 @@ final class CapacityAcquisitionTests: XCTestCase {
        Usage credits are off · /usage-credits to turn them on
     """
 
+    /// Compact / space-stripped Claude Usage capture (CSI paint shape, dogfood
+    /// 2026-08-02): `(allmodels)` primary weekly, `ClaudeMax` banner, no spaces
+    /// in headers/reset lines. Must project as one primary pool (weekly + short)
+    /// plus a genuine Fable secondary — never a third `allmodels` pool line.
+    private let claudeSpaceStrippedUsageFixture = """
+    Opus5(1Mcontext)withhigheffort·ClaudeMax  ~/Documents/GitHub/Allnighter
+    SettingsStatusConfigUsageStats
+    Session
+    Totalcost:$0.0000
+    Currentsession
+    0%used
+    Resets4:30pm(America/Vancouver)
+    Currentweek(allmodels)
+    96%used
+    ResetsAug3at8pm(America/Vancouver)
+    Currentweek(Fable)
+    18%used
+    ResetsAug3at8pm(America/Vancouver)
+    Whatscontributingtoyourlimitsusage?
+    """
+
     func testBareCapacityNeverInvokesProbeExecutor() throws {
         try writeCodexRollout(
             year: "2026", month: "07", day: "28",
@@ -584,6 +605,68 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertEqual(fable?.usedPercent, 7.0)
         // Promo line "+50% weekly limits" must not become a window.
         XCTAssertFalse(windows.contains { $0.usedPercent == 50.0 })
+        // Spaced "all models" must never escape as a pool label.
+        XCTAssertFalse(windows.contains { label in
+            guard let p = label.poolLabel else { return false }
+            return ClaudeCapacityLog.collapsedWhitespace(p).contains("allmodel")
+        })
+    }
+
+    /// Phase 1 PM correction: space-stripped `(allmodels)` is the unlabeled
+    /// primary weekly pool, not a third strip line. Session + all-models project
+    /// into one primary Claude row; genuine Fable stays secondary.
+    func testClaudeSpaceStrippedAllmodelsIsUnlabeledPrimaryNotPoolLabel() {
+        let windows = ClaudeCapacityLog.capacityWindows(
+            fromRender: claudeSpaceStrippedUsageFixture,
+            observedAt: now
+        )
+        XCTAssertEqual(windows.count, 3, "session + primary weekly + Fable; got \(windows)")
+        XCTAssertFalse(
+            windows.contains { $0.poolLabel.map(ClaudeCapacityLog.isPrimaryWeeklyPoolLabel) == true
+                || $0.poolLabel?.lowercased().contains("allmodel") == true },
+            "allmodels must never escape as poolLabel: \(windows.map(\.poolLabel))"
+        )
+        let session = windows.first { $0.scope == .session }
+        XCTAssertEqual(session?.usedPercent, 0.0)
+        XCTAssertEqual(session?.remainingPercent, 100.0)
+        XCTAssertNil(session?.poolLabel)
+        let weeklyPrimary = windows.first { $0.scope == .weekly && $0.poolLabel == nil }
+        XCTAssertEqual(weeklyPrimary?.usedPercent, 96.0)
+        XCTAssertEqual(weeklyPrimary?.remainingPercent, 4.0)
+        let fable = windows.first { $0.poolLabel == "Fable" }
+        XCTAssertEqual(fable?.usedPercent, 18.0)
+        XCTAssertEqual(fable?.remainingPercent, 82.0)
+
+        // Projection: one primary pool (weekly 4% + short 100%) and one Fable row.
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        XCTAssertEqual(rows.count, 1)
+        let row = rows[0]
+        XCTAssertEqual(row.pools.count, 2, "primary + Fable only; pools=\(row.pools.map(\.poolLabel))")
+        let primary = row.pools.first { $0.poolLabel == nil }
+        XCTAssertEqual(primary?.dashboardRemainingPercent, 4.0)
+        XCTAssertEqual(primary?.dashboardScope, .weekly)
+        guard case .known(let shortRem, _, _, _, _) = primary?.shortWindow else {
+            return XCTFail("primary must carry session short window, got \(String(describing: primary?.shortWindow))")
+        }
+        XCTAssertEqual(shortRem, 100.0)
+        let fablePool = row.pools.first { $0.poolLabel == "Fable" }
+        XCTAssertEqual(fablePool?.dashboardRemainingPercent, 82.0)
+        XCTAssertEqual(row.effectiveRemainingPercent, 4.0)
+        XCTAssertEqual(row.planTier, "Max", "space-stripped ·ClaudeMax banner must yield Max")
+        XCTAssertFalse(row.pools.contains { $0.poolLabel?.lowercased().contains("allmodel") == true })
+    }
+
+    /// Spaced and compact primary-pool names share one identity.
+    func testClaudePrimaryWeeklyPoolLabelAliases() {
+        XCTAssertTrue(ClaudeCapacityLog.isPrimaryWeeklyPoolLabel("all models"))
+        XCTAssertTrue(ClaudeCapacityLog.isPrimaryWeeklyPoolLabel("allmodels"))
+        XCTAssertTrue(ClaudeCapacityLog.isPrimaryWeeklyPoolLabel("All Models"))
+        XCTAssertTrue(ClaudeCapacityLog.isPrimaryWeeklyPoolLabel(" ALL  MODELS "))
+        XCTAssertFalse(ClaudeCapacityLog.isPrimaryWeeklyPoolLabel("Fable"))
+        XCTAssertFalse(ClaudeCapacityLog.isPrimaryWeeklyPoolLabel("all models extra"))
+        XCTAssertNil(ClaudeCapacityLog.canonicalPoolLabel("allmodels"))
+        XCTAssertNil(ClaudeCapacityLog.canonicalPoolLabel("all models"))
+        XCTAssertEqual(ClaudeCapacityLog.canonicalPoolLabel("Fable"), "Fable")
     }
 
     /// The Plan column read `-` for Claude while the vendor stated the tier twice.
@@ -616,12 +699,37 @@ final class CapacityAcquisitionTests: XCTestCase {
             ClaudeCapacityLog.planTier(fromRender: "Opus 5 · Claude Max 20x  ~/repo"),
             "Max 20x"
         )
+        // Space-stripped banner form (`ClaudeMax20x`).
+        XCTAssertEqual(
+            ClaudeCapacityLog.planTier(fromRender: "Opus5·ClaudeMax20x  ~/repo"),
+            "Max 20x"
+        )
     }
 
     /// Fail closed: a render with no tier statement must not invent one, and the
     /// promo line's `· clau.de/cc-50-promo` must not read as a plan.
     func testClaudePlanTierIsNilWhenTheRenderDoesNotSayIt() {
         XCTAssertNil(ClaudeCapacityLog.planTier(fromRender: claudeUsageFixture))
+        // Compact usage body without a banner still must not invent Max.
+        let bodyOnly = """
+        Currentsession
+        0%used
+        Currentweek(allmodels)
+        96%used
+        """
+        XCTAssertNil(ClaudeCapacityLog.planTier(fromRender: bodyOnly))
+    }
+
+    /// Space-stripped boot banner `·ClaudeMax` is a real tier statement.
+    func testClaudePlanTierFromSpaceStrippedBanner() {
+        XCTAssertEqual(
+            ClaudeCapacityLog.planTier(fromRender: "Opus5(1Mcontext)·ClaudeMax  ~/repo"),
+            "Max"
+        )
+        XCTAssertEqual(
+            ClaudeCapacityLog.planTier(fromRender: "Loginmethod:ClaudeMaxaccount"),
+            "Max"
+        )
     }
 
     func testRefreshFixtureParsersProduceWindowsAndPreserveTier1() throws {

@@ -125,6 +125,53 @@ final class CapacityHistoryStoreTests: XCTestCase {
         XCTAssertEqual(records.first(where: { $0.poolLabel == "Fable" })?.peakUsedPercent, 10)
     }
 
+    /// Space-stripped parse once wrote `poolLabel: "allmodels"`. That is the
+    /// unlabeled primary weekly pool — it must merge into nil primary, never
+    /// re-escape as a third strip line next to primary + Fable.
+    func testClaudeAllmodelsAliasMergesIntoUnlabeledPrimary() throws {
+        let mislabeled = known(
+            source: "claude_code",
+            used: 96,
+            resetAt: resetBase,
+            observedAt: t0,
+            poolLabel: "allmodels"
+        )
+        let primary = known(
+            source: "claude_code",
+            used: 95,
+            resetAt: resetBase,
+            observedAt: t0.addingTimeInterval(60),
+            planTier: "Max",
+            poolLabel: nil
+        )
+        let fable = known(
+            source: "claude_code",
+            used: 18,
+            resetAt: resetBase,
+            observedAt: t0.addingTimeInterval(60),
+            planTier: "Max",
+            poolLabel: "Fable"
+        )
+        try store.record([mislabeled], now: t0)
+        try store.record([primary, fable], now: t0.addingTimeInterval(60))
+
+        let records = store.load(sourceId: "claude_code")
+        XCTAssertEqual(records.count, 2, "primary + Fable only; got \(records.map(\.poolLabel))")
+        XCTAssertFalse(records.contains { $0.poolLabel?.lowercased().contains("allmodel") == true })
+        let primaryRec = records.first { $0.poolLabel == nil }
+        XCTAssertEqual(primaryRec?.peakUsedPercent, 96, "monotone peak keeps the higher used-%")
+        XCTAssertEqual(primaryRec?.planTier, "Max")
+        XCTAssertEqual(records.first { $0.poolLabel == "Fable" }?.peakUsedPercent, 18)
+
+        // Bare hydrate path must also collapse residual allmodels labels.
+        let windows = store.lastKnownWindows(sourceIds: ["claude_code"], now: t0)
+        XCTAssertFalse(windows.contains { $0.poolLabel?.lowercased().contains("allmodel") == true })
+        let rows = CapacityBenchProjection.rows(from: windows, now: t0)
+        XCTAssertEqual(rows.count, 1)
+        XCTAssertEqual(rows[0].pools.count, 2)
+        XCTAssertFalse(rows[0].pools.contains { $0.poolLabel?.lowercased().contains("allmodel") == true })
+    }
+
     /// A v1 payload was written with pool-collapsed identity; serving it as
     /// last-known would hand the strip a number we know is wrong.
     func testPreviousSchemaVersionPayloadIsDiscardedOnLoad() throws {
