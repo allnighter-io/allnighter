@@ -351,6 +351,20 @@ Two more cutover obligations, named so no implementer has to guess:
   `nextActions`**. `latest` is racy under parallel Teams, and `--full` is a
   second snapshot shape. The acknowledgement already returns the exact run id.
 
+### Mac/iOS sequencing decision (ORS-S01)
+
+**Decision: both cut over in the same ship. No iOS deferral.**
+
+Evidence (re-verified 2026-08-01): `Apps/AllnighteriOS` has zero references to
+`TeamRunJSON`, `TeamStatusResponse`, `team status`, or `team result` — there is
+no iOS consumer to defer. The only Mac consumer of `TeamRunJSON` is
+`TeamRunJSONPresenter` (`Apps/AllnighterMac/Sources/TeamRunJSONPresenter.swift`
++ `Tests/TeamRunJSONPresenterTests.swift`). Additive `observation` decodes
+without a Mac presenter change. The sole app-side `runJournalPath` mention is
+the fixture argument at `TeamRunJSONPresenterTests.swift:52`; update it in the
+same ORS-S03 commit that deletes the public field. Status schemas live only in
+CLI/Core/Engine (see ORS-S03 worklist).
+
 Contract/binary versions bump in the cutover. Public backward compatibility is
 explicitly waived. Persisted journal decoding is an internal storage concern,
 not permission to keep the old public commands or schemas.
@@ -486,6 +500,68 @@ Truth owner: `RunService.run` + `RemoteRunEventJournal` as derived history.
 6. Sweep living docs and scripts in the same slice. No mixed old/new release.
 
 Truth owner: `DetachedDispatch`/`RunCLI` acknowledgement + `ContractRegistry`.
+
+### ORS-S03 deletion worklist (verified 2026-08-01)
+
+One replacement read path for every entry below:
+
+```text
+alln show <run-id> --json
+  → AllnighterCLI.runShow / showReadPath
+  → TeamRunJSONMapper.map → TeamRunJSON (+ observation)
+
+alln show <run-id> --stream
+  → reattach + bounded terminal/attention delivery
+  (replaces team status --wait-for and the pull waiter)
+```
+
+**Cross-reference, do not restate:** teaching/help/bootstrap/error `agentAction`
+and related string offenders are owned by the ORS-S00b/S00c teaching gate
+(`OneRunSurfaceTeachingTests`) plus the cutover deletion manifest above
+(including `PilotCLI.swift:964,979`, `DetachedDispatch.swift:187`,
+`HelpTopicRegistry`, `KILL_VERIFICATION_UNAVAILABLE` agentAction text, and
+living-doc sweeps). S03 must clear that gate. This worklist is the **code
+read/mapping surface** grep finds beyond that teaching set.
+
+| Action | File · symbol · line | Notes |
+| --- | --- | --- |
+| **DELETE** | `AllnighterCLI.swift:82` — `case "team" where args.first == "status"` | Parser branch for public status command. |
+| **DELETE** | `AllnighterCLI.swift:83` — `case "team" where args.first == "result"` | Parser branch for public result command. |
+| **DELETE** | `AllnighterCLI.teamStatusSnapshot` `:1202` | CLI snapshot hop into `AsyncTeamService.status`. |
+| **DELETE** | `AllnighterCLI.runTeamStatus` `:1212`–`:1320` | Full `team status` path: plain / `--persisted` / `--wait-for` + timeout exits. |
+| **DELETE** | `AllnighterCLI.runTeamResult` `:1323`–`:1351` | Second terminal read path; maps `TeamRun` via `TeamRunJSONMapper` only when ready. |
+| **DELETE** | `AsyncTeamService.status(runId:)` `:567`–`:630` | Public dual projection (reconcile + `TeamStatusResponse` + wait guidance). |
+| **DELETE** | `AsyncTeamService.waitForStatus` `:635`–`:670` | In-process status waiter; replaced by `show --stream`. |
+| **DELETE** | `AsyncTeamService.ResultOutcome` `:693`–`:697` | Ready/not-ready/notFound split that exists only for `team result`. |
+| **DELETE** | `AsyncTeamService.result(runId:)` `:699`–`:718` | Terminal-gated second read; emits `RESULT_NOT_READY`. |
+| **DELETE** | `AsyncTeamStatusMapper.statusResponse(for:)` `:115`–`:144` | Public status body builder. |
+| **DELETE** | `AsyncTeamStatusMapper.withWaitGuidance` `:88`–`:99` | Status-only nextAction/waitHint stamping. |
+| **DELETE** | `AsyncTeamStatusMapper.nextAction(for: TeamStatusResponse)` `:72`–`:86` | Status-projection decision matrix. |
+| **DELETE** | `AsyncTeamStatusMapper.nextAction(for: RunLifecycle)` `:64`–`:69` | Emits `fetchResult` / `waitForStatus` nextActions. |
+| **DELETE** | `AsyncTeamStatusMapper.workers(for:)` `:101`–`:113` | `TeamStatusWorker` rows; not on canonical `TeamRunJSON`. |
+| **DELETE** | `AsyncTeamStatusMapper.nextPollAfterMs` / `waitHintSeconds` / `resultAvailable` `:41`–`:58` | Poll-loop vocabulary for status/result envelopes. |
+| **DELETE** | `AsyncTeamStatusMapper.currentStage(for:)` `:26`–`:39` | Status-only stage string; cancel/show do not need it. |
+| **INTERNALIZE** | `AsyncTeamStatusMapper.liveStatus(for:)` `:14`–`:24` | Keep as non-public lifecycle projection for cancel/reconcile/`StalledWorkDetector` — **not** a public read surface. |
+| **DELETE** | `AsyncTeamContracts.TeamStatusResponse` `:212` | Public dual schema. |
+| **DELETE** | `AsyncTeamContracts.PersistedTeamStatusResponse` `:355` | `--persisted` envelope. |
+| **DELETE** | `AsyncTeamContracts.TeamStatusWorker` `:193` | Nested status-only type. |
+| **DELETE** | `AsyncTeamContracts.TeamStatusBlocker` `:117` | Status-projection blocker shape; run blocker stays on `TeamRun` / existing `TeamRunJSON` home. |
+| **DELETE** | `AsyncTeamContracts.TeamStatusWaitTarget` `:383` | `--wait-for` parse/match. |
+| **DELETE** | `AsyncTeamContracts.TeamStatusWaitOutcome` `:410` | In-process wait outcome. |
+| **DELETE** | `AsyncTeamContracts.TeamResultNotReady` `:426` | `team result` not-ready envelope. |
+| **DELETE** | `AsyncTeamNextAction.waitForTerminal` `:73`, `fetchResult` `:81`, `waitForStatus` `:89` | Factories that hard-code retired commands (also teaching-gate offenders). |
+| **DELETE** | `ContractRegistry.OutputSchema.teamStatusResponse` / `.persistedTeamStatusResponse` (`ContractRegistry.swift:124`) | Registry schema cases for deleted outputs. |
+| **DELETE** | `ContractRegistry+Milestone1` `CommandSpec("team status")` `:406`–`:416` | Command registration, flags (`--persisted`, `--wait-for`, `--timeout`), `outputSchema`. |
+| **DELETE** | `ContractRegistry+Milestone1` `CommandSpec("team result")` `:418`–`:422` | Command registration. |
+| **DELETE** | `ContractRegistry+Milestone1` `ErrorSpec("STATUS_WAIT_TIMEOUT")` `:1120` | Error code deleted with the waiter. |
+| **DELETE** | `ContractRegistry+Milestone1` `ErrorSpec("RESULT_NOT_READY")` `:1135` | Error code deleted with `team result`. |
+
+Not on this list (out of scope or already covered elsewhere): `team cancel` /
+`team reconcile` (not single-run *read* surfaces); `TeamStartResponse` (launch
+ack — nextAction command strings flip with the teaching/ack sweep, not a second
+snapshot schema); public `audit.runJournalPath` (deletion manifest row; Mac
+fixture at `TeamRunJSONPresenterTests.swift:52` updates in the same S03
+commit).
 
 ### ORS-S04 — live host Works Test and closeout
 
