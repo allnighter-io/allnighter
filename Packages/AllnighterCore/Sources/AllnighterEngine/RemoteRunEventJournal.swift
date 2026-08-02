@@ -29,8 +29,9 @@ public struct RemoteRunEventJournal: Sendable {
     public let rootDirectory: URL
 
     /// Max durable event lines per run's `events.jsonl` (ORS binding rule 4).
-    /// Status/blocker/terminal settlement only — not a transcript — so 512 is
-    /// generous headroom for a long multi-seat answer team without unbounded growth.
+    /// Status/blocker/stage lifecycle/terminal settlement only — not a transcript
+    /// — so 512 is generous headroom for a long multi-seat answer team without
+    /// unbounded growth.
     public static let maxEventsPerRun: Int = 512
 
     /// Max on-disk bytes per run's `events.jsonl` (ORS binding rule 4).
@@ -41,14 +42,29 @@ public struct RemoteRunEventJournal: Sendable {
         self.rootDirectory = rootDirectory ?? AllnighterPaths.runs
     }
 
-    /// Minimal durable set (ORS binding rule 2): status + worker status
-    /// transitions (which carry blocker entry via `run.status_changed` to
-    /// queued/waiting) and terminal settlement. High-frequency transcript kinds
-    /// (`worker.answer_delta`, `worker.reasoning_delta`, `worker.output`) and
-    /// stage chatter are live-only — never accumulated on disk.
+    /// Minimal durable set (ORS binding rule 2 / ORS-S02a1-fix PM ruling):
+    /// low-frequency state transitions that make a multi-stage Team run's middle
+    /// observable after `--no-wait` reattach.
+    ///
+    /// Durable:
+    /// - `run.status_changed`, `worker.status_changed` (status/blocker entry and
+    ///   terminal settlement)
+    /// - `stage.started`, `stage.completed`, `stage.failed`, `stage.reused`
+    ///   (stage lifecycle — not transcript)
+    ///
+    /// Live-only (never persisted): high-frequency / transcript kinds —
+    /// `worker.answer_delta`, `worker.reasoning_delta`, `worker.output`, and
+    /// `stage.output`. `stage.output` is excluded deliberately: it is stream
+    /// body for a stage, not a lifecycle edge; the four stage kinds above are
+    /// the edges that mark when a stage begins, ends, fails, or is reused.
     public static func isDurableSemanticEvent(_ kind: String) -> Bool {
         switch kind {
-        case RunEventKind.runStatusChanged, RunEventKind.workerStatusChanged:
+        case RunEventKind.runStatusChanged,
+             RunEventKind.workerStatusChanged,
+             RunEventKind.stageStarted,
+             RunEventKind.stageCompleted,
+             RunEventKind.stageFailed,
+             RunEventKind.stageReused:
             return true
         default:
             return false

@@ -269,12 +269,18 @@ final class OneRunSurfaceEventJournalTests: XCTestCase {
     }
 
     func testDurableKindFilter() {
+        // Durable: status transitions + stage lifecycle edges (ORS-S02a1-fix).
         XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.runStatusChanged))
         XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.workerStatusChanged))
+        XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageStarted))
+        XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageCompleted))
+        XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageFailed))
+        XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageReused))
+        // Live-only transcript — would fail if the filter is widened later.
         XCTAssertFalse(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.workerAnswerDelta))
         XCTAssertFalse(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.workerReasoningDelta))
         XCTAssertFalse(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.workerOutput))
-        XCTAssertFalse(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageStarted))
+        XCTAssertFalse(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageOutput))
     }
 }
 
