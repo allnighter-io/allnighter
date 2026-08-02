@@ -4,14 +4,13 @@ import AllnighterEngine
 
 /// Mac launch-surface owner for the capacity strip.
 ///
-/// Holds Core rows only — no parallel capacity store, no second JSON shape.
-/// Acquisition lives in `CapacityAcquisition`; colour / order / age labels
-/// come from `CapacityStripRenderer`.
+/// **SSOT:** every load/refresh calls `CapacityDisplayAcquisition.snapshot` —
+/// the same entry as `alln capacity` / `alln capacity --refresh`. No parallel
+/// acquisition path, no separate hydrate law. Colour / order / age labels come
+/// from `CapacityStripRenderer`.
 ///
-/// **Founder law (2026-08-02):** never paint a capacity percentage unless this
-/// process just acquired it live. History is for the CLI bare path only. Launch
-/// shows unknowns until refresh completes. Probes never run on the main actor
-/// (PTY waits blocked the UI → beach ball + crash).
+/// Bare launch = instant snapshot (`refresh: false`). Live refresh is explicit
+/// (`refresh: true`). Probes never run on the main actor.
 @MainActor
 @Observable
 final class CapacityStripModel {
@@ -21,7 +20,7 @@ final class CapacityStripModel {
     private(set) var now: Date = Date()
     /// Sources currently refreshing (per-row spinner). Never greys sibling rows.
     private(set) var refreshingSources: Set<String> = []
-    /// True while refresh-all is in flight.
+    /// True while any acquire is in flight (bare load or refresh-all).
     private(set) var isRefreshingAll = false
     /// Not-ready / parked seats render last and dimmed (health as absence of numbers).
     private(set) var notReadyOrParked: Set<String> = []
@@ -30,6 +29,7 @@ final class CapacityStripModel {
 
     private var refreshTasks: [String: Task<Void, Never>] = [:]
     private var refreshAllTask: Task<Void, Never>?
+    private var loadTask: Task<Void, Never>?
 
     // MARK: - Derived
 
@@ -56,37 +56,32 @@ final class CapacityStripModel {
         notReadyOrParked = ids
     }
 
-    /// Launch path: paint unknowns only, then refresh off the main actor.
-    /// Never hydrates history into the strip — stale % is a trust lie.
+    /// Launch path: bare `alln capacity` snapshot (instant, no spawn).
     func loadLive(
         notReadyOrParked: Set<String> = [],
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
-        probeExecutor: (any CapacityProbeExecuting)? = nil,
-        autoRefresh: Bool = true
+        probeExecutor: (any CapacityProbeExecuting)? = nil
     ) {
         guard !isFixtureSeeded else { return }
         self.notReadyOrParked = notReadyOrParked
-        let clock = Date()
-        now = clock
-        windows = Self.untrustedPlaceholders(now: clock)
-        if autoRefresh {
-            refreshAll(homeRoot: homeRoot, historyStore: historyStore, probeExecutor: probeExecutor)
-        }
-    }
-
-    /// Honest empty strip: one neverSampled row per bench seat. No percentages.
-    static func untrustedPlaceholders(now: Date) -> [CapacityWindow] {
-        CapacityAcquisition.benchSourceOrder.map { source in
-            CapacityWindow.unknown(
-                reason: .neverSampled,
-                source: source,
-                scope: .weekly,
-                observedAt: now,
-                sourceTier: CapacityAcquisition.tier3DisklessSources.contains(source)
-                    ? .tuiProbe
-                    : .onDisk
+        loadTask?.cancel()
+        isRefreshingAll = true
+        loadTask = Task { @MainActor in
+            defer {
+                isRefreshingAll = false
+                loadTask = nil
+            }
+            let bench = await Self.acquireSnapshot(
+                homeRoot: homeRoot,
+                historyStore: historyStore,
+                probeExecutor: probeExecutor,
+                refresh: false,
+                refreshSource: nil
             )
+            guard !Task.isCancelled else { return }
+            now = bench.now
+            windows = bench.windows
         }
     }
 
@@ -107,7 +102,7 @@ final class CapacityStripModel {
 
     // MARK: - Refresh
 
-    /// Refresh every seat. Runs probes off the main actor; applies live-only results.
+    /// `alln capacity --refresh` — live acquire for every seat.
     func refreshAll(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
@@ -116,26 +111,25 @@ final class CapacityStripModel {
         guard !isFixtureSeeded else { return }
         refreshAllTask?.cancel()
         isRefreshingAll = true
-        // Drop any prior numbers immediately — only live success may repaint them.
-        windows = Self.untrustedPlaceholders(now: Date())
         refreshAllTask = Task { @MainActor in
             defer {
                 isRefreshingAll = false
                 refreshAllTask = nil
             }
-            let acquired = await Self.acquireLiveOnly(
+            let bench = await Self.acquireSnapshot(
                 homeRoot: homeRoot,
                 historyStore: historyStore,
                 probeExecutor: probeExecutor,
+                refresh: true,
                 refreshSource: nil
             )
             guard !Task.isCancelled else { return }
-            now = acquired.now
-            windows = acquired.windows
+            now = bench.now
+            windows = bench.windows
         }
     }
 
-    /// Age-chip per-row refresh. Only that source spins; other rows stay as-is.
+    /// `alln capacity --refresh --source` — per-row live acquire.
     func refreshSource(
         _ source: String,
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
@@ -149,55 +143,40 @@ final class CapacityStripModel {
         }
         refreshTasks[source]?.cancel()
         refreshingSources.insert(source)
-        // Clear this seat's prior numbers until live result lands.
-        windows = windows.map { window in
-            guard window.source == source else { return window }
-            return CapacityWindow.unknown(
-                reason: .neverSampled,
-                source: source,
-                scope: window.scope,
-                observedAt: Date(),
-                sourceTier: window.sourceTier,
-                poolLabel: window.poolLabel,
-                planTier: window.planTier
-            )
-        }
         refreshTasks[source] = Task { @MainActor in
             defer {
                 refreshingSources.remove(source)
                 refreshTasks[source] = nil
             }
-            let acquired = await Self.acquireLiveOnly(
+            let bench = await Self.acquireSnapshot(
                 homeRoot: homeRoot,
                 historyStore: historyStore,
                 probeExecutor: probeExecutor,
+                refresh: true,
                 refreshSource: source
             )
             guard !Task.isCancelled else { return }
-            now = acquired.now
-            windows = Self.merge(prior: windows, acquired: acquired.windows, refreshedSource: source)
+            now = bench.now
+            windows = Self.merge(prior: windows, acquired: bench.windows, refreshedSource: source)
         }
     }
 
-    /// Off-main-actor live acquire. Never hydrates history into Mac strip display.
-    private static func acquireLiveOnly(
+    /// Off-main-actor SSOT acquire — same entry as `alln capacity`.
+    private static func acquireSnapshot(
         homeRoot: URL,
         historyStore: CapacityHistoryStore,
         probeExecutor: (any CapacityProbeExecuting)?,
+        refresh: Bool,
         refreshSource: String?
-    ) async -> (now: Date, windows: [CapacityWindow]) {
+    ) async -> CapacityDisplayAcquisition.Snapshot {
         await Task.detached(priority: .userInitiated) {
-            let clock = Date()
-            let windows = CapacityDisplayAcquisition.windows(
+            CapacityDisplayAcquisition.snapshot(
                 homeRoot: homeRoot,
-                now: clock,
-                refresh: true,
+                refresh: refresh,
                 refreshSource: refreshSource,
                 historyStore: historyStore,
-                probeExecutor: probeExecutor,
-                hydrateFromHistory: false
+                probeExecutor: probeExecutor
             )
-            return (clock, windows)
         }.value
     }
 

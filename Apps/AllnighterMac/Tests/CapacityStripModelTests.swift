@@ -3,7 +3,7 @@ import AllnighterCore
 import AllnighterEngine
 @testable import AllnighterMac
 
-/// Founder law 2026-08-02: Mac strip never paints history % — only live acquire.
+/// SSOT: Mac strip uses `CapacityDisplayAcquisition.snapshot` — same as `alln capacity`.
 @MainActor
 final class CapacityStripModelTests: XCTestCase {
 
@@ -43,17 +43,7 @@ final class CapacityStripModelTests: XCTestCase {
         }
     }
 
-    func testUntrustedPlaceholdersHaveNoPercentages() {
-        let windows = CapacityStripModel.untrustedPlaceholders(now: Date())
-        XCTAssertEqual(windows.count, CapacityAcquisition.benchSourceOrder.count)
-        for window in windows {
-            XCTAssertNotNil(window.unknownReason)
-            XCTAssertNil(window.usedPercent)
-            XCTAssertNil(window.remainingPercent)
-        }
-    }
-
-    func testLoadLiveNeverPaintsStaleHistoryPercentages() async throws {
+    func testLoadLiveBareSnapshotHydratesHistoryLikeCLI() async throws {
         let clock = Date()
         let resetAt = clock.addingTimeInterval(32 * 3600)
         let staleObserved = clock.addingTimeInterval(-7_200)
@@ -80,35 +70,43 @@ final class CapacityStripModelTests: XCTestCase {
         let home = tempRoot.appendingPathComponent("home", isDirectory: true)
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
 
+        let executor = CountingProbeExecutor()
         let model = CapacityStripModel()
         model.loadLive(
             homeRoot: home,
             historyStore: store,
-            probeExecutor: CountingProbeExecutor(),
-            autoRefresh: false
+            probeExecutor: executor
         )
-
-        let claude = try XCTUnwrap(model.windows.first { $0.source == "claude_code" })
-        XCTAssertNil(claude.usedPercent, "launch must not paint last-known 82% remaining")
-        XCTAssertEqual(claude.unknownReason, .neverSampled)
-    }
-
-    func testLoadLiveAlwaysRefreshesOffMainPath() async throws {
-        let executor = CountingProbeExecutor()
-        let model = CapacityStripModel()
-        model.loadLive(probeExecutor: executor)
-
-        XCTAssertTrue(model.isRefreshingAll || executor.callCount > 0 || model.windows.allSatisfy { $0.unknownReason != nil })
 
         for _ in 0..<400 where model.isRefreshingAll {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
 
-        XCTAssertGreaterThan(executor.callCount, 0, "launch must probe live — never trust history alone")
+        let claude = try XCTUnwrap(model.windows.first { $0.source == "claude_code" })
+        let used = try XCTUnwrap(claude.usedPercent)
+        XCTAssertEqual(used, 18, accuracy: 0.5, "bare launch must match alln capacity history hydrate")
+        XCTAssertEqual(
+            claude.observedAt.timeIntervalSince1970,
+            staleObserved.timeIntervalSince1970,
+            accuracy: 1.0
+        )
+        XCTAssertEqual(executor.callCount, 0, "bare launch must not probe")
+    }
+
+    func testLoadLiveDoesNotProbe() async throws {
+        let executor = CountingProbeExecutor()
+        let model = CapacityStripModel()
+        model.loadLive(probeExecutor: executor)
+
+        for _ in 0..<400 where model.isRefreshingAll {
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+
+        XCTAssertEqual(executor.callCount, 0, "bare launch is instant no-spawn — same as alln capacity")
         XCTAssertFalse(model.isRefreshingAll)
     }
 
-    func testRefreshAllReplacesWithLiveProbeNotHistory() async throws {
+    func testRefreshAllReplacesWithLiveProbe() async throws {
         let clock = Date()
         let resetAt = clock.addingTimeInterval(32 * 3600)
         let staleObserved = clock.addingTimeInterval(-7_200)
@@ -151,12 +149,11 @@ final class CapacityStripModelTests: XCTestCase {
         ])
 
         let model = CapacityStripModel()
-        model.loadLive(
-            homeRoot: home,
-            historyStore: store,
-            probeExecutor: probeExecutor,
-            autoRefresh: false
-        )
+        model.loadLive(homeRoot: home, historyStore: store, probeExecutor: probeExecutor)
+        for _ in 0..<400 where model.isRefreshingAll {
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+
         model.refreshAll(homeRoot: home, historyStore: store, probeExecutor: probeExecutor)
 
         for _ in 0..<400 where model.isRefreshingAll {
@@ -166,7 +163,7 @@ final class CapacityStripModelTests: XCTestCase {
         let refreshed = try XCTUnwrap(model.windows.first { $0.source == "claude_code" })
         let used = try XCTUnwrap(refreshed.usedPercent)
         XCTAssertEqual(used, 96, accuracy: 0.5)
-        XCTAssertNotEqual(used, 18, "must not fall back to history 18% used / 82% rem")
+        XCTAssertNotEqual(used, 18, "live refresh must replace history")
     }
 
     func testFailedLiveProbeDoesNotHydrateHistory() async throws {
@@ -211,13 +208,10 @@ final class CapacityStripModelTests: XCTestCase {
         XCTAssertNotNil(claude.unknownReason)
     }
 
-    func testLoadLiveSkipsAutoRefreshWhenDisabled() async throws {
-        let executor = CountingProbeExecutor()
-        let model = CapacityStripModel()
-        model.loadLive(probeExecutor: executor, autoRefresh: false)
-
-        try await Task.sleep(nanoseconds: 100_000_000)
-        XCTAssertEqual(executor.callCount, 0)
-        XCTAssertFalse(model.isRefreshingAll)
+    func testSnapshotMatchesCLIEntryPoint() {
+        let clock = Date()
+        let bench = CapacityDisplayAcquisition.snapshot(now: clock, refresh: false)
+        XCTAssertEqual(bench.rows.count, CapacityAcquisition.benchSourceOrder.count)
+        XCTAssertEqual(bench.now, clock)
     }
 }

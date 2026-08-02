@@ -387,9 +387,7 @@ struct AllnighterCLI {
             capacityProgress("capacity: refreshing\(target)…")
         }
 
-        // Single CLI display path (`CapacityDisplayAcquisition`). Mac GUI is
-        // out of Phase 1 scope — do not reconnect it here.
-        let windows = CapacityDisplayAcquisition.windows(
+        let bench = CapacityDisplayAcquisition.snapshot(
             now: now,
             refresh: refresh,
             refreshSource: refreshSource
@@ -397,7 +395,7 @@ struct AllnighterCLI {
         if refresh {
             capacityProgress("capacity: done")
         }
-        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        let rows = bench.rows
         if opts.flag("json") {
             let payload = CapacityStripRenderer.json(
                 rows: rows,

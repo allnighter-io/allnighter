@@ -329,17 +329,52 @@ extension CapacityWindowRecord {
 
 // MARK: - Display acquisition (live + hydrate)
 
-/// Single display path for CLI capacity (CAP-HF-00 + Phase 1 recovery).
+/// Single display path for `alln capacity` and the Mac strip (CAP-HF-00 + Phase 1).
 ///
 /// Records **live** successes only. Bare path hydrates unknowns from history so
 /// `alln capacity` shows last-known + real age. On **refresh**, seats that were
 /// attempted and failed keep their failure reason — history is not painted as
-/// live for those rows (GUI must be able to show only successfully refreshed
-/// seats from this attempt). Unprobed siblings may still hydrate.
+/// live for those rows. Unprobed siblings may still hydrate.
 ///
-/// Mac launch strip may pass `hydrateFromHistory: false` — founder law
-/// 2026-08-02 for the app surface. Phase 1 does not reconnect GUI.
+/// **SSOT:** `snapshot` is the only entry for CLI and GUI — same args, same hydrate law.
 public enum CapacityDisplayAcquisition {
+    /// Bench snapshot — identical to `alln capacity` / `alln capacity --refresh`.
+    public struct Snapshot: Sendable, Equatable {
+        public let now: Date
+        public let windows: [CapacityWindow]
+        public let rows: [CapacityBenchRow]
+
+        public init(now: Date, windows: [CapacityWindow], rows: [CapacityBenchRow]) {
+            self.now = now
+            self.windows = windows
+            self.rows = rows
+        }
+    }
+
+    /// Single entry for CLI and Mac GUI. `refresh: false` = bare instant snapshot;
+    /// `refresh: true` = live acquire (`--refresh` / `--refresh --source`).
+    public static func snapshot(
+        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        now: Date = Date(),
+        refresh: Bool = false,
+        refreshSource: String? = nil,
+        historyStore: CapacityHistoryStore = CapacityHistoryStore(),
+        probeExecutor: (any CapacityProbeExecuting)? = nil,
+        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
+    ) -> Snapshot {
+        let windows = windows(
+            homeRoot: homeRoot,
+            now: now,
+            refresh: refresh,
+            refreshSource: refreshSource,
+            historyStore: historyStore,
+            probeExecutor: probeExecutor,
+            probeTimeout: probeTimeout
+        )
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        return Snapshot(now: now, windows: windows, rows: rows)
+    }
+
     public static func windows(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         now: Date,
@@ -347,8 +382,7 @@ public enum CapacityDisplayAcquisition {
         refreshSource: String? = nil,
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
         probeExecutor: (any CapacityProbeExecuting)? = nil,
-        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout,
-        hydrateFromHistory: Bool = true
+        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
     ) -> [CapacityWindow] {
         let live = CapacityAcquisition.windows(
             homeRoot: homeRoot,
@@ -360,7 +394,6 @@ public enum CapacityDisplayAcquisition {
         )
         // Record live observations only — never re-count hydrated history.
         try? historyStore.record(live, now: now)
-        guard hydrateFromHistory else { return live }
         let history = historyStore.lastKnownWindows(
             sourceIds: CapacityAcquisition.benchSourceOrder,
             now: now

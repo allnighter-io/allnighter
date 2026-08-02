@@ -153,7 +153,7 @@ struct CapacityStripView: View {
                 Text("Refreshing capacity…")
                     .font(ALFont.sans(20, .semibold))
                     .foregroundStyle(ALColor.textSecondary)
-                Text("No number until a live sample lands — never last-known")
+                Text("Same path as alln capacity — live acquire in flight")
                     .font(ALFont.mono(11))
                     .foregroundStyle(ALColor.textMuted)
             }
