@@ -14,11 +14,21 @@
 import Foundation
 import Security
 
+// CAR-S00b: nonce/receipt live under the REAL product state root
+// (`.../Application Support/Allnighter/`), which default Codex seatbelt lists
+// as writable — the S00 `AllnighterHarness` dir was never writable inside
+// Codex and confounded leg C (the nonce write failed before `open` ran).
 let supportDir = FileManager.default.homeDirectoryForCurrentUser
-    .appendingPathComponent("Library/Application Support/AllnighterHarness", isDirectory: true)
+    .appendingPathComponent("Library/Application Support/Allnighter/car_s00_harness", isDirectory: true)
 let nonceURL = supportDir.appendingPathComponent("nonce.txt")
 let receiptURL = supportDir.appendingPathComponent("receipt.json")
-let fsProbeURL = supportDir.appendingPathComponent("fs_probe.txt")
+
+// The filesystem AUTHORITY probe deliberately targets a path default Codex
+// seatbelt does NOT list as writable (the old S00 harness dir). A sandboxed
+// caller/inherited launch must fail this write; a detached LaunchServices
+// launch must succeed. That asymmetry is the signal.
+let fsProbeURL = FileManager.default.homeDirectoryForCurrentUser
+    .appendingPathComponent("Library/Application Support/AllnighterHarness/car_s00b_fs_probe.txt")
 
 try? FileManager.default.createDirectory(at: supportDir, withIntermediateDirectories: true)
 

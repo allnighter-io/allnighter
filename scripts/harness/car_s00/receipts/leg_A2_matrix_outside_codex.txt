@@ -1,0 +1,143 @@
+=== CAR-S00b launch-primitive matrix probe ===
+date: 2026-08-02T14:20:25Z
+caller pid: 20728  ppid: 20727
+caller CODEX_SANDBOX: <absent>
+caller outside-workspace write: OK (/Users/mike/Library/Application Support/AllnighterHarness/caller_control_write.txt)
+
+=== primitive: 1. open -b (LaunchServices db lookup) ===
+cmd: open -b com.happymoose.allnighter.harness
+nonce: 39A91283-90BE-4480-B9D7-6D2244C315BB
+rc: 0
+polling for receipt (up to 20s)
+--- receipt.json ---
+{
+  "bundle_id" : "com.happymoose.allnighter.harness",
+  "codex_sandbox" : null,
+  "nonce" : "39A91283-90BE-4480-B9D7-6D2244C315BB",
+  "pid" : 20740,
+  "ppid" : 1,
+  "probes" : {
+    "filesystem_path" : "\/Users\/mike\/Library\/Application Support\/AllnighterHarness\/car_s00b_fs_probe.txt",
+    "filesystem_write" : "ok",
+    "keychain_meaning" : "errSecItemNotFound — Keychain reachable, authority OK",
+    "keychain_status" : -25300
+  },
+  "timestamp" : "2026-08-02T14:20:26Z"
+}--- authority facts from receipt ---
+receipt pid:            20740
+receipt ppid:           1
+receipt codex_sandbox:  None
+receipt keychain_status: -25300
+receipt fs write (non-writable path): ok
+PRIMITIVE VERDICT: DETACHED LAUNCH, INDEPENDENT AUTHORITY (GREEN-grade)
+
+=== primitive: 2. open <path> (by path, no LS db lookup) ===
+cmd: open /Users/mike/Applications/AllnighterHarness.app
+nonce: 7B42F0CC-47E1-4196-9A8D-06027FDF531E
+rc: 0
+polling for receipt (up to 20s)
+--- receipt.json ---
+{
+  "bundle_id" : "com.happymoose.allnighter.harness",
+  "codex_sandbox" : null,
+  "nonce" : "7B42F0CC-47E1-4196-9A8D-06027FDF531E",
+  "pid" : 20777,
+  "ppid" : 1,
+  "probes" : {
+    "filesystem_path" : "\/Users\/mike\/Library\/Application Support\/AllnighterHarness\/car_s00b_fs_probe.txt",
+    "filesystem_write" : "ok",
+    "keychain_meaning" : "errSecItemNotFound — Keychain reachable, authority OK",
+    "keychain_status" : -25300
+  },
+  "timestamp" : "2026-08-02T14:20:26Z"
+}--- authority facts from receipt ---
+receipt pid:            20777
+receipt ppid:           1
+receipt codex_sandbox:  None
+receipt keychain_status: -25300
+receipt fs write (non-writable path): ok
+PRIMITIVE VERDICT: DETACHED LAUNCH, INDEPENDENT AUTHORITY (GREEN-grade)
+
+=== primitive: 3. open -a <path> ===
+cmd: open -a /Users/mike/Applications/AllnighterHarness.app
+nonce: 60A467E2-31FD-44B6-AB1B-D67D5BFC5412
+rc: 0
+polling for receipt (up to 20s)
+--- receipt.json ---
+{
+  "bundle_id" : "com.happymoose.allnighter.harness",
+  "codex_sandbox" : null,
+  "nonce" : "60A467E2-31FD-44B6-AB1B-D67D5BFC5412",
+  "pid" : 20801,
+  "ppid" : 1,
+  "probes" : {
+    "filesystem_path" : "\/Users\/mike\/Library\/Application Support\/AllnighterHarness\/car_s00b_fs_probe.txt",
+    "filesystem_write" : "ok",
+    "keychain_meaning" : "errSecItemNotFound — Keychain reachable, authority OK",
+    "keychain_status" : -25300
+  },
+  "timestamp" : "2026-08-02T14:20:27Z"
+}--- authority facts from receipt ---
+receipt pid:            20801
+receipt ppid:           1
+receipt codex_sandbox:  None
+receipt keychain_status: -25300
+receipt fs write (non-writable path): ok
+PRIMITIVE VERDICT: DETACHED LAUNCH, INDEPENDENT AUTHORITY (GREEN-grade)
+
+=== primitive: 4. direct spawn of bundle executable (control: inherits sandbox) ===
+cmd: /Users/mike/Applications/AllnighterHarness.app/Contents/MacOS/AllnighterHarness
+nonce: EBFFBBDA-BA1F-405A-9EAD-BBA58C641362
+rc: 0
+polling for receipt (up to 20s)
+--- receipt.json ---
+{
+  "bundle_id" : "com.happymoose.allnighter.harness",
+  "codex_sandbox" : null,
+  "nonce" : "EBFFBBDA-BA1F-405A-9EAD-BBA58C641362",
+  "pid" : 20837,
+  "ppid" : 20836,
+  "probes" : {
+    "filesystem_path" : "\/Users\/mike\/Library\/Application Support\/AllnighterHarness\/car_s00b_fs_probe.txt",
+    "filesystem_write" : "ok",
+    "keychain_meaning" : "errSecItemNotFound — Keychain reachable, authority OK",
+    "keychain_status" : -25300
+  },
+  "timestamp" : "2026-08-02T14:20:28Z"
+}--- authority facts from receipt ---
+receipt pid:            20837
+receipt ppid:           20836
+receipt codex_sandbox:  None
+receipt keychain_status: -25300
+receipt fs write (non-writable path): ok
+PRIMITIVE VERDICT: RECEIPT SHOWS INHERITED/RESTRICTED AUTHORITY (not GREEN)
+
+=== primitive: 5. osascript tell application id to launch ===
+cmd: osascript -e tell application id "com.happymoose.allnighter.harness" to launch
+nonce: D9BDE372-8721-4C3E-A7AA-AC6409D395E5
+rc: 0
+polling for receipt (up to 20s)
+--- receipt.json ---
+{
+  "bundle_id" : "com.happymoose.allnighter.harness",
+  "codex_sandbox" : null,
+  "nonce" : "D9BDE372-8721-4C3E-A7AA-AC6409D395E5",
+  "pid" : 20857,
+  "ppid" : 1,
+  "probes" : {
+    "filesystem_path" : "\/Users\/mike\/Library\/Application Support\/AllnighterHarness\/car_s00b_fs_probe.txt",
+    "filesystem_write" : "ok",
+    "keychain_meaning" : "errSecItemNotFound — Keychain reachable, authority OK",
+    "keychain_status" : -25300
+  },
+  "timestamp" : "2026-08-02T14:20:28Z"
+}--- authority facts from receipt ---
+receipt pid:            20857
+receipt ppid:           1
+receipt codex_sandbox:  None
+receipt keychain_status: -25300
+receipt fs write (non-writable path): ok
+PRIMITIVE VERDICT: DETACHED LAUNCH, INDEPENDENT AUTHORITY (GREEN-grade)
+
+=== matrix summary ===
+primitives with detached independent-authority receipt: 4 / 5

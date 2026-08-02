@@ -3,11 +3,15 @@
 # and inside a real default Codex session) so the two runs are comparable.
 set -uo pipefail
 
+# CAR-S00b: harness state dir sits under the REAL product state root, which
+# default Codex seatbelt lists as writable. The caller control write below
+# deliberately targets a genuinely non-writable path (the old S00 dir).
 BUNDLE_ID="com.happymoose.allnighter.harness"
-SUPPORT_DIR="$HOME/Library/Application Support/AllnighterHarness"
+SUPPORT_DIR="$HOME/Library/Application Support/Allnighter/car_s00_harness"
 NONCE_FILE="$SUPPORT_DIR/nonce.txt"
 RECEIPT="$SUPPORT_DIR/receipt.json"
-CONTROL_FILE="$SUPPORT_DIR/caller_control_write.txt"
+CONTROL_DIR="$HOME/Library/Application Support/AllnighterHarness"
+CONTROL_FILE="$CONTROL_DIR/caller_control_write.txt"
 
 echo "=== CAR-S00 probe ==="
 echo "caller pid: $$  ppid: $PPID"
@@ -15,6 +19,7 @@ echo "caller CODEX_SANDBOX: ${CODEX_SANDBOX:-<absent>}"
 
 # --- Sandbox-active control: one write outside any workspace ----------------
 mkdir -p "$SUPPORT_DIR"
+mkdir -p "$CONTROL_DIR" 2>/dev/null || true
 if (echo "caller-control-$(date +%s)" > "$CONTROL_FILE") 2>/dev/null; then
     echo "caller outside-workspace write: OK ($CONTROL_FILE)"
 else

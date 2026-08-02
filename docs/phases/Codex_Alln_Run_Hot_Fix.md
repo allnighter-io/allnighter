@@ -1,6 +1,6 @@
 # Codex `alln run` Hot Fix
 
-Status: **BLOCKED — CAR-S00 RED (LaunchServices refused launch from default Codex); awaiting founder architecture decision per §2**
+Status: **BLOCKED — CAR-S00b RED (all five launch primitives refused or sandbox-inherited from default Codex); awaiting founder architecture decision per §2**
 Owner: CLI handoff transport + Mac app handoff host + release/install contract
 Created: 2026-08-01
 Updated: 2026-08-02
@@ -328,69 +328,103 @@ the founder choice named in §2. No implementation agent may infer that choice.
 
 ## CAR-S00 result
 
-**Verdict: RED** — leg B proved the sandbox was active, and leg C showed
-LaunchServices **refusing** the launch from inside a real default Codex
-session. The honest remaining choices named in §2 (a pre-running app/login
-item, or explicit per-session full access) are the founder's decision; this
-slice picks no architecture.
+**Verdict: RED** (CAR-S00b, supersedes the confounded first leg C) — from a
+real default Codex session, every LaunchServices launch primitive was
+refused, and the only launch that produced a receipt (direct spawn of the
+bundle executable) ran with **inherited** Seatbelt restrictions. No primitive
+produced a detached, independent-authority launch. The honest remaining
+choices named in §2 (a pre-running app/login item, or explicit per-session
+full access) are the founder's decision; this slice picks no architecture.
 
-The specific refusal that caused RED, from the leg C `open -b` call:
+### Correction: the first leg C was confounded
+
+The first leg C (receipt `leg_C_inside_codex.txt`, kept committed) recorded
+"NO RECEIPT within 30s", but its own output shows the probe could not write
+the nonce before `open` was ever reached:
 
 ```text
-open rc: 1
-open output: LSCopyApplicationURLsForBundleIdentifier() failed while trying to determine the application with bundle identifier com.happymoose.allnighter.harness.
-VERDICT: NO RECEIPT within 30s
+scripts/harness/car_s00/probe.sh: line 29: /Users/mike/Library/Application Support/AllnighterHarness/nonce.txt: Operation not permitted
+PROBE INFRA FAILURE: could not write nonce file (caller sandboxed?)
 ```
 
-### Evidence
+So "no receipt" had at least two sufficient causes and the receipt path was
+never exercised. The cause was a **harness directory choice, not the
+product's**: the harness put its nonce/receipt under
+`~/Library/Application Support/AllnighterHarness/`, which default Codex
+seatbelt does not list as writable — while the product's real state root
+`~/Library/Application Support/Allnighter/` **is** in the writable list
+(which is exactly why `SandboxHandoff.enqueue` succeeds today). CAR-S00b
+moved the harness state under
+`~/Library/Application Support/Allnighter/car_s00_harness/` and re-ran; in
+leg C′ every nonce write succeeded (no `PROBE INFRA FAILURE` lines), so each
+primitive's refusal below is measured with a live receipt path.
 
-Raw captured output (committed under `scripts/harness/car_s00/receipts/`):
+The filesystem **authority** probe deliberately still targets the old
+non-writable `AllnighterHarness` path: it must fail for a sandboxed
+caller/inherited launch and succeed for a detached LaunchServices launch.
+That asymmetry is the signal.
+
+### CAR-S00b evidence
+
+Raw captured output (committed under `scripts/harness/car_s00/receipts/`;
+all original CAR-S00 receipts kept alongside):
 
 | Leg | File | Result |
 | --- | --- | --- |
-| A — control, outside Codex | `leg_A_outside_codex.txt` | GREEN: receipt fresh (nonce match), pid 5510 ppid 1, `codex_sandbox: null`, keychain `-25300` (errSecItemNotFound — reachable), outside-workspace fs write `ok` |
-| B — sandbox-active control, inside Codex | `leg_B_inside_codex_sandbox_control.txt` | Sandbox genuinely in force: `CODEX_SANDBOX=seatbelt`; `touch .../AllnighterHarness/legB_denial_probe.txt` → `Operation not permitted`, exit 1 |
-| C — real test, inside Codex | `leg_C_inside_codex.txt` | REFUSED: caller writes denied (`Operation not permitted`), `open -b` rc 1 with the `LSCopyApplicationURLsForBundleIdentifier()` failure above, no receipt within 30s |
-| Post-C sanity check, outside Codex | `leg_C_postcheck_resolution_outside_codex.txt` | Bundle id still resolved by LaunchServices at 2026-08-02T14:13:54Z, minutes after the leg C refusal — the app was installed and registered; the refusal is attributable to the seatbelt context, not to a broken install |
+| A′ — matrix, outside Codex | `leg_A2_matrix_outside_codex.txt` | All 5 primitives launched; 4/5 detached with independent authority (ppid 1, `codex_sandbox: null`, keychain `-25300`, non-writable-path fs write `ok`). Direct-spawn control correctly showed non-detached ppid. Harness healthy. |
+| C′ — matrix, real default Codex | `leg_C2_matrix_inside_codex.txt` | RED: 0/5. Details below. Session header re-confirms `sandbox: workspace-write [...]` including `/Users/mike/Library/Application Support/Allnighter`; `CODEX_SANDBOX=seatbelt`; caller control write `Operation not permitted`. |
+| (CAR-S00, superseded) A/B/C + post-C check | `leg_A_outside_codex.txt`, `leg_B_inside_codex_sandbox_control.txt`, `leg_C_inside_codex.txt`, `leg_C_postcheck_resolution_outside_codex.txt` | Kept as the historical record; leg C was confounded as described above. |
+
+Leg C′ per-primitive results (session id `019fc2d9-48ff-76e3-957c-4da4187e428d`,
+default posture, no `--sandbox danger-full-access`, no config changes):
+
+| # | Primitive | rc | Verbatim output | Receipt? |
+| --- | --- | --- | --- | --- |
+| 1 | `open -b com.happymoose.allnighter.harness` | 1 | `LSCopyApplicationURLsForBundleIdentifier() failed while trying to determine the application with bundle identifier com.happymoose.allnighter.harness.` | none within 20s |
+| 2 | `open ~/Applications/AllnighterHarness.app` | 1 | `The application cannot be opened for an unexpected reason, error=Error Domain=NSOSStatusErrorDomain Code=-10827 "kLSNoExecutableErr: The executable is missing" UserInfo={_LSLine=4257, _LSFunction=_LSOpenStuffCallLocal}` | none within 20s |
+| 3 | `open -a "$HOME/Applications/AllnighterHarness.app"` | 1 | same `-10827 kLSNoExecutableErr` as primitive 2 | none within 20s |
+| 4 | direct spawn `.../Contents/MacOS/AllnighterHarness` (control) | 0 | (no output) | **yes** — but INHERITED: pid 22917 ppid 22916 (not 1), `codex_sandbox: "seatbelt"`, keychain `-67674` (not `-25300`), fs write to non-writable path `denied: You don't have permission to save the file "car_s00b_fs_probe.txt" in the folder "AllnighterHarness".` |
+| 5 | `osascript -e 'tell application id "..." to launch'` | 1 | `5:55: syntax error: Can't get application id "com.happymoose.allnighter.harness". (-1728)` | none within 20s |
+
+Per the verdict rules: primitives 1, 2, 3, 5 were refused outright; primitive
+4 launched but its receipt shows inherited restrictions, so it does not count
+as GREEN. **Verdict: RED.**
+
+The primitive-4 receipt is the control doing its job: it shows exactly what
+an inherited launch looks like (same-session ppid, `CODEX_SANDBOX=seatbelt`,
+Keychain denial `-67674`, fs denial) — clearly distinguishable from the
+detached leg A′ receipts (ppid 1, `codex_sandbox: null`, `-25300`, `ok`).
 
 ### Exact commands
 
 ```bash
-# Build/sign/install (Developer ID Application: Happy Moose Apps Inc. (LP5YNK7A36)),
-# install to ~/Applications/AllnighterHarness.app, lsregister -f:
+# Rebuild/sign/install (Developer ID Application: Happy Moose Apps Inc. (LP5YNK7A36)),
+# ~/Applications/AllnighterHarness.app, lsregister -f:
 scripts/harness/car_s00/build_and_install.sh
 
-# Leg A (outside Codex):
-scripts/harness/car_s00/probe.sh
+# Leg A′ (outside Codex):
+bash scripts/harness/car_s00/probe_matrix.sh
 
-# Leg B (real default Codex session, no sandbox flags, no config change):
-codex exec "Run exactly these commands from the repo root /Users/mike/Documents/GitHub/Allnighter and report their verbatim output and exit codes. ... 1) echo \"CODEX_SANDBOX=\$CODEX_SANDBOX\"  2) touch \"\$HOME/Library/Application Support/AllnighterHarness/legB_denial_probe.txt\"  3) id"
-
-# Leg C (same default Codex posture, session id 019fc2d1-8ec8-7242-918d-af81c4548298):
-codex exec "From the repo root /Users/mike/Documents/GitHub/Allnighter, run this exact command: bash scripts/harness/car_s00/probe.sh ..."
+# Leg C′ (real default Codex session, no sandbox flags, no config change):
+codex exec "From the repo root /Users/mike/Documents/GitHub/Allnighter, run this exact command: bash scripts/harness/car_s00/probe_matrix.sh — then report its complete stdout/stderr verbatim and its exit code. ..."
 ```
-
-Codex session posture in legs B and C (reported by Codex itself): `sandbox:
-workspace-write [workdir, /tmp, $TMPDIR, ..., /Users/mike/Library/Application
-Support/Allnighter]`. The harness directory `~/Library/Application
-Support/AllnighterHarness` is **not** in the writable list, which is why both
-the leg B touch and the leg C nonce write were denied — the sandbox-active
-control is unambiguous.
 
 ### Notes
 
-- The harness itself is proven: leg A launched via `open -b` outside Codex and
-  the app came up with ppid 1 (launchd, properly detached), full Keychain
-  reachability, and full filesystem authority. RED here is about Codex-side
-  launch refusal, not harness correctness.
-- Inside Codex, the sandboxed caller could not write the nonce or delete the
-  stale receipt (both denied) — expected, and itself leg-B-grade evidence. Leg
-  C was run with the receipt/nonce files pre-cleared from outside Codex so no
-  stale receipt could be mistaken for a fresh one.
-- One unanticipated observation, stated plainly: I do not know at which layer
-  the refusal occurs (LaunchServices database lookup vs. `open` spawn vs.
-  seatbelt mach-service denial) — `open` only reports the
-  `LSCopyApplicationURLsForBundleIdentifier()` failure. No workaround was
-  attempted; that is the founder's decision per §Open questions.
+- The harness itself is proven: in leg A′, outside Codex, every primitive
+  launched the app; all LaunchServices routes produced detached receipts with
+  full authority. RED here is about Codex-side launch refusal, not harness
+  correctness — and leg B's sandbox-active control is re-confirmed by the
+  leg C′ session header and the denied caller control write.
+- Primitive 1's failure is the same LaunchServices **database lookup**
+  refusal as the first leg C. Primitives 2 and 3 need no bundle-id database
+  lookup and failed differently, with `-10827 kLSNoExecutableErr "The
+  executable is missing"` — yet the executable is present, signed, and
+  directly spawnable (primitive 4 ran it, rc 0). I do not know why
+  LaunchServices reports the executable as missing under seatbelt; the error
+  text is recorded verbatim and no altered-config retry was attempted.
+- Primitive 5's `osascript` could not even resolve the application id
+  (`-1728`), consistent with the LaunchServices database being unreachable
+  from inside the sandbox.
 - Harness is product-free and temporary: `scripts/harness/car_s00/` (README
   includes cleanup steps). No product source was touched.
