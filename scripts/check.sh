@@ -57,19 +57,97 @@ if [[ -f "$MAC_APP/project.yml" ]] && command -v xcodegen >/dev/null 2>&1; then
   # CR-S07: all three Code Red skips are RETIRED — every Mac test is on the wall.
   # The two relay tests were repaired by giving them their own stub driver and
   # workers instead of seating the user's live catalog; see their doc comments.
+  #
+  # Wall-local DerivedData (not Xcode's default ~/Library/.../DerivedData):
+  # Core API renames can leave a stale AllnighterCore.swiftmodule that Engine
+  # still imports, producing "missing argument for parameter …" compile errors
+  # against sources that SPM already accepts. Isolate the wall from the IDE
+  # cache, and wipe only when Core/Engine sources outrun the cached modules
+  # (or modules disagree with each other) — warm incremental stays cheap.
+  MAC_DD="${ALLNIGHTER_MAC_DERIVED_DATA:-$ROOT/.build/DerivedData-AllnighterMac}"
+  CORE_SOURCES="$ROOT/Packages/AllnighterCore/Sources"
+  if [[ -d "$MAC_DD" ]]; then
+    # Exit 0 = stale/skewed (wipe); exit 1 = warm cache is fine.
+    if python3 - "$MAC_DD" "$CORE_SOURCES" <<'PY'
+import os, sys
+dd, src_root = sys.argv[1], sys.argv[2]
+mod_mtimes = []
+for root, dirs, files in os.walk(dd):
+    # Directory-style .swiftmodule bundles
+    for d in dirs:
+        if d == "AllnighterCore.swiftmodule" or (
+            d.endswith(".swiftmodule") and "AllnighterCore" in d and "AllnighterEngine" not in d
+        ):
+            path = os.path.join(root, d)
+            try:
+                mod_mtimes.append(os.path.getmtime(path))
+            except OSError:
+                pass
+    for f in files:
+        if not f.endswith(".swiftmodule"):
+            continue
+        path = os.path.join(root, f)
+        # Only AllnighterCore product modules (skip Engine / other packages).
+        if "AllnighterCore" not in path or "AllnighterEngine" in path:
+            continue
+        try:
+            mod_mtimes.append(os.path.getmtime(path))
+        except OSError:
+            pass
+if not mod_mtimes:
+    sys.exit(1)  # cold cache — nothing to invalidate
+src_mtimes = []
+for root, _dirs, files in os.walk(src_root):
+    for f in files:
+        if f.endswith(".swift"):
+            try:
+                src_mtimes.append(os.path.getmtime(os.path.join(root, f)))
+            except OSError:
+                pass
+# Sources newer than the oldest cached Core module → wipe.
+if src_mtimes and max(src_mtimes) > min(mod_mtimes):
+    sys.exit(0)
+# Dual-location module skew (e.g. Products/ vs PackageFrameworks/) → wipe.
+if max(mod_mtimes) - min(mod_mtimes) > 1.0:
+    sys.exit(0)
+sys.exit(1)
+PY
+    then
+      echo "check: stale/skewed AllnighterCore modules vs Packages/AllnighterCore/Sources; cleaning $MAC_DD"
+      rm -rf "$MAC_DD"
+    fi
+  fi
+  mkdir -p "$MAC_DD"
+
   export ALLNIGHTER_TEST_TOKEN
   ALLNIGHTER_TEST_TOKEN="$(python3 "$ROOT/scripts/allnighter_test_token.py" mint "$ROOT")"
   xcode_log="$(mktemp "${TMPDIR:-/tmp}/alln-xcodebuild-test.XXXXXX")"
   xcode_status=0
+  # Keep the last few progress lines on the console; full log is teed for diagnostics.
   xcodebuild test \
     -project "$MAC_APP/AllnighterMac.xcodeproj" \
     -scheme AllnighterMac \
     -destination 'platform=macOS' \
+    -derivedDataPath "$MAC_DD" \
     CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$xcode_log" | tail -3 || xcode_status=${PIPESTATUS[0]}
   if [[ "$xcode_status" -eq 0 ]] && rg -q 'TEST FAILED|with [1-9][0-9]* failures?' "$xcode_log" 2>/dev/null; then
     xcode_status=1
   fi
-  rm -f "$xcode_log"
+  if [[ "$xcode_status" -ne 0 ]]; then
+    echo "check: xcodebuild failed (exit $xcode_status). Diagnostics:"
+    # Surface compile errors and failing assertions — not just "(N failures)".
+    if command -v rg >/dev/null 2>&1; then
+      rg -n --no-heading \
+        'error: |fatal error: |\.swift:[0-9]+:[0-9]+: error:|TEST FAILED|Testing failed|with [1-9][0-9]* failures?|XCTAssert|failed \(|error: -\[|\*\* TEST BUILD FAILED \*\*|\*\* TEST FAILED \*\*|\*\* BUILD FAILED \*\*' \
+        "$xcode_log" | head -100 || true
+    else
+      grep -nE 'error: |TEST FAILED|XCTAssert|BUILD FAILED' "$xcode_log" | head -100 || true
+    fi
+    echo "check: full xcodebuild log preserved at: $xcode_log"
+    # Do not delete the log on failure — evidence is the product.
+  else
+    rm -f "$xcode_log"
+  fi
   python3 "$ROOT/scripts/allnighter_test_token.py" burn "$ROOT" "$ALLNIGHTER_TEST_TOKEN" 2>/dev/null || true
   unset ALLNIGHTER_TEST_TOKEN
   [[ "$xcode_status" -eq 0 ]] || exit "$xcode_status"
