@@ -132,7 +132,7 @@ optimize for slice JSON turning green; optimize for **upheld findings → shippe
 #   11 14 15 18 19 21 16 17 22 12 23 20 24 25 13 26 27 28 29 30 31 32
 ```
 
-Monitor live runs with `alln team status <run-id> --json` / `alln show <run-id> --json`,
+Monitor live runs with `alln show <run-id> --json` (or `--stream` to observe + deliver),
 and inspect findings under `docs/phases/code_review/findings/`.
 
 ---

@@ -184,7 +184,7 @@ Two related honesty bugs to fix in the same slice:
    -> handled explicitly, never a crash or a silent no-op.
 ```
 
-Proof command (Mac side): `alln team result <run-id> --json` shows the run with
+Proof command (Mac side): `alln show <run-id> --json` shows the run with
 `origin: ios` and the real worker roster.
 
 Missing proof / waiver: none claimed until the three gestures above pass on a

@@ -4,11 +4,10 @@ Status: CLI M1 BUILT; living product spine — owns forward naming/agent-first l
 Owner: Founder + Shared Core + CLI + Mac
 Updated: 2026-07-24
 
-> **Forward run-observation cutover (2026-08-01):** command examples below that
-> teach `alln team status` / `alln team result` are current-code history, not the
-> target grammar. [`One_Run_Surface.md`](One_Run_Surface.md) owns the authorized
-> hard cutover to `alln show <id> --json|--stream`, with no aliases or shims.
-> Do not implement or extend the older status/result split.
+> **One run surface (ORS, 2026-08-01):** single-run read is only
+> `alln show <id> --json` (snapshot) and `alln show <id> --stream` (observe +
+> terminal deliver). `team status` / `team result` / old wait flags are deleted
+> — no aliases or shims. Packet: [`One_Run_Surface.md`](One_Run_Surface.md).
 
 > **Resolved 2026-07-19 — do not re-fix.** This doc previously carried a
 > standing warning that the run journal was one-shot-at-end, so an interrupted
@@ -170,8 +169,8 @@ Core commands:
 ```bash
 alln team [prompt]                 # ask the default team, foreground
 alln run --detach [prompt]           # start a resumable/asynchronous team run
-alln team status <run-id>          # show live state for a team run
-alln team result <run-id>          # show final result for a team run
+alln show <run-id> --json          # single-run snapshot (every lifecycle)
+alln show <run-id> --stream        # reattach, observe, terminal-deliver
 alln teams                     # show current default team
 alln team edit                     # edit team lineup
 alln team deployables              # list deployable team jobs
@@ -362,8 +361,8 @@ Machine output should be explicit:
 alln team --json "..."
 alln team --stream "..."
 alln show latest --json
-alln team status run_... --json
-alln team result run_... --json
+alln show run_... --json
+alln show run_... --stream
 ```
 
 JSON is for agents, GUI tests, and external tooling. Markdown is for humans.
@@ -470,12 +469,16 @@ Sketch:
   "nextActions": [
     {
       "kind": "showRun",
-      "command": "alln show run_20260615_2214 --json"
+      "command": "alln show run_20260615_2214 --stream"
     }
   ],
+  "observation": {
+    "ownerState": "alive",
+    "activityMode": "incremental",
+    "lastActivityAt": "2026-06-15T22:14:00Z"
+  },
   "audit": {
-    "traceId": "trace_20260615_2214",
-    "runJournalPath": "~/.allnighter/runs/run_20260615_2214/run.json"
+    "traceId": "trace_20260615_2214"
   }
 }
 ```
@@ -566,8 +569,8 @@ speak CLI verbs (`alln run --detach`, not `team_start`).
 | Show available teams | `alln teams --json` | `teams_list` / `team_show` |
 | Synchronous ask | `alln team --json "..."` | (foreground CLI) |
 | Async start | `alln run --detach --json "..."` | `team_start` |
-| Status | `alln team status <run-id> --json` | `team_status` |
-| Result | `alln team result <run-id> --json` | `team_result` |
+| Run snapshot | `alln show <run-id> --json` | `team_status` / `team_result` (deleted) |
+| Observe + deliver | `alln show <run-id> --stream` | terminal waiter / status wait (deleted) |
 | Pending work | `alln pending add --project ...`, `alln pending list --project ...`, `alln pending list --all`, `alln pending submit/edit/reorder/show/cancel/run/stop --json` | `pending_*` |
 | History/recall | `alln history --json` / `alln show <run-id>` | `history_search` / `run_show` / `run_export` |
 | Doctor | `alln doctor --json` | `doctor` |

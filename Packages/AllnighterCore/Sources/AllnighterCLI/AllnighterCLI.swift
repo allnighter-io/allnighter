@@ -2030,10 +2030,10 @@ struct AllnighterCLI {
         lastSeq: Int64,
         writeLine: (String) -> Void
     ) -> RunCLI.StreamOutcome {
-        // SPEC TENSION (ORS-S02b2): the only honest recovery for "observe again"
-        // would be showRun / re-stream — a circular nextAction banned by the
-        // packet. Emit NO nextAction pending founder ruling. Silence is expected
-        // on terminalOnly; never fabricated as stuck/stalled/no-progress.
+        // PM ruling (ORS-S03e, One_Run_Surface.md — founder review at closeout):
+        // the only honest recovery for "observe again" would be showRun /
+        // re-stream — circular, banned. Emit NO nextAction; silenceExpected.
+        // Silence is expected on terminalOnly; never fabricated as stuck.
         let message =
             "observer budget expired on terminalOnly driver; silence is expected until settlement"
         writeLine(NDJSONStreamProjector.attentionRequiredLine(

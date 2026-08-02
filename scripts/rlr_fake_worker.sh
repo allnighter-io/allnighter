@@ -5,7 +5,7 @@
 # fully controllable via ENVIRONMENT variables (the driver owns argv, so the
 # harness cannot configure behaviour through arguments — only env).
 #
-# The `alln team start`/`team status`/`kill` two-process tests copy this file to
+# The `alln run` / `alln show` / kill two-process tests copy this file to
 # `<fakebin>/claude`, chmod +x, and put `<fakebin>` first on PATH. It reproduces
 # the field hang pattern from docs/phases/Run_Lifecycle_Reliability.md:
 # a live worker child whose run status/journal disagree, and a kill that stamps

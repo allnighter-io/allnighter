@@ -40,8 +40,15 @@ import Foundation
 /// **0.11.3 → 0.11.4 (OPC-S06b).** Mac About/status reads the same channel via
 /// `ReleaseChannel.checkAppUpdate` / `announceApp` (appVersion + human notes).
 /// No contract wire change.
+///
+/// **0.11.4 → 0.12.0 (ORS-S03e, `docs/phases/One_Run_Surface.md`).**
+/// `contractVersion` took major cuts in this ship batch (7.x → 8.0.0 → 9.0.0,
+/// then additive 9.1.0 for declared `alln loop` verbs): public `team status` /
+/// `team result`, old waiter flags, and `audit.runJournalPath` are deleted;
+/// one `alln show --json|--stream` surface owns single-run read + delivery.
+/// One binary minor bump for the whole batch (+0.1.0 on contract major cut).
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.11.4"
+    public static let binaryVersion = "0.12.0"
 }
 
 /// `alln version` / `alln --version` machine contract.

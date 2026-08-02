@@ -1,7 +1,7 @@
 # One Run Surface
 
-Status: **Ready for implementation — founder-authorized hard cutover;
-spec-reviewed and amended 2026-08-01; not started**
+Status: **IN FLIGHT — ORS-S00…S03 code/docs cutover shipped; ORS-S04 two-host
+Works Test and archival remain. Not complete.**
 Owner: Shared Core + CLI
 Updated: 2026-08-01
 
@@ -187,6 +187,10 @@ recreates the silent-backgrounded-wait failure this repo has already suffered.
 
 An attention exit emits one recovery `nextAction` that is never `showRun`
 itself — a self-referential next action is a poll loop with better manners.
+**Exception — `terminalOnly` observer-budget exit:** emit **no** `nextAction`
+(see [PM ruling — terminalOnly](#pm-ruling--terminalonly-observer-budget-exit)
+below). Sourced blocker and vendor wait still recover via `inspectBlocker`
+(`alln ps` / `alln capacity`).
 
 Exit-class propagation is **unconditional and documented**: `show --stream`
 exits with the run's terminal exit class, so agents chain with `;`, not `&&`.
@@ -624,26 +628,56 @@ a supported host.
 
 ## Done when
 
-- An agent learns only `alln menu`, `alln run`, and `alln show` for the hero
-  single-run workflow.
-- `alln show --json` is the complete snapshot for every lifecycle state, and its
-  `observation` block is three fields.
-- `alln show --stream` replays, follows, terminal-delivers, and always exits —
-  at terminal or at an attention boundary.
-- Detached acknowledgement returns one canonical observe-and-deliver action.
-- Observer death cannot affect run ownership.
-- `team status`, `team result`, old wait flags/schema, and private-path teaching
-  are deleted from every public/living surface.
-- No alias, shim, dual schema, or transition period exists.
-- Unknown and expected silence are explicit; liveness and activity are not
-  conflated.
-- The owner-visible host Works Test passes from two real agent hosts.
-- Keepable law is promoted to code/standing docs and this packet is archived.
+- [x] An agent learns only `alln menu`, `alln run`, and `alln show` for the hero
+  single-run workflow. (ORS-S00–S03 teaching + deletion gates)
+- [x] `alln show --json` is the complete snapshot for every lifecycle state, and its
+  `observation` block is three fields. (ORS-S01)
+- [x] `alln show --stream` replays, follows, terminal-delivers, and always exits —
+  at terminal or at an attention boundary. (ORS-S02)
+- [x] Detached acknowledgement returns one canonical observe-and-deliver action. (ORS-S03)
+- [x] Observer death cannot affect run ownership. (ORS-S02 ownership proofs)
+- [x] `team status`, `team result`, old wait flags/schema, and private-path teaching
+  are deleted from every public/living surface. (ORS-S03a–e)
+- [x] No alias, shim, dual schema, or transition period exists.
+- [x] Unknown and expected silence are explicit; liveness and activity are not
+  conflated. (incl. terminalOnly PM ruling — no fabricated recovery nextAction)
+- [ ] The owner-visible host Works Test passes from two real agent hosts. (**ORS-S04**)
+- [ ] Keepable law is promoted to code/standing docs and this packet is archived. (**ORS-S04 closeout**)
 
 ## Blocking questions
 
 None. The founder authorized the hard-cutover posture and the packet chooses the
 canonical command, contract, deletion set, and proof boundary.
+
+## PM ruling — terminalOnly observer-budget exit
+
+**PM ruling — founder review at closeout** (recorded ORS-S03e).
+
+The packet requires the attention exit to emit one recovery `nextAction` that is
+never `showRun`. For a sourced blocker and a vendor wait that resolves cleanly,
+that recovery is `inspectBlocker` → the holder/FIFO (`alln ps`) and capacity
+(`alln capacity`) surfaces.
+
+For the `terminalOnly` observer-budget expiry there is **no honest non-circular
+recovery**: nothing is wrong, nothing needs the caller, and the only real next
+move is to observe again — which is exactly the self-referential action the
+packet bans.
+
+**RULING:** emit **no** `nextAction` for the terminalOnly budget exit; label the
+silence expected (`silenceExpected: true`, `activityMode: terminalOnly`).
+
+**Rationale:** inventing an action where none is warranted is the action-shaped
+form of fabricating a verdict, which is the failure mode this packet exists to
+prevent. Code: `AllnighterCLI.emitObserverBudgetAttention` (nextAction nil).
+
+## Out-of-packet defects found by the ORS gates
+
+Hostile gates paid for themselves beyond the cutover deletion set:
+
+- **`MenuCatalog` authored-copy crash** — `model_gpt_luna` `useWhen` length 54 >
+  48. Fixed in `236fdf37`; runtime now degrades and a build-time gate was added.
+- **Seven undeclared `alln loop` verbs** — implemented in CLI but missing from
+  `ContractRegistry`; declared in `9baefbed` (contract 9.1.0 additive).
 
 ## Spec Review record (2026-08-01)
 

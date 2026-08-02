@@ -34,9 +34,9 @@ Mac agent ──dials OUT──►  command inbox + events + auth ───┘
 ## Reality check (verified in-tree, 2026-06-19)
 
 - **CLI/Core foundation exists.** `alln` is the product CLI, `TeamRunJSON` is the
-  shared machine contract, async team status/result/cancel exists, Pending/Project
-  Core pieces exist, and `alln serve` exists as a background scheduler health/wake
-  skeleton.
+  shared machine contract, single-run read is `alln show` (snapshot/stream) with
+  cancel on the team surface, Pending/Project Core pieces exist, and `alln serve`
+  exists as a background scheduler health/wake skeleton.
 - **The remote foundation is headless.** `RemoteMacAgent`, the poll coordinator,
   bootstrap wiring, command router, event sync, snapshot publisher, Supabase relay
   adapter, and Direct Mode carrier surfaces exist in Core/Engine tests. Remaining

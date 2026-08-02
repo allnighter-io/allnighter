@@ -244,12 +244,10 @@ Rule: any GUI field not listed here needs a contract owner before it ships.
 Existing surfaces:
 
 - `alln team --json` returns terminal `TeamRunJSON`.
-- `alln team --stream` returns NDJSON, but the current contract warns it is a
-  settled event log, not necessarily a live incremental feed.
-- MCP async tools use `team_start`, `team_status`, `team_result`, and
-  `team_cancel`.
-- `team_status` returns workers and `nextPollAfterMs`, and must not report fake
-  percentages.
+- `alln show <run-id> --json` is the single-run snapshot (every lifecycle);
+  `alln show <run-id> --stream` reattaches and terminal-delivers.
+- MCP as a second agent wire is retired; CLI is the only agent surface. Historical
+  tool ids (`team_start` / `team_status` / `team_result`) are not live grammar.
 
 Contract gaps before the Live Team Board is fully honest:
 

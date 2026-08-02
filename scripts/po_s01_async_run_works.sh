@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PO-S01 v2 live works test: process A `team start`, process B polls `team status`
+# PO-S01 v2 live works test: process A `team start`, process B polls `alln show`
 # every 2s and asserts status never becomes `interrupted` while the owner is
 # identity-alive. Exercises the real detached-runner + truthful-accept path.
 #
@@ -54,7 +54,18 @@ fi
 
 parse_field() {
   local json="$1" field="$2"
-  python3 -c 'import json,sys; d=json.loads(sys.argv[1]); v=d.get(sys.argv[2]); print("" if v is None else v)' "$json" "$field"
+  # TeamRunJSON (alln show --json): status/endReason live under teamRun.*;
+  # lastActivityAt under observation. Top-level keys still work for start envelopes.
+  python3 -c '
+import json,sys
+d=json.loads(sys.argv[1]); field=sys.argv[2]
+v=d.get(field)
+if v is None and isinstance(d.get("teamRun"), dict):
+    v=d["teamRun"].get(field)
+if v is None and isinstance(d.get("observation"), dict):
+    v=d["observation"].get(field)
+print("" if v is None else v)
+' "$json" "$field"
 }
 
 parse_worker_count() {
@@ -63,11 +74,12 @@ parse_worker_count() {
 import json,sys
 d=json.loads(sys.argv[1])
 want=sys.argv[2]
-workers=d.get("workers") or []
+# TeamRunJSON agents[] (not retired workers[] / TeamStatusResponse)
+workers=d.get("agents") or d.get("workers") or []
 if want=="running":
     print(sum(1 for w in workers if w.get("status")=="running"))
 elif want=="done":
-    print(sum(1 for w in workers if w.get("status") in ("completed","failed","timedOut","cancelled")))
+    print(sum(1 for w in workers if w.get("status") in ("done","completed","failed","timedOut","cancelled")))
 else:
     print(0)
 ' "$json" "$want"
@@ -112,19 +124,19 @@ STATUS=""
 END_REASON=""
 LAST_PROGRESS=""
 for i in $(seq 1 90); do
-  STATUS_JSON="$("$ALLN" team status "$RUN_ID" --json 2>/tmp/po-s01-status.err || true)"
+  STATUS_JSON="$("$ALLN" show "$RUN_ID" --json 2>/tmp/po-s01-status.err || true)"
   if [[ -z "$STATUS_JSON" ]]; then
-    echo "poll $i: empty status" >&2
+    echo "poll $i: empty show snapshot" >&2
     cat /tmp/po-s01-status.err >&2 || true
     sleep 2
     continue
   fi
   STATUS="$(parse_field "$STATUS_JSON" status)"
   END_REASON="$(parse_field "$STATUS_JSON" endReason)"
-  LAST_PROGRESS="$(parse_field "$STATUS_JSON" lastProgressAt)"
+  LAST_PROGRESS="$(parse_field "$STATUS_JSON" lastActivityAt)"
   RUNNING="$(parse_worker_count "$STATUS_JSON" running)"
   DONE_WORKERS="$(parse_worker_count "$STATUS_JSON" done)"
-  echo "poll $i: status=$STATUS running=$RUNNING done_workers=$DONE_WORKERS endReason=${END_REASON:-} lastProgressAt=${LAST_PROGRESS:-}"
+  echo "poll $i: status=$STATUS running=$RUNNING done_workers=$DONE_WORKERS endReason=${END_REASON:-} lastActivityAt=${LAST_PROGRESS:-}"
 
   if [[ "$STATUS" == "interrupted" ]]; then
     if [[ -f "$OWNER_JSON" ]]; then
@@ -150,7 +162,7 @@ for i in $(seq 1 90); do
     break
   fi
   case "$STATUS" in
-    completed|failed|cancelled|timedOut)
+    done|completed|failed|cancelled|timedOut)
       break
       ;;
   esac
@@ -165,7 +177,7 @@ fi
 
 # Cancel the still-running team so the works probe does not leave a live tree.
 case "$STATUS" in
-  completed|failed|cancelled|timedOut|interrupted) ;;
+  done|completed|failed|cancelled|timedOut|interrupted) ;;
   *)
     echo "cancel: stopping residual run $RUN_ID after ownership bar"
     CANCEL_JSON="$("$ALLN" team cancel "$RUN_ID" --json 2>/dev/null || true)"
@@ -177,11 +189,12 @@ case "$STATUS" in
 esac
 
 if [[ -z "$END_REASON" ]]; then
-  RESULT_JSON="$("$ALLN" team result "$RUN_ID" --json 2>/dev/null || true)"
+  # Terminal endReason is on TeamRunJSON.teamRun via the same show snapshot.
+  RESULT_JSON="$("$ALLN" show "$RUN_ID" --json 2>/dev/null || true)"
   if [[ -n "$RESULT_JSON" ]]; then
     END_REASON="$(python3 -c 'import json,sys; d=json.loads(sys.argv[1]); print((d.get("teamRun") or {}).get("endReason") or d.get("endReason") or "")' "$RESULT_JSON" 2>/dev/null || true)"
   fi
 fi
 
-echo "PASS: run $RUN_ID ownership ok status=$STATUS endReason=${END_REASON:-n/a} lastProgressAt=${LAST_PROGRESS:-n/a} (never interrupted while identity-alive; saw_running=$SAW_RUNNING saw_worker_done=$SAW_WORKER_DONE)"
+echo "PASS: run $RUN_ID ownership ok status=$STATUS endReason=${END_REASON:-n/a} lastActivityAt=${LAST_PROGRESS:-n/a} (never interrupted while identity-alive; saw_running=$SAW_RUNNING saw_worker_done=$SAW_WORKER_DONE)"
 exit 0
