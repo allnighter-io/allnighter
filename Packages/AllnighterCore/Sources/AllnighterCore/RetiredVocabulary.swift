@@ -93,6 +93,12 @@ public enum RetiredVocabulary {
         "--relay",
         "--pm-model",
         "--dev-model",
+        // ORS-S03b — single-run read surface is `alln show` only (no alias/shim).
+        // Do NOT add bare "--wait-for": loop/relay waiters still use that flag.
+        "alln team status",
+        "alln team result",
+        "--wait-for terminal",
+        "--persisted",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible

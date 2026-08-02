@@ -611,7 +611,8 @@
             "showArtifact",
             "showRun",
             "export",
-            "showHistory"
+            "showHistory",
+            "inspectBlocker"
           ],
           "type" : "string"
         },
@@ -625,6 +626,38 @@
       "required" : [
         "kind",
         "command"
+      ],
+      "type" : "object"
+    },
+    "Observation" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "activityMode" : {
+          "enum" : [
+            "incremental",
+            "terminalOnly",
+            "unknown"
+          ],
+          "type" : "string"
+        },
+        "lastActivityAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "ownerState" : {
+          "enum" : [
+            "alive",
+            "dead",
+            "unknown"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "ownerState",
+        "activityMode"
       ],
       "type" : "object"
     },
@@ -1464,6 +1497,9 @@
       },
       "type" : "array"
     },
+    "observation" : {
+      "$ref" : "#\/$defs\/Observation"
+    },
     "outcome" : {
       "oneOf" : [
         {
@@ -1552,7 +1588,8 @@
     "errors",
     "nextActions",
     "artifact",
-    "audit"
+    "audit",
+    "observation"
   ],
   "title" : "TeamRunJSON",
   "type" : "object"

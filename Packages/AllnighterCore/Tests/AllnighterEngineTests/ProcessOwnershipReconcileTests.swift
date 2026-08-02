@@ -310,17 +310,17 @@ final class ProcessOwnershipReconcileTests: XCTestCase {
         XCTAssertEqual(trj.teamRun.status, .interrupted)
     }
 
-    func testStatusResponseDoesNotInferEndReason() {
+    /// ORS-S03b: lifecycle projection via liveStatus (statusResponse deleted).
+    func testLiveStatusDoesNotInferEndReason() {
         var run = nonTerminalRun(id: "status-end")
         run.status = .failed
-        // nil endReason must stay nil (never inferred).
-        let status = AsyncTeamStatusMapper.statusResponse(for: run)
-        XCTAssertNil(status.endReason)
-        XCTAssertEqual(status.status, .failed)
+        // nil endReason must stay nil (never inferred by lifecycle projection).
+        XCTAssertNil(run.endReason)
+        XCTAssertEqual(AsyncTeamStatusMapper.liveStatus(for: run), .failed)
 
         run.endReason = .failed
-        let stamped = AsyncTeamStatusMapper.statusResponse(for: run)
-        XCTAssertEqual(stamped.endReason, "failed")
+        XCTAssertEqual(run.endReason, .failed)
+        XCTAssertEqual(AsyncTeamStatusMapper.liveStatus(for: run), .failed)
     }
 
     func testUnknownEndReasonIsHonest() {

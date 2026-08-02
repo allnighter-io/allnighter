@@ -208,4 +208,90 @@ final class OneRunSurfaceShowOwnershipTests: XCTestCase {
         XCTAssertEqual(obs["ownerState"] as? String, "alive")
         XCTAssertEqual(obs["activityMode"] as? String, "terminalOnly")
     }
+
+    // MARK: - ORS-S03b negative proof: retired read verbs never touch a run
+
+    /// Packet proof: old commands exit usage error without touching a run
+    /// (no forward, no alias, no execution).
+    func testRetiredTeamStatusAndResultExitUsageWithoutTouchingRun() throws {
+        let alln = try locateAllnBinary()
+        let support = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ors-s03b-retired-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: support) }
+
+        let store = RunStore(rootDirectory: support.appendingPathComponent("Runs", isDirectory: true))
+        let runId = "run_retired_cmd"
+        var run = nonTerminalRun(id: runId)
+        run.prompt = "do not mutate me"
+        try store.save(run, models: [])
+        let runJSON = try store.runDirectory(forRunId: runId).appendingPathComponent("run.json")
+        let before = try Data(contentsOf: runJSON)
+        let beforeMod = try FileManager.default.attributesOfItem(atPath: runJSON.path)[.modificationDate] as? Date
+
+        let env = [
+            "ALLNIGHTER_SUPPORT_DIR": support.path,
+            "ALLNIGHTER_SKIP_LOGIN_PATH_BOOTSTRAP": "1",
+            "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
+            "HOME": support.path,
+        ]
+
+        for args in [
+            ["team", "status", runId, "--json"],
+            ["team", "result", runId, "--json"],
+        ] {
+            let result = try runAlln(alln, args, env: env)
+            XCTAssertEqual(
+                result.status, ExitCode.usageError,
+                "\(args.joined(separator: " ")) must exit CLI usage (2), got \(result.status)"
+            )
+            let blob = result.stdout + result.stderr
+            XCTAssertTrue(
+                blob.contains("CLI_USAGE_ERROR") || blob.contains("retired"),
+                "expected usage/retired failure for \(args): \(blob.prefix(400))"
+            )
+            XCTAssertFalse(
+                blob.contains("\"runId\""),
+                "retired command must not emit a run snapshot: \(blob.prefix(400))"
+            )
+            // Must name the replacement without executing it.
+            XCTAssertTrue(
+                blob.contains("alln show") || blob.lowercased().contains("show"),
+                "error may name alln show as replacement: \(blob.prefix(400))"
+            )
+        }
+
+        let after = try Data(contentsOf: runJSON)
+        XCTAssertEqual(before, after, "retired commands must not mutate the journal")
+        let afterMod = try FileManager.default.attributesOfItem(atPath: runJSON.path)[.modificationDate] as? Date
+        XCTAssertEqual(beforeMod, afterMod, "retired commands must not touch run mtime")
+    }
+
+    private func locateAllnBinary() throws -> URL {
+        let buildDir = Bundle(for: OneRunSurfaceShowOwnershipTests.self).bundleURL.deletingLastPathComponent()
+        let binary = buildDir.appendingPathComponent("alln")
+        XCTAssertTrue(
+            FileManager.default.isExecutableFile(atPath: binary.path),
+            "alln binary missing at \(binary.path) — build the alln product first"
+        )
+        return binary
+    }
+
+    private struct ProcessResult { var status: Int32; var stdout: String; var stderr: String }
+
+    private func runAlln(_ alln: URL, _ arguments: [String], env: [String: String]) throws -> ProcessResult {
+        let process = Process()
+        process.executableURL = alln
+        process.arguments = arguments
+        process.environment = env
+        let out = Pipe(); let err = Pipe()
+        process.standardOutput = out; process.standardError = err
+        try process.run()
+        process.waitUntilExit()
+        return ProcessResult(
+            status: process.terminationStatus,
+            stdout: String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self),
+            stderr: String(decoding: err.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        )
+    }
 }

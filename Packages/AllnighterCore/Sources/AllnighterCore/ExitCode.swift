@@ -31,7 +31,7 @@ public enum ExitCode {
         (0, "success", "Command completed; under --json the envelope is a success payload."),
         (1, "runFailed", "Well-formed command, but the operation failed or the requested entity/state was unavailable."),
         (2, "usageError", "Command/subcommand/flag/argument was invalid before any work started."),
-        (3, "timeout", "A bounded wait expired before the target condition (team status --wait-for, team-run time budget)."),
+        (3, "timeout", "A bounded wait expired before the target condition (loop status --wait-for, team-run time budget)."),
         (4, "laneBusy", "Per-root execution/write lane stayed busy past the wait bound (EXECUTION_LANE_BUSY / RUN_WRITE_LOCK_BUSY)."),
     ]
 }

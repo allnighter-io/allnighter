@@ -142,7 +142,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // QABC-S00e bumps contract 7.0.0 → 7.1.0 (additive: optional `MenuJSON.capacity`).
         // ORS-S02b1 bumps contract 7.4.0 → 7.5.0 (additive: show --stream + inspectBlocker).
         // ORS-S02b2 bumps contract 7.5.0 → 7.6.0 (additive: attentionRequired + live follow).
-        XCTAssertEqual(trj.contractVersion, "7.6.0")
+        // ORS-S03b bumps contract 7.6.0 → 8.0.0 (major: delete team status/result + schemas).
+        XCTAssertEqual(trj.contractVersion, "8.0.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"

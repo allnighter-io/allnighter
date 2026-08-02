@@ -79,8 +79,17 @@ struct AllnighterCLI {
         case "thread" where args.first == "rename": await ThreadRenameCLI.runRename(Array(args.dropFirst()), runtime: runtime)
         case "run": await RunCLI.run(args, runtime: runtime)
         case "continuity": runContinuity(args)
-        case "team" where args.first == "status": await runTeamStatus(Array(args.dropFirst()), runtime)
-        case "team" where args.first == "result": await runTeamResult(Array(args.dropFirst()), runtime)
+        // ORS-S03b: team status / team result hard-deleted — usage error only, never execute/forward.
+        case "team" where args.first == "status":
+            fail(
+                code: "CLI_USAGE_ERROR",
+                message: "team status is retired — use `alln show <run-id> --json` (or `--stream`) instead."
+            )
+        case "team" where args.first == "result":
+            fail(
+                code: "CLI_USAGE_ERROR",
+                message: "team result is retired — use `alln show <run-id> --json` instead."
+            )
         case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
         case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()), runtime)
         case "doctor": await runDoctor(args, runtime)
@@ -1195,160 +1204,6 @@ struct AllnighterCLI {
         return result
     }
 
-
-    /// One live Team status snapshot. `AsyncTeamService` reconciles process
-    /// truth against the journal before answering, which is the reconciliation
-    /// the deleted resident hop used to be credited with.
-    static func teamStatusSnapshot(runId: String, _ runtime: ToolRuntime) async -> TeamStatusResponse {
-        guard let status = await runtime.asyncTeamService().status(runId: runId) else {
-            failRunNotFound(runId, "no run matches \(runId)", in: await runtime.asyncTeamService().runStore)
-        }
-        return status
-    }
-
-    /// `alln team status <run-id> --json [--persisted | --wait-for <state> --timeout <seconds>]`
-    /// Plain status is a single snapshot. With `--wait-for`, blocks in-process
-    /// until the target (or a non-matching terminal) or timeout (PO-F3).
-    static func runTeamStatus(_ args: [String], _ runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard opts.flag("json"), let runId = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln team status <run-id> --json [--persisted | --wait-for <state> --timeout <seconds>]\n".utf8))
-            exit(ExitCode.usageError)
-        }
-
-        if opts.flag("persisted") {
-            let store = RunStore()
-            let run: TeamRun
-            switch store.loadRawResult(runId: runId) {
-            case .success(.some(let value)):
-                run = value
-            case .success(.none), .failure:
-                // Explicitly requested journal access still distinguishes a
-                // missing/corrupt journal through the standard typed error.
-                failRunNotFound(runId, "no persisted run matches \(runId)", in: store)
-            }
-            let sequence: Int64
-            do {
-                sequence = try RemoteRunEventJournal().events(forRunId: runId).last?.seq ?? 0
-            } catch {
-                fail(
-                    code: "JOURNAL_CORRUPT",
-                    message: "persisted event journal for \(runId) could not be read: \(error)",
-                    supportDir: effectiveSupportDir()
-                )
-            }
-            print(jsonString(PersistedTeamStatusResponse(
-                eventSequence: sequence,
-                status: AsyncTeamStatusMapper.statusResponse(for: run)
-            )))
-            return
-        }
-
-        let waitRaw = opts.value("wait-for")
-        let timeoutRaw = opts.value("timeout")
-        if waitRaw == nil && timeoutRaw == nil {
-            print(jsonString(await teamStatusSnapshot(runId: runId, runtime)))
-            return
-        }
-        guard let waitRaw else {
-            fail(code: "CLI_USAGE_ERROR", message: "--timeout requires --wait-for <state>")
-        }
-        guard let timeoutRaw else {
-            fail(code: "CLI_USAGE_ERROR", message: "--wait-for requires --timeout <seconds>")
-        }
-        guard let target = TeamStatusWaitTarget.parse(waitRaw) else {
-            fail(
-                code: "CLI_USAGE_ERROR",
-                message: "unknown --wait-for state: \(waitRaw) (use queued|running|done|failed|timedOut|cancelled|terminal)"
-            )
-        }
-        guard let timeoutSeconds = Double(timeoutRaw), timeoutSeconds >= 0 else {
-            fail(code: "CLI_USAGE_ERROR", message: "--timeout must be a non-negative number of seconds")
-        }
-
-        let timeoutMs = max(0, Int((timeoutSeconds * 1_000.0).rounded()))
-        let deadline = Date().addingTimeInterval(Double(timeoutMs) / 1_000.0)
-        var outcome: TeamStatusWaitOutcome
-        while true {
-            let response = await teamStatusSnapshot(runId: runId, runtime)
-            if target.matches(response.status) {
-                var matched = response
-                matched.waitHintSeconds = 0
-                matched.nextAction = AsyncTeamStatusMapper.nextAction(for: response)
-                outcome = .init(response: matched, timedOut: false, terminalMismatch: false)
-                break
-            }
-            if response.status.isTerminal {
-                outcome = .init(response: response, timedOut: false, terminalMismatch: true)
-                break
-            }
-            if Date() >= deadline {
-                outcome = .init(response: response, timedOut: true, terminalMismatch: false)
-                break
-            }
-            let delay = min(max(50, response.nextPollAfterMs), 5_000)
-            try? await Task.sleep(for: .milliseconds(delay))
-        }
-
-        print(jsonString(outcome.response))
-        if outcome.timedOut {
-            // STATUS_WAIT_TIMEOUT → exit 3 (stable timeout class).
-            exit(ContractRegistry.milestone1.processExitCode(forErrorCode: "STATUS_WAIT_TIMEOUT"))
-        }
-        if outcome.terminalMismatch {
-            // Target not reached; run is terminal — class by lifecycle status.
-            switch outcome.response.status {
-            case .failed:
-                exit(ExitCode.runFailed)
-            case .timedOut:
-                exit(ExitCode.timeout)
-            case .done, .cancelled:
-                exit(ExitCode.success)
-            case .queued, .running:
-                exit(ExitCode.runFailed)
-            }
-        }
-        // Target matched — exit by status class when the target itself is a failure.
-        switch outcome.response.status {
-        case .failed:
-            exit(ExitCode.runFailed)
-        case .timedOut:
-            exit(ExitCode.timeout)
-        case .done, .cancelled, .queued, .running:
-            exit(ExitCode.success)
-        }
-    }
-
-    /// `alln team result <run-id> --json`
-    static func runTeamResult(_ args: [String], _ runtime: ToolRuntime) async {
-        let opts = Options(args)
-        guard opts.flag("json"), let runId = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln team result <run-id> --json\n".utf8))
-            exit(2)
-        }
-        let service = runtime.asyncTeamService()
-        let runStore = await service.runStore
-        switch await service.result(runId: runId) {
-        case .notFound:
-            failRunNotFound(runId, "no run matches \(runId)", in: runStore)
-        case .notReady(let notReady):
-            print(jsonString(notReady))
-        case .ready(let run):
-            let directory = try? runStore.runDirectory(forRunId: run.id)
-            let pmTurn = pmTurnProjection(for: run, store: runStore)
-            print(jsonString(TeamRunJSONMapper.map(
-                run,
-                models: runtime.models,
-                manifests: runtime.registry.all,
-                context: .init(
-                    runJournalPath: directory?.appendingPathComponent("run.json").path ?? "",
-                    runDirectory: directory,
-                    pmTurn: pmTurn.pmTurn,
-                    pmTurnNotes: pmTurn.notes
-                )
-            )))
-        }
-    }
 
     /// `alln team cancel <run-id> --json`
     static func runTeamCancel(_ args: [String], _ runtime: ToolRuntime) async {

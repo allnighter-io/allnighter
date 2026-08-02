@@ -69,7 +69,7 @@ final class ExitCodeContractTests: XCTestCase {
 
     func testTimeoutAndLaneBusyClassesMapToDistinctCodes() {
         XCTAssertEqual(registry.processExitCode(forErrorCode: "TEAM_RUN_TIMEOUT"), ExitCode.timeout)
-        XCTAssertEqual(registry.processExitCode(forErrorCode: "STATUS_WAIT_TIMEOUT"), ExitCode.timeout)
+        XCTAssertEqual(registry.processExitCode(forErrorCode: "PM_TURN_WAIT_TIMEOUT"), ExitCode.timeout)
         XCTAssertEqual(registry.processExitCode(forErrorCode: "EXECUTION_LANE_BUSY"), ExitCode.laneBusy)
         XCTAssertEqual(registry.processExitCode(forErrorCode: "RUN_WRITE_LOCK_BUSY"), ExitCode.laneBusy)
         XCTAssertNotEqual(ExitCode.timeout, ExitCode.laneBusy)

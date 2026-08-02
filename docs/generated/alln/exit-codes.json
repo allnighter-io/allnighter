@@ -16,7 +16,7 @@
   },
   {
     "code" : 3,
-    "meaning" : "A bounded wait expired before the target condition (team status --wait-for, team-run time budget).",
+    "meaning" : "A bounded wait expired before the target condition (loop status --wait-for, team-run time budget).",
     "name" : "timeout"
   },
   {

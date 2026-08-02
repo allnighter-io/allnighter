@@ -156,8 +156,8 @@ public enum HelpTopicRegistry {
                 .init("pending", "Pending", "Defer with `alln pending add`; execute later with `alln pending run`."),
             ],
             relatedCommandNames: ["help search", "help get", "menu", "run",
-                                  "team result", "thread send",
-                                  "pending add", "pending run", "spec", "show"],
+                                  "show", "thread send",
+                                  "pending add", "pending run", "spec"],
             schemaRefs: ["teamStartResponse"],
             needsLiveCheck: true),
 
@@ -215,13 +215,13 @@ public enum HelpTopicRegistry {
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
                 .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` on `run`."),
                 .init("vendor-controls", "Vendor CLI controls", "No `--temperature` / `--max-tokens` on `alln run`. Use `--effort`, `--model`, and the selected subscription CLI's own supported flags."),
-                .init("delivery", "Terminal delivery", "Use one `alln team status <run-id> --wait-for terminal --timeout 7200 --json` call to receive the terminal pmTurn; do not poll or use run resume for terminal delivery."),
-                .init("no-wait", "Detached runs", "`alln run --no-wait` returns delivery.path=wait and an exact delivery.command. Do other work, then run that command once; its status JSON includes the terminal pmTurn. `--idempotency-key` is the explicit, deliberate retry-safety contract — it is opt-in, not derived, so two intentionally identical runs are never silently collapsed into one."),
+                .init("delivery", "Terminal delivery", "Use one `alln show <run-id> --stream` call to reattach and receive the terminal pmTurn; do not poll or use run resume for terminal delivery."),
+                .init("no-wait", "Detached runs", "`alln run --no-wait` returns delivery.path=wait and an exact delivery.command. Do other work, then run that command once; its stream delivers the terminal pmTurn. `--idempotency-key` is the explicit, deliberate retry-safety contract — it is opt-in, not derived, so two intentionally identical runs are never silently collapsed into one."),
                 .init("read-only", "Parallel feedback", "Doc/spec feedback without competing for the mutator: `alln run --read-only --model <id>`. Build work uses default mutating `alln run`. `--no-commit` is commit instruction only — it still takes the write lock and queues FIFO."),
                 .init("usage", "Observed tokens & duration", "Live `pilot status` / `relay-status` show elapsed + observed tokens (or CLI blame when unreported). Terminal receipts and TeamRunJSON answers carry per-seat duration and usage when the driver reported it — never invented totals."),
             ],
-            relatedCommandNames: ["run", "team status", "team result", "team cancel", "team reconcile", "floor show"],
-            schemaRefs: ["teamStartResponse", "teamStatusResponse", "teamRunJSON"],
+            relatedCommandNames: ["run", "show", "team cancel", "team reconcile", "floor show"],
+            schemaRefs: ["teamStartResponse", "teamRunJSON"],
             needsLiveCheck: true),
 
         HelpTopic(
@@ -281,7 +281,7 @@ public enum HelpTopicRegistry {
                 .init("pm", "Reassign the PM chair mid-loop", "Hold the first rounds yourself while context is hot, then `loop pm <loop-id> <agent-id>` converts a parked caller-held loop (`awaitingPM` or `escalated`) to a spawned PM and keeps going from the durable round log — same id, same rounds, same thread. The reverse, `loop pm <loop-id> caller`, hands a parked spawned loop (escalated, or ceiling-stopped) back to the caller — a plain state flip, no dispatch."),
                 .init("golden", "Golden paths (day one)", "Attended: `alln menu --json` → `alln run` → `alln artifact show`. Unattended: `alln loop start \"<what you want done>\"` → `loop status <loop-id> --json` (or wait for a macOS notification). Status reads reconcile dead owners automatically — no manual `team reconcile` on the happy path. Default `alln ps` shows the alive floor; `alln ps --all` is history."),
                 .init("notify", "You do not have to watch", "Dispatching `loop step`, `loop start`, `loop resume`, or `loop pm` auto-starts `alln serve` in the background (silent, opt out with `--no-auto-serve` or `ALLN_NO_AUTO_SERVE`). When the round lands or escalates — even with the Mac app closed and the CLI session that dispatched it long gone — a local notification fires: \"PM Relay needs an answer\" on escalation, or the normal completion notice when it settles. Stream silence on a running loop also notifies when agent output stalls. Neither you nor the human has to poll `loop status` or build a watcher for this; `alln serve` already knows."),
-                .init("survive", "The round outlives your session", "`--no-wait` on `loop start` / `loop resume` / `loop pm` dispatches, then returns delivery.path=wait and one exact `loop status --wait-for terminal` command. A killed caller is not a killed loop: the round keeps advancing under its own process. A second dispatch against an already-active loop is refused with `RELAY_ALREADY_ACTIVE`, not raced onto the same doc."),
+                .init("survive", "The round outlives your session", "`--no-wait` on `loop start` / `loop resume` / `loop pm` dispatches, then returns delivery.path=wait and one exact `loop status --wait-for parked|terminal` command. A killed caller is not a killed loop: the round keeps advancing under its own process. A second dispatch against an already-active loop is refused with `RELAY_ALREADY_ACTIVE`, not raced onto the same doc."),
             ],
             relatedCommandNames: ["loop start", "project add", "project show"],
             schemaRefs: ["relayJSON"],
@@ -605,7 +605,7 @@ public enum HelpTopicRegistry {
             relatedCommandNames: [
                 "bootstrap", "help get", "help search", "menu",
                 "loop start", "run",
-                "team status", "team result", "team cancel",
+                "show", "team cancel",
             ],
             needsLiveCheck: false
         )

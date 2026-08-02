@@ -744,10 +744,9 @@ final class RunAcceptanceBoundaryTests: XCTestCase {
             "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
             "HOME": support.path,
         ]
-        // 88860049 routed bare `team status` to a live resident query; RUN_NOT_FOUND
-        // (with the effective supportDir envelope) is emitted by the durable-journal
-        // read that 12fcd8a2 made explicit as `--persisted`.
-        let result = try runAlln(alln, ["team", "status", "does-not-exist", "--json", "--persisted"], env: env)
+        // ORS-S03b: canonical single-run read is `alln show`; RUN_NOT_FOUND names
+        // the effective support dir on the typed error envelope.
+        let result = try runAlln(alln, ["show", "does-not-exist", "--json"], env: env)
         let obj = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(result.stdout.utf8)) as? [String: Any],
             "expected a JSON error object, got: \(result.stdout.prefix(300))")

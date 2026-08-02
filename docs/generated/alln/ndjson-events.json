@@ -59,6 +59,20 @@
     ]
   },
   {
+    "name" : "teamRunSnapshot",
+    "requiredData" : [
+      "teamRun"
+    ]
+  },
+  {
+    "name" : "attentionRequired",
+    "requiredData" : [
+      "reason",
+      "activityMode",
+      "message"
+    ]
+  },
+  {
     "name" : "teamRunCompleted",
     "requiredData" : [
       "status",

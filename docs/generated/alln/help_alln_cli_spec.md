@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 7.4.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 8.0.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -581,37 +581,6 @@ Flags:
 
 Examples: `skills_gc_json`.
 
-### `alln team status`
-
-Read resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for terminal, one bounded call delivers the terminal pmTurn; it never requires an external poll spin.
-
-Arguments:
-- `run-id` (required) — The run id of an accepted async run.
-
-Flags:
-- `--json` — Structured TeamStatusResponse.
-- `--persisted` — Read the durable journal only. Returns PersistedTeamStatusResponse with source=journal, live=false, eventSequence, and observedAt; cannot establish worker liveness.
-- `--wait-for <queued|running|done|failed|timedOut|cancelled|terminal>` — Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`.
-- `--timeout <seconds>` — Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached.
-
-Mutually exclusive: `--persisted`, `--wait-for`.
-
-Mutually exclusive: `--persisted`, `--timeout`.
-
-Output schema: `teamStatusResponse`.
-
-### `alln team result`
-
-Fetch TeamRunJSON when an async run is terminal.
-
-Arguments:
-- `run-id` (required) — The run id of an accepted async run.
-
-Flags:
-- `--json` — TeamRunJSON or not-ready envelope.
-
-Output schema: `teamRunJSON`.
-
 ### `alln team cancel`
 
 Cancel an active async team run.
@@ -706,7 +675,7 @@ Flags:
 - `--message-id <id>` — Origin message id.
 - `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote.
 - `--json` — Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait.
-- `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run.
+- `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Shared framing: immediate snapshot first, bounded replay, live follow of new events, exactly one terminal frame. Ends at terminal or attention-required boundary; terminal exit class propagates unconditionally (no opt-in). Mutually exclusive with conflicting mode flags.
 - `--no-wait` — Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 
@@ -956,14 +925,17 @@ Output schema: `relayJSON`.
 
 ### `alln show`
 
-Show one run.
+Show one run. Snapshot (`--json`) or reattachable stream (`--stream`): immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.
 
 Arguments:
 - `run-id|latest` (required) — A run id or `latest`.
 
 Flags:
 - `--json` — Emit the run as TeamRunJSON.
-- `--full` — Include resolved worker prompt snapshots (audit).
+- `--full` — Include resolved worker prompt snapshots (audit). Mutually exclusive with --stream.
+- `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Shared framing: immediate snapshot first, bounded replay, live follow of new events, exactly one terminal frame. Ends at terminal or attention-required boundary; terminal exit class propagates unconditionally (no opt-in). Mutually exclusive with conflicting mode flags.
+
+Mutually exclusive: `--full`, `--stream`.
 
 Output schema: `teamRunJSON`.
 
@@ -1540,7 +1512,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `0` | `success` | Command completed; under --json the envelope is a success payload. |
 | `1` | `runFailed` | Well-formed command, but the operation failed or the requested entity/state was unavailable. |
 | `2` | `usageError` | Command/subcommand/flag/argument was invalid before any work started. |
-| `3` | `timeout` | A bounded wait expired before the target condition (team status --wait-for, team-run time budget). |
+| `3` | `timeout` | A bounded wait expired before the target condition (loop status --wait-for, team-run time budget). |
 | `4` | `laneBusy` | Per-root execution/write lane stayed busy past the wait bound (EXECUTION_LANE_BUSY / RUN_WRITE_LOCK_BUSY). |
 
 ## Error codes
@@ -1567,7 +1539,6 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `AGENT_FAILED` | no | yes | `operational` | Inspect `agentId` and source error; failed agent remains visible. |
 | `PLAN_WRITER_FAILED` | no | yes | `operational` | Retry with a ready plan writer or export worker answers. |
 | `TEAM_RUN_TIMEOUT` | no | yes | `timeout` | Retry with lower effort or fewer workers. |
-| `STATUS_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume. |
 | `PM_TURN_WAIT_TIMEOUT` | no | yes | `timeout` | Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command. |
 | `PM_TURN_WAKE_UNCONFIGURED` | yes | yes | `operational` | Configure machine-level pmTurnWake.command, then retry `--no-wait --delivery wake`; or omit --delivery and run the returned status waiter. |
 | `PM_TURN_WAKE_FAILED` | yes | yes | `operational` | Read status JSON for pmTurnDelivery, fix the receiver, then use the terminal/parked status waiter to recover the durable pmTurn. |
@@ -1582,7 +1553,6 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD` | no | no | `operational` | Generate a new key or reuse the original payload. |
 | `IDEMPOTENCY_EXPIRED` | no | no | `operational` | Generate a new idempotency key. |
 | `RETRY_OF_SURVIVORS` | no | yes | `operational` | Wait for verified stop, or pass --accept-survivors. |
-| `RESULT_NOT_READY` | no | yes | `operational` | Wait with `alln team status <id> --wait-for terminal --timeout <s> --json`, then read its pmTurn or call team result. |
 | `RUN_NOT_TERMINAL` | yes | yes | `operational` | Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`. |
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
@@ -1650,7 +1620,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | `operational` | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |
 | `KILL_PARTIAL` | no | yes | `operational` | The run stays non-terminal with survivors named. Inspect them with `alln ps --json`, then retry `alln kill <id>` or escalate manually; the tool refuses to stamp `killed` over live work. |
 | `KILL_REFUSED` | yes | no | `operational` | No recorded member could be signalled (all identity-mismatched or non-PG-killable). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans; do not re-signal a recycled pid. |
-| `KILL_VERIFICATION_UNAVAILABLE` | yes | no | `operational` | The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified. |
+| `KILL_VERIFICATION_UNAVAILABLE` | yes | no | `operational` | The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — read `alln show <run-id> --json` or stop the worker at its source; the tool will not stamp `killed` unverified. |
 | `THREAD_SEND_FAILED` | no | yes | `operational` | Inspect the error detail; retry the send or fix the worker. |
 | `MODEL_NOT_FOUND` | yes | no | `operational` | List ids with `alln menu --json` or `alln models --json` and retry with a valid ModelID. |
 | `MODEL_BUILTIN_IMMUTABLE` | yes | no | `operational` | Duplicate the built-in model, then edit the custom copy. |
@@ -1689,6 +1659,8 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `planWritten` | `agentId`, `stageId`, `durationMs` |
 | `workerActivity` | `agentId`, `activityKind` |
 | `stageActivity` | `stageId`, `activityKind` |
+| `teamRunSnapshot` | `teamRun` |
+| `attentionRequired` | `reason`, `activityMode`, `message` |
 | `teamRunCompleted` | `status`, `planStageId`, `durationMs` |
 | `teamRunFailed` | `status`, `error` |
 | `error` | `error` |
@@ -1701,11 +1673,32 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 ## Run stream mode (`--stream`)
 
 `--stream` emits **NDJSON**: one JSON object per line on stdout. Human progress
-never mixes into stdout. Events are ordered by durable `seq`. A stream ends with
-exactly one terminal event among `error`, `teamRunCompleted`, `teamRunFailed`.
+never mixes into stdout. Events are ordered by durable `seq`. `run --stream` and
+`show --stream` share **one** frame schema.
+
+Frame order on `show --stream`:
+1. **Immediate snapshot first** — current run snapshot (`TeamRunJSON`, including
+   observation) before any replay, for every lifecycle state including queued.
+2. **Bounded replay** of recent durable activity (marked `replayed: true`).
+3. **Live follow** of new run events (when the run is still live).
+4. Exactly one terminal frame among `error`, `teamRunCompleted`, `teamRunFailed` carrying the terminal
+   `TeamRunJSON` and `pmTurn`, then exit.
+
+A stream ends at terminal **or** at an **attention-required** boundary (sourced
+blocker, vendor wait, or observer budget on a terminalOnly driver). It never
+blocks forever. On `terminalOnly`, the observer budget is the run's wall-clock
+fact when present, else 7200s (replacing the deleted waiter timeout); on
+`incremental`, follow until terminal or a sourced attention cause — no
+wall-clock budget on healthy long work. Recovery nextAction is never `showRun`
+(self-referential poll loop). Observer is disposable: killing `show --stream`
+leaves the run untouched.
+
+**Terminal exit class propagates unconditionally** — no `--exit-status` opt-in.
+Agents chain with `;`, not `&&`.
 
 On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--no-wait`
 (registry constraints; invalid combinations exit 2 before any provider start).
+On `show`, `--stream` is mutually exclusive with `--full`.
 ## Model controls (vendor CLI boundary)
 
 `alln run` drives **subscription CLIs** the user already pays for. It does **not**
@@ -1719,6 +1712,7 @@ the selected CLI.
 - `showRun` — Show the full run.
 - `export` — Export the result bundle.
 - `showHistory` — List recent runs.
+- `inspectBlocker` — Inspect a sourced blocker, vendor wait, or attention-required stream exit; not a stream reattach.
 - `submitPending` — Submit a Draft item to Pending.
 - `runPending` — Run a Pending item now.
 - `showPending` — Show one Pending item.

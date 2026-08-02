@@ -565,113 +565,7 @@ public actor AsyncTeamService {
         }
     }
 
-    // MARK: - status / result / cancel / reconcile
-
-    /// Explicit path: may reconcile (kill + terminal write) under per-run flock.
-    public func status(runId: String) -> TeamStatusResponse? {
-        _ = runStore.reconcileRun(runId: runId, models: models)
-        guard let run = runStore.load(runId: runId) else { return nil }
-        var response = AsyncTeamStatusMapper.statusResponse(for: run)
-        let pmTurn = PMTurnStatusProjection.load(
-            kind: .run,
-            subjectId: run.id,
-            atPMBoundary: run.status.isTerminal,
-            store: pmTurnStore
-        )
-        response.pmTurn = pmTurn.pmTurn
-        response.notes = pmTurn.notes
-        response.pmTurnDelivery = pmTurn.pmTurnDelivery
-        // RLR-S03a / RLR-L6: activity truth is `run.json.lastActivityAt`, not
-        // `heartbeat.json` (retired). `progressStale` is a read-time derivation —
-        // absent (nil) before the first post-spawn activity, and only meaningful
-        // for a non-terminal run whose owner is still alive.
-        response.lastProgressAt = run.lastActivityAt
-        response.killOutcome = run.killOutcome?.rawValue
-        if let directory = try? runStore.runDirectory(forRunId: runId) {
-            let workerOwners = ProcessOwnership.readWorkerOwners(inRunDirectory: directory)
-            let anyWorkerAlive = workerOwners.contains { ProcessOwnership.isIdentityAlive($0.identity) }
-            let coord = ProcessOwnership.readOwnerIdentity(in: directory)
-            let coordAlive = coord.map { ProcessOwnership.isIdentityAlive($0) } ?? false
-            let coordPG = coord.map { $0.kind.isProcessGroupKillable } ?? false
-            response.contradiction = RunContradictionSurface.contradiction(
-                isTerminal: run.status.isTerminal,
-                anyWorkerIdentityAlive: anyWorkerAlive,
-                coordinatorIdentityAlive: coordAlive,
-                coordinatorIsProcessGroupKillable: coordPG
-            )?.rawValue
-        }
-        if !run.status.isTerminal && run.phase != .waitingForVendor {
-            let ownerAlive: Bool
-            if let directory = try? runStore.runDirectory(forRunId: runId) {
-                ownerAlive = !ProcessOwnership.isOwnerIdentityDead(in: directory)
-            } else {
-                ownerAlive = true
-            }
-            if ownerAlive {
-                response.progressStale = RunActivity.progressStale(
-                    lastActivityAt: run.lastActivityAt, now: now()
-                )
-                let stallSummary: String? = {
-                    guard let directory = try? runStore.runDirectory(forRunId: runId) else { return nil }
-                    if let persisted = ProcessOwnership.readStallDiagnosis(in: directory)?.summary {
-                        return persisted
-                    }
-                    if let identity = ProcessOwnership.readOwnerIdentity(in: directory),
-                       ProcessOwnership.isIdentityAlive(identity) {
-                        return ProcessOwnership.diagnoseOwnedTreeStall(identity: identity)?.summary
-                    }
-                    return nil
-                }()
-                response.silenceStatus = OwnershipSilencePresentation.silenceStatusLine(
-                    identityAlive: true,
-                    lastProgressAt: run.lastActivityAt,
-                    now: now(),
-                    stallSummary: stallSummary
-                )
-            }
-        }
-        return AsyncTeamStatusMapper.withWaitGuidance(response)
-    }
-
-    /// In-process blocking wait for a live status (PO-F3). Single process; sleeps
-    /// on `waitHintSeconds` between re-reads — no tight poll spin, no second
-    /// process. Returns on target match, non-matching terminal, or timeout.
-    public func waitForStatus(
-        runId: String,
-        target: TeamStatusWaitTarget,
-        timeout: Duration
-    ) async -> TeamStatusWaitOutcome? {
-        let clock = ContinuousClock()
-        let deadline = clock.now + timeout
-        while true {
-            guard let response = status(runId: runId) else { return nil }
-            if target.matches(response.status) {
-                var matched = response
-                matched.waitHintSeconds = 0
-                matched.nextAction = AsyncTeamStatusMapper.nextAction(for: response)
-                return TeamStatusWaitOutcome(
-                    response: matched, timedOut: false, terminalMismatch: false
-                )
-            }
-            // Different terminal state: stop waiting — the run will not reverse.
-            if response.status.isTerminal {
-                return TeamStatusWaitOutcome(
-                    response: response, timedOut: false, terminalMismatch: true
-                )
-            }
-            let now = clock.now
-            if now >= deadline {
-                // Keep waitHint for the agent; stamp timeout on the outcome.
-                return TeamStatusWaitOutcome(
-                    response: response, timedOut: true, terminalMismatch: false
-                )
-            }
-            let remaining = deadline - now
-            let hintMs = max(50, response.nextPollAfterMs)
-            let sleepFor = min(Duration.milliseconds(hintMs), remaining)
-            try? await Task.sleep(for: sleepFor, clock: ContinuousClock())
-        }
-    }
+    // MARK: - cancel / reconcile
 
     /// Explicit reconcile path (`alln team reconcile`). Returns only runs this
     /// call newly reaped (never lists already-terminal or still-alive runs).
@@ -680,8 +574,8 @@ public actor AsyncTeamService {
     /// nil only for the explicit machine-wide fleet sweep.
     public func reconcile(runId: String?, scopeRoot: String? = nil) -> [TeamRun] {
         // The one path allowed to act on a cancel lie (terminal journal + still
-        // identity-alive tree). Read paths — `ps`, `status`, `result` — reconcile
-        // through the same store with recovery OFF and never signal.
+        // identity-alive tree). Read paths (`ps`, `show`) reconcile through the
+        // same store with recovery OFF and never signal.
         if let runId {
             if let detail = runStore.reconcileRunDetailed(
                 runId: runId, models: models, recoverTerminalLiveOwnership: true
@@ -692,33 +586,6 @@ public actor AsyncTeamService {
         }
         return runStore.reconcileAll(
             models: models, scopeRoot: scopeRoot, recoverTerminalLiveOwnership: true)
-    }
-
-    public enum ResultOutcome: Sendable, Equatable {
-        case ready(TeamRun)
-        case notReady(TeamResultNotReady)
-        case notFound
-    }
-
-    public func result(runId: String) -> ResultOutcome {
-        _ = runStore.reconcileRun(runId: runId, models: models)
-        guard let run = runStore.load(runId: runId) else { return .notFound }
-        let live = AsyncTeamStatusMapper.liveStatus(for: run)
-        if AsyncTeamStatusMapper.resultAvailable(for: run) {
-            return .ready(run)
-        }
-        return .notReady(TeamResultNotReady(
-            runId: runId,
-            status: live,
-            resultAvailable: false,
-            nextPollAfterMs: AsyncTeamStatusMapper.nextPollAfterMs(for: live),
-            error: ErrorEnvelope(
-                code: "RESULT_NOT_READY",
-                message: "run is not terminal yet; poll team status",
-                requiresManual: false,
-                retryable: true
-            )
-        ))
     }
 
     public func cancel(runId: String) -> TeamCancelResponse? {
@@ -877,6 +744,14 @@ public actor AsyncTeamService {
 
     private func startResponse(for run: TeamRun, acceptedAt: Date) -> TeamStartResponse {
         let live = AsyncTeamStatusMapper.liveStatus(for: run)
+        // Launch-ack cadence only (not a public poll surface). Terminal → 0.
+        let nextPollAfterMs: Int = {
+            switch live {
+            case .queued: return 2_500
+            case .running: return 5_000
+            case .done, .failed, .timedOut, .cancelled: return 0
+            }
+        }()
         return TeamStartResponse(
             runId: run.id,
             status: live,
@@ -885,7 +760,7 @@ public actor AsyncTeamService {
             teamDisplayName: run.teamDisplayName,
             effort: run.effort?.rawValue,
             acceptedAt: acceptedAt,
-            nextPollAfterMs: AsyncTeamStatusMapper.nextPollAfterMs(for: live),
+            nextPollAfterMs: nextPollAfterMs,
             nextActions: [
                 .waitForTerminal(runId: run.id),
                 .fetchResult(runId: run.id),

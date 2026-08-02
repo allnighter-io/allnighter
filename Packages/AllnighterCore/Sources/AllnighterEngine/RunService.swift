@@ -390,7 +390,6 @@ public actor RunService {
             workRecovery: nil,
             nextCommands: [
                 "alln show \(run.id) --json",
-                "alln team result \(run.id) --json",
             ],
             notes: notes
         )

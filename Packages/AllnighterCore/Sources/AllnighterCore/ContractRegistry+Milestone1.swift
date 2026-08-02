@@ -8,7 +8,8 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "7.6.0"
+    // ORS-S03b: major cut — delete team status / team result + STATUS_WAIT_TIMEOUT / RESULT_NOT_READY.
+    static let contractVersion = "8.0.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -401,24 +402,6 @@ public extension ContractRegistry {
             "skills gc", summary: "Purge retired lab skills and delete unreferenced custom skills.", milestone: .m1,
             flags: [FlagSpec("json", summary: "JSON with deleted skill ids and count.")],
             exampleIds: ["skills_gc_json"]
-        ),
-        CommandSpec(
-            "team status", summary: "Read resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for terminal, one bounded call delivers the terminal pmTurn; it never requires an external poll spin.", milestone: .m1,
-            args: [ArgSpec("run-id", required: true, summary: "The run id of an accepted async run.")],
-            flags: [
-                FlagSpec("json", summary: "Structured TeamStatusResponse."),
-                FlagSpec("persisted", summary: "Read the durable journal only. Returns PersistedTeamStatusResponse with source=journal, live=false, eventSequence, and observedAt; cannot establish worker liveness."),
-                FlagSpec("wait-for", takesValue: true, valueType: "state", summary: "Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`."),
-                FlagSpec("timeout", takesValue: true, valueType: "seconds", summary: "Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached."),
-            ],
-            mutuallyExclusiveFlags: [["persisted", "wait-for"], ["persisted", "timeout"]],
-            outputSchema: .teamStatusResponse
-        ),
-        CommandSpec(
-            "team result", summary: "Fetch TeamRunJSON when an async run is terminal.", milestone: .m1,
-            args: [ArgSpec("run-id", required: true, summary: "The run id of an accepted async run.")],
-            flags: [FlagSpec("json", summary: "TeamRunJSON or not-ready envelope.")],
-            outputSchema: .teamRunJSON
         ),
         CommandSpec(
             "team cancel", summary: "Cancel an active async team run.", milestone: .m1,
@@ -1121,7 +1104,6 @@ public extension ContractRegistry {
         ErrorSpec("AGENT_FAILED", ruleId: "agent.failed", agentAction: "Inspect `agentId` and source error; failed agent remains visible.", requiresManual: false, retryable: true, explain: "One agent failed. The failure is shown, never hidden; other agents may still have answered. Retry the agent or proceed with partial results."),
         ErrorSpec("PLAN_WRITER_FAILED", ruleId: "plan_writer.failed", agentAction: "Retry with a ready plan writer or export worker answers.", requiresManual: false, retryable: true, explain: "The plan-writer stage failed. Retry with a ready plan writer, or export the worker answers and synthesize later."),
         ErrorSpec("TEAM_RUN_TIMEOUT", ruleId: "team.run.timeout", agentAction: "Retry with lower effort or fewer workers.", requiresManual: false, retryable: true, explain: "The team run exceeded its time budget. Reduce effort or the worker count and retry.", exitClass: .timeout),
-        ErrorSpec("STATUS_WAIT_TIMEOUT", ruleId: "team.status.wait_timeout", agentAction: "Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume.", requiresManual: false, retryable: true, explain: "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.", exitClass: .timeout),
         ErrorSpec("PM_TURN_WAIT_TIMEOUT", ruleId: "pm_turn.status.wait_timeout", agentAction: "Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command.", requiresManual: false, retryable: true, explain: "The relay PM boundary did not reach the requested target before --timeout. The status response carries waitOutcome: timedOut.", exitClass: .timeout),
         ErrorSpec("PM_TURN_WAKE_UNCONFIGURED", ruleId: "pm_turn.wake.unconfigured", agentAction: "Configure machine-level pmTurnWake.command, then retry `--no-wait --delivery wake`; or omit --delivery and run the returned status waiter.", requiresManual: true, retryable: true, explain: "Wake delivery was requested, but this Mac has no PM Turn receiver command configured. Nothing was dispatched."),
         ErrorSpec("PM_TURN_WAKE_FAILED", ruleId: "pm_turn.wake.failed", agentAction: "Read status JSON for pmTurnDelivery, fix the receiver, then use the terminal/parked status waiter to recover the durable pmTurn.", requiresManual: true, retryable: true, explain: "The configured PM Turn receiver did not acknowledge the durable turn before its retry window ended. The PM turn remains on disk and status projects the failure."),
@@ -1136,7 +1118,6 @@ public extension ContractRegistry {
         ErrorSpec("IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD", ruleId: "idempotency.key.reused", agentAction: "Generate a new key or reuse the original payload.", requiresManual: false, retryable: false, explain: "Legacy alias of IDEMPOTENCY_CONFLICT — same key reused with a different canonical payload."),
         ErrorSpec("IDEMPOTENCY_EXPIRED", ruleId: "idempotency.expired", agentAction: "Generate a new idempotency key.", requiresManual: false, retryable: false, explain: "The idempotency key's 24h replay window has elapsed. The key is a tombstone — never silently re-execute; mint a new key."),
         ErrorSpec("RETRY_OF_SURVIVORS", ruleId: "retryOf.survivors", agentAction: "Wait for verified stop, or pass --accept-survivors.", requiresManual: false, retryable: true, explain: "`--retry-of` refused because the prior run still has identity-alive recorded workers. Pass --accept-survivors to proceed anyway."),
-        ErrorSpec("RESULT_NOT_READY", ruleId: "result.not_ready", agentAction: "Wait with `alln team status <id> --wait-for terminal --timeout <s> --json`, then read its pmTurn or call team result.", requiresManual: false, retryable: true, explain: "The run is not terminal yet. One bounded status waiter returns the terminal pmTurn when it settles."),
         ErrorSpec("RUN_NOT_TERMINAL", ruleId: "run.not_terminal", agentAction: "Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`.", requiresManual: true, retryable: true, explain: "The run has not finished and this process stopped waiting for it. Either nothing claimed the hand-off (open Allnighter) or the host that claimed it stopped without finishing. The run id stays valid; the answer is collectable if a host completes it."),
         ErrorSpec("RUN_NOT_FOUND", ruleId: "run.not_found", agentAction: "Run `alln history --json`.", requiresManual: true, retryable: false, explain: "No run matches the given id. List history and pick a valid run id or `latest`."),
         ErrorSpec(
@@ -1225,7 +1206,7 @@ public extension ContractRegistry {
         ErrorSpec("OWNERSHIP_IDENTITY_MISMATCH", ruleId: "ownership.identity.mismatch", agentAction: "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.", requiresManual: true, retryable: false, explain: "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process."),
         ErrorSpec("KILL_PARTIAL", ruleId: "kill.partial", agentAction: "The run stays non-terminal with survivors named. Inspect them with `alln ps --json`, then retry `alln kill <id>` or escalate manually; the tool refuses to stamp `killed` over live work.", requiresManual: false, retryable: true, explain: "`alln kill`/`team cancel` signalled the recorded tree but ≥1 recorded member is still identity-alive (or its group non-empty) after the grace. The verdict is `killOutcome: partial` — the lifecycle is left non-terminal (RLR-L5), never a false `killed` stamp."),
         ErrorSpec("KILL_REFUSED", ruleId: "kill.refused", agentAction: "No recorded member could be signalled (all identity-mismatched or non-PG-killable). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans; do not re-signal a recycled pid.", requiresManual: true, retryable: false, explain: "`alln kill`/`team cancel` found recorded members but could signal none of them — every candidate was a recycled pid or a non-group-killable owner. Nothing was stopped; the verdict is `killOutcome: refused` and the lifecycle stays non-terminal."),
-        ErrorSpec("KILL_VERIFICATION_UNAVAILABLE", ruleId: "kill.verification_unavailable", agentAction: "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified.", requiresManual: true, retryable: false, explain: "The executing run carries no recorded worker identity to verify against (the warm-driver exclusion seam — warm pools record nothing). `killOutcome: verificationUnavailable`: a stop cannot be proven, so no terminal `killed` is stamped (RLR-L5)."),
+        ErrorSpec("KILL_VERIFICATION_UNAVAILABLE", ruleId: "kill.verification_unavailable", agentAction: "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — read `alln show <run-id> --json` or stop the worker at its source; the tool will not stamp `killed` unverified.", requiresManual: true, retryable: false, explain: "The executing run carries no recorded worker identity to verify against (the warm-driver exclusion seam — warm pools record nothing). `killOutcome: verificationUnavailable`: a stop cannot be proven, so no terminal `killed` is stamped (RLR-L5)."),
         ErrorSpec("THREAD_SEND_FAILED", ruleId: "thread.send.failed", agentAction: "Inspect the error detail; retry the send or fix the worker.", requiresManual: false, retryable: true, explain: "The thread send did not complete (worker or transport failure). Inspect the detail, then retry."),
         ErrorSpec("MODEL_NOT_FOUND", ruleId: "model.not_found", agentAction: "List ids with `alln menu --json` or `alln models --json` and retry with a valid ModelID.", requiresManual: true, retryable: false, explain: "No model matches the given id. Use `alln menu --json` / `alln models --json` for catalog ModelIDs."),
         ErrorSpec("MODEL_BUILTIN_IMMUTABLE", ruleId: "model.builtin.immutable", agentAction: "Duplicate the built-in model, then edit the custom copy.", requiresManual: true, retryable: false, explain: "Built-in models cannot be edited or deleted. Duplicate to a custom model and edit that copy."),

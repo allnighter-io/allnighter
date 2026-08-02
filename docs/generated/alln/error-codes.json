@@ -180,15 +180,6 @@
     "ruleId" : "team.run.timeout"
   },
   {
-    "agentAction" : "Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume.",
-    "code" : "STATUS_WAIT_TIMEOUT",
-    "exitClass" : "timeout",
-    "explain" : "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.",
-    "requiresManual" : false,
-    "retryable" : true,
-    "ruleId" : "team.status.wait_timeout"
-  },
-  {
     "agentAction" : "Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command.",
     "code" : "PM_TURN_WAIT_TIMEOUT",
     "exitClass" : "timeout",
@@ -313,15 +304,6 @@
     "requiresManual" : false,
     "retryable" : true,
     "ruleId" : "retryOf.survivors"
-  },
-  {
-    "agentAction" : "Wait with `alln team status <id> --wait-for terminal --timeout <s> --json`, then read its pmTurn or call team result.",
-    "code" : "RESULT_NOT_READY",
-    "exitClass" : "operational",
-    "explain" : "The run is not terminal yet. One bounded status waiter returns the terminal pmTurn when it settles.",
-    "requiresManual" : false,
-    "retryable" : true,
-    "ruleId" : "result.not_ready"
   },
   {
     "agentAction" : "Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`.",
@@ -927,7 +909,7 @@
     "ruleId" : "kill.refused"
   },
   {
-    "agentAction" : "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified.",
+    "agentAction" : "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — read `alln show <run-id> --json` or stop the worker at its source; the tool will not stamp `killed` unverified.",
     "code" : "KILL_VERIFICATION_UNAVAILABLE",
     "exitClass" : "operational",
     "explain" : "The executing run carries no recorded worker identity to verify against (the warm-driver exclusion seam — warm pools record nothing). `killOutcome: verificationUnavailable`: a stop cannot be proven, so no terminal `killed` is stamped (RLR-L5).",

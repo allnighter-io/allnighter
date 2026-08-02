@@ -2042,117 +2042,6 @@
         }
       ],
       "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "json",
-          "summary" : "Structured TeamStatusResponse.",
-          "takesValue" : false
-        },
-        {
-          "name" : "persisted",
-          "summary" : "Read the durable journal only. Returns PersistedTeamStatusResponse with source=journal, live=false, eventSequence, and observedAt; cannot establish worker liveness.",
-          "takesValue" : false
-        },
-        {
-          "allowedValues" : [
-            "queued",
-            "running",
-            "done",
-            "failed",
-            "timedOut",
-            "cancelled",
-            "terminal"
-          ],
-          "name" : "wait-for",
-          "summary" : "Block until this RunLifecycle (queued|running|done|failed|timedOut|cancelled) or the alias `terminal`.",
-          "takesValue" : true,
-          "valueType" : "state"
-        },
-        {
-          "name" : "timeout",
-          "summary" : "Max seconds to wait when --wait-for is set (required with --wait-for). Exit 3 (timeout) if the target is not reached.",
-          "takesValue" : true,
-          "valueType" : "seconds"
-        }
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-        [
-          "persisted",
-          "wait-for"
-        ],
-        [
-          "persisted",
-          "timeout"
-        ]
-      ],
-      "name" : "team status",
-      "outputSchema" : "teamStatusResponse",
-      "spendsQuota" : false,
-      "summary" : "Read resident-owned live state for an async team run. `--persisted` is an explicit read-only journal observation, labelled non-live; it never falls back silently. With --wait-for terminal, one bounded call delivers the terminal pmTurn; it never requires an external poll spin.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-        {
-          "name" : "run-id",
-          "required" : true,
-          "summary" : "The run id of an accepted async run."
-        }
-      ],
-      "effects" : {
-        "destructive" : "never",
-        "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
-      },
-      "exampleIds" : [
-
-      ],
-      "flagConstraints" : [
-
-      ],
-      "flags" : [
-        {
-          "name" : "json",
-          "summary" : "TeamRunJSON or not-ready envelope.",
-          "takesValue" : false
-        }
-      ],
-      "menuAction" : false,
-      "milestone" : "m1",
-      "mutuallyExclusiveFlags" : [
-
-      ],
-      "name" : "team result",
-      "outputSchema" : "teamRunJSON",
-      "spendsQuota" : false,
-      "summary" : "Fetch TeamRunJSON when an async run is terminal.",
-      "visibility" : "public"
-    },
-    {
-      "args" : [
-        {
-          "name" : "run-id",
-          "required" : true,
-          "summary" : "The run id of an accepted async run."
-        }
-      ],
-      "effects" : {
         "destructive" : "dependsOnSelection",
         "humanInteraction" : "never",
         "quotaSpend" : "never",
@@ -2594,7 +2483,7 @@
         },
         {
           "name" : "stream",
-          "summary" : "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json \/ --dry-run.",
+          "summary" : "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Shared framing: immediate snapshot first, bounded replay, live follow of new events, exactly one terminal frame. Ends at terminal or attention-required boundary; terminal exit class propagates unconditionally (no opt-in). Mutually exclusive with conflicting mode flags.",
           "takesValue" : false
         },
         {
@@ -3584,19 +3473,27 @@
         },
         {
           "name" : "full",
-          "summary" : "Include resolved worker prompt snapshots (audit).",
+          "summary" : "Include resolved worker prompt snapshots (audit). Mutually exclusive with --stream.",
+          "takesValue" : false
+        },
+        {
+          "name" : "stream",
+          "summary" : "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Shared framing: immediate snapshot first, bounded replay, live follow of new events, exactly one terminal frame. Ends at terminal or attention-required boundary; terminal exit class propagates unconditionally (no opt-in). Mutually exclusive with conflicting mode flags.",
           "takesValue" : false
         }
       ],
       "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
-
+        [
+          "full",
+          "stream"
+        ]
       ],
       "name" : "show",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : false,
-      "summary" : "Show one run.",
+      "summary" : "Show one run. Snapshot (`--json`) or reattachable stream (`--stream`): immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.",
       "visibility" : "public"
     },
     {
@@ -5626,7 +5523,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "7.4.0",
+  "contractVersion" : "8.0.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5895,15 +5792,6 @@
       "ruleId" : "team.run.timeout"
     },
     {
-      "agentAction" : "Re-run the same `alln team status <id> --wait-for terminal --timeout <s> --json` command with a longer timeout; do not switch to polling or run resume.",
-      "code" : "STATUS_WAIT_TIMEOUT",
-      "exitClass" : "timeout",
-      "explain" : "`team status --wait-for` did not observe the target state before --timeout. The response carries current status, nextAction, and waitHintSeconds.",
-      "requiresManual" : false,
-      "retryable" : true,
-      "ruleId" : "team.status.wait_timeout"
-    },
-    {
       "agentAction" : "Re-run the same `pilot status` or `relay-status` waiter with a longer --timeout; do not switch to a polling loop or resume command.",
       "code" : "PM_TURN_WAIT_TIMEOUT",
       "exitClass" : "timeout",
@@ -6028,15 +5916,6 @@
       "requiresManual" : false,
       "retryable" : true,
       "ruleId" : "retryOf.survivors"
-    },
-    {
-      "agentAction" : "Wait with `alln team status <id> --wait-for terminal --timeout <s> --json`, then read its pmTurn or call team result.",
-      "code" : "RESULT_NOT_READY",
-      "exitClass" : "operational",
-      "explain" : "The run is not terminal yet. One bounded status waiter returns the terminal pmTurn when it settles.",
-      "requiresManual" : false,
-      "retryable" : true,
-      "ruleId" : "result.not_ready"
     },
     {
       "agentAction" : "Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`.",
@@ -6642,7 +6521,7 @@
       "ruleId" : "kill.refused"
     },
     {
-      "agentAction" : "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — poll `alln team status` or stop the worker at its source; the tool will not stamp `killed` unverified.",
+      "agentAction" : "The run records no killable worker `runtimeOwnership` (warm workers or unrecorded legacy). The stop cannot be verified — read `alln show <run-id> --json` or stop the worker at its source; the tool will not stamp `killed` unverified.",
       "code" : "KILL_VERIFICATION_UNAVAILABLE",
       "exitClass" : "operational",
       "explain" : "The executing run carries no recorded worker identity to verify against (the warm-driver exclusion seam — warm pools record nothing). `killOutcome: verificationUnavailable`: a stop cannot be proven, so no terminal `killed` is stamped (RLR-L5).",
@@ -6937,6 +6816,20 @@
       ]
     },
     {
+      "name" : "teamRunSnapshot",
+      "requiredData" : [
+        "teamRun"
+      ]
+    },
+    {
+      "name" : "attentionRequired",
+      "requiredData" : [
+        "reason",
+        "activityMode",
+        "message"
+      ]
+    },
+    {
       "name" : "teamRunCompleted",
       "requiredData" : [
         "status",
@@ -7170,6 +7063,10 @@
     {
       "kind" : "showHistory",
       "summary" : "List recent runs."
+    },
+    {
+      "kind" : "inspectBlocker",
+      "summary" : "Inspect a sourced blocker, vendor wait, or attention-required stream exit; not a stream reattach."
     },
     {
       "kind" : "submitPending",

@@ -162,7 +162,6 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
         for (label, action) in [
             ("waitForTerminal", AsyncTeamNextAction.waitForTerminal(runId: sampleRunId)),
             ("fetchResult", AsyncTeamNextAction.fetchResult(runId: sampleRunId)),
-            ("waitForStatus", AsyncTeamNextAction.waitForStatus(runId: sampleRunId)),
         ] {
             out.append(Teachable(
                 source: "AsyncTeamNextAction.\(label)",

@@ -93,22 +93,19 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
         try FileManager.default.createDirectory(at: runDir, withIntermediateDirectories: true)
         try Data("{ not-json".utf8).write(to: runDir.appendingPathComponent("run.json"))
 
-        // 88860049 routed bare `team status` to a live resident query; the
-        // durable-journal classification (JOURNAL_CORRUPT / RUN_NOT_FOUND) moved to
-        // the explicit `--persisted` read (12fcd8a2). Journal corruption is a
-        // persisted-read concern, so exercise that path.
+        // ORS-S03b: corrupt journal is classified on the canonical show path.
         let status = try Self.runAlln(
-            alln, ["team", "status", runId, "--json", "--persisted"],
+            alln, ["show", runId, "--json"],
             cwd: fixture.repo, env: fixture.env, timeout: 30)
-        XCTAssertNotEqual(status.status, 0, "corrupt journal must fail status")
+        XCTAssertNotEqual(status.status, 0, "corrupt journal must fail show")
         let blob = status.stdout + status.stderr
         XCTAssertTrue(
             blob.contains("JOURNAL_CORRUPT"),
             "expected JOURNAL_CORRUPT, got: \(blob.prefix(600))"
         )
         XCTAssertFalse(
-            blob.contains("\"status\""),
-            "must not invent a status projection over a corrupt journal"
+            blob.contains("\"teamRun\""),
+            "must not invent a TeamRunJSON projection over a corrupt journal"
         )
     }
 
@@ -173,20 +170,9 @@ final class RunLifecycleReliabilityWorksTest: XCTestCase {
             atPath: runsDir.appendingPathComponent("run_should-not-exist", isDirectory: true).path))
     }
 
-    // MARK: - Item 15: --wait-for accepts lifecycle states only
-
-    func testItem15WaitForAcceptsLifecycleStatesOnly() {
-        for ok in ["queued", "running", "done", "failed", "timedOut", "cancelled", "terminal"] {
-            XCTAssertNotNil(TeamStatusWaitTarget.parse(ok), ok)
-        }
-        // Phases / legacy aliases / garbage must never parse as wait targets.
-        for bad in ["working", "waitingForWriteLock", "fanning_out", "completed",
-                    "accepted", "interrupted", "not-a-state", ""] {
-            XCTAssertNil(TeamStatusWaitTarget.parse(bad), "phase/legacy \(bad) must be rejected")
-        }
-    }
-
     // MARK: - Item 1 shape: first stream event carries runId (projector)
+    // (Item 15 team-status --wait-for parser deleted with TeamStatusWaitTarget in ORS-S03b.)
+
 
     func testItem1FirstStreamEventCarriesRunId() throws {
         let runId = "run_s06_stream"

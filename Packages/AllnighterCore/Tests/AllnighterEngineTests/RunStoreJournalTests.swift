@@ -203,9 +203,8 @@ final class RunStoreJournalTests: XCTestCase {
                 _ = try? store.save(saved, models: [opus])
                 if saved.answers.contains(where: { $0.result.status == .running }) {
                     sawRunningPersist.set()
-                    let status = AsyncTeamStatusMapper.statusResponse(for: saved)
-                    XCTAssertEqual(status.status, .running)
-                    XCTAssertEqual(status.workers.first?.status, "running")
+                    XCTAssertEqual(AsyncTeamStatusMapper.liveStatus(for: saved), .running)
+                    XCTAssertTrue(saved.answers.contains { $0.result.status == .running })
                 }
             })
         XCTAssertTrue(sawRunningPersist.get, "team_status must observe running workers during fan-out")

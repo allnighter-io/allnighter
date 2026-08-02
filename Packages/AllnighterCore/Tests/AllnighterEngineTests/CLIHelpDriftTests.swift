@@ -19,7 +19,7 @@ final class CLIHelpDriftTests: XCTestCase {
         XCTAssertTrue(missing.isEmpty, "top-level help missing contract commands (allowlist banned):\n\(missing.joined(separator: "\n"))")
         XCTAssertTrue(help.contains("menu"), "golden-path `menu` must be visible")
         XCTAssertTrue(help.contains("run"), "golden-path `run` must be visible")
-        XCTAssertTrue(help.contains("team status"), "live Team lifecycle must be visible")
+        XCTAssertTrue(help.contains("show"), "single-run read surface must be visible")
         XCTAssertTrue(help.contains("team cancel"), "Team cancellation must be visible")
         XCTAssertTrue(help.contains("team reconcile"), "Team reconciliation must be visible")
         XCTAssertTrue(help.contains("help search"), "`help search` must be visible")
