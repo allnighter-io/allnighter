@@ -54,7 +54,8 @@ fail() { echo "works-test: FAIL — $*" >&2; FAILURES=$((FAILURES + 1)); }
 
 cleanup() {
   local pid
-  for pid in "${FAKE_PIDS[@]:-}"; do
+  # bash 3.2 + set -u: empty `"${FAKE_PIDS[@]}"` is unbound.
+  for pid in ${FAKE_PIDS[@]+"${FAKE_PIDS[@]}"}; do
     [[ -n "$pid" ]] && kill -KILL "$pid" 2>/dev/null || true
   done
   # Belt-and-braces: sweep anything under WORK_DIR by cmdline, in case a

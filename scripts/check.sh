@@ -150,12 +150,14 @@ PY
   xcode_status=0
   mac_phase_started=$SECONDS
   # Keep the last few progress lines on the console; full log is teed for diagnostics.
+  # bash 3.2 + set -u: empty `"${arr[@]}"` is unbound (identity-present path
+  # leaves xcode_signing_args empty). Use the same form as agent_eval.sh.
   xcodebuild test \
     -project "$MAC_APP/AllnighterMac.xcodeproj" \
     -scheme AllnighterMac \
     -destination 'platform=macOS' \
     -derivedDataPath "$MAC_DD" \
-    "${xcode_signing_args[@]}" \
+    ${xcode_signing_args[@]+"${xcode_signing_args[@]}"} \
     2>&1 | tee "$xcode_log" | tail -3 || xcode_status=${PIPESTATUS[0]}
   mac_phase_elapsed=$((SECONDS - mac_phase_started))
 

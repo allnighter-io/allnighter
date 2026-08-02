@@ -10,7 +10,8 @@ find_real_binary() {
   local name="$1"
   local entry seen="" candidate=""
   IFS=':' read -r -a parts <<< "$PATH"
-  for entry in "${parts[@]}"; do
+  # bash 3.2 + set -u: empty `"${parts[@]}"` is unbound (empty PATH).
+  for entry in ${parts[@]+"${parts[@]}"}; do
     [[ -z "$entry" ]] && continue
     [[ "$entry" == "$SHIM_DIR" ]] && continue
     [[ ":$seen:" == *":$entry:"* ]] && continue
