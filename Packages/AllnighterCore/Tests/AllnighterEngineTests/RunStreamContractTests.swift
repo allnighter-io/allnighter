@@ -414,6 +414,52 @@ final class RunStreamContractTests: XCTestCase {
         XCTAssertFalse(obj.isEmpty)
     }
 
+    // MARK: - The no-host refusal is ONE terminal answer (CAR-S03b)
+
+    /// The defect this pins: a sandboxed `alln run --json` with no app watching
+    /// the mailbox used to print the refusal envelope AND THEN render the failed
+    /// run JSON after it — two documents on one stdout, one of them false. The
+    /// whole stdout must be exactly one failure envelope, and the process must
+    /// exit with the catalog-derived operational code (1).
+    func testSandboxRefusalEmitsExactlyOneJSONDocument() throws {
+        let alln = try locateAllnBinary()
+        var fx = try Fixture.make()
+        defer { fx.tearDown() }
+        try fx.installSandboxBlockedWorker()
+        try fx.seedReadyClaude()
+        // Pin the seat to the claude-backed built-in so the fake `claude` on the
+        // curated PATH is what runs (and fails to sign in) — unpinned seats
+        // resolve to models whose CLIs are absent here, which is a different
+        // failure than the sandbox one this test exists for.
+        try fx.seedSingleWorkerTeam(id: "custom_sandbox_refusal_team", pinnedModelId: "model_opus")
+
+        // A restricted host (Codex), and no Allnighter app to claim the hand-off:
+        // the seat cannot sign in, and the readiness ping is never answered.
+        fx.env["CODEX_SANDBOX"] = "workspace-write"
+
+        let add = try runAlln(alln, ["project", "add", fx.repo.path, "--json"], cwd: fx.repo, env: fx.env, timeout: 30)
+        XCTAssertEqual(add.status, 0, "project add failed: \(add.stderr)")
+
+        let run = try runAlln(
+            alln,
+            ["run", "brief json", "--project", fx.repo.path, "--team", "custom_sandbox_refusal_team",
+             "--effort", "low", "--json"],
+            cwd: fx.repo, env: fx.env, timeout: 90)
+
+        XCTAssertEqual(run.status, 1,
+                       "an operational refusal exits 1 — not 0, not 2; stderr: \(run.stderr.prefix(400))")
+        let stdout = run.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertFalse(stdout.isEmpty, "the refusal must print its envelope; stderr: \(run.stderr.prefix(400))")
+        // ONE document: the WHOLE stdout parses as a single JSON object. A run
+        // JSON rendered after the envelope (the shipped defect) breaks this parse.
+        let obj = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(stdout.utf8)) as? [String: Any],
+            "the refusal must be EXACTLY ONE JSON document, nothing before or after it. Got: \(stdout.prefix(800))")
+        XCTAssertEqual(obj["success"] as? Bool, false)
+        let error = try XCTUnwrap(obj["error"] as? [String: Any], "stdout: \(stdout.prefix(400))")
+        XCTAssertEqual(error["code"] as? String, "HANDOFF_HOST_NOT_RUNNING")
+    }
+
     // MARK: - Subprocess + fixture helpers
 
     private func locateAllnBinary() throws -> URL {
@@ -494,6 +540,26 @@ final class RunStreamContractTests: XCTestCase {
             try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dest.path)
         }
 
+        /// A `claude` that can never sign in — exactly what the sandbox does to the
+        /// real CLI: `--version` still answers (the readiness probe must pass),
+        /// every run dies with the observed sign-in failure on stderr.
+        func installSandboxBlockedWorker() throws {
+            let fm = FileManager.default
+            let dest = fakebin.appendingPathComponent("claude")
+            if fm.fileExists(atPath: dest.path) { try fm.removeItem(at: dest) }
+            try Data("""
+            #!/bin/bash
+            if [ "${1:-}" = "--version" ]; then
+                echo "claude-sandbox-fake 0.0.1"
+                exit 0
+            fi
+            echo "Not logged in · Please run /login" >&2
+            exit 1
+
+            """.utf8).write(to: dest)
+            try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: dest.path)
+        }
+
         func seedReadyClaude() throws {
             try SetupStore(fileURL: support.appendingPathComponent("Config/cli_setup.json"))
                 .save(.init(
@@ -503,12 +569,13 @@ final class RunStreamContractTests: XCTestCase {
                     setupCompletedAt: Date()))
         }
 
-        func seedSingleWorkerTeam(id: String) throws {
+        func seedSingleWorkerTeam(id: String, pinnedModelId: String? = nil) throws {
             let fm = FileManager.default
             let team = TeamPreset(
                 id: id, displayName: "Stream JSON Team", lane: .code, outputKind: .plan,
                 defaultEffort: .low, isDefaultForLane: false,
-                agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer)],
+                agentSpecs: [TeamAgentSpec(id: "r1", skillId: "bug_reproducer", purpose: .answer,
+                                           preferredModelId: pinnedModelId)],
                 lead: TeamLeadSpec(skillId: "plan_writer_build"), builtIn: false)
             let teamsDir = support.appendingPathComponent("Catalogs/teams", isDirectory: true)
             try fm.createDirectory(at: teamsDir, withIntermediateDirectories: true)

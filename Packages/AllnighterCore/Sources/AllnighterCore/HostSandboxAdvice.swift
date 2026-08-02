@@ -99,23 +99,27 @@ public struct HostSandboxAdvice: Equatable, Sendable {
     /// The whole disclosure as one warning body: what happened, that nothing is
     /// broken, and the ways forward with their blast radius stated.
     ///
-    /// This used to open with "Open Allnighter and paste this in: <command>",
-    /// written when the hand-off did not exist. It does now — the CLI enqueues the
-    /// work and waits — so telling the user to paste the same command by hand
-    /// described a product that had been replaced, and contradicted the message
-    /// printed moments earlier saying the request had already been handed off.
+    /// This text has been wrong twice, in opposite directions. It first said
+    /// "Open Allnighter and paste this in" when no hand-off existed; the hand-off
+    /// was then built and the text flipped to asserting one had ALWAYS happened.
+    /// CAR-S03b inverted that premise again: the readiness refusal is terminal,
+    /// and this same projection renders for ANY view of the failed run —
+    /// including `alln show` of a run that was refused, where nothing was ever
+    /// queued. So the text must never ASSERT a hand-off occurred and never print
+    /// a `resume` instruction: when a hand-off genuinely happens the CLI says so
+    /// itself, with the real run id, and when it does not there is nothing to
+    /// collect.
     public var warningMessage: String {
         """
         \(message)
 
-        Allnighter already handed this to the Mac app, which can start your tools,
-        and waited for the answer here. If you are reading this, the app did not
-        finish it — the line above this one says what was actually observed.
+        You have two ways to run it:
 
-          1. If Allnighter is not open, open it
-             Nothing outside your terminal can start your AI tools while it is
-             closed. Then collect this run with:
-                 alln run resume <the run id printed above>
+          1. Let the Allnighter app run it
+             The app can start your tools even though this terminal cannot.
+             When a hand-off happens, `alln run` says so and prints the run id
+             to collect. If you saw no hand-off message, nothing was sent
+             anywhere — open Allnighter and run the same command again.
 
           2. Or run it here, in this same session
              Paste this in your terminal:

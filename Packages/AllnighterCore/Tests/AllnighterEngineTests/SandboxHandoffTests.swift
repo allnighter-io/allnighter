@@ -33,6 +33,13 @@ private final class NoteSink: @unchecked Sendable {
     var text: String { lines.joined() }
 }
 
+/// Captures the terminal refusal `handOff` hands its injected closure, standing
+/// in for the production default (`AllnighterCLI.fail`, which exits).
+private final class RefusalCapture: @unchecked Sendable {
+    var code: String?
+    var message: String?
+}
+
 final class SandboxHandoffTests: HermeticSupportTestCase {
     private var tmp: URL!
 
@@ -543,13 +550,32 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
         let request = RunRequest(message: "do the thing", repoRoot: "/tmp/x", pinnedModelId: "model_opus")
 
-        for verdict in [HandoffDoctorJSON.Verdict.hostNotRunning, .claimedButSilent, .mailboxUnwritable] {
+        let expectedCode: [HandoffDoctorJSON.Verdict: String] = [
+            .hostNotRunning: "HANDOFF_HOST_NOT_RUNNING",
+            .claimedButSilent: "HANDOFF_CLAIMED_BUT_SILENT",
+            .mailboxUnwritable: "HANDOFF_MAILBOX_UNWRITABLE",
+        ]
+        for (verdict, code) in expectedCode {
             let box = spool()
+            // Stands in for the production terminal closure (`AllnighterCLI.fail`),
+            // which prints the envelope and EXITS — uncapturable in-process, so this
+            // records the refusal instead. The whole-command proof that exactly one
+            // document reaches stdout is the subprocess test in
+            // `RunStreamContractTests.testSandboxRefusalEmitsExactlyOneJSONDocument`.
+            let captured = RefusalCapture()
             let handed = await SandboxHandoff.handOff(
                 request: request, spool: box, runStore: runStore, clock: { Date() },
-                readiness: { Self.readinessReport(verdict, claimedBy: "stuck-host") })
+                readiness: { Self.readinessReport(verdict, claimedBy: "stuck-host") },
+                terminalRefusal: { captured.code = $0; captured.message = $1; return nil })
 
             XCTAssertNil(handed, "\(verdict) must refuse, not wait")
+            XCTAssertEqual(captured.code, code,
+                           "\(verdict): the terminal refusal must carry its typed code")
+            XCTAssertEqual(
+                captured.message,
+                SandboxHandoff.handoffRefusal(
+                    for: Self.readinessReport(verdict, claimedBy: "stuck-host")).message,
+                "\(verdict): the terminal refusal must carry the refusal text and nothing else")
             XCTAssertTrue(try box.unclaimed().isEmpty,
                           "\(verdict): the mailbox must hold NOTHING after a refusal")
             let files = FileManager.default.fileExists(atPath: box.directory.path)
@@ -557,6 +583,21 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
                 : []
             XCTAssertTrue(files.isEmpty,
                           "\(verdict): no file may exist in the mailbox, found \(files)")
+        }
+    }
+
+    /// The refusal is terminal in production, so its exit code is user-visible
+    /// contract: an operational refusal is 1 — never 0 (success) and never 2
+    /// (usage). Derived from the catalog, so the code and its exit class cannot
+    /// drift apart (M-C).
+    func testEveryRefusalCodeExitsOperational() {
+        for code in ["HANDOFF_HOST_NOT_RUNNING", "HANDOFF_CLAIMED_BUT_SILENT", "HANDOFF_MAILBOX_UNWRITABLE"] {
+            XCTAssertEqual(
+                ContractRegistry.milestone1.errorSpec(for: code)?.exitClass, .operational,
+                "\(code) must stay an operational refusal")
+            XCTAssertEqual(
+                ContractRegistry.milestone1.processExitCode(forErrorCode: code), 1,
+                "\(code): an operational refusal exits 1")
         }
     }
 
@@ -619,8 +660,15 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
         XCTAssertTrue(refusal.message.contains("Install the Allnighter app"))
         XCTAssertFalse(refusal.message.contains("Open the Allnighter app ("))
         XCTAssertTrue(refusal.message.contains("danger-full-access"))
-        XCTAssertFalse(refusal.message.contains("sandbox_mode"),
-                       "only the per-session flag is sanctioned — never a global config change")
+        // The sanctioned escape hatch is a PER-SESSION override —
+        // `codex resume --last -c sandbox_mode="danger-full-access"` is a `-c`
+        // flag for one session, which AGENTS.md explicitly permits. What must
+        // never be suggested is a GLOBAL config change, so ban the config-file
+        // shape, not the `sandbox_mode` string itself.
+        XCTAssertFalse(refusal.message.contains("config.toml"),
+                       "never suggest editing the global Codex config")
+        XCTAssertFalse(refusal.message.contains("sandbox_mode ="),
+                       "config-file syntax is a global change; only the per-session `-c` form is sanctioned")
     }
 
     /// There is no Mac app on other platforms, so the refusal must not invent an

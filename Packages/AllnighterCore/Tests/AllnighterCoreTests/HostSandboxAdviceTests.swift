@@ -98,12 +98,20 @@ final class HostSandboxAdviceTests: XCTestCase {
         // message printed moments earlier.
         XCTAssertFalse(body.contains("paste this in:"),
                        "the hand-off is automatic; do not ask for a manual paste")
-        XCTAssertTrue(body.contains("already handed this to the Mac app"))
-        XCTAssertTrue(body.contains("alln run resume"),
-                      "the user must be told how to collect the run instead")
+        // CAR-S03b: this warning renders for ANY view of the failed run —
+        // including `alln show` of a run the readiness check REFUSED, where
+        // nothing was queued. It must never claim a hand-off happened and never
+        // print a resume instruction for work that may not exist. When a
+        // hand-off genuinely occurs, `alln run` says so itself, with the run id.
+        XCTAssertFalse(body.contains("already handed"),
+                       "a refused run queued nothing — never claim a hand-off occurred")
+        XCTAssertFalse(body.contains("alln run resume"),
+                       "nothing may have been queued — there may be nothing to resume")
+        XCTAssertTrue(body.contains("If you saw no hand-off message, nothing was sent"),
+                      "the user must be able to tell a real hand-off from a refusal")
 
         // The option that changes no permissions still leads.
-        let appFirst = try XCTUnwrap(body.range(of: "1. If Allnighter is not open"))
+        let appFirst = try XCTUnwrap(body.range(of: "1. Let the Allnighter app run it"))
         let flagSecond = try XCTUnwrap(body.range(of: "2. Or run it here"))
         XCTAssertTrue(appFirst.lowerBound < flagSecond.lowerBound,
                       "the option that changes no permissions must be offered first")

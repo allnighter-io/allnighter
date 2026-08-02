@@ -78,7 +78,10 @@ enum SandboxHandoff {
         spool: SandboxHandoffSpool,
         runStore: RunStore,
         clock: @escaping @Sendable () -> Date,
-        readiness: (@Sendable () async -> HandoffDoctorJSON)? = nil
+        readiness: (@Sendable () async -> HandoffDoctorJSON)? = nil,
+        terminalRefusal: @Sendable (String, String) -> TeamRun? = { code, message in
+            AllnighterCLI.fail(code: code, message: message)
+        }
     ) async -> TeamRun? {
         // Prove a host will claim BEFORE queuing real work (CAR-S03a). The old
         // enqueue-then-wait order left the request runnable in the mailbox when
@@ -98,8 +101,13 @@ enum SandboxHandoff {
         let report = await check()
         guard report.isHealthy else {
             let refusal = handoffRefusal(for: report)
-            AllnighterCLI.emitFailure(code: refusal.code, message: refusal.message)
-            return nil
+            // CAR-S03b: the refusal is the ONE answer. The default closure is
+            // `AllnighterCLI.fail` — it prints the failure envelope and EXITS
+            // with the catalog-derived code, so no run JSON can ever follow it
+            // onto stdout (that pair was the two-contradictory-documents
+            // defect). Tests inject a capture closure and get its nil back
+            // instead of a process exit.
+            return terminalRefusal(refusal.code, refusal.message)
         }
 
         let handoffRunId = "handoff-\(UUID().uuidString)"
@@ -171,9 +179,10 @@ enum SandboxHandoff {
     /// One typed refusal per failure class. The three non-healthy verdicts are
     /// different problems and must never share a sentence — one wrong sentence
     /// covering two problems is what made the original failure undiagnosable
-    /// (see `HandoffDoctor.swift`). Emitted on the shared failure surface
-    /// (`AllnighterCLI.emitFailure`), so a calling agent recovers from the
-    /// structured code and the human reads the text.
+    /// (see `HandoffDoctor.swift`). Emitted terminally via `AllnighterCLI.fail`,
+    /// so a calling agent recovers from the structured code with its
+    /// catalog-derived exit class, and the human reads the text — one envelope,
+    /// and nothing rendered after it (CAR-S03b).
     ///
     /// Message rules: every remediation must be an action that can actually
     /// change the outcome; never `alln doctor` (doctor reporting OK while the
