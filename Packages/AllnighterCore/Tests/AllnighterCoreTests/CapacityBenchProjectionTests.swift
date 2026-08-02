@@ -272,6 +272,23 @@ final class CapacityBenchProjectionTests: XCTestCase {
             remainingPercent: 90, resetAt: nil, now: now))
     }
 
+    /// Primary pool nearly exhausted; Fable sub-pool still has headroom — hero
+    /// must use binding (effective) remaining, not the looser sub-pool.
+    func testClaudeFableSubPoolDoesNotMakeRowHeroEligible() {
+        let reset = now.addingTimeInterval(29 * 3600)
+        let windows = [
+            remaining(4, source: "claude_code", scope: .weekly, resetAt: reset,
+                      planTier: "Max"),
+            remaining(82, source: "claude_code", scope: .weekly, resetAt: reset,
+                      poolLabel: "Fable", planTier: "Max"),
+        ]
+        let row = CapacityBenchProjection.rows(from: windows, now: now).first
+        XCTAssertNotNil(row)
+        XCTAssertEqual(row?.effectiveRemainingPercent, 4)
+        XCTAssertEqual(row?.isHeroEligible(at: now), false)
+        XCTAssertNil(row?.heroBinding(at: now))
+    }
+
     // MARK: 7 — No sample → unknown reason, no zeros
 
     func testSourceWithNoSampleCarriesUnknownReasonWithoutZeros() {

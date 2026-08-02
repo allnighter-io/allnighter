@@ -358,6 +358,17 @@ public enum CapacityStripRenderer {
     ///
     /// Observed facts only — `N% unused` and a reset clock. Never a projection of
     /// what will be wasted.
+    ///
+    /// Multi-pool seats use binding headroom (tightest pool). A sub-pool with spare
+    /// credits must not earn a line when the primary pool is nearly exhausted.
+    private static func expiringBannerLabel(for row: CapacityBenchRow) -> String {
+        let seat = displayName(for: row.source)
+        guard row.pools.count == 1,
+              let label = row.pools[0].poolLabel
+        else { return seat }
+        return "\(seat) \(compressPoolLabel(label))"
+    }
+
     static func expiringBanner(
         rows: [CapacityBenchRow],
         now: Date,
@@ -365,19 +376,12 @@ public enum CapacityStripRenderer {
     ) -> [String] {
         var entries: [(name: String, remaining: Double, resetAt: Date)] = []
         for row in rows where row.unknownReason == nil {
-            for pool in row.pools {
-                guard let remaining = pool.dashboardRemainingPercent,
-                      let resetAt = pool.dashboardResetAt,
-                      CapacityBenchProjection.isHeroEligible(
-                          remainingPercent: remaining,
-                          resetAt: resetAt,
-                          now: now
-                      )
-                else { continue }
-                let label = pool.poolLabel.map { "\(displayName(for: row.source)) \(compressPoolLabel($0))" }
-                    ?? displayName(for: row.source)
-                entries.append((label, remaining, resetAt))
-            }
+            guard let binding = row.heroBinding(at: now) else { continue }
+            entries.append((
+                expiringBannerLabel(for: row),
+                binding.remaining,
+                binding.resetAt
+            ))
         }
         guard !entries.isEmpty else { return [] }
         // Soonest reset first — that is the one you lose first.

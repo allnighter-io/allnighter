@@ -98,17 +98,29 @@ public struct CapacityBenchRow: Sendable, Equatable, Codable {
         self.unknownReason = unknownReason
     }
 
-    /// Hero eligibility for any dashboard window on this row at `now`.
-    /// Fact about the window(s), not a recommendation and not a usage forecast.
+    /// Hero eligibility uses the **binding** dashboard window on this row — the
+    /// pool with the least remaining headroom — not whichever sub-pool still has
+    /// spare credits (e.g. Claude Fable must not shout over a nearly-empty primary).
     public func isHeroEligible(at now: Date) -> Bool {
-        pools.contains { pool in
-            guard let remaining = pool.dashboardRemainingPercent else { return false }
-            return CapacityBenchProjection.isHeroEligible(
-                remainingPercent: remaining,
-                resetAt: pool.dashboardResetAt,
-                now: now
-            )
+        heroBinding(at: now) != nil
+    }
+
+    /// Binding dashboard window for hero/banner: tightest remaining % and that
+    /// pool's reset clock. Nil when no known dashboard sample or not eligible.
+    public func heroBinding(at now: Date) -> (remaining: Double, resetAt: Date)? {
+        let known = pools.compactMap { pool -> (remaining: Double, resetAt: Date)? in
+            guard let remaining = pool.dashboardRemainingPercent,
+                  let resetAt = pool.dashboardResetAt
+            else { return nil }
+            return (remaining, resetAt)
         }
+        guard let binding = known.min(by: { $0.remaining < $1.remaining }) else { return nil }
+        guard CapacityBenchProjection.isHeroEligible(
+            remainingPercent: binding.remaining,
+            resetAt: binding.resetAt,
+            now: now
+        ) else { return nil }
+        return binding
     }
 }
 

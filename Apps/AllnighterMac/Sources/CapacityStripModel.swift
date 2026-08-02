@@ -214,21 +214,13 @@ struct CapacityHeroPresentation: Equatable {
         }
         var candidates: [Candidate] = []
         for row in rows {
-            for pool in row.pools {
-                guard let remaining = pool.dashboardRemainingPercent,
-                      CapacityBenchProjection.isHeroEligible(
-                        remainingPercent: remaining,
-                        resetAt: pool.dashboardResetAt,
-                        now: now
-                      )
-                else { continue }
-                candidates.append(Candidate(
-                    row: row,
-                    remaining: remaining,
-                    resetAt: pool.dashboardResetAt,
-                    rank: planTierRank(row.planTier)
-                ))
-            }
+            guard let binding = row.heroBinding(at: now) else { continue }
+            candidates.append(Candidate(
+                row: row,
+                remaining: binding.remaining,
+                resetAt: binding.resetAt,
+                rank: planTierRank(row.planTier)
+            ))
         }
         guard !candidates.isEmpty else { return nil }
         // Highest plan-tier ordinal first; then most remaining dollars-proxy (remaining %).

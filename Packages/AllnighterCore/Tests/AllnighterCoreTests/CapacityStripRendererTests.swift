@@ -166,6 +166,21 @@ final class CapacityStripRendererTests: XCTestCase {
         )
     }
 
+    /// Claude primary nearly exhausted while Fable still has headroom — banner must
+    /// stay silent; Fable is not actionable when the binding pool is at 4%.
+    func testExpiringBannerIgnoresSubPoolWhenPrimaryNearlyExhausted() {
+        let reset = now.addingTimeInterval(29 * 3600)
+        let windows = [
+            remaining(4, source: "claude_code", scope: .weekly, resetAt: reset,
+                      planTier: "Max"),
+            remaining(82, source: "claude_code", scope: .weekly, resetAt: reset,
+                      poolLabel: "Fable", planTier: "Max"),
+        ]
+        let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
+        XCTAssertFalse(plain.contains("Expiring soon"), plain)
+        XCTAssertFalse(plain.contains("82% unused"), plain)
+    }
+
     /// A pooled seat's banner label is longer than the table's name column, and
     /// borrowing that width hard-cut it to "Antigravity Clau".
     func testExpiringBannerDoesNotClipAPooledSeatLabel() {
