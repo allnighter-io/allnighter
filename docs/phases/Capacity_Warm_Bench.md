@@ -1,50 +1,53 @@
 # Capacity Warm Bench
 
 Status: **OPEN — founder priority (2026-08-02). Current path is a no-go.**
-Owner: AllnighterMac (`CapacityResidentService`) + AllnighterEngine
-(`CapacityWarmPool`, `CapacityFetch`) + AllnighterCore (parsers,
-`CapacityStripRenderer`) + AllnighterCLI (`alln capacity`)
+Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac (strip UX) +
+AllnighterCLI (`alln capacity`, menu/bootstrap injection)
 Created: 2026-08-02
-Updated: 2026-08-02 (CWB-S00: dumb routing + disk killed)
-Supersedes direction in: archived
-[`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
+Updated: 2026-08-02 (adversarial review + S00a spike gate)
+Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 (`refresh: false` default, disk-as-primary, cold PTY per request).
-Composes with: [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md)
-(runtime vendor park/substitute **unchanged**). Plan-time menu/bootstrap capacity
-from QABC-S00d is **disabled in S00**; re-enabled only from a trusted resident
-cache in S01+ (see below).
+
+**Cross-doc:** Retires QABC-S00d plan-time injection **for S00–S01** (founder
+2026-08-02). Runtime park/substitute from
+[`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) **unchanged**.
+Revisit plan-time only after resident trusted cache exists (S02+ appendix).
 
 Phases are ephemeral. At closeout: promote product law into help / teaching /
-operations; code remains SSOT; archive this packet.
+`Product_Vocabulary.md`; code remains SSOT; archive this packet.
+
+---
+
+## Adversarial review (Grok 4.5, 2026-08-02)
+
+**Lead call: Partial** — S00 honesty direction is correct; **do not code S00b
+until CWB-S00a spike is green** and paint matrix is locked below.
+
+### Accepted from review
+
+| Finding | Resolution |
+| --- | --- |
+| QABC collision | **Founder ruling:** plan-time OFF until trusted resident cache (S02+). Update QABC status note + AGENTS at S00 closeout. |
+| Paint laws contradicted each other | **Paint matrix** below — single source per surface |
+| CLI contract vs live code | **Cutover table** — bare becomes live; delete `--cached`/`--no-refresh` in S00 |
+| Codex/Grok PTY unproven | **CWB-S00a spike** gates disk delete |
+| `CapacityFetch` package unclear | Lives in **AllnighterEngine**; replaces `CapacityDisplayAcquisition` acquire path; Core keeps parsers/renderer |
+| S01+ vapor in S00 packet | Moved to **Appendix: later speed** |
+| Proof holes | Hardened ship gate + dogfood row |
+| Menu `absent` vs `null` | **`capacity` key omitted** (not present in JSON) |
+
+### Rejected from review (founder law stands)
+
+| Finding | Rejection |
+| --- | --- |
+| Keep disk when mtime fresh | Disk is never trustworthy for capacity display — live PTY or unknown |
+| Age-gated plan-time menu now | Stale numbers poison routing; dumb routing until resident cache |
+| Defer six-seat PTY in favor of disk | Opposite of founder law |
+| Rename tax → extend in place only | `CapacityFetch` replaces acquire; `CapacityDisplayAcquisition` becomes thin render wrapper or deleted in S00 |
 
 ---
 
 ## Spec Review Min (2026-08-02)
-
-**Lead call: Ready.** Start **CWB-S00** first — honest cold path before warm pool.
-
-### Impact ledger (accepted)
-
-| Change | Lens | Severity | Why |
-| --- | --- | --- | --- |
-| **CWB-S00** before warm pool | Sequencing | **blocking** | Ship trust + cleanup (menu-bar-off world) before speed |
-| Warm pool = **six PTY seats** (all bench CLIs) | Premise + Proof | **blocking** | One mechanism; disk is never live |
-| **Kill disk for Codex/Grok entirely** — no fallback | Premise | **blocking** | Disk without a concurrent CLI run is stale; live or **no data** |
-| Menu bar **on by default** + first-launch explainer (S04+) | Delivery | material | Deferred until after S00 |
-| Menu bar **off** = loud Refresh + banner (S00 ships this) | Delivery | material | Baseline contract before resident mode exists |
-| `CapacityFetch` replaces `CapacityDisplayAcquisition` as acquire SSOT | Foundation | material | One acquire owner; `warmPool` param nil in S00 |
-| Split **display TTL** (30 min) vs **pool idle teardown** (30 min) | Failure modes | material | S00 uses display TTL only; pool teardown in S01+ |
-| **Plan-time capacity OFF** in menu/bootstrap (S00) | Premise + Delivery | **blocking** | `menuCapacity()` feeds stale `refresh:false` data; agents route on fake % — worse than no data |
-| Named proof commands per slice | Proof | material | "&lt; 2s" without a command is decoration |
-
-### Rejected (recorded)
-
-| Finding | Lens | Rejection |
-| --- | --- | --- |
-| Codex/Grok disk as fallback on probe failure | Premise | **Rejected by founder.** Not trustworthy — live or unknown only |
-| Codex/Grok = live disk re-read | Premise | Rejected earlier |
-| Reuse `WarmWorkerPool` | Foundation | Wrong lifecycle |
-| `alln serve` as socket host | Wildcard | One Mac app only |
 
 ### Founder rulings (closed)
 
@@ -52,312 +55,233 @@ operations; code remains SSOT; archive this packet.
 | --- | --- |
 | All six seats | **PTY only** — live probe or unknown |
 | Codex/Grok disk | **Deleted** from capacity acquire — not primary, not fallback |
-| Live or absent | Successful live PTY sample, or seat shows unknown — never stale % |
-| **CWB-S00 first** | Menu-bar-off world: cold `CapacityFetch`, loud Refresh, code cleanup |
-| Menu bar on (S02+) | Warm pool + socket + fast CLI — additive on S00 |
-| Menu bar | On by default when built (S04); off = S00 behavior |
-| Menu bar off UX (S00) | Banner: *"Tap Refresh for live capacity"* (Settings CTA added S02) |
-| **Dumb routing (S00)** | `alln menu` / `alln bootstrap` omit `capacity` — routing uses catalog only (ready/enabled/blocked) |
-| Runtime capacity | **Unchanged** — `CapacityObservation` from failed runs still drives park/substitute/wake |
+| Live or absent | Successful live PTY sample, or unknown — never stale % |
+| **CWB-S00a before S00b** | Codex + Grok cold PTY spike must pass before disk path delete |
+| **Dumb routing** | `alln menu` / `alln bootstrap` **omit** `capacity` key entirely |
+| Runtime capacity | **Unchanged** — `CapacityObservation` on vendor failure |
+| Plan-time capacity | **OFF** until S02+ resident cache (retires QABC-S00d temporarily) |
+| Menu bar / warm pool | **Appendix** — not S00 scope |
 
 ---
 
 ## Verdict on what ships today
 
-**No-go.** Capacity is the killer app **if** we nail it. Right now we have not.
-
-Recent cleanup (2026-08-02) was necessary but insufficient:
-
-- **Good:** one adapter per source; GUI and CLI share one projection/renderer contract.
-- **Still broken:** cold PTY boot, stale disk/history shortcuts, `refresh: false`,
-  main-thread blocking, lying %.
+**No-go.** Cold PTY boot, `refresh: false` default, disk/history hydrate, and
+plan-time menu injection all produce **lying %**. Capacity is the killer app
+**if** we nail trust first.
 
 ---
 
-## Phased delivery
+## Paint matrix (single law per surface)
 
-| Phase | What ships | User experience |
-| --- | --- | --- |
-| **S00** (now) | Honest cold path; disk killed; **dumb routing**; code cleanup | Tap Refresh → real % or unknown; menu has no capacity block |
-| **S01–S05** (later) | Warm pool, socket, menu bar, defaults | &lt; 2s when resident |
+No cross-surface exceptions. **History store and disk logs never paint as live.**
 
-S00 is the **menu-bar-off baseline**. Everything after is additive speed.
+| Surface | When % may appear | Default (S00) | After live success |
+| --- | --- | --- | --- |
+| **Mac strip launch** | Never auto | Unknown / empty | — |
+| **Mac strip Refresh** | User taps Refresh | Spinner; off main actor | Show % + honest `observedAge` |
+| **Mac strip re-open** | Process-local memo only | Unknown until Refresh | May show if last **live** success in **this app process** was &lt; 30 min ago |
+| **`alln capacity` bare** | Every invocation | Cold live PTY all six (~5s); progress stderr | Full table or unknown rows |
+| **`alln capacity --source`** | Per seat | Cold live PTY one seat | Same |
+| **`alln menu` / bootstrap** | Never (S00) | `capacity` key **absent** | S02+: resident cache only (appendix) |
+| **Runtime run failure** | Vendor said no | `CapacityObservation` (unchanged) | Park/substitute/wake |
 
----
-
-## Why this simplifies (not just adds)
-
-**User mental model after S00:**
-
-> Tap Refresh → live capacity or unknown. No fake numbers.
-
-**After full cutover:**
-
-> Menu bar on = instant. Off = tap Refresh and wait.
-
-| Today (unusable) | After S00 | After S01+ |
-| --- | --- | --- |
-| `refresh:false`, history hydrate, disk-primary | One `CapacityFetch` cold law | + warm pool when resident |
-| Stale Codex/Grok from disk | PTY or unknown | Same, faster when warm |
-| Stale plan-time capacity in menu/bootstrap | `capacity: null` — agents run `alln capacity` explicitly | Trusted resident cache only (S01+) |
-| Beach ball risk | Off main actor | Same |
+**Clarifications:**
+- **30-minute gate** applies only to **process-local memo** after a successful
+  live fetch in the Mac app — not history file, not disk, not cross-launch.
+- **CLI has no memo in S00** — every `alln capacity` is a fresh live probe.
+- **"Unknown until Refresh"** on launch; memo does not survive app restart in S00.
 
 ---
 
-## Founder intent
+## Product law
 
-**Product value:** trustworthy bench capacity — daily glance surface.
-**S00 slice:** stop lying; live-on-refresh or absent; loud Refresh in Mac app;
-**dumb routing** (no capacity in menu/bootstrap).
-**Non-goals (S00):** warm pool, socket, menu bar settings, login item,
-plan-time capacity injection.
-
----
-
-## Product law (founder, 2026-08-02)
-
-1. **Live or absent.** A seat shows a % only after a **successful live PTY
-   acquire in this process**. Otherwise unknown. No exceptions.
-2. **Fresh is the default.** `refresh: false` must never be the default anywhere
-   user-facing capacity is shown.
-3. **PTY only — all six seats.** Codex, Claude, Cursor, Grok, Kimi, Agy —
-   same mechanism. **No disk path for capacity** — not primary, not fallback.
-   Delete `CodexCapacityLog` / `GrokCapacityLog` from acquire; keep parsers
-   only if still used by PTY capture text.
-4. **Nothing on the main thread.** Acquisition always async/off-main.
-5. **30-minute display gate.** Paint only if last **successful live** acquire
-   for that seat was &lt; 30 minutes ago; show honest age. Older → unknown or
-   "refreshing" until a new live sample lands.
-6. **One output contract.** `[CapacityWindow]` → `CapacityBenchProjection` →
-   `CapacityStripRenderer`.
-7. **One acquire owner.** `CapacityFetch` only (`warmPool: nil` in S00).
-8. **Dumb routing (S00).** `alln menu --json`, `alln menu show`, and
-   `alln bootstrap --json` **omit** the `capacity` block. Seating/routing uses
-   catalog truth only (`ready`, `enabled`, `blockedReason`). Capacity is
-   opt-in via explicit `alln capacity` — never silently injected stale numbers.
-9. **Runtime capacity unchanged.** `CapacityObservation` from vendor failures
-   (rate limits, parks, substitution) is real execution signal — not strip/menu
-   data. Do not touch `VendorBackoffReconciler`, `VendorSubstitutionPolicy`,
-   or `LoopState.capacityPark` in S00.
+1. **Live or absent** — % only after successful live PTY in the current acquire.
+2. **PTY only, all six seats** — no disk path for capacity display.
+3. **Nothing on the main thread.**
+4. **One output contract** — `[CapacityWindow]` → `CapacityBenchProjection` → `CapacityStripRenderer`.
+5. **One acquire owner** — `CapacityFetch` (Engine).
+6. **Dumb routing (S00)** — menu/bootstrap omit `capacity`; agents run
+   `alln capacity` explicitly when they need quota.
+7. **Runtime unchanged** — do not touch vendor park/substitute in S00.
 
 ---
 
-## The system (target end state)
+## CWB-S00 — honesty cut (ship first)
 
-```
-                    ┌─────────────────────────────────────┐
-                    │         Allnighter.app              │
-                    │  menu bar ON (S04+, default on)     │
-                    │  CapacityWarmPool (6 warm PTYs)      │
-                    │  capacity.sock                      │
-                    └──────────────┬──────────────────────┘
-                                   │
-         Mac strip ────────────────┤ CapacityFetch → warm or cold
-         alln capacity ───────────┘ socket if resident, else cold
-```
+### S00a — Spike gate (do first, no product ship)
 
-**S00 ships the bottom of this diagram with `warmPool = nil` everywhere.**
+Prove Codex and Grok return parseable quota via **cold PTY** before deleting disk.
 
-### Option B / S00 — Menu bar off (baseline — ship first)
-
-| Surface | Behavior |
+| Item | Proof |
 | --- | --- |
-| Mac strip | Unknown until user taps **Refresh**; cold live PTY ~4–5s; off main actor |
-| Strip chrome | **Prominent Refresh** + banner: *"Tap Refresh for live capacity"* |
-| `alln capacity` | Cold live PTY all six seats; progress on stderr; unknown on failure |
-| `alln menu` / `alln bootstrap` | **`capacity` omitted** — dumb routing; no stale plan-time numbers |
-| Warm pool / socket | **Not built** |
+| `codex` cold PTY `/status` or `/usage` | Founder Mac dogfood + fixture capture committed |
+| `grok` cold PTY | Same |
+| Failure mode documented | If spike fails → seat stays **unknown** forever in S00; disk stays deleted |
 
-### Option A — Menu bar on (S01–S05)
+**Works Test:** `scripts/swift-test.sh --filter CodexCapacityProbe` (or new
+integration test with recorded fixture from live capture).
 
-| Surface | Behavior |
-| --- | --- |
-| Mac strip | Auto-refresh via warm pool; ~1s |
-| `alln capacity` | Socket → warm pool → ~1s |
-| Strip chrome (off toggle) | Banner: *"Want live capacity? Turn on menu bar in Settings"* |
+**Exit:** spike green → proceed S00b. Spike red → doc records "Codex/Grok
+unknown until vendor PTY works" — still no disk fallback.
 
-### Option C — CLI-only, no app
-
-Same as S00 cold path. After S03, stderr hint when resident available.
-
----
-
-## What we build
-
-### S00 (ship now)
+### S00b — Implementation (after S00a green)
 
 | Piece | Responsibility |
 | --- | --- |
-| **`CapacityFetch`** | Acquire SSOT: `warmPool: nil` → cold `CapacityProbe` all six seats; 30 min display gate; live or unknown |
-| **Kill disk acquire** | Remove Codex/Grok disk path from `CapacityAcquisition`; delete disk fallback/hydrate |
-| **Kill stale paths** | `refresh:false` default, history-as-live, `CapacityDisplayAcquisition` hydrate |
-| **Mac strip** | Loud Refresh; banner; off-main fetch; no % until live success |
-| **`alln capacity`** | Always cold live PTY; full six-row table |
-| **Dumb routing** | `menuCapacity()` returns `nil`; omit from `MenuCLI`, `runBootstrap`; no capacity on `menu show` model detail |
-| **Codex/Grok PTY** | Wire into `CapacityProbe.probeableSources`; `/status` or `/usage` as needed |
+| **`CapacityFetch`** (Engine) | `warmPool: nil`; cold `CapacityProbe` all six; process-local memo optional for Mac only; 30 min gate on memo |
+| **Kill disk acquire** | Remove Codex/Grok from `CapacityAcquisition` display path |
+| **Kill hydrate / `refresh:false`** | No history-as-live; bare CLI = live |
+| **CLI cutover** | See table below |
+| **Dumb routing** | `menuCapacity()` → `nil`; omit key from `MenuCLI`, `runBootstrap` |
+| **Mac strip** | Loud Refresh; banner *"Tap Refresh for live capacity"*; off-main |
+| **Teaching / help** | Update `TeachingSnippet`, `HelpTopicRegistry`, `ContractRegistry` capacity flags |
 
-`CapacityFetch` API must accept optional `warmPool` from day one so S01 plugs in
-without rewrite:
+### CLI cutover (S00b)
 
-```swift
-CapacityFetch.windows(now:refresh:warmPool: nil)  // S00
-CapacityFetch.windows(now:refresh:warmPool: pool) // S01+
-```
-
-### S01–S05 (later)
-
-| Piece | When |
+| Today (live code) | After S00b |
 | --- | --- |
-| `CapacityWarmPool` | S01 |
-| `CapacityResidentService` + socket | S02–S03 |
-| Menu bar settings + first-launch sheet + login item | S04 |
-| Menu capacity from resident cache (trusted, &lt; 30 min) | S01+ (after warm pool writes cache) |
-| Help/teaching cleanup; archive Phase 1 doc | S05 |
-
----
-
-## What we delete
-
-### CWB-S00 (ship in S00)
-
-| Remove | Why |
-| --- | --- |
-| `refresh: false` as default | Stale lies |
-| History hydrate painted as live | Stale lies |
-| **Codex/Grok disk acquire entirely** | Not trustworthy — live or unknown |
-| `CapacityAcquisition.diskOnlySources` capacity path | PTY only for display |
-| `CapacityDisplayAcquisition` hydrate / snapshot as acquire owner | → `CapacityFetch` |
-| Mac strip auto-paint from history on launch | Unknown until Refresh |
-| **Plan-time `menuCapacity()` injection** | Stale `refresh:false` poisons agent routing |
-| QABC menu capacity block (S00) | Re-enable only from resident live cache in S01+ |
-
-### CWB-S01–S05 (later)
-
-| Remove | When |
-| --- | --- |
-| Cold spawn from Mac strip when resident | S02 (warm pool) |
-| `alln serve` capacity ownership | Never |
-
-Keep: PTY parsers, probe fail-closed reasons, Claude `allmodels` normalization,
-TeachingSnippet “print full table verbatim”.
-
----
-
-## CLI contract
-
-### S00
+| Bare `alln capacity` = `refresh: false` (instant, stale) | Bare = **live PTY all six** (~5s) |
+| `--refresh` = live probe | **Removed** or alias of bare (same behavior) |
+| `--cached` / `--no-refresh` | **Deleted** — usage error |
+| `--source` requires `--refresh` | `--source <id>` = live one seat (no `--refresh` required) |
+| `menuCapacity()` = `refresh: false` | Returns `nil`; key omitted |
 
 ```text
-alln capacity              # cold live PTY all six seats (~5s)
-alln capacity --json       # same
-alln capacity --source ID  # one seat, live PTY
-alln capacity --refresh    # transition alias (same as bare after S00)
+alln capacity                 # live PTY, six rows, ~5s, progress on stderr
+alln capacity --json          # same
+alln capacity --source codex  # live PTY, one seat
 ```
 
-- Progress on stderr.
-- Full six-row table on stdout.
-- Failed seat = unknown row, not disk/history %.
+### What we delete (S00b)
 
-### Menu / bootstrap (S00)
+- `refresh: false` as default for `alln capacity`
+- `--cached` / `--no-refresh` flags
+- History hydrate as live display
+- Codex/Grok disk acquire for capacity
+- Plan-time `menuCapacity()` injection
+- `CapacityDisplayAcquisition` as acquire owner (fold into `CapacityFetch`)
 
-```text
-alln menu --json           # capacity key absent or null — dumb routing
-alln bootstrap --json      # same
-alln menu show model:X     # no capacity on model detail
-```
-
-Agents that need quota before seating run `alln capacity` explicitly (slow but
-honest in S00). Teaching: menu selection uses `ready` / `blockedReason` only.
-
-### After S01+
-
-Socket fast path when menu bar resident; else S00 cold behavior. Menu/bootstrap
-may re-inject `capacity` **only** from resident-written cache file when
-`generatedAt` &lt; 30 min and every row is from a live acquire.
+**Keep:** PTY parsers, fail-closed reasons, Claude `allmodels` normalization,
+runtime `CapacityObservation` path, TeachingSnippet verbatim table rule.
 
 ---
 
-## Routing: two capacity worlds (do not conflate)
+## Routing: three worlds (do not conflate)
 
 | Layer | Source | S00 | Trust |
 | --- | --- | --- | --- |
-| **Display** | `alln capacity`, Mac strip | Live PTY or unknown | User/agent opt-in |
-| **Plan-time** | `alln menu` / bootstrap | **Off** (`capacity: null`) | N/A — no fake routing |
-| **Runtime** | Vendor failure on run | **On** (unchanged) | Real `CapacityObservation` |
-
-QABC plan-time injection (`menuCapacity` + `refresh: false`) caused agents to
-route on stale disk/history %. S00 removes that. Runtime park/substitute/wake
-stays — that is the vendor telling you no, not a strip guess.
+| **Display** | `alln capacity`, Mac strip | Live PTY or unknown | Opt-in / Refresh |
+| **Plan-time** | menu/bootstrap | **Off** (key absent) | No fake routing |
+| **Runtime** | Vendor on run failure | **On** (unchanged) | Real observation |
 
 ---
 
-## Failure modes
+## Failure modes (S00)
 
-| Scenario | S00 behavior |
+| Scenario | Behavior |
 | --- | --- |
-| Live PTY fails for one seat | **Unknown** — never disk, never history |
-| Live PTY fails for all seats | Six unknown rows; exit 0 |
-| User never taps Refresh (Mac) | Strip shows unknown / empty — no stale % |
-| Sample &gt; 30 min old | Unknown or "refreshing" until new live sample |
-| Probe timeout | Unknown with `probeTimeout` reason |
-
-| Scenario | S01+ behavior |
-| --- | --- |
-| Pool child dies | Respawn; unknown until back |
-| Socket warming | CLI waits ≤2s; else cold |
-| Menu bar toggled off | Tear down pool; revert to S00 |
+| PTY succeeds but parser fails | Unknown + `parserFailed` — never disk |
+| Codex/Grok PTY never shows quota (S00a fail) | Permanent unknown for that seat — still no disk |
+| Parallel six cold PTYs slow / timeout | Per-seat unknown; stderr progress; exit 0 |
+| Sandbox / Keychain blocks child | `spawnFailed` / unknown; doctor surfaces auth |
+| Mac Refresh while prior fetch in flight | Cancel prior task; latest wins |
+| App quit during probe | Probe killed; no orphan children |
+| Agent expects instant bare table | Teaching: bare is ~5s live; plan accordingly |
+| `coolingSources` / vendor park | Runtime only — unrelated to strip % |
 
 ---
 
 ## Implementation slices
 
-| Slice | Scope | Works Test | Est. |
+| Slice | Scope | Ship gate | Est. |
 | --- | --- | --- | --- |
-| **CWB-S00** | `CapacityFetch` cold-only; kill disk/history/`refresh:false`; six-seat PTY; **dumb routing** (`menuCapacity` nil); Mac loud Refresh + banner; CLI live cold | `CapacityFetch` + `MenuCapacityInjectionCLITests` assert `capacity` null; `CapacityStripModelTests`; no disk in acquire | **~1w** |
-| **CWB-S01** | `CapacityWarmPool` (6 PTY); plug into `CapacityFetch` | `scripts/swift-test.sh --filter CapacityWarmPool` | 5–8d |
-| **CWB-S02** | `CapacityResidentService`; strip auto-refresh when pool available; Settings CTA when off | `CapacityStripModelTests` | 2–3d |
-| **CWB-S03** | `capacity.sock` + CLI fast path when resident | `time alln capacity` &lt; 2s with app + menu on | 2d |
-| **CWB-S04** | Settings (menu bar + login, defaults on); first-launch sheet; teardown on toggle | Manual | 2d |
-| **CWB-S05** | Delete remaining dead code; help/teaching; archive Phase 1 doc | Help + TeachingSnippet tests | 2–3d |
+| **CWB-S00a** | Codex/Grok cold PTY spike; fixtures | Dogfood + test green | 1–2d |
+| **CWB-S00b** | `CapacityFetch`, disk/hydrate kill, CLI cutover, dumb routing, Mac strip | All S00b criteria below | 4–6d |
 
-**Order:** **S00 → S01 → S02 → S03 → S04 → S05.** Do not start warm pool until S00 is green.
-
-**Total after S00:** ~2 weeks additional for S01–S05.
+**Do not start S00b until S00a exits.** Warm pool (appendix) blocked on S00b green.
 
 ---
 
-## Success criteria
+## S00b ship gate (must all pass)
 
-### CWB-S00 (ship gate)
+**Acquire honesty**
+- [ ] `alln capacity` never reads Codex/Grok disk (`rg` + integration test)
+- [ ] Never hydrates `CapacityHistoryStore` as live display
+- [ ] Failed probe → unknown row, not stale %
 
-- `alln capacity` never reads Codex/Grok disk for display.
-- `alln capacity` never hydrates history as live.
-- Failed live probe → unknown seat, not stale %.
-- Mac strip: no % until user Refresh succeeds (or sample &lt; 30 min from prior live success).
-- No main-thread block during fetch.
-- `alln menu --json` and `alln bootstrap --json` have **no** `capacity` block (or `null`).
-- `MenuCapacityInjectionCLITests` proves zero probe spawn on menu read **and** no capacity payload.
-- Runtime `CapacityObservation` / vendor park / substitution **unchanged**.
-- `rg` shows no `diskOnlySources` in capacity display acquire path.
+**CLI / menu**
+- [ ] Bare `alln capacity` runs live PTY (not `refresh: false`)
+- [ ] `--cached` / `--no-refresh` removed or hard error
+- [ ] `alln menu --json` has **no** `capacity` key (`jq has("capacity")` → false)
+- [ ] `alln bootstrap --json` same
+- [ ] `MenuCapacityInjectionCLITests` updated: zero probes, no capacity key
 
-### Full cutover (S01–S05)
+**Mac strip**
+- [ ] Launch shows unknown (no history paint)
+- [ ] Refresh off main actor; no beach ball in XCTest host
+- [ ] After live success: % + age; memo &lt; 30 min in-process only
 
-- Menu bar on → strip and CLI **&lt; 2s**.
-- Menu bar off → S00 behavior (cold, loud Refresh).
-- Disk never appears as current truth anywhere.
+**Runtime (regression)**
+- [ ] `scripts/swift-test.sh --filter VendorSubstitutionPolicy`
+- [ ] `scripts/swift-test.sh --filter LoopCoordinator` (capacity park paths)
+
+**Dogfood**
+- [ ] Founder runs `alln capacity` — six rows match terminal `/usage` or honest unknown
+- [ ] Founder Refresh in Mac app — same numbers as CLI within one session
+
+**Closeout docs (S00b)**
+- [ ] QABC doc note: plan-time injection suspended pending resident cache
+- [ ] AGENTS.md row updated
+- [ ] `Product_Vocabulary.md` capacity ladder amended (disk tier retired for display)
 
 ---
 
-## Truth owner / lie-prone layers
+## Truth owner
 
 | Layer | Owner | Lie risk |
 | --- | --- | --- |
-| Acquire | `CapacityFetch` | Disk/history painted as live |
-| Plan-time menu | `menuCapacity()` → **nil in S00** | Stale % steers agent routing |
-| Runtime execution | `CapacityObservation` on run failure | Unchanged — trustworthy |
-| Warm pool (S01+) | `CapacityWarmPool` | Dead child / stale capture |
-| Resident (S02+) | `CapacityResidentService` | Socket up but pool cold |
-| Render | `CapacityStripRenderer` | None if acquire is honest |
+| Acquire | `CapacityFetch` (Engine) | Disk/history as live |
+| Plan-time | `menuCapacity()` → nil | Stale routing (S00 off) |
+| Runtime | `CapacityObservation` | Unchanged |
+| Render | `CapacityStripRenderer` (Core) | None if acquire honest |
 
-Code SSOT targets: `CapacityFetch.swift`, `AllnighterCLI.menuCapacity` (nil in S00),
-`MenuCLI.swift`, `AllnighterCLI.runBootstrap`, `AllnighterCLI.runCapacity`.
+Code SSOT: `CapacityFetch.swift`, `CapacityProbe.swift`, `AllnighterCLI.runCapacity`,
+`AllnighterCLI.menuCapacity`, `CapacityStripModel.swift`.
+
+---
+
+## Appendix: later speed (S01+ — not S00 scope)
+
+**Do not implement until S00b is green.** Aspirational only; details TBD after
+honesty cut ships.
+
+| Piece | Intent |
+| --- | --- |
+| `CapacityWarmPool` | Six warm PTYs in Mac app when menu bar resident |
+| `capacity.sock` | CLI fast path when app + menu bar on |
+| Menu bar + login defaults | Opt-in after cold path trusted |
+| Resident cache file | Re-enable plan-time `capacity` in menu **only** from last live resident fetch &lt; 30 min |
+| Settings / first-launch sheet | Menu bar explainer |
+
+**Sequencing sketch:** S01 warm pool → S02 resident service + strip auto-refresh →
+S03 socket → S04 settings → S05 help/archive Phase 1 doc.
+
+**Estimate after S00:** ~2 weeks additional.
+
+**Deferred complexity (intentionally out of S00):** socket auth/versioning,
+pool idle teardown vs display TTL split, login-item surprise, six idle CLI RAM
+budget — specify when appendix work starts.
+
+---
+
+## Why S00 alone simplifies
+
+| Delete | Gain |
+| --- | --- |
+| Stale menu routing | Agents stop seating on fake % |
+| Disk/history hydrate | One truth law: live or unknown |
+| `refresh:false` default | CLI matches user expectation |
+| Warm pool/socket (deferred) | Ship trust in ~1 week, not ~3 |
+
+Warm speed is additive. **Lying is not acceptable while waiting for warm pool.**
