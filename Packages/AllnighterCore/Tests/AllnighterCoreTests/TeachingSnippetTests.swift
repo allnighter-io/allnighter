@@ -11,8 +11,8 @@ final class TeachingSnippetTests: XCTestCase {
     }
 
     func testBodyTeachesLiveMenuReflexAndDetachedDelivery() {
-        XCTAssertEqual(TeachingSnippet.schemaVersion, 7)
-        XCTAssertEqual(TeachingSnippet.reflexLines.count, 10)
+        XCTAssertEqual(TeachingSnippet.schemaVersion, 8)
+        XCTAssertEqual(TeachingSnippet.reflexLines.count, 11)
         XCTAssertTrue(
             TeachingSnippet.reflexLines.contains { $0.contains("pmTurn.report") },
             "agents must learn where the pilot dev report lives"
@@ -40,6 +40,23 @@ final class TeachingSnippetTests: XCTestCase {
         XCTAssertTrue(TeachingSnippet.body.contains("One mutator"))
         XCTAssertTrue(TeachingSnippet.body.contains("observation"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln show <id> --json"))
+        // Capacity print contract: user-visible verbatim table, not shell-tool summary.
+        XCTAssertTrue(
+            TeachingSnippet.body.contains("alln capacity"),
+            "agents must know bare alln capacity is the print path"
+        )
+        XCTAssertTrue(
+            TeachingSnippet.body.contains("COMPLETE human-readable stdout table verbatim"),
+            "agents must paste the full capacity table in the final response"
+        )
+        XCTAssertTrue(
+            TeachingSnippet.body.contains("shown above"),
+            "agents must be told never to say shown above instead of pasting the table"
+        )
+        XCTAssertTrue(
+            TeachingSnippet.body.contains("Use `--json` only when the user explicitly requests"),
+            "JSON is opt-in on explicit request only"
+        )
         XCTAssertFalse(TeachingSnippet.body.contains("progressStale"))
         XCTAssertFalse(TeachingSnippet.body.contains("delivery command"))
         XCTAssertFalse(TeachingSnippet.body.contains("team hello"))

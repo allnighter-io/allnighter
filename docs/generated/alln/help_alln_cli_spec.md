@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.3.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.3.1, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -97,13 +97,14 @@ Headless first-run CLI detection — probes sources, assembles the Bench/default
 
 ### `alln capacity`
 
-Show vendor capacity/quota headroom. Default runs tier-3 PTY probes for all seats (agy/kimi/cursor/claude/codex/grok) and returns fresh data; --cached (or --no-refresh) gives an instant disk-only view with no spawns. --source <id> probes one seat only. Unknown never blocks.
+Show the six-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or "shown above". Bare is instant no-spawn (disk + last-known); --refresh live-acquires; --json only on explicit JSON/machine request.
 
 Flags:
-- `--json` — Emit JSON instead of the human-readable strip.
-- `--cached` — Skip PTY probes; return disk-only cached view instantly (no spawns). Alias: --no-refresh.
-- `--no-refresh` — Alias for --cached.
-- `--source <value>` — Probe one seat only (still runs the full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.
+- `--json` — Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema.
+- `--refresh` — Live re-acquire now (PTY probes for PTY-only seats; disk re-read for codex/grok). Progress on stderr.
+- `--source <value>` — With --refresh: target one seat (still full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.
+- `--cached` — Legacy no-op alias for bare snapshot (no spawns). Cannot combine with --refresh.
+- `--no-refresh` — Legacy alias for --cached.
 
 Output schema: `capacityStripJSON`.
 

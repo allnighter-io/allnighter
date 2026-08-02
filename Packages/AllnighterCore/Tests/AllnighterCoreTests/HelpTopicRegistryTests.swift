@@ -154,6 +154,49 @@ final class HelpTopicRegistryTests: XCTestCase {
                       "README.md must contain ReleaseChannel.installCommand verbatim")
     }
 
+    /// Agent print contract: capacity help must teach verbatim table delivery.
+    func testCapacityHelpTeachesVerbatimTablePrintContract() throws {
+        let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "capacity"))
+        let md = HelpService.topicMarkdown(topic)
+        let docs = try XCTUnwrap(HelpService.docsMarkdown(topic: "capacity"))
+        let envelope = HelpProjector.get(topic: "capacity", contractVersion: reg.contractVersion)
+        let body = try XCTUnwrap(envelope.topic?.bodyMarkdown)
+
+        for surface in [
+            ("summary", topic.summary),
+            ("topicMarkdown", md),
+            ("docsMarkdown", docs),
+            ("helpGet.topic.bodyMarkdown", body),
+        ] {
+            let (label, text) = surface
+            XCTAssertTrue(
+                text.contains("verbatim") || text.localizedCaseInsensitiveContains("COMPLETE"),
+                "\(label) must teach verbatim/complete table delivery"
+            )
+            XCTAssertTrue(
+                text.contains("shown above") || text.contains("--json"),
+                "\(label) must distinguish human table vs summary/JSON abuse"
+            )
+        }
+
+        // Body is the durable agent contract surface.
+        XCTAssertTrue(body.contains("COMPLETE"), "help get body must require the complete table")
+        XCTAssertTrue(body.contains("verbatim"), "help get body must say verbatim")
+        XCTAssertTrue(body.contains("shown above"), "help get body must ban 'shown above'")
+        XCTAssertTrue(
+            body.contains("explicitly requests") || body.contains("explicitly request"),
+            "help get body must restrict --json to explicit JSON/machine requests"
+        )
+        XCTAssertFalse(
+            body.contains("Use `alln capacity --json` for the agent contract"),
+            "old wording that pushed --json as the agent default must not return"
+        )
+        XCTAssertTrue(
+            topic.summary.contains("verbatim") || topic.summary.contains("--json"),
+            "capacity summary must surface the print contract, not only sampling semantics"
+        )
+    }
+
     /// Golden: team_run_loop teaches CLI verbs in both markdown projections.
     func testTeamRunLoopGoldenCLIVerbsInTopicAndDocsMarkdown() throws {
         let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "team_run_loop"))

@@ -75,6 +75,38 @@ final class CommandProjectionTests: XCTestCase {
         XCTAssertTrue(detail.mutuallyExclusiveFlags.contains(["json", "stream"]))
     }
 
+    /// Capacity command metadata must teach user-visible verbatim table delivery.
+    func testCapacityCommandTeachesVerbatimPrintContract() throws {
+        let capacity = try XCTUnwrap(reg.commands.first(where: { $0.name == "capacity" }))
+        let trigger = CommandDescription.trigger(for: capacity)
+        let anti = CommandDescription.antiExample(for: capacity)
+        let example = CommandDescription.example(for: capacity)
+        let summary = capacity.summary
+
+        XCTAssertEqual(example, "alln capacity", "print path is bare human table, not --json/--refresh")
+        XCTAssertTrue(trigger.contains("verbatim") || trigger.contains("complete"), trigger)
+        XCTAssertTrue(trigger.localizedCaseInsensitiveContains("print") || trigger.contains("show"), trigger)
+        XCTAssertTrue(anti.contains("shown above") || anti.contains("summar"), anti)
+        XCTAssertTrue(
+            anti.contains("explicitly") || anti.contains("--json"),
+            "anti-example must keep --json opt-in: \(anti)"
+        )
+        XCTAssertTrue(
+            summary.contains("verbatim") || summary.contains("COMPLETE"),
+            "capacity summary must carry the print contract: \(summary)"
+        )
+        XCTAssertTrue(
+            summary.contains("--json") || anti.contains("--json"),
+            "command surface must keep JSON-only-on-explicit-request distinction"
+        )
+        let jsonFlag = try XCTUnwrap(capacity.flags.first(where: { $0.name == "json" }))
+        XCTAssertTrue(
+            jsonFlag.summary.localizedCaseInsensitiveContains("explicit")
+                || jsonFlag.summary.contains("program needs the schema"),
+            "json flag summary must not be a default agent path: \(jsonFlag.summary)"
+        )
+    }
+
     func testMenuActionsStayShortAndBudgetHolds() throws {
         let menu = MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam })
         XCTAssertLessThanOrEqual(menu.actions.count, 8, "do not expand actions for coverage ratio")

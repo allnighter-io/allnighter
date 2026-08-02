@@ -333,7 +333,7 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "capacity", title: "Capacity & Quota", audience: .both,
-            summary: "`alln capacity` shows vendor-printed quota headroom when sampled; unknown means no surface / not recent / parse failed — never blocks.",
+            summary: "`alln capacity` is the six-row human table agents must paste verbatim when the user asks to print/show/display capacity; `--json` only on explicit JSON/machine request.",
             bodyMarkdown: """
             `alln capacity` is a **trust-critical** six-row snapshot. Bare capacity is \
             instant and **spawns nothing**: Codex and Grok read structured disk/log truth; \
@@ -351,13 +351,24 @@ public enum HelpTopicRegistry {
             blocks (exit 0) and never fabricates 0%.
 
             Per-run token usage on team receipts is a **different system** — do not confuse \
-            receipt token counts with the capacity strip. Use `alln capacity --json` for the \
-            agent contract (contractVersion + per-source rows with weekly/5-hour remaining, \
-            reset clocks, and age).
+            receipt token counts with the capacity strip.
+
+            ## Agent print contract (user-visible)
+
+            When the user asks to **print / show / display** capacity (`alln capacity`), \
+            the agent must run bare `alln capacity` and include the **COMPLETE** \
+            human-readable stdout table **verbatim** in its final response. Never replace \
+            the table with a summary, selected highlights, JSON, or \"shown above\" — many \
+            hosts collapse shell tool output so the founder never sees the table unless the \
+            agent pastes it. A summary may follow **only after** the full table. Use \
+            `alln capacity --json` **only** when the user explicitly requests JSON / \
+            machine-readable output, or a program needs the schema (contractVersion + \
+            per-source rows with weekly/5-hour remaining, reset clocks, and age).
             """,
             aliases: [
                 "capacity", "quota", "usage", "weekly limit", "5 hour", "5h",
                 "reset", "headroom", "rate limit", "remaining",
+                "print capacity", "show capacity", "display capacity",
             ],
             relatedCommandNames: ["capacity", "drivers", "doctor", "models"],
             schemaRefs: ["capacityStripJSON"],

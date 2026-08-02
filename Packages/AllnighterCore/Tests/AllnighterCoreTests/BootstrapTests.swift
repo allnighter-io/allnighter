@@ -93,6 +93,14 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains(TeachingSnippet.openMarkerPrefix), "must wrap teaching in markers")
         XCTAssertTrue(s.contains(TeachingSnippet.closeMarker), "must close teaching markers")
         XCTAssertTrue(s.contains("hash=\(TeachingSnippet.contentHash)"), "marker must carry content hash")
+        XCTAssertTrue(
+            s.contains("COMPLETE human-readable stdout table verbatim"),
+            "bootstrap must teach capacity verbatim print contract"
+        )
+        XCTAssertTrue(
+            s.contains("Use `--json` only when the user explicitly requests"),
+            "bootstrap must teach JSON only on explicit request"
+        )
     }
 
     func testSnippetDoesNotIncludePanelRecipe() {

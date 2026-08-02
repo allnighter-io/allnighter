@@ -13,7 +13,7 @@ import Foundation
 /// No filesystem writes — the CLI prints; the Mac app (ONB-S03) owns clicks.
 public enum TeachingSnippet {
     /// Marker schema version. Bump when the marker grammar or body contract changes.
-    public static let schemaVersion = 7
+    public static let schemaVersion = 8
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
@@ -34,6 +34,7 @@ public enum TeachingSnippet {
         "8. One mutator per repo root; `running` is not progress — inspect queue ticket and `observation` on `alln show <id> --json`.",
         "9. Pilot/relay dev report is `pmTurn.report` (not `devLeg` — that is settle/liveness only).",
         "10. After a terminal team run, surface `artifact.path` / `artifact.openCommand` to the user — not only the lead answer.",
+        "11. When the user asks to print/show/display `alln capacity`, run bare `alln capacity` and include the COMPLETE human-readable stdout table verbatim in your final response — never a summary, selected highlights, JSON, or \"shown above\"; a summary may follow only after the full table. Use `--json` only when the user explicitly requests JSON/machine-readable output or a program needs the schema.",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.
