@@ -1670,6 +1670,9 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `IDEMPOTENCY_EXPIRED` | no | no | `operational` | Generate a new idempotency key. |
 | `RETRY_OF_SURVIVORS` | no | yes | `operational` | Wait for verified stop, or pass --accept-survivors. |
 | `RUN_NOT_TERMINAL` | yes | yes | `operational` | Re-run `alln run resume <runId>` once the host is running again, or read the partial record with `alln show <runId> --json`. |
+| `HANDOFF_HOST_NOT_RUNNING` | yes | yes | `operational` | Open the Allnighter app (install it first if the message says it is missing) and re-run the same command — or lift the restriction for this terminal session only with `codex --sandbox danger-full-access`. |
+| `HANDOFF_CLAIMED_BUT_SILENT` | yes | yes | `operational` | Restart the Allnighter app so its hand-off host recovers, then re-run the same command. Do not just open it — something already claimed the ping. |
+| `HANDOFF_MAILBOX_UNWRITABLE` | yes | yes | `operational` | Make the hand-off mailbox directory named in the message writable, then re-run the same command. |
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |

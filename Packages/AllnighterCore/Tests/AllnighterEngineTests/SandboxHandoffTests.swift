@@ -521,4 +521,141 @@ final class SandboxHandoffTests: HermeticSupportTestCase {
             owner: "test").drainOnce()
         XCTAssertTrue(started.isEmpty)
     }
+
+    // MARK: - Readiness before queuing (CAR-S03a)
+
+    private static func readinessReport(
+        _ verdict: HandoffDoctorJSON.Verdict, claimedBy: String? = nil
+    ) -> HandoffDoctorJSON {
+        HandoffDoctorJSON(
+            contractVersion: "test", verdict: verdict,
+            detail: verdict == .mailboxUnwritable
+                ? "Could not write to the hand-off mailbox at /nowhere/Handoff: permission denied"
+                : "test",
+            runId: "handoff-ping-readiness", waitedMs: 1, claimedBy: claimedBy)
+    }
+
+    /// The load-bearing claim of the slice: when nothing will claim the work, the
+    /// caller is told so AND the mailbox holds nothing — not just a nil return.
+    /// The old order enqueued first, so a request the caller was told had failed
+    /// still executed when the app opened hours later.
+    func testAFailedReadinessCheckQueuesNothing() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let request = RunRequest(message: "do the thing", repoRoot: "/tmp/x", pinnedModelId: "model_opus")
+
+        for verdict in [HandoffDoctorJSON.Verdict.hostNotRunning, .claimedButSilent, .mailboxUnwritable] {
+            let box = spool()
+            let handed = await SandboxHandoff.handOff(
+                request: request, spool: box, runStore: runStore, clock: { Date() },
+                readiness: { Self.readinessReport(verdict, claimedBy: "stuck-host") })
+
+            XCTAssertNil(handed, "\(verdict) must refuse, not wait")
+            XCTAssertTrue(try box.unclaimed().isEmpty,
+                          "\(verdict): the mailbox must hold NOTHING after a refusal")
+            let files = FileManager.default.fileExists(atPath: box.directory.path)
+                ? (try? FileManager.default.contentsOfDirectory(atPath: box.directory.path)) ?? ["<unreadable>"]
+                : []
+            XCTAssertTrue(files.isEmpty,
+                          "\(verdict): no file may exist in the mailbox, found \(files)")
+        }
+    }
+
+    /// The success path must be byte-for-byte the old behaviour: healthy ping →
+    /// the request IS enqueued, a host claims it, and the existing wait returns
+    /// the finished run.
+    func testAHealthyReadinessCheckEnqueuesAndWaitsAsBefore() async throws {
+        let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs", isDirectory: true))
+        let box = spool()
+        let repo = tmp.appendingPathComponent("repo", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        let runner = SandboxHandoffRunner(
+            spool: box, runService: Self.makeService(runStore: runStore),
+            runStore: runStore, owner: "test-host", pollSeconds: 0.05)
+        let draining = Task.detached { await runner.run { Task.isCancelled } }
+        defer { draining.cancel() }
+
+        let handed = await SandboxHandoff.handOff(
+            request: RunRequest(message: "do the thing", repoRoot: repo.path, pinnedModelId: "model_opus"),
+            spool: box, runStore: runStore, clock: { Date() },
+            readiness: { Self.readinessReport(.healthy) })
+
+        XCTAssertEqual(handed?.status, .complete,
+                       "a healthy readiness check must run the request through the ordinary wait")
+        XCTAssertTrue(try box.unclaimed().isEmpty, "a finished request leaves the mailbox")
+    }
+
+    /// One wrong sentence covering two problems is what made the original failure
+    /// undiagnosable. The verdicts must stay distinct, in code and in prose.
+    func testClaimedButSilentAndHostNotRunningRefusalsAreDifferentSentences() {
+        let silent = SandboxHandoff.handoffRefusal(
+            for: Self.readinessReport(.claimedButSilent, claimedBy: "allnighter-app"))
+        let noHost = SandboxHandoff.handoffRefusal(
+            for: Self.readinessReport(.hostNotRunning),
+            isMacOS: true, appPath: "/Applications/Allnighter.app")
+
+        XCTAssertEqual(silent.code, "HANDOFF_CLAIMED_BUT_SILENT")
+        XCTAssertEqual(noHost.code, "HANDOFF_HOST_NOT_RUNNING")
+        XCTAssertNotEqual(silent.message, noHost.message)
+        XCTAssertTrue(silent.message.contains("allnighter-app"),
+                      "a claimed-and-silent refusal must name what claimed it")
+        XCTAssertFalse(silent.message.contains("Open the Allnighter app"),
+                       "the app is already open — never say to open it")
+        XCTAssertTrue(noHost.message.contains("Open the Allnighter app"))
+        for refusal in [silent, noHost] {
+            XCTAssertTrue(refusal.message.contains("nothing was queued"),
+                          "every refusal must state the load-bearing fact")
+            XCTAssertFalse(refusal.message.contains("alln run resume"),
+                           "nothing was queued — there is nothing to resume")
+            XCTAssertFalse(refusal.message.contains("alln doctor"),
+                           "doctor saying OK while the command refuses is a paid-for failure mode")
+        }
+    }
+
+    /// A missing app must not be described as one to "open".
+    func testMissingAppOnMacOSSaysInstallNotOpen() {
+        let refusal = SandboxHandoff.handoffRefusal(
+            for: Self.readinessReport(.hostNotRunning), isMacOS: true, appPath: nil)
+        XCTAssertTrue(refusal.message.contains("not installed"))
+        XCTAssertTrue(refusal.message.contains("Install the Allnighter app"))
+        XCTAssertFalse(refusal.message.contains("Open the Allnighter app ("))
+        XCTAssertTrue(refusal.message.contains("danger-full-access"))
+        XCTAssertFalse(refusal.message.contains("sandbox_mode"),
+                       "only the per-session flag is sanctioned — never a global config change")
+    }
+
+    /// There is no Mac app on other platforms, so the refusal must not invent an
+    /// "open the app" instruction or a Linux install path.
+    func testNonMacOSRefusalNeverSaysOpenTheApp() {
+        let refusal = SandboxHandoff.handoffRefusal(
+            for: Self.readinessReport(.hostNotRunning), isMacOS: false, appPath: nil)
+        XCTAssertEqual(refusal.code, "HANDOFF_HOST_NOT_RUNNING")
+        XCTAssertFalse(refusal.message.contains("Open the Allnighter app"))
+        XCTAssertFalse(refusal.message.contains("Install the Allnighter app"))
+        XCTAssertTrue(refusal.message.contains("macOS-only"))
+        XCTAssertTrue(refusal.message.contains("danger-full-access"))
+        XCTAssertTrue(refusal.message.contains("nothing was queued"))
+    }
+
+    /// The mailbox failure must name the path — it is the thing to fix.
+    func testMailboxUnwritableNamesThePath() {
+        let refusal = SandboxHandoff.handoffRefusal(for: Self.readinessReport(.mailboxUnwritable))
+        XCTAssertEqual(refusal.code, "HANDOFF_MAILBOX_UNWRITABLE")
+        XCTAssertTrue(refusal.message.contains("/nowhere/Handoff"))
+        XCTAssertTrue(refusal.message.contains("Nothing was queued"))
+    }
+
+    /// The founder runs a locally-built app: the override must be honoured before
+    /// the canonical locations, so "install Allnighter" is never said to someone
+    /// whose own build sits elsewhere.
+    func testAppPresenceHonoursTheOverride() {
+        let dir = tmp.appendingPathComponent("LocalBuild.app", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        XCTAssertEqual(
+            SandboxHandoff.installedAppPath(environment: ["ALLNIGHTER_APP_PATH": dir.path]),
+            dir.path)
+        XCTAssertNotEqual(
+            SandboxHandoff.installedAppPath(environment: ["ALLNIGHTER_APP_PATH": "/does/not/exist.app"]),
+            "/does/not/exist.app",
+            "an override pointing nowhere must not be reported as the app")
+    }
 }

@@ -315,6 +315,33 @@
     "ruleId" : "run.not_terminal"
   },
   {
+    "agentAction" : "Open the Allnighter app (install it first if the message says it is missing) and re-run the same command — or lift the restriction for this terminal session only with `codex --sandbox danger-full-access`.",
+    "code" : "HANDOFF_HOST_NOT_RUNNING",
+    "exitClass" : "operational",
+    "explain" : "A sandboxed terminal tried to hand work to the Allnighter app, but the readiness ping was never claimed: no host is watching the mailbox. Nothing was queued, so there is no run id to resume — fix the host and re-run. (CAR-S03a)",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "handoff.host.not_running"
+  },
+  {
+    "agentAction" : "Restart the Allnighter app so its hand-off host recovers, then re-run the same command. Do not just open it — something already claimed the ping.",
+    "code" : "HANDOFF_CLAIMED_BUT_SILENT",
+    "exitClass" : "operational",
+    "explain" : "A host claimed the hand-off readiness ping and never answered it: something is watching the mailbox without completing work. Nothing was queued; the stuck host named in the message must be restarted. (CAR-S03a)",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "handoff.host.claimed_but_silent"
+  },
+  {
+    "agentAction" : "Make the hand-off mailbox directory named in the message writable, then re-run the same command.",
+    "code" : "HANDOFF_MAILBOX_UNWRITABLE",
+    "exitClass" : "operational",
+    "explain" : "The readiness ping could not even be written to the hand-off mailbox at the named path, so no hand-off is possible from this terminal regardless of what the app is doing. Nothing was queued. (CAR-S03a)",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "handoff.mailbox.unwritable"
+  },
+  {
     "agentAction" : "Run `alln history --json`.",
     "code" : "RUN_NOT_FOUND",
     "exitClass" : "operational",
