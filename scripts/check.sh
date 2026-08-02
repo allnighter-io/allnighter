@@ -20,10 +20,15 @@ WALL_FINAL_RESULT="aborted"
 WALL_ADMITTED=0
 
 wall_is_ci() {
-  # Never block CI. Common CI/CD indicators.
-  [[ -n "${CI:-}" || -n "${GITHUB_ACTIONS:-}" || -n "${GITLAB_CI:-}" \
-    || -n "${CIRCLECI:-}" || -n "${BUILDKITE:-}" || -n "${TF_BUILD:-}" \
-    || -n "${JENKINS_URL:-}" || -n "${CONTINUOUS_INTEGRATION:-}" ]]
+  # Never block real CI. Prefer platform-specific signals over bare CI=true —
+  # agent hosts (and some local tools) set CI=true, and those are exactly who
+  # must not hammer the wall. GitHub Actions always sets GITHUB_ACTIONS=true;
+  # GitLab/Circle/Buildkite/Azure/Jenkins set their own markers. Escape hatch
+  # for unusual CI: ALLNIGHTER_WALL_CI=1.
+  [[ -n "${ALLNIGHTER_WALL_CI:-}" || -n "${GITHUB_ACTIONS:-}" \
+    || -n "${GITLAB_CI:-}" || -n "${CIRCLECI:-}" || -n "${BUILDKITE:-}" \
+    || -n "${TF_BUILD:-}" || -n "${JENKINS_URL:-}" || -n "${TRAVIS:-}" \
+    || -n "${APPVEYOR:-}" ]]
 }
 
 wall_iso_now() {

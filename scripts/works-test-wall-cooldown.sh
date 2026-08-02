@@ -6,7 +6,8 @@
 #   2. With ALLNIGHTER_WALL_REASON set under cooldown → second is admitted
 #      and the reason is logged to wall-runs.log.
 #   3. With cooldown elapsed (stale timestamp) → admitted.
-#   4. With CI=true → admitted regardless of cooldown.
+#   4. With GITHUB_ACTIONS=true (real CI) → admitted regardless of cooldown.
+#      Bare CI=true alone does NOT admit (agent hosts set it).
 #
 # Uses ALLNIGHTER_WALL_ADMISSION_PROBE=1 so allow-paths never reach
 # check-fast / swift-test / xcodebuild. Isolates state under a temp dir
@@ -36,7 +37,8 @@ STATE_FILE="$WORK_DIR/wall-last-run.json"
 LOG_FILE="$WORK_DIR/wall-runs.log"
 
 # Unset ambient CI / reason / probe so scenarios start clean.
-unset CI GITHUB_ACTIONS GITLAB_CI CIRCLECI BUILDKITE TF_BUILD JENKINS_URL CONTINUOUS_INTEGRATION
+# (Agent hosts often export CI=true — must not count as real CI.)
+unset CI GITHUB_ACTIONS GITLAB_CI CIRCLECI BUILDKITE TF_BUILD JENKINS_URL TRAVIS APPVEYOR ALLNIGHTER_WALL_CI
 unset ALLNIGHTER_WALL_REASON ALLNIGHTER_WALL_ADMISSION_PROBE ALLNIGHTER_WALL_COOLDOWN_MINUTES
 
 write_recent_state() {
@@ -183,21 +185,34 @@ else
   pass "3: admitted after cooldown elapsed (exit=$EC, ${ELAPSED}s)"
 fi
 
-# --- 4. CI=true → admits regardless ---
-log "scenario 4: CI=true → admits under fresh cooldown"
+# --- 4. Real CI (GITHUB_ACTIONS) → admits regardless ---
+log "scenario 4: GITHUB_ACTIONS=true → admits under fresh cooldown"
 write_recent_state
-export CI=true
+export GITHUB_ACTIONS=true
 export ALLNIGHTER_WALL_ADMISSION_PROBE=1
 run_check "ci"
-unset CI ALLNIGHTER_WALL_ADMISSION_PROBE
+unset GITHUB_ACTIONS ALLNIGHTER_WALL_ADMISSION_PROBE
 if [[ "$EC" -ne 0 ]] || ! printf '%s' "$OUT" | grep -q 'admission probe ok'; then
-  fail "4: expected admit under CI=true, exit=$EC"
+  fail "4: expected admit under GITHUB_ACTIONS=true, exit=$EC"
   printf '%s\n' "$OUT" | head -30 >&2
 else
-  pass "4: CI=true skips cooldown (exit=$EC, ${ELAPSED}s)"
+  pass "4: GITHUB_ACTIONS=true skips cooldown (exit=$EC, ${ELAPSED}s)"
 fi
 if printf '%s' "$OUT" | grep -q 'REFUSED'; then
-  fail "4: CI path must never refuse"
+  fail "4: real CI path must never refuse"
+fi
+
+# Bare CI=true alone must still refuse (agent hosts set CI=true).
+log "scenario 4b: bare CI=true alone still refuses"
+write_recent_state
+export CI=true
+run_check "bare-ci"
+unset CI
+if [[ "$EC" -eq 0 ]] || ! printf '%s' "$OUT" | grep -q 'REFUSED'; then
+  fail "4b: bare CI=true must not skip cooldown (agent-host loophole)"
+  printf '%s\n' "$OUT" | head -20 >&2
+else
+  pass "4b: bare CI=true alone still refuses (exit=$EC)"
 fi
 
 # Empty reason under cooldown still refuses
