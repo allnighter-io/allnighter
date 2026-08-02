@@ -1,18 +1,56 @@
 # Capacity Warm Bench
 
 Status: **OPEN — founder priority (2026-08-02). Current path is a no-go.**
-Owner: AllnighterMac (resident host) + AllnighterCore/Engine (`CapacityFetch`,
-`CapacityWarmPool`, parsers, `CapacityStripRenderer`) + AllnighterCLI
-(`alln capacity`)
+Owner: AllnighterMac (`CapacityResidentService`) + AllnighterEngine
+(`CapacityWarmPool`, `CapacityFetch`) + AllnighterCore (parsers,
+`CapacityStripRenderer`) + AllnighterCLI (`alln capacity`)
 Created: 2026-08-02
+Updated: 2026-08-02 (Spec Review Min pass)
 Supersedes direction in: archived
 [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 (`refresh: false` default, disk-as-primary, cold PTY per request).
 Composes with: [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md)
-(menu/bootstrap may read a **cached** snapshot — not a second acquisition path).
+(menu/bootstrap reads a **derived cache file** — never a second acquisition path).
 
 Phases are ephemeral. At closeout: promote product law into help / teaching /
 operations; code remains SSOT; archive this packet.
+
+---
+
+## Spec Review Min (2026-08-02)
+
+**Lead call: Partial → work can start on CWB-S01/S02.** One founder fork remains
+(login-item default). Engineering leans are closed.
+
+### Impact ledger (accepted)
+
+| Change | Lens | Severity | Why |
+| --- | --- | --- | --- |
+| Warm pool = **six seats**, not four | Premise + Proof | **blocking** | Bench is six CLIs (`benchSourceOrder`); "4 PTY kids" dropped Codex/Grok and would ship a lying strip |
+| Codex/Grok in pool = **live disk re-read**, not PTY (v1) | Premise | material | No shipped PTY adapter for disk seats; live log re-read inside pool is fresh enough; disk-only-as-primary stays dead |
+| Menu bar **off** + app open = cold strip (honest) | Failure modes | material | Option B previously implied windows work but omitted strip behavior |
+| Split **display TTL** (30 min) vs **pool idle teardown** (30 min, independent) | Failure modes | material | Same number, different jobs — conflating them causes torn-down pool while UI still paints |
+| Socket **warming** state: CLI waits ≤2s or falls back cold with stderr note | Failure modes | material | Connect timeout alone loses the fast path during boot |
+| `CapacityFetch` replaces `CapacityDisplayAcquisition` as acquire SSOT; snapshot becomes thin wrapper | Foundation | material | Two names for one job was a lie-prone layer |
+| Menu cache file: `AllnighterPaths` + `generatedAt` + refuse if &gt; 30 min | Proof + Delivery | material | QABC menu zero-spawn must not become zero-truth |
+| CWB-S01 before Mac/socket work | Sequencing | material | Pool + fetch law must be green before resident service |
+| Named proof commands per slice | Proof | material | "&lt; 2s" without a command is decoration |
+
+### Rejected (recorded)
+
+| Finding | Lens | Rejection |
+| --- | --- | --- |
+| Reuse `WarmWorkerPool` for capacity | Foundation | Run workers are repo-scoped, mutating-adjacent, and keyed by thread — wrong lifecycle. Capacity-only pool stays separate. |
+| `alln serve` as socket host when app closed | Wildcard | Second host; founder chose one Mac app. Serve stays out of capacity. |
+| Delete `--refresh` in v1 | Cut | Keep as no-op alias through cutover; delete in CWB-S05 after help/teaching migrate. |
+
+### Open question (founder)
+
+| Fork | Options | Recommendation |
+| --- | --- | --- |
+| Login item default | A) on for new installs B) opt-in | **B opt-in** — menu bar toggle is the capacity contract; login item is convenience, not required for correctness |
+
+*Min tier note: proof findings above are not refuted by a second seat — treat as checklist, not gospel.*
 
 ---
 
@@ -22,16 +60,24 @@ operations; code remains SSOT; archive this packet.
 
 Recent cleanup (2026-08-02) was necessary but insufficient:
 
-- **Good:** one adapter per source; GUI and CLI share
-  `CapacityDisplayAcquisition.snapshot`; one projection/renderer contract.
+- **Good:** one adapter per source; GUI and CLI share one projection/renderer contract.
 - **Still broken:** every acquire is a **cold** PTY boot or **stale** disk/history
-  shortcut. 4–5s per seat (worse in series), trust dialogs, beach balls when
-  work hits the main thread, and numbers that lie when `refresh: false` or disk
-  hydrate paints old truth.
+  shortcut. 4–5s per seat, trust dialogs, main-thread blocking, and numbers that
+  lie when `refresh: false` or disk/history hydrate paints old truth.
 
 Manual `/usage` in a terminal is fast because the session is **warm**. We
-cold-spawn four full CLIs every time. That is the wrong architecture, not a
-tuning problem.
+cold-spawn full CLIs every time. That is the wrong architecture, not a tuning
+problem.
+
+---
+
+## Founder intent
+
+**Product value:** trustworthy, fast bench capacity — the daily glance surface.
+**Trusted workflow slice:** see six seats, honest ages, refresh in &lt; 2s when
+resident, never beach-ball.
+**Non-goals:** second daemon, `alln serve` capacity, history-as-live, disk-as-primary,
+CLI parity when resident service is off.
 
 ---
 
@@ -40,22 +86,24 @@ tuning problem.
 1. **Capacity must be trustworthy or absent.** Stale % is worse than unknown.
 2. **Fresh is the default.** `refresh: false` must never be the default anywhere
    user-facing capacity is shown (`alln capacity`, Mac strip, agent print).
-3. **Disk is backup only.** Codex/Grok on-disk logs are fast but often stale —
-   never primary truth. Use only when a live probe fails, labeled honestly.
+3. **Disk is backup only.** Codex/Grok log re-read is a **live** read inside
+   fetch, never stale-as-primary. On probe failure, label `sourceTier` and age.
 4. **Nothing on the main thread.** Acquisition is always async/off-main; UI
    never beach-balls.
-5. **30-minute display gate.** Paint a sample only if last **successful** live
-   acquire was &lt; 30 minutes ago; show honest age. Older → refresh before
-   paint, or show unknown while refreshing.
+5. **30-minute display gate.** Paint only if last **successful** acquire for that
+   seat was &lt; 30 minutes ago; show honest age. Older → unknown or
+   "refreshing" until a new sample lands.
 6. **One output contract.** `[CapacityWindow]` → `CapacityBenchProjection` →
    `CapacityStripRenderer`. Parsers and table shape are shared everywhere.
+7. **One acquire owner.** `CapacityFetch` is the only path to windows; CLI,
+   Mac strip, and resident socket all call it.
 
 ---
 
 ## The system (one app, two speeds, three options)
 
-Zoom out: **one Mac app** owns warm capacity when the user opts in. CLI is fast
-**only when that resident service is active**. Otherwise CLI is honest and slow.
+**One Mac app** owns warm capacity when the user opts in. CLI is fast **only
+when that resident service is active**. Otherwise CLI is honest and slow.
 
 ```
                     ┌─────────────────────────────────────┐
@@ -63,42 +111,40 @@ Zoom out: **one Mac app** owns warm capacity when the user opts in. CLI is fast
                     │  (one binary — Dock + optional      │
                     │   menu bar icon)                    │
                     │                                     │
-                    │  CapacityWarmPool (4 PTY kids)      │
-                    │  capacity.sock (when menu bar ON)   │
+                    │  CapacityWarmPool (6 seats)         │
+                    │  capacity.sock (menu bar ON)        │
                     └──────────────┬──────────────────────┘
                                    │
-         Mac strip ────────────────┤ in-process, ~1s
-         alln capacity ───────────┘ socket if resident, else cold ~4–5s
+         Mac strip ────────────────┤ in-process CapacityFetch, ~1s
+         alln capacity ───────────┘ socket → same fetch, else cold ~4–5s
 ```
 
 ### Option A — Menu bar **on** (hero path)
 
-**User setting:** “Show menu bar icon” (+ recommended “Start at login”).
+**Settings:** “Show menu bar icon” (+ optional “Start at login”).
 
 | Surface | Behavior |
 | --- | --- |
-| Mac capacity strip | In-process warm pool → ~1s |
-| `alln capacity` | Connect `capacity.sock` → same pool → ~1s |
-| Background | Pool stays warm; idle teardown after 30 min with no requests |
+| Mac capacity strip | In-process `CapacityFetch` → warm pool → ~1s |
+| `alln capacity` | `capacity.sock` → same fetch → ~1s |
+| Background | Pool stays warm; **idle teardown** after 30 min with no capacity requests (independent of display TTL) |
 
-Menu bar on = **“watch my bench”** mode. Not a second app — chrome on the same
-`Allnighter.app` process.
+Menu bar on = **“watch my bench”** mode. Same process — not a second app.
 
 ### Option B — Menu bar **off**
 
 | Surface | Behavior |
 | --- | --- |
-| Mac app windows | Still work; **no** resident pool, **no** socket |
-| `alln capacity` | Cold probe per request (~4–5s concurrent PTY); progress on stderr |
+| Mac app (any window, including strip) | **Cold** `CapacityFetch` per request — same as CLI, ~4–5s, off main actor |
+| `alln capacity` | Cold probe; progress on stderr |
+| Resident | No pool, no socket |
 
-User chose not to stay resident. Slow is honest, not broken.
+Slow is honest. Opening the strip without resident mode does not get a hidden fast path.
 
 ### Option C — CLI-only (no app running)
 
-Same as Option B: `alln capacity` → cold probe. Optional message:
+Same as Option B. Optional stderr hint:
 *“Start Allnighter with menu bar enabled for instant capacity.”*
-
-No fake parity. Mac resident mode is the hero.
 
 ---
 
@@ -106,19 +152,20 @@ No fake parity. Mac resident mode is the hero.
 
 | # | Piece | Responsibility |
 | --- | --- | --- |
-| 1 | **`CapacityWarmPool`** | Four capacity-only PTY children in `ProbeScratch`; boot once; `/usage` on demand; idle teardown; respawn on death |
-| 2 | **`CapacityFetch`** | Single entry: warm pool if available → else cold `CapacityProbe`; always attempts live; 30 min cache law for *display while revalidating* |
-| 3 | **`CapacityResidentService`** | Lives in **Mac app only**: owns pool + Unix socket when menu bar setting is on |
-| 4 | **Socket contract** | One RPC: `GET_CAPACITY` → JSON or pre-rendered table; 50–100ms connect timeout; fail → CLI cold path |
-| 5 | **Shared tail** | Existing parsers + `CapacityStripRenderer` — unchanged contract |
+| 1 | **`CapacityWarmPool`** | Six seats: four PTY children (Claude, Cursor, Kimi, Agy) + live disk re-read for Codex/Grok inside the pool worker; `ProbeScratch` cwd; boot once; idle teardown; respawn on death |
+| 2 | **`CapacityFetch`** | **Acquire SSOT.** Warm pool if resident → else cold `CapacityProbe`; enforces 30 min display gate; never paints history as live |
+| 3 | **`CapacityResidentService`** | Mac app only: owns pool + Unix socket when menu-bar setting is on |
+| 4 | **Socket contract** | `GET_CAPACITY` → JSON; connect timeout 100ms; if `warming`, block ≤2s then cold fallback with stderr note |
+| 5 | **Menu cache file** | Resident writes `AllnighterPaths` snapshot after each successful fetch; `alln menu` reads only if `generatedAt` &lt; 30 min — else omit capacity block |
+| 6 | **Shared tail** | Existing parsers + `CapacityStripRenderer` |
 
-**Not in scope:** second daemon, `alln serve` hosting capacity, history hydrate
-as current truth, disk-as-primary, separate GUI acquisition path.
+**Not in scope:** second daemon, `alln serve` hosting capacity, `WarmWorkerPool` reuse,
+history hydrate as current truth, separate GUI acquisition path.
 
 ### Settings (two toggles)
 
-1. **Start at login** — recommended for capacity users; pool ready at session start.
-2. **Show menu bar icon** — enables resident mode + socket (Option A). Off = Option B.
+1. **Show menu bar icon** — enables resident mode + socket (Option A). **This is the capacity contract.**
+2. **Start at login** — optional convenience; opt-in (founder default **off**).
 
 ---
 
@@ -129,65 +176,74 @@ as current truth, disk-as-primary, separate GUI acquisition path.
 | `refresh: false` as default for `alln capacity` | Stale lies |
 | History hydrate painted as live | Stale lies |
 | Disk-as-primary for Codex/Grok | Stale lies |
-| Cold spawn from Mac strip | App uses warm pool |
-| Mac-only `hydrateFromHistory: false` vs CLI split | One `CapacityFetch` law |
+| Cold spawn from Mac strip when resident | App uses warm pool |
+| `CapacityDisplayAcquisition` as acquire owner | Fold into `CapacityFetch`; keep snapshot as CLI/GUI render helper only |
 | `alln serve` capacity ownership | App owns warm |
 
 Keep: parsers, probe fail-closed reasons, Claude `allmodels` normalization,
-TeachingSnippet “print full table verbatim”, `CapacityDisplayAcquisition` as
-the projection entry (rewired to call `CapacityFetch`).
+TeachingSnippet “print full table verbatim”.
 
 ---
 
 ## CLI contract (after cutover)
 
 ```text
-alln capacity              # always attempts fresh; uses socket if resident (~1s)
+alln capacity              # CapacityFetch (socket if resident, else cold)
 alln capacity --json       # same
-alln capacity --source ID  # one seat; still via CapacityFetch
+alln capacity --source ID  # one seat
+alln capacity --refresh    # transition alias for force re-probe; delete CWB-S05
 ```
 
-- Progress on stderr when cold or revalidating.
+- Progress on stderr when cold, warming, or revalidating.
 - Full six-row table on stdout (existing agent law).
-- `--refresh` may remain as an explicit “force re-probe” alias during transition,
-  then retire when default is always fresh.
-
-**Menu / bootstrap:** may read a **read-only cache file** written by the resident
-service (timestamp + windows) so `alln menu` never spawns — but that cache is
-**derived** from the last successful warm fetch, never a second truth path.
 
 ---
 
-## Implementation slices (suggested)
+## Failure modes (named)
 
-| Slice | Scope | Proof |
+| Scenario | Behavior |
+| --- | --- |
+| Pool child dies | Respawn on next fetch; seat unknown until back |
+| Socket up, pool warming | CLI waits ≤2s; else cold + stderr `capacity: resident warming, cold fallback` |
+| Fetch fails for one seat | Unknown for that seat; do not paint history as live |
+| Menu cache &gt; 30 min | Omit capacity from menu JSON (fail-open for seating) |
+| Menu bar toggled off | Tear down pool + socket immediately |
+| User force-quits app | Socket gone; CLI cold |
+
+---
+
+## Implementation slices
+
+| Slice | Scope | Works Test |
 | --- | --- | --- |
-| **CWB-S01** | `CapacityWarmPool` + `CapacityFetch` in Engine; kill `refresh:false` default; 30 min gate | Unit: pool serves `/usage` from fixture PTY; fetch never hydrates stale history as live |
-| **CWB-S02** | Mac app: resident service on menu-bar setting; strip uses in-process fetch | Mac test: strip populates off main actor; no placeholder stale % |
-| **CWB-S03** | `capacity.sock` + CLI fast path when resident | Integration: app running + menu on → `alln capacity` &lt; 2s; menu off → cold |
-| **CWB-S04** | Settings UI: login item + menu bar toggle; teardown on toggle off | Manual: toggle off → socket gone → CLI cold |
-| **CWB-S05** | Delete dead paths; update help/teaching; archive Phase 1 recovery doc | `rg refresh:false` no user-facing default; help matches law |
+| **CWB-S01** | `CapacityWarmPool` + `CapacityFetch`; kill `refresh:false` default; 30 min display gate | `scripts/swift-test.sh --filter CapacityFetch` — includes fixture PTY + assert no history-as-live |
+| **CWB-S02** | Mac resident service; strip via in-process fetch; menu-bar gate | `xcodebuild test … -only-testing:AllnighterMacTests/CapacityStripModelTests` + assert no `MainActor` block in fetch path |
+| **CWB-S03** | `capacity.sock` + CLI fast path | App running, menu on: `time alln capacity` &lt; 2s; menu off: cold path, no socket |
+| **CWB-S04** | Settings toggles; teardown on menu-bar off | Manual: toggle off → `test ! -S …/capacity.sock` |
+| **CWB-S05** | Delete dead paths; `HelpTopicRegistry`, `TeachingSnippet`, archive Phase 1 doc | `scripts/swift-test.sh --filter HelpTopicRegistryTests,TeachingSnippetTests` |
+
+**Order:** S01 → S02 → S03 → S04 → S05. Do not build socket before fetch law is green.
 
 ---
 
 ## Success criteria
 
-- Founder opens app (menu bar on) → strip shows six rows in **&lt; 2s** without
-  main-thread block.
-- `alln capacity` with app resident → **same numbers**, **&lt; 2s**.
-- `alln capacity` with app quit or menu bar off → cold, **~5s**, honest progress,
-  no stale history painted as live.
-- No sample older than 30 minutes shown without a visible “refreshing” / unknown state.
-- Zero duplicate acquisition logic between GUI and CLI.
+- Menu bar on, app open → strip **&lt; 2s**, no main-thread block.
+- Same state → `alln capacity` **same numbers**, **&lt; 2s**.
+- Menu bar off or app quit → cold **~5s**, honest progress, no stale history as live.
+- No seat painted with sample age &gt; 30 min without "refreshing" / unknown.
+- Single acquire implementation (`CapacityFetch`) for CLI, strip, and socket.
 
 ---
 
-## Open questions (founder)
+## Truth owner / lie-prone layers
 
-1. **Force re-probe flag** — keep `--refresh` as alias forever, or delete after cutover?
-2. **Login item default** — on by default for new installs, or opt-in?
-3. **Codex/Grok in warm pool** — PTY `/usage` for all six, or disk re-read inside
-   warm path only as optimization (still live attempt first)?
+| Layer | Owner | Lie risk |
+| --- | --- | --- |
+| Acquire | `CapacityFetch` | History/disk painted as live |
+| Resident lifecycle | `CapacityResidentService` | Socket up but pool cold |
+| Render | `CapacityStripRenderer` | None if acquire is honest |
+| Menu envelope | Derived cache file | Stale cache in `alln menu` |
 
-Default recommendation: PTY for all six in the pool (symmetry, one mechanism);
-disk only on probe failure with explicit `sourceTier` / age labeling.
+Code SSOT targets: `CapacityWarmPool.swift`, `CapacityFetch.swift`,
+`CapacityResidentService.swift` (Mac), `AllnighterCLI.runCapacity`.

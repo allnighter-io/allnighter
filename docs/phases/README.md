@@ -36,7 +36,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
-| [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — founder priority (2026-08-02)** | Current cold/stale capacity path is a no-go. Build warm pool in the one Mac app + optional socket for fast CLI when menu bar resident. Code SSOT target: `CapacityWarmPool`, `CapacityFetch`, `CapacityResidentService`. |
+| [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — Spec Review Min (2026-08-02)** | Cold/stale path is a no-go. Build `CapacityFetch` + warm pool in one Mac app; socket when menu bar on. Start CWB-S01. |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete; one dogfood proof remains** | Wall-crossing resume half blocked on Codex real reset (2026-08-04). Code SSOT: `CapacityDisplayAcquisition`, `MenuCatalog`, `LoopCoordinator`, `VendorBackoffReconciler`. |
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 founder-blocked** | DNS (`get.allnighter.app`) + Developer ID + notarization. S00–S03/S06 shipped. |
@@ -147,6 +147,7 @@ Open questions:
 
 | Work | Read first |
 | --- | --- |
+| Capacity strip, `alln capacity`, warm pool, stale % | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) |
 | `alln run` fails from Codex, handoff host missing, stale handoff work | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) |
 | Plan-time quota routing, loop park-yield, cross-vendor arbitrage | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) |
 | Core execution broken, team research/execution lies | Code SSOT: `RunService.swift`, `TeamCatalog`, `RunWriteLockRegistry` |
