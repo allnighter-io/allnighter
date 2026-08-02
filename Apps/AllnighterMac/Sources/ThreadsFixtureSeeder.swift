@@ -782,7 +782,7 @@ struct ThreadsFixtureSeeder {
             subjectId: id,
             sequence: 1,
             round: 1,
-            createdAt: finished,
+            createdAt: PMTurnJSON.isoTimestamp(finished),
             reason: "stopped",
             lifecycleStatus: "stopped",
             report: "Loop abandoned after round 1.",
