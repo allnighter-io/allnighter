@@ -1,9 +1,9 @@
 # One Run Surface
 
-Status: **IN FLIGHT — ORS-S00…S03 code/docs cutover shipped; ORS-S04 two-host
-Works Test and archival remain. Not complete.**
+Status: **OPEN — product surface shipped and verified live on two hosts; Codex
+host proof deferred; do not archive.**
 Owner: Shared Core + CLI
-Updated: 2026-08-01
+Updated: 2026-08-02
 
 Supersedes archived
 [`Agent_Facing_Run_Observability.md`](../archive/phases/Agent_Facing_Run_Observability.md).
@@ -12,6 +12,83 @@ Amends the pull path shipped by archived
 [`Completion_Delivery.md`](../archive/phases/Completion_Delivery.md): terminal
 delivery remains required, but the one returned command must observe the middle
 and deliver the end.
+
+## Closeout status (2026-08-02)
+
+**Not complete. Not archived.** Code/docs cutover + live proof on Claude Code
+and Cursor are done. The packet named Codex as a host; that proof is deferred.
+Keepable law is promoted below and in `AGENTS.md` § Project Laws. Archival
+waits for the Codex host proof.
+
+### SHIPPED (verified live on the installed binary, two hosts)
+
+Hosts proven: **Claude Code + Cursor**. Binary path exercised on the installed
+`alln` (0.12.1 / contract 9.3.0 on the Cursor re-run).
+
+- One canonical `alln show <id> [--json|--stream]`; `team status` / `team
+  result` deleted (`CLI_USAGE_ERROR`, naming `alln show`, executing nothing).
+- Three-field `observation` (`ownerState` / `activityMode` / `lastActivityAt`),
+  always all three keys, ISO8601 or explicit null.
+- Always-on bounded durable journal — proven from a real `--no-wait` launch
+  writing `events.jsonl`.
+- `show --stream`: snapshot → bounded replay (`replayed:true`) → live follow →
+  exactly one terminal frame → run's exit class.
+- Bounded attention exit with a non-`showRun` recovery action (observed live on
+  a write-lock-blocked run).
+- Durable `worker.tool` activity from the real cold `grok --output-format
+  streaming-json` path; tool name on both journal and wire.
+- Detached ack returns exactly one `nextAction.command`; no `delivery` block;
+  public `audit.runJournalPath` deleted.
+
+### NOT DONE — leave unticked
+
+- **Codex host proof.** The packet names Codex as a host. Codex is **DEFERRED**
+  (capacity 0% + host-sandbox `FS_PERMISSION_DENIED`). Hosts proven were Claude
+  Code + Cursor. Two real hosts is not the named set.
+- **Archival.** Do **not** archive this packet. It stays open until the Codex
+  host proof lands.
+
+### Law promoted — instruments inform, never block
+
+Founder ruled twice: **readiness/health/derived-state instruments INFORM; they
+never BLOCK an explicit request. The owner's request takes precedence; if it
+fails, it fails loudly and we say so.**
+
+Promoted to `AGENTS.md` § Project Laws (one line). Safe distinction preserved:
+parked driver, disabled model, unknown model id, and the per-root write lock are
+**user intent or real invariants** and still refuse; only sensor readings are
+advisory. Live evidence: readiness veto had blocked an explicit `--model` until
+instruments were made non-blocking (see "Live proof caught" below). Packet
+rules 7–8 and the general degrade-never-block law above remain the code-facing
+form of the same ruling.
+
+### What live proof caught that fixtures could not
+
+- Apple-epoch timestamp on the stream path only.
+- `worker.tool` wired to a path production never takes (warm ACP vs cold
+  streaming-json).
+- Omitted null key.
+- False `JOURNAL_CORRUPT` under concurrency.
+- `lastActivityAt` reporting null beside recorded tool activity.
+- Readiness veto blocking an explicit `--model`.
+
+### Known follow-ups (not in this packet)
+
+- Mac suite executed ZERO tests since 2026-06-14 (`CODE_SIGNING_ALLOWED=NO`) —
+  FIXED, 182 tests now run.
+- Wall admission control added after the lead ran the full wall 12× in one
+  session.
+- Killed run deadlocks the repo write lock when its recorded owner is the shared
+  `alln serve` daemon (no product command clears it).
+- Live NDJSON can emit duplicate seq (live deltas vs journal counter).
+- `FloorRun.audit.runJournalPath` still publishes a support-directory path.
+- Two JSON encoders with different date strategies (CoreJSON iso8601 vs plain
+  `JSONEncoder`).
+- Help teaches a non-existent `loop step --no-wait`.
+- AgentOS fix `6342e5fe` committed but **UNPUSHED** while Allnighter consumes it
+  by local path.
+- Pre-existing GUI proof debt on `RoutingComposer.swift` blocks a clean wall
+  without an override.
 
 ## Founder intent
 
@@ -673,8 +750,13 @@ a supported host.
 - [x] No alias, shim, dual schema, or transition period exists.
 - [x] Unknown and expected silence are explicit; liveness and activity are not
   conflated. (incl. terminalOnly PM ruling — no fabricated recovery nextAction)
-- [ ] The owner-visible host Works Test passes from two real agent hosts. (**ORS-S04**)
-- [ ] Keepable law is promoted to code/standing docs and this packet is archived. (**ORS-S04 closeout**)
+- [ ] The owner-visible host Works Test passes from the **named** host set (Codex
+  + one other). Claude Code + Cursor verified live; Codex **DEFERRED** (capacity
+  0% + host-sandbox `FS_PERMISSION_DENIED`). Two real hosts ≠ the named set.
+  (**ORS-S04**)
+- [ ] Keepable law is promoted to standing docs (**done** — `AGENTS.md` Project
+  Laws) **and this packet is archived**. Archival stays **unticked** until Codex
+  host proof lands; do not archive on this closeout. (**ORS-S04 closeout**)
 
 ## Blocking questions
 

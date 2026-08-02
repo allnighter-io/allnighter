@@ -194,6 +194,11 @@ rules: `docs/operations/Execution-Playbook.md` § Commits.
   by default. No mandatory third-party coordination cloud.
 - Agent bridge configs describe how to spawn CLI agents; they must not become
   hidden runtime truth for session state.
+- Readiness/health/derived-state instruments INFORM; they never BLOCK an
+  explicit request — the owner's request takes precedence and fails loudly if it
+  fails. Parked driver, disabled model, unknown model id, and the per-root write
+  lock still refuse (user intent / real invariants); sensor readings alone never
+  veto.
 
 ## High-Risk Stops
 
