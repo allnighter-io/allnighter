@@ -38,39 +38,44 @@ final class DispatchReadinessTests: XCTestCase {
         XCTAssertEqual(out[0].status, .ready(version: "0.2.118"))
     }
 
-    func testHardBlockOnlyForNotInstalledAndParked() {
+    func testHardBlockOnlyForParkedNotCachedNotInstalled() {
         let model = Model(
             id: "model_grok", displayName: "Grok", modelLabel: "grok",
             driverId: "grok", role: .both, enabled: true
         )
         XCTAssertNil(DispatchReadiness.hardBlockReason(
-            model: model,
-            record: ToolProbeRecord(
-                driverId: "grok", status: .installedNotProbed(version: "1"), lastProbeAt: .distantPast
-            ),
-            parkedDriverIds: []
+            model: model, parkedDriverIds: []
         ))
-        XCTAssertNil(DispatchReadiness.hardBlockReason(
-            model: model, record: nil, parkedDriverIds: []
-        ), "missing cache is unknown — never hard-block")
 
-        let notInstalled = DispatchReadiness.hardBlockReason(
-            model: model,
-            record: ToolProbeRecord(driverId: "grok", status: .notInstalled, lastProbeAt: .distantPast),
-            parkedDriverIds: []
+        // Cached .notInstalled is a sensor reading — inform, never hard-block.
+        XCTAssertNil(
+            DispatchReadiness.hardBlockReason(model: model, parkedDriverIds: []),
+            "parked-empty must not hard-block"
         )
-        XCTAssertNotNil(notInstalled)
-        XCTAssertTrue(DispatchReadiness.blockedReasonNamesWorkingRemediation(notInstalled!))
 
         let parked = DispatchReadiness.hardBlockReason(
             model: model,
-            record: ToolProbeRecord(
-                driverId: "grok", status: .ready(version: "1"), lastProbeAt: .distantPast
-            ),
             parkedDriverIds: ["grok"]
         )
         XCTAssertNotNil(parked)
-        XCTAssertTrue(DispatchReadiness.blockedReasonNamesWorkingRemediation(parked!))
+        XCTAssertTrue(parked!.contains("parked"))
+        XCTAssertTrue(parked!.contains("alln drivers unpark"))
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(parked!),
+            "parked reason must name a working remediation"
+        )
+    }
+
+    func testCachedNotInstalledDoesNotHardBlock() {
+        let model = Model(
+            id: "model_grok", displayName: "Grok", modelLabel: "grok",
+            driverId: "grok", role: .both, enabled: true
+        )
+        // hardBlockReason no longer consults probe records at all; parked-only.
+        XCTAssertNil(
+            DispatchReadiness.hardBlockReason(model: model, parkedDriverIds: []),
+            "cached notInstalled must never hard-block an explicit pin"
+        )
     }
 
     func testDeadEndDoctorAdviceIsNotAWorkingRemediation() {
@@ -80,48 +85,58 @@ final class DispatchReadinessTests: XCTestCase {
             ),
             "check-doctor-only advice is a dead end when doctor already reports OK"
         )
+        XCTAssertFalse(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(
+                "driver not installed — run `alln detect`, then `alln doctor --full`"
+            ),
+            "detect-only advice is no longer a pre-dispatch remediation (spawn is the boundary)"
+        )
+    }
+
+    /// Surviving pre-dispatch refusals must each name a command that can change
+    /// the outcome — so this gate cannot be gamed with menu/doctor footers alone.
+    func testSurvivingBlockedReasonsAllNameWorkingRemediation() {
+        let parked =
+            "model_grok driver grok is parked — run `alln drivers unpark grok`, then retry; see `alln menu --json`."
+        let disabled =
+            "model_grok is disabled — run `alln models enable model_grok`, or pick a ready worker; see `alln menu --json`."
+        let unknown =
+            "unknown worker id 'model_ghost' for --model — pass a canonical model_* id from `alln models --json` (or `alln menu --json`)."
+        let writeLock =
+            "an agent is still editing this repo after a long wait — it looks stuck; run `alln ps --json`, then `alln kill <id> --json` if needed, and retry (/tmp/repo)"
+
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(parked),
+            "parked"
+        )
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(disabled),
+            "disabled"
+        )
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(unknown),
+            "unknown id"
+        )
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(writeLock),
+            "write lock"
+        )
     }
 
     // MARK: - Inform never blocks (negative / unknown caches)
 
     /// Founder law: a negative smoke/cache verdict (auth dead, probe failed,
-    /// rate-limited, not-yet-probed) must never hard-block an explicit pin.
+    /// rate-limited, not-yet-probed, notInstalled) must never hard-block an explicit pin.
     func testNegativeCachedVerdictsDoNotHardBlock() {
         let model = Model(
             id: "model_grok", displayName: "Grok", modelLabel: "grok",
             driverId: "grok", role: .both, enabled: true
         )
-        let flow = LoginFlow(interactiveCommand: "grok", instructions: "Sign in.")
-        let rateLimited = CapacityObservation(
-            kind: .accountRateLimit,
-            source: "grok",
-            sourceConfidence: .structured,
-            rawSnippet: "rate limited",
-            observedAt: .distantPast
+        // hardBlockReason is parked-only; any non-parked pin dispatches.
+        XCTAssertNil(
+            DispatchReadiness.hardBlockReason(model: model, parkedDriverIds: []),
+            "any negative/unknown probe cache must not hard-block"
         )
-        let negatives: [ModelSetupStatus] = [
-            .installedNotProbed(version: "0.2.117"),
-            .installedNotSignedIn(flow),
-            .probeFailed(reason: "smoke timed out"),
-            .rateLimited(observation: rateLimited),
-            .shimmedNeedsConfirm(ToolResolution(
-                invocation: .direct(path: "/usr/local/bin/grok"),
-                rawCommandV: "/usr/local/bin/grok",
-                isAmbiguous: true
-            )),
-            .ready(version: "0.2.118"),
-        ]
-        for status in negatives {
-            let reason = DispatchReadiness.hardBlockReason(
-                model: model,
-                record: ToolProbeRecord(driverId: "grok", status: status, lastProbeAt: .distantPast),
-                parkedDriverIds: []
-            )
-            XCTAssertNil(
-                reason,
-                "status \(status) must not hard-block explicit dispatch; got \(reason ?? "nil")"
-            )
-        }
     }
 
     /// Missing probe cache is unknown — attempt, never invent a veto.
@@ -131,13 +146,13 @@ final class DispatchReadinessTests: XCTestCase {
             driverId: "grok", role: .both, enabled: true
         )
         XCTAssertNil(
-            DispatchReadiness.hardBlockReason(model: model, record: nil, parkedDriverIds: []),
+            DispatchReadiness.hardBlockReason(model: model, parkedDriverIds: []),
             "nil probe record is unknown — dispatch must be attempted"
         )
     }
 
     /// Selection surfaces must stay honest: absent probe → notChecked,
-    /// negative smoke → notReady — never coerced to ready to dodge the old veto.
+    /// negative smoke / notInstalled → notReady — never coerced to ready.
     func testDriversListReportsUnknownHonestlyNeverCoercesToReady() {
         let registry = DriverRegistry([
             DriverManifest(id: "grok", displayName: "Grok", kind: .headlessCLI),
@@ -167,6 +182,22 @@ final class DispatchReadinessTests: XCTestCase {
             parkedDriverIds: []
         )
         XCTAssertEqual(negative.drivers.first?.status, "notReady")
+
+        // Cached notInstalled still informs as notReady — never coerced to ready.
+        let notInstalled = DriverListProjector.build(
+            registry: registry,
+            probeRecords: [
+                ToolProbeRecord(
+                    driverId: "grok",
+                    status: .notInstalled,
+                    lastProbeAt: .distantPast
+                ),
+            ],
+            models: models,
+            parkedDriverIds: []
+        )
+        XCTAssertEqual(notInstalled.drivers.first?.status, "notReady")
+        XCTAssertEqual(notInstalled.drivers.first?.probeDetail, "Not installed")
 
         // Genuine ready stays ready.
         let ready = DriverListProjector.build(

@@ -2,10 +2,12 @@ import Foundation
 import AgentOSCLI
 
 /// ORS-P0-DEGRADE / founder law: unreadable or stale derived readiness must
-/// NEVER pre-emptively block dispatch. Hard refuse only on positive facts
-/// (unknown model, disabled, parked, binary genuinely not installed). A cache
-/// that merely says `notReady` is unknown — attempt and let the vendor fail
-/// loudly at the real boundary.
+/// NEVER pre-emptively block dispatch. Hard refuse only on user intent /
+/// identity / safety invariants (parked driver, disabled model, unknown id,
+/// per-root write lock). A probe cache — including cached `.notInstalled` —
+/// only INFORM selection; dispatch attempts and the real spawn boundary fails
+/// loudly (`command not found: …` / `errorKind: .missingCLI`) when the binary
+/// is genuinely absent.
 public enum DispatchReadiness {
     /// Downgrade a probe record whose cached version no longer matches the
     /// currently observed binary version. Self-heals the mid-session CLI
@@ -31,32 +33,33 @@ public enum DispatchReadiness {
     }
 
     /// Positive hard-block reason for an explicit `--model` pin, or nil when
-    /// dispatch must be attempted. Does not consult smoke-ready caches.
+    /// dispatch must be attempted. Does not consult probe caches (including
+    /// `.notInstalled`) — those inform menu/models/drivers and free selection
+    /// only. Parked is user intent and remains a hard refuse here.
     public static func hardBlockReason(
         model: Model,
-        record: ToolProbeRecord?,
         parkedDriverIds: Set<String>
     ) -> String? {
         if parkedDriverIds.contains(model.driverId) {
             return "\(model.id) driver \(model.driverId) is parked — run `alln drivers unpark \(model.driverId)`, then retry; see `alln menu --json`."
         }
-        if let record, case .notInstalled = record.status {
-            return "\(model.id) driver \(model.driverId) is not installed — run `alln detect` (refreshes the probe cache), then `alln doctor --full`; see `alln menu --json`."
-        }
         return nil
     }
 
-    /// True when a blocked-dispatch reason names a remediation that can change the
-    /// outcome (detect / unpark / enable). Menu-only and doctor-only footers are
-    /// dead ends — they re-read state and do not clear the block.
+    /// True when a blocked-dispatch reason names a remediation that can change
+    /// the outcome. Surviving pre-dispatch refusals and their remediations:
+    /// parked → `alln drivers unpark`; disabled → `alln models enable`;
+    /// unknown id → `alln models --json` (pick a real model_*); write lock →
+    /// `alln ps` / `alln kill`. Menu-only and doctor-only footers are dead ends
+    /// — they re-read state and do not clear the block.
     public static func blockedReasonNamesWorkingRemediation(_ reason: String) -> Bool {
         let lower = reason.lowercased()
-        // Working: a command that mutates readiness/selection state.
-        // Not working: `alln menu` / `alln doctor` alone (informational loop).
         let commands = [
-            "alln detect",
             "alln drivers unpark",
             "alln models enable",
+            "alln models --json",
+            "alln kill",
+            "alln ps",
         ]
         return commands.contains { lower.contains($0) }
     }

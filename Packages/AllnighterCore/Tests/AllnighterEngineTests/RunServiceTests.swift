@@ -235,6 +235,10 @@ final class RunServiceTests: XCTestCase {
         XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
         XCTAssertTrue(err.description.contains("model_cursor_grok_45"))
         XCTAssertTrue(err.description.contains("disabled"))
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(err.description),
+            "disabled reason must name models enable; got \(err.description)"
+        )
     }
 
     func testExplicitWorkerUnknownFailsWithAgentNotAvailable() async throws {
@@ -269,6 +273,10 @@ final class RunServiceTests: XCTestCase {
         }
         XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
         XCTAssertTrue(err.description.contains("unknown"))
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(err.description),
+            "unknown id must name models --json discovery; got \(err.description)"
+        )
     }
 
     func testExplicitWorkerNotReadyStillDispatchesWhenDriverInstalled() async throws {
@@ -326,7 +334,10 @@ final class RunServiceTests: XCTestCase {
         XCTAssertEqual(run.executionSourceId, "cursor_agent")
     }
 
-    func testExplicitWorkerNotInstalledStillHardBlocksWithWorkingRemediation() async throws {
+    /// Stale-cache case: probe says `.notInstalled` but the binary is on PATH
+    /// (mock succeeds). Explicit `--model` must dispatch and complete — never
+    /// pre-dispatch AGENT_NOT_AVAILABLE from the cache.
+    func testExplicitWorkerCachedNotInstalledStillDispatchesWhenBinaryPresent() async throws {
         let repo = FileManager.default.temporaryDirectory
             .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
@@ -348,6 +359,115 @@ final class RunServiceTests: XCTestCase {
                 TestSupport.headlessManifest(id: "cursor_agent", command: "cursor"),
             ]),
             commandRunner: MockCommandRunner(scripts: [
+                "cursor": .init(stdout: "Installed after cache went stale.", exitCode: 0),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        let result = await service.run(
+            RunRequest(message: "hi", repoRoot: repo.path, pinnedModelId: "model_cursor_grok_45"),
+            origin: .cli
+        )
+        guard case .success(let run) = result else {
+            return XCTFail(
+                "stale notInstalled cache must not veto explicit pin; got \(result)"
+            )
+        }
+        XCTAssertEqual(run.answers.first?.modelId, "model_cursor_grok_45")
+        XCTAssertEqual(run.executionSourceId, "cursor_agent")
+        XCTAssertEqual(run.status, .complete)
+    }
+
+    /// Cached `.notInstalled` + genuinely missing binary: dispatch is attempted;
+    /// failure is loud at spawn (names the binary), not pre-dispatch AGENT_NOT_AVAILABLE.
+    func testExplicitWorkerCachedNotInstalledFailsAtSpawnNamingBinary() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let grok = Model(
+            id: "model_cursor_grok_45", displayName: "Cursor Grok", modelLabel: "grok",
+            driverId: "cursor_agent", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .frontier, allowHealthySubstitutions: true,
+            tiers: TierMembership(frontier: ["model_cursor_grok_45"]))
+        let probe = ToolProbeRecord(
+            driverId: "cursor_agent", status: .notInstalled, lastProbeAt: .distantPast
+        )
+        let missingMessage = "command not found: cursor"
+        let service = RunService(
+            models: [grok],
+            registry: DriverRegistry([
+                TestSupport.headlessManifest(id: "cursor_agent", command: "cursor"),
+            ]),
+            commandRunner: MockCommandRunner(scripts: [
+                "cursor": .init(launchError: missingMessage),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        let result = await service.run(
+            RunRequest(message: "hi", repoRoot: repo.path, pinnedModelId: "model_cursor_grok_45"),
+            origin: .cli
+        )
+        guard case .success(let run) = result else {
+            if case .failure(let err) = result {
+                XCTFail(
+                    "missing binary must reach spawn, not pre-dispatch AGENT_NOT_AVAILABLE; " +
+                    "got \(err.code): \(err.description)"
+                )
+            }
+            return
+        }
+        XCTAssertNotEqual(run.status, .complete, "dead CLI must not report success")
+        let reason = run.answers.first?.result.errorReason
+            ?? run.failedWorkerAnswers.first?.result.errorReason
+            ?? run.attempts.last?.reason
+            ?? ""
+        XCTAssertTrue(
+            reason.contains("cursor") || reason.contains(missingMessage),
+            "failure must name the missing binary; got \(reason)"
+        )
+        let kind = run.answers.first?.result.errorKind
+            ?? run.failedWorkerAnswers.first?.result.errorKind
+        if let kind {
+            XCTAssertEqual(kind, .missingCLI, "spawn miss should be typed missingCLI; got \(kind)")
+        }
+    }
+
+    /// Legitimate refusal: user-parked driver still hard-blocks with unpark remediation.
+    func testExplicitWorkerParkedStillHardBlocksWithUnparkRemediation() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        var state = SetupStore().load()
+        state.park("cursor_agent")
+        try SetupStore().save(state)
+
+        let grok = Model(
+            id: "model_cursor_grok_45", displayName: "Cursor Grok", modelLabel: "grok",
+            driverId: "cursor_agent", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .frontier, allowHealthySubstitutions: true,
+            tiers: TierMembership(frontier: ["model_cursor_grok_45"]))
+        let probe = ToolProbeRecord(
+            driverId: "cursor_agent", status: .ready(version: "1"), lastProbeAt: .distantPast
+        )
+        let service = RunService(
+            models: [grok],
+            registry: DriverRegistry([
+                TestSupport.headlessManifest(id: "cursor_agent", command: "cursor"),
+            ]),
+            commandRunner: MockCommandRunner(scripts: [
                 "cursor": .init(stdout: "Should never run.", exitCode: 0),
             ]),
             writeLock: RunWriteLockRegistry(),
@@ -360,13 +480,24 @@ final class RunServiceTests: XCTestCase {
             origin: .cli
         )
         guard case .failure(let err) = result else {
-            return XCTFail("expected AGENT_NOT_AVAILABLE for notInstalled, got \(result)")
+            return XCTFail("expected AGENT_NOT_AVAILABLE for parked driver, got \(result)")
         }
         XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
-        XCTAssertTrue(err.description.contains("not installed"))
+        XCTAssertTrue(err.description.contains("parked"), "got \(err.description)")
         XCTAssertTrue(
             DispatchReadiness.blockedReasonNamesWorkingRemediation(err.description),
-            "hard-block reason must name a working remediation command; got \(err.description)"
+            "parked reason must name unpark; got \(err.description)"
+        )
+    }
+
+    /// Legitimate refusal: write-lock busy error stays typed and names kill/ps.
+    func testWriteLockBusyErrorStillTypedWithWorkingRemediation() {
+        let err = RunServiceError.writeLockBusy("/tmp/repo-root")
+        XCTAssertEqual(err.code, "RUN_WRITE_LOCK_BUSY")
+        XCTAssertTrue(err.description.contains("alln ps") || err.description.contains("alln kill"))
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(err.description),
+            "write-lock busy must name a working remediation; got \(err.description)"
         )
     }
 

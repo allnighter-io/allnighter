@@ -139,13 +139,13 @@ public enum ExactIdResolver {
         case "displayName":
             message =
                 "\(flag) rejects display names — pass a canonical model id (got '\(provided)'). "
-                + "Run `alln menu --json` and use a model_* id."
+                + "Run `alln models --json` (or `alln menu --json`) and use a model_* id."
         case "empty":
             message = "\(flag) requires a canonical model id"
         default:
             message =
-                "unknown worker id '\(provided)' for \(flag) — pass a canonical model_* id; "
-                + "see `alln menu --json` / `alln menu show model:<id>`."
+                "unknown worker id '\(provided)' for \(flag) — pass a canonical model_* id from "
+                + "`alln models --json` (or `alln menu --json` / `alln menu show model:<id>`)."
         }
         return Failure(
             code: "AGENT_NOT_AVAILABLE",

@@ -207,7 +207,7 @@ public struct RunInvocationResolveContext: Sendable {
     public var readyModels: [Model]
     public var readyModelIds: Set<String>
     public var defaultSettings: DefaultModelSettings
-    /// Probe cache for hard-block decisions (notInstalled / parked). Stale
+    /// Probe cache for selection ranking (inform only; parked is the hard block). Stale
     /// notReady alone never blocks (ORS-P0-DEGRADE).
     public var probeRecords: [ToolProbeRecord]
     public var parkedDriverIds: Set<String>
@@ -757,17 +757,13 @@ public enum RunInvocationResolver {
                     "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln menu --json`."
                 ))
             }
-            let records = DispatchReadiness.invalidateStaleVersions(
-                records: context.probeRecords,
-                currentVersions: [:]
-            )
-            let record = records.first { $0.driverId == model.driverId }
             if let reason = DispatchReadiness.hardBlockReason(
-                model: model, record: record, parkedDriverIds: context.parkedDriverIds
+                model: model, parkedDriverIds: context.parkedDriverIds
             ) {
                 return .failure(.workerNotAvailable(reason))
             }
-            // Stale/unknown notReady: attempt. Loud failure at the vendor boundary.
+            // Probe cache (including .notInstalled) never vetoes: attempt.
+            // Loud failure at the real spawn boundary if the binary is absent.
             return .success(model)
         }
     }

@@ -57,6 +57,7 @@ final class OneRunSurfaceDispatchReadinessTests: XCTestCase {
             .installedNotProbed(version: "0.2.117"),
             .installedNotSignedIn(LoginFlow(interactiveCommand: "grok", instructions: "Sign in.")),
             .probeFailed(reason: "smoke timed out after self-update"),
+            .notInstalled, // sensor cache — never a pre-dispatch veto
         ]
 
         for status in negatives {
@@ -122,62 +123,76 @@ final class OneRunSurfaceDispatchReadinessTests: XCTestCase {
 
     /// Genuinely missing binary: dispatch is attempted; failure names the binary
     /// and is typed (failed run / launch error) — not a silent no-op or notReady.
+    /// Covers both "unknown/probed" cache and the stale `.notInstalled` cache
+    /// that previously vetoed at resolve.
     func testMissingBinaryFailsLoudlyNamingBinary() async throws {
         let repo = try makeRepo()
         defer { try? FileManager.default.removeItem(at: repo) }
 
-        // Cache says installed (or unknown) so we reach the real spawn boundary.
-        // Binary is dead: mock surfaces the same launchError ProcessGroupCommandRunner
-        // emits for PATH miss — "command not found: <binary>".
-        let probe = ToolProbeRecord(
-            driverId: "grok",
-            status: .installedNotProbed(version: "0.2.118"),
-            version: "0.2.118",
-            lastProbeAt: .distantPast
-        )
+        let cacheStatuses: [ModelSetupStatus] = [
+            .installedNotProbed(version: "0.2.118"),
+            .notInstalled,
+        ]
         let missingMessage = "command not found: grok"
-        let service = RunService(
-            models: [grokModel()],
-            registry: DriverRegistry([TestSupport.headlessManifest(id: "grok", command: "grok")]),
-            commandRunner: MockCommandRunner(scripts: [
-                "grok": .init(launchError: missingMessage),
-            ]),
-            writeLock: RunWriteLockRegistry(),
-            defaultSettings: { Self.settings() },
-            probeRecords: { [probe] }
-        )
 
-        let started = Date()
-        let result = await service.run(
-            RunRequest(message: "ping", repoRoot: repo.path, pinnedModelId: "model_grok"),
-            origin: .cli
-        )
-        let elapsed = Date().timeIntervalSince(started)
-        XCTAssertLessThan(elapsed, 15, "missing binary must fail promptly, not hang")
+        for cacheStatus in cacheStatuses {
+            let probe = ToolProbeRecord(
+                driverId: "grok",
+                status: cacheStatus,
+                version: "0.2.118",
+                lastProbeAt: .distantPast
+            )
+            let service = RunService(
+                models: [grokModel()],
+                registry: DriverRegistry([TestSupport.headlessManifest(id: "grok", command: "grok")]),
+                commandRunner: MockCommandRunner(scripts: [
+                    "grok": .init(launchError: missingMessage),
+                ]),
+                writeLock: RunWriteLockRegistry(),
+                defaultSettings: { Self.settings() },
+                probeRecords: { [probe] }
+            )
 
-        // Dispatch happened (not AGENT_NOT_AVAILABLE / notReady at resolve).
-        guard case .success(let run) = result else {
-            if case .failure(let err) = result {
-                XCTFail(
-                    "missing binary must reach vendor boundary, not pre-empt at resolve; " +
-                    "got \(err.code): \(err.description)"
+            let started = Date()
+            let result = await service.run(
+                RunRequest(message: "ping", repoRoot: repo.path, pinnedModelId: "model_grok"),
+                origin: .cli
+            )
+            let elapsed = Date().timeIntervalSince(started)
+            XCTAssertLessThan(elapsed, 15, "missing binary must fail promptly for \(cacheStatus)")
+
+            // Dispatch happened (not AGENT_NOT_AVAILABLE / notReady at resolve).
+            guard case .success(let run) = result else {
+                if case .failure(let err) = result {
+                    XCTFail(
+                        "missing binary must reach vendor boundary for \(cacheStatus), " +
+                        "not pre-empt at resolve; got \(err.code): \(err.description)"
+                    )
+                }
+                return
+            }
+            XCTAssertNotEqual(run.status, .complete, "dead CLI must not report success for \(cacheStatus)")
+            let reason = run.answers.first?.result.errorReason
+                ?? run.failedWorkerAnswers.first?.result.errorReason
+                ?? run.attempts.last?.reason
+                ?? ""
+            XCTAssertTrue(
+                reason.contains("grok") || reason.contains(missingMessage),
+                "failure must name the missing binary for \(cacheStatus); got \(reason)"
+            )
+            XCTAssertFalse(
+                reason.localizedCaseInsensitiveContains("notReady"),
+                "must not replace missing-binary with notReady for \(cacheStatus); got \(reason)"
+            )
+            let kind = run.answers.first?.result.errorKind
+                ?? run.failedWorkerAnswers.first?.result.errorKind
+            if let kind {
+                XCTAssertEqual(
+                    kind, .missingCLI,
+                    "spawn miss should be typed missingCLI for \(cacheStatus); got \(kind)"
                 )
             }
-            return
         }
-        XCTAssertNotEqual(run.status, .complete, "dead CLI must not report success")
-        let reason = run.answers.first?.result.errorReason
-            ?? run.failedWorkerAnswers.first?.result.errorReason
-            ?? run.attempts.last?.reason
-            ?? ""
-        XCTAssertTrue(
-            reason.contains("grok") || reason.contains(missingMessage),
-            "failure must name the missing binary; got \(reason)"
-        )
-        XCTAssertFalse(
-            reason.localizedCaseInsensitiveContains("notReady"),
-            "must not replace missing-binary with notReady; got \(reason)"
-        )
     }
 
     /// Vendor exits non-zero with its own stderr (auth dead) — that text reaches
@@ -249,6 +264,7 @@ final class OneRunSurfaceDispatchReadinessTests: XCTestCase {
             .probeFailed(reason: "stale after self-update"),
             .installedNotProbed(version: "0.2.117"),
             .installedNotSignedIn(LoginFlow(interactiveCommand: "grok", instructions: "x")),
+            .notInstalled,
         ]
         for status in negatives {
             let invocation = RunInvocationResolver.resolve(
@@ -300,4 +316,137 @@ final class OneRunSurfaceDispatchReadinessTests: XCTestCase {
         XCTAssertTrue(invocation.canStart, "unknown readiness must still canStart")
         XCTAssertNil(invocation.blockedReason)
     }
+
+    // MARK: - Legitimate refusals still hold (not "remove all guards")
+
+    func testResolverRefusesParkedDriverWithUnparkRemediation() {
+        let model = grokModel()
+        let invocation = RunInvocationResolver.resolve(
+            RunInvocationInput(
+                message: "ping",
+                projectRoot: "/tmp/ors-readiness",
+                flagMode: .dryRun,
+                flags: .init(pinnedModelId: "model_grok", json: true)
+            ),
+            context: RunInvocationResolveContext(
+                models: [model],
+                readyModels: [model],
+                readyModelIds: [model.id],
+                defaultSettings: Self.settings(),
+                probeRecords: [
+                    ToolProbeRecord(
+                        driverId: "grok", status: .ready(version: "1"), lastProbeAt: .distantPast
+                    ),
+                ],
+                parkedDriverIds: ["grok"]
+            )
+        )
+        XCTAssertFalse(invocation.canStart, "parked driver must refuse")
+        let reason = invocation.blockedReason ?? ""
+        XCTAssertTrue(reason.contains("parked"), "got \(reason)")
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(reason),
+            "parked must name unpark; got \(reason)"
+        )
+    }
+
+    func testResolverRefusesDisabledModelWithEnableRemediation() {
+        let disabled = Model(
+            id: "model_grok", displayName: "Grok", modelLabel: "grok",
+            driverId: "grok", role: .both, enabled: false
+        )
+        let invocation = RunInvocationResolver.resolve(
+            RunInvocationInput(
+                message: "ping",
+                projectRoot: "/tmp/ors-readiness",
+                flagMode: .dryRun,
+                flags: .init(pinnedModelId: "model_grok", json: true)
+            ),
+            context: RunInvocationResolveContext(
+                models: [disabled],
+                readyModels: [],
+                readyModelIds: [],
+                defaultSettings: Self.settings(),
+                probeRecords: [],
+                parkedDriverIds: []
+            )
+        )
+        XCTAssertFalse(invocation.canStart, "disabled model must refuse")
+        let reason = invocation.blockedReason ?? ""
+        XCTAssertTrue(reason.contains("disabled"), "got \(reason)")
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(reason),
+            "disabled must name models enable; got \(reason)"
+        )
+    }
+
+    func testResolverRefusesUnknownModelIdWithModelsDiscovery() {
+        let model = grokModel()
+        let invocation = RunInvocationResolver.resolve(
+            RunInvocationInput(
+                message: "ping",
+                projectRoot: "/tmp/ors-readiness",
+                flagMode: .dryRun,
+                flags: .init(pinnedModelId: "model_does_not_exist", json: true)
+            ),
+            context: RunInvocationResolveContext(
+                models: [model],
+                readyModels: [model],
+                readyModelIds: [model.id],
+                defaultSettings: Self.settings(),
+                probeRecords: [],
+                parkedDriverIds: []
+            )
+        )
+        XCTAssertFalse(invocation.canStart, "unknown id must refuse")
+        let reason = invocation.blockedReason ?? ""
+        XCTAssertTrue(reason.contains("unknown"), "got \(reason)")
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(reason),
+            "unknown id must name models --json; got \(reason)"
+        )
+    }
+
+    /// drivers/models keep reporting notInstalled as notReady — inform, never coerce.
+    func testDriversAndModelsStillReportNotInstalledAsNotReady() {
+        let registry = DriverRegistry([
+            DriverManifest(id: "grok", displayName: "Grok", kind: .headlessCLI),
+        ])
+        let model = grokModel()
+        let probe = ToolProbeRecord(
+            driverId: "grok", status: .notInstalled, lastProbeAt: .distantPast
+        )
+        let drivers = DriverListProjector.build(
+            registry: registry,
+            probeRecords: [probe],
+            models: [model],
+            parkedDriverIds: []
+        )
+        XCTAssertEqual(drivers.drivers.first?.status, "notReady")
+        XCTAssertEqual(drivers.drivers.first?.probeDetail, "Not installed")
+
+        let definitions = [
+            ModelDefinition(
+                id: "model_grok",
+                displayName: "Grok",
+                modelLabel: "grok",
+                driverId: "grok",
+                role: .both,
+                origin: .builtIn,
+                defaultEnabled: true,
+                capabilities: ModelCapabilities()
+            ),
+        ]
+        let models = ModelListProjector.build(
+            registry: registry,
+            definitions: definitions,
+            probeRecords: [probe],
+            diagnostics: [],
+            parkedDriverIds: []
+        )
+        let entry = models.models.first { $0.id == "model_grok" }
+        XCTAssertEqual(entry?.status, "notReady")
+        XCTAssertEqual(entry?.ready, false)
+    }
 }
+

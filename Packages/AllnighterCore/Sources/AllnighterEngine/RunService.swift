@@ -146,7 +146,8 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .repoRootUnavailable(let r): return "repo root unavailable: \(r)"
-        case .writeLockBusy(let r): return "an agent is still editing this repo after a long wait — it looks stuck; stop it and retry (\(r))"
+        case .writeLockBusy(let r):
+            return "an agent is still editing this repo after a long wait — it looks stuck; run `alln ps --json`, then `alln kill <id> --json` if needed, and retry (\(r))"
         case .executionLaneBusy(let r):
             return "execution lane busy on \(r) — do not busy-loop; poll status for laneBlocked (FIFO ticket) until the harness grants the lane"
         case .teamResolution(let m, _): return m
@@ -301,9 +302,10 @@ public actor RunService {
     /// PO-F10 / MR-S04: honor an explicit worker id or fail with `AGENT_NOT_AVAILABLE`.
     /// Never returns a substitute model. Display names fail closed via ExactIdResolver.
     ///
-    /// ORS-P0-DEGRADE: a stale/unknown readiness cache must NOT pre-emptively block.
-    /// Hard refuse only for positive facts (disabled, parked, not installed). Otherwise
-    /// attempt — vendor failure is loud at the real boundary.
+    /// ORS-P0-DEGRADE: a stale/unknown readiness cache must NOT pre-emptively block
+    /// (including cached `.notInstalled`). Hard refuse only for user intent /
+    /// identity (disabled, parked, unknown id). Otherwise attempt — vendor failure
+    /// is loud at the real spawn boundary (`missingCLI` / command not found).
     public func resolveExplicitModel(_ id: String) -> Result<Model, RunServiceError> {
         let records = DispatchReadiness.invalidateStaleVersions(
             records: loadProbeRecords(),
@@ -327,9 +329,8 @@ public actor RunService {
                     "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln menu --json`."
                 ))
             }
-            let record = records.first { $0.driverId == m.driverId }
             if let reason = DispatchReadiness.hardBlockReason(
-                model: m, record: record, parkedDriverIds: parked
+                model: m, parkedDriverIds: parked
             ) {
                 return .failure(.workerNotAvailable(reason))
             }
