@@ -56,11 +56,12 @@ public enum MenuCatalog {
             let validate = actionValidateExample(for: spec, example: example)
             let key = spec.effects.profileKey
             effectProfiles[key] = spec.effects
-            enforceSelectionBounds(authored, kind: "action", id: spec.name)
+            // Length typos degrade (bound); missing authorship above is structural.
+            let copy = enforceSelectionBounds(authored, kind: "action", id: spec.name)
             return MenuJSON.Action(
                 id: spec.name,
-                useWhen: authored.useWhen,
-                dontUseWhen: authored.dontUseWhen,
+                useWhen: copy.useWhen,
+                dontUseWhen: copy.dontUseWhen,
                 effectsRef: key,
                 example: compact(example, limit: 96),
                 validateExample: compact(validate, limit: 96)
@@ -75,13 +76,16 @@ public enum MenuCatalog {
             // human-readable name next to its canonical id in every catalog
             // row — `disclosedDisplayName` falls back to the id.
             let displayName = team.disclosedDisplayName
-            let copy = MenuSelectionCopy.team(
-                id: team.id,
-                displayName: displayName,
-                description: team.description,
-                mutating: team.mutating
+            let copy = enforceSelectionBounds(
+                MenuSelectionCopy.team(
+                    id: team.id,
+                    displayName: displayName,
+                    description: team.description,
+                    mutating: team.mutating
+                ),
+                kind: "team",
+                id: team.id
             )
-            enforceSelectionBounds(copy, kind: "team", id: team.id)
             let run = "alln run \"{message}\" --team \(team.id) --json"
             let validate = "alln run \"{message}\" --team \(team.id) --dry-run"
             return MenuJSON.Team(
@@ -102,12 +106,15 @@ public enum MenuCatalog {
         }
 
         let modelRows: [MenuJSON.Model] = models.map { entry in
-            let copy = MenuSelectionCopy.model(
-                id: entry.id,
-                displayName: entry.displayName,
-                driverId: entry.driverId
+            let copy = enforceSelectionBounds(
+                MenuSelectionCopy.model(
+                    id: entry.id,
+                    displayName: entry.displayName,
+                    driverId: entry.driverId
+                ),
+                kind: "model",
+                id: entry.id
             )
-            enforceSelectionBounds(copy, kind: "model", id: entry.id)
             return MenuJSON.Model(
                 ref: "model:\(entry.id)",
                 id: entry.id,
@@ -124,8 +131,11 @@ public enum MenuCatalog {
         }
 
         let recipeRows: [MenuJSON.Recipe] = recipeList.map { recipe in
-            let copy = MenuSelectionCopy.recipe(id: recipe.id, title: recipe.title)
-            enforceSelectionBounds(copy, kind: "recipe", id: recipe.id)
+            let copy = enforceSelectionBounds(
+                MenuSelectionCopy.recipe(id: recipe.id, title: recipe.title),
+                kind: "recipe",
+                id: recipe.id
+            )
             return MenuJSON.Recipe(
                 ref: "recipe:\(recipe.id)",
                 id: recipe.id,
@@ -698,15 +708,15 @@ public enum MenuCatalog {
         )
     }
 
+    /// Project selection copy within product bounds. Over-length authored copy
+    /// is truncated (same `bound` fallbacks already use) — never a front-door crash.
+    /// Structural failures (e.g. missing default team, missing menuAction authorship)
+    /// still `preconditionFailure` at their call sites.
     private static func enforceSelectionBounds(
         _ pair: MenuSelectionCopy.Pair,
-        kind: String,
-        id: String
-    ) {
-        do {
-            try MenuSelectionCopy.validateBounds(pair, kind: kind, id: id)
-        } catch {
-            preconditionFailure("MenuCatalog: \(error)")
-        }
+        kind _: String,
+        id _: String
+    ) -> MenuSelectionCopy.Pair {
+        MenuSelectionCopy.projected(pair)
     }
 }

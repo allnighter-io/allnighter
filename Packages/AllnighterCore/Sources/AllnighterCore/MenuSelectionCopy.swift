@@ -47,7 +47,9 @@ public enum MenuSelectionCopy {
 
     // MARK: - Lookups
 
-    public static func action(_ id: String) -> Pair? { actions[id] }
+    public static func action(_ id: String) -> Pair? {
+        actions[id].map(projected)
+    }
 
     public static func team(
         id: String,
@@ -55,7 +57,7 @@ public enum MenuSelectionCopy {
         description: String,
         mutating: Bool
     ) -> Pair {
-        if let authored = teams[id] { return authored }
+        if let authored = teams[id] { return projected(authored) }
         let use: String
         if !description.isEmpty {
             use = bound(description, limit: useWhenMax)
@@ -69,7 +71,9 @@ public enum MenuSelectionCopy {
     }
 
     public static func model(id: String, displayName: String, driverId: String) -> Pair {
-        if let authored = models[id] { return authored }
+        // Authored path must bound too — returning verbatim used to crash
+        // `MenuCatalog.project` when a useWhen typo exceeded useWhenMax.
+        if let authored = models[id] { return projected(authored) }
         return Pair(
             useWhen: bound("Custom \(driverId) worker (\(displayName))", limit: useWhenMax),
             dontUseWhen: bound("Confirm id in menu; not a built-in seat", limit: dontUseWhenMax)
@@ -77,7 +81,7 @@ public enum MenuSelectionCopy {
     }
 
     public static func recipe(id: String, title: String) -> Pair {
-        if let authored = recipes[id] { return authored }
+        if let authored = recipes[id] { return projected(authored) }
         return Pair(
             useWhen: bound(title, limit: useWhenMax),
             dontUseWhen: bound("Custom recipe; read markdown via menu show", limit: dontUseWhenMax)
@@ -97,6 +101,24 @@ public enum MenuSelectionCopy {
         if dont.count > dontUseWhenMax {
             throw BoundError.dontUseWhenTooLong(kind: kind, id: id, length: dont.count)
         }
+    }
+
+    /// Bound/truncate selection copy for safe projection. A copy-length typo
+    /// must never crash the agent front door; build-time tests gate authorship.
+    public static func projected(_ pair: Pair) -> Pair {
+        Pair(
+            useWhen: bound(pair.useWhen, limit: useWhenMax),
+            dontUseWhen: bound(pair.dontUseWhen, limit: dontUseWhenMax)
+        )
+    }
+
+    /// Every authored table entry (actions, teams, models, recipes) for the
+    /// build-time bounds gate. Runtime projection degrades; this is the loud fail.
+    public static func authoredEntries() -> [(kind: String, id: String, pair: Pair)] {
+        actions.map { (kind: "action", id: $0.key, pair: $0.value) }
+            + teams.map { (kind: "team", id: $0.key, pair: $0.value) }
+            + models.map { (kind: "model", id: $0.key, pair: $0.value) }
+            + recipes.map { (kind: "recipe", id: $0.key, pair: $0.value) }
     }
 
     /// Extract `{name}` placeholders from a template string.
@@ -276,7 +298,7 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not Sol; use model_gpt_sol"
         ),
         "model_gpt_luna": Pair(
-            useWhen: "GPT-5.6 Luna, Codex economy seat (high effort default)",
+            useWhen: "Codex economy seat, high effort default",
             dontUseWhen: "Not Sol/Terra; use model_gpt_sol or model_gpt_terra"
         ),
         "model_gpt_54": Pair(
