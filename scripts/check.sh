@@ -119,29 +119,106 @@ PY
   fi
   mkdir -p "$MAC_DD"
 
+  # Signing for the Mac wall:
+  # CODE_SIGNING_ALLOWED=NO shipped with Phase 03 (557eac95) so agents/CI without a
+  # developer identity could still *build*. On modern macOS it leaves the XCTest
+  # host unsigned; the runner then hangs ~5+ minutes ("test runner hung before
+  # establishing connection") and executes ZERO tests — a wall that burns time and
+  # trains people to ignore failures. Never reintroduce that flag.
+  #
+  # Prefer project signing (Automatic + DEVELOPMENT_TEAM in project.yml) when a
+  # codesigning identity is present. With no identity, ad-hoc sign the host so the
+  # runner can still load it (signed, just not team-signed).
+  xcode_signing_args=()
+  if security find-identity -v -p codesigning 2>/dev/null \
+    | grep -Eq 'Apple Development|Mac Developer|Developer ID Application|Apple Distribution'; then
+    echo "check: codesigning identity present — using project signing (no CODE_SIGNING_ALLOWED=NO)"
+  else
+    echo "check: no codesigning identity in keychain — ad-hoc signing Mac test host"
+    xcode_signing_args+=(
+      CODE_SIGN_IDENTITY=-
+      CODE_SIGNING_REQUIRED=YES
+      CODE_SIGNING_ALLOWED=YES
+      DEVELOPMENT_TEAM=
+      CODE_SIGN_STYLE=Manual
+    )
+  fi
+
   export ALLNIGHTER_TEST_TOKEN
   ALLNIGHTER_TEST_TOKEN="$(python3 "$ROOT/scripts/allnighter_test_token.py" mint "$ROOT")"
   xcode_log="$(mktemp "${TMPDIR:-/tmp}/alln-xcodebuild-test.XXXXXX")"
   xcode_status=0
+  mac_phase_started=$SECONDS
   # Keep the last few progress lines on the console; full log is teed for diagnostics.
   xcodebuild test \
     -project "$MAC_APP/AllnighterMac.xcodeproj" \
     -scheme AllnighterMac \
     -destination 'platform=macOS' \
     -derivedDataPath "$MAC_DD" \
-    CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$xcode_log" | tail -3 || xcode_status=${PIPESTATUS[0]}
+    "${xcode_signing_args[@]}" \
+    2>&1 | tee "$xcode_log" | tail -3 || xcode_status=${PIPESTATUS[0]}
+  mac_phase_elapsed=$((SECONDS - mac_phase_started))
+
+  # xcodebuild sometimes exits 0 even when the suite reports failures.
   if [[ "$xcode_status" -eq 0 ]] && rg -q 'TEST FAILED|with [1-9][0-9]* failures?' "$xcode_log" 2>/dev/null; then
     xcode_status=1
   fi
+
+  # Count executed test cases from XCTest summary lines ("Executed N tests, …").
+  # Prefer the largest N (outer "All tests" suite) so nested suite lines do not
+  # under-count; missing summary → 0 (instrument fault below).
+  mac_tests_executed="$(
+    python3 - "$xcode_log" <<'PY'
+import re, sys
+path = sys.argv[1]
+best = 0
+try:
+    text = open(path, errors="replace").read()
+except OSError:
+    print(0)
+    raise SystemExit
+for m in re.finditer(r"Executed\s+(\d+)\s+tests?", text):
+    n = int(m.group(1))
+    if n > best:
+        best = n
+print(best)
+PY
+  )"
+
+  instrument_fault=0
+  instrument_reason=""
+  if rg -q 'test runner hung|hung before establishing connection' "$xcode_log" 2>/dev/null; then
+    instrument_fault=1
+    instrument_reason="Mac test runner hung before establishing connection (zero tests executed)"
+  elif [[ "${mac_tests_executed:-0}" -eq 0 ]]; then
+    # Build may have succeeded and xcodebuild may even have exited 0 — still a
+    # wall instrument fault. A green wall that ran nothing is banned.
+    instrument_fault=1
+    instrument_reason="Mac suite executed ZERO test cases (not a pass, not an ordinary failure)"
+  fi
+
+  if [[ "$instrument_fault" -eq 1 ]]; then
+    xcode_status=1
+    echo "check: INSTRUMENT FAULT — ${instrument_reason}"
+    echo "check: Mac phase elapsed ${mac_phase_elapsed}s; executed=${mac_tests_executed:-0}"
+    echo "check: this is not a product test failure — the wall could not run the suite."
+  elif [[ "$xcode_status" -eq 0 ]]; then
+    echo "check: Mac suite executed ${mac_tests_executed} tests in ${mac_phase_elapsed}s"
+  fi
+
   if [[ "$xcode_status" -ne 0 ]]; then
-    echo "check: xcodebuild failed (exit $xcode_status). Diagnostics:"
-    # Surface compile errors and failing assertions — not just "(N failures)".
+    if [[ "$instrument_fault" -eq 0 ]]; then
+      echo "check: xcodebuild failed (exit $xcode_status). Diagnostics:"
+    else
+      echo "check: xcodebuild instrument fault (exit $xcode_status). Diagnostics:"
+    fi
+    # Surface hang/zero-run, compile errors, and failing assertions — not just "(N failures)".
     if command -v rg >/dev/null 2>&1; then
       rg -n --no-heading \
-        'error: |fatal error: |\.swift:[0-9]+:[0-9]+: error:|TEST FAILED|Testing failed|with [1-9][0-9]* failures?|XCTAssert|failed \(|error: -\[|\*\* TEST BUILD FAILED \*\*|\*\* TEST FAILED \*\*|\*\* BUILD FAILED \*\*' \
+        'test runner hung|hung before establishing connection|Executed 0 tests|error: |fatal error: |\.swift:[0-9]+:[0-9]+: error:|TEST FAILED|Testing failed|with [1-9][0-9]* failures?|XCTAssert|failed \(|error: -\[|\*\* TEST BUILD FAILED \*\*|\*\* TEST FAILED \*\*|\*\* BUILD FAILED \*\*|INSTRUMENT FAULT' \
         "$xcode_log" | head -100 || true
     else
-      grep -nE 'error: |TEST FAILED|XCTAssert|BUILD FAILED' "$xcode_log" | head -100 || true
+      grep -nE 'test runner hung|Executed 0 tests|error: |TEST FAILED|XCTAssert|BUILD FAILED' "$xcode_log" | head -100 || true
     fi
     echo "check: full xcodebuild log preserved at: $xcode_log"
     # Do not delete the log on failure — evidence is the product.

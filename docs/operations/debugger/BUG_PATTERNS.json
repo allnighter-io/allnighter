@@ -6,7 +6,7 @@
       "surface": "Apps/AllnighterMac/Sources/AllnighterTextEditor.swift",
       "seam": "AppKit NSTextView pasteboard handling below the SwiftUI composer bridge",
       "law": "The Mac composer text view must own plain-text paste insertion directly; do not close a paste bug by relying only on SwiftUI commands, a main Edit menu, or implicit AppKit responder routing.",
-      "proof": "xcodebuild test -project Apps/AllnighterMac/AllnighterMac.xcodeproj -scheme AllnighterMac -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO -only-testing:AllnighterMacTests/AllnighterTextEditorTests"
+      "proof": "xcodebuild test -project Apps/AllnighterMac/AllnighterMac.xcodeproj -scheme AllnighterMac -destination 'platform=macOS' -only-testing:AllnighterMacTests/AllnighterTextEditorTests"
     },
     {
       "id": "mac-composer-image-paste-seam-law",
