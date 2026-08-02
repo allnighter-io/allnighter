@@ -718,3 +718,13 @@ Standing flags, not resolved by this packet:
   fields, **cut further — do not defend them**.
 - Two seats voted to delete `alln run --stream` outright. Rejected on
   constitutional grounds (attended is the hero), not on evidence.
+
+## Live Works Test record (2026-08-01)
+
+Host 1 = Claude Code. VERIFIED only; two-host proof remains open (ORS-S04).
+
+- Binary **0.12.0** / contract **9.2.0** installed.
+- Detached ack returns one `nextAction.command` `alln show <id> --stream`; no delivery block.
+- `alln team status` and `alln team result` exit `CLI_USAGE_ERROR` (exit 2), naming `alln show`, executing nothing.
+- Real `--no-wait` launch (no stream flag) wrote `events.jsonl` with `run.status_changed`, `worker.status_changed`, `stage.started`, `stage.completed` and **no** transcript kinds.
+- `show --stream` emitted snapshot → bounded replay (`replayed: true`) → live follow → exactly one `teamRunCompleted`, exit 0.
