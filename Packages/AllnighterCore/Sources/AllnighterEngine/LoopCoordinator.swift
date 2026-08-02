@@ -2254,7 +2254,7 @@ public struct LoopCoordinator: Sendable {
             subjectId: state.id,
             sequence: try pmTurnStore.nextSequence(for: .relay, subjectId: state.id),
             round: state.rounds.last?.roundNumber,
-            createdAt: now(),
+            createdAt: PMTurnJSON.isoTimestamp(now()),
             reason: reason,
             lifecycleStatus: state.status.rawValue,
             report: report,

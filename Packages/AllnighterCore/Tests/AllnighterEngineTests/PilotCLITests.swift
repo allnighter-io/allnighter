@@ -40,7 +40,7 @@ final class PilotCLITests: XCTestCase {
         )
         let turnStore = PMTurnStore(loopsRootDirectory: loopStore.rootDirectory)
         let turn = PMTurnJSON(
-            kind: .relay, subjectId: state.id, sequence: 1, createdAt: Date(),
+            kind: .relay, subjectId: state.id, sequence: 1, createdAt: PMTurnJSON.isoTimestamp(),
             reason: "awaitingPM", lifecycleStatus: "awaitingPM", report: "Settled report.",
             nextCommands: ["alln pair pilot handoff --relay relay_pm_turn --verdict continue --handover-file order.md --json"]
         )
@@ -67,7 +67,7 @@ final class PilotCLITests: XCTestCase {
         )
         let turnStore = PMTurnStore(loopsRootDirectory: loopStore.rootDirectory)
         try turnStore.save(PMTurnJSON(
-            kind: .relay, subjectId: state.id, sequence: 1, createdAt: Date(),
+            kind: .relay, subjectId: state.id, sequence: 1, createdAt: PMTurnJSON.isoTimestamp(),
             reason: "awaitingPM", lifecycleStatus: "awaitingPM", report: "Ready for PM.",
             nextCommands: ["alln pair pilot handoff --relay relay_wait_match --verdict continue --handover-file order.md --json"]
         ))

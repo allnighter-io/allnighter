@@ -767,7 +767,7 @@ final class LoopCoordinatorTests: HermeticSupportTestCase {
         // Pre-seed a ceiling PM Turn so we can assert sequence does not advance.
         try pmTurnStore.save(PMTurnJSON(
             kind: .relay, subjectId: "relay_stop_ceiling", sequence: 1,
-            createdAt: Self.flooredNow(), reason: "stopped", lifecycleStatus: "stopped",
+            createdAt: PMTurnJSON.isoTimestamp(Self.flooredNow()), reason: "stopped", lifecycleStatus: "stopped",
             nextCommands: ["alln pair relay-status --relay relay_stop_ceiling --json"]
         ))
         let ceilingAgain = try coordinator.stop(loopId: "relay_stop_ceiling").get()

@@ -17,7 +17,9 @@ public struct PMTurnJSON: Codable, Equatable, Sendable {
     public var sequence: Int
     /// Present only for relay turns.
     public var round: Int?
-    public var createdAt: Date
+    /// ISO8601 string, same format as TeamRunJSON.RunInfo timestamps. Stored as
+    /// String so stream (plain JSONEncoder) and CoreJSON paths cannot diverge.
+    public var createdAt: String
     public var reason: String
     public var lifecycleStatus: String
     /// The untruncated primary worker or team report, when one is available.
@@ -36,7 +38,7 @@ public struct PMTurnJSON: Codable, Equatable, Sendable {
         subjectId: String,
         sequence: Int,
         round: Int? = nil,
-        createdAt: Date,
+        createdAt: String,
         reason: String,
         lifecycleStatus: String,
         report: String? = nil,
@@ -60,5 +62,12 @@ public struct PMTurnJSON: Codable, Equatable, Sendable {
         self.nextCommands = nextCommands
         self.notes = notes
         self.pmMode = pmMode
+    }
+
+    /// ISO8601 (`withInternetDateTime`) — same options as TeamRunJSONMapper.
+    public static func isoTimestamp(_ date: Date = Date()) -> String {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f.string(from: date)
     }
 }

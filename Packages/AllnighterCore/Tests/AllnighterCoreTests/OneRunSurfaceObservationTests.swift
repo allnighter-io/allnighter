@@ -74,7 +74,9 @@ final class OneRunSurfaceObservationTests: XCTestCase {
 
         XCTAssertEqual(trj.observation.ownerState, .alive)
         XCTAssertEqual(trj.observation.activityMode, .incremental)
-        XCTAssertEqual(trj.observation.lastActivityAt, at)
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        XCTAssertEqual(trj.observation.lastActivityAt, f.string(from: at))
         try assertThreeKeysOnly(trj)
     }
 
@@ -172,5 +174,105 @@ final class OneRunSurfaceObservationTests: XCTestCase {
         XCTAssertFalse(keys.contains("phase"))
         XCTAssertFalse(keys.contains("blocker"))
         XCTAssertFalse(keys.contains("contradiction"))
+    }
+
+    // MARK: - Wire format (ORS-P1-DATE)
+
+    /// Measurement rule: assert the *encoded* JSON value, not encode→decode equality.
+    /// A Date-typed field round-trips under any symmetric strategy; the live stream
+    /// path (`NDJSONStreamProjector.encodeLine`) uses a plain `JSONEncoder` and
+    /// previously emitted `timeIntervalSinceReferenceDate` numbers while every
+    /// sibling timestamp on TeamRunJSON is an ISO8601 string.
+    func testLastActivityAtEncodedJSONIsISO8601StringMatchingSibling() throws {
+        let at = Date(timeIntervalSince1970: 1_722_556_440) // 2024-08-01T20:14:00Z
+        var run = try Fixtures.run(.runInflight)
+        run.createdAt = at
+        run.lastActivityAt = at
+        let driverId = "stream_driver"
+        let modelId = run.workers.first?.modelId ?? "model_stream"
+        let models = [model(id: modelId, driverId: driverId)]
+        let manifests = [streamingManifest(id: driverId, canStream: true)]
+
+        let trj = TeamRunJSONMapper.map(
+            run, models: models, manifests: manifests,
+            context: journalCtx(ownerState: .alive)
+        )
+
+        // Stream path is the live Works Test surface (plain JSONEncoder — no date strategy).
+        // data.teamRun is the full TeamRunJSON envelope (observation + nested RunInfo).
+        let line = NDJSONStreamProjector.snapshotLine(teamRunId: trj.teamRun.id, teamRun: trj)
+        let lineRoot = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any])
+        let dataObj = try XCTUnwrap(lineRoot["data"] as? [String: Any])
+        let envelope = try XCTUnwrap(dataObj["teamRun"] as? [String: Any], "snapshot must carry TeamRunJSON")
+        let obs = try XCTUnwrap(envelope["observation"] as? [String: Any])
+        let runInfo = try XCTUnwrap(envelope["teamRun"] as? [String: Any], "RunInfo nested under TeamRunJSON.teamRun")
+
+        let isoPattern = try NSRegularExpression(pattern: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"#)
+        func matchesISO(_ s: String) -> Bool {
+            let range = NSRange(s.startIndex..<s.endIndex, in: s)
+            return isoPattern.firstMatch(in: s, range: range) != nil
+        }
+
+        // Must be a STRING on the wire — not a number (Apple epoch / Unix).
+        XCTAssertTrue(
+            obs["lastActivityAt"] is String,
+            "observation.lastActivityAt must be a JSON string, got \(type(of: obs["lastActivityAt"] as Any)) value=\(String(describing: obs["lastActivityAt"]))"
+        )
+        XCTAssertFalse(obs["lastActivityAt"] is NSNumber, "must not encode as a number")
+        let activity = try XCTUnwrap(obs["lastActivityAt"] as? String)
+        XCTAssertTrue(
+            matchesISO(activity),
+            "observation.lastActivityAt must match ISO8601 ^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$, got \(activity)"
+        )
+
+        // Same formatter as sibling timestamps — cannot drift.
+        let created = try XCTUnwrap(runInfo["createdAt"] as? String)
+        XCTAssertTrue(matchesISO(created), "sibling createdAt format broke: \(created)")
+        XCTAssertEqual(
+            activity, created,
+            "lastActivityAt must equal createdAt when both project the same instant"
+        )
+        XCTAssertEqual(activity, trj.teamRun.createdAt)
+
+        // CoreJSON / show --json path must match the same wire shape.
+        let coreData = try CoreJSON.encode(trj)
+        let coreRoot = try XCTUnwrap(JSONSerialization.jsonObject(with: coreData) as? [String: Any])
+        let coreObs = try XCTUnwrap(coreRoot["observation"] as? [String: Any])
+        XCTAssertEqual(coreObs["lastActivityAt"] as? String, activity)
+    }
+
+    /// Null stays JSON null (or key absent) — never "" and never epoch-zero.
+    func testLastActivityAtNullStaysNullInEncodedJSON() throws {
+        var run = try Fixtures.run(.runInflight)
+        run.lastActivityAt = nil
+        let driverId = "batch_driver"
+        let modelId = run.workers.first?.modelId ?? "model_batch"
+        let models = [model(id: modelId, driverId: driverId)]
+        let manifests = [streamingManifest(id: driverId, canStream: false)]
+
+        let trj = TeamRunJSONMapper.map(
+            run, models: models, manifests: manifests,
+            context: journalCtx(ownerState: .alive)
+        )
+        XCTAssertNil(trj.observation.lastActivityAt)
+
+        let line = NDJSONStreamProjector.snapshotLine(teamRunId: trj.teamRun.id, teamRun: trj)
+        let lineRoot = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any])
+        let dataObj = try XCTUnwrap(lineRoot["data"] as? [String: Any])
+        let envelope = try XCTUnwrap(dataObj["teamRun"] as? [String: Any])
+        let obs = try XCTUnwrap(envelope["observation"] as? [String: Any])
+
+        if obs.keys.contains("lastActivityAt") {
+            XCTAssertTrue(obs["lastActivityAt"] is NSNull, "nil must encode as JSON null, not a string/number")
+            XCTAssertFalse(obs["lastActivityAt"] is String, "never empty string for unobserved")
+            XCTAssertFalse(obs["lastActivityAt"] is NSNumber, "never epoch-zero number")
+        }
+
+        let coreData = try CoreJSON.encode(trj)
+        let coreRoot = try XCTUnwrap(JSONSerialization.jsonObject(with: coreData) as? [String: Any])
+        let coreObs = try XCTUnwrap(coreRoot["observation"] as? [String: Any])
+        if coreObs.keys.contains("lastActivityAt") {
+            XCTAssertTrue(coreObs["lastActivityAt"] is NSNull)
+        }
     }
 }

@@ -106,7 +106,7 @@ final class PMTurnWakeSchedulerTests: XCTestCase {
     private func makeTurn(kind: PMTurnJSON.Kind, subjectId: String, sequence: Int) -> PMTurnJSON {
         .init(
             kind: kind, subjectId: subjectId, sequence: sequence,
-            createdAt: Date(timeIntervalSinceReferenceDate: 1), reason: "done",
+            createdAt: PMTurnJSON.isoTimestamp(Date(timeIntervalSinceReferenceDate: 1)), reason: "done",
             lifecycleStatus: "done", report: "full report", nextCommands: ["alln show \(subjectId)"]
         )
     }

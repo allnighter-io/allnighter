@@ -33,7 +33,7 @@ final class LoopJSONTests: XCTestCase {
             pmModelId: "model_pm", devModelId: "model_dev", status: .done, createdAt: now
         )
         let turn = PMTurnJSON(
-            kind: .relay, subjectId: state.id, sequence: 1, createdAt: now,
+            kind: .relay, subjectId: state.id, sequence: 1, createdAt: PMTurnJSON.isoTimestamp(now),
             reason: "done", lifecycleStatus: "done", report: "Relay delivered.",
             nextCommands: ["alln pair relay-status --relay relay_receipt --json"]
         )

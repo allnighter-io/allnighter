@@ -70,7 +70,7 @@ final class PMTurnStoreTests: XCTestCase {
             subjectId: subjectId,
             sequence: sequence,
             round: round,
-            createdAt: Date(timeIntervalSince1970: 1_753_824_840),
+            createdAt: PMTurnJSON.isoTimestamp(Date(timeIntervalSince1970: 1_753_824_840)),
             reason: kind == .run ? "done" : "awaitingPM",
             lifecycleStatus: kind == .run ? "done" : "awaitingPM",
             report: "Worker report",

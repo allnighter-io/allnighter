@@ -212,7 +212,7 @@ final class CoordinatorRunTests: XCTestCase {
         defer { removeIfPresent(root) }
         let runs = root.appendingPathComponent("Runs", isDirectory: true)
         let turn = PMTurnJSON(
-            kind: .run, subjectId: "run_wake", sequence: 1, createdAt: Date(),
+            kind: .run, subjectId: "run_wake", sequence: 1, createdAt: PMTurnJSON.isoTimestamp(),
             reason: "done", lifecycleStatus: "done", report: "done", nextCommands: [])
         let expectedPayload = try CoreJSON.encode(turn)
         try PMTurnStore(runsRootDirectory: runs).save(turn)

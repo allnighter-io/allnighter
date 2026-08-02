@@ -207,7 +207,8 @@ public enum TeamRunJSONMapper {
         // ORS-S01 — three-field observation, projected once.
         // activityMode from resolved driver canStream (never from output arrival).
         // ownerState from caller context (never process-probed here).
-        // lastActivityAt pass-through from TeamRun (never age/staleness arithmetic).
+        // lastActivityAt: clock fact from TeamRun, projected as ISO8601 string
+        // exactly like RunInfo.createdAt (never age/staleness arithmetic; never Date).
         let activityMode: TeamRunJSON.Observation.ActivityMode = {
             let driverId = workerModelId.flatMap { modelById[$0]?.driverId }
                 ?? run.executionSourceId
@@ -219,7 +220,7 @@ public enum TeamRunJSONMapper {
         let observation = TeamRunJSON.Observation(
             ownerState: context.ownerState,
             activityMode: activityMode,
-            lastActivityAt: run.lastActivityAt
+            lastActivityAt: iso(run.lastActivityAt)
         )
 
         return TeamRunJSON(

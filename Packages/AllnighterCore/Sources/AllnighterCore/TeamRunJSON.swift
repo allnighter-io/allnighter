@@ -194,13 +194,16 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public enum ActivityMode: String, Codable, Sendable, CaseIterable { case incremental, terminalOnly, unknown }
         public var ownerState: OwnerState
         public var activityMode: ActivityMode
-        /// Observed clock fact. Encoded as ISO8601 via CoreJSON (same as other Date fields).
-        public var lastActivityAt: Date?
+        /// Observed clock fact. ISO8601 string, same format as `RunInfo.createdAt`
+        /// / `startedAt` / `completedAt` (mapper sets via the shared iso formatter).
+        /// Never a raw Date — stream encoding uses a plain JSONEncoder with no
+        /// date strategy, so Date would ship as timeIntervalSinceReferenceDate.
+        public var lastActivityAt: String?
 
         public init(
             ownerState: OwnerState,
             activityMode: ActivityMode,
-            lastActivityAt: Date? = nil
+            lastActivityAt: String? = nil
         ) {
             self.ownerState = ownerState
             self.activityMode = activityMode

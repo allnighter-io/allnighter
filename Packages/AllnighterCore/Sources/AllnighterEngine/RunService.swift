@@ -383,7 +383,7 @@ public actor RunService {
             kind: .run,
             subjectId: run.id,
             sequence: try pmTurnStore.nextSequence(for: .run, subjectId: run.id),
-            createdAt: now(),
+            createdAt: PMTurnJSON.isoTimestamp(now()),
             reason: lifecycle,
             lifecycleStatus: lifecycle,
             report: report,
