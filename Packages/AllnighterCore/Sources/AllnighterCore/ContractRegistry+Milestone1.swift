@@ -8,8 +8,8 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    // ORS-S03b: major cut — delete team status / team result + STATUS_WAIT_TIMEOUT / RESULT_NOT_READY.
-    static let contractVersion = "8.0.0"
+    // ORS-S03c: major cut — delete public audit.runJournalPath (filesystem escape hatch).
+    static let contractVersion = "9.0.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,

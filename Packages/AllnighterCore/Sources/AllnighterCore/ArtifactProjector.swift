@@ -111,7 +111,7 @@ public enum ArtifactProjector {
   ) -> Card {
     let trj = TeamRunJSONMapper.map(
       run, models: [], manifests: [],
-      context: .init(runJournalPath: "", runDirectory: runDirectory)
+      context: .init(runDirectory: runDirectory)
     )
     let leadMarkdown = trj.answer?.markdown ?? run.plan
     let leadCall = LeadCallParser.parse(from: leadMarkdown)

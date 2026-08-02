@@ -96,7 +96,7 @@ final class ResearchGitObservationTests: HermeticSupportTestCase {
         // Surfaced in the canonical projection (research runs carry the observation,
         // never repoDelta).
         let trj = TeamRunJSONMapper.map(run, models: [], manifests: [],
-                                        context: .init(runJournalPath: "/tmp/run.json"))
+                                        context: .init())
         XCTAssertEqual(trj.researchGitObservation, obs)
         XCTAssertNil(trj.repoDelta)
     }

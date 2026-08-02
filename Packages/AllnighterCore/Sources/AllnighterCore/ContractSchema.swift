@@ -223,7 +223,7 @@ public enum ContractSchema {
                 "path": nullable("string"),
                 "openCommand": str,
             ], required: ["openCommand"]),
-            "Audit": obj(["traceId": str, "runJournalPath": str], required: ["traceId", "runJournalPath"]),
+            "Audit": obj(["traceId": str], required: ["traceId"]),
         ]
         return schema
     }

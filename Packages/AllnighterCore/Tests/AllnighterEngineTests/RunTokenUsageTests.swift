@@ -67,7 +67,7 @@ final class RunTokenUsageTests: XCTestCase {
             ],
             stages: [], createdAt: Date(), mutating: true, repoDelta: RepoDelta(
                 changed: true, baseline: "a", head: "b", commits: [], filesChanged: 1, files: ["x"], truncated: false))
-        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/r.json"))
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init())
         let outcome = try! XCTUnwrap(trj.outcome)
         XCTAssertEqual(outcome.usage?.inputTokens, 12000)
         XCTAssertEqual(outcome.usage?.outputTokens, 400)
@@ -83,7 +83,7 @@ final class RunTokenUsageTests: XCTestCase {
                     result: WorkerRunResult(status: .done, output: "done"))
             ],
             stages: [], createdAt: Date(), mutating: false)
-        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/r.json"))
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init())
         XCTAssertNil(trj.outcome?.usage)
         XCTAssertFalse(trj.outcome?.headline.contains("tok") ?? true)
     }

@@ -740,9 +740,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
 
     public struct Audit: Codable, Equatable, Sendable {
         public var traceId: String
-        public var runJournalPath: String
-        public init(traceId: String, runJournalPath: String) {
-            self.traceId = traceId; self.runJournalPath = runJournalPath
+        public init(traceId: String) {
+            self.traceId = traceId
         }
     }
 }

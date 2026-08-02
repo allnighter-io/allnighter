@@ -32,7 +32,7 @@ final class ObservedUsagePresentationTests: XCTestCase {
         )
         let trj = TeamRunJSONMapper.map(
             run, models: [], manifests: [],
-            context: .init(runJournalPath: "/tmp/r.json")
+            context: .init()
         )
         XCTAssertEqual(trj.answers.count, 2)
         XCTAssertEqual(trj.answers[0].usage?.inputTokens, 1000)
@@ -56,7 +56,7 @@ final class ObservedUsagePresentationTests: XCTestCase {
         )
         let trj = TeamRunJSONMapper.map(
             run, models: [], manifests: [],
-            context: .init(runJournalPath: "/tmp/r.json")
+            context: .init()
         )
         XCTAssertEqual(trj.answers[0].usage?.inputTokens, 12000)
         XCTAssertEqual(trj.outcome?.usage?.inputTokens, 12000)
@@ -72,7 +72,7 @@ final class ObservedUsagePresentationTests: XCTestCase {
         )
         let trj = TeamRunJSONMapper.map(
             run, models: [], manifests: [],
-            context: .init(runJournalPath: "/tmp/r.json")
+            context: .init()
         )
         XCTAssertNil(trj.answers[0].usage)
         XCTAssertNil(trj.outcome?.usage)

@@ -124,7 +124,7 @@ final class RunPMTurnTests: XCTestCase {
             models: [],
             manifests: [],
             context: .init(
-                runJournalPath: "", pmTurn: projection.pmTurn, pmTurnNotes: projection.notes
+                pmTurn: projection.pmTurn, pmTurnNotes: projection.notes
             )
         )
         XCTAssertEqual(resultJSON.pmTurn, turn)
@@ -151,7 +151,7 @@ final class RunPMTurnTests: XCTestCase {
             models: [],
             manifests: [],
             context: .init(
-                runJournalPath: "", pmTurn: projection.pmTurn, pmTurnNotes: projection.notes
+                pmTurn: projection.pmTurn, pmTurnNotes: projection.notes
             )
         )
         XCTAssertNil(resultJSON.pmTurn)

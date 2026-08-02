@@ -71,7 +71,7 @@ final class RunIdentityTests: HermeticSupportTestCase {
         XCTAssertTrue(run.mutating)
 
         let trj = TeamRunJSONMapper.map(
-            run, models: [model], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+            run, models: [model], manifests: [], context: .init())
         XCTAssertEqual(trj.teamRun.teamDisplayName, "Default Team")
         XCTAssertEqual(trj.teamRun.teamPresetId, "default_chat")
         XCTAssertEqual(trj.teamRun.modelId, "model_grok")

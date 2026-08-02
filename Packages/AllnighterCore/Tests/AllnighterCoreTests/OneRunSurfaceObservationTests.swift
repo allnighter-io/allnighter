@@ -13,7 +13,7 @@ final class OneRunSurfaceObservationTests: XCTestCase {
     private func journalCtx(
         ownerState: TeamRunJSON.Observation.OwnerState = .unknown
     ) -> TeamRunJSONMapper.Context {
-        .init(runJournalPath: "/tmp/run.json", ownerState: ownerState)
+        .init(ownerState: ownerState)
     }
 
     private func model(id: String, driverId: String) -> Model {

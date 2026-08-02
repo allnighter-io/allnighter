@@ -169,6 +169,31 @@ final class OneRunSurfaceContractTests: XCTestCase {
             required.contains("runJournalPath"),
             "ORS cutover: Audit.required must not include runJournalPath"
         )
+
+        // Encoded payload must not emit the key at any nesting level — a stray
+        // nested producer must not survive even if the Swift type looks clean.
+        let run = try Fixtures.run(.runComplete)
+        let trj = TeamRunJSONMapper.map(
+            run, models: try Fixtures.models(), manifests: [], context: .init()
+        )
+        let data = try CoreJSON.encode(trj)
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: data))
+        XCTAssertFalse(
+            Self.jsonContainsKey(root, "runJournalPath"),
+            "ORS cutover: encoded TeamRunJSON must not contain runJournalPath anywhere"
+        )
+    }
+
+    /// Depth-first key scan over a JSONSerialization tree.
+    private static func jsonContainsKey(_ value: Any, _ key: String) -> Bool {
+        if let dict = value as? [String: Any] {
+            if dict.keys.contains(key) { return true }
+            return dict.values.contains { jsonContainsKey($0, key) }
+        }
+        if let arr = value as? [Any] {
+            return arr.contains { jsonContainsKey($0, key) }
+        }
+        return false
     }
 
     // MARK: - E. Detached acknowledgement points at the one surface

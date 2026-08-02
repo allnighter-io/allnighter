@@ -121,7 +121,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
             origin: .cli, runId: "fr12-match")
         guard case .success(let run) = result else { return XCTFail("run failed") }
         let trj = TeamRunJSONMapper.map(
-            run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+            run, models: [], manifests: [], context: .init())
         XCTAssertEqual(trj.outcome?.commitMessageMatched, true)
         XCTAssertFalse(trj.outcome?.headline.contains("commit message mismatch") ?? true)
     }
@@ -140,7 +140,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
             origin: .cli, runId: "fr12-mismatch")
         guard case .success(let run) = result else { return XCTFail("run failed") }
         let trj = TeamRunJSONMapper.map(
-            run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+            run, models: [], manifests: [], context: .init())
         XCTAssertEqual(trj.outcome?.commitMessageMatched, false)
         XCTAssertTrue(trj.outcome?.headline.contains("commit message mismatch") ?? false)
     }
@@ -160,7 +160,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
         XCTAssertFalse(run.repoDelta?.changed ?? true)
         XCTAssertGreaterThan(run.uncommittedFileCount ?? 0, 0)
         let trj = TeamRunJSONMapper.map(
-            run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+            run, models: [], manifests: [], context: .init())
         XCTAssertFalse(trj.outcome?.committed ?? true)
         XCTAssertTrue(trj.outcome?.headline.contains("left uncommitted for PM review (as ordered)") ?? false)
     }
@@ -182,7 +182,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
         XCTAssertEqual(run.proofResult?.passed, true)
         XCTAssertEqual(run.proofResult?.exitCode, 0)
         let trj = TeamRunJSONMapper.map(
-            run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+            run, models: [], manifests: [], context: .init())
         XCTAssertEqual(trj.outcome?.proof?.passed, true)
         XCTAssertTrue(trj.outcome?.headline.contains("proof passed") ?? false)
     }
@@ -204,7 +204,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
         XCTAssertEqual(run.proofResult?.passed, false)
         XCTAssertEqual(run.proofResult?.exitCode, 1)
         let trj = TeamRunJSONMapper.map(
-            run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+            run, models: [], manifests: [], context: .init())
         XCTAssertTrue(trj.outcome?.headline.contains("PROOF FAILED (exit 1)") ?? false)
         XCTAssertEqual(trj.outcome?.commitMessageMatched, true)
     }
@@ -224,7 +224,7 @@ final class RunCommitProofTests: HermeticSupportTestCase {
         XCTAssertEqual(run.proofResult?.timedOut, true)
         XCTAssertFalse(run.proofResult?.passed ?? true)
         let trj = TeamRunJSONMapper.map(
-            run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+            run, models: [], manifests: [], context: .init())
         XCTAssertTrue(trj.outcome?.headline.contains("PROOF FAILED (timeout)") ?? false)
     }
 

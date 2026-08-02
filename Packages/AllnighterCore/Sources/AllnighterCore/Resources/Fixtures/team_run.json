@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "contractVersion": "8.0.0",
+  "contractVersion": "9.0.0",
   "teamRun": {
     "id": "run_20260720_1200",
     "status": "done",
@@ -108,7 +108,6 @@
     "openCommand": "alln artifact show run_20260720_1200"
   },
   "audit": {
-    "traceId": "trace_run_20260720_1200",
-    "runJournalPath": "~/.allnighter/Runs/run_20260720_1200/run.json"
+    "traceId": "trace_run_20260720_1200"
   }
 }

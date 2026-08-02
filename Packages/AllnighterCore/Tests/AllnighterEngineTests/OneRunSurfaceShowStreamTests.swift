@@ -103,10 +103,8 @@ final class OneRunSurfaceShowStreamTests: XCTestCase {
     private func mapJSON(_ run: TeamRun, h: Harness) -> TeamRunJSON {
         let prepared = AllnighterCLI.showReadPath(run: run, models: h.models, store: h.store)
         let runDir = try? h.store.runDirectory(forRunId: prepared.run.id)
-        let path = runDir?.appendingPathComponent("run.json").path ?? ""
         let pmTurn = AllnighterCLI.pmTurnProjection(for: prepared.run, store: h.store)
         let context = TeamRunJSONMapper.Context(
-            runJournalPath: path,
             reproduceCommand: "alln show \(prepared.run.id)",
             runDirectory: runDir,
             pmTurn: pmTurn.pmTurn,

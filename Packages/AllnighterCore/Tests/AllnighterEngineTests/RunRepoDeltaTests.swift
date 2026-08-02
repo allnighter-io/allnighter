@@ -80,7 +80,7 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
         XCTAssertFalse(delta.truncated)
 
         let trj = TeamRunJSONMapper.map(
-            run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+            run, models: [], manifests: [], context: .init())
         XCTAssertEqual(trj.repoDelta, delta)
 
         let encoded = try CoreJSON.encode(trj.repoDelta!)
@@ -139,7 +139,7 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
         let delta = RepoDelta(changed: true, baseline: "a", head: "b", commits: [], filesChanged: 1, files: ["x.swift"])
         let run = TeamRun(
             id: "r1", prompt: "p", status: .complete, createdAt: Date(), mutating: false, repoDelta: delta)
-        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init(runJournalPath: "/tmp/run.json"))
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init())
         XCTAssertNil(trj.repoDelta)
     }
 

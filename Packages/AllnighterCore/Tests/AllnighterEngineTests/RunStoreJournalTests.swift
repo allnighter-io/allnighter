@@ -263,7 +263,7 @@ final class RunStoreJournalTests: XCTestCase {
 
         let full = TeamRunJSONMapper.map(
             run, models: [opus], manifests: registry.all,
-            context: .init(runJournalPath: "/tmp/run.json", includeWorkerPromptSnapshots: true))
+            context: .init(includeWorkerPromptSnapshots: true))
         let worker = full.agents.first { $0.skillId == skill.id }
         XCTAssertTrue(worker?.resolvedAgentPromptSnapshot?.contains("WT Code Contrarian") == true)
         XCTAssertFalse(worker?.resolvedAgentPromptSnapshot?.contains("Completely different") == true)

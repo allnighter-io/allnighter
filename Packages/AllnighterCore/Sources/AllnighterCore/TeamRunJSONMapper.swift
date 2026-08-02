@@ -9,12 +9,14 @@ import AgentOSTeam
 /// internal model.
 public enum TeamRunJSONMapper {
     /// CLI-supplied context the internal `TeamRun` does not carry.
+    ///
+    /// ORS-S03c: journal paths stay on disk as audit internals only — they are
+    /// never a public TeamRunJSON field (no filesystem escape hatch).
     public struct Context: Sendable {
         public var promptSource: TeamRunJSON.PromptSource
         public var lane: String?
         public var type: String?
         public var effort: String?
-        public var runJournalPath: String
         public var reproduceCommand: String?
         public var includeWorkerPromptSnapshots: Bool
         /// Run folder for resolving design image absolute paths.
@@ -32,7 +34,7 @@ public enum TeamRunJSONMapper {
         public init(
             promptSource: TeamRunJSON.PromptSource = .init(kind: .positional),
             lane: String? = nil, type: String? = nil, effort: String? = nil,
-            runJournalPath: String, reproduceCommand: String? = nil,
+            reproduceCommand: String? = nil,
             includeWorkerPromptSnapshots: Bool = false,
             runDirectory: URL? = nil,
             pmTurn: PMTurnJSON? = nil,
@@ -41,7 +43,7 @@ public enum TeamRunJSONMapper {
             ownerState: TeamRunJSON.Observation.OwnerState = .unknown
         ) {
             self.promptSource = promptSource; self.lane = lane; self.type = type
-            self.effort = effort; self.runJournalPath = runJournalPath
+            self.effort = effort
             self.reproduceCommand = reproduceCommand
             self.includeWorkerPromptSnapshots = includeWorkerPromptSnapshots
             self.runDirectory = runDirectory
@@ -235,7 +237,7 @@ public enum TeamRunJSONMapper {
             warnings: runWarnings, errors: [],
             nextActions: terminalArtifactNextActions(for: run),
             artifact: artifactRef(for: run, path: context.artifactPath),
-            audit: .init(traceId: "trace_\(run.id)", runJournalPath: context.runJournalPath),
+            audit: .init(traceId: "trace_\(run.id)"),
             observation: observation
         )
     }

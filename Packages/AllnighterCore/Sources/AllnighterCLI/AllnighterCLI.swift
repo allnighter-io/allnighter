@@ -1463,12 +1463,15 @@ struct AllnighterCLI {
         return store.get(ref) != nil ? ref : nil
     }
 
-    /// Default projection context for a persisted run (journal path + reproduce
-    /// command derived from the run's own catalog facts). Writes the polished
-    /// HTML artifact when the run is terminal so `--json` carries `artifact.path`.
+    /// Default projection context for a persisted run (reproduce command and
+    /// artifact materialization from the run's own catalog facts). Writes the
+    /// polished HTML artifact when the run is terminal so `--json` carries
+    /// `artifact.path`.
     ///
     /// `ownerState` is supplied by the read path that reconciled identity
     /// (`showReadPath`); the mapper never probes processes.
+    /// Journal paths stay on disk only — never projected into public TeamRunJSON
+    /// (ORS-S03c: no public filesystem escape hatch).
     static func defaultRunContext(
         _ run: TeamRun,
         full: Bool = false,
@@ -1478,7 +1481,6 @@ struct AllnighterCLI {
     ) -> TeamRunJSONMapper.Context {
         let store = RunStore()
         let runDir = try? store.runDirectory(forRunId: run.id)
-        let path = runDir?.appendingPathComponent("run.json").path ?? ""
         let pmTurn = pmTurnProjection(for: run, store: store)
         let repro = reproduceCommand(run)
         let artifactPath: String? = {
@@ -1492,7 +1494,6 @@ struct AllnighterCLI {
             )
         }()
         return .init(
-            runJournalPath: path,
             reproduceCommand: repro,
             includeWorkerPromptSnapshots: full,
             runDirectory: runDir,
@@ -1979,10 +1980,8 @@ struct AllnighterCLI {
         store: RunStore
     ) -> TeamRunJSON {
         let runDir = try? store.runDirectory(forRunId: run.id)
-        let path = runDir?.appendingPathComponent("run.json").path ?? ""
         let pmTurn = pmTurnProjection(for: run, store: store)
         let context = TeamRunJSONMapper.Context(
-            runJournalPath: path,
             reproduceCommand: "alln show \(run.id)",
             runDirectory: runDir,
             pmTurn: pmTurn.pmTurn,
@@ -2343,12 +2342,11 @@ struct AllnighterCLI {
     static func humanAnswer(
         for run: TeamRun,
         models: [Model],
-        manifests: [DriverManifest],
-        runJournalPath: String = ""
+        manifests: [DriverManifest]
     ) -> String? {
         let trj = TeamRunJSONMapper.map(
             run, models: models, manifests: manifests,
-            context: .init(runJournalPath: runJournalPath)
+            context: .init()
         )
         if let md = trj.answer?.markdown, !md.isEmpty { return md }
         return trj.answers.lazy

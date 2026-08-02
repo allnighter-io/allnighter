@@ -304,7 +304,7 @@ final class ProcessOwnershipReconcileTests: XCTestCase {
         run.endReason = .reconciledOrphan
         let trj = TeamRunJSONMapper.map(
             run, models: [], manifests: [],
-            context: .init(runJournalPath: "/tmp/run.json")
+            context: .init()
         )
         XCTAssertEqual(trj.teamRun.endReason, "reconciledOrphan")
         XCTAssertEqual(trj.teamRun.status, .interrupted)

@@ -83,9 +83,7 @@ public struct RemoteSnapshotService: Sendable {
             run,
             models: [],
             manifests: [],
-            context: TeamRunJSONMapper.Context(
-                runJournalPath: journal.eventsURL(forRunId: run.id).path
-            )
+            context: TeamRunJSONMapper.Context()
         )
         return TeamRunLight(
             id: run.id,

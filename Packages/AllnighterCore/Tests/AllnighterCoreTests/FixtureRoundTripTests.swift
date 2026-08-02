@@ -142,8 +142,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // QABC-S00e bumps contract 7.0.0 → 7.1.0 (additive: optional `MenuJSON.capacity`).
         // ORS-S02b1 bumps contract 7.4.0 → 7.5.0 (additive: show --stream + inspectBlocker).
         // ORS-S02b2 bumps contract 7.5.0 → 7.6.0 (additive: attentionRequired + live follow).
-        // ORS-S03b bumps contract 7.6.0 → 8.0.0 (major: delete team status/result + schemas).
-        XCTAssertEqual(trj.contractVersion, "8.0.0")
+        // ORS-S03c bumps contract 8.0.0 → 9.0.0 (major: delete public audit.runJournalPath).
+        XCTAssertEqual(trj.contractVersion, "9.0.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
@@ -165,7 +165,6 @@ final class FixtureRoundTripTests: XCTestCase {
         // Required top-level contract objects are present.
         XCTAssertEqual(trj.usage.cliCalls, 1)
         XCTAssertFalse(trj.audit.traceId.isEmpty)
-        XCTAssertFalse(trj.audit.runJournalPath.isEmpty)
 
         // nextActions.kind is a closed enum (registry-owned at step 2).
         XCTAssertEqual(trj.nextActions.map(\.kind), [.showArtifact, .showRun, .export])
@@ -267,7 +266,7 @@ final class FixtureRoundTripTests: XCTestCase {
             createdAt: Date()
         )
 
-        let context = TeamRunJSONMapper.Context(runJournalPath: "/tmp/journal.json")
+        let context = TeamRunJSONMapper.Context()
         let jsonContract = TeamRunJSONMapper.map(run, models: [], manifests: [], context: context)
 
         XCTAssertEqual(jsonContract.answers.count, 1)

@@ -195,7 +195,7 @@ final class ExecutionProofTests: XCTestCase {
         XCTAssertNil(run.researchGitObservation,
                      "an execution run reports repoDelta, never the research observation")
         let trj = TeamRunJSONMapper.map(run, models: [], manifests: [],
-                                        context: .init(runJournalPath: "/tmp/run.json"))
+                                        context: .init())
         XCTAssertEqual(trj.repoDelta, delta)
         XCTAssertNil(trj.researchGitObservation)
         XCTAssertEqual(trj.teamRun.writePolicy, "mutating")

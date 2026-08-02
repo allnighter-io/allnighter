@@ -49,7 +49,7 @@ final class TeamRunJSONPresenterTests: XCTestCase {
             stages: [.init(id: "s_plan", purpose: .plan, status: .failed)],
             plan: nil,
             usage: .init(cliCalls: 2),
-            audit: .init(traceId: "t", runJournalPath: "/tmp/run.json")
+            audit: .init(traceId: "t")
         )
         let p = TeamRunJSONPresenter(run: json)
 

@@ -5,7 +5,7 @@ import AgentOSTeam
 /// Proves the internal `TeamRun` → public `TeamRunJSON` projection (CLI M1 step 5
 /// breaking re-cut). Fixture-only; no live runs.
 final class TeamRunJSONMapperTests: XCTestCase {
-    private func ctx() -> TeamRunJSONMapper.Context { .init(runJournalPath: "/tmp/run.json") }
+    private func ctx() -> TeamRunJSONMapper.Context { .init() }
     private func bench() throws -> [Model] { try Fixtures.models() }
 
     func testWorkerPromptSnapshotsOmittedByDefaultIncludedWhenFull() throws {
@@ -13,7 +13,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
         run.workers[0].resolvedWorkerPromptSnapshot = "SNAPSHOT_MARKER"
         let defaultMap = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
         XCTAssertNil(defaultMap.agents.first?.resolvedAgentPromptSnapshot)
-        let fullCtx = TeamRunJSONMapper.Context(runJournalPath: "/tmp/run.json", includeWorkerPromptSnapshots: true)
+        let fullCtx = TeamRunJSONMapper.Context(includeWorkerPromptSnapshots: true)
         let fullMap = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: fullCtx)
         XCTAssertEqual(fullMap.agents.first?.resolvedAgentPromptSnapshot, "SNAPSHOT_MARKER")
     }
@@ -55,7 +55,7 @@ final class TeamRunJSONMapperTests: XCTestCase {
     func testArtifactPathSurfacedWhenContextProvidesIt() throws {
         let run = try Fixtures.run(.runComplete)
         let path = "/tmp/runs/\(run.id)/artifact/index.html"
-        let ctx = TeamRunJSONMapper.Context(runJournalPath: "/tmp/run.json", artifactPath: path)
+        let ctx = TeamRunJSONMapper.Context(artifactPath: path)
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx)
         XCTAssertEqual(trj.artifact?.path, path)
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(run.id)")

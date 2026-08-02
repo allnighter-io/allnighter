@@ -353,7 +353,6 @@ enum RunCLI {
         if json {
             let store = RunStore()
             let runDir = try? store.runDirectory(forRunId: run.id)
-            let journalPath = runDir?.appendingPathComponent("run.json").path ?? ""
             let pmTurn = AllnighterCLI.pmTurnProjection(for: run, store: store)
             let repro = reproduceCommand(run, project: project)
             let artifactPath: String? = {
@@ -368,7 +367,6 @@ enum RunCLI {
             }()
             let context = TeamRunJSONMapper.Context(
                 promptSource: .init(kind: .positional, path: nil),
-                runJournalPath: journalPath,
                 reproduceCommand: repro,
                 runDirectory: runDir,
                 pmTurn: pmTurn.pmTurn,
@@ -565,12 +563,9 @@ enum RunCLI {
             exit(1)
         case .success(let run):
             if opts.flag("json") {
-                let journalPath = (try? store.runDirectory(forRunId: run.id))?
-                    .appendingPathComponent("run.json").path ?? ""
                 let pmTurn = AllnighterCLI.pmTurnProjection(for: run, store: store)
                 let context = TeamRunJSONMapper.Context(
                     promptSource: .init(kind: .positional, path: nil),
-                    runJournalPath: journalPath,
                     reproduceCommand: "alln run resume \(run.id) --json",
                     pmTurn: pmTurn.pmTurn,
                     pmTurnNotes: pmTurn.notes
@@ -620,12 +615,9 @@ enum RunCLI {
         store: RunStore = RunStore()
     ) {
         if json {
-            let journalPath = (try? store.runDirectory(forRunId: run.id))?
-                .appendingPathComponent("run.json").path ?? ""
             let pmTurn = AllnighterCLI.pmTurnProjection(for: run, store: store)
             let context = TeamRunJSONMapper.Context(
                 promptSource: .init(kind: .positional, path: nil),
-                runJournalPath: journalPath,
                 reproduceCommand: reproduceCommand,
                 pmTurn: pmTurn.pmTurn,
                 pmTurnNotes: pmTurn.notes

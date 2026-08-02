@@ -176,16 +176,12 @@
     "Audit" : {
       "additionalProperties" : false,
       "properties" : {
-        "runJournalPath" : {
-          "type" : "string"
-        },
         "traceId" : {
           "type" : "string"
         }
       },
       "required" : [
-        "traceId",
-        "runJournalPath"
+        "traceId"
       ],
       "type" : "object"
     },
