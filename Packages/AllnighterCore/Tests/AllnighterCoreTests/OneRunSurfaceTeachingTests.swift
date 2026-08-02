@@ -206,11 +206,12 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
             .deletingLastPathComponent()
             .appendingPathComponent("Sources/AllnighterCLI/PilotCLI.swift")
         guard let source = try? String(contentsOf: pilotURL, encoding: .utf8) else {
-            return [Teachable(
-                source: "PilotCLI.swift",
-                text: "MISSING_SOURCE \(pilotURL.path)",
-                isNextActionOrExample: true
-            )]
+            // Vacuous-pass hole (ORS-S00c): a MISSING_SOURCE sentinel skipped every deny
+            // assertion. Unreadable source must fail loud, never silently drop the family.
+            XCTFail(
+                "ORS teaching gate: unreadable PilotCLI.swift — attempted path: \(pilotURL.path)"
+            )
+            return []
         }
         // Extract double-quoted string literals that teach an `alln …` invocation.
         let pattern = try! NSRegularExpression(pattern: #""(alln [^"]+)""#)
@@ -268,6 +269,51 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
 
     // MARK: - PART 1: Hostile teaching gate
 
+    /// Vacuous-pass guard (ORS-S00c): deny tests skip non-`alln` / non-matching
+    /// strings. If the corpus is empty or a claimed family contributes nothing,
+    /// every deny test would go green having policed nothing.
+    func testTeachableCorpusIsActuallyPopulated() {
+        let corpus = collectTeachableCorpus()
+        XCTAssertFalse(
+            corpus.isEmpty,
+            "ORS teaching gate: teachable corpus must be non-empty (empty corpus = vacuous pass on every deny test)"
+        )
+
+        // Each source family this gate claims to police must contribute ≥1 entry.
+        let families: [(name: String, matches: (Teachable) -> Bool)] = [
+            ("HelpTopicRegistry", { $0.source.hasPrefix("HelpTopicRegistry.") }),
+            ("TeachingSnippet", { $0.source.hasPrefix("TeachingSnippet.") }),
+            ("Bootstrap", {
+                $0.source.hasPrefix("Bootstrap.snippet") || $0.source.hasPrefix("Bootstrap.Host.")
+            }),
+            ("MenuCatalog action examples", { $0.source.hasPrefix("MenuCatalog.actions[") }),
+            ("ContractRegistry errors (agentAction/fixCommand)", {
+                $0.source.hasPrefix("ContractRegistry.errors[")
+            }),
+            ("PilotCLI.swift", { $0.source.hasPrefix("PilotCLI.swift") }),
+        ]
+        for family in families {
+            let count = corpus.filter(family.matches).count
+            XCTAssertGreaterThan(
+                count,
+                0,
+                "ORS teaching gate: source family \(family.name) contributed 0 teachable entries (vacuous pass risk)"
+            )
+        }
+
+        // CANARY: when ORS-S03 deletes the `team status` teaching this assertion
+        // is EXPECTED to flip red; at that moment change it to assert PilotCLI
+        // still contributes >= 1 entry and contains NO "team status". Do not
+        // delete the assertion. Proves the extractor really reads PilotCLI.swift
+        // (true today: PilotCLI.swift:964,979).
+        let pilotEntries = corpus.filter { $0.source.hasPrefix("PilotCLI.swift") }
+        let pilotHasTeamStatus = pilotEntries.contains { $0.text.contains("team status") }
+        XCTAssertTrue(
+            pilotHasTeamStatus,
+            "ORS teaching gate CANARY: PilotCLI family must currently contain ≥1 string with \"team status\" (proves real file read; if S03 deleted teaching, flip this canary — do not delete)"
+        )
+    }
+
     func testTeachableCorpusDeniesTeamStatus() {
         let hits = offenders(in: collectTeachableCorpus()) { $0.text.contains("team status") }
         XCTAssertTrue(
@@ -285,10 +331,18 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
     }
 
     func testTeachableCorpusDeniesWaitFor() {
-        let hits = offenders(in: collectTeachableCorpus()) { $0.text.contains("--wait-for") }
+        // Scope correction (ORS-S00c), not a narrowing to reach green.
+        // Packet cutover table `delivery.path=wait` row (One_Run_Surface.md):
+        // "Loop/relay waiters are out of scope for this packet." The waiter
+        // deletion is scoped to retired single-run read grammar (`team status` /
+        // `team result` + `--wait-for`), not `alln loop status … --wait-for`.
+        let hits = offenders(in: collectTeachableCorpus()) { entry in
+            guard entry.text.contains("--wait-for") else { return false }
+            return entry.text.contains("team status") || entry.text.contains("team result")
+        }
         XCTAssertTrue(
             hits.isEmpty,
-            "ORS teaching gate: retired `--wait-for` pull waiter must not be taught:\n\(hits.joined(separator: "\n"))"
+            "ORS teaching gate: retired single-run `--wait-for` (team status|result) must not be taught:\n\(hits.joined(separator: "\n"))"
         )
     }
 
@@ -311,10 +365,21 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
     }
 
     func testAgentFacingNextActionsAndExamplesDenyLatestAndFull() {
-        // `alln show latest` stays legal for humans typing it; banned only from
-        // agent teaching (nextAction / example strings).
+        // Scope correction (ORS-S00c), not a narrowing to reach green.
+        // Packet (One_Run_Surface.md): "`latest` and `--full` stay for humans but
+        // are banned from agent teaching and `nextActions`." — as a second
+        // snapshot shape of the single-run read surface (`alln show …`). Other
+        // commands' grammar (`alln doctor --full`, `alln artifact show latest`)
+        // is out of scope; only resolved command `show` is policed.
         let hits = offenders(in: collectTeachableCorpus()) { entry in
             guard entry.isNextActionOrExample else { return false }
+            let trimmed = entry.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.hasPrefix("alln ") || trimmed.hasPrefix("`alln ") else { return false }
+            let raw = trimmed.trimmingCharacters(in: CharacterSet(charactersIn: "`"))
+            let invocation = Self.normalizeInvocation(raw)
+            guard invocation.hasPrefix("alln ") else { return false }
+            guard ContractRegistry.resolveCommandName(from: invocation, registry: reg) == "show"
+            else { return false }
             let text = entry.text
             // Token-aware: bare "latest" as a run selector, or the `--full` flag.
             let hasLatest =
@@ -327,7 +392,7 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
         }
         XCTAssertTrue(
             hits.isEmpty,
-            "ORS teaching gate: agent nextAction/example must not teach `latest` or `--full`:\n\(hits.joined(separator: "\n"))"
+            "ORS teaching gate: agent nextAction/example must not teach `alln show` with `latest` or `--full`:\n\(hits.joined(separator: "\n"))"
         )
     }
 
