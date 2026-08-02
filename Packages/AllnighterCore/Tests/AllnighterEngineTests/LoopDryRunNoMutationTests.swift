@@ -155,7 +155,7 @@ final class LoopDryRunNoMutationTests: XCTestCase {
     }
 
     func testResumeDryRunReportsIllegalStateWithoutMutating() async throws {
-        let project = try seedProject("repo2")
+        let project = try seedProject(path: "repo2")
         let loopId = "loop_resume_done"
         let state = LoopState(
             id: loopId,
@@ -186,7 +186,7 @@ final class LoopDryRunNoMutationTests: XCTestCase {
     // MARK: - loop step --dry-run
 
     func testStepDryRunDoesNotMutateDurableState() async throws {
-        let project = try seedProject("repo_step")
+        let project = try seedProject(path: "repo_step")
         let loopId = "loop_step_dry"
         let state = LoopState(
             id: loopId,
@@ -223,7 +223,7 @@ final class LoopDryRunNoMutationTests: XCTestCase {
     }
 
     func testStepDryRunIllegalStatusLeavesBytesIdentical() async throws {
-        let project = try seedProject("repo_step2")
+        let project = try seedProject(path: "repo_step2")
         let loopId = "loop_step_running"
         let state = LoopState(
             id: loopId,
@@ -254,7 +254,7 @@ final class LoopDryRunNoMutationTests: XCTestCase {
     // MARK: - loop pm --dry-run
 
     func testPmCallerDryRunDoesNotMutateOccupantOrStatus() async throws {
-        let project = try seedProject("repo_pm")
+        let project = try seedProject(path: "repo_pm")
         let loopId = "loop_pm_caller_dry"
         let state = LoopState(
             id: loopId,
@@ -294,7 +294,7 @@ final class LoopDryRunNoMutationTests: XCTestCase {
     }
 
     func testPmAgentDryRunDoesNotMutateOrDispatch() async throws {
-        let project = try seedProject("repo_pm2")
+        let project = try seedProject(path: "repo_pm2")
         let loopId = "loop_pm_agent_dry"
         let state = LoopState(
             id: loopId,
