@@ -59,12 +59,19 @@ public enum ContractSchema {
             "errors": arr(ref("ErrorEnvelope")), "nextActions": arr(ref("NextAction")),
             "artifact": nullableRef("Artifact"),
             "audit": ref("Audit"),
+            "observation": ref("Observation"),
         ], required: [
             "schemaVersion", "contractVersion", "teamRun", "agents",
             "answers", "answer", "pmTurn", "notes", "stages", "plan", "usage", "warnings", "errors", "nextActions", "artifact", "audit",
+            "observation",
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
+            "Observation": obj([
+                "ownerState": enumStr(["alive", "dead", "unknown"]),
+                "activityMode": enumStr(["incremental", "terminalOnly", "unknown"]),
+                "lastActivityAt": nullable("string"),
+            ], required: ["ownerState", "activityMode"]),
             "RunInfo": obj([
                 "id": str, "status": teamRunStatus,
                 "origin": enumStr(["cli", "gui", "mcp", "ios", "localApi", "system"]),

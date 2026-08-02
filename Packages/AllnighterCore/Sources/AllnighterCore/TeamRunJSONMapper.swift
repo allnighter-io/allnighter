@@ -26,6 +26,9 @@ public enum TeamRunJSONMapper {
         /// Absolute path to written `artifact/index.html` (CLI write boundary).
         /// Mapper never writes HTML — callers that own the run directory materialize it.
         public var artifactPath: String?
+        /// Ownership fact from the read path that reconciles process identity.
+        /// Mapper never probes processes — default `.unknown` until a caller supplies it.
+        public var ownerState: TeamRunJSON.Observation.OwnerState
         public init(
             promptSource: TeamRunJSON.PromptSource = .init(kind: .positional),
             lane: String? = nil, type: String? = nil, effort: String? = nil,
@@ -34,7 +37,8 @@ public enum TeamRunJSONMapper {
             runDirectory: URL? = nil,
             pmTurn: PMTurnJSON? = nil,
             pmTurnNotes: [String] = [],
-            artifactPath: String? = nil
+            artifactPath: String? = nil,
+            ownerState: TeamRunJSON.Observation.OwnerState = .unknown
         ) {
             self.promptSource = promptSource; self.lane = lane; self.type = type
             self.effort = effort; self.runJournalPath = runJournalPath
@@ -44,16 +48,18 @@ public enum TeamRunJSONMapper {
             self.pmTurn = pmTurn
             self.pmTurnNotes = pmTurnNotes
             self.artifactPath = artifactPath
+            self.ownerState = ownerState
         }
     }
 
     public static func map(
         _ run: TeamRun,
         models: [Model],
-        manifests _: [DriverManifest],
+        manifests: [DriverManifest],
         context: Context
     ) -> TeamRunJSON {
         let modelById = Dictionary(models.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let manifestById = Dictionary(manifests.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         func modelName(_ id: String) -> String { modelById[id]?.displayName ?? id }
         func sourceId(_ modelId: String) -> String { modelById[modelId]?.driverId ?? "" }
 
@@ -196,6 +202,24 @@ public enum TeamRunJSONMapper {
             designBoard: designBoard
         )
 
+        // ORS-S01 — three-field observation, projected once.
+        // activityMode from resolved driver canStream (never from output arrival).
+        // ownerState from caller context (never process-probed here).
+        // lastActivityAt pass-through from TeamRun (never age/staleness arithmetic).
+        let activityMode: TeamRunJSON.Observation.ActivityMode = {
+            let driverId = workerModelId.flatMap { modelById[$0]?.driverId }
+                ?? run.executionSourceId
+            guard let driverId, let manifest = manifestById[driverId] else {
+                return .unknown
+            }
+            return manifest.canStream ? .incremental : .terminalOnly
+        }()
+        let observation = TeamRunJSON.Observation(
+            ownerState: context.ownerState,
+            activityMode: activityMode,
+            lastActivityAt: run.lastActivityAt
+        )
+
         return TeamRunJSON(
             schemaVersion: 2,
             contractVersion: ContractRegistry.contractVersion,
@@ -211,7 +235,8 @@ public enum TeamRunJSONMapper {
             warnings: runWarnings, errors: [],
             nextActions: terminalArtifactNextActions(for: run),
             artifact: artifactRef(for: run, path: context.artifactPath),
-            audit: .init(traceId: "trace_\(run.id)", runJournalPath: context.runJournalPath)
+            audit: .init(traceId: "trace_\(run.id)", runJournalPath: context.runJournalPath),
+            observation: observation
         )
     }
 

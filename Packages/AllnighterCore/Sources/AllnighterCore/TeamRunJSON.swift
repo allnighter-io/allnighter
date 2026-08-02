@@ -42,6 +42,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     /// surface `path` / `openCommand` to the user — not only `answer`.
     public var artifact: Artifact?
     public var audit: Audit
+    /// Live observation projection (ORS-S01). Always present — three fields with
+    /// explicit states; unobserved values are `unknown`, never omitted.
+    public var observation: Observation
 
     public init(
         schemaVersion: Int = 2,
@@ -63,7 +66,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         errors: [ErrorEnvelope] = [],
         nextActions: [NextAction] = [],
         artifact: Artifact? = nil,
-        audit: Audit
+        audit: Audit,
+        observation: Observation = Observation(
+            ownerState: .unknown, activityMode: .unknown, lastActivityAt: nil)
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -85,12 +90,13 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.nextActions = nextActions
         self.artifact = artifact
         self.audit = audit
+        self.observation = observation
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, teamRun, agents, answers, answer, pmTurn, notes
         case designBoard, repoDelta, researchGitObservation, outcome, stages, plan, usage, warnings, errors
-        case nextActions, artifact, audit
+        case nextActions, artifact, audit, observation
     }
 
     public init(from decoder: Decoder) throws {
@@ -118,6 +124,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         // Additive: pre-artifact payloads omit the key.
         artifact = try c.decodeIfPresent(Artifact.self, forKey: .artifact)
         audit = try c.decode(Audit.self, forKey: .audit)
+        // Additive for pre-observation payloads; wire always emits the block.
+        observation = try c.decodeIfPresent(Observation.self, forKey: .observation)
+            ?? Observation(ownerState: .unknown, activityMode: .unknown, lastActivityAt: nil)
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -144,6 +153,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         // Always serialize so agents can look for one key (null while non-terminal).
         try c.encode(artifact, forKey: .artifact)
         try c.encode(audit, forKey: .audit)
+        try c.encode(observation, forKey: .observation)
     }
 
     // MARK: - Closed, shared enums
@@ -172,6 +182,30 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     /// Bench-model readiness at run time.
     public enum ModelStatus: String, Codable, Sendable {
         case ready, unavailable, unknown
+    }
+
+    // MARK: - observation (ORS-S01 — three fields only)
+
+    /// Live run observation projected once by `TeamRunJSONMapper`.
+    /// Deliberately cut: silenceSeconds, activityState, phase, lastActivityKind,
+    /// recentActivity, blocker, contradiction — see One_Run_Surface §Canonical live projection.
+    public struct Observation: Codable, Equatable, Sendable {
+        public enum OwnerState: String, Codable, Sendable, CaseIterable { case alive, dead, unknown }
+        public enum ActivityMode: String, Codable, Sendable, CaseIterable { case incremental, terminalOnly, unknown }
+        public var ownerState: OwnerState
+        public var activityMode: ActivityMode
+        /// Observed clock fact. Encoded as ISO8601 via CoreJSON (same as other Date fields).
+        public var lastActivityAt: Date?
+
+        public init(
+            ownerState: OwnerState,
+            activityMode: ActivityMode,
+            lastActivityAt: Date? = nil
+        ) {
+            self.ownerState = ownerState
+            self.activityMode = activityMode
+            self.lastActivityAt = lastActivityAt
+        }
     }
 
     // MARK: - teamRun
