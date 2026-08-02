@@ -46,17 +46,17 @@ public enum DispatchReadiness {
         return nil
     }
 
-    /// True when every blocked-dispatch reason string names at least one `alln …`
-    /// remediation command that can change the outcome (not a dead-end loop).
+    /// True when a blocked-dispatch reason names a remediation that can change the
+    /// outcome (detect / unpark / enable). Menu-only and doctor-only footers are
+    /// dead ends — they re-read state and do not clear the block.
     public static func blockedReasonNamesWorkingRemediation(_ reason: String) -> Bool {
         let lower = reason.lowercased()
-        // Dead-end: "check doctor" alone when the real fix is detect/unpark/enable.
+        // Working: a command that mutates readiness/selection state.
+        // Not working: `alln menu` / `alln doctor` alone (informational loop).
         let commands = [
             "alln detect",
             "alln drivers unpark",
             "alln models enable",
-            "alln menu --json",
-            "alln menu show",
         ]
         return commands.contains { lower.contains($0) }
     }
