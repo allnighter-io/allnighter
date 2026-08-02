@@ -14,6 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isTesting else { return }   // stay accessory under XCTest
+        // The handoff host is a process-level service, not window work — it must
+        // start here, at application launch, BEFORE anything that can block or
+        // hang: a hung or slow `bootstrap()` used to leave an open, visible app
+        // that never drained the mailbox — indistinguishable, from the caller's
+        // side, from Allnighter not being open at all. See SandboxHandoffHost.
+        SandboxHandoffHost.shared.start()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         // LSUIElement apps promoted to .regular get NO main menu from SwiftUI — so the
@@ -138,14 +144,6 @@ struct AllnighterMacApp: App {
                 .environment(floorStatus)
                 .frame(minWidth: 1100, minHeight: 720)
                 .task {
-                    // Started BEFORE the network bootstrap, and never behind it: a
-                    // hung or slow `bootstrap()` used to leave an open, visible app
-                    // that never drained the mailbox — indistinguishable, from the
-                    // caller's side, from Allnighter not being open at all.
-                    // Lets Allnighter work from inside a sandboxed terminal: that
-                    // caller can't start your AI tools, so it leaves the request
-                    // here and the app runs it. See SandboxHandoffHost.
-                    SandboxHandoffHost.shared.start()
                     await remoteAccount.bootstrap()
                 }
         }
