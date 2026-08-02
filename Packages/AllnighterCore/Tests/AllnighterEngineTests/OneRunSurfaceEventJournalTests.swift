@@ -421,6 +421,127 @@ final class OneRunSurfaceEventJournalTests: XCTestCase {
         XCTAssertEqual(replayedTools.count, toolEvents.count)
     }
 
+    /// Production cold path for `alln run --model model_grok --no-wait`:
+    /// no `threadId` → warm ACP gate closed → `DefaultWorkerRunner` +
+    /// `StreamParserFactory` for driver id `grok` (streaming-json).
+    /// Fixture is the **real** grok wire shape (`type=tool_call` + title), not a
+    /// pre-seeded ACP stub. Fails if the production parser stops mapping tool_call
+    /// → `WorkerStreamEvent.toolActivity` (the ORS-S02a2 live miss).
+    func testNoWaitColdGrokStreamingJsonProducesDurableWorkerTool() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ors-s02a2-cold-grok-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let runsDir = repo.appendingPathComponent("runs", isDirectory: true)
+        let runStore = RunStore(rootDirectory: runsDir)
+        let journal = RemoteRunEventJournal(rootDirectory: runsDir)
+
+        // Production model_grok → driver id "grok" (catalog), canStream true.
+        var manifest = TestSupport.headlessManifest(id: "grok", command: "grok")
+        manifest.streaming = .init(
+            supported: true, mode: .jsonlStdout,
+            args: ["-p", "{{prompt}}", "--output-format", "streaming-json"],
+            partialOutput: true,
+            answerDeltaPaths: ["$.data"],
+            finalAnswerSource: .parserAccumulator
+        )
+        // Real grok streaming-json lines (captured from `grok --output-format streaming-json`).
+        // tool_call carries title; tool_call_update must not fabricate a second activity.
+        let ndjson = """
+        {"type":"thought","data":"Reading the file."}
+        {"type":"tool_call","toolCallId":"call-1","title":"read_file","kind":"read","status":"pending","toolName":"read_file","rawInput":{"target_file":"AGENTS.md","limit":3},"content":[],"locations":[]}
+        {"type":"tool_call_update","toolCallId":"call-1","status":null,"content":[],"rawOutput":null,"locations":[{"path":"AGENTS.md"}]}
+        {"type":"tool_call","toolCallId":"call-2","title":"run_terminal_command","kind":"execute","status":"pending","toolName":"run_terminal_command","rawInput":{"command":"git status"},"content":[],"locations":[]}
+        {"type":"text","data":"Done via tools."}
+        {"type":"end","stopReason":"end_turn","sessionId":"gs-cold-1"}
+
+        """
+        // StreamingCommandRunner with live stdout chunks — the cold production path.
+        // (CommandRunnerAsStreaming would discard parser tool events in the
+        // degraded-stream finalAnswer replay.)
+        let commandRunner = DribblingORSCommandRunner([
+            .started(startedAt: Date()),
+            .stdout(Data(ndjson.utf8)),
+            .completed(CommandResult(stdout: ndjson, exitCode: 0)),
+        ])
+
+        let model = Model(
+            id: "model_grok", displayName: "Grok 4.5",
+            modelLabel: "grok-4.5", driverId: "grok", role: .both
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .frontier, allowHealthySubstitutions: true,
+            tiers: TierMembership(frontier: ["model_grok"])
+        )
+        let probe = ToolProbeRecord(
+            driverId: "grok", status: .ready(version: "1.0"), lastProbeAt: .distantPast
+        )
+        // Fresh warm pool + no threadId on the request → cannot enter warm ACP.
+        let service = RunService(
+            models: [model],
+            registry: DriverRegistry([manifest]),
+            runStore: runStore,
+            commandRunner: commandRunner,
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] },
+            warmPool: WarmWorkerPool(),
+            eventJournal: journal
+        )
+
+        let runId = UUID().uuidString
+        // No threadId: production CLI --no-wait path (warm ACP gate requires threadId).
+        let result = await service.run(
+            RunRequest(
+                message: "Use tools then say done",
+                repoRoot: repo.path,
+                pinnedModelId: "model_grok"
+            ),
+            origin: .cli,
+            runId: runId
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("cold grok run must settle: \(result)")
+        }
+        XCTAssertTrue(run.status.isTerminal)
+        // Prove cold stream path was used (raw stdout chunks), not warm ACP.
+        XCTAssertGreaterThan(
+            run.answers.first?.result.timing.rawStdoutChunkCount ?? 0, 0,
+            "must take cold DefaultWorkerRunner path (raw stdout), not warm ACP"
+        )
+
+        let forRun = try journal.events(forRunId: runId)
+        let toolEvents = forRun.filter { $0.kind == RunEventKind.workerTool }
+        XCTAssertFalse(
+            toolEvents.isEmpty,
+            "cold grok streaming-json must durable-record worker.tool; kinds=\(forRun.map(\.kind))"
+        )
+        let titles = toolEvents.compactMap { event -> String? in
+            if case .string(let t)? = event.payload["tool"] { return t }
+            return nil
+        }
+        XCTAssertTrue(titles.contains("read_file"), "expected read_file from wire title; got \(titles)")
+        XCTAssertTrue(titles.contains("run_terminal_command"),
+                      "expected run_terminal_command from wire title; got \(titles)")
+        for event in toolEvents {
+            XCTAssertEqual(Set(event.payload.keys), Set(["runId", "workerId", "tool"]))
+            guard case .string(let tool)? = event.payload["tool"] else {
+                return XCTFail("tool must be string")
+            }
+            XCTAssertFalse(tool.contains("rawInput"))
+            XCTAssertFalse(tool.contains("AGENTS.md"))
+            XCTAssertFalse(tool.contains("git status"))
+        }
+
+        // Incremental observation (canStream) — same gate as the live miss.
+        let json = TeamRunJSONMapper.map(
+            run, models: [model], manifests: [manifest],
+            context: .init(reproduceCommand: "alln show \(runId)")
+        )
+        XCTAssertEqual(json.observation.activityMode, .incremental)
+    }
+
     /// terminalOnly driver: no tool events, healthy expected silence (inference ban).
     func testTerminalOnlyProducesNoToolEventsAndReportsHealthy() async throws {
         let h = try makeHarness(dribbleAnswerDeltas: false)

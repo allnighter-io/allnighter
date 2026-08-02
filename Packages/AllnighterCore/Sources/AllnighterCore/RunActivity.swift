@@ -4,9 +4,11 @@ import Foundation
 /// **activity** axis, distinct from lifecycle/phase: it advances only on
 /// post-spawn work and never on spawn, heartbeats, or per-tick timers.
 ///
-/// `tool` is reserved for warm/ACP tool events; the P0 cold single-worker path
+/// `tool` is vendor-reported tool activity (warm ACP `tool_call` **or** cold
+/// streaming-json `tool_call` title via the stream parser). The cold path also
 /// produces `message` (reasoning/answer), `stdout`/`stderr` (bounded metadata),
-/// `child` (stage/worker transition), and `exit` (worker/run terminal).
+/// `child` (stage/worker transition), and `exit` (worker/run terminal). Never
+/// fabricate `tool` from byte counts, timing, or output heuristics.
 public enum RunActivityKind: String, Codable, Sendable, CaseIterable {
     case tool, message, stdout, stderr, child, exit
 }
