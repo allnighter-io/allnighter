@@ -51,10 +51,14 @@ final class CapacityStripModel {
         notReadyOrParked = ids
     }
 
-    /// Live load: tier-1 disk + last-known hydrate, no PTY probes (bare `alln capacity`).
+    /// Live load: hydrate tier-1 disk + last-known history instantly, then probe every
+    /// seat (product law: tier-3 samples at launch — `CLI_Capacity_TUI_Sampling.md`).
     func loadLive(
         notReadyOrParked: Set<String> = [],
-        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        historyStore: CapacityHistoryStore = CapacityHistoryStore(),
+        probeExecutor: (any CapacityProbeExecuting)? = nil,
+        autoRefresh: Bool = true
     ) {
         guard !isFixtureSeeded else { return }
         self.notReadyOrParked = notReadyOrParked
@@ -63,8 +67,13 @@ final class CapacityStripModel {
         windows = CapacityDisplayAcquisition.windows(
             homeRoot: homeRoot,
             now: clock,
-            refresh: false
+            refresh: false,
+            historyStore: historyStore,
+            probeExecutor: probeExecutor
         )
+        if autoRefresh {
+            refreshAll(homeRoot: homeRoot, historyStore: historyStore, probeExecutor: probeExecutor)
+        }
     }
 
     /// Fixture / proof path: inject Core windows directly. No IO.
@@ -86,7 +95,9 @@ final class CapacityStripModel {
 
     /// Refresh every seat (refresh-all control). Sibling rows stay interactive.
     func refreshAll(
-        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        historyStore: CapacityHistoryStore = CapacityHistoryStore(),
+        probeExecutor: (any CapacityProbeExecuting)? = nil
     ) {
         guard !isFixtureSeeded else { return }
         refreshAllTask?.cancel()
@@ -100,7 +111,9 @@ final class CapacityStripModel {
             let acquired = CapacityDisplayAcquisition.windows(
                 homeRoot: homeRoot,
                 now: clock,
-                refresh: true
+                refresh: true,
+                historyStore: historyStore,
+                probeExecutor: probeExecutor
             )
             guard !Task.isCancelled else { return }
             now = clock
@@ -111,7 +124,9 @@ final class CapacityStripModel {
     /// Age-chip per-row refresh. Only that source spins; other rows stay as-is.
     func refreshSource(
         _ source: String,
-        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        historyStore: CapacityHistoryStore = CapacityHistoryStore(),
+        probeExecutor: (any CapacityProbeExecuting)? = nil
     ) {
         guard !isFixtureSeeded else { return }
         if let message = CapacityAcquisition.validateRefreshSourceId(source) {
@@ -132,7 +147,9 @@ final class CapacityStripModel {
                 homeRoot: homeRoot,
                 now: clock,
                 refresh: true,
-                refreshSource: source
+                refreshSource: source,
+                historyStore: historyStore,
+                probeExecutor: probeExecutor
             )
             guard !Task.isCancelled else { return }
             now = clock

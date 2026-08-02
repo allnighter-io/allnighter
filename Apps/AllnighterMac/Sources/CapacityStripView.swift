@@ -36,12 +36,6 @@ struct CapacityStripView: View {
             .frame(maxHeight: .infinity)
         }
         .background(ALColor.base)
-        .task {
-            // Fixture-seeded models skip live IO so proof captures stay deterministic.
-            if !model.isFixtureSeeded {
-                model.loadLive(notReadyOrParked: model.notReadyOrParked)
-            }
-        }
     }
 
     // MARK: - Hero (fixed height — layout never shifts)
