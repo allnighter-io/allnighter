@@ -163,20 +163,22 @@ struct CapacityStripView: View {
 
     private var calmHero: some View {
         HStack(alignment: .top, spacing: 14) {
-            Image(systemName: "checkmark")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(ALColor.textFaint)
+            Image(systemName: model.needsLiveRefresh ? "arrow.clockwise.circle" : "checkmark")
+                .font(.system(size: model.needsLiveRefresh ? 18 : 16, weight: .semibold))
+                .foregroundStyle(model.needsLiveRefresh ? ALColor.accentText : ALColor.textFaint)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 6) {
-                Text("Nothing expiring")
+                Text(model.needsLiveRefresh ? "Tap Refresh for live capacity" : "Nothing expiring")
                     .font(ALFont.sans(10, .semibold))
                     .tracking(0.8)
                     .textCase(.uppercase)
-                    .foregroundStyle(ALColor.textFaint)
-                Text("Everything has room")
+                    .foregroundStyle(model.needsLiveRefresh ? ALColor.accentText : ALColor.textFaint)
+                Text(model.needsLiveRefresh ? "Numbers appear after a live probe" : "Everything has room")
                     .font(ALFont.sans(20, .semibold))
                     .foregroundStyle(ALColor.textSecondary)
-                Text("No seat drops below the 48h mark with headroom left")
+                Text(model.needsLiveRefresh
+                     ? "Same path as alln capacity — live PTY, no stale history"
+                     : "No seat drops below the 48h mark with headroom left")
                     .font(ALFont.mono(11))
                     .foregroundStyle(ALColor.textMuted)
             }

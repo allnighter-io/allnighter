@@ -306,8 +306,7 @@ extension CapacityWindowRecord {
     /// Rate-limit windows are monotone within a cycle, so peak used ≈ last used
     /// for display. `observedAt` is `lastObservedAt` — never "now".
     public func asCapacityWindow() -> CapacityWindow {
-        let tier: CapacityAcquisitionTier =
-            CapacityAcquisition.diskOnlySources.contains(sourceId) ? .onDisk : .tuiProbe
+        let tier: CapacityAcquisitionTier = .tuiProbe
         // Collapse Claude primary weekly aliases so bare hydrate never re-emits
         // a phantom `allmodels` pool line next to the unlabeled primary.
         let label: String? = sourceId == "claude_code"

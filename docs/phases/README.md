@@ -36,7 +36,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
-| [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — start CWB-S00** | Codex/Grok PTY already shipped (`ac65bddf`); Phase 1 regressed to disk — S00 re-wires six-seat probe + kills lies. |
+| [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — CLI blocker** | Core/Engine/Mac done; resume at `AllnighterCLI` cutover (no `alln` rebuild yet). |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete; one dogfood proof remains** | Wall-crossing resume half blocked on Codex real reset (2026-08-04). Code SSOT: `CapacityDisplayAcquisition`, `MenuCatalog`, `LoopCoordinator`, `VendorBackoffReconciler`. |
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 founder-blocked** | DNS (`get.allnighter.app`) + Developer ID + notarization. S00–S03/S06 shipped. |

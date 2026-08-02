@@ -4,13 +4,9 @@ import AllnighterEngine
 
 /// Mac launch-surface owner for the capacity strip.
 ///
-/// **SSOT:** every load/refresh calls `CapacityDisplayAcquisition.snapshot` —
-/// the same entry as `alln capacity` / `alln capacity --refresh`. No parallel
-/// acquisition path, no separate hydrate law. Colour / order / age labels come
-/// from `CapacityStripRenderer`.
-///
-/// Bare launch = instant snapshot (`refresh: false`). Live refresh is explicit
-/// (`refresh: true`). Probes never run on the main actor.
+/// **SSOT:** `CapacityFetch` — live PTY only for painted %. Launch shows
+/// placeholders until the user taps Refresh (or a fresh in-process memo exists).
+/// Probes never run on the main actor.
 @MainActor
 @Observable
 final class CapacityStripModel {
@@ -20,8 +16,10 @@ final class CapacityStripModel {
     private(set) var now: Date = Date()
     /// Sources currently refreshing (per-row spinner). Never greys sibling rows.
     private(set) var refreshingSources: Set<String> = []
-    /// True while any acquire is in flight (bare load or refresh-all).
+    /// True while any acquire is in flight (refresh-all).
     private(set) var isRefreshingAll = false
+    /// Launch showed placeholders — user should tap Refresh for live numbers.
+    private(set) var needsLiveRefresh = true
     /// Not-ready / parked seats render last and dimmed (health as absence of numbers).
     private(set) var notReadyOrParked: Set<String> = []
     /// When set, the model is fixture-seeded and live acquire is skipped on appear.
@@ -56,7 +54,7 @@ final class CapacityStripModel {
         notReadyOrParked = ids
     }
 
-    /// Launch path: bare `alln capacity` snapshot (instant, no spawn).
+    /// Launch path: placeholders or in-process memo — never history hydrate.
     func loadLive(
         notReadyOrParked: Set<String> = [],
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
@@ -66,23 +64,11 @@ final class CapacityStripModel {
         guard !isFixtureSeeded else { return }
         self.notReadyOrParked = notReadyOrParked
         loadTask?.cancel()
-        isRefreshingAll = true
-        loadTask = Task { @MainActor in
-            defer {
-                isRefreshingAll = false
-                loadTask = nil
-            }
-            let bench = await Self.acquireSnapshot(
-                homeRoot: homeRoot,
-                historyStore: historyStore,
-                probeExecutor: probeExecutor,
-                refresh: false,
-                refreshSource: nil
-            )
-            guard !Task.isCancelled else { return }
-            now = bench.now
-            windows = bench.windows
-        }
+        isRefreshingAll = false
+        let bench = CapacityFetch.launchSnapshot()
+        now = bench.now
+        windows = bench.windows
+        needsLiveRefresh = bench.windows.allSatisfy { $0.unknownReason == .neverSampled }
     }
 
     /// Fixture / proof path: inject Core windows directly. No IO.
@@ -98,11 +84,12 @@ final class CapacityStripModel {
         self.notReadyOrParked = notReadyOrParked
         refreshingSources = refreshingSource.map { [$0] } ?? []
         isRefreshingAll = false
+        needsLiveRefresh = false
     }
 
     // MARK: - Refresh
 
-    /// `alln capacity --refresh` — live acquire for every seat.
+    /// Live PTY acquire for every seat (`CapacityFetch.liveSnapshot`).
     func refreshAll(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
@@ -116,20 +103,20 @@ final class CapacityStripModel {
                 isRefreshingAll = false
                 refreshAllTask = nil
             }
-            let bench = await Self.acquireSnapshot(
+            let bench = await Self.acquireLive(
                 homeRoot: homeRoot,
                 historyStore: historyStore,
                 probeExecutor: probeExecutor,
-                refresh: true,
                 refreshSource: nil
             )
             guard !Task.isCancelled else { return }
             now = bench.now
             windows = bench.windows
+            needsLiveRefresh = false
         }
     }
 
-    /// `alln capacity --refresh --source` — per-row live acquire.
+    /// Live PTY acquire for one seat.
     func refreshSource(
         _ source: String,
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
@@ -148,34 +135,33 @@ final class CapacityStripModel {
                 refreshingSources.remove(source)
                 refreshTasks[source] = nil
             }
-            let bench = await Self.acquireSnapshot(
+            let bench = await Self.acquireLive(
                 homeRoot: homeRoot,
                 historyStore: historyStore,
                 probeExecutor: probeExecutor,
-                refresh: true,
                 refreshSource: source
             )
             guard !Task.isCancelled else { return }
             now = bench.now
             windows = Self.merge(prior: windows, acquired: bench.windows, refreshedSource: source)
+            needsLiveRefresh = false
         }
     }
 
-    /// Off-main-actor SSOT acquire — same entry as `alln capacity`.
-    private static func acquireSnapshot(
+    /// Off-main-actor live acquire — CapacityFetch, no history hydrate.
+    private static func acquireLive(
         homeRoot: URL,
         historyStore: CapacityHistoryStore,
         probeExecutor: (any CapacityProbeExecuting)?,
-        refresh: Bool,
         refreshSource: String?
-    ) async -> CapacityDisplayAcquisition.Snapshot {
+    ) async -> CapacityFetch.Snapshot {
         await Task.detached(priority: .userInitiated) {
-            CapacityDisplayAcquisition.snapshot(
+            CapacityFetch.liveSnapshot(
                 homeRoot: homeRoot,
-                refresh: refresh,
                 refreshSource: refreshSource,
                 historyStore: historyStore,
-                probeExecutor: probeExecutor
+                probeExecutor: probeExecutor,
+                updateMemo: refreshSource == nil
             )
         }.value
     }
@@ -223,7 +209,6 @@ struct CapacityHeroPresentation: Equatable {
             ))
         }
         guard !candidates.isEmpty else { return nil }
-        // Highest plan-tier ordinal first; then most remaining dollars-proxy (remaining %).
         candidates.sort {
             if $0.rank != $1.rank { return $0.rank > $1.rank }
             return $0.remaining > $1.remaining
@@ -248,7 +233,6 @@ struct CapacityHeroPresentation: Equatable {
         )
     }
 
-    /// Ordinal plan tier — zero-setup ranking, no built-in price table.
     private static func planTierRank(_ tier: String?) -> Int {
         guard let raw = tier?.lowercased() else { return 0 }
         if raw.contains("ultra") { return 5 }
@@ -263,10 +247,8 @@ struct CapacityHeroPresentation: Equatable {
 // MARK: - Fixture windows (proof harness)
 
 enum CapacityStripFixtures {
-    /// Fixed clock ~2026-07-30 00:48 UTC — matches Core strip tests / CAP-S00 samples.
     static let now = Date(timeIntervalSince1970: 1_753_833_600)
 
-    /// Mixed real states: known seats, unknown, red empty, amber expiring, Antigravity two pools.
     static func mixedWindows(now: Date = now) -> [CapacityWindow] {
         [
             CapacityWindow(
@@ -276,7 +258,7 @@ enum CapacityStripFixtures {
                 resetAt: now.addingTimeInterval(6 * 86400 + 3 * 3600),
                 resetPrecision: .exact,
                 observedAt: now.addingTimeInterval(-120),
-                sourceTier: .onDisk,
+                sourceTier: .tuiProbe,
                 planTier: "Plus"
             ),
             CapacityWindow.unknown(
@@ -304,7 +286,7 @@ enum CapacityStripFixtures {
                 resetAt: now.addingTimeInterval(41 * 3600),
                 resetPrecision: .exact,
                 observedAt: now.addingTimeInterval(-90),
-                sourceTier: .onDisk,
+                sourceTier: .tuiProbe,
                 planTier: "X Premium+"
             ),
             CapacityWindow(
@@ -368,7 +350,6 @@ enum CapacityStripFixtures {
         ]
     }
 
-    /// Same mixed bench with Grok mid-refresh (only that row spins).
     static func refreshingWindows(now: Date = now) -> [CapacityWindow] {
         mixedWindows(now: now)
     }

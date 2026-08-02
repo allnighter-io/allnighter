@@ -79,15 +79,16 @@ public enum CapacityProbe {
             )
     }
 
-    /// PTY-only seats this probe knows how to drive.
-    /// Disk-structured sources (`codex`, `grok`) are **not** probeable — their
-    /// sole acquisition path is on-disk (CapacityAcquisition disk adapters).
+    /// PTY-only seats this probe knows how to drive (all six bench seats).
     /// Claude Code: `/usage` opens the Usage pane directly (no tab navigation).
+    /// Codex: `/status` (remaining-polarity). Grok: `/usage`.
     public static let probeableSources: [String] = [
         "agy",
         "kimi",
         "cursor_agent",
         "claude_code",
+        "codex",
+        "grok",
     ]
 
     /// Active probe child process groups — reaped on timeout / parent cancel.
@@ -143,6 +144,8 @@ public enum CapacityProbe {
         "kimi": ["kimi"],
         "cursor_agent": ["agent", "cursor-agent"],
         "claude_code": ["claude"],
+        "codex": ["codex"],
+        "grok": ["grok"],
     ]
 
     /// Home-relative known install paths (checked when PATH misses).
@@ -151,6 +154,8 @@ public enum CapacityProbe {
         "kimi": [".kimi-code/bin/kimi", ".local/bin/kimi"],
         "cursor_agent": [".local/bin/agent", ".local/bin/cursor-agent"],
         "claude_code": [".local/bin/claude", ".local/share/claude/versions"],
+        "codex": [".local/bin/codex"],
+        "grok": [".local/bin/grok"],
     ]
 
     /// Default slash command sent after the TUI is ready.
@@ -159,7 +164,7 @@ public enum CapacityProbe {
 
     /// Per-source TUI command to invoke the usage surface.
     public static func probeCommand(for source: String) -> String {
-        usageCommand
+        source == "codex" ? "/status" : usageCommand
     }
 
     // MARK: - Trust / ready matching (space-stripped TUI safe)

@@ -68,28 +68,17 @@ final class CapacityAcquisitionTests: XCTestCase {
 
     // MARK: - Codex
 
-    func testCodexReadsNewestRolloutAndStops() throws {
-        // Older file first (lower mtime); newer file has the 52% sample.
-        try writeCodexRollout(
-            year: "2026", month: "07", day: "20",
-            name: "rollout-2026-07-20T10-00-00-old.jsonl",
-            content: codexOlderLine + "\n",
-            mtime: Date(timeIntervalSince1970: 1_753_000_000)
-        )
+    func testCodexDiskFilesAreIgnoredOnBarePath() throws {
         try writeCodexRollout(
             year: "2026", month: "07", day: "28",
             name: "rollout-2026-07-28T12-09-28-new.jsonl",
             content: codexPlusLine + "\n",
-            mtime: Date(timeIntervalSince1970: 1_753_700_000)
+            mtime: now
         )
-
-        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now)
-        let codex = windows.filter { $0.source == "codex" }
-        XCTAssertEqual(codex.count, 1)
-        XCTAssertEqual(codex[0].usedPercent, 52.0)
-        XCTAssertEqual(codex[0].planTier, "plus")
-        XCTAssertEqual(codex[0].sourceTier, .onDisk)
-        XCTAssertNil(codex[0].unknownReason)
+        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now, refresh: false)
+        let codex = windows.first { $0.source == "codex" }
+        XCTAssertEqual(codex?.unknownReason, .neverSampled)
+        XCTAssertNil(codex?.usedPercent, "disk logs are not capacity display (CWB-S00)")
     }
 
     func testCodexMissingSessionsIsNeverSampledNotZero() {
@@ -102,20 +91,20 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertNil(codex?.remainingPercent)
     }
 
-    func testCodexEmptyFileIsParserFailedNotZero() throws {
+    func testCodexEmptyFileOnDiskDoesNotAffectBarePath() throws {
         try writeCodexRollout(
             year: "2026", month: "07", day: "28",
             name: "rollout-2026-07-28T12-00-00-empty.jsonl",
             content: "\n\n",
             mtime: now
         )
-        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now)
+        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now, refresh: false)
         let codex = windows.first { $0.source == "codex" }
-        XCTAssertEqual(codex?.unknownReason, .parserFailed(observedAt: now))
+        XCTAssertEqual(codex?.unknownReason, .neverSampled)
         XCTAssertNil(codex?.usedPercent)
     }
 
-    func testCodexSkipsUnusableNewestThenUsesOlder() throws {
+    func testCodexDiskGarbageDoesNotAffectBarePath() throws {
         // Newest file is garbage; older file has a good record.
         try writeCodexRollout(
             year: "2026", month: "07", day: "29",
@@ -129,33 +118,27 @@ final class CapacityAcquisitionTests: XCTestCase {
             content: codexPlusLine + "\n",
             mtime: Date(timeIntervalSince1970: 1_753_700_000)
         )
-        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now)
-        let codex = windows.filter { $0.source == "codex" }
-        XCTAssertEqual(codex.count, 1)
-        XCTAssertEqual(codex[0].usedPercent, 52.0)
+        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now, refresh: false)
+        let codex = windows.first { $0.source == "codex" }
+        XCTAssertEqual(codex?.unknownReason, .neverSampled)
+        XCTAssertNil(codex?.usedPercent)
     }
 
     // MARK: - Grok
 
-    func testGrokReadsBillingFromTailNewestWins() throws {
-        // Noise, older billing, noise, newest billing at end.
+    func testGrokDiskLogIsIgnoredOnBarePath() throws {
         let body = [
             #"{"ts":"2026-07-30T00:00:00.000Z","msg":"session start"}"#,
             grokOlderBillingLine,
-            #"{"ts":"2026-07-30T00:30:00.000Z","msg":"tool call"}"#,
             grokBillingLine,
             "",
         ].joined(separator: "\n")
         try writeGrokLog(body)
 
-        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now)
-        let grok = windows.filter { $0.source == "grok" }
-        XCTAssertEqual(grok.count, 1)
-        XCTAssertEqual(grok[0].usedPercent, 42.0)
-        XCTAssertEqual(grok[0].remainingPercent, 58.0)
-        XCTAssertEqual(grok[0].planTier, "X Premium+")
-        XCTAssertEqual(grok[0].sourceTier, .onDisk)
-        XCTAssertNil(grok[0].unknownReason)
+        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now, refresh: false)
+        let grok = windows.first { $0.source == "grok" }
+        XCTAssertEqual(grok?.unknownReason, .neverSampled)
+        XCTAssertNil(grok?.usedPercent)
     }
 
     func testGrokBackwardsReaderFindsMatchAcrossChunkBoundary() throws {
@@ -175,7 +158,7 @@ final class CapacityAcquisitionTests: XCTestCase {
         try writeGrokLog(lines.joined(separator: "\n") + "\n")
 
         let url = homeRoot.appendingPathComponent(".grok/logs/unified.jsonl")
-        let got = CapacityAcquisition.latestGrokWindowReadingBackwards(from: url, chunkSize: 128)
+        let got = GrokCapacityLog.latestWeeklyWindowReadingBackwards(from: url, chunkSize: 128)
         XCTAssertEqual(got?.usedPercent, 42.0)
         XCTAssertEqual(got?.subscriptionTier, "X Premium+")
         // Older 41% / non-zero on-demand must not win.
@@ -189,11 +172,11 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertNil(grok?.usedPercent)
     }
 
-    func testGrokEmptyLogIsParserFailed() throws {
+    func testGrokEmptyLogOnDiskDoesNotAffectBarePath() throws {
         try writeGrokLog("")
-        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now)
+        let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now, refresh: false)
         let grok = windows.first { $0.source == "grok" }
-        XCTAssertEqual(grok?.unknownReason, .parserFailed(observedAt: now))
+        XCTAssertEqual(grok?.unknownReason, .neverSampled)
         XCTAssertNil(grok?.remainingPercent)
     }
 
@@ -240,7 +223,7 @@ final class CapacityAcquisitionTests: XCTestCase {
         }
     }
 
-    func testCombinedCodexAndGrokWithTier3() throws {
+    func testCombinedBenchBarePathNeverReadsDisk() throws {
         try writeCodexRollout(
             year: "2026", month: "07", day: "28",
             name: "rollout-2026-07-28T12-09-28-new.jsonl",
@@ -249,15 +232,11 @@ final class CapacityAcquisitionTests: XCTestCase {
         )
         try writeGrokLog(grokBillingLine + "\n")
 
-        // Bare path: disk adapters only; no PTY spawns.
         let windows = CapacityAcquisition.windows(homeRoot: homeRoot, now: now, refresh: false)
-        let codex = windows.filter { $0.source == "codex" }
-        let grok = windows.filter { $0.source == "grok" }
-        XCTAssertEqual(codex.first?.usedPercent, 52.0)
-        XCTAssertEqual(grok.first?.usedPercent, 42.0)
-        // PTY-only seats are neverSampled on bare path.
-        let neverSampledCount = windows.filter { $0.unknownReason == .neverSampled }.count
-        XCTAssertEqual(neverSampledCount, CapacityAcquisition.ptyOnlySources.count)
+        XCTAssertEqual(
+            windows.filter { $0.unknownReason == .neverSampled }.count,
+            CapacityAcquisition.benchSourceOrder.count
+        )
         XCTAssertTrue(
             windows.allSatisfy { $0.unknownReason != .vendorExposesNothing },
             "no seat may claim the vendor exposes nothing while we ship a parser for it"
@@ -417,9 +396,7 @@ final class CapacityAcquisitionTests: XCTestCase {
             probeExecutor: counter
         )
         XCTAssertTrue(counter.calls.isEmpty, "bare capacity must spawn nothing; calls=\(counter.calls)")
-        // Codex disk adapter returns real data.
-        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
-        for source in CapacityAcquisition.ptyOnlySources {
+        for source in CapacityAcquisition.benchSourceOrder {
             let row = windows.first { $0.source == source }
             XCTAssertEqual(row?.unknownReason, .neverSampled, source)
         }
@@ -434,24 +411,20 @@ final class CapacityAcquisitionTests: XCTestCase {
             probeExecutor: counter
         )
         let called = Set(counter.calls)
-        XCTAssertEqual(called, Set(CapacityAcquisition.ptyOnlySources))
-        XCTAssertTrue(called.contains("claude_code"), "Claude /usage probe is shipped")
-        // Disk-only sources must never appear in the probe wave.
-        XCTAssertFalse(called.contains("codex"))
-        XCTAssertFalse(called.contains("grok"))
+        XCTAssertEqual(called, Set(CapacityProbe.probeableSources))
+        XCTAssertTrue(called.contains("claude_code"))
+        XCTAssertTrue(called.contains("codex"))
+        XCTAssertTrue(called.contains("grok"))
     }
 
-    func testOnePathInvariantDiskSourcesAreNeverProbeable() {
-        XCTAssertEqual(
-            Set(CapacityAcquisition.diskOnlySources).intersection(Set(CapacityAcquisition.ptyOnlySources)),
-            []
-        )
+    func testAllBenchSeatsArePTYProbeable() {
+        XCTAssertTrue(CapacityAcquisition.diskOnlySources.isEmpty)
         XCTAssertEqual(
             Set(CapacityAcquisition.ptyOnlySources),
             Set(CapacityProbe.probeableSources)
         )
-        XCTAssertFalse(CapacityProbe.probeableSources.contains("codex"))
-        XCTAssertFalse(CapacityProbe.probeableSources.contains("grok"))
+        XCTAssertTrue(CapacityProbe.probeableSources.contains("codex"))
+        XCTAssertTrue(CapacityProbe.probeableSources.contains("grok"))
     }
 
     // MARK: - CAP-S09 targeted --source refresh
@@ -531,43 +504,39 @@ final class CapacityAcquisitionTests: XCTestCase {
             27.0
         )
 
-        // Other PTY seats stay neverSampled (not probed this turn).
-        for source in CapacityAcquisition.ptyOnlySources where source != "cursor_agent" {
+        // Unprobed seats stay neverSampled this turn.
+        for source in CapacityAcquisition.benchSourceOrder where source != "cursor_agent" {
             let row = windows.first { $0.source == source }
             XCTAssertEqual(row?.unknownReason, .neverSampled, source)
             XCTAssertNil(row?.usedPercent, source)
         }
-
-        // Codex and Grok: always disk — never PTY, even during a sibling refresh.
-        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
-        XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
     }
 
-    /// `--source codex` with a disk log → disk adapter only; **never** PTY.
-    func testRefreshSourceCodexIsDiskOnlyNeverProbes() throws {
-        try writeCodexRollout(
-            year: "2026", month: "07", day: "28",
-            name: "rollout-2026-07-28T12-09-28-new.jsonl",
-            content: codexPlusLine + "\n",
-            mtime: now
+    /// `--source codex` spawns exactly one PTY probe (no disk).
+    func testRefreshSourceCodexProbesPTY() throws {
+        let codexWindows = CodexCapacityProbe.capacityWindows(
+            fromRender: """
+            Weekly limit: [████████░░░░░░░░░░░░] 52% left
+            (resets 21:32 on 4 Aug)
+            Account: user@x.com (Plus)
+            """,
+            observedAt: now
         )
+        XCTAssertFalse(codexWindows.isEmpty)
         let counter = CountingProbeExecutor()
+        let fixture = FixtureProbeExecutor(results: ["codex": codexWindows])
+        let countingFixture = CountingThenFixtureExecutor(counter: counter, fixture: fixture)
         let windows = CapacityAcquisition.windows(
             homeRoot: homeRoot,
             now: now,
             refresh: true,
             refreshSource: "codex",
-            probeExecutor: counter
+            probeExecutor: countingFixture
         )
-        XCTAssertTrue(counter.calls.isEmpty, "codex must never PTY-probe; calls=\(counter.calls)")
-        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
-        XCTAssertEqual(windows.first { $0.source == "codex" }?.sourceTier, .onDisk)
-        // Full strip still present; unprobed PTY seats are neverSampled.
-        XCTAssertEqual(
-            Set(windows.map(\.source)).intersection(Set(CapacityAcquisition.benchSourceOrder)).count,
-            CapacityAcquisition.benchSourceOrder.count
-        )
-        for source in CapacityAcquisition.ptyOnlySources {
+        XCTAssertEqual(counter.calls, ["codex"])
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.remainingPercent, 52.0)
+        XCTAssertEqual(windows.first { $0.source == "codex" }?.sourceTier, .tuiProbe)
+        for source in CapacityAcquisition.benchSourceOrder where source != "codex" {
             XCTAssertEqual(
                 windows.first { $0.source == source }?.unknownReason,
                 .neverSampled,
@@ -732,36 +701,33 @@ final class CapacityAcquisitionTests: XCTestCase {
         )
     }
 
-    func testRefreshFixtureParsersProduceWindowsAndPreserveTier1() throws {
-        try writeCodexRollout(
-            year: "2026", month: "07", day: "28",
-            name: "rollout-2026-07-28T12-09-28-new.jsonl",
-            content: codexPlusLine + "\n",
-            mtime: now
-        )
-        try writeGrokLog(grokBillingLine + "\n")
-
-        // Works Test: each parser is fed a captured real render (fixture) via the
-        // probe seam — proving probe→parser wiring, not just the parsers alone.
+    func testRefreshFixtureParsersProduceWindowsForAllPTYSeats() throws {
         let agyWindows = CapacityProbe.parse(source: "agy", renderText: agyUsageFixture, now: now)
         let kimiWindows = CapacityProbe.parse(source: "kimi", renderText: kimiUsageFixture, now: now)
         let cursorWindows = CapacityProbe.parse(source: "cursor_agent", renderText: cursorUsageFixture, now: now)
         let claudeWindows = CapacityProbe.parse(source: "claude_code", renderText: claudeUsageFixture, now: now)
+        let codexWindows = CodexCapacityProbe.capacityWindows(
+            fromRender: "Weekly limit: 48% left\n(resets 21:32 on 4 Aug)\nAccount: (Plus)",
+            observedAt: now
+        )
+        let grokWindows = GrokCapacityProbe.capacityWindows(
+            fromRender: "Weekly limit: 42%\nNext reset: July 31, 11:11",
+            observedAt: now
+        )
         XCTAssertFalse(agyWindows.isEmpty)
         XCTAssertFalse(kimiWindows.isEmpty)
         XCTAssertFalse(cursorWindows.isEmpty)
         XCTAssertFalse(claudeWindows.isEmpty)
-        // Agy prefers the high-precision bar float (92.67) over the rounded "93%".
-        XCTAssertEqual(agyWindows.first?.remainingPercent, Optional(92.67))
-        XCTAssertEqual(kimiWindows.first { $0.scope == .weekly }?.usedPercent, Optional(100.0))
-        XCTAssertEqual(cursorWindows.first?.usedPercent, Optional(27.0))
-        XCTAssertEqual(claudeWindows.first { $0.scope == .session }?.usedPercent, Optional(83.0))
+        XCTAssertFalse(codexWindows.isEmpty)
+        XCTAssertFalse(grokWindows.isEmpty)
 
         let executor = FixtureProbeExecutor(results: [
             "agy": agyWindows,
             "kimi": kimiWindows,
             "cursor_agent": cursorWindows,
             "claude_code": claudeWindows,
+            "codex": codexWindows,
+            "grok": grokWindows,
         ])
         let windows = CapacityAcquisition.windows(
             homeRoot: homeRoot,
@@ -770,35 +736,20 @@ final class CapacityAcquisitionTests: XCTestCase {
             probeExecutor: executor
         )
 
-        // Codex and Grok are disk-only: refresh re-reads disk, never PTY.
-        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
-        XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
-        XCTAssertEqual(windows.first { $0.source == "codex" }?.sourceTier, .onDisk)
-        XCTAssertEqual(windows.first { $0.source == "grok" }?.sourceTier, .onDisk)
-
-        // PTY seats carry real numbers from the fixture adapters.
+        XCTAssertNotNil(windows.first { $0.source == "codex" && $0.remainingPercent != nil })
+        XCTAssertNotNil(windows.first { $0.source == "grok" && $0.usedPercent != nil })
         XCTAssertNotNil(windows.first { $0.source == "agy" && $0.remainingPercent != nil })
         XCTAssertNotNil(windows.first { $0.source == "kimi" && $0.usedPercent != nil })
         XCTAssertNotNil(windows.first { $0.source == "cursor_agent" && $0.usedPercent != nil })
         XCTAssertNotNil(windows.first { $0.source == "claude_code" && $0.usedPercent != nil })
 
-        // No seat may claim vendorExposesNothing.
         XCTAssertTrue(
             windows.allSatisfy { $0.unknownReason != .vendorExposesNothing },
             "refresh path must never return vendorExposesNothing for parser-backed seats"
         )
     }
 
-    func testRefreshSpawnFailureIsUnknownAndDoesNotZeroFillOrTouchTier1() throws {
-        try writeCodexRollout(
-            year: "2026", month: "07", day: "28",
-            name: "rollout-2026-07-28T12-09-28-new.jsonl",
-            content: codexPlusLine + "\n",
-            mtime: now
-        )
-        try writeGrokLog(grokBillingLine + "\n")
-
-        // All probes fail closed as parserFailed — no percentages, no zeros.
+    func testRefreshSpawnFailureIsUnknownAndDoesNotZeroFill() throws {
         let executor = FixtureProbeExecutor(results: [
             "agy": [
                 CapacityWindow.unknown(
@@ -844,13 +795,8 @@ final class CapacityAcquisitionTests: XCTestCase {
             probeExecutor: executor
         )
 
-        // Codex and Grok are disk-only — probe failures must not touch them.
-        XCTAssertEqual(windows.first { $0.source == "codex" }?.usedPercent, 52.0)
-        XCTAssertEqual(windows.first { $0.source == "grok" }?.usedPercent, 42.0)
-        XCTAssertNil(windows.first { $0.source == "codex" }?.unknownReason)
-        XCTAssertNil(windows.first { $0.source == "grok" }?.unknownReason)
-
-        for source in CapacityAcquisition.ptyOnlySources {
+        // All six seats fail closed — no percentages, no zeros, no disk fallback.
+        for source in CapacityAcquisition.benchSourceOrder {
             let row = windows.first { $0.source == source }
             XCTAssertEqual(row?.unknownReason, .parserFailed(observedAt: now), source)
             XCTAssertNil(row?.usedPercent, source)

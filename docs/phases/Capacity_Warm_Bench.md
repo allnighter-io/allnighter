@@ -120,27 +120,37 @@ Founder dogfood and parsers landed **2026-07-31** in `ac65bddf`:
 | Founder fixtures | `CodexCapacityProbeTests`, `GrokCapacityProbeTests` (2026-07-31 captures) |
 | PTY spawn plumbing | `CapacityProbe.parse()` switch, `/status` for codex, usage markers |
 
-**Regression:** Phase 1 recovery (`1d8e8c0b`) demoted codex/grok back to
-`diskOnlySources` and removed them from `probeableSources`. Parsers and spawn
-logic remain; **acquire routing** is what broke. S00 is a **re-wire**, not a spike.
+**Regression (fixed 2026-08-02 in Core):** Phase 1 recovery (`1d8e8c0b`) demoted
+codex/grok to disk — **re-wired** in `CapacityAcquisition` + `CapacityProbe`.
 
-**Current lie (live code):**
-- `CapacityProbe.probeableSources` = 4 seats (no codex/grok)
-- `CapacityAcquisition.acquireCodex` / `acquireGrok` read disk logs
-- Tests assert disk-only invariant (`testOnePathInvariantDiskSourcesAreNeverProbeable`)
+### S00 progress (2026-08-02)
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| Six-seat PTY re-wire | **Done** | `CapacityProbe.probeableSources` = all 6; disk acquire deleted |
+| `CapacityFetch` (Engine) | **Done** | `CapacityFetch.swift` — live only, 30m memo, no hydrate |
+| Mac strip launch | **Done** | Placeholders + `needsLiveRefresh` banner; `CapacityFetch` on Refresh |
+| Hero binding fix | **Done** | `heroBinding` — Fable cannot shout over exhausted primary |
+| CLI cutover | **BLOCKED** | **Do not rebuild `alln`** until other devs clear — resume here |
+| `menuCapacity()` → nil | **Pending** | `AllnighterCLI.swift` |
+| `CapacityDisplayAcquisition` hydrate kill (CLI path) | **Pending** | Wire CLI to `CapacityFetch` |
+| Teaching / help / contract | **Pending** | After CLI cutover |
+
+**Resume:** implement CLI slice (`runCapacity`, `menuCapacity`, flags) then
+rebuild/install `alln`. Mac app + Core/Engine are ready to consume `CapacityFetch`.
 
 ### S00 — Implementation (re-wire + kill lies)
 
 | Piece | Responsibility |
 | --- | --- |
-| **Re-wire six-seat PTY** | Restore codex + grok to `probeableSources`, `commandCandidates`, `ptyOnlySources` |
-| **`CapacityFetch`** (Engine) | `warmPool: nil`; cold `CapacityProbe` all six; process-local memo optional for Mac only; 30 min gate on memo |
-| **Kill disk acquire** | Delete `acquireCodex` / `acquireGrok` disk paths from display acquire |
-| **Kill hydrate / `refresh:false`** | No history-as-live; bare CLI = live |
-| **CLI cutover** | See table below |
-| **Dumb routing** | `menuCapacity()` → `nil`; omit key from `MenuCLI`, `runBootstrap` |
-| **Mac strip** | Loud Refresh; banner *"Tap Refresh for live capacity"*; off-main |
-| **Teaching / help** | Update `TeachingSnippet`, `HelpTopicRegistry`, `ContractRegistry` capacity flags |
+| **Re-wire six-seat PTY** | ✅ `probeableSources` + `ptyOnlySources` = all 6 |
+| **`CapacityFetch`** (Engine) | ✅ `CapacityFetch.swift` |
+| **Kill disk acquire** | ✅ `acquireCodex` / `acquireGrok` removed |
+| **Kill hydrate / `refresh:false`** | ⏸ CLI path still uses `CapacityDisplayAcquisition` |
+| **CLI cutover** | ⏸ **next — requires `alln` rebuild** |
+| **Dumb routing** | ⏸ `menuCapacity()` in `AllnighterCLI.swift` |
+| **Mac strip** | ✅ Placeholders + Refresh banner + off-main `CapacityFetch` |
+| **Teaching / help** | ⏸ after CLI |
 
 ### CLI cutover (S00)
 
@@ -211,15 +221,15 @@ Warm pool (appendix) blocked on S00 green.
 ## S00 ship gate (must all pass)
 
 **PTY re-wire (already parsed — must route)**
-- [ ] `codex` + `grok` in `CapacityProbe.probeableSources`
-- [ ] `scripts/swift-test.sh --filter CodexCapacityProbe` green
-- [ ] `scripts/swift-test.sh --filter GrokCapacityProbe` green
-- [ ] `testOnePathInvariantDiskSourcesAreNeverProbeable` inverted — disk sources empty
+- [x] `codex` + `grok` in `CapacityProbe.probeableSources`
+- [x] `scripts/swift-test.sh --filter CodexCapacityProbe` green
+- [x] `scripts/swift-test.sh --filter GrokCapacityProbe` green
+- [x] `testAllBenchSeatsArePTYProbeable` — disk sources empty
 
 **Acquire honesty**
-- [ ] `alln capacity` never reads Codex/Grok disk (`rg` + integration test)
-- [ ] Never hydrates `CapacityHistoryStore` as live display
-- [ ] Failed probe → unknown row, not stale %
+- [x] `CapacityAcquisition` never reads Codex/Grok disk
+- [ ] `alln capacity` never hydrates history (CLI pending)
+- [x] Failed probe → unknown row, not stale %
 
 **CLI / menu**
 - [ ] Bare `alln capacity` runs live PTY (not `refresh: false`)
@@ -229,9 +239,9 @@ Warm pool (appendix) blocked on S00 green.
 - [ ] `MenuCapacityInjectionCLITests` updated: zero probes, no capacity key
 
 **Mac strip**
-- [ ] Launch shows unknown (no history paint)
-- [ ] Refresh off main actor; no beach ball in XCTest host
-- [ ] After live success: % + age; memo &lt; 30 min in-process only
+- [x] Launch shows unknown (no history paint)
+- [x] Refresh off main actor
+- [x] After live success: memo &lt; 30 min in-process (`CapacityFetch`)
 
 **Runtime (regression)**
 - [ ] `scripts/swift-test.sh --filter VendorSubstitutionPolicy`
@@ -257,8 +267,9 @@ Warm pool (appendix) blocked on S00 green.
 | Runtime | `CapacityObservation` | Unchanged |
 | Render | `CapacityStripRenderer` (Core) | None if acquire honest |
 
-Code SSOT: `CapacityFetch.swift`, `CapacityProbe.swift`, `AllnighterCLI.runCapacity`,
-`AllnighterCLI.menuCapacity`, `CapacityStripModel.swift`.
+Code SSOT: `CapacityFetch.swift`, `CapacityAcquisition.swift`, `CapacityProbe.swift`,
+`CapacityStripModel.swift`. CLI resume: `AllnighterCLI.runCapacity`,
+`AllnighterCLI.menuCapacity`.
 
 ---
 

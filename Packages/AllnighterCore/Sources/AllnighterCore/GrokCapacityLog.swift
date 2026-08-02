@@ -186,4 +186,100 @@ public enum GrokCapacityLog {
         plain.formatOptions = [.withInternetDateTime]
         return plain.date(from: raw)
     }
+
+    // MARK: - Disk log scan (parser utility — not capacity display)
+
+    /// Reverse-scan `unified.jsonl` for the newest billing weekly record.
+    ///
+    /// Used by log-parser tests and diagnostics — **not** the capacity display path.
+    public static func latestWeeklyWindowReadingBackwards(
+        from url: URL,
+        chunkSize: Int = 64 * 1024
+    ) -> GrokWeeklyCapacity? {
+        let handle: FileHandle
+        do {
+            handle = try FileHandle(forReadingFrom: url)
+        } catch {
+            return nil
+        }
+        defer { try? handle.close() }
+
+        let fileSize: UInt64
+        do {
+            fileSize = try handle.seekToEnd()
+        } catch {
+            return nil
+        }
+        if fileSize == 0 { return nil }
+
+        let chunk = max(1, chunkSize)
+        var offset = fileSize
+        var carry = Data()
+
+        while offset > 0 {
+            let readSize = UInt64(chunk)
+            let start = offset > readSize ? offset - readSize : 0
+            let length = offset - start
+            do {
+                try handle.seek(toOffset: start)
+            } catch {
+                return nil
+            }
+            let data: Data
+            do {
+                guard let slice = try handle.read(upToCount: Int(length)) else { return nil }
+                data = slice
+            } catch {
+                return nil
+            }
+            offset = start
+
+            var block = data
+            block.append(carry)
+
+            let parts = splitLinesKeepingEmpties(block)
+            let complete: ArraySlice<Data>
+            if start > 0 {
+                carry = parts.first ?? Data()
+                complete = parts.dropFirst()
+            } else {
+                carry = Data()
+                complete = parts[...]
+            }
+
+            for lineData in complete.reversed() {
+                guard !lineData.isEmpty,
+                      let line = String(data: lineData, encoding: .utf8)
+                else { continue }
+                if let window = latestWeeklyWindow(fromLogContent: line) {
+                    return window
+                }
+            }
+        }
+
+        if !carry.isEmpty, let line = String(data: carry, encoding: .utf8) {
+            return latestWeeklyWindow(fromLogContent: line)
+        }
+        return nil
+    }
+
+    private static func splitLinesKeepingEmpties(_ data: Data) -> [Data] {
+        var parts: [Data] = []
+        var start = data.startIndex
+        var i = data.startIndex
+        while i < data.endIndex {
+            if data[i] == 0x0A {
+                parts.append(data[start..<i])
+                i = data.index(after: i)
+                start = i
+            } else {
+                i = data.index(after: i)
+            }
+        }
+        parts.append(data[start..<data.endIndex])
+        if parts.last?.isEmpty == true {
+            parts.removeLast()
+        }
+        return parts
+    }
 }
