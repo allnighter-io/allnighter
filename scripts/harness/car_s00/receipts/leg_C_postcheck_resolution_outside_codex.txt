@@ -1,0 +1,6 @@
+# Post-leg-C sanity check: is the bundle id still resolvable OUTSIDE Codex
+# (rules out deregistration as the cause of leg C refusal)
+$ osascript -e 'id of app id "com.happymoose.allnighter.harness"'; echo rc=$?; date -u +%Y-%m-%dT%H:%M:%SZ
+com.happymoose.allnighter.harness
+rc=0
+2026-08-02T14:13:54Z

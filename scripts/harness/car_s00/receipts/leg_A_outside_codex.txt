@@ -1,0 +1,24 @@
+=== CAR-S00 probe ===
+caller pid: 5501  ppid: 5499
+caller CODEX_SANDBOX: <absent>
+caller outside-workspace write: OK (/Users/mike/Library/Application Support/AllnighterHarness/caller_control_write.txt)
+nonce: 62C0CF50-A8F8-4EC3-9F66-F0835D510B8E
+=== open -b com.happymoose.allnighter.harness ===
+open rc: 0
+=== polling for receipt (up to 30s) ===
+=== receipt.json ===
+{
+  "bundle_id" : "com.happymoose.allnighter.harness",
+  "codex_sandbox" : null,
+  "nonce" : "62C0CF50-A8F8-4EC3-9F66-F0835D510B8E",
+  "pid" : 5510,
+  "ppid" : 1,
+  "probes" : {
+    "filesystem_path" : "\/Users\/mike\/Library\/Application Support\/AllnighterHarness\/fs_probe.txt",
+    "filesystem_write" : "ok",
+    "keychain_meaning" : "errSecItemNotFound — Keychain reachable, authority OK",
+    "keychain_status" : -25300
+  },
+  "timestamp" : "2026-08-02T14:09:57Z"
+}=== verdict ===
+VERDICT: FRESH RECEIPT (nonce match)
