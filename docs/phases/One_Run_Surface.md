@@ -728,3 +728,13 @@ Host 1 = Claude Code. VERIFIED only; two-host proof remains open (ORS-S04).
 - `alln team status` and `alln team result` exit `CLI_USAGE_ERROR` (exit 2), naming `alln show`, executing nothing.
 - Real `--no-wait` launch (no stream flag) wrote `events.jsonl` with `run.status_changed`, `worker.status_changed`, `stage.started`, `stage.completed` and **no** transcript kinds.
 - `show --stream` emitted snapshot → bounded replay (`replayed: true`) → live follow → exactly one `teamRunCompleted`, exit 0.
+
+## Works Test — host 2 (Codex)
+
+1. **PASS** — `alln menu --json` exited 0 without crashing; observed `contractVersion: "9.2.0"`.
+2. **PASS** — Exact acknowledgement: `{"id":"F2C7C3D3-76B4-4C5C-A5A0-A7392D9B1D37","kind":"run","nextAction":{"command":"alln show F2C7C3D3-76B4-4C5C-A5A0-A7392D9B1D37 --stream","kind":"showRun"},"pid":37253,"status":"dispatched"}`; one `nextAction`, no `delivery`, no absolute binary path.
+3. **FAIL** — The returned command exited 1. First frame was `teamRunSnapshot`; replayed frames had `replayed: true` and non-replayed snapshot/terminal frames omitted it, and exactly one terminal `teamRunFailed` frame was emitted. The snapshot observation had only `ownerState: "alive"` and `activityMode: "incremental"` (missing `lastActivityAt`), so it was neither an ISO8601 string nor a raw number; no `workerActivity`/`worker.tool` frame appeared because Grok failed with `FS_PERMISSION_DENIED` while creating its session.
+4. **PASS** — Re-running the same `alln show F2C7C3D3-76B4-4C5C-A5A0-A7392D9B1D37 --stream` command replayed the terminal run, emitted exactly one `teamRunFailed` frame, produced no duplicate terminal or stream error, and exited 1.
+5. **FAIL** — The explicitly requested journal audit returned kinds `run.status_changed`, `worker.status_changed`, `worker.status_changed`, `run.status_changed`; transcript kinds were absent, but required `worker.tool` was also absent because the worker session never started.
+6. **PASS** — `alln team status <id> --json` and `alln team result <id> --json` each exited 2 with `CLI_USAGE_ERROR`; messages were `team status is retired — use 'alln show <run-id> --json' (or '--stream') instead.` and `team result is retired — use 'alln show <run-id> --json' instead.`; neither executed anything.
+7. **PASS** — No `alln ps`, `git status`, polling loop, or private path was used; the only private path read was the explicitly authorized step-5 journal audit.
