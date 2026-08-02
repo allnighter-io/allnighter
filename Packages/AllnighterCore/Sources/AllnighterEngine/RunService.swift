@@ -300,20 +300,38 @@ public actor RunService {
 
     /// PO-F10 / MR-S04: honor an explicit worker id or fail with `AGENT_NOT_AVAILABLE`.
     /// Never returns a substitute model. Display names fail closed via ExactIdResolver.
+    ///
+    /// ORS-P0-DEGRADE: a stale/unknown readiness cache must NOT pre-emptively block.
+    /// Hard refuse only for positive facts (disabled, parked, not installed). Otherwise
+    /// attempt — vendor failure is loud at the real boundary.
     public func resolveExplicitModel(_ id: String) -> Result<Model, RunServiceError> {
-        switch ExactIdResolver.resolveWorker(id, flag: "--model", models: models, readyModelIds: Set(sourceReadyModelIds())) {
+        let records = DispatchReadiness.invalidateStaleVersions(
+            records: loadProbeRecords(),
+            currentVersions: [:] // version map filled by detect/doctor; unit tests inject records
+        )
+        let parked = SetupStore().load().parkedSet
+        // Prefer smoke-ready ids for ExactIdResolver candidate ranking only.
+        let readyIds = Set(BenchReadiness.readyModels(
+            models: models,
+            probeRecords: records,
+            coolingDriverIds: coolingSources(),
+            parkedDriverIds: parked,
+            knownDriverIds: Set(registry.all.map(\.id))
+        ).map(\.id))
+        switch ExactIdResolver.resolveWorker(id, flag: "--model", models: models, readyModelIds: readyIds) {
         case .failure(let failure):
             return .failure(.workerNotAvailable(failure.message))
         case .success(let m):
             guard m.enabled else {
                 return .failure(.workerNotAvailable(
-                    "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln menu --json` / `alln doctor`."
+                    "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln menu --json`."
                 ))
             }
-            guard sourceReadyModelIds().contains(m.id) else {
-                return .failure(.workerNotAvailable(
-                    "\(id) is notReady — check `alln doctor` (or run `alln doctor --full`); see `alln menu --json`."
-                ))
+            let record = records.first { $0.driverId == m.driverId }
+            if let reason = DispatchReadiness.hardBlockReason(
+                model: m, record: record, parkedDriverIds: parked
+            ) {
+                return .failure(.workerNotAvailable(reason))
             }
             return .success(m)
         }
@@ -802,7 +820,9 @@ public actor RunService {
                 teams: teams.isEmpty ? TeamCatalog.all : teams,
                 readyModels: readyModels(),
                 readyModelIds: sourceReadyModelIds(),
-                defaultSettings: loadDefaultSettings()
+                defaultSettings: loadDefaultSettings(),
+                probeRecords: loadProbeRecords(),
+                parkedDriverIds: SetupStore().load().parkedSet
             )
         )
         if !invocation.canStart {
@@ -1023,11 +1043,33 @@ public actor RunService {
             invocations: invocations, defaultWorkingDirectory: root
         )
 
-        // RSC-HF: observational (non-mutating) path has no pre-lock journal stub —
-        // still acknowledge the minted id to a waiting `--no-wait` parent before the
-        // long team work. Mutating path already reported at the pending save above.
+        // ORS-P0-DEGRADE attach race: acknowledgement must not return until the
+        // run is readable by `show`. Mutating path already persists before accept
+        // (write-lock stub above). Observational path used to ack before any
+        // `run.json` existed — immediate `show` then raced RUN_NOT_FOUND.
+        // Persist a durable stub first; prefer this over inventing a queued
+        // phantom in `show` for unknown ids (typos must stay not-found).
         if !takesWriteLock {
-            DetachedHandoff.reportAccepted(id: id)
+            var pending = TeamRun(
+                id: id, prompt: prompt, status: .queued, phase: .spawningWorker,
+                origin: origin, originAgent: originAgent, presetId: preset.id,
+                createdAt: now(), lane: effectiveLane, effort: effort,
+                teamDisplayName: RunIdentity.teamDisplayName(
+                    presetId: preset.id, catalogDisplayName: preset.displayName,
+                    explicitTeamChosen: explicitTeamChosen),
+                outputKind: preset.outputKind, mutating: false, repoRoot: root,
+                laneContextOnly: laneContextOnly ? true : nil,
+                explicitModelIds: explicitModelIds,
+                resolvedBenchModelIds: readyModels().map(\.id).sorted(),
+                clockBudgets: clockBudgets,
+                links: retryLinks)
+            do {
+                try runStore.save(pending, models: models)
+                DetachedHandoff.reportAccepted(id: id)
+            } catch {
+                DetachedHandoff.reportRefused(id: id, code: "JOURNAL_UNAVAILABLE", message: "\(error)")
+                return .failure(.journalUnavailable("\(error)"))
+            }
         }
 
         // RLR-S04a: this foreground process IS the (in-process) coordinator.
@@ -1184,6 +1226,8 @@ public actor RunService {
                 readyModels: readyModels,
                 readyModelIds: Set(readyModels.map(\.id)),
                 defaultSettings: loadDefaultSettings(),
+                probeRecords: loadProbeRecords(),
+                parkedDriverIds: SetupStore().load().parkedSet,
                 writeLockHeld: writeLockHeld,
                 governorAvailable: governorAvailable,
                 governorBlockedReason: governorBlockedReason
@@ -1842,6 +1886,7 @@ public actor RunService {
                 run.warnings.append(
                     "vendor capacity resume attempt limit reached; human attention required"
                 )
+                activityRecorder.stamp(&run)
                 do {
                     try persistTerminalRun(run)
                 } catch {
@@ -1873,6 +1918,7 @@ public actor RunService {
             )
             // One atomic run.json revision carries both phase and blocker.
             do {
+                activityRecorder.stamp(&run)
                 try runStore.save(run, models: models)
             } catch {
                 return .failure(.journalUnavailable("vendor park: \(error)"))
@@ -2065,6 +2111,11 @@ public actor RunService {
         timing.stamp(RunTimingKey.runOutcomePersisted)
         timing.count(RunTimingKey.runStoreSaveCount, by: 1)
         run.timing = timing
+        // ORS-P0-DEGRADE / lastActivityAt: stamp in-memory activity onto the run
+        // before the terminal write. Streaming kinds already flush via
+        // `stampActivity`, but a terminal save without this stamp overwrites
+        // `run.json` with a nil clock — the lying `lastActivityAt: null`.
+        activityRecorder.stamp(&run)
         // CR-S02: the terminal result is authoritative. A swallowed write here would
         // report success while the durable journal is lost — surface it (RUN_JOURNAL_UNAVAILABLE).
         do {
@@ -2169,6 +2220,8 @@ public actor RunService {
         // decide whether the run has a replayable history.
         let durableJournal = eventJournal
         let eventSink = events
+        let activityRecorder = RunActivityRecorder()
+        let activityStore = runStore
         let forwarder = Task {
             for await event in coordinator.events {
                 var stamped = event
@@ -2181,6 +2234,9 @@ public actor RunService {
                         )
                     }
                 }
+                RunActivityJournalProjection.observe(
+                    stamped, runId: runId, store: activityStore, recorder: activityRecorder
+                )
                 eventSink?.yield(stamped)
             }
         }
@@ -2237,6 +2293,7 @@ public actor RunService {
         timing.stamp(RunTimingKey.runOutcomePersisted)
         timing.count(RunTimingKey.runStoreSaveCount, by: 1)
         run.timing = timing
+        activityRecorder.stamp(&run)
         // CR-S02: authoritative terminal result — never swallow a failed journal write.
         do {
             try persistTerminalRun(run)

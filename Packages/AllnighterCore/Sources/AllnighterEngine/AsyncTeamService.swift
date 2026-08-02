@@ -134,7 +134,9 @@ public actor AsyncTeamService {
                 models: models,
                 teams: teams,
                 readyModels: readyModels,
-                readyModelIds: readyIds
+                readyModelIds: readyIds,
+                probeRecords: SetupStore().load().records,
+                parkedDriverIds: SetupStore().load().parkedSet
             )
         )
         guard invocation.canStart else {

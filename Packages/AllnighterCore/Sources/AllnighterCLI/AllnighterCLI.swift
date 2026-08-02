@@ -1675,45 +1675,28 @@ struct AllnighterCLI {
         let journal = journal ?? RemoteRunEventJournal(rootDirectory: store.rootDirectory)
 
         // (a) ONE immediate snapshot — every lifecycle state, including queued.
+        // Replay completeness is known only after reading history; we rewrite the
+        // snapshot line only when incomplete (still the first frame consumers see
+        // when collecting — see collect path). Practically: read history first,
+        // then emit snapshot with the honest marker.
+        // (b) Bounded recent durable activity. Gaps are normal (global per-Mac
+        // seq). Unparseable lines are skipped. Journal trouble NEVER aborts —
+        // ORS-P0-DEGRADE founder ruling. Terminal truth comes from RunStore.
+        let historyRead: RemoteRunEventRead
+        do {
+            historyRead = try journal.eventsRead(forRunId: run.id)
+        } catch {
+            // File-level failure: degrade to empty history, continue.
+            historyRead = RemoteRunEventRead(events: [], skippedUnparseableLines: 1)
+        }
+        let history = Array(historyRead.events.suffix(NDJSONStreamProjector.streamReplayMaxEvents))
+        let replayIncomplete = historyRead.isIncomplete
+
         writeLine(NDJSONStreamProjector.snapshotLine(
-            teamRunId: run.id, teamRun: teamRunJSON
+            teamRunId: run.id, teamRun: teamRunJSON, replayIncomplete: replayIncomplete
         ))
 
-        // (b) Bounded recent durable activity, each line marked replayed:true.
-        let history: [RunEvent]
-        do {
-            let all = try journal.events(forRunId: run.id)
-            history = Array(all.suffix(NDJSONStreamProjector.streamReplayMaxEvents))
-        } catch {
-            // Rule 7: stream path is loud on journal corruption. Rule 8: never
-            // affects `show --json` (separate path).
-            let code = "JOURNAL_CORRUPT"
-            writeLine(NDJSONStreamProjector.streamErrorLine(
-                teamRunId: run.id, code: code,
-                message: "corrupt event journal: \(error)",
-                seq: 1
-            ))
-            return RunCLI.StreamOutcome(
-                exitCode: Int(ContractRegistry.milestone1.processExitCode(forErrorCode: code)),
-                errorCode: code,
-                message: "corrupt event journal: \(error)"
-            )
-        }
-
         let historySeqs = history.map { Int($0.seq) }
-        if let gap = NDJSONStreamProjector.firstSeqGap(historySeqs) {
-            let code = "JOURNAL_CORRUPT"
-            let message = "event sequence gap: expected seq \(gap.expected), got \(gap.actual)"
-            let errSeq = (historySeqs.last ?? 0) + 1
-            writeLine(NDJSONStreamProjector.streamErrorLine(
-                teamRunId: run.id, code: code, message: message, seq: errSeq
-            ))
-            return RunCLI.StreamOutcome(
-                exitCode: Int(ContractRegistry.milestone1.processExitCode(forErrorCode: code)),
-                errorCode: code,
-                message: message
-            )
-        }
 
         // Replay non-terminal lines only. Terminal delivery is owned below so the
         // frame carries TeamRunJSON + pmTurn and remains exactly one.
@@ -1908,21 +1891,13 @@ struct AllnighterCLI {
             // Terminal journal kinds are never live-emitted here — exactly one
             // terminal frame is owned by `finishWithTerminal` / terminalDeliveryLine
             // (carries full TeamRunJSON + pmTurn).
+            // ORS-P0-DEGRADE: journal read failures degrade to empty fresh set —
+            // never abort; terminal still comes from RunStore.
             let fresh: [RunEvent]
             do {
                 fresh = try journal.events(forRunId: initialRun.id, after: lastSeq)
             } catch {
-                let code = "JOURNAL_CORRUPT"
-                writeLine(NDJSONStreamProjector.streamErrorLine(
-                    teamRunId: initialRun.id, code: code,
-                    message: "corrupt event journal: \(error)",
-                    seq: Int(lastSeq) + 1
-                ))
-                return RunCLI.StreamOutcome(
-                    exitCode: Int(ContractRegistry.milestone1.processExitCode(forErrorCode: code)),
-                    errorCode: code,
-                    message: "corrupt event journal: \(error)"
-                )
+                fresh = []
             }
             let mapper = NDJSONStreamProjector.LiveMapper()
             var sawTerminalJournalEvent = false

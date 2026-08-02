@@ -19,6 +19,22 @@ public struct RemoteRunEventReplay: Equatable, Sendable {
     }
 }
 
+/// Result of reading a run's durable event file (ORS-P0-DEGRADE).
+/// Unparseable lines are skipped — never fatal. `skippedUnparseableLines > 0`
+/// means replay was partial; the stream may surface that once as
+/// `replayIncomplete` and continue.
+public struct RemoteRunEventRead: Equatable, Sendable {
+    public var events: [RunEvent]
+    public var skippedUnparseableLines: Int
+
+    public var isIncomplete: Bool { skippedUnparseableLines > 0 }
+
+    public init(events: [RunEvent], skippedUnparseableLines: Int = 0) {
+        self.events = events
+        self.skippedUnparseableLines = skippedUnparseableLines
+    }
+}
+
 /// Mac-truth remote event journal. Cloud mirrors may expire; this append-only
 /// store owns the monotonic per-Mac sequence used for remote resume.
 ///
@@ -166,7 +182,12 @@ public struct RemoteRunEventJournal: Sendable {
     }
 
     public func events(forRunId runId: String, after seq: Int64 = 0, limit: Int? = nil) throws -> [RunEvent] {
-        try readEvents(from: eventsURL(forRunId: runId), after: seq, limit: limit)
+        try readEventsResult(from: eventsURL(forRunId: runId), after: seq, limit: limit).events
+    }
+
+    /// ORS-P0-DEGRADE: same as `events(forRunId:)` but reports skipped bad lines.
+    public func eventsRead(forRunId runId: String, after seq: Int64 = 0, limit: Int? = nil) throws -> RemoteRunEventRead {
+        try readEventsResult(from: eventsURL(forRunId: runId), after: seq, limit: limit)
     }
 
     public func eventsURL(forRunId runId: String) -> URL {
@@ -214,17 +235,29 @@ public struct RemoteRunEventJournal: Sendable {
     }
 
     private func readEvents(from url: URL, after seq: Int64, limit: Int?) throws -> [RunEvent] {
-        if let limit, limit <= 0 { return [] }
-        guard FileManager.default.fileExists(atPath: url.path) else { return [] }
+        try readEventsResult(from: url, after: seq, limit: limit).events
+    }
+
+    /// ORS-P0-DEGRADE: skip unparseable/truncated lines; never throw for a bad
+    /// line. File-level I/O failures still throw (caller degrades to empty).
+    private func readEventsResult(from url: URL, after seq: Int64, limit: Int?) throws -> RemoteRunEventRead {
+        if let limit, limit <= 0 { return RemoteRunEventRead(events: []) }
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return RemoteRunEventRead(events: [])
+        }
         let raw = try String(contentsOf: url, encoding: .utf8)
         var events: [RunEvent] = []
+        var skipped = 0
         for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
-            let event = try Self.decodeLine(RunEvent.self, from: Data(line.utf8))
+            guard let event = try? Self.decodeLine(RunEvent.self, from: Data(line.utf8)) else {
+                skipped += 1
+                continue
+            }
             guard event.seq > seq else { continue }
             events.append(event)
             if let limit, events.count >= limit { break }
         }
-        return events
+        return RemoteRunEventRead(events: events, skippedUnparseableLines: skipped)
     }
 
     private func readIndexEntries(after seq: Int64, limit: Int?) throws -> [IndexEntry] {
@@ -233,7 +266,10 @@ public struct RemoteRunEventJournal: Sendable {
         let raw = try String(contentsOf: globalIndexURL, encoding: .utf8)
         var entries: [IndexEntry] = []
         for line in raw.split(separator: "\n", omittingEmptySubsequences: true) {
-            let entry = try Self.decodeLine(IndexEntry.self, from: Data(line.utf8))
+            // Index is derived bookkeeping — skip corrupt lines (same degrade law).
+            guard let entry = try? Self.decodeLine(IndexEntry.self, from: Data(line.utf8)) else {
+                continue
+            }
             guard entry.seq > seq else { continue }
             entries.append(entry)
             if let limit, entries.count >= limit { break }

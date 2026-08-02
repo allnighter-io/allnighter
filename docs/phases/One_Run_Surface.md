@@ -303,11 +303,34 @@ Binding rules:
    unlimited accumulated reasoning/output.
 5. `RemoteRunEventJournal` remains internal storage. No public `eventsPath`.
 6. The journal is a history of the same run truth, never a second run owner.
-7. Sequence gaps and corruption raise typed errors on the **stream** path.
+7. **FOUNDER RULING (ORS-P0-DEGRADE, 2026-08-01) — degrade, never block
+   observation.** Derived / observational state must never abort a live
+   observation. If we cannot read the journal, we do not know — and not knowing
+   NEVER blocks the action. Replay whatever is readable, skip unparseable or
+   truncated lines, continue live follow, and deliver terminal truth from
+   `RunStore`. Sequence gaps are normal (global per-Mac seq makes any single
+   run's journal non-contiguous by design when concurrent runs interleave);
+   they must not raise typed errors on the stream path. A broken history must
+   not be able to hide a finished run, abort `show --stream`, or emit a
+   terminal-substitute `error` / `JOURNAL_CORRUPT` frame. The stream's exit
+   class reflects the **run's** outcome only. Being honest about partial
+   history is allowed once as a bounded non-fatal marker (e.g.
+   `replayIncomplete` on the snapshot frame) — never as a fourth
+   `observation` field. Loud failure belongs at the real boundary (the work
+   itself), never at the reader of derived history. The same law already
+   governs `ownerState: unknown` and capacity-unknown: unknown is unknown, not
+   unavailable. **Supersedes the prior rule 7** ("sequence gaps and corruption
+   raise typed errors on the stream path"), which contradicted rules 6 and 8
+   and produced liveness lies on healthy concurrent runs.
 8. **Degrade, never block.** An append failure or corrupt journal drops
    `activityMode` to `unknown` and the activity window to unavailable; it never
    fails `alln show --json`. Run truth lives in `RunStore`, so a broken history
    must not be able to hide a finished run.
+
+**General law (binding, same ruling):** unreadable derived state degrades to
+unknown/partial and never blocks; loud failure belongs at the real boundary
+(dispatch of work, vendor CLI failure, run settlement) — never at a broken
+sensor or history reader.
 
 Proof obligation for this slice: a `--no-wait` launch (no stream flag anywhere)
 produces a replayable event sequence. That is the assertion that makes reattach

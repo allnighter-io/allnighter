@@ -369,10 +369,9 @@ final class RunStreamContractTests: XCTestCase {
         )
 
         // Durable seq spine (disk + reattach) stays strictly increasing. Do not
-        // require firstSeqGap-nil over the full live mix: live-only activity does
-        // not consume the durable journal seq, so contiguity of mixed live seqs is
-        // not the RLR-L7 durable invariant (and the pre-ORS double-append harness
-        // made contiguity look true by re-stamping every line).
+        // require contiguous seqs over the full live mix: live-only activity does
+        // not consume the durable journal seq, and ORS-P0-DEGRADE deleted gap abort
+        // entirely (global per-Mac seq makes per-run holes normal under concurrency).
         let diskSeqs = diskEvents.map { Int($0.seq) }
         assertStrictlyIncreasing(diskSeqs, "durable journal seqs across activity run")
         let reattach1 = try projectedSeqs(from: diskEvents, replayed: true)

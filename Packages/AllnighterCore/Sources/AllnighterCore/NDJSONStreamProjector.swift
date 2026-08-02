@@ -46,20 +46,11 @@ public enum NDJSONStreamProjector {
 
     /// The terminal NDJSON event names (RLR-L7 exactly-one-terminal). An
     /// attachment forwards the first of these and drops every later line.
+    ///
+    /// Note: `error` remains a terminal *frame name* for typed stream failures
+    /// at the real boundary. Derived journal gaps/corruption must NEVER emit it
+    /// (ORS-P0-DEGRADE founder ruling — degrade, never block observation).
     public static let terminalEventNames: Set<String> = ["teamRunCompleted", "teamRunFailed", "error"]
-
-    /// RLR-L7 gap detection: within one attachment's shared seq space the visible
-    /// seqs need not be contiguous (dropped/other-run events consume durable seq),
-    /// but they must strictly increase. Returns the first `(previous, next)` pair
-    /// that is non-increasing or skips — i.e. a consumer-visible gap/duplicate — or
-    /// nil when the run of seqs is strictly ascending with no jumps.
-    public static func firstSeqGap(_ seqs: [Int]) -> (expected: Int, actual: Int)? {
-        guard seqs.count > 1 else { return nil }
-        for i in 1..<seqs.count where seqs[i] != seqs[i - 1] + 1 {
-            return (expected: seqs[i - 1] + 1, actual: seqs[i])
-        }
-        return nil
-    }
 
     /// Flexible per-event data. Nil fields are omitted on encode, so each event
     /// carries only its contract-required keys.
@@ -126,7 +117,8 @@ public enum NDJSONStreamProjector {
             message: String? = nil,
             activityMode: String? = nil,
             silenceExpected: Bool? = nil,
-            nextAction: TeamRunJSON.NextAction? = nil
+            nextAction: TeamRunJSON.NextAction? = nil,
+            replayIncomplete: Bool? = nil
         ) {
             self.status = status
             self.origin = origin
@@ -149,13 +141,20 @@ public enum NDJSONStreamProjector {
             self.activityMode = activityMode
             self.silenceExpected = silenceExpected
             self.nextAction = nextAction
+            self.replayIncomplete = replayIncomplete
         }
+
+        /// ORS-P0-DEGRADE: set once on the snapshot when durable replay skipped
+        /// unparseable journal lines. Omitted when replay was complete. Not an
+        /// `observation` field — derived history honesty only.
+        public var replayIncomplete: Bool?
 
         private enum CodingKeys: String, CodingKey {
             case status, origin, teamPresetId, agentId, modelId, skillId
             case durationMs, stageId, planStageId, error
             case activityKind, byteCount, charCount, tool, teamRun, pmTurn
             case reason, message, activityMode, silenceExpected, nextAction
+            case replayIncomplete
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -181,6 +180,10 @@ public enum NDJSONStreamProjector {
             try c.encodeIfPresent(activityMode, forKey: .activityMode)
             try c.encodeIfPresent(silenceExpected, forKey: .silenceExpected)
             try c.encodeIfPresent(nextAction, forKey: .nextAction)
+            // Only emit when true — absence means complete/unknown-not-partial.
+            if replayIncomplete == true {
+                try c.encode(true, forKey: .replayIncomplete)
+            }
         }
     }
 
@@ -216,13 +219,25 @@ public enum NDJSONStreamProjector {
 
     /// Immediate snapshot frame (`teamRunSnapshot`) carrying current `TeamRunJSON`.
     /// Seq 0 is reserved for the pre-history snapshot; durable journal seqs start at 1.
-    public static func snapshotLine(teamRunId: String, teamRun: TeamRunJSON, at ts: Date = Date()) -> String {
+    ///
+    /// `replayIncomplete`: set once when durable history skipped unparseable lines
+    /// (ORS-P0-DEGRADE). Never aborts the stream; never added to `observation`.
+    public static func snapshotLine(
+        teamRunId: String,
+        teamRun: TeamRunJSON,
+        at ts: Date = Date(),
+        replayIncomplete: Bool = false
+    ) -> String {
         let event = Event(
             seq: 0,
             ts: iso(ts),
             event: "teamRunSnapshot",
             teamRunId: teamRunId,
-            data: EventData(status: teamRun.teamRun.status.rawValue, teamRun: teamRun)
+            data: EventData(
+                status: teamRun.teamRun.status.rawValue,
+                teamRun: teamRun,
+                replayIncomplete: replayIncomplete ? true : nil
+            )
         )
         return encodeLine(event)
     }
@@ -267,8 +282,9 @@ public enum NDJSONStreamProjector {
         ))
     }
 
-    /// Typed error frame on the stream path (ORS binding rule 7). Terminal
-    /// (`error`); attachment consumers treat it as the one terminal.
+    /// Typed error frame for real-boundary stream failures (not journal integrity).
+    /// Derived history must degrade instead (ORS-P0-DEGRADE). Terminal (`error`);
+    /// attachment consumers treat it as the one terminal when emitted.
     public static func streamErrorLine(
         teamRunId: String,
         code: String,
@@ -506,8 +522,9 @@ public enum NDJSONStreamProjector {
     /// - **Durable shared seq space.** Live and replayed lines both carry the
     ///   event's durable per-Mac `seq`; history is marked `replayed:true`. Because
     ///   the seq is allocated by `RemoteRunEventJournal` before projection, a
-    ///   reattach or coordinator restart continues from `lastSeq` with no reset,
-    ///   and gaps stay detectable by seq (`firstSeqGap`).
+    ///   reattach or coordinator restart continues from `lastSeq` with no reset.
+    ///   Per-run seqs are non-contiguous by design (global per-Mac allocator);
+    ///   gaps never abort observation (ORS-P0-DEGRADE).
     public final class NDJSONAttachment {
         private let mapper = LiveMapper()
         private var didEmitTerminal = false

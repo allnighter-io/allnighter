@@ -207,6 +207,10 @@ public struct RunInvocationResolveContext: Sendable {
     public var readyModels: [Model]
     public var readyModelIds: Set<String>
     public var defaultSettings: DefaultModelSettings
+    /// Probe cache for hard-block decisions (notInstalled / parked). Stale
+    /// notReady alone never blocks (ORS-P0-DEGRADE).
+    public var probeRecords: [ToolProbeRecord]
+    public var parkedDriverIds: Set<String>
     /// When the resolved write policy is mutating, optional live lock probe.
     public var writeLockHeld: Bool?
     public var governorAvailable: Bool
@@ -218,6 +222,8 @@ public struct RunInvocationResolveContext: Sendable {
         readyModels: [Model]? = nil,
         readyModelIds: Set<String>? = nil,
         defaultSettings: DefaultModelSettings = .fresh,
+        probeRecords: [ToolProbeRecord] = [],
+        parkedDriverIds: Set<String> = [],
         writeLockHeld: Bool? = nil,
         governorAvailable: Bool = true,
         governorBlockedReason: String? = nil
@@ -228,6 +234,8 @@ public struct RunInvocationResolveContext: Sendable {
         self.readyModels = ready
         self.readyModelIds = readyModelIds ?? Set(ready.map(\.id))
         self.defaultSettings = defaultSettings
+        self.probeRecords = probeRecords
+        self.parkedDriverIds = parkedDriverIds
         self.writeLockHeld = writeLockHeld
         self.governorAvailable = governorAvailable
         self.governorBlockedReason = governorBlockedReason
@@ -746,14 +754,20 @@ public enum RunInvocationResolver {
         case .success(let model):
             guard model.enabled else {
                 return .failure(.workerNotAvailable(
-                    "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln menu --json` / `alln doctor`."
+                    "\(id) is disabled — run `alln models enable \(id)`, or pick a ready worker; see `alln menu --json`."
                 ))
             }
-            guard context.readyModelIds.contains(model.id) else {
-                return .failure(.workerNotAvailable(
-                    "\(id) is notReady — check `alln doctor` (or run `alln doctor --full`); see `alln menu --json`."
-                ))
+            let records = DispatchReadiness.invalidateStaleVersions(
+                records: context.probeRecords,
+                currentVersions: [:]
+            )
+            let record = records.first { $0.driverId == model.driverId }
+            if let reason = DispatchReadiness.hardBlockReason(
+                model: model, record: record, parkedDriverIds: context.parkedDriverIds
+            ) {
+                return .failure(.workerNotAvailable(reason))
             }
+            // Stale/unknown notReady: attempt. Loud failure at the vendor boundary.
             return .success(model)
         }
     }

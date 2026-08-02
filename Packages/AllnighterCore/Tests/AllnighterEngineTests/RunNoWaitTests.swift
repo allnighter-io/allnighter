@@ -98,6 +98,70 @@ final class RunNoWaitTests: HermeticSupportTestCase {
         XCTAssertEqual(found?.id, mintedId)
     }
 
+    /// ORS-P0-DEGRADE FIX 3: ack must not return until `show` can resolve the id.
+    /// No sleep between reading acceptance and loading run.json.
+    func testObservationalAckIsImmediatelyShowableWithoutSleep() async throws {
+        let repo = tmp.appendingPathComponent("attach-race-repo", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        let store = RunStore(rootDirectory: tmp.appendingPathComponent("attach-race-runs"))
+        let handoff = tmp.appendingPathComponent("attach-race-handoff", isDirectory: true)
+        try FileManager.default.createDirectory(at: handoff, withIntermediateDirectories: true)
+
+        let svc = RunService(
+            models: [Model(id: "model_grok", displayName: "Grok", modelLabel: "grok",
+                           driverId: "grok", role: .both)],
+            registry: DriverRegistry([TestSupport.headlessManifest(id: "grok", command: "grok")]),
+            runStore: store,
+            commandRunner: MockCommandRunner(scripts: [
+                "grok": .init(stdout: "ok", exitCode: 0)
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: {
+                DefaultModelSettings(defaultTier: .frontier, allowHealthySubstitutions: true,
+                                     tiers: TierMembership(frontier: ["model_grok"]))
+            },
+            probeRecords: {
+                [ToolProbeRecord(driverId: "grok", status: .ready(version: "1"), lastProbeAt: .distantPast)]
+            }
+        )
+
+        // Drive the observational path: readOnly skips the write-lock stub branch
+        // and hits the pre-accept journal stub (the race we fixed).
+        let runTask = Task {
+            setenv(DetachedHandoff.envKey, handoff.path, 1)
+            defer { unsetenv(DetachedHandoff.envKey) }
+            return await svc.run(
+                RunRequest(
+                    message: "observe",
+                    repoRoot: repo.path,
+                    pinnedModelId: "model_grok",
+                    readOnly: true
+                ),
+                origin: .cli
+            )
+        }
+
+        // Poll for acceptance — no artificial delay before the show load.
+        var ready: ProcessOwnership.RunnerReadyHandshake? = nil
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            ready = ProcessOwnership.readRunnerReady(in: handoff)
+            if ready?.outcome == .accepted { break }
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        let accepted = try XCTUnwrap(ready, "acceptance must land")
+        XCTAssertEqual(accepted.outcome, .accepted)
+        let id = accepted.runId
+        XCTAssertFalse(id.isEmpty)
+
+        // Immediate attach — zero sleep — must resolve (the packet promise).
+        let found = store.loadRaw(runId: id) ?? store.load(runId: id)
+        XCTAssertNotNil(found, "show must resolve the ack id immediately; got nil for \(id)")
+        XCTAssertEqual(found?.id, id)
+
+        _ = await runTask.value
+    }
+
     func testRunCLIRoutesNoWaitThroughLaunchAndAwaitAcceptance() throws {
         let here = URL(fileURLWithPath: #filePath)
         let packageRoot = here.deletingLastPathComponent()

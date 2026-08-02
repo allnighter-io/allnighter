@@ -8,8 +8,8 @@ import AllnighterCore
 ///
 /// Frame order: immediate snapshot → bounded replay (`replayed: true`) → live
 /// follow (no `replayed` key) → exactly one terminal **or** attention-required
-/// exit. Observer is read-only and disposable; journal gaps are loud on the
-/// stream path and silent on `show --json`.
+/// exit. Observer is read-only and disposable. Derived journal gaps/corruption
+/// degrade (ORS-P0-DEGRADE) — never abort the stream; terminal truth is RunStore.
 final class OneRunSurfaceShowStreamTests: XCTestCase {
 
     // MARK: - Harness
@@ -282,7 +282,132 @@ final class OneRunSurfaceShowStreamTests: XCTestCase {
         XCTAssertEqual(outcome.exitCode, 0)
     }
 
-    // MARK: - Seq gap: loud on stream, silent on show --json
+    // MARK: - ORS-P0-DEGRADE: gaps never abort; terminal from RunStore
+
+    /// Global per-Mac seq makes a single run's journal non-contiguous when
+    /// another run interleaves. That is healthy operation — stream must reach
+    /// terminal, never JOURNAL_CORRUPT.
+    func testInterleavedTwoRunJournalStreamsCleanlyToTerminal() throws {
+        let h = try makeHarness()
+        defer { try? FileManager.default.removeItem(at: h.root) }
+
+        let runA = terminalRun(id: "run-a")
+        let runB = terminalRun(id: "run-b")
+        try h.store.save(runA, models: h.models)
+        try h.store.save(runB, models: h.models)
+
+        // Interleave on the shared Mac-global seq allocator.
+        _ = try h.journal.append(statusEvent(runId: runA.id, to: .running, seq: 0))
+        _ = try h.journal.append(statusEvent(runId: runB.id, to: .running, seq: 0))
+        _ = try h.journal.append(workerEvent(runId: runA.id, to: .running, seq: 0))
+        _ = try h.journal.append(workerEvent(runId: runB.id, to: .done, seq: 0))
+        _ = try h.journal.append(statusEvent(runId: runB.id, to: .complete, seq: 0))
+        _ = try h.journal.append(workerEvent(runId: runA.id, to: .done, seq: 0))
+        _ = try h.journal.append(statusEvent(runId: runA.id, to: .complete, seq: 0))
+
+        let aEvents = try h.journal.events(forRunId: runA.id)
+        let aSeqs = aEvents.map(\.seq)
+        XCTAssertGreaterThanOrEqual(aSeqs.count, 2)
+        // Prove the fixture is gapped (non-contiguous) — the old detector's fuel.
+        let hasGap = zip(aSeqs, aSeqs.dropFirst()).contains { $0.0 + 1 != $0.1 }
+        XCTAssertTrue(hasGap, "fixture must interleave so run-A seqs are non-contiguous: \(aSeqs)")
+
+        let (lines, outcome) = collectStream(run: runA, h: h)
+        let objs = try lines.map(parse)
+        XCTAssertEqual(objs.first?["event"] as? String, "teamRunSnapshot")
+        let snapData = try XCTUnwrap(objs.first?["data"] as? [String: Any])
+        XCTAssertNil(snapData["replayIncomplete"], "gaps alone are not incomplete replay")
+        XCTAssertFalse(
+            objs.contains { ($0["event"] as? String) == "error" },
+            "gapped journal must not emit a terminal-substitute error frame"
+        )
+        let terms = objs.filter {
+            NDJSONStreamProjector.terminalEventNames.contains($0["event"] as? String ?? "")
+        }
+        XCTAssertEqual(terms.count, 1)
+        XCTAssertEqual(objs.last?["event"] as? String, "teamRunCompleted")
+        XCTAssertEqual(outcome.exitCode, 0)
+        XCTAssertNil(outcome.errorCode)
+    }
+
+    /// Reattach over a deliberately gapped single-run journal must still deliver
+    /// exactly one terminal from RunStore (the Cursor host-2 failure mode).
+    func testReattachOverGappedJournalReachesTerminal() throws {
+        let h = try makeHarness()
+        defer { try? FileManager.default.removeItem(at: h.root) }
+
+        let run = terminalRun(id: "gap-reattach")
+        try h.store.save(run, models: h.models)
+
+        let eventsURL = h.journal.eventsURL(forRunId: run.id)
+        try FileManager.default.createDirectory(
+            at: eventsURL.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        let e1 = statusEvent(runId: run.id, to: .running, seq: 1248)
+        let e3 = statusEvent(runId: run.id, to: .complete, seq: 1249) // gap vs contiguous expect
+        // Force a hole: 1248 then 1250 (skip 1249) — mirrors "expected 1248, got 1249" class.
+        let eGap = statusEvent(runId: run.id, to: .complete, seq: 1250)
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        enc.outputFormatting = [.sortedKeys]
+        let line1 = String(decoding: try enc.encode(e1), as: UTF8.self)
+        let lineGap = String(decoding: try enc.encode(eGap), as: UTF8.self)
+        try "\(line1)\n\(lineGap)\n".write(to: eventsURL, atomically: true, encoding: .utf8)
+        _ = e3 // silence unused — hole is 1248→1250
+
+        let first = collectStream(run: run, h: h)
+        let second = collectStream(run: run, h: h)
+        for pass in [first, second] {
+            let objs = try pass.lines.map(parse)
+            XCTAssertFalse(objs.contains { ($0["event"] as? String) == "error" })
+            XCTAssertEqual(objs.last?["event"] as? String, "teamRunCompleted")
+            XCTAssertEqual(pass.outcome.exitCode, 0)
+            XCTAssertNil(pass.outcome.errorCode)
+        }
+    }
+
+    /// Unparseable lines are skipped (not fatal); snapshot may say replayIncomplete once.
+    func testUnparseableJournalLinesSkipAndMarkReplayIncomplete() throws {
+        let h = try makeHarness()
+        defer { try? FileManager.default.removeItem(at: h.root) }
+
+        let run = terminalRun(id: "partial-replay")
+        try h.store.save(run, models: h.models)
+
+        let eventsURL = h.journal.eventsURL(forRunId: run.id)
+        try FileManager.default.createDirectory(
+            at: eventsURL.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
+        let e1 = statusEvent(runId: run.id, to: .running, seq: 1)
+        let e3 = statusEvent(runId: run.id, to: .complete, seq: 3)
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        enc.outputFormatting = [.sortedKeys]
+        let line1 = String(decoding: try enc.encode(e1), as: UTF8.self)
+        let line3 = String(decoding: try enc.encode(e3), as: UTF8.self)
+        try "\(line1)\n{not-json\n\(line3)\n".write(to: eventsURL, atomically: true, encoding: .utf8)
+
+        let (lines, outcome) = collectStream(run: run, h: h)
+        let objs = try lines.map(parse)
+        let snap = try XCTUnwrap(objs.first)
+        XCTAssertEqual(snap["event"] as? String, "teamRunSnapshot")
+        let data = try XCTUnwrap(snap["data"] as? [String: Any])
+        XCTAssertEqual(data["replayIncomplete"] as? Bool, true)
+        // observation remains exactly three keys — no fourth field.
+        let teamRun = try XCTUnwrap(data["teamRun"] as? [String: Any])
+        let obs = try XCTUnwrap(teamRun["observation"] as? [String: Any])
+        XCTAssertEqual(Set(obs.keys), Set(["ownerState", "activityMode", "lastActivityAt"]))
+        XCTAssertFalse(objs.contains { ($0["event"] as? String) == "error" })
+        XCTAssertEqual(objs.last?["event"] as? String, "teamRunCompleted")
+        XCTAssertEqual(outcome.exitCode, 0)
+
+        // show --json still succeeds (rule 8).
+        let prepared = AllnighterCLI.showReadPath(run: run, models: h.models, store: h.store)
+        let trj = mapJSON(prepared.run, h: h)
+        XCTAssertEqual(trj.teamRun.id, run.id)
+    }
+
+    // MARK: - Seq gap: degrade on stream, silent on show --json (ORS-P0-DEGRADE)
 
     func testSeqGapEmitsTypedErrorAndJsonPathStillSucceeds() throws {
         let h = try makeHarness()
@@ -305,25 +430,23 @@ final class OneRunSurfaceShowStreamTests: XCTestCase {
         let line3 = String(decoding: try enc.encode(e3), as: UTF8.self)
         try "\(line1)\n\(line3)\n".write(to: eventsURL, atomically: true, encoding: .utf8)
 
-        // Stream path: typed error frame.
+        // Stream path: degrade — replay readable events, deliver terminal from RunStore.
         let (lines, outcome) = collectStream(run: run, h: h)
         let objs = try lines.map(parse)
-        XCTAssertEqual(objs.first?["event"] as? String, "teamRunSnapshot",
-                       "snapshot still emits before the gap is detected")
-        let err = try XCTUnwrap(objs.last, "must end with error frame")
-        XCTAssertEqual(err["event"] as? String, "error")
-        let errData = try XCTUnwrap(err["data"] as? [String: Any])
-        let error = try XCTUnwrap(errData["error"] as? [String: Any])
-        XCTAssertEqual(error["code"] as? String, "JOURNAL_CORRUPT")
-        XCTAssertEqual(outcome.errorCode, "JOURNAL_CORRUPT")
-        XCTAssertNotEqual(outcome.exitCode, 0)
+        XCTAssertEqual(objs.first?["event"] as? String, "teamRunSnapshot")
+        XCTAssertFalse(
+            objs.contains { ($0["event"] as? String) == "error" },
+            "seq gap must not emit JOURNAL_CORRUPT / error frame"
+        )
+        XCTAssertEqual(objs.last?["event"] as? String, "teamRunCompleted")
+        XCTAssertEqual(outcome.exitCode, 0)
+        XCTAssertNil(outcome.errorCode)
 
-        // JSON path on the SAME corrupt journal: still succeeds (rule 8).
+        // JSON path on the SAME gapped journal: still succeeds (rule 8).
         let prepared = AllnighterCLI.showReadPath(run: run, models: h.models, store: h.store)
         let trj = mapJSON(prepared.run, h: h)
         XCTAssertEqual(trj.teamRun.id, run.id)
         XCTAssertEqual(trj.teamRun.status, .done)
-        // Mapping must not throw / fail closed just because events.jsonl is gapped.
         let json = AllnighterCLI.jsonString(trj)
         XCTAssertTrue(json.contains(run.id))
         XCTAssertFalse(json.isEmpty)

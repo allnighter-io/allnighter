@@ -90,6 +90,28 @@ final class RemoteRunEventJournalTests: XCTestCase {
         XCTAssertEqual(try journal.lastSeq(), 20)
     }
 
+    func testSkipUnparseableLinesAndReportIncomplete() throws {
+        let root = tempRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let journal = RemoteRunEventJournal(rootDirectory: root)
+        let good = try journal.append(Self.event(id: "evt_1", runId: "run_1", now: now))
+        let second = try journal.append(Self.event(id: "evt_2", runId: "run_1", now: now))
+        let url = journal.eventsURL(forRunId: "run_1")
+        let enc = JSONEncoder()
+        enc.dateEncodingStrategy = .iso8601
+        enc.outputFormatting = [.sortedKeys]
+        let line1 = String(decoding: try enc.encode(good), as: UTF8.self)
+        let line2 = String(decoding: try enc.encode(second), as: UTF8.self)
+        try "\(line1)\nNOT_JSON\n\(line2)\n".write(to: url, atomically: true, encoding: .utf8)
+
+        let read = try journal.eventsRead(forRunId: "run_1")
+        XCTAssertEqual(read.events.map(\.id), ["evt_1", "evt_2"])
+        XCTAssertEqual(read.skippedUnparseableLines, 1)
+        XCTAssertTrue(read.isIncomplete)
+        // Legacy API still returns events (never throws on a bad line).
+        XCTAssertEqual(try journal.events(forRunId: "run_1").map(\.id), ["evt_1", "evt_2"])
+    }
+
     private static func event(id: String, seq: Int64 = 0, runId: String, now: Date) -> RunEvent {
         RunEvent(
             id: id,

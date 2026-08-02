@@ -137,7 +137,22 @@ public struct SourceProbeService: Sendable {
         let manifests = registry.all.filter { !parked.contains($0.id) }
         let fresh = await Self.probeRecords(manifests: manifests, labels: labels, full: true)
         // Keep last-known records for parked CLIs; never wipe park intent on detect.
-        var records = previous.records.filter { parked.contains($0.driverId) }
+        // Self-heal parked leftovers whose version disagrees with the just-probed set
+        // (ORS-P0-DEGRADE — mid-session CLI self-update must not leave a stale verdict).
+        var probedVersions: [String: String] = [:]
+        for rec in fresh {
+            if let v = rec.version, !v.isEmpty {
+                probedVersions[rec.driverId] = v
+            } else if case .ready(let v) = rec.status {
+                probedVersions[rec.driverId] = v
+            } else if case .installedNotProbed(let v) = rec.status {
+                probedVersions[rec.driverId] = v
+            }
+        }
+        var records = DispatchReadiness.invalidateStaleVersions(
+            records: previous.records.filter { parked.contains($0.driverId) },
+            currentVersions: probedVersions
+        )
         for rec in fresh {
             DriverProbeRecords.upsert(rec, into: &records)
         }

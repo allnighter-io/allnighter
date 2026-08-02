@@ -174,13 +174,16 @@ final class NDJSONStreamProjectorTests: XCTestCase {
 
         let seqs = (replayObjs + liveObjs).compactMap { $0["seq"] as? Int }
         XCTAssertEqual(seqs, [1, 2, 3, 4], "history + live tail form one contiguous durable seq space")
-        XCTAssertNil(NDJSONStreamProjector.firstSeqGap(seqs))
+        // Contiguity is incidental here — gaps are normal under global seq and
+        // must never abort observation (ORS-P0-DEGRADE).
+        XCTAssertEqual(seqs, seqs.sorted())
     }
 
-    /// A missing event is detectable as a seq gap in the consumer's shared seq
-    /// space (RLR-L7 gap detection).
+    /// A missing event produces a seq hole. That is normal under a global
+    /// per-Mac allocator and must not be treated as a fatal integrity fault.
     func testGapDetectableWhenEventMissing() throws {
-        // Five mapping events; drop the middle one (seq 3) as if it were lost.
+        // Five mapping events; drop the middle one (seq 3) as if another run
+        // consumed that durable seq (the product's concurrent reality).
         let all = [started(seq: 1), workerStarted(seq: 2, "w1"), workerDone(seq: 3, "w1"),
                    workerStarted(seq: 4, "w2"), runTerminal(seq: 5, .complete)]
         let delivered = all.filter { $0.seq != 3 }
@@ -188,11 +191,10 @@ final class NDJSONStreamProjectorTests: XCTestCase {
         let objs = try parseLines(delivered.compactMap { att.liveLine(for: $0) })
         let seqs = objs.compactMap { $0["seq"] as? Int }
         XCTAssertEqual(seqs, [1, 2, 4, 5])
-        let gap = try XCTUnwrap(NDJSONStreamProjector.firstSeqGap(seqs), "a missing event must surface as a gap")
-        XCTAssertEqual(gap.expected, 3)
-        XCTAssertEqual(gap.actual, 4)
-        // A contiguous run has no gap.
-        XCTAssertNil(NDJSONStreamProjector.firstSeqGap([1, 2, 3, 4, 5]))
+        let hasGap = zip(seqs, seqs.dropFirst()).contains { $0.0 + 1 != $0.1 }
+        XCTAssertTrue(hasGap, "fixture must show a consumer-visible hole")
+        // Projector still emits every mapped line — no abort helper remains.
+        XCTAssertEqual(objs.count, 4)
     }
 
     // MARK: - RLR-S03c: previously-dropped activity kinds now project bounded metadata
@@ -374,7 +376,6 @@ final class NDJSONStreamProjectorTests: XCTestCase {
 
         let seqs = objs.compactMap { $0["seq"] as? Int }
         XCTAssertEqual(seqs, seqs.sorted(), "seq stays monotonic across activity + transition lines")
-        XCTAssertNil(NDJSONStreamProjector.firstSeqGap(seqs))
 
         // No raw token text anywhere on the wire.
         for line in lines {

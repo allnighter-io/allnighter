@@ -271,7 +271,7 @@ final class RunServiceTests: XCTestCase {
         XCTAssertTrue(err.description.contains("unknown"))
     }
 
-    func testExplicitWorkerNotReadyFailsWithAgentNotAvailable() async throws {
+    func testExplicitWorkerNotReadyStillDispatchesWhenDriverInstalled() async throws {
         let repo = FileManager.default.temporaryDirectory
             .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
@@ -288,8 +288,18 @@ final class RunServiceTests: XCTestCase {
         let settings = DefaultModelSettings(
             defaultTier: .frontier, allowHealthySubstitutions: true,
             tiers: TierMembership(frontier: ["model_gpt_sol"]))
-        // Only codex is probe-ready; explicit grok is enabled-but-notReady.
-        let probe = ToolProbeRecord(driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast)
+        // Cached negative readiness, but driver is installed (installedNotProbed) —
+        // ORS-P0-DEGRADE: must ATTEMPT, not pre-emptively refuse.
+        let probe = ToolProbeRecord(
+            driverId: "cursor_agent",
+            status: .installedNotProbed(version: "0.2.117"),
+            invocation: .direct(path: "/usr/bin/cursor"),
+            version: "0.2.117",
+            lastProbeAt: .distantPast
+        )
+        let codexReady = ToolProbeRecord(
+            driverId: "codex", status: .ready(version: "1"), lastProbeAt: .distantPast
+        )
         let service = RunService(
             models: [grok, gpt],
             registry: DriverRegistry([
@@ -297,8 +307,48 @@ final class RunServiceTests: XCTestCase {
                 TestSupport.headlessManifest(id: "codex", command: "codex"),
             ]),
             commandRunner: MockCommandRunner(scripts: [
+                "cursor": .init(stdout: "Grok ran despite stale cache.", exitCode: 0),
+                "codex": .init(stdout: "Should not run.", exitCode: 0),
+            ]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe, codexReady] }
+        )
+
+        let result = await service.run(
+            RunRequest(message: "hi", repoRoot: repo.path, pinnedModelId: "model_cursor_grok_45"),
+            origin: .cli
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("stale notReady must not block dispatch; got \(result)")
+        }
+        XCTAssertEqual(run.answers.first?.modelId, "model_cursor_grok_45")
+        XCTAssertEqual(run.executionSourceId, "cursor_agent")
+    }
+
+    func testExplicitWorkerNotInstalledStillHardBlocksWithWorkingRemediation() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-service-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let grok = Model(
+            id: "model_cursor_grok_45", displayName: "Cursor Grok", modelLabel: "grok",
+            driverId: "cursor_agent", role: .both, enabled: true
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .frontier, allowHealthySubstitutions: true,
+            tiers: TierMembership(frontier: ["model_cursor_grok_45"]))
+        let probe = ToolProbeRecord(
+            driverId: "cursor_agent", status: .notInstalled, lastProbeAt: .distantPast
+        )
+        let service = RunService(
+            models: [grok],
+            registry: DriverRegistry([
+                TestSupport.headlessManifest(id: "cursor_agent", command: "cursor"),
+            ]),
+            commandRunner: MockCommandRunner(scripts: [
                 "cursor": .init(stdout: "Should never run.", exitCode: 0),
-                "codex": .init(stdout: "Silent substitute.", exitCode: 0),
             ]),
             writeLock: RunWriteLockRegistry(),
             defaultSettings: { settings },
@@ -310,10 +360,14 @@ final class RunServiceTests: XCTestCase {
             origin: .cli
         )
         guard case .failure(let err) = result else {
-            return XCTFail("expected AGENT_NOT_AVAILABLE, got \(result)")
+            return XCTFail("expected AGENT_NOT_AVAILABLE for notInstalled, got \(result)")
         }
         XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
-        XCTAssertTrue(err.description.contains("notReady"))
+        XCTAssertTrue(err.description.contains("not installed"))
+        XCTAssertTrue(
+            DispatchReadiness.blockedReasonNamesWorkingRemediation(err.description),
+            "hard-block reason must name a working remediation command; got \(err.description)"
+        )
     }
 
     func testExplicitWorkerEnabledAndReadyIsHonored() async throws {

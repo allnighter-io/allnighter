@@ -403,6 +403,28 @@ final class OneRunSurfaceEventJournalTests: XCTestCase {
             return false
         })
 
+        // ORS-P0-DEGRADE FIX 2: a run with recorded worker.tool MUST project a
+        // non-null ISO8601 lastActivityAt — asserted via the real record path,
+        // not a hand-set field.
+        let reloaded = try XCTUnwrap(runStore.load(runId: runId) ?? runStore.loadRaw(runId: runId))
+        let activityAt = try XCTUnwrap(
+            reloaded.lastActivityAt,
+            "worker.tool was recorded but lastActivityAt stayed nil — terminal save wiped the clock"
+        )
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime]
+        XCTAssertNotNil(iso.string(from: activityAt))
+        // Compare at the CONTRACT's precision, not raw Date identity. `run.json`
+        // persists this clock as ISO8601 seconds, so an in-memory Date and its
+        // reloaded twin differ by sub-second fractions by design. Asserting raw
+        // Date equality would demand more than the contract promises; asserting
+        // the ISO8601 form is the guarantee agents actually consume.
+        XCTAssertEqual(
+            run.lastActivityAt.map(iso.string(from:)),
+            reloaded.lastActivityAt.map(iso.string(from:)),
+            "settled and reloaded lastActivityAt must agree at ISO8601 second precision"
+        )
+
         // Transcript kinds still banned from durable journal.
         let banned: Set<String> = [
             RunEventKind.workerAnswerDelta,
