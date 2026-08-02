@@ -3,13 +3,19 @@ import PackagePlugin
 
 /// Embeds build identity (`gitSha` / `buildTime`) into AllnighterCore.
 ///
-/// Uses a **buildCommand** (not prebuildCommand) whose inputs include the git
-/// HEAD/ref files and every Core Swift source. SwiftPM's prebuild phase does
-/// **not** re-run on incremental builds in practice — so a stale
-/// `BuildInfo.generated.swift` was being linked while other sources recompiled,
-/// and `alln version` reported an old gitSha even though contract/binary
-/// constants matched HEAD. Declared inputs force regeneration whenever the
-/// tree the binary is built from moves.
+/// Why two commands:
+/// - **prebuildCommand** — required for Xcode. The Mac target builds AllnighterCore
+///   through Xcode's package bridge; a lone `.buildCommand` is applied (outputs
+///   land in the Swift file list) but the custom task is never scheduled, which
+///   yields "Build input file cannot be found: …/BuildInfo.generated.swift".
+/// - **buildCommand** — required for SwiftPM incremental freshness. Declared
+///   inputs include git HEAD/ref files so a commit/checkout re-runs generation
+///   even when no package source mtimes moved. Xcode may ignore this task; the
+///   prebuild already materialised the file, so compile still succeeds.
+///
+/// Belt-and-braces: `scripts/rebuild_cli.sh` deletes the cached generated file,
+/// and `VersionIdentityTests.testBuildInfoGitShaMatchesWorkspaceHEAD` fails the
+/// suite if a stale SHA is still linked.
 @main
 struct BuildInfoPlugin: BuildToolPlugin {
     func createBuildCommands(context: PluginContext, target: Target) throws -> [Command] {
@@ -25,22 +31,25 @@ struct BuildInfoPlugin: BuildToolPlugin {
 
         // Packages/AllnighterCore → repo root
         let repoRoot = packageDir.deletingLastPathComponent().deletingLastPathComponent()
+        var buildInputs: [URL] = [script]
+        buildInputs.append(contentsOf: gitDependencyPaths(repoRoot: repoRoot))
 
-        var inputs: [URL] = [script]
-        inputs.append(contentsOf: gitDependencyPaths(repoRoot: repoRoot))
-        inputs.append(contentsOf: coreSwiftSources(packageDir: packageDir))
+        let args = [packageDir.path, outputDir.path]
 
         return [
-            .buildCommand(
-                displayName: "Generating alln build identity",
+            .prebuildCommand(
+                displayName: "Generating alln build identity (prebuild)",
                 executable: script,
-                arguments: [
-                    packageDir.path,
-                    outputDir.path,
-                ],
-                inputFiles: inputs,
+                arguments: args,
+                outputFilesDirectory: outputDir
+            ),
+            .buildCommand(
+                displayName: "Refreshing alln build identity",
+                executable: script,
+                arguments: args,
+                inputFiles: buildInputs,
                 outputFiles: [outputFile]
-            )
+            ),
         ]
     }
 
@@ -75,24 +84,6 @@ struct BuildInfoPlugin: BuildToolPlugin {
         let packed = gitDir.appendingPathComponent("packed-refs")
         if fm.fileExists(atPath: packed.path) {
             paths.append(packed)
-        }
-        return paths
-    }
-
-    /// Any Core source edit must refresh identity (and buildTime) so an
-    /// incremental rebuild cannot keep a stale generated file.
-    private func coreSwiftSources(packageDir: URL) -> [URL] {
-        let root = packageDir
-            .appendingPathComponent("Sources")
-            .appendingPathComponent("AllnighterCore")
-        guard let enumerator = FileManager.default.enumerator(
-            at: root,
-            includingPropertiesForKeys: nil
-        ) else { return [] }
-
-        var paths: [URL] = []
-        for case let url as URL in enumerator where url.pathExtension == "swift" {
-            paths.append(url)
         }
         return paths
     }
