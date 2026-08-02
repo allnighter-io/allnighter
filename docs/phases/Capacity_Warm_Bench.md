@@ -4,7 +4,7 @@ Status: **OPEN — founder priority (2026-08-02). Current path is a no-go.**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac (strip UX) +
 AllnighterCLI (`alln capacity`, menu/bootstrap injection)
 Created: 2026-08-02
-Updated: 2026-08-02 (adversarial review + S00a spike gate)
+Updated: 2026-08-02 (adversarial review; S00a already shipped — Phase 1 regressed wiring)
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 (`refresh: false` default, disk-as-primary, cold PTY per request).
 
@@ -20,8 +20,8 @@ Phases are ephemeral. At closeout: promote product law into help / teaching /
 
 ## Adversarial review (Grok 4.5, 2026-08-02)
 
-**Lead call: Partial** — S00 honesty direction is correct; **do not code S00b
-until CWB-S00a spike is green** and paint matrix is locked below.
+**Lead call: Partial** — S00 honesty direction is correct; **start CWB-S00** (re-wire
+existing Codex/Grok PTY — do not re-spike).
 
 ### Accepted from review
 
@@ -30,7 +30,7 @@ until CWB-S00a spike is green** and paint matrix is locked below.
 | QABC collision | **Founder ruling:** plan-time OFF until trusted resident cache (S02+). Update QABC status note + AGENTS at S00 closeout. |
 | Paint laws contradicted each other | **Paint matrix** below — single source per surface |
 | CLI contract vs live code | **Cutover table** — bare becomes live; delete `--cached`/`--no-refresh` in S00 |
-| Codex/Grok PTY unproven | **CWB-S00a spike** gates disk delete |
+| Codex/Grok PTY unproven | **Already shipped** `ac65bddf` — parsers + founder fixtures; Phase 1 recovery regressed wiring back to disk |
 | `CapacityFetch` package unclear | Lives in **AllnighterEngine**; replaces `CapacityDisplayAcquisition` acquire path; Core keeps parsers/renderer |
 | S01+ vapor in S00 packet | Moved to **Appendix: later speed** |
 | Proof holes | Hardened ship gate + dogfood row |
@@ -56,7 +56,7 @@ until CWB-S00a spike is green** and paint matrix is locked below.
 | All six seats | **PTY only** — live probe or unknown |
 | Codex/Grok disk | **Deleted** from capacity acquire — not primary, not fallback |
 | Live or absent | Successful live PTY sample, or unknown — never stale % |
-| **CWB-S00a before S00b** | Codex + Grok cold PTY spike must pass before disk path delete |
+| **Codex/Grok PTY** | **Already built** (`ac65bddf`); S00 **re-wires** six-seat probe + deletes disk regression from Phase 1 |
 | **Dumb routing** | `alln menu` / `alln bootstrap` **omit** `capacity` key entirely |
 | Runtime capacity | **Unchanged** — `CapacityObservation` on vendor failure |
 | Plan-time capacity | **OFF** until S02+ resident cache (retires QABC-S00d temporarily) |
@@ -109,37 +109,42 @@ No cross-surface exceptions. **History store and disk logs never paint as live.*
 
 ## CWB-S00 — honesty cut (ship first)
 
-### S00a — Spike gate (do first, no product ship)
+### Already shipped: Codex + Grok cold PTY (do not re-spike)
 
-Prove Codex and Grok return parseable quota via **cold PTY** before deleting disk.
+Founder dogfood and parsers landed **2026-07-31** in `ac65bddf`:
 
-| Item | Proof |
+| Asset | Location |
 | --- | --- |
-| `codex` cold PTY `/status` or `/usage` | Founder Mac dogfood + fixture capture committed |
-| `grok` cold PTY | Same |
-| Failure mode documented | If spike fails → seat stays **unknown** forever in S00; disk stays deleted |
+| Codex `/status` parser | `CodexCapacityProbe.swift` |
+| Grok `/usage` parser | `GrokCapacityProbe.swift` |
+| Founder fixtures | `CodexCapacityProbeTests`, `GrokCapacityProbeTests` (2026-07-31 captures) |
+| PTY spawn plumbing | `CapacityProbe.parse()` switch, `/status` for codex, usage markers |
 
-**Works Test:** `scripts/swift-test.sh --filter CodexCapacityProbe` (or new
-integration test with recorded fixture from live capture).
+**Regression:** Phase 1 recovery (`1d8e8c0b`) demoted codex/grok back to
+`diskOnlySources` and removed them from `probeableSources`. Parsers and spawn
+logic remain; **acquire routing** is what broke. S00 is a **re-wire**, not a spike.
 
-**Exit:** spike green → proceed S00b. Spike red → doc records "Codex/Grok
-unknown until vendor PTY works" — still no disk fallback.
+**Current lie (live code):**
+- `CapacityProbe.probeableSources` = 4 seats (no codex/grok)
+- `CapacityAcquisition.acquireCodex` / `acquireGrok` read disk logs
+- Tests assert disk-only invariant (`testOnePathInvariantDiskSourcesAreNeverProbeable`)
 
-### S00b — Implementation (after S00a green)
+### S00 — Implementation (re-wire + kill lies)
 
 | Piece | Responsibility |
 | --- | --- |
+| **Re-wire six-seat PTY** | Restore codex + grok to `probeableSources`, `commandCandidates`, `ptyOnlySources` |
 | **`CapacityFetch`** (Engine) | `warmPool: nil`; cold `CapacityProbe` all six; process-local memo optional for Mac only; 30 min gate on memo |
-| **Kill disk acquire** | Remove Codex/Grok from `CapacityAcquisition` display path |
+| **Kill disk acquire** | Delete `acquireCodex` / `acquireGrok` disk paths from display acquire |
 | **Kill hydrate / `refresh:false`** | No history-as-live; bare CLI = live |
 | **CLI cutover** | See table below |
 | **Dumb routing** | `menuCapacity()` → `nil`; omit key from `MenuCLI`, `runBootstrap` |
 | **Mac strip** | Loud Refresh; banner *"Tap Refresh for live capacity"*; off-main |
 | **Teaching / help** | Update `TeachingSnippet`, `HelpTopicRegistry`, `ContractRegistry` capacity flags |
 
-### CLI cutover (S00b)
+### CLI cutover (S00)
 
-| Today (live code) | After S00b |
+| Today (live code) | After S00 |
 | --- | --- |
 | Bare `alln capacity` = `refresh: false` (instant, stale) | Bare = **live PTY all six** (~5s) |
 | `--refresh` = live probe | **Removed** or alias of bare (same behavior) |
@@ -153,12 +158,13 @@ alln capacity --json          # same
 alln capacity --source codex  # live PTY, one seat
 ```
 
-### What we delete (S00b)
+### What we delete (S00)
 
 - `refresh: false` as default for `alln capacity`
 - `--cached` / `--no-refresh` flags
 - History hydrate as live display
-- Codex/Grok disk acquire for capacity
+- Codex/Grok disk acquire for capacity (`acquireCodex`, `acquireGrok`, `diskOnlySources`)
+- Phase 1 "one path = disk for codex/grok" invariant tests
 - Plan-time `menuCapacity()` injection
 - `CapacityDisplayAcquisition` as acquire owner (fold into `CapacityFetch`)
 
@@ -182,7 +188,7 @@ runtime `CapacityObservation` path, TeachingSnippet verbatim table rule.
 | Scenario | Behavior |
 | --- | --- |
 | PTY succeeds but parser fails | Unknown + `parserFailed` — never disk |
-| Codex/Grok PTY never shows quota (S00a fail) | Permanent unknown for that seat — still no disk |
+| Codex/Grok PTY parse fails at runtime | Unknown + `parserFailed` — still no disk (fixtures already green) |
 | Parallel six cold PTYs slow / timeout | Per-seat unknown; stderr progress; exit 0 |
 | Sandbox / Keychain blocks child | `spawnFailed` / unknown; doctor surfaces auth |
 | Mac Refresh while prior fetch in flight | Cancel prior task; latest wins |
@@ -196,14 +202,19 @@ runtime `CapacityObservation` path, TeachingSnippet verbatim table rule.
 
 | Slice | Scope | Ship gate | Est. |
 | --- | --- | --- | --- |
-| **CWB-S00a** | Codex/Grok cold PTY spike; fixtures | Dogfood + test green | 1–2d |
-| **CWB-S00b** | `CapacityFetch`, disk/hydrate kill, CLI cutover, dumb routing, Mac strip | All S00b criteria below | 4–6d |
+| **CWB-S00** | Re-wire six PTY (restore codex/grok), `CapacityFetch`, disk/hydrate kill, CLI cutover, dumb routing, Mac strip | All S00 criteria below | 4–6d |
 
-**Do not start S00b until S00a exits.** Warm pool (appendix) blocked on S00b green.
+Warm pool (appendix) blocked on S00 green.
 
 ---
 
-## S00b ship gate (must all pass)
+## S00 ship gate (must all pass)
+
+**PTY re-wire (already parsed — must route)**
+- [ ] `codex` + `grok` in `CapacityProbe.probeableSources`
+- [ ] `scripts/swift-test.sh --filter CodexCapacityProbe` green
+- [ ] `scripts/swift-test.sh --filter GrokCapacityProbe` green
+- [ ] `testOnePathInvariantDiskSourcesAreNeverProbeable` inverted — disk sources empty
 
 **Acquire honesty**
 - [ ] `alln capacity` never reads Codex/Grok disk (`rg` + integration test)
@@ -230,7 +241,7 @@ runtime `CapacityObservation` path, TeachingSnippet verbatim table rule.
 - [ ] Founder runs `alln capacity` — six rows match terminal `/usage` or honest unknown
 - [ ] Founder Refresh in Mac app — same numbers as CLI within one session
 
-**Closeout docs (S00b)**
+**Closeout docs (S00)**
 - [ ] QABC doc note: plan-time injection suspended pending resident cache
 - [ ] AGENTS.md row updated
 - [ ] `Product_Vocabulary.md` capacity ladder amended (disk tier retired for display)
@@ -253,7 +264,7 @@ Code SSOT: `CapacityFetch.swift`, `CapacityProbe.swift`, `AllnighterCLI.runCapac
 
 ## Appendix: later speed (S01+ — not S00 scope)
 
-**Do not implement until S00b is green.** Aspirational only; details TBD after
+**Do not implement until S00 is green.** Aspirational only; details TBD after
 honesty cut ships.
 
 | Piece | Intent |
