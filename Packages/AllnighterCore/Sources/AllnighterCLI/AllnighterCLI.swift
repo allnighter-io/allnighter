@@ -1733,12 +1733,14 @@ struct AllnighterCLI {
             context: context
         )
         if opts.flag("stream") {
-            // ORS-S02b1: reattach READ surface — snapshot + bounded replay + one
-            // terminal when already settled. Live follow is ORS-S02b2.
+            // ORS-S02b2: reattach READ surface — snapshot + bounded replay + live
+            // follow + one terminal or attention-required boundary. Disposable observer.
             let outcome = runShowStream(
                 run: run,
                 teamRunJSON: trj,
-                store: RunStore()
+                store: RunStore(),
+                models: runtime.models,
+                manifests: runtime.registry.all
             )
             if outcome.exitCode != 0 {
                 if let code = outcome.errorCode {
@@ -1771,22 +1773,50 @@ struct AllnighterCLI {
         }
     }
 
-    /// ORS-S02b1: `alln show <id> --stream` for the no-live-follow case —
-    /// immediate snapshot, bounded replay, exactly one terminal when already
-    /// settled, then exit with the run's terminal exit class.
+    /// ORS-S02b2 test/production hooks for the live-follow loop.
+    ///
+    /// Production uses real wall time + sleep. Tests inject a fake clock, a
+    /// short budget, and cooperative cancel so observer death is proven without
+    /// hanging the suite. Cancelling the observer must never signal or settle
+    /// the run (disposable observer).
+    struct ShowStreamFollowControl {
+        var now: () -> Date = { Date() }
+        /// Sleep between journal polls. Production: `Thread.sleep`. Tests: no-op
+        /// or clock advance only.
+        var sleep: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
+        /// Cooperative cancel for the disposable observer (never propagates to the run).
+        var isCancelled: () -> Bool = { false }
+        /// Override derived observer budget (seconds). `nil` → derive from run wall / 7200.
+        var observerBudgetSeconds: TimeInterval? = nil
+        /// Journal poll cadence (seconds).
+        var pollIntervalSeconds: TimeInterval = 0.25
+        /// Invoked once per follow poll (tests append events / settle mid-follow).
+        var onPoll: (() -> Void)? = nil
+
+        static let production = ShowStreamFollowControl()
+    }
+
+    /// ORS-S02b2: `alln show <id> --stream` — immediate snapshot, bounded replay,
+    /// live follow of new durable events, exactly one terminal frame **or** a
+    /// bounded attention-required exit. Exit class for terminal is the run's
+    /// terminal class (unconditional).
     ///
     /// Read-only and disposable: never signals, kills, settles, or writes run
     /// state; never passes `recoverTerminalLiveOwnership: true` (caller must use
-    /// `showReadPath` / plain `reconcileRun` first).
+    /// `showReadPath` / plain `reconcileRun` first). Cancelling the observer task
+    /// only stops following — the run is untouched.
     ///
-    /// Injected `writeLine` keeps framing unit-testable without a process pipe.
+    /// Injected `writeLine` / `follow` keep framing unit-testable without a process pipe.
     @discardableResult
     static func runShowStream(
         run: TeamRun,
         teamRunJSON: TeamRunJSON,
         store: RunStore = RunStore(),
+        models: [Model] = [],
+        manifests: [DriverManifest] = [],
         journal: RemoteRunEventJournal? = nil,
-        writeLine: (String) -> Void = { print($0) }
+        writeLine: @escaping (String) -> Void = { print($0) },
+        follow: ShowStreamFollowControl = .production
     ) -> RunCLI.StreamOutcome {
         let journal = journal ?? RemoteRunEventJournal(rootDirectory: store.rootDirectory)
 
@@ -1847,34 +1877,314 @@ struct AllnighterCLI {
         // (c) Already terminal → exactly ONE terminal frame, then exit with the
         // run's terminal exit class (unconditional; no --exit-status opt-in).
         if run.status.isTerminal {
-            let terminalSeq: Int = {
-                // Prefer the durable terminal event's seq when present so reattach
-                // stays in the one seq space; else continue past the last replayed.
-                let mapper = NDJSONStreamProjector.LiveMapper()
-                if let lastTerm = history.last(where: {
-                    guard let m = mapper.event(for: $0) else { return false }
-                    return NDJSONStreamProjector.terminalEventNames.contains(m.event)
-                }) {
-                    return Int(lastTerm.seq)
-                }
-                return (historySeqs.last ?? 0) + 1
-            }()
-            writeLine(NDJSONStreamProjector.terminalDeliveryLine(
-                teamRunId: run.id,
-                teamRun: teamRunJSON,
-                seq: terminalSeq
-            ))
-            // Reuse run --stream / ExitCode mapping axis via exitCode(for:).
-            return RunCLI.StreamOutcome(
-                exitCode: Int(RunCLI.exitCode(for: run)),
-                errorCode: nil,
-                message: nil
+            return emitTerminalDelivery(
+                run: run,
+                teamRunJSON: teamRunJSON,
+                history: history,
+                historySeqs: historySeqs,
+                writeLine: writeLine
             )
         }
 
-        // Non-terminal, no live follow in this order (ORS-S02b2): snapshot +
-        // replay only, exit 0. Do not emit a showRun nextAction.
+        // (d) Live follow until terminal, attention-required, observer budget
+        // (terminalOnly only), or observer cancel. Disposable: no run writes.
+        return followLive(
+            initialRun: run,
+            initialJSON: teamRunJSON,
+            store: store,
+            models: models,
+            manifests: manifests,
+            journal: journal,
+            afterSeq: Int64(historySeqs.last ?? 0),
+            attachment: attachment,
+            writeLine: writeLine,
+            follow: follow
+        )
+    }
+
+    // MARK: - show --stream live follow (ORS-S02b2)
+
+    private static func emitTerminalDelivery(
+        run: TeamRun,
+        teamRunJSON: TeamRunJSON,
+        history: [RunEvent],
+        historySeqs: [Int],
+        writeLine: (String) -> Void
+    ) -> RunCLI.StreamOutcome {
+        let terminalSeq: Int = {
+            let mapper = NDJSONStreamProjector.LiveMapper()
+            if let lastTerm = history.last(where: {
+                guard let m = mapper.event(for: $0) else { return false }
+                return NDJSONStreamProjector.terminalEventNames.contains(m.event)
+            }) {
+                return Int(lastTerm.seq)
+            }
+            return (historySeqs.last ?? 0) + 1
+        }()
+        writeLine(NDJSONStreamProjector.terminalDeliveryLine(
+            teamRunId: run.id,
+            teamRun: teamRunJSON,
+            seq: terminalSeq
+        ))
+        return RunCLI.StreamOutcome(
+            exitCode: Int(RunCLI.exitCode(for: run)),
+            errorCode: nil,
+            message: nil
+        )
+    }
+
+    private static func followLive(
+        initialRun: TeamRun,
+        initialJSON: TeamRunJSON,
+        store: RunStore,
+        models: [Model],
+        manifests: [DriverManifest],
+        journal: RemoteRunEventJournal,
+        afterSeq: Int64,
+        attachment: NDJSONStreamProjector.NDJSONAttachment,
+        writeLine: @escaping (String) -> Void,
+        follow: ShowStreamFollowControl
+    ) -> RunCLI.StreamOutcome {
+        var lastSeq = afterSeq
+        var currentJSON = initialJSON
+        let activityMode = initialJSON.observation.activityMode
+        let applyObserverBudget = activityMode == .terminalOnly || activityMode == .unknown
+        let budgetSeconds = follow.observerBudgetSeconds
+            ?? NDJSONStreamProjector.streamObserverBudgetSeconds(for: initialRun)
+        let followStartedAt = follow.now()
+        let pollInterval = max(0.01, follow.pollIntervalSeconds)
+
+        // Immediate attention check (attach while already blocked) — exit promptly.
+        if let outcome = attentionExitIfNeeded(
+            run: initialRun,
+            teamRunJSON: currentJSON,
+            lastSeq: lastSeq,
+            writeLine: writeLine
+        ) {
+            return outcome
+        }
+
+        while true {
+            if follow.isCancelled() {
+                // Disposable observer: cancel stops following only. No signal, no
+                // settle, no run write, no terminal fabrication.
+                return .success
+            }
+
+            follow.onPoll?()
+
+            // Fresh run truth from store (read-only; never recoverTerminalLiveOwnership).
+            let loaded = store.load(runId: initialRun.id) ?? initialRun
+            if loaded.status.isTerminal {
+                let prepared = showReadPath(run: loaded, models: models, store: store)
+                currentJSON = mapShowStreamJSON(
+                    run: prepared.run,
+                    ownerState: prepared.ownerState,
+                    models: models,
+                    manifests: manifests,
+                    store: store
+                )
+                // Drain any remaining non-terminal journal lines first (ascending seq).
+                if let drained = try? journal.events(forRunId: initialRun.id, after: lastSeq) {
+                    for event in drained {
+                        if let line = attachment.liveLine(for: event) {
+                            writeLine(line)
+                        }
+                        lastSeq = max(lastSeq, event.seq)
+                    }
+                }
+                let termHistory = (try? journal.events(forRunId: initialRun.id)) ?? []
+                return emitTerminalDelivery(
+                    run: prepared.run,
+                    teamRunJSON: currentJSON,
+                    history: termHistory,
+                    historySeqs: termHistory.map { Int($0.seq) },
+                    writeLine: writeLine
+                )
+            }
+
+            if let outcome = attentionExitIfNeeded(
+                run: loaded,
+                teamRunJSON: {
+                    let prepared = showReadPath(run: loaded, models: models, store: store)
+                    currentJSON = mapShowStreamJSON(
+                        run: prepared.run,
+                        ownerState: prepared.ownerState,
+                        models: models,
+                        manifests: manifests,
+                        store: store
+                    )
+                    return currentJSON
+                }(),
+                lastSeq: lastSeq,
+                writeLine: writeLine
+            ) {
+                return outcome
+            }
+
+            // Live durable events after the replay window (no `replayed` key).
+            let fresh: [RunEvent]
+            do {
+                fresh = try journal.events(forRunId: initialRun.id, after: lastSeq)
+            } catch {
+                let code = "JOURNAL_CORRUPT"
+                writeLine(NDJSONStreamProjector.streamErrorLine(
+                    teamRunId: initialRun.id, code: code,
+                    message: "corrupt event journal: \(error)",
+                    seq: Int(lastSeq) + 1
+                ))
+                return RunCLI.StreamOutcome(
+                    exitCode: Int(ContractRegistry.milestone1.processExitCode(forErrorCode: code)),
+                    errorCode: code,
+                    message: "corrupt event journal: \(error)"
+                )
+            }
+            for event in fresh {
+                if follow.isCancelled() { return .success }
+                if let line = attachment.liveLine(for: event) {
+                    writeLine(line)
+                }
+                lastSeq = max(lastSeq, event.seq)
+            }
+
+            // terminalOnly / unknown: finite observer budget. Incremental: never.
+            if applyObserverBudget {
+                let elapsed = follow.now().timeIntervalSince(followStartedAt)
+                if elapsed >= budgetSeconds {
+                    return emitObserverBudgetAttention(
+                        run: loaded,
+                        teamRunJSON: currentJSON,
+                        lastSeq: lastSeq,
+                        writeLine: writeLine
+                    )
+                }
+            }
+
+            follow.sleep(pollInterval)
+        }
+    }
+
+    /// Map a reloaded run for stream frames without process-probing in the mapper.
+    private static func mapShowStreamJSON(
+        run: TeamRun,
+        ownerState: TeamRunJSON.Observation.OwnerState,
+        models: [Model],
+        manifests: [DriverManifest],
+        store: RunStore
+    ) -> TeamRunJSON {
+        let runDir = try? store.runDirectory(forRunId: run.id)
+        let path = runDir?.appendingPathComponent("run.json").path ?? ""
+        let pmTurn = pmTurnProjection(for: run, store: store)
+        let context = TeamRunJSONMapper.Context(
+            runJournalPath: path,
+            reproduceCommand: "alln show \(run.id)",
+            runDirectory: runDir,
+            pmTurn: pmTurn.pmTurn,
+            pmTurnNotes: pmTurn.notes,
+            ownerState: ownerState
+        )
+        return TeamRunJSONMapper.map(
+            run, models: models, manifests: manifests, context: context
+        )
+    }
+
+    /// Sourced blocker or vendor wait → attention frame + non-showRun recovery.
+    private static func attentionExitIfNeeded(
+        run: TeamRun,
+        teamRunJSON: TeamRunJSON,
+        lastSeq: Int64,
+        writeLine: (String) -> Void
+    ) -> RunCLI.StreamOutcome? {
+        guard let cause = attentionCause(for: run) else { return nil }
+        let next = recoveryNextAction(for: cause, runId: run.id)
+        let message: String
+        switch cause {
+        case .sourcedBlocker:
+            message = "run is waiting on a sourced blocker; stream ends at attention-required boundary"
+        case .vendorWait:
+            message = "run is waiting on vendor capacity; stream ends at attention-required boundary"
+        case .observerBudget:
+            // unreachable here — budget has its own emitter
+            message = "observer budget expired"
+        }
+        writeLine(NDJSONStreamProjector.attentionRequiredLine(
+            teamRunId: run.id,
+            teamRun: teamRunJSON,
+            reason: cause,
+            message: message,
+            seq: Int(lastSeq) + 1,
+            silenceExpected: false,
+            nextAction: next
+        ))
         return .success
+    }
+
+    private static func emitObserverBudgetAttention(
+        run: TeamRun,
+        teamRunJSON: TeamRunJSON,
+        lastSeq: Int64,
+        writeLine: (String) -> Void
+    ) -> RunCLI.StreamOutcome {
+        // SPEC TENSION (ORS-S02b2): the only honest recovery for "observe again"
+        // would be showRun / re-stream — a circular nextAction banned by the
+        // packet. Emit NO nextAction pending founder ruling. Silence is expected
+        // on terminalOnly; never fabricated as stuck/stalled/no-progress.
+        let message =
+            "observer budget expired on terminalOnly driver; silence is expected until settlement"
+        writeLine(NDJSONStreamProjector.attentionRequiredLine(
+            teamRunId: run.id,
+            teamRun: teamRunJSON,
+            reason: .observerBudget,
+            message: message,
+            seq: Int(lastSeq) + 1,
+            silenceExpected: true,
+            nextAction: nil
+        ))
+        return .success
+    }
+
+    private static func attentionCause(for run: TeamRun) -> NDJSONStreamProjector.AttentionReason? {
+        if let blocker = run.blocker {
+            switch blocker.resource {
+            case .vendorBackoff:
+                return .vendorWait
+            case .repoWriteLock, .teamGovernor, .driverCapacity:
+                return .sourcedBlocker
+            }
+        }
+        if run.phase == .waitingForVendor {
+            return .vendorWait
+        }
+        if run.phase == .waitingForWriteLock {
+            return .sourcedBlocker
+        }
+        return nil
+    }
+
+    /// Recovery nextAction per attention cause. Never `showRun`.
+    private static func recoveryNextAction(
+        for cause: NDJSONStreamProjector.AttentionReason,
+        runId: String
+    ) -> TeamRunJSON.NextAction? {
+        switch cause {
+        case .sourcedBlocker:
+            // Holder / FIFO ticket surface (same command as inspectBlocker catalog).
+            return TeamRunJSON.NextAction(
+                kind: .inspectBlocker,
+                command: "alln ps --json",
+                label: "Inspect write-lock holder / sourced blocker"
+            )
+        case .vendorWait:
+            // Capacity / driver surface — not a stream reattach.
+            return TeamRunJSON.NextAction(
+                kind: .inspectBlocker,
+                command: "alln capacity --json",
+                label: "Inspect vendor capacity / driver wait"
+            )
+        case .observerBudget:
+            // No honest non-circular recovery — omit nextAction (spec tension).
+            return nil
+        }
     }
 
     /// `alln spec [<run-id>|latest] [--detail summary|full|artifactRefsOnly] [--json]`

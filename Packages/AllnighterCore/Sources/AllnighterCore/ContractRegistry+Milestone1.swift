@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "7.5.0"
+    static let contractVersion = "7.6.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -1326,6 +1326,8 @@ public extension ContractRegistry {
         EventSpec("stageActivity", requiredData: ["stageId", "activityKind"]),
         // ORS-S02b1: immediate snapshot frame on `show --stream` (before replay).
         EventSpec("teamRunSnapshot", requiredData: ["teamRun"]),
+        // ORS-S02b2: attention-required observer boundary (not a run terminal).
+        EventSpec("attentionRequired", requiredData: ["reason", "activityMode", "message"]),
         EventSpec("teamRunCompleted", requiredData: ["status", "planStageId", "durationMs"]),
         EventSpec("teamRunFailed", requiredData: ["status", "error"]),
         EventSpec("error", requiredData: ["error"]),

@@ -141,7 +141,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // pilot*` retire behind one `alln loop` verb; `PMMode` wire enum deleted).
         // QABC-S00e bumps contract 7.0.0 → 7.1.0 (additive: optional `MenuJSON.capacity`).
         // ORS-S02b1 bumps contract 7.4.0 → 7.5.0 (additive: show --stream + inspectBlocker).
-        XCTAssertEqual(trj.contractVersion, "7.5.0")
+        // ORS-S02b2 bumps contract 7.5.0 → 7.6.0 (additive: attentionRequired + live follow).
+        XCTAssertEqual(trj.contractVersion, "7.6.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"

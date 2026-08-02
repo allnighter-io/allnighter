@@ -100,8 +100,13 @@ public enum CommandProjection {
            `TeamRunJSON` and `pmTurn`, then exit.
 
         A stream ends at terminal **or** at an **attention-required** boundary (sourced
-        blocker, vendor wait, or observer budget on a terminalOnly driver). Recovery
-        nextAction is never `showRun` (self-referential poll loop).
+        blocker, vendor wait, or observer budget on a terminalOnly driver). It never
+        blocks forever. On `terminalOnly`, the observer budget is the run's wall-clock
+        fact when present, else 7200s (replacing the deleted waiter timeout); on
+        `incremental`, follow until terminal or a sourced attention cause — no
+        wall-clock budget on healthy long work. Recovery nextAction is never `showRun`
+        (self-referential poll loop). Observer is disposable: killing `show --stream`
+        leaves the run untouched.
 
         **Terminal exit class propagates unconditionally** — no `--exit-status` opt-in.
         Agents chain with `;`, not `&&`.

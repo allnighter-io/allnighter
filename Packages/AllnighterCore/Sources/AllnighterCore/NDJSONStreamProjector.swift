@@ -86,6 +86,19 @@ public enum NDJSONStreamProjector {
         public var teamRun: TeamRunJSON?
         /// ORS-S02b1: terminal `pmTurn` mirror (also nested on `teamRun.pmTurn`).
         public var pmTurn: PMTurnJSON?
+        /// ORS-S02b2: attention-required exit reason
+        /// (`sourcedBlocker` | `vendorWait` | `observerBudget`).
+        public var reason: String?
+        /// ORS-S02b2: human-readable attention note. Never labels silence as
+        /// stuck/stalled/no-progress — expected silence is named expected.
+        public var message: String?
+        /// ORS-S02b2: pass-through of `observation.activityMode` on attention frames.
+        public var activityMode: String?
+        /// ORS-S02b2: true when silence is expected (`terminalOnly` + observer budget).
+        public var silenceExpected: Bool?
+        /// ORS-S02b2: one recovery nextAction on attention exit (never `showRun`).
+        /// Omitted when no honest non-circular recovery exists (observer-budget case).
+        public var nextAction: TeamRunJSON.NextAction?
 
         public init(
             status: String? = nil,
@@ -102,7 +115,12 @@ public enum NDJSONStreamProjector {
             byteCount: Int? = nil,
             charCount: Int? = nil,
             teamRun: TeamRunJSON? = nil,
-            pmTurn: PMTurnJSON? = nil
+            pmTurn: PMTurnJSON? = nil,
+            reason: String? = nil,
+            message: String? = nil,
+            activityMode: String? = nil,
+            silenceExpected: Bool? = nil,
+            nextAction: TeamRunJSON.NextAction? = nil
         ) {
             self.status = status
             self.origin = origin
@@ -119,12 +137,18 @@ public enum NDJSONStreamProjector {
             self.charCount = charCount
             self.teamRun = teamRun
             self.pmTurn = pmTurn
+            self.reason = reason
+            self.message = message
+            self.activityMode = activityMode
+            self.silenceExpected = silenceExpected
+            self.nextAction = nextAction
         }
 
         private enum CodingKeys: String, CodingKey {
             case status, origin, teamPresetId, agentId, modelId, skillId
             case durationMs, stageId, planStageId, error
             case activityKind, byteCount, charCount, teamRun, pmTurn
+            case reason, message, activityMode, silenceExpected, nextAction
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -144,12 +168,43 @@ public enum NDJSONStreamProjector {
             try c.encodeIfPresent(charCount, forKey: .charCount)
             try c.encodeIfPresent(teamRun, forKey: .teamRun)
             try c.encodeIfPresent(pmTurn, forKey: .pmTurn)
+            try c.encodeIfPresent(reason, forKey: .reason)
+            try c.encodeIfPresent(message, forKey: .message)
+            try c.encodeIfPresent(activityMode, forKey: .activityMode)
+            try c.encodeIfPresent(silenceExpected, forKey: .silenceExpected)
+            try c.encodeIfPresent(nextAction, forKey: .nextAction)
         }
     }
 
     /// ORS-S02b1: max durable journal events replayed on `show --stream`.
     /// Explicit count bound (binding rule 4) — recent window, not the full retention cap.
     public static let streamReplayMaxEvents: Int = 128
+
+    /// ORS-S02b2: finite observer budget (seconds) on a `terminalOnly` driver when
+    /// the run carries no wall-clock fact. Replaces the deleted waiter timeout
+    /// (`DetachedDispatch.defaultPMTurnWaitTimeoutSeconds` = 7200). Not applied to
+    /// healthy `incremental` drivers (normal long work must not become a fake timeout).
+    public static let streamObserverBudgetSecondsDefault: TimeInterval = 7_200
+
+    /// ORS-S02b2: derive the terminalOnly observer budget from the run's wall
+    /// clock fact when present; otherwise the documented default above.
+    public static func streamObserverBudgetSeconds(for run: TeamRun) -> TimeInterval {
+        if let wall = run.clockBudgets?.wallTimeoutSeconds, wall > 0 {
+            return wall
+        }
+        return streamObserverBudgetSecondsDefault
+    }
+
+    /// Attention-required stream exit reasons (ORS-S02b2). Ends the observer;
+    /// is **not** a run-terminal frame (run ownership unchanged).
+    public enum AttentionReason: String, Sendable {
+        case sourcedBlocker
+        case vendorWait
+        case observerBudget
+    }
+
+    /// Event name for the attention-required observer boundary frame.
+    public static let attentionRequiredEventName = "attentionRequired"
 
     /// Immediate snapshot frame (`teamRunSnapshot`) carrying current `TeamRunJSON`.
     /// Seq 0 is reserved for the pre-history snapshot; durable journal seqs start at 1.
@@ -225,6 +280,36 @@ public enum NDJSONStreamProjector {
                 retryable: false,
                 runId: teamRunId.isEmpty ? nil : teamRunId
             ))
+        )
+        return encodeLine(event)
+    }
+
+    /// ORS-S02b2: attention-required observer exit frame. Ends the stream without
+    /// claiming run terminal. Recovery `nextAction` is never `showRun`.
+    public static func attentionRequiredLine(
+        teamRunId: String,
+        teamRun: TeamRunJSON,
+        reason: AttentionReason,
+        message: String,
+        seq: Int,
+        silenceExpected: Bool = false,
+        nextAction: TeamRunJSON.NextAction? = nil,
+        at ts: Date = Date()
+    ) -> String {
+        let event = Event(
+            seq: seq,
+            ts: iso(ts),
+            event: attentionRequiredEventName,
+            teamRunId: teamRunId,
+            data: EventData(
+                status: teamRun.teamRun.status.rawValue,
+                teamRun: teamRun,
+                reason: reason.rawValue,
+                message: message,
+                activityMode: teamRun.observation.activityMode.rawValue,
+                silenceExpected: silenceExpected ? true : nil,
+                nextAction: nextAction
+            )
         )
         return encodeLine(event)
     }
