@@ -144,6 +144,8 @@ struct AllnighterMacApp: App {
                 .environment(floorStatus)
                 .frame(minWidth: 1100, minHeight: 720)
                 .task {
+                    // Same TCC trap as capacity: test host CWD is under Documents.
+                    guard !AppDelegate.isTesting else { return }
                     await remoteAccount.bootstrap()
                 }
         }

@@ -787,6 +787,11 @@ private struct HomeNewRunPane: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
         .onAppear {
+            // XCTest hosts Allnighter.app from the checkout under ~/Documents — a real
+            // capacity refresh there trips TCC Documents prompts attributed to the app
+            // while unit tests run. Explicit model tests inject executors; the host UI
+            // must stay process-quiet.
+            guard !AppDelegate.isTesting else { return }
             if !capacity.isFixtureSeeded {
                 capacity.loadLive(notReadyOrParked: notReadyOrParked)
             } else {

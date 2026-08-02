@@ -160,8 +160,8 @@ public enum CapacityProbe {
     ///   - source: Bench source id (`agy`, `kimi`, `cursor_agent`, `claude_code`).
     ///   - now: Observation stamp for parse + unknown reasons.
     ///   - timeout: Hard wall-clock budget for the whole probe.
-    ///   - workingDirectory: Child cwd (default: process cwd). Trusted workspaces
-    ///     avoid "trust this folder" dialogs (agy, Claude Code).
+    ///   - workingDirectory: Child cwd. Default is ProbeScratch (never process
+    ///     CWD — that is often ~/Documents in Xcode and trips TCC).
     ///   - pathEnvironment: PATH string for binary resolution (default: real PATH).
     ///   - homeDirectory: Home for known-path fallbacks (default: real home).
     ///   - executableOverride: Force a specific binary (tests: `/bin/sleep`).
@@ -195,9 +195,12 @@ public enum CapacityProbe {
             return [unknown(source: source, reason: .spawnFailed(observedAt: now), now: now)]
         }
 
-        let cwd = workingDirectory
-            ?? Self.neutralWorkingDirectory()
-            ?? FileManager.default.currentDirectoryPath
+        let cwd = workingDirectory ?? Self.neutralWorkingDirectory()
+        guard let cwd else {
+            // Never fall back to process CWD — in Xcode/dev that is often the
+            // checkout under ~/Documents and trips a TCC prompt on Allnighter.
+            return [unknown(source: source, reason: .spawnFailed(observedAt: now), now: now)]
+        }
         let capture = captureUsageRender(
             executable: executable,
             workingDirectory: cwd,
