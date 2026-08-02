@@ -465,12 +465,18 @@ public enum ModelCatalog {
 
         if roster.catalogSeenModelIds == nil {
             roster.catalogSeenModelIds = Array(catalogIds)
-            for id in legacyDefaultOnBackfillIds where catalogIds.contains(id) {
-                guard let def = builtIns.first(where: { $0.id == id }),
-                      def.defaultEnabled,
-                      !roster.enabledModelIds.contains(id) else { continue }
-                roster.enabledModelIds.append(id)
-                changed = true
+            // Legacy backfill only for pre-tracking rosters that still have seats on
+            // the bench. An explicitly empty enabled list is a cleared bench — do not
+            // force-enable newcomers onto it (empty-bench front door must stay empty
+            // and surface AgentFrontDoor counsel, not a silent bare one-seat reseed).
+            if !roster.enabledModelIds.isEmpty {
+                for id in legacyDefaultOnBackfillIds where catalogIds.contains(id) {
+                    guard let def = builtIns.first(where: { $0.id == id }),
+                          def.defaultEnabled,
+                          !roster.enabledModelIds.contains(id) else { continue }
+                    roster.enabledModelIds.append(id)
+                    changed = true
+                }
             }
             try rosterPersistence().save(roster)
             return

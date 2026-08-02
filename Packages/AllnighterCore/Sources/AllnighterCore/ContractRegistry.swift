@@ -304,7 +304,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         "host": ["claude", "cursor", "codex", "generic", "hermes", "openclaw"],
         "modelRole": ModelRole.allCases.map(\.rawValue),
         "purpose": SkillPurpose.allCases.map(\.rawValue),
-        "state": RunLifecycle.allCases.map(\.rawValue) + ["terminal"],
+        // `state` removed with ORS-S03b (`team status --wait-for`); no FlagSpec uses it.
         "detail": SpecRetrieval.Detail.allCases.map(\.rawValue),
         "verdict": ["continue", "done", "escalate"],
     ]
