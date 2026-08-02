@@ -99,16 +99,35 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
         }
 
         // --- MenuCatalog action examples + validateExamples ---
-        let menu = MenuCatalog.project(registry: reg)
-        for action in menu.actions {
+        // Mirror MenuCatalog.actionExample / actionValidateExample without
+        // calling MenuCatalog.project() (which enforces model-copy bounds and
+        // can fatalError on unrelated catalog drift during a teaching gate).
+        let recipesById = Dictionary(uniqueKeysWithValues: reg.examples.map { ($0.id, $0) })
+        for spec in reg.commands where spec.milestone == .m1 && spec.menuAction {
+            let example: String
+            if spec.name == "run" {
+                example = "alln run \"{message}\" --team code_growth --json"
+            } else {
+                example = CommandDescription.example(for: spec, recipes: recipesById)
+            }
+            let validate: String
+            if spec.name == "run" {
+                validate = "alln run \"{message}\" --team code_growth --dry-run --json"
+            } else if let twin = spec.freeTwinCommand, !twin.isEmpty {
+                validate = twin.contains("--json") ? twin : "\(twin) --json"
+            } else if example.contains("--json") {
+                validate = example
+            } else {
+                validate = example + " --json"
+            }
             out.append(Teachable(
-                source: "MenuCatalog.actions[\(action.id)].example",
-                text: action.example,
+                source: "MenuCatalog.actions[\(spec.name)].example",
+                text: example,
                 isNextActionOrExample: true
             ))
             out.append(Teachable(
-                source: "MenuCatalog.actions[\(action.id)].validateExample",
-                text: action.validateExample,
+                source: "MenuCatalog.actions[\(spec.name)].validateExample",
+                text: validate,
                 isNextActionOrExample: true
             ))
         }
@@ -163,7 +182,6 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
                 isNextActionOrExample: true
             ))
         }
-        let recipesById = Dictionary(uniqueKeysWithValues: reg.examples.map { ($0.id, $0) })
         for cmd in reg.commands where cmd.milestone == .m1 && cmd.visibility == .public {
             let example = CommandDescription.example(for: cmd, recipes: recipesById)
             out.append(Teachable(
