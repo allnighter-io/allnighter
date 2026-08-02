@@ -200,6 +200,10 @@ public actor RunService {
     private let writeLock: RunWriteLockRegistry
     private let invocations: [String: ToolInvocation]
     private let now: @Sendable () -> Date
+    /// ORS-S02a1 — always-on durable semantic event history (internal storage).
+    /// Owned here so CLI output mode (`--stream` / `--json` / `--no-wait`) never
+    /// decides whether a settled run has a replayable event sequence.
+    private let eventJournal: RemoteRunEventJournal
     // Auto (Default model) inputs — injectable so resolution is deterministic in tests.
     private let loadDefaultSettings: @Sendable () -> DefaultModelSettings
     private let loadProbeRecords: @Sendable () -> [ToolProbeRecord]
@@ -265,7 +269,8 @@ public actor RunService {
         warmPool: WarmWorkerPool = .shared,
         gitObserver: GitObserver = GitObserver(),
         idempotency: IdempotencyStore = IdempotencyStore(),
-        pmTurnStore: PMTurnStore? = nil
+        pmTurnStore: PMTurnStore? = nil,
+        eventJournal: RemoteRunEventJournal? = nil
     ) {
         self.models = models
         self.registry = registry
@@ -282,6 +287,8 @@ public actor RunService {
         self.gitObserver = gitObserver
         self.idempotency = idempotency
         self.pmTurnStore = pmTurnStore ?? PMTurnStore(runsRootDirectory: runStore.rootDirectory)
+        self.eventJournal = eventJournal
+            ?? RemoteRunEventJournal(rootDirectory: runStore.rootDirectory)
     }
 
     /// Bench display name for a model id — used by relay prompt assembly (FR4).
@@ -1245,9 +1252,25 @@ public actor RunService {
         // kinds flush coalesced; spawn/queued map to nil — RLR-L6).
         let activityRecorder = RunActivityRecorder()
         let activityStore = runStore
+        // ORS-S02a1: one durable semantic sequence per run, produced here (the run
+        // owner) so `--no-wait` / `--json` / `--stream` share the same history.
+        let durableJournal = eventJournal
         func emit(_ kind: String, _ payload: [String: JSONValue]) {
             seq += 1
-            let event = RunEvent(id: UUID().uuidString, seq: seq, ts: now(), kind: kind, payload: payload)
+            var event = RunEvent(id: UUID().uuidString, seq: seq, ts: now(), kind: kind, payload: payload)
+            // Minimal durable set only (rule 2). High-frequency transcript kinds
+            // still flow to a live `--stream` consumer via `events`, but must not
+            // accumulate on disk. Append failure degrades — never fails the run (rule 8).
+            if RemoteRunEventJournal.isDurableSemanticEvent(kind) {
+                do {
+                    event = try durableJournal.append(event)
+                    seq = event.seq
+                } catch {
+                    StreamDebugLog.log(
+                        "REMOTE_EVENT_JOURNAL_APPEND_FAILED event=\(event.id) error=\(error)"
+                    )
+                }
+            }
             events?.yield(event)
             RunActivityJournalProjection.observe(
                 event, runId: runId, store: activityStore, recorder: activityRecorder
@@ -2117,8 +2140,26 @@ public actor RunService {
         let store = runStore
         let allModels = models
         let coordinator = CatalogRunCoordinator(workerRunner: runner, registry: registry)
-        let forwarder: Task<Void, Never>? = events.map { sink in
-            Task { for await event in coordinator.events { sink.yield(event) } }
+        // ORS-S02a1: always drain coordinator events into the durable journal —
+        // even when no live `events` continuation is attached (the `--no-wait`
+        // / blocking `--json` child path). Choosing an output flag must not
+        // decide whether the run has a replayable history.
+        let durableJournal = eventJournal
+        let eventSink = events
+        let forwarder = Task {
+            for await event in coordinator.events {
+                var stamped = event
+                if RemoteRunEventJournal.isDurableSemanticEvent(event.kind) {
+                    do {
+                        stamped = try durableJournal.append(event)
+                    } catch {
+                        StreamDebugLog.log(
+                            "REMOTE_EVENT_JOURNAL_APPEND_FAILED event=\(event.id) error=\(error)"
+                        )
+                    }
+                }
+                eventSink?.yield(stamped)
+            }
         }
         @Sendable func stamped(_ run: TeamRun) -> TeamRun {
             var r = run
@@ -2156,7 +2197,7 @@ public actor RunService {
             runDirectory: try? runStore.runDirectory(forRunId: runId),
             persist: persist
         )
-        await forwarder?.value
+        await forwarder.value
         run = stamped(run)
         // CR-S02: compare post-settlement Git state against the pre-existing baseline.
         // `changed == true` is a research-write violation — surface it visibly; files are

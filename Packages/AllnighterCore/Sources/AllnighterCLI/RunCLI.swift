@@ -233,12 +233,16 @@ enum RunCLI {
         }
 
         if opts.flag("stream") {
-            let journal = RemoteRunEventJournal()
             let attachment = NDJSONStreamProjector.NDJSONAttachment()
             let originAgent = opts.value("agent")
             // The streamed run is captured so a sandboxed host can hand it off
             // after the fact — the stream branch never reaches the hand-off below.
             let streamed = StreamedRunBox()
+            // ORS-S02a1: durable event recording lives on RunService (the run
+            // owner), not this CLI branch. Identity-stamp so `--stream` never
+            // double-writes or becomes the only path that makes history real.
+            // Rule 7 stream-journal failures remain injectable via runStream deps
+            // in tests; production never blocks the run on history I/O.
             let outcome = await runStream(.init(
                 run: { continuation in
                     let result = await service.run(
@@ -246,7 +250,7 @@ enum RunCLI {
                     if case .success(let run) = result { streamed.value = run }
                     return result
                 },
-                append: { try journal.append($0) },
+                append: { $0 },
                 liveLine: { attachment.liveLine(for: $0) },
                 closingLine: { attachment.closingLine() },
                 writeLine: { print($0) },

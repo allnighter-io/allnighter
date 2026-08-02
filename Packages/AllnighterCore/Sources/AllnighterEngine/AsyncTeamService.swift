@@ -551,10 +551,14 @@ public actor AsyncTeamService {
         runId: String
     ) async {
         for await event in events {
-            do {
-                _ = try journal.append(event)
-            } catch {
-                StreamDebugLog.log("REMOTE_EVENT_JOURNAL_APPEND_FAILED event=\(event.id) error=\(error)")
+            // ORS-S02a1 rule 2: durable history is status/blocker/terminal only —
+            // never the high-frequency transcript kinds.
+            if RemoteRunEventJournal.isDurableSemanticEvent(event.kind) {
+                do {
+                    _ = try journal.append(event)
+                } catch {
+                    StreamDebugLog.log("REMOTE_EVENT_JOURNAL_APPEND_FAILED event=\(event.id) error=\(error)")
+                }
             }
             // RLR-S03a: project L6 activity onto the durable journal.
             RunActivityJournalProjection.observe(event, runId: runId, store: store, recorder: recorder)

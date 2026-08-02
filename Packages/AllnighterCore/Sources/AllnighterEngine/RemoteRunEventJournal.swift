@@ -5,6 +5,8 @@ public enum RemoteRunEventJournalError: Error, Equatable, Sendable {
     case missingRunId(eventId: String)
     case corruptSequence(String)
     case missingIndexedEvent(seq: Int64, runId: String, eventId: String)
+    /// Per-run `events.jsonl` hit its explicit retention bound (count or bytes).
+    case retentionBoundExceeded(runId: String)
 }
 
 public struct RemoteRunEventReplay: Equatable, Sendable {
@@ -19,11 +21,38 @@ public struct RemoteRunEventReplay: Equatable, Sendable {
 
 /// Mac-truth remote event journal. Cloud mirrors may expire; this append-only
 /// store owns the monotonic per-Mac sequence used for remote resume.
+///
+/// ORS-S02a1 — always-on bounded activity history for one run. The journal is
+/// derived history of the same run truth owned by `RunStore`; it is never a
+/// second run owner and never a public contract surface (no `eventsPath`).
 public struct RemoteRunEventJournal: Sendable {
     public let rootDirectory: URL
 
+    /// Max durable event lines per run's `events.jsonl` (ORS binding rule 4).
+    /// Status/blocker/terminal settlement only — not a transcript — so 512 is
+    /// generous headroom for a long multi-seat answer team without unbounded growth.
+    public static let maxEventsPerRun: Int = 512
+
+    /// Max on-disk bytes per run's `events.jsonl` (ORS binding rule 4).
+    /// 256 KiB bounds worst-case payload size if a status payload grows large.
+    public static let maxBytesPerRun: Int = 256 * 1024
+
     public init(rootDirectory: URL? = nil) {
         self.rootDirectory = rootDirectory ?? AllnighterPaths.runs
+    }
+
+    /// Minimal durable set (ORS binding rule 2): status + worker status
+    /// transitions (which carry blocker entry via `run.status_changed` to
+    /// queued/waiting) and terminal settlement. High-frequency transcript kinds
+    /// (`worker.answer_delta`, `worker.reasoning_delta`, `worker.output`) and
+    /// stage chatter are live-only — never accumulated on disk.
+    public static func isDurableSemanticEvent(_ kind: String) -> Bool {
+        switch kind {
+        case RunEventKind.runStatusChanged, RunEventKind.workerStatusChanged:
+            return true
+        default:
+            return false
+        }
     }
 
     public var globalIndexURL: URL {
@@ -49,9 +78,32 @@ public struct RemoteRunEventJournal: Sendable {
         persisted.seq = nextSeq
 
         try writeLastSeqLocked(nextSeq)
-        try appendLine(Self.encodeLine(persisted), to: eventsURL(forRunId: runId))
+        // ORS-S02a1 rule 4: refuse further durable lines past the per-run cap.
+        // Callers that own the always-on path swallow this and keep the run alive.
+        let eventsURL = eventsURL(forRunId: runId)
+        try enforceRetentionBound(forRunId: runId, eventsURL: eventsURL, nextLine: Self.encodeLine(persisted))
+        try appendLine(Self.encodeLine(persisted), to: eventsURL)
         try appendLine(Self.encodeLine(IndexEntry(seq: nextSeq, runId: runId, eventId: event.id)), to: globalIndexURL)
         return persisted
+    }
+
+    /// Soft retention gate: refuse further durable lines once count or byte cap
+    /// is reached. Callers (RunService) swallow this into a diagnostic and keep
+    /// the run alive — history is bounded; run truth lives in `RunStore`.
+    private func enforceRetentionBound(forRunId runId: String, eventsURL: URL, nextLine: Data) throws {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: eventsURL.path) else { return }
+        let attrs = try fm.attributesOfItem(atPath: eventsURL.path)
+        let existingBytes = (attrs[.size] as? NSNumber)?.intValue ?? 0
+        // +1 for the trailing newline `appendLine` writes after each record.
+        if existingBytes + nextLine.count + 1 > Self.maxBytesPerRun {
+            throw RemoteRunEventJournalError.retentionBoundExceeded(runId: runId)
+        }
+        let raw = try String(contentsOf: eventsURL, encoding: .utf8)
+        let existingCount = raw.split(separator: "\n", omittingEmptySubsequences: true).count
+        if existingCount >= Self.maxEventsPerRun {
+            throw RemoteRunEventJournalError.retentionBoundExceeded(runId: runId)
+        }
     }
 
     public func lastSeq() throws -> Int64 {
