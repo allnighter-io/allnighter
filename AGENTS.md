@@ -219,6 +219,7 @@ history: `docs/archive/phases/Test_Infrastructure_Upgrade.md`)
 5. Do not run `swift test --list-tests` as routine (~8+ min cold).
 6. Lock failure or timeout is a stop signal — do not retry, poll, or wait-loop.
 7. Wedged Mac: `scripts/kill-stale-tests.sh`, then continue — do not stack full suites.
+8. Wall is admission-controlled (45m cooldown; CI exempt); genuine closeout: `ALLNIGHTER_WALL_REASON="<why>" bash scripts/check.sh`.
 
 ```text
 scripts/install-test-guard.sh   # optional: direnv for interactive shells (agents auto-activate via test scripts)

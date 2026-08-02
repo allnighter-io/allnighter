@@ -3,6 +3,170 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CHECK_STARTED_AT=$SECONDS
+
+# ---------------------------------------------------------------------------
+# Wall admission control — refuse fix→test hammering of the full wall.
+# Does not change what the wall does when admitted. CI is never blocked.
+# State: .wmd/wall-last-run.json  Override log: .wmd/wall-runs.log
+# Closeout override:
+#   ALLNIGHTER_WALL_REASON="<why this run is needed>" bash scripts/check.sh
+# Cooldown minutes (default 45): ALLNIGHTER_WALL_COOLDOWN_MINUTES
+# ---------------------------------------------------------------------------
+WALL_STATE_DIR="${ALLNIGHTER_WALL_STATE_DIR:-$ROOT/.wmd}"
+WALL_LAST_RUN="$WALL_STATE_DIR/wall-last-run.json"
+WALL_RUNS_LOG="$WALL_STATE_DIR/wall-runs.log"
+WALL_COOLDOWN_MINUTES="${ALLNIGHTER_WALL_COOLDOWN_MINUTES:-45}"
+WALL_FINAL_RESULT="aborted"
+WALL_ADMITTED=0
+
+wall_is_ci() {
+  # Never block CI. Common CI/CD indicators.
+  [[ -n "${CI:-}" || -n "${GITHUB_ACTIONS:-}" || -n "${GITLAB_CI:-}" \
+    || -n "${CIRCLECI:-}" || -n "${BUILDKITE:-}" || -n "${TF_BUILD:-}" \
+    || -n "${JENKINS_URL:-}" || -n "${CONTINUOUS_INTEGRATION:-}" ]]
+}
+
+wall_iso_now() {
+  date -u +"%Y-%m-%dT%H:%M:%SZ"
+}
+
+wall_head_sha() {
+  git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo "unknown"
+}
+
+wall_write_state() {
+  local started_at="$1" head_sha="$2" reason="$3" result="$4"
+  mkdir -p "$WALL_STATE_DIR"
+  python3 - "$WALL_LAST_RUN" "$started_at" "$head_sha" "$reason" "$result" <<'PY'
+import json, sys
+path, started, sha, reason, result = sys.argv[1:6]
+obj = {
+    "startedAt": started,
+    "headSha": sha,
+    "reason": reason if reason else None,
+    "result": result,
+}
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(obj, f, indent=2)
+    f.write("\n")
+PY
+}
+
+wall_update_result() {
+  local result="$1"
+  [[ -f "$WALL_LAST_RUN" ]] || return 0
+  python3 - "$WALL_LAST_RUN" "$result" <<'PY'
+import json, sys
+path, result = sys.argv[1:3]
+try:
+    with open(path, encoding="utf-8") as f:
+        obj = json.load(f)
+except (OSError, ValueError):
+    raise SystemExit(0)
+obj["result"] = result
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(obj, f, indent=2)
+    f.write("\n")
+PY
+}
+
+wall_append_override_log() {
+  local reason="$1" head_sha="$2"
+  mkdir -p "$WALL_STATE_DIR"
+  printf '%s head=%s reason=%s\n' "$(wall_iso_now)" "$head_sha" "$reason" >> "$WALL_RUNS_LOG"
+}
+
+wall_on_exit() {
+  local ec=$?
+  # Only finalize if this invocation was admitted (started real work / probe).
+  if [[ "$WALL_ADMITTED" -eq 1 ]]; then
+    if [[ "$WALL_FINAL_RESULT" == "aborted" ]]; then
+      if [[ $ec -eq 0 ]]; then
+        WALL_FINAL_RESULT="pass"
+      else
+        WALL_FINAL_RESULT="fail"
+      fi
+    fi
+    wall_update_result "$WALL_FINAL_RESULT" 2>/dev/null || true
+  fi
+  return "$ec"
+}
+trap wall_on_exit EXIT
+
+if ! wall_is_ci; then
+  # Cooldown 0 = always admit (used by works-tests / emergency).
+  if [[ "${WALL_COOLDOWN_MINUTES}" != "0" ]] && [[ -f "$WALL_LAST_RUN" ]]; then
+    # age_seconds, result, headSha, startedAt — empty if unreadable
+    wall_prev="$(
+      python3 - "$WALL_LAST_RUN" <<'PY'
+import json, sys
+from datetime import datetime, timezone
+path = sys.argv[1]
+try:
+    with open(path, encoding="utf-8") as f:
+        obj = json.load(f)
+except (OSError, ValueError):
+    raise SystemExit(0)
+started = obj.get("startedAt") or ""
+try:
+    if started.endswith("Z"):
+        dt = datetime.strptime(started, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    else:
+        dt = datetime.fromisoformat(started.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+except ValueError:
+    raise SystemExit(0)
+age = (datetime.now(timezone.utc) - dt).total_seconds()
+result = obj.get("result") if obj.get("result") is not None else "unknown"
+sha = obj.get("headSha") or "unknown"
+print(f"{age:.0f}\t{result}\t{sha}\t{started}")
+PY
+    )"
+    if [[ -n "$wall_prev" ]]; then
+      IFS=$'\t' read -r wall_age_s wall_prev_result wall_prev_sha wall_prev_started <<< "$wall_prev"
+      wall_cooldown_s=$(( WALL_COOLDOWN_MINUTES * 60 ))
+      if [[ -n "${wall_age_s:-}" ]] && [[ "$wall_age_s" -lt "$wall_cooldown_s" ]]; then
+        wall_reason_trim="${ALLNIGHTER_WALL_REASON:-}"
+        # Strip whitespace-only reasons (count as empty).
+        wall_reason_trim="${wall_reason_trim#"${wall_reason_trim%%[![:space:]]*}"}"
+        wall_reason_trim="${wall_reason_trim%"${wall_reason_trim##*[![:space:]]}"}"
+        if [[ -z "$wall_reason_trim" ]]; then
+          remaining=$(( wall_cooldown_s - wall_age_s ))
+          remaining_m=$(( remaining / 60 ))
+          remaining_s=$(( remaining % 60 ))
+          echo "check: REFUSED — wall cooldown active (last run started ${wall_prev_started}, result=${wall_prev_result}, head=${wall_prev_sha}; cooldown=${WALL_COOLDOWN_MINUTES}m, ~${remaining_m}m${remaining_s}s left)." >&2
+          echo "" >&2
+          echo "  Iteration proof (cheap — use this, not the full wall):" >&2
+          echo "    scripts/swift-test.sh --filter <YourTests>" >&2
+          echo "" >&2
+          echo "  Genuine closeout override (non-empty reason required; logged):" >&2
+          echo "    ALLNIGHTER_WALL_REASON=\"<why this run is needed>\" bash scripts/check.sh" >&2
+          exit 2
+        fi
+        # Non-empty reason under cooldown → admit, but make hammering visible.
+        wall_append_override_log "$wall_reason_trim" "$(wall_head_sha)"
+        echo "check: wall cooldown overridden — reason logged to $WALL_RUNS_LOG"
+      fi
+    fi
+  fi
+fi
+
+# Admitted: record start (result starts as aborted; trap finalizes pass/fail/instrumentFault).
+WALL_STARTED_AT="$(wall_iso_now)"
+WALL_HEAD_SHA="$(wall_head_sha)"
+WALL_REASON_FOR_STATE="${ALLNIGHTER_WALL_REASON:-}"
+wall_write_state "$WALL_STARTED_AT" "$WALL_HEAD_SHA" "$WALL_REASON_FOR_STATE" "aborted"
+WALL_ADMITTED=1
+
+# Test-only: prove admission without running the wall (works-test-wall-cooldown.sh).
+# Leave result as aborted (wall never ran) and skip trap finalization to pass.
+if [[ -n "${ALLNIGHTER_WALL_ADMISSION_PROBE:-}" ]]; then
+  echo "check: admission probe ok (startedAt=${WALL_STARTED_AT}, head=${WALL_HEAD_SHA})"
+  WALL_ADMITTED=0
+  exit 0
+fi
+
 # shellcheck source=ensure-test-guard-path.sh disable=SC1091
 source "$ROOT/scripts/ensure-test-guard-path.sh"
 
@@ -201,6 +365,7 @@ PY
 
   if [[ "$instrument_fault" -eq 1 ]]; then
     xcode_status=1
+    WALL_FINAL_RESULT="instrumentFault"
     echo "check: INSTRUMENT FAULT — ${instrument_reason}"
     echo "check: Mac phase elapsed ${mac_phase_elapsed}s; executed=${mac_tests_executed:-0}"
     echo "check: this is not a product test failure — the wall could not run the suite."
