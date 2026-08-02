@@ -37,6 +37,30 @@ final class VersionIdentityTests: XCTestCase {
         XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.12.1")
     }
 
+    /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at
+    /// build time by BuildInfoPlugin. A stale value means the plugin did not
+    /// re-run on an incremental build and `alln version` will lie about whether
+    /// the binary matches the tree. When tests compile inside a git checkout,
+    /// the embedded SHA must equal `git rev-parse HEAD`.
+    func testBuildInfoGitShaMatchesWorkspaceHEAD() throws {
+        let reported = AllnighterBuildInfo.gitSha
+        // Released / non-git trees embed "unknown" — nothing to compare.
+        if reported == "unknown" || reported.isEmpty {
+            return
+        }
+        let head = try gitRevParseHEAD()
+        XCTAssertEqual(
+            reported,
+            head,
+            """
+            AllnighterBuildInfo.gitSha is stale relative to workspace HEAD.
+            The test binary linked an old BuildInfo.generated.swift — BuildInfoPlugin \
+            must regenerate on incremental builds when the tree moves.
+            reported=\(reported) HEAD=\(head)
+            """
+        )
+    }
+
     /// Drift gate: no OTHER hardcoded `"0.9.0"` string literal survives in the
     /// alln CLI chain sources (AllnighterCore, AllnighterEngine, AllnighterCLI).
     /// Every binary-version/clientInfo field must project
@@ -75,6 +99,31 @@ final class VersionIdentityTests: XCTestCase {
         return url.appendingPathComponent("Sources")
     }
 
+    /// `Packages/AllnighterCore/Tests/AllnighterEngineTests` → repo root (5 up).
+    private func repositoryRoot() -> URL {
+        var url = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { url.deleteLastPathComponent() }
+        return url
+    }
+
+    private func gitRevParseHEAD() throws -> String {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/git")
+        proc.arguments = ["-C", repositoryRoot().path, "rev-parse", "HEAD"]
+        let out = Pipe()
+        let err = Pipe()
+        proc.standardOutput = out
+        proc.standardError = err
+        try proc.run()
+        proc.waitUntilExit()
+        let data = out.fileHandleForReading.readDataToEndOfFile()
+        let text = String(data: data, encoding: .utf8)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        XCTAssertEqual(proc.terminationStatus, 0, "git rev-parse HEAD failed")
+        XCTAssertFalse(text.isEmpty, "git rev-parse HEAD returned empty")
+        return text
+    }
+
     private func swiftFiles(under dir: URL) throws -> [URL] {
         guard let enumerator = FileManager.default.enumerator(
             at: dir, includingPropertiesForKeys: nil
@@ -82,3 +131,4 @@ final class VersionIdentityTests: XCTestCase {
         return enumerator.compactMap { $0 as? URL }.filter { $0.pathExtension == "swift" }
     }
 }
+

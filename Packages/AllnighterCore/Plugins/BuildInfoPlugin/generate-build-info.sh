@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Writes BuildInfo.generated.swift for AllnighterCore.
+# Invoked by BuildInfoPlugin as a buildCommand — inputs (git refs + Core sources)
+# decide when this re-runs; do not hand-edit the output.
 set -euo pipefail
 
 package_root="$1"

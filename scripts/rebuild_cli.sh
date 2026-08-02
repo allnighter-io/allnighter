@@ -13,6 +13,11 @@ PACKAGE="$ROOT/Packages/AllnighterCore"
 SCRATCH="${ALLNIGHTER_CLI_SCRATCH:-$HOME/Library/Developer/Allnighter/CLI}"
 INSTALL_DIR="${ALLNIGHTER_CLI_INSTALL_DIR:-$HOME/.local/bin}"
 
+# Drop stale BuildInfo so incremental SPM builds cannot relink an old gitSha
+# (BuildInfoPlugin buildCommand regenerates when inputs move; missing output
+# forces a run even if mtimes are ambiguous after a scratch reuse).
+find "$SCRATCH/plugins/outputs" -name 'BuildInfo.generated.swift' -delete 2>/dev/null || true
+
 swift build \
   --disable-sandbox \
   --package-path "$PACKAGE" \
