@@ -198,6 +198,10 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         /// / `startedAt` / `completedAt` (mapper sets via the shared iso formatter).
         /// Never a raw Date — stream encoding uses a plain JSONEncoder with no
         /// date strategy, so Date would ship as timeIntervalSinceReferenceDate.
+        ///
+        /// Always present on the wire: when unobserved, encode as JSON `null`
+        /// (not an omitted key). Decode still accepts a missing key as nil for
+        /// older journals — strict on write, degrade on read (ORS-P2-NULL).
         public var lastActivityAt: String?
 
         public init(
@@ -208,6 +212,15 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.ownerState = ownerState
             self.activityMode = activityMode
             self.lastActivityAt = lastActivityAt
+        }
+
+        /// Explicit encode so Optional nil becomes JSON null, not a dropped key.
+        /// `encodeIfPresent` / synthesized Optional encoding omit the key.
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(ownerState, forKey: .ownerState)
+            try c.encode(activityMode, forKey: .activityMode)
+            try c.encode(lastActivityAt, forKey: .lastActivityAt)
         }
     }
 

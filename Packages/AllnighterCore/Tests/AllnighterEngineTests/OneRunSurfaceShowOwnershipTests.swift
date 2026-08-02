@@ -207,6 +207,13 @@ final class OneRunSurfaceShowOwnershipTests: XCTestCase {
         let obs = try XCTUnwrap(rootJSON["observation"] as? [String: Any])
         XCTAssertEqual(obs["ownerState"] as? String, "alive")
         XCTAssertEqual(obs["activityMode"] as? String, "terminalOnly")
+        // ORS-P2-NULL: all three keys present; unobserved activity is explicit null.
+        XCTAssertEqual(
+            Set(obs.keys),
+            ["ownerState", "activityMode", "lastActivityAt"],
+            "observation key set must be exactly the three fields"
+        )
+        XCTAssertTrue(obs["lastActivityAt"] is NSNull, "nil activity must encode as JSON null, not omit")
     }
 
     // MARK: - ORS-S03b negative proof: retired read verbs never touch a run

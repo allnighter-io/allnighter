@@ -67,11 +67,13 @@ public enum ContractSchema {
         ])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
+            // lastActivityAt is required as a key (nullable string) — explicit null
+            // when unobserved; never omitted (One_Run_Surface / ORS-P2-NULL).
             "Observation": obj([
                 "ownerState": enumStr(["alive", "dead", "unknown"]),
                 "activityMode": enumStr(["incremental", "terminalOnly", "unknown"]),
                 "lastActivityAt": nullable("string"),
-            ], required: ["ownerState", "activityMode"]),
+            ], required: ["ownerState", "activityMode", "lastActivityAt"]),
             "RunInfo": obj([
                 "id": str, "status": teamRunStatus,
                 "origin": enumStr(["cli", "gui", "mcp", "ios", "localApi", "system"]),
