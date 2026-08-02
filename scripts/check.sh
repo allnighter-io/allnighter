@@ -161,4 +161,8 @@ if [[ "$ran_any" == false ]]; then
 fi
 
 elapsed=$((SECONDS - CHECK_STARTED_AT))
-printf 'check: done in %ds (%.1fm wall)\n' "$elapsed" "$(awk "BEGIN {printf \"%.1f\", $elapsed / 60}")"
+# Integer tenths avoid nested-quote awk: `"$(awk "BEGIN {… \"%.1f\", …}")"` toggles
+# quotes so bash brace-expands `{printf…, expr}` into two failed awks; printf then
+# reuses the format and prints the footer twice (real Ns + spurious 0s / 0.0m).
+mins_tenths=$((elapsed * 10 / 60))
+printf 'check: done in %ds (%d.%dm wall)\n' "$elapsed" "$((mins_tenths / 10))" "$((mins_tenths % 10))"
