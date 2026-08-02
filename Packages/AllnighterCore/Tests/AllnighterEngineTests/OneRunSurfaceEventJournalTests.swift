@@ -479,8 +479,8 @@ final class OneRunSurfaceEventJournalTests: XCTestCase {
         let root = RunWriteLock.normalize(repo.path) ?? repo.path
         let overflow = RemoteRunEventJournal.maxEventsPerRun + 40
 
-        var toolEvents: [ACPTurnEvent] = (0..<overflow).map { .toolActivity("tool_\($0)") }
-        toolEvents.append(.answerDelta("Settled after tools."))
+        let toolEvents: [ACPTurnEvent] =
+            (0..<overflow).map { .toolActivity("tool_\($0)") } + [.answerDelta("Settled after tools.")]
         let key = ExternalWorkerSession.Key(
             threadId: threadId, sourceId: driverId, modelId: modelId, repoRoot: root)
         _ = try await warmPool.worker(for: key) { key in
