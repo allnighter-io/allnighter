@@ -1528,7 +1528,7 @@ public actor RunService {
             // Never args / file contents / tool output. Empty titles are silence.
             func emitToolActivity(_ title: String) {
                 guard manifest.canStream,
-                      let tool = Self.boundedToolTitle(title) else { return }
+                      let tool = RunActivity.boundedToolTitle(title) else { return }
                 emit(RunEventKind.workerTool, [
                     "runId": .string(runId),
                     "workerId": .string(worker.id),
@@ -1639,7 +1639,7 @@ public actor RunService {
             // `WorkerStreamEvent.toolActivity` label only; `kind` (e.g. running) dropped.
             func emitColdToolActivity(_ label: String) {
                 guard manifest.canStream,
-                      let tool = Self.boundedToolTitle(label) else { return }
+                      let tool = RunActivity.boundedToolTitle(label) else { return }
                 emit(RunEventKind.workerTool, [
                     "runId": .string(runId),
                     "workerId": .string(worker.id),
@@ -2371,17 +2371,6 @@ public actor RunService {
             reason: reason,
             diagnosticSnippet: reason ?? observation?.rawSnippet
         ))
-    }
-
-    /// ORS-S02a2 — tool title only: trim, drop empty, hard-cap length.
-    /// Excludes args, file contents, and tool output by construction (callers
-    /// pass the driver title/label alone).
-    private static let maxToolTitleChars = 128
-    private static func boundedToolTitle(_ raw: String) -> String? {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        if trimmed.count <= maxToolTitleChars { return trimmed }
-        return String(trimmed.prefix(maxToolTitleChars))
     }
 
     private static func isRejectedVendorSession(_ outcome: WorkerRunOutcome) -> Bool {

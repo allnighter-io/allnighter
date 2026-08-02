@@ -81,6 +81,11 @@ public enum NDJSONStreamProjector {
         public var activityKind: String?
         public var byteCount: Int?
         public var charCount: Int?
+        /// ORS tool-wire: bounded vendor tool title on `workerActivity` when
+        /// `activityKind == "tool"`. Same field name and 128-char bound as durable
+        /// journal `payload.tool` — wire and journal agree exactly. Untrusted free
+        /// text: plain JSON string only; never args/output/stdout, never a command.
+        public var tool: String?
         /// ORS-S02b1: full run projection on snapshot / terminal frames (not a
         /// parallel envelope — still `NDJSONStreamProjector.Event.data`).
         public var teamRun: TeamRunJSON?
@@ -114,6 +119,7 @@ public enum NDJSONStreamProjector {
             activityKind: String? = nil,
             byteCount: Int? = nil,
             charCount: Int? = nil,
+            tool: String? = nil,
             teamRun: TeamRunJSON? = nil,
             pmTurn: PMTurnJSON? = nil,
             reason: String? = nil,
@@ -135,6 +141,7 @@ public enum NDJSONStreamProjector {
             self.activityKind = activityKind
             self.byteCount = byteCount
             self.charCount = charCount
+            self.tool = tool
             self.teamRun = teamRun
             self.pmTurn = pmTurn
             self.reason = reason
@@ -147,7 +154,7 @@ public enum NDJSONStreamProjector {
         private enum CodingKeys: String, CodingKey {
             case status, origin, teamPresetId, agentId, modelId, skillId
             case durationMs, stageId, planStageId, error
-            case activityKind, byteCount, charCount, teamRun, pmTurn
+            case activityKind, byteCount, charCount, tool, teamRun, pmTurn
             case reason, message, activityMode, silenceExpected, nextAction
         }
 
@@ -166,6 +173,7 @@ public enum NDJSONStreamProjector {
             try c.encodeIfPresent(activityKind, forKey: .activityKind)
             try c.encodeIfPresent(byteCount, forKey: .byteCount)
             try c.encodeIfPresent(charCount, forKey: .charCount)
+            try c.encodeIfPresent(tool, forKey: .tool)
             try c.encodeIfPresent(teamRun, forKey: .teamRun)
             try c.encodeIfPresent(pmTurn, forKey: .pmTurn)
             try c.encodeIfPresent(reason, forKey: .reason)
@@ -457,17 +465,20 @@ public enum NDJSONStreamProjector {
                     byteCount: text.map { $0.utf8.count },
                     charCount: text.map(\.count)
                 ))
-            // ORS-S02a2: durable `worker.tool` → same `workerActivity` frame with
-            // `activityKind: "tool"`. Payload carries only the bounded tool title
-            // length (never the title string itself, never args/output).
+            // ORS tool-wire: durable `worker.tool` → same `workerActivity` frame
+            // with `activityKind: "tool"` and `data.tool` = journal `payload.tool`
+            // (same field name, same 128-char bound). Never args / file bodies /
+            // tool output / raw stdout. Title is untrusted free text — plain JSON
+            // string only, never interpolated into any command-shaped field.
             case RunEventKind.workerTool:
                 guard let activity = RunActivity.activityKind(for: e) else { return nil }
-                let tool = str("tool")
+                let tool = str("tool").flatMap(RunActivity.boundedToolTitle)
                 return ("workerActivity", runId, EventData(
                     agentId: str("workerId"),
                     activityKind: activity.rawValue,
                     byteCount: tool.map { $0.utf8.count },
-                    charCount: tool.map(\.count)
+                    charCount: tool.map(\.count),
+                    tool: tool
                 ))
             case RunEventKind.stageOutput:
                 guard let activity = RunActivity.activityKind(for: e) else { return nil }

