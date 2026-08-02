@@ -342,10 +342,10 @@
     "ruleId" : "run.journal.unavailable"
   },
   {
-    "agentAction" : "Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status.",
+    "agentAction" : "Do not retry the same run id; treat the id as unreadable and start a new run if the work still matters. A corrupt journal is never silently treated as not-found or coerced to an invented status.",
     "code" : "JOURNAL_CORRUPT",
     "exitClass" : "operational",
-    "explain" : "A run.json exists on disk but failed to decode (e.g. an unknown\/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8).",
+    "explain" : "A durable journal exists for the id but failed to decode (e.g. an unknown\/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8).",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "run.journal.corrupt"

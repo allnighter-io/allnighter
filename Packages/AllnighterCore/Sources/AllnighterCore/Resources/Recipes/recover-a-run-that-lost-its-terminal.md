@@ -31,10 +31,10 @@ Read the live menu for lifecycle commands, then use the exact run id:
 alln menu --json
 ```
 
-Team run terminal delivery:
+Team run terminal delivery (one surface — reattach, then cancel if needed):
 
 ```bash
-alln team status <run-id> --wait-for terminal --timeout 7200 --json
+alln show <run-id> --stream
 alln team cancel <run-id> --json
 ```
 
@@ -43,7 +43,7 @@ Loop terminal delivery (status owns terminal truth; cancel via kill). A killed
 orphan, inspect before any new step:
 
 ```bash
-alln loop status <run-id> --wait-for terminal --timeout 7200 --json
+alln loop status <run-id> --wait-for "terminal" --timeout 7200 --json
 alln loop status <run-id> --wait-for parked --timeout 7200 --json
 alln kill <run-id> --json
 ```

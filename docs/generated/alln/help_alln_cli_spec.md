@@ -1557,7 +1557,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |
-| `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
+| `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; treat the id as unreadable and start a new run if the work still matters. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
 | `STREAM_JOURNAL_FAILED` | yes | yes | `operational` | Fix the local run journal/storage failure, then rerun the foreground command. |
 | `RESIDENT_REQUEST_CONFLICT` | no | no | `operational` | Reuse the original payload for this idempotency key, or submit a new key for new work. |
 | `RESIDENT_ACCEPT_TIMEOUT` | no | yes | `operational` | Retry the same idempotency key and payload; do not create a second direct run. |

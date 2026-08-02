@@ -49,7 +49,7 @@ alln loop start "<what you want done>" --spec <path> --project <id|path> --pm <a
 If you detach with `--no-wait`, use its returned waiter to receive the terminal PM Turn:
 
 ```bash
-alln loop status <run-id> --wait-for terminal --timeout 7200 --json
+alln loop status <run-id> --wait-for "terminal" --timeout 7200 --json
 ```
 
 Stop an owned tree when needed:

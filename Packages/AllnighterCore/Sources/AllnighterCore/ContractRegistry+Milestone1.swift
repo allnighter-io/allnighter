@@ -1139,10 +1139,10 @@ public extension ContractRegistry {
         ErrorSpec(
             "JOURNAL_CORRUPT",
             ruleId: "run.journal.corrupt",
-            agentAction: "Do not retry the same run id; inspect run.json under the reported support dir by hand. A corrupt journal is never silently treated as not-found or coerced to an invented status.",
+            agentAction: "Do not retry the same run id; treat the id as unreadable and start a new run if the work still matters. A corrupt journal is never silently treated as not-found or coerced to an invented status.",
             requiresManual: true,
             retryable: false,
-            explain: "A run.json exists on disk but failed to decode (e.g. an unknown/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8)."
+            explain: "A durable journal exists for the id but failed to decode (e.g. an unknown/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8)."
         ),
         ErrorSpec("STREAM_JOURNAL_FAILED", ruleId: "stream.journal.failed", agentAction: "Fix the local run journal/storage failure, then rerun the foreground command.", requiresManual: true, retryable: true, explain: "A stream event could not be durably stamped, so Allnighter stopped the stream rather than emitting an unjournaled event."),
         ErrorSpec("RESIDENT_REQUEST_CONFLICT", ruleId: "resident.request.conflict", agentAction: "Reuse the original payload for this idempotency key, or submit a new key for new work.", requiresManual: false, retryable: false, explain: "A request reused an idempotency key with a different semantic payload."),
