@@ -714,6 +714,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             /// Open the polished HTML team artifact (primary finish for terminal runs).
             case showArtifact
             case showRun, export, showHistory
+            /// Attention-required recovery after a stream budget/vendor/blocker exit (ORS).
+            case inspectBlocker
         }
         public var kind: Kind
         public var command: String

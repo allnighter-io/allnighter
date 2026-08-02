@@ -27,6 +27,21 @@ public enum NDJSONStreamProjector {
             self.event = event; self.teamRunId = teamRunId; self.data = data
             self.replayed = replayed
         }
+
+        private enum CodingKeys: String, CodingKey {
+            case schemaVersion, seq, ts, event, teamRunId, data, replayed
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(schemaVersion, forKey: .schemaVersion)
+            try c.encode(seq, forKey: .seq)
+            try c.encode(ts, forKey: .ts)
+            try c.encode(event, forKey: .event)
+            try c.encode(teamRunId, forKey: .teamRunId)
+            try c.encode(data, forKey: .data)
+            try c.encodeIfPresent(replayed, forKey: .replayed)
+        }
     }
 
     /// The terminal NDJSON event names (RLR-L7 exactly-one-terminal). An
@@ -66,6 +81,152 @@ public enum NDJSONStreamProjector {
         public var activityKind: String?
         public var byteCount: Int?
         public var charCount: Int?
+        /// ORS-S02b1: full run projection on snapshot / terminal frames (not a
+        /// parallel envelope — still `NDJSONStreamProjector.Event.data`).
+        public var teamRun: TeamRunJSON?
+        /// ORS-S02b1: terminal `pmTurn` mirror (also nested on `teamRun.pmTurn`).
+        public var pmTurn: PMTurnJSON?
+
+        public init(
+            status: String? = nil,
+            origin: String? = nil,
+            teamPresetId: String? = nil,
+            agentId: String? = nil,
+            modelId: String? = nil,
+            skillId: String? = nil,
+            durationMs: Int? = nil,
+            stageId: String? = nil,
+            planStageId: String? = nil,
+            error: ErrorEnvelope? = nil,
+            activityKind: String? = nil,
+            byteCount: Int? = nil,
+            charCount: Int? = nil,
+            teamRun: TeamRunJSON? = nil,
+            pmTurn: PMTurnJSON? = nil
+        ) {
+            self.status = status
+            self.origin = origin
+            self.teamPresetId = teamPresetId
+            self.agentId = agentId
+            self.modelId = modelId
+            self.skillId = skillId
+            self.durationMs = durationMs
+            self.stageId = stageId
+            self.planStageId = planStageId
+            self.error = error
+            self.activityKind = activityKind
+            self.byteCount = byteCount
+            self.charCount = charCount
+            self.teamRun = teamRun
+            self.pmTurn = pmTurn
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case status, origin, teamPresetId, agentId, modelId, skillId
+            case durationMs, stageId, planStageId, error
+            case activityKind, byteCount, charCount, teamRun, pmTurn
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encodeIfPresent(status, forKey: .status)
+            try c.encodeIfPresent(origin, forKey: .origin)
+            try c.encodeIfPresent(teamPresetId, forKey: .teamPresetId)
+            try c.encodeIfPresent(agentId, forKey: .agentId)
+            try c.encodeIfPresent(modelId, forKey: .modelId)
+            try c.encodeIfPresent(skillId, forKey: .skillId)
+            try c.encodeIfPresent(durationMs, forKey: .durationMs)
+            try c.encodeIfPresent(stageId, forKey: .stageId)
+            try c.encodeIfPresent(planStageId, forKey: .planStageId)
+            try c.encodeIfPresent(error, forKey: .error)
+            try c.encodeIfPresent(activityKind, forKey: .activityKind)
+            try c.encodeIfPresent(byteCount, forKey: .byteCount)
+            try c.encodeIfPresent(charCount, forKey: .charCount)
+            try c.encodeIfPresent(teamRun, forKey: .teamRun)
+            try c.encodeIfPresent(pmTurn, forKey: .pmTurn)
+        }
+    }
+
+    /// ORS-S02b1: max durable journal events replayed on `show --stream`.
+    /// Explicit count bound (binding rule 4) — recent window, not the full retention cap.
+    public static let streamReplayMaxEvents: Int = 128
+
+    /// Immediate snapshot frame (`teamRunSnapshot`) carrying current `TeamRunJSON`.
+    /// Seq 0 is reserved for the pre-history snapshot; durable journal seqs start at 1.
+    public static func snapshotLine(teamRunId: String, teamRun: TeamRunJSON, at ts: Date = Date()) -> String {
+        let event = Event(
+            seq: 0,
+            ts: iso(ts),
+            event: "teamRunSnapshot",
+            teamRunId: teamRunId,
+            data: EventData(status: teamRun.teamRun.status.rawValue, teamRun: teamRun)
+        )
+        return encodeLine(event)
+    }
+
+    /// Exactly one terminal frame for an already-terminal run, carrying full
+    /// `TeamRunJSON` + `pmTurn`. Not marked `replayed`.
+    public static func terminalDeliveryLine(
+        teamRunId: String,
+        teamRun: TeamRunJSON,
+        seq: Int,
+        at ts: Date = Date()
+    ) -> String {
+        let status = teamRun.teamRun.status
+        let name: String
+        let data: EventData
+        switch status {
+        case .done:
+            name = "teamRunCompleted"
+            data = EventData(
+                status: status.rawValue,
+                planStageId: teamRun.plan?.stageId,
+                teamRun: teamRun,
+                pmTurn: teamRun.pmTurn
+            )
+        default:
+            name = "teamRunFailed"
+            data = EventData(
+                status: status.rawValue,
+                error: teamRun.errors.first ?? ErrorEnvelope(
+                    code: "TEAM_RUN_FAILED",
+                    message: "team run \(status.rawValue)",
+                    requiresManual: false,
+                    retryable: true,
+                    runId: teamRunId
+                ),
+                teamRun: teamRun,
+                pmTurn: teamRun.pmTurn
+            )
+        }
+        return encodeLine(Event(
+            seq: seq, ts: iso(ts), event: name, teamRunId: teamRunId, data: data
+        ))
+    }
+
+    /// Typed error frame on the stream path (ORS binding rule 7). Terminal
+    /// (`error`); attachment consumers treat it as the one terminal.
+    public static func streamErrorLine(
+        teamRunId: String,
+        code: String,
+        message: String,
+        seq: Int,
+        at ts: Date = Date()
+    ) -> String {
+        let event = Event(
+            seq: seq,
+            ts: iso(ts),
+            event: "error",
+            teamRunId: teamRunId,
+            data: EventData(error: ErrorEnvelope(
+                code: code,
+                message: message,
+                requiresManual: true,
+                retryable: false,
+                runId: teamRunId.isEmpty ? nil : teamRunId
+            ))
+        )
+        return encodeLine(event)
     }
 
     public static func events(for run: TeamRun) -> [Event] {

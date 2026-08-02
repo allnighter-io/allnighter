@@ -81,20 +81,41 @@ public enum CommandProjection {
 
     /// NDJSON `--stream` framing and terminal rule (code SSOT:
     /// `NDJSONStreamProjector.terminalEventNames`).
+    /// Shared by `run --stream` and `show --stream` (one frame schema — ORS).
     public static var streamFramingMarkdown: String {
         let terminals = NDJSONStreamProjector.terminalEventNames.sorted().map { "`\($0)`" }.joined(separator: ", ")
         return """
         ## Run stream mode (`--stream`)
 
         `--stream` emits **NDJSON**: one JSON object per line on stdout. Human progress
-        never mixes into stdout. Events are ordered by durable `seq`. A stream ends with
-        exactly one terminal event among \(terminals).
+        never mixes into stdout. Events are ordered by durable `seq`. `run --stream` and
+        `show --stream` share **one** frame schema.
+
+        Frame order on `show --stream`:
+        1. **Immediate snapshot first** — current run snapshot (`TeamRunJSON`, including
+           observation) before any replay, for every lifecycle state including queued.
+        2. **Bounded replay** of recent durable activity (marked `replayed: true`).
+        3. **Live follow** of new run events (when the run is still live).
+        4. Exactly one terminal frame among \(terminals) carrying the terminal
+           `TeamRunJSON` and `pmTurn`, then exit.
+
+        A stream ends at terminal **or** at an **attention-required** boundary (sourced
+        blocker, vendor wait, or observer budget on a terminalOnly driver). Recovery
+        nextAction is never `showRun` (self-referential poll loop).
+
+        **Terminal exit class propagates unconditionally** — no `--exit-status` opt-in.
+        Agents chain with `;`, not `&&`.
 
         On `run`, `--stream` is mutually exclusive with `--json`, `--dry-run`, and `--no-wait`
         (registry constraints; invalid combinations exit 2 before any provider start).
+        On `show`, `--stream` is mutually exclusive with `--full`.
 
         """
     }
+
+    /// Shared `--stream` FlagSpec summary for `run` and `show` (ORS: one frame schema text).
+    public static let streamFlagSummary =
+        "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Shared framing: immediate snapshot first, bounded replay, live follow of new events, exactly one terminal frame. Ends at terminal or attention-required boundary; terminal exit class propagates unconditionally (no opt-in). Mutually exclusive with conflicting mode flags."
 
     /// Why Alln does not expose OpenAI-style sampling controls on `run`.
     public static var vendorCLIControlsMarkdown: String {

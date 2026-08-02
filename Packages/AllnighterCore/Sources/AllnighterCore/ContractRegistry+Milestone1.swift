@@ -8,7 +8,7 @@ public extension ContractRegistry {
     /// Agent-facing compatibility number (AE-S11): removing/renaming a command or
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
-    static let contractVersion = "7.4.0"
+    static let contractVersion = "7.5.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -499,7 +499,7 @@ public extension ContractRegistry {
                 FlagSpec("message-id", takesValue: true, valueType: "id", summary: "Origin message id."),
                 FlagSpec("dry-run", summary: "Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote."),
                 FlagSpec("json", summary: "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait."),
-                FlagSpec("stream", summary: "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Mutually exclusive with --json / --dry-run."),
+                FlagSpec("stream", summary: CommandProjection.streamFlagSummary),
                 FlagSpec("no-wait", summary: "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
             ],
@@ -701,11 +701,15 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "show", summary: "Show one run.", milestone: .m1,
+            "show", summary: "Show one run. Snapshot (`--json`) or reattachable stream (`--stream`): immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.", milestone: .m1,
             args: [ArgSpec("run-id|latest", required: true, summary: "A run id or `latest`.")],
             flags: [FlagSpec("json", summary: "Emit the run as TeamRunJSON."),
-                    FlagSpec("full", summary: "Include resolved worker prompt snapshots (audit).")],
-            outputSchema: .teamRunJSON, exampleIds: ["show_latest_json"]
+                    FlagSpec("full", summary: "Include resolved worker prompt snapshots (audit). Mutually exclusive with --stream."),
+                    FlagSpec("stream", summary: CommandProjection.streamFlagSummary)],
+            mutuallyExclusiveFlags: [["full", "stream"]],
+            outputSchema: .teamRunJSON, exampleIds: ["show_latest_json"],
+            spendsQuota: false,
+            effects: EffectProfile()
         ),
         CommandSpec(
             "floor show", summary: "Show the inspectable Floor for one team run (worker lanes, artifacts, typed return, timeline, Execute requirements). For the polished HTML receipt, use `alln artifact show <id>`.", milestone: .m1,
@@ -1320,6 +1324,8 @@ public extension ContractRegistry {
         // unknown-event-tolerant consumers skip it safely.
         EventSpec("workerActivity", requiredData: ["agentId", "activityKind"]),
         EventSpec("stageActivity", requiredData: ["stageId", "activityKind"]),
+        // ORS-S02b1: immediate snapshot frame on `show --stream` (before replay).
+        EventSpec("teamRunSnapshot", requiredData: ["teamRun"]),
         EventSpec("teamRunCompleted", requiredData: ["status", "planStageId", "durationMs"]),
         EventSpec("teamRunFailed", requiredData: ["status", "error"]),
         EventSpec("error", requiredData: ["error"]),
@@ -1337,6 +1343,9 @@ public extension ContractRegistry {
         NextActionKindSpec("showRun", summary: "Show the full run."),
         NextActionKindSpec("export", summary: "Export the result bundle."),
         NextActionKindSpec("showHistory", summary: "List recent runs."),
+        /// ORS: attention-required recovery after a stream budget/vendor/blocker exit.
+        /// Must never be `showRun` (self-referential poll loop).
+        NextActionKindSpec("inspectBlocker", summary: "Inspect a sourced blocker, vendor wait, or attention-required stream exit; not a stream reattach."),
         NextActionKindSpec("submitPending", summary: "Submit a Draft item to Pending."),
         NextActionKindSpec("runPending", summary: "Run a Pending item now."),
         NextActionKindSpec("showPending", summary: "Show one Pending item."),

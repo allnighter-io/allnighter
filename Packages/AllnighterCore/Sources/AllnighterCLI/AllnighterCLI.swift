@@ -1710,11 +1710,11 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln show <run-id|latest> [--json] [--full]` — show one run.
+    /// `alln show <run-id|latest> [--json | --stream] [--full]` — show one run.
     static func runShow(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let ref = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json] [--full]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json | --stream] [--full]\n".utf8)); exit(2)
         }
         guard let resolved = resolveRun(ref) else {
             failRunNotFound(ref == "latest" ? nil : ref, "no run matches \(ref)")
@@ -1732,6 +1732,22 @@ struct AllnighterCLI {
             run, models: runtime.models, manifests: runtime.registry.all,
             context: context
         )
+        if opts.flag("stream") {
+            // ORS-S02b1: reattach READ surface — snapshot + bounded replay + one
+            // terminal when already settled. Live follow is ORS-S02b2.
+            let outcome = runShowStream(
+                run: run,
+                teamRunJSON: trj,
+                store: RunStore()
+            )
+            if outcome.exitCode != 0 {
+                if let code = outcome.errorCode {
+                    emitFailure(code: code, message: outcome.message ?? "show stream failed")
+                }
+                exit(Int32(outcome.exitCode))
+            }
+            return
+        }
         if opts.flag("json") {
             print(jsonString(trj))
         } else {
@@ -1753,6 +1769,112 @@ struct AllnighterCLI {
                 print("Open:     alln artifact show \(run.id)")
             }
         }
+    }
+
+    /// ORS-S02b1: `alln show <id> --stream` for the no-live-follow case —
+    /// immediate snapshot, bounded replay, exactly one terminal when already
+    /// settled, then exit with the run's terminal exit class.
+    ///
+    /// Read-only and disposable: never signals, kills, settles, or writes run
+    /// state; never passes `recoverTerminalLiveOwnership: true` (caller must use
+    /// `showReadPath` / plain `reconcileRun` first).
+    ///
+    /// Injected `writeLine` keeps framing unit-testable without a process pipe.
+    @discardableResult
+    static func runShowStream(
+        run: TeamRun,
+        teamRunJSON: TeamRunJSON,
+        store: RunStore = RunStore(),
+        journal: RemoteRunEventJournal? = nil,
+        writeLine: (String) -> Void = { print($0) }
+    ) -> RunCLI.StreamOutcome {
+        let journal = journal ?? RemoteRunEventJournal(rootDirectory: store.rootDirectory)
+
+        // (a) ONE immediate snapshot — every lifecycle state, including queued.
+        writeLine(NDJSONStreamProjector.snapshotLine(
+            teamRunId: run.id, teamRun: teamRunJSON
+        ))
+
+        // (b) Bounded recent durable activity, each line marked replayed:true.
+        let history: [RunEvent]
+        do {
+            let all = try journal.events(forRunId: run.id)
+            history = Array(all.suffix(NDJSONStreamProjector.streamReplayMaxEvents))
+        } catch {
+            // Rule 7: stream path is loud on journal corruption. Rule 8: never
+            // affects `show --json` (separate path).
+            let code = "JOURNAL_CORRUPT"
+            writeLine(NDJSONStreamProjector.streamErrorLine(
+                teamRunId: run.id, code: code,
+                message: "corrupt event journal: \(error)",
+                seq: 1
+            ))
+            return RunCLI.StreamOutcome(
+                exitCode: Int(ContractRegistry.milestone1.processExitCode(forErrorCode: code)),
+                errorCode: code,
+                message: "corrupt event journal: \(error)"
+            )
+        }
+
+        let historySeqs = history.map { Int($0.seq) }
+        if let gap = NDJSONStreamProjector.firstSeqGap(historySeqs) {
+            let code = "JOURNAL_CORRUPT"
+            let message = "event sequence gap: expected seq \(gap.expected), got \(gap.actual)"
+            let errSeq = (historySeqs.last ?? 0) + 1
+            writeLine(NDJSONStreamProjector.streamErrorLine(
+                teamRunId: run.id, code: code, message: message, seq: errSeq
+            ))
+            return RunCLI.StreamOutcome(
+                exitCode: Int(ContractRegistry.milestone1.processExitCode(forErrorCode: code)),
+                errorCode: code,
+                message: message
+            )
+        }
+
+        // Replay non-terminal lines only. Terminal delivery is owned below so the
+        // frame carries TeamRunJSON + pmTurn and remains exactly one.
+        let attachment = NDJSONStreamProjector.NDJSONAttachment()
+        let nonTerminalHistory = history.filter { event in
+            guard let mapped = NDJSONStreamProjector.LiveMapper().event(for: event) else {
+                return true // unmapped kinds drop later; keep for seq bookkeeping
+            }
+            return !NDJSONStreamProjector.terminalEventNames.contains(mapped.event)
+        }
+        for line in attachment.replayLines(nonTerminalHistory) {
+            writeLine(line)
+        }
+
+        // (c) Already terminal → exactly ONE terminal frame, then exit with the
+        // run's terminal exit class (unconditional; no --exit-status opt-in).
+        if run.status.isTerminal {
+            let terminalSeq: Int = {
+                // Prefer the durable terminal event's seq when present so reattach
+                // stays in the one seq space; else continue past the last replayed.
+                let mapper = NDJSONStreamProjector.LiveMapper()
+                if let lastTerm = history.last(where: {
+                    guard let m = mapper.event(for: $0) else { return false }
+                    return NDJSONStreamProjector.terminalEventNames.contains(m.event)
+                }) {
+                    return Int(lastTerm.seq)
+                }
+                return (historySeqs.last ?? 0) + 1
+            }()
+            writeLine(NDJSONStreamProjector.terminalDeliveryLine(
+                teamRunId: run.id,
+                teamRun: teamRunJSON,
+                seq: terminalSeq
+            ))
+            // Reuse run --stream / ExitCode mapping axis via exitCode(for:).
+            return RunCLI.StreamOutcome(
+                exitCode: Int(RunCLI.exitCode(for: run)),
+                errorCode: nil,
+                message: nil
+            )
+        }
+
+        // Non-terminal, no live follow in this order (ORS-S02b2): snapshot +
+        // replay only, exit 0. Do not emit a showRun nextAction.
+        return .success
     }
 
     /// `alln spec [<run-id>|latest] [--detail summary|full|artifactRefsOnly] [--json]`
