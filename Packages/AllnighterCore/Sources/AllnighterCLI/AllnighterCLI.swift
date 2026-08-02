@@ -1611,11 +1611,15 @@ struct AllnighterCLI {
     /// Default projection context for a persisted run (journal path + reproduce
     /// command derived from the run's own catalog facts). Writes the polished
     /// HTML artifact when the run is terminal so `--json` carries `artifact.path`.
+    ///
+    /// `ownerState` is supplied by the read path that reconciled identity
+    /// (`showReadPath`); the mapper never probes processes.
     static func defaultRunContext(
         _ run: TeamRun,
         full: Bool = false,
         models: [Model] = [],
-        manifests: [DriverManifest] = []
+        manifests: [DriverManifest] = [],
+        ownerState: TeamRunJSON.Observation.OwnerState = .unknown
     ) -> TeamRunJSONMapper.Context {
         let store = RunStore()
         let runDir = try? store.runDirectory(forRunId: run.id)
@@ -1639,8 +1643,30 @@ struct AllnighterCLI {
             runDirectory: runDir,
             pmTurn: pmTurn.pmTurn,
             pmTurnNotes: pmTurn.notes,
-            artifactPath: artifactPath
+            artifactPath: artifactPath,
+            ownerState: ownerState
         )
+    }
+
+    /// ORS-S01b: one `alln show` read path — reconcile ownership, then resolve
+    /// `ownerState` from recorded identity only (never activity / status).
+    ///
+    /// Calls `reconcileRun` **without** `recoverTerminalLiveOwnership: true`.
+    /// That flag is cancel-lie recovery only; defaulting it on previously made a
+    /// bare read surface TERM→SIGKILL live recorded trees. `show` declares
+    /// `destructive: never` / `workerStart: never` and must never signal.
+    static func showReadPath(
+        run: TeamRun,
+        models: [Model],
+        store: RunStore = RunStore()
+    ) -> (run: TeamRun, ownerState: TeamRunJSON.Observation.OwnerState) {
+        // Default recoverTerminalLiveOwnership is false — never pass true here.
+        let reconciled = store.reconcileRun(runId: run.id, models: models) ?? run
+        let dir = try? store.runDirectory(forRunId: reconciled.id)
+        let identity = dir.flatMap { ProcessOwnership.readOwnerIdentity(in: $0) }
+        let ownerState: TeamRunJSON.Observation.OwnerState =
+            identity.map { ProcessOwnership.isIdentityAlive($0) ? .alive : .dead } ?? .unknown
+        return (reconciled, ownerState)
     }
 
     /// The CLI owns attaching a durable PM receipt to a projected terminal run.
@@ -1690,41 +1716,41 @@ struct AllnighterCLI {
         guard let ref = opts.positional.first else {
             FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json] [--full]\n".utf8)); exit(2)
         }
-        guard let run = resolveRun(ref) else {
+        guard let resolved = resolveRun(ref) else {
             failRunNotFound(ref == "latest" ? nil : ref, "no run matches \(ref)")
         }
+        // One read path for both --json and human: reconcile, then owner identity.
+        let prepared = showReadPath(run: resolved, models: runtime.models)
+        let run = prepared.run
+        let ownerState = prepared.ownerState
+        let context = defaultRunContext(
+            run, full: opts.flag("full"),
+            models: runtime.models, manifests: runtime.registry.all,
+            ownerState: ownerState
+        )
+        let trj = TeamRunJSONMapper.map(
+            run, models: runtime.models, manifests: runtime.registry.all,
+            context: context
+        )
         if opts.flag("json") {
-            print(jsonString(TeamRunJSONMapper.map(
-                run, models: runtime.models, manifests: runtime.registry.all,
-                context: defaultRunContext(
-                    run, full: opts.flag("full"),
-                    models: runtime.models, manifests: runtime.registry.all
-                )
-            )))
+            print(jsonString(trj))
         } else {
+            // Same mapped truth as --json (including observation.ownerState).
             print("Run \(run.id) · \(run.status.rawValue)")
             print(run.prompt)
-            if let answer = humanAnswer(
-                for: run, models: runtime.models, manifests: runtime.registry.all
-            ) {
-                print("\n\(answer)")
+            if let md = trj.answer?.markdown, !md.isEmpty {
+                print("\n\(md)")
+            } else if let first = trj.answers.lazy.compactMap(\.markdown).first(where: { !$0.isEmpty }) {
+                print("\n\(first)")
             } else if !run.warnings.isEmpty {
                 // A run with no answer is not a run with nothing to say: a refused
                 // hand-off carries its reason here, and this is the command the
                 // hand-off tells the caller to come back to.
                 print("\n\(run.warnings.joined(separator: "\n"))")
             }
-            if run.status.isTerminal, ArtifactProjector.canProject(run) {
-                let store = RunStore()
-                if let runDir = try? store.runDirectory(forRunId: run.id),
-                   let path = TeamRunJSONMapper.materializeArtifactPath(
-                    for: run, runDirectory: runDir,
-                    reproduceCommand: reproduceCommand(run),
-                    models: runtime.models, manifests: runtime.registry.all
-                   ) {
-                    print("\nArtifact: \(path)")
-                    print("Open:     alln artifact show \(run.id)")
-                }
+            if let path = context.artifactPath {
+                print("\nArtifact: \(path)")
+                print("Open:     alln artifact show \(run.id)")
             }
         }
     }
