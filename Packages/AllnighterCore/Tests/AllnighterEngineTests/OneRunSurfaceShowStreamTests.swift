@@ -125,7 +125,7 @@ final class OneRunSurfaceShowStreamTests: XCTestCase {
     private func collectStream(
         run: TeamRun,
         h: Harness,
-        follow: AllnighterCLI.ShowStreamFollowControl = .production
+        follow: AllnighterCLI.ShowStreamFollowControl = AllnighterCLI.ShowStreamFollowControl()
     ) -> (lines: [String], outcome: RunCLI.StreamOutcome) {
         let trj = mapJSON(run, h: h)
         var lines: [String] = []

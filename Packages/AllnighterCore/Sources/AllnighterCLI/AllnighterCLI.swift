@@ -1792,8 +1792,6 @@ struct AllnighterCLI {
         var pollIntervalSeconds: TimeInterval = 0.25
         /// Invoked once per follow poll (tests append events / settle mid-follow).
         var onPoll: (() -> Void)? = nil
-
-        static let production = ShowStreamFollowControl()
     }
 
     /// ORS-S02b2: `alln show <id> --stream` — immediate snapshot, bounded replay,
@@ -1816,7 +1814,7 @@ struct AllnighterCLI {
         manifests: [DriverManifest] = [],
         journal: RemoteRunEventJournal? = nil,
         writeLine: @escaping (String) -> Void = { print($0) },
-        follow: ShowStreamFollowControl = .production
+        follow: ShowStreamFollowControl = ShowStreamFollowControl()
     ) -> RunCLI.StreamOutcome {
         let journal = journal ?? RemoteRunEventJournal(rootDirectory: store.rootDirectory)
 
@@ -1933,6 +1931,49 @@ struct AllnighterCLI {
         )
     }
 
+    /// Drain non-terminal live lines, then emit exactly one terminal delivery frame.
+    private static func finishWithTerminal(
+        run: TeamRun,
+        models: [Model],
+        manifests: [DriverManifest],
+        store: RunStore,
+        journal: RemoteRunEventJournal,
+        lastSeq: inout Int64,
+        attachment: NDJSONStreamProjector.NDJSONAttachment,
+        writeLine: @escaping (String) -> Void
+    ) -> RunCLI.StreamOutcome {
+        let prepared = showReadPath(run: run, models: models, store: store)
+        let currentJSON = mapShowStreamJSON(
+            run: prepared.run,
+            ownerState: prepared.ownerState,
+            models: models,
+            manifests: manifests,
+            store: store
+        )
+        let mapper = NDJSONStreamProjector.LiveMapper()
+        if let drained = try? journal.events(forRunId: run.id, after: lastSeq) {
+            for event in drained {
+                lastSeq = max(lastSeq, event.seq)
+                // Skip journal terminal kinds — delivery frame below is the one terminal.
+                if let mapped = mapper.event(for: event),
+                   NDJSONStreamProjector.terminalEventNames.contains(mapped.event) {
+                    continue
+                }
+                if let line = attachment.liveLine(for: event) {
+                    writeLine(line)
+                }
+            }
+        }
+        let termHistory = (try? journal.events(forRunId: run.id)) ?? []
+        return emitTerminalDelivery(
+            run: prepared.run,
+            teamRunJSON: currentJSON,
+            history: termHistory,
+            historySeqs: termHistory.map { Int($0.seq) },
+            writeLine: writeLine
+        )
+    }
+
     private static func followLive(
         initialRun: TeamRun,
         initialJSON: TeamRunJSON,
@@ -1976,29 +2017,14 @@ struct AllnighterCLI {
             // Fresh run truth from store (read-only; never recoverTerminalLiveOwnership).
             let loaded = store.load(runId: initialRun.id) ?? initialRun
             if loaded.status.isTerminal {
-                let prepared = showReadPath(run: loaded, models: models, store: store)
-                currentJSON = mapShowStreamJSON(
-                    run: prepared.run,
-                    ownerState: prepared.ownerState,
+                return finishWithTerminal(
+                    run: loaded,
                     models: models,
                     manifests: manifests,
-                    store: store
-                )
-                // Drain any remaining non-terminal journal lines first (ascending seq).
-                if let drained = try? journal.events(forRunId: initialRun.id, after: lastSeq) {
-                    for event in drained {
-                        if let line = attachment.liveLine(for: event) {
-                            writeLine(line)
-                        }
-                        lastSeq = max(lastSeq, event.seq)
-                    }
-                }
-                let termHistory = (try? journal.events(forRunId: initialRun.id)) ?? []
-                return emitTerminalDelivery(
-                    run: prepared.run,
-                    teamRunJSON: currentJSON,
-                    history: termHistory,
-                    historySeqs: termHistory.map { Int($0.seq) },
+                    store: store,
+                    journal: journal,
+                    lastSeq: &lastSeq,
+                    attachment: attachment,
                     writeLine: writeLine
                 )
             }
@@ -2023,6 +2049,9 @@ struct AllnighterCLI {
             }
 
             // Live durable events after the replay window (no `replayed` key).
+            // Terminal journal kinds are never live-emitted here — exactly one
+            // terminal frame is owned by `finishWithTerminal` / terminalDeliveryLine
+            // (carries full TeamRunJSON + pmTurn).
             let fresh: [RunEvent]
             do {
                 fresh = try journal.events(forRunId: initialRun.id, after: lastSeq)
@@ -2039,12 +2068,34 @@ struct AllnighterCLI {
                     message: "corrupt event journal: \(error)"
                 )
             }
+            let mapper = NDJSONStreamProjector.LiveMapper()
+            var sawTerminalJournalEvent = false
             for event in fresh {
                 if follow.isCancelled() { return .success }
+                lastSeq = max(lastSeq, event.seq)
+                if let mapped = mapper.event(for: event),
+                   NDJSONStreamProjector.terminalEventNames.contains(mapped.event) {
+                    sawTerminalJournalEvent = true
+                    continue
+                }
                 if let line = attachment.liveLine(for: event) {
                     writeLine(line)
                 }
-                lastSeq = max(lastSeq, event.seq)
+            }
+            if sawTerminalJournalEvent {
+                let settled = store.load(runId: initialRun.id) ?? loaded
+                if settled.status.isTerminal {
+                    return finishWithTerminal(
+                        run: settled,
+                        models: models,
+                        manifests: manifests,
+                        store: store,
+                        journal: journal,
+                        lastSeq: &lastSeq,
+                        attachment: attachment,
+                        writeLine: writeLine
+                    )
+                }
             }
 
             // terminalOnly / unknown: finite observer budget. Incremental: never.
