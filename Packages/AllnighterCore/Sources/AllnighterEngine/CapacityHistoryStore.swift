@@ -276,8 +276,10 @@ extension CapacityWindowRecord {
 
 /// Single display path for CLI and Mac strip (CAP-HF-00).
 ///
-/// Records **live** successes only, then hydrates unknowns from history so bare
-/// `alln capacity` shows last-known + real age instead of lying `neverSampled`.
+/// Records **live** successes only. By default hydrates unknowns from history so
+/// bare `alln capacity` shows last-known + real age. Mac launch strip passes
+/// `hydrateFromHistory: false` — founder law 2026-08-02: never paint a percentage
+/// that was not just acquired live (stale history made the app look broken).
 public enum CapacityDisplayAcquisition {
     public static func windows(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
@@ -286,7 +288,8 @@ public enum CapacityDisplayAcquisition {
         refreshSource: String? = nil,
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
         probeExecutor: (any CapacityProbeExecuting)? = nil,
-        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
+        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout,
+        hydrateFromHistory: Bool = true
     ) -> [CapacityWindow] {
         let live = CapacityAcquisition.windows(
             homeRoot: homeRoot,
@@ -298,6 +301,7 @@ public enum CapacityDisplayAcquisition {
         )
         // Record live observations only — never re-count hydrated history.
         try? historyStore.record(live, now: now)
+        guard hydrateFromHistory else { return live }
         let history = historyStore.lastKnownWindows(
             sourceIds: CapacityAcquisition.benchSourceOrder,
             now: now

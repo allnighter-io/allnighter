@@ -801,6 +801,12 @@ final class CapacityAcquisitionTests: XCTestCase {
         }
     }
 
+    func testNeutralWorkingDirectoryUsesProbeScratch() {
+        let path = CapacityProbe.neutralWorkingDirectory()
+        XCTAssertNotNil(path)
+        XCTAssertTrue(path?.contains("ProbeScratch") == true, "capacity probes must not inherit repo CWD")
+    }
+
     func testLiveProbeMissingBinaryIsSpawnFailedNotZero() {
         // Force a non-existent binary — spawn fails closed with a distinct reason.
         let windows = CapacityProbe.windows(

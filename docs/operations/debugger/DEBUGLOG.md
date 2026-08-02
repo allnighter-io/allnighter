@@ -1,5 +1,37 @@
 # Debug Log
 
+## 2026-08-02 — capacity strip beach ball + stale 82% + refresh crash
+
+Tier: T3 Critical (TCC / launch trust + SSOT lie + main-thread stall)
+
+Symptom / repro: App launch painted Claude at 82% remaining (history), showed
+network-volume TCC, beach-balled, and Refresh crashed. Real usage was ~96% used.
+
+Bug fingerprint: `CapacityStripModel.refreshAll @MainActor` + sync PTY
+`DispatchGroup.wait` + `CapacityHydration` history painted as live truth
+
+Truth owner: Mac strip display = live acquire only (`hydrateFromHistory: false`);
+probe work must leave the main actor; child CWD = ProbeScratch.
+
+Lie-prone layer: last-known history + MainActor-bound refresh made stale % look
+current and froze/killed the UI.
+
+RCA: Prior "fix stale" always probed on launch but waited on `@MainActor`
+(~35s Claude budget × seats). Hydration then preferred history when a live probe
+failed, so 82% never died. Refresh re-entered the same blocked MainActor path → crash.
+
+Fix boundary: placeholders until live refresh; `Task.detached` for probes;
+`hydrateFromHistory: false` on Mac strip; ProbeScratch CWD (already). CLI bare
+path still hydrates.
+
+Proof: `AllnighterMacTests/CapacityStripModelTests` (6);
+`CapacityHistoryStoreTests/testDisplayAcquisitionLiveOnlySkipsHistoryHydration`.
+
+What was the agent allowed to do that must never be allowed again: Paint capacity
+% from history on the Mac launch strip, or run PTY capacity probes on the main actor.
+
+---
+
 ## 2026-07-27 — `pilot handoff --no-wait` acked `dispatched` while HandoverGate rejected
 
 Tier: T2 SSOT (pilot handoff ack / gate verdict)

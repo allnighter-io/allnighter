@@ -44,6 +44,8 @@ struct CapacityStripView: View {
         Group {
             if let hero = model.hero {
                 liveHero(hero)
+            } else if model.isRefreshingAll {
+                refreshingHero
             } else {
                 calmHero
             }
@@ -134,6 +136,28 @@ struct CapacityStripView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private var refreshingHero: some View {
+        HStack(alignment: .top, spacing: 14) {
+            ProgressView()
+                .controlSize(.small)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Checking your bench")
+                    .font(ALFont.sans(10, .semibold))
+                    .tracking(0.8)
+                    .textCase(.uppercase)
+                    .foregroundStyle(ALColor.textFaint)
+                Text("Refreshing capacity…")
+                    .font(ALFont.sans(20, .semibold))
+                    .foregroundStyle(ALColor.textSecondary)
+                Text("No number until a live sample lands — never last-known")
+                    .font(ALFont.mono(11))
+                    .foregroundStyle(ALColor.textMuted)
+            }
+            Spacer(minLength: 0)
         }
     }
 

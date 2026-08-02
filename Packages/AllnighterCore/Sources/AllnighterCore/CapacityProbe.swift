@@ -121,6 +121,37 @@ public enum CapacityProbe {
         source == "codex" ? "/status" : usageCommand
     }
 
+    /// Neutral CWD for tier-3 probes — mirrors `AllnighterPaths.probeScratch` (Engine
+    /// cannot be imported from Core). Capacity probes must not inherit the app/repo
+    /// CWD: in dev that is the checkout under `~/Documents`, and a child CLI that
+    /// reads its working dir trips a TCC prompt attributed to the GUI app.
+    public static func neutralWorkingDirectory(
+        fileManager: FileManager = .default
+    ) -> String? {
+        let support: URL
+        if let override = ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"],
+           !override.isEmpty
+        {
+            support = URL(
+                fileURLWithPath: (override as NSString).expandingTildeInPath,
+                isDirectory: true
+            )
+        } else {
+            let base = fileManager.urls(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask
+            ).first ?? URL(fileURLWithPath: NSTemporaryDirectory())
+            support = base.appendingPathComponent("Allnighter", isDirectory: true)
+        }
+        let scratch = support.appendingPathComponent("ProbeScratch", isDirectory: true)
+        do {
+            try fileManager.createDirectory(at: scratch, withIntermediateDirectories: true)
+            return scratch.path
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: Public entry
 
     /// Probe one source and return normalized windows (or a single unknown).
@@ -165,6 +196,7 @@ public enum CapacityProbe {
         }
 
         let cwd = workingDirectory
+            ?? Self.neutralWorkingDirectory()
             ?? FileManager.default.currentDirectoryPath
         let capture = captureUsageRender(
             executable: executable,

@@ -454,6 +454,35 @@ final class CapacityHistoryStoreTests: XCTestCase {
         XCTAssertNil(agy.first?.unknownReason)
     }
 
+    func testDisplayAcquisitionLiveOnlySkipsHistoryHydration() throws {
+        let observed = t0.addingTimeInterval(-1_800)
+        let openReset = t0.addingTimeInterval(86_400)
+        try store.record([
+            known(
+                source: "claude_code",
+                used: 18,
+                resetAt: openReset,
+                observedAt: observed,
+                planTier: "Max"
+            ),
+        ], now: t0)
+
+        let home = tempRoot.appendingPathComponent("empty-home-live", isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+
+        let windows = CapacityDisplayAcquisition.windows(
+            homeRoot: home,
+            now: t0,
+            refresh: false,
+            historyStore: store,
+            hydrateFromHistory: false
+        )
+        let claude = windows.filter { $0.source == "claude_code" }
+        XCTAssertEqual(claude.count, 1)
+        XCTAssertNil(claude.first?.usedPercent, "Mac strip must not paint history %")
+        XCTAssertNotNil(claude.first?.unknownReason)
+    }
+
     // MARK: - Helpers
 
     private func known(

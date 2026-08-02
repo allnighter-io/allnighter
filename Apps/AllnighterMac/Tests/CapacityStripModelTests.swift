@@ -3,11 +3,9 @@ import AllnighterCore
 import AllnighterEngine
 @testable import AllnighterMac
 
-/// Launch strip must hydrate instantly then probe — stale history alone is not truth.
+/// Founder law 2026-08-02: Mac strip never paints history % — only live acquire.
 @MainActor
 final class CapacityStripModelTests: XCTestCase {
-
-    private let now = Date(timeIntervalSince1970: 1_753_833_600)
 
     private final class CountingProbeExecutor: CapacityProbeExecuting, @unchecked Sendable {
         private let lock = NSLock()
@@ -45,19 +43,17 @@ final class CapacityStripModelTests: XCTestCase {
         }
     }
 
-    func testLoadLiveProbesAfterHydrate() async throws {
-        let executor = CountingProbeExecutor()
-        let model = CapacityStripModel()
-        model.loadLive(probeExecutor: executor)
-
-        for _ in 0..<200 where model.isRefreshingAll {
-            try await Task.sleep(nanoseconds: 25_000_000)
+    func testUntrustedPlaceholdersHaveNoPercentages() {
+        let windows = CapacityStripModel.untrustedPlaceholders(now: Date())
+        XCTAssertEqual(windows.count, CapacityAcquisition.benchSourceOrder.count)
+        for window in windows {
+            XCTAssertNotNil(window.unknownReason)
+            XCTAssertNil(window.usedPercent)
+            XCTAssertNil(window.remainingPercent)
         }
-
-        XCTAssertGreaterThan(executor.callCount, 0, "launch must probe tier-3 seats, not only hydrate history")
     }
 
-    func testLoadLiveReplacesStaleClaudeHistoryWithFreshProbe() async throws {
+    func testLoadLiveNeverPaintsStaleHistoryPercentages() async throws {
         let clock = Date()
         let resetAt = clock.addingTimeInterval(32 * 3600)
         let staleObserved = clock.addingTimeInterval(-7_200)
@@ -84,7 +80,61 @@ final class CapacityStripModelTests: XCTestCase {
         let home = tempRoot.appendingPathComponent("home", isDirectory: true)
         try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
 
-        let freshObserved = clock
+        let model = CapacityStripModel()
+        model.loadLive(
+            homeRoot: home,
+            historyStore: store,
+            probeExecutor: CountingProbeExecutor(),
+            autoRefresh: false
+        )
+
+        let claude = try XCTUnwrap(model.windows.first { $0.source == "claude_code" })
+        XCTAssertNil(claude.usedPercent, "launch must not paint last-known 82% remaining")
+        XCTAssertEqual(claude.unknownReason, .neverSampled)
+    }
+
+    func testLoadLiveAlwaysRefreshesOffMainPath() async throws {
+        let executor = CountingProbeExecutor()
+        let model = CapacityStripModel()
+        model.loadLive(probeExecutor: executor)
+
+        XCTAssertTrue(model.isRefreshingAll || executor.callCount > 0 || model.windows.allSatisfy { $0.unknownReason != nil })
+
+        for _ in 0..<400 where model.isRefreshingAll {
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+
+        XCTAssertGreaterThan(executor.callCount, 0, "launch must probe live — never trust history alone")
+        XCTAssertFalse(model.isRefreshingAll)
+    }
+
+    func testRefreshAllReplacesWithLiveProbeNotHistory() async throws {
+        let clock = Date()
+        let resetAt = clock.addingTimeInterval(32 * 3600)
+        let staleObserved = clock.addingTimeInterval(-7_200)
+
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let historyRoot = tempRoot.appendingPathComponent("capacity", isDirectory: true)
+        let store = CapacityHistoryStore(rootDirectory: historyRoot)
+        try store.record([
+            CapacityWindow(
+                used: 18,
+                source: "claude_code",
+                scope: .weekly,
+                resetAt: resetAt,
+                resetPrecision: .exact,
+                observedAt: staleObserved,
+                sourceTier: .tuiProbe,
+                planTier: "Max"
+            ),
+        ], now: clock)
+
+        let home = tempRoot.appendingPathComponent("home", isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+
         let probeExecutor = FixtureProbeExecutor(results: [
             "claude_code": [
                 CapacityWindow(
@@ -93,7 +143,7 @@ final class CapacityStripModelTests: XCTestCase {
                     scope: .weekly,
                     resetAt: resetAt,
                     resetPrecision: .exact,
-                    observedAt: freshObserved,
+                    observedAt: clock,
                     sourceTier: .tuiProbe,
                     planTier: "Max"
                 ),
@@ -107,21 +157,58 @@ final class CapacityStripModelTests: XCTestCase {
             probeExecutor: probeExecutor,
             autoRefresh: false
         )
-
-        let hydratedWindow = try XCTUnwrap(model.windows.first { $0.source == "claude_code" })
-        let hydratedUsed = try XCTUnwrap(hydratedWindow.usedPercent)
-        XCTAssertEqual(hydratedUsed, 18, accuracy: 0.5)
-
         model.refreshAll(homeRoot: home, historyStore: store, probeExecutor: probeExecutor)
 
-        for _ in 0..<200 where model.isRefreshingAll {
+        for _ in 0..<400 where model.isRefreshingAll {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
 
-        let refreshedWindow = try XCTUnwrap(model.windows.first { $0.source == "claude_code" })
-        let refreshedUsed = try XCTUnwrap(refreshedWindow.usedPercent)
-        XCTAssertEqual(refreshedUsed, 96, accuracy: 0.5)
-        XCTAssertEqual(refreshedWindow.resetAt, resetAt)
+        let refreshed = try XCTUnwrap(model.windows.first { $0.source == "claude_code" })
+        let used = try XCTUnwrap(refreshed.usedPercent)
+        XCTAssertEqual(used, 96, accuracy: 0.5)
+        XCTAssertNotEqual(used, 18, "must not fall back to history 18% used / 82% rem")
+    }
+
+    func testFailedLiveProbeDoesNotHydrateHistory() async throws {
+        let clock = Date()
+        let resetAt = clock.addingTimeInterval(32 * 3600)
+
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let historyRoot = tempRoot.appendingPathComponent("capacity", isDirectory: true)
+        let store = CapacityHistoryStore(rootDirectory: historyRoot)
+        try store.record([
+            CapacityWindow(
+                used: 18,
+                source: "claude_code",
+                scope: .weekly,
+                resetAt: resetAt,
+                resetPrecision: .exact,
+                observedAt: clock.addingTimeInterval(-7_200),
+                sourceTier: .tuiProbe,
+                planTier: "Max"
+            ),
+        ], now: clock)
+
+        let home = tempRoot.appendingPathComponent("home", isDirectory: true)
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+
+        let model = CapacityStripModel()
+        model.refreshAll(
+            homeRoot: home,
+            historyStore: store,
+            probeExecutor: CountingProbeExecutor()
+        )
+
+        for _ in 0..<400 where model.isRefreshingAll {
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+
+        let claude = try XCTUnwrap(model.windows.first { $0.source == "claude_code" })
+        XCTAssertNil(claude.usedPercent, "failed probe must show unknown, never history %")
+        XCTAssertNotNil(claude.unknownReason)
     }
 
     func testLoadLiveSkipsAutoRefreshWhenDisabled() async throws {
