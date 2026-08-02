@@ -58,6 +58,9 @@ final class RunStreamContractTests: XCTestCase {
         try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
         let runsDir = repo.appendingPathComponent("runs", isDirectory: true)
         let runStore = RunStore(rootDirectory: runsDir)
+        // Same journal instance RunService owns — ORS-S02a1 durable recording lives
+        // on the run owner, not the stream consumer (RunCLI `append: { $0 }`).
+        let journal = RemoteRunEventJournal(rootDirectory: runsDir)
         let model = Model(
             id: "model_cursor_composer_25", displayName: "Cursor Composer",
             modelLabel: "composer-2.5", driverId: "cursor_agent", role: .both)
@@ -72,10 +75,31 @@ final class RunStreamContractTests: XCTestCase {
             commandRunner: MockCommandRunner(scripts: ["cursor": .init(stdout: "Done.", exitCode: 0)]),
             writeLock: RunWriteLockRegistry(),
             defaultSettings: { settings },
-            probeRecords: { [probe] })
+            probeRecords: { [probe] },
+            eventJournal: journal)
         return Harness(
             repo: repo, runsDir: runsDir, runStore: runStore,
-            journal: RemoteRunEventJournal(rootDirectory: runsDir), service: service)
+            journal: journal, service: service)
+    }
+
+    /// Project durable-only history the same way a reattach does (no live-only
+    /// high-frequency kinds — those never land in `events.jsonl`).
+    private func projectedSeqs(from events: [RunEvent], replayed: Bool) throws -> [Int] {
+        let attachment = NDJSONStreamProjector.NDJSONAttachment()
+        let lines = replayed
+            ? attachment.replayLines(events)
+            : events.compactMap { attachment.liveLine(for: $0) }
+        return try lines.map(parse).compactMap { $0["seq"] as? Int }
+    }
+
+    /// Strictly increasing (gaps OK — other-run / filtered events consume global
+    /// seq). Catches a renumber/reset (duplicate or decrease) without hardcoding
+    /// a magic contiguous list that rots when the durable filter changes.
+    private func assertStrictlyIncreasing(_ seqs: [Int], _ message: String) {
+        XCTAssertFalse(seqs.isEmpty, message)
+        for i in 1..<seqs.count {
+            XCTAssertGreaterThan(seqs[i], seqs[i - 1], "\(message) — seqs \(seqs) must strictly increase (no reset/duplicate)")
+        }
     }
 
     private let terminal: Set<String> = ["teamRunCompleted", "teamRunFailed", "error"]
@@ -87,10 +111,11 @@ final class RunStreamContractTests: XCTestCase {
     // MARK: - Durable seq across a live stream + reattach (RLR-L7)
 
     /// Route a real `RunService` live run through the durable journal + attachment
-    /// exactly as `RunCLI --stream` does: every visible line carries a durable,
-    /// strictly-ascending seq, the first line carries the runId, exactly one
-    /// terminal is emitted, and a fresh reattach replays the SAME durable seqs
-    /// (no reset to 1) marked `replayed`.
+    /// exactly as `RunCLI --stream` does after ORS-S02a1: RunService owns durable
+    /// append; the stream consumer is identity-stamp only (`append: { $0 }`).
+    /// Guards: first line carries runId, exactly one terminal, durable `events.jsonl`
+    /// seqs strictly increase, and two independent reattaches replay the SAME
+    /// durable seqs (identity — no renumber/reset to 1).
     func testStreamSeqIsMonotonicAndDurableAcrossReattach() async throws {
         let h = try makeHarness()
         defer { try? FileManager.default.removeItem(at: h.repo) }
@@ -99,12 +124,13 @@ final class RunStreamContractTests: XCTestCase {
         let attachment = NDJSONStreamProjector.NDJSONAttachment()
         let runId = UUID().uuidString
 
-        // Drain the live stream on a child task while the run executes.
+        // Production stream path: identity stamp — durable append already happened
+        // in RunService (ORS-S02a1). Re-appending here would double-write and mint
+        // a second seq space (the pre-filter harness bug that looked like a reset).
         let consumer = Task { () -> [String] in
             var lines: [String] = []
             for await event in stream {
-                let stamped = (try? h.journal.append(event)) ?? event
-                if let line = attachment.liveLine(for: stamped) { lines.append(line) }
+                if let line = attachment.liveLine(for: event) { lines.append(line) }
             }
             if let closing = attachment.closingLine() { lines.append(closing) }
             return lines
@@ -123,28 +149,60 @@ final class RunStreamContractTests: XCTestCase {
         XCTAssertEqual(liveObjs.first?["event"] as? String, "teamRunStarted")
         XCTAssertEqual(liveObjs.first?["teamRunId"] as? String, runId, "the first stream line carries the runId")
 
-        // Durable seq: strictly ascending + unique, never a reset 1..N counter alone
-        // (the durable per-Mac seq is the truth).
-        let liveSeqs = liveObjs.compactMap { $0["seq"] as? Int }
-        XCTAssertEqual(liveSeqs.count, liveObjs.count, "every line carries a seq")
-        XCTAssertEqual(liveSeqs, liveSeqs.sorted(), "seq is monotonic")
-        XCTAssertEqual(liveSeqs.count, Set(liveSeqs).count, "seq is unique — no duplicates")
-
         // Exactly one terminal, and it is last (RLR-L7).
         let terminals = liveObjs.filter { terminal.contains($0["event"] as? String ?? "") }
         XCTAssertEqual(terminals.count, 1, "exactly one terminal per attachment")
         XCTAssertTrue(terminal.contains(liveObjs.last?["event"] as? String ?? ""), "terminal is last")
 
-        // Reattach: a fresh attachment replays durable history from seq 0. The
-        // replayed visible seqs equal the live ones (durable — not reset to 1),
-        // and history is marked replayed.
+        // Durable truth is the file — not the live projection (live also carries
+        // high-frequency kinds that ORS-S02a1 deliberately does not persist).
+        let diskEvents = try h.journal.events(forRunId: runId)
+        XCTAssertFalse(diskEvents.isEmpty, "events.jsonl must hold durable history for reattach")
+        let diskSeqs = diskEvents.map { Int($0.seq) }
+        assertStrictlyIncreasing(diskSeqs, "durable events.jsonl seqs are strictly increasing")
+        XCTAssertEqual(diskSeqs.count, Set(diskSeqs).count, "durable seqs are unique on disk")
+        XCTAssertTrue(
+            diskEvents.allSatisfy { RemoteRunEventJournal.isDurableSemanticEvent($0.kind) },
+            "events.jsonl holds only the durable semantic set — no transcript kinds"
+        )
+
+        // Live durable-visible lines (status/stage/terminal that map to NDJSON)
+        // carry the SAME seqs as disk. Comparing against a hardcoded list would
+        // rot when the filter adds/drops a kind; equality with disk is the invariant.
+        let durableLiveSeqs = try projectedSeqs(from: diskEvents, replayed: false)
+        assertStrictlyIncreasing(durableLiveSeqs, "durable-visible live projection is strictly increasing")
+
+        // Reattach identity: two fresh attachments over the same journal replay
+        // the identical seq list. A renumber/reset to 1 on reattach would make
+        // attach2 differ from attach1, or disagree with disk.
         let history = try h.journal.replay(after: 0).events
+        let attach1 = try projectedSeqs(from: history, replayed: true)
+        let attach2 = try projectedSeqs(from: history, replayed: true)
+        XCTAssertEqual(attach1, attach2, "two reattaches replay identical durable seqs — no renumber")
+        XCTAssertEqual(attach1, durableLiveSeqs, "reattach replays the SAME durable seqs as live durable projection — no reset to 1")
+        XCTAssertEqual(attach1, try projectedSeqs(from: diskEvents, replayed: true),
+                       "reattach seqs match events.jsonl projection")
+
         let reattach = NDJSONStreamProjector.NDJSONAttachment()
         let replayObjs = try reattach.replayLines(history).map(parse)
-        let replaySeqs = replayObjs.compactMap { $0["seq"] as? Int }
-        XCTAssertEqual(replaySeqs, liveSeqs, "reattach replays the SAME durable seqs — no reset to 1")
         XCTAssertTrue(replayObjs.allSatisfy { $0["replayed"] as? Bool == true }, "replayed history is marked")
         XCTAssertEqual(replayObjs.first?["teamRunId"] as? String, runId, "the first replayed line carries the runId")
+
+        // Global per-Mac seq space: interleaved second run must not reset run A's
+        // durable seqs (the property a magic contiguous list never guarded).
+        let runB = UUID().uuidString
+        func statusEv(_ rid: String, to: RunStatus) -> RunEvent {
+            RunEvent(id: UUID().uuidString, seq: 0, ts: Date(), kind: RunEventKind.runStatusChanged,
+                     payload: ["runId": .string(rid), "to": .string(to.rawValue), "origin": .string("cli")])
+        }
+        let beforeB = try h.journal.lastSeq()
+        _ = try h.journal.append(statusEv(runB, to: .running))
+        _ = try h.journal.append(statusEv(runB, to: .complete))
+        let afterB = try h.journal.lastSeq()
+        XCTAssertGreaterThan(afterB, beforeB, "second run advances the global per-Mac seq")
+        let diskAAfter = try h.journal.events(forRunId: runId).map { Int($0.seq) }
+        XCTAssertEqual(diskAAfter, diskSeqs, "run A durable seqs are unchanged when run B appends — no per-run reset")
+        assertStrictlyIncreasing(diskAAfter, "run A remains strictly increasing after interleaved run B")
     }
 
     /// The durable `seq` lives in `remote_event_seq.txt` under the journal root, so
@@ -230,6 +288,8 @@ final class RunStreamContractTests: XCTestCase {
         ])
 
         let runsDir = repo.appendingPathComponent("runs", isDirectory: true)
+        // Shared journal + identity stamp (production RunCLI after ORS-S02a1).
+        let journal = RemoteRunEventJournal(rootDirectory: runsDir)
         let service = RunService(
             models: [model],
             registry: DriverRegistry([manifest]),
@@ -238,26 +298,31 @@ final class RunStreamContractTests: XCTestCase {
             commandRunner: streamingRunner,
             writeLock: RunWriteLockRegistry(),
             defaultSettings: { settings },
-            probeRecords: { [probe] })
-        let journal = RemoteRunEventJournal(rootDirectory: runsDir)
+            probeRecords: { [probe] },
+            eventJournal: journal)
 
         let (stream, continuation) = AsyncStream<RunEvent>.makeStream()
         let attachment = NDJSONStreamProjector.NDJSONAttachment()
-        let consumer = Task { () -> [String] in
+        // Track raw stream events so we can prove activity is single-emit, not
+        // double-persisted (the serious failure mode after the terminal-dup fix).
+        let consumer = Task { () -> (lines: [String], streamKinds: [String]) in
             var lines: [String] = []
+            var streamKinds: [String] = []
             for await event in stream {
-                let stamped = (try? journal.append(event)) ?? event
-                if let line = attachment.liveLine(for: stamped) { lines.append(line) }
+                streamKinds.append(event.kind)
+                // Identity stamp — RunService already appended durable kinds.
+                if let line = attachment.liveLine(for: event) { lines.append(line) }
             }
             if let closing = attachment.closingLine() { lines.append(closing) }
-            return lines
+            return (lines, streamKinds)
         }
 
         let result = await service.run(
             RunRequest(message: "hi", repoRoot: repo.path, presetId: team.id),
             origin: .cli, events: continuation)
         guard case .success = result else { return XCTFail("run failed: \(result)") }
-        let lines = await consumer.value
+        let consumed = await consumer.value
+        let lines = consumed.lines
 
         let objs = try lines.map(parse)
         let events = objs.compactMap { $0["event"] as? String }
@@ -281,10 +346,39 @@ final class RunStreamContractTests: XCTestCase {
             XCTAssertFalse(line.contains("world"), "no raw delta text in any NDJSON line")
         }
 
-        // Seq stays monotonic across activity + transition lines (RLR-L7 + Works Test 4).
-        let seqs = objs.compactMap { $0["seq"] as? Int }
-        XCTAssertEqual(seqs, seqs.sorted(), "seq is monotonic across activity lines")
-        XCTAssertNil(NDJSONStreamProjector.firstSeqGap(seqs))
+        // Live-only activity is single-emit on the stream and never durable.
+        // A real double-emit would project more workerActivity lines than stream
+        // activity source events; a durable leak would put transcript kinds on
+        // disk (forbidden by ORS-S02a1 rule 2).
+        let activitySourceKinds: Set<String> = [
+            RunEventKind.workerAnswerDelta,
+            RunEventKind.workerReasoningDelta,
+            RunEventKind.workerOutput,
+        ]
+        let activitySources = consumed.streamKinds.filter { activitySourceKinds.contains($0) }
+        XCTAssertFalse(activitySources.isEmpty, "streaming dribble must yield ≥1 activity source event")
+        let diskEvents = try journal.replay(after: 0).events
+        let bannedOnDisk = diskEvents.filter {
+            activitySourceKinds.contains($0.kind) || $0.kind == RunEventKind.stageOutput
+        }
+        XCTAssertTrue(bannedOnDisk.isEmpty,
+                      "transcript/activity kinds must not be durable; got \(bannedOnDisk.map(\.kind))")
+        XCTAssertEqual(
+            activityIndices.count, activitySources.count,
+            "each stream activity source projects to exactly one workerActivity — no double-emit"
+        )
+
+        // Durable seq spine (disk + reattach) stays strictly increasing. Do not
+        // require firstSeqGap-nil over the full live mix: live-only activity does
+        // not consume the durable journal seq, so contiguity of mixed live seqs is
+        // not the RLR-L7 durable invariant (and the pre-ORS double-append harness
+        // made contiguity look true by re-stamping every line).
+        let diskSeqs = diskEvents.map { Int($0.seq) }
+        assertStrictlyIncreasing(diskSeqs, "durable journal seqs across activity run")
+        let reattach1 = try projectedSeqs(from: diskEvents, replayed: true)
+        let reattach2 = try projectedSeqs(from: diskEvents, replayed: true)
+        XCTAssertEqual(reattach1, reattach2, "activity-run reattach is replay-identical")
+        assertStrictlyIncreasing(reattach1, "reattached durable projection is strictly increasing")
     }
 
     // MARK: - `alln run --json` is final-only (RLR-L7, §1.4)
