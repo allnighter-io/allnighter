@@ -1,113 +1,108 @@
 {
-  "schemaVersion": 2,
-  "contractVersion": "9.2.0",
-  "teamRun": {
-    "id": "run_20260720_1200",
-    "status": "done",
-    "origin": "cli",
-    "originAgent": null,
-    "lane": "code",
-    "type": null,
-    "effort": null,
-    "prompt": "Say success.",
-    "promptSource": {
-      "kind": "positional",
-      "path": null
-    },
-    "createdAt": "2026-07-20T12:00:00Z",
-    "startedAt": "2026-07-20T12:00:01Z",
-    "completedAt": "2026-07-20T12:00:05Z",
-    "threadId": null,
-    "teamPresetId": null,
-    "teamDisplayName": null,
-    "outputKind": null,
-    "modelId": "model_sonnet",
-    "writePolicy": "mutating",
-    "identitySummary": "model model_sonnet \u00b7 lane code \u00b7 mutating",
-    "planWriterAgentId": null,
-    "reproduceCommand": "alln run --model model_sonnet \"Say success.\"",
-    "endReason": "completed",
-    "blocker": null,
-    "attempts": []
-  },
-  "agents": [
+  "agents" : [
     {
-      "id": "model_sonnet#0",
-      "skillId": null,
-      "skillName": null,
-      "modelId": "model_sonnet",
-      "modelName": "Sonnet 4.6",
-      "sourceId": "claude_code",
-      "purpose": "answer",
-      "instanceIndex": 0
+      "id" : "model_sonnet#0",
+      "instanceIndex" : 0,
+      "modelId" : "model_sonnet",
+      "modelName" : "Sonnet 4.6",
+      "purpose" : "answer",
+      "sourceId" : "claude_code"
     }
   ],
-  "answers": [
+  "answer" : {
+    "markdown" : "success",
+    "source" : {
+      "agentId" : "model_sonnet#0",
+      "kind" : "worker",
+      "modelId" : "model_sonnet"
+    },
+    "status" : "done"
+  },
+  "answers" : [
     {
-      "agentId": "model_sonnet#0",
-      "modelId": "model_sonnet",
-      "status": "done",
-      "queueMs": 1000,
-      "ttftMs": 500,
-      "durationMs": 4000,
-      "markdown": null,
-      "error": null
+      "agentId" : "model_sonnet#0",
+      "durationMs" : 4000,
+      "modelId" : "model_sonnet",
+      "queueMs" : 1000,
+      "status" : "done",
+      "ttftMs" : 500
     }
   ],
-  "answer": {
-    "status": "done",
-    "outputKind": null,
-    "markdown": "success",
-    "source": {
-      "kind": "worker",
-      "agentId": "model_sonnet#0",
-      "modelId": "model_sonnet",
-      "stageId": null
-    },
-    "typedResultField": null
+  "artifact" : {
+    "openCommand" : "alln artifact show run_20260720_1200",
+    "path" : "\/tmp\/runs\/run_20260720_1200\/artifact\/index.html"
   },
-  "pmTurn": null,
-  "notes": [],
-  "stages": [],
-  "plan": null,
-  "outcome": {
-    "status": "completed",
-    "committed": false,
-    "headline": "model model_sonnet \u00b7 lane code \u00b7 mutating \u00b7 queue 1000ms \u00b7 ttft 500ms \u00b7 duration 4000ms \u00b7 wall 5000ms",
-    "commitMessageMatched": null,
-    "proof": null,
-    "usage": null,
-    "timing": {
-      "wallMs": 5000
-    }
+  "audit" : {
+    "traceId" : "trace_run_20260720_1200"
   },
-  "usage": {
-    "cliCalls": 1
-  },
-  "warnings": [],
-  "errors": [],
-  "nextActions": [
+  "contractVersion" : "9.3.0",
+  "errors" : [
+
+  ],
+  "nextActions" : [
     {
-      "kind": "showArtifact",
-      "command": "alln artifact show run_20260720_1200",
-      "label": "Open team artifact"
+      "command" : "alln artifact show run_20260720_1200",
+      "kind" : "showArtifact",
+      "label" : "Open team artifact"
     },
     {
-      "kind": "showRun",
-      "command": "alln show run_20260720_1200",
-      "label": "Show run"
+      "command" : "alln show run_20260720_1200",
+      "kind" : "showRun",
+      "label" : "Show run"
     },
     {
-      "kind": "export",
-      "command": "alln export run_20260720_1200 --format md",
-      "label": "Export markdown"
+      "command" : "alln export run_20260720_1200 --format md",
+      "kind" : "export",
+      "label" : "Export markdown"
     }
   ],
-  "artifact": {
-    "path": "/tmp/runs/run_20260720_1200/artifact/index.html",
-    "openCommand": "alln artifact show run_20260720_1200"
+  "notes" : [
+
+  ],
+  "observation" : {
+    "activityMode" : "unknown",
+    "lastActivityAt" : null,
+    "ownerState" : "unknown"
   },
-  "audit": {
-    "traceId": "trace_run_20260720_1200"
-  }
+  "outcome" : {
+    "committed" : false,
+    "headline" : "model model_sonnet · lane code · mutating · queue 1000ms · ttft 500ms · duration 4000ms · wall 5000ms",
+    "status" : "completed",
+    "timing" : {
+      "wallMs" : 5000
+    }
+  },
+  "plan" : null,
+  "pmTurn" : null,
+  "schemaVersion" : 2,
+  "stages" : [
+
+  ],
+  "teamRun" : {
+    "attempts" : [
+
+    ],
+    "completedAt" : "2026-07-20T12:00:05Z",
+    "createdAt" : "2026-07-20T12:00:00Z",
+    "endReason" : "completed",
+    "id" : "run_20260720_1200",
+    "identitySummary" : "model model_sonnet · lane code · mutating",
+    "lane" : "code",
+    "modelId" : "model_sonnet",
+    "origin" : "cli",
+    "prompt" : "Say success.",
+    "promptSource" : {
+      "kind" : "positional"
+    },
+    "reproduceCommand" : "alln run --model model_sonnet \"Say success.\"",
+    "startedAt" : "2026-07-20T12:00:01Z",
+    "status" : "done",
+    "writePolicy" : "mutating"
+  },
+  "usage" : {
+    "cliCalls" : 1
+  },
+  "warnings" : [
+
+  ]
 }

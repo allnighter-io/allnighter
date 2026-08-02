@@ -144,7 +144,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // ORS-S02b2 bumps contract 7.5.0 → 7.6.0 (additive: attentionRequired + live follow).
         // ORS-S03c bumps contract 8.0.0 → 9.0.0 (major: delete public audit.runJournalPath).
         // LOOP-TWIN bumps contract 9.1.0 → 9.2.0 (additive: free-twin dry-run on resume/step/pm).
-        XCTAssertEqual(trj.contractVersion, "9.2.0")
+        // ORS observation/tool-wire bumps contract 9.2.0 → 9.3.0 (always-present
+        // three-key observation with null lastActivityAt; workerActivity.data.tool).
+        XCTAssertEqual(trj.contractVersion, "9.3.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"
