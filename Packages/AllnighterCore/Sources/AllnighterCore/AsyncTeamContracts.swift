@@ -74,7 +74,7 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
         AsyncTeamNextAction(
             kind: "waitForTerminal",
             label: "Wait for the terminal PM Turn",
-            command: "alln team status \(runId) --wait-for terminal --timeout 7200 --json",
+            command: "alln show \(runId) --stream",
             runId: runId)
     }
 
@@ -82,7 +82,7 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
         AsyncTeamNextAction(
             kind: "fetchResult",
             label: "Fetch terminal result",
-            command: "alln team result \(runId) --json",
+            command: "alln show \(runId) --json",
             runId: runId)
     }
 
@@ -90,7 +90,8 @@ public struct AsyncTeamNextAction: Codable, Equatable, Sendable {
         AsyncTeamNextAction(
             kind: "waitForStatus",
             label: "Wait, then re-check status",
-            command: "alln team status \(runId) --json",
+            // Canonical observe-and-deliver — never a self-referential poll of the same read.
+            command: "alln show \(runId) --stream",
             runId: runId)
     }
 

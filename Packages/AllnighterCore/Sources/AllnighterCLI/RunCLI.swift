@@ -330,22 +330,18 @@ enum RunCLI {
         }
     }
 
-    /// A detached run returns the one bounded waiter that delivers its terminal
-    /// PM Turn. `run resume` remains vendor-capacity recovery, not delivery.
+    /// A detached run returns one canonical observe-and-deliver action
+    /// (`alln show <id> --stream`). `--delivery wake` is an orthogonal notification
+    /// receipt; the ack still carries the same nextAction (ORS-S03a).
     private static func emitDispatchAck(id: String, pid: Int32, json: Bool, wakeDelivery: Bool) {
-        let delivery = wakeDelivery
-            ? DetachedDispatch.wakeDelivery()
-            : DetachedDispatch.waitDelivery(
-                kind: "run", id: id, commandPrefix: DetachedDispatch.commandPrefix())
+        let next = DetachedDispatch.runNextAction(id: id)
         if json {
             print(AllnighterCLI.jsonLine(DetachedDispatchJSON(
-                kind: "run", id: id, status: "dispatched", pid: pid, delivery: delivery)))
+                kind: "run", id: id, status: "dispatched", pid: pid, nextAction: next)))
+        } else if wakeDelivery {
+            print("dispatched (pid \(pid)) — PM Turn wake delivery configured; observe with `\(next.command)`")
         } else {
-            if let command = delivery.command {
-                print("dispatched (pid \(pid)) — wait for delivery with `\(command)`")
-            } else {
-                print("dispatched (pid \(pid)) — PM Turn wake delivery configured")
-            }
+            print("dispatched (pid \(pid)) — observe with `\(next.command)`")
         }
     }
 

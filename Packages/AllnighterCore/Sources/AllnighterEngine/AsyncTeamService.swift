@@ -888,11 +888,7 @@ public actor AsyncTeamService {
             nextPollAfterMs: AsyncTeamStatusMapper.nextPollAfterMs(for: live),
             nextActions: [
                 .waitForTerminal(runId: run.id),
-                .init(
-                    kind: "result",
-                    label: "Fetch result when terminal",
-                    command: "alln team result \(run.id) --json",
-                    runId: run.id),
+                .fetchResult(runId: run.id),
             ]
         )
     }

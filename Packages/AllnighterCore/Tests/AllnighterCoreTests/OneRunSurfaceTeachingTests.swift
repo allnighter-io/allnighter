@@ -301,16 +301,18 @@ final class OneRunSurfaceTeachingTests: XCTestCase {
             )
         }
 
-        // CANARY: when ORS-S03 deletes the `team status` teaching this assertion
-        // is EXPECTED to flip red; at that moment change it to assert PilotCLI
-        // still contributes >= 1 entry and contains NO "team status". Do not
-        // delete the assertion. Proves the extractor really reads PilotCLI.swift
-        // (true today: PilotCLI.swift:964,979).
+        // CANARY (flipped ORS-S03a): PilotCLI no longer teaches `team status`;
+        // family still contributes ≥1 entry and contains NO "team status".
+        // Proves the extractor still reads PilotCLI.swift.
         let pilotEntries = corpus.filter { $0.source.hasPrefix("PilotCLI.swift") }
+        XCTAssertFalse(
+            pilotEntries.isEmpty,
+            "ORS teaching gate CANARY: PilotCLI family must still contribute ≥1 teachable entry"
+        )
         let pilotHasTeamStatus = pilotEntries.contains { $0.text.contains("team status") }
-        XCTAssertTrue(
+        XCTAssertFalse(
             pilotHasTeamStatus,
-            "ORS teaching gate CANARY: PilotCLI family must currently contain ≥1 string with \"team status\" (proves real file read; if S03 deleted teaching, flip this canary — do not delete)"
+            "ORS teaching gate CANARY: PilotCLI must not teach \"team status\" after ORS-S03a:\n\(pilotEntries.map(\.text).joined(separator: "\n"))"
         )
     }
 

@@ -961,7 +961,7 @@ enum PilotCLI {
                 actions.append(.init(
                     kind: "inspectDevRun",
                     label: "Inspect terminal dev run facts",
-                    command: "alln team status \(devRunId) --json"
+                    command: "alln show \(devRunId) --json"
                 ))
             }
             return actions
@@ -976,7 +976,7 @@ enum PilotCLI {
                     .init(
                         kind: "inspectDevRun",
                         label: "Inspect terminal dev run facts",
-                        command: devLeg.devRunId.map { "alln team status \($0) --json" }
+                        command: devLeg.devRunId.map { "alln show \($0) --json" }
                             ?? "alln loop status \(state.id) --json"
                     ),
                 ]

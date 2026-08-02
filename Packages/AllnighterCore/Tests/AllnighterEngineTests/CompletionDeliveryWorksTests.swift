@@ -43,7 +43,8 @@ final class CompletionDeliveryWorksTests: XCTestCase {
     }
 
     func testRelayDetachedAcksShareWaitDeliverySurface() {
-        for kind in ["relay", "pilot", "run"] {
+        // Loop/relay keep delivery.wait; run is ORS-S03a nextAction (tested below).
+        for kind in ["relay", "pilot"] {
             let d = DetachedDispatch.waitDelivery(kind: kind, id: "id_1", commandPrefix: "alln")
             XCTAssertEqual(d.path, "wait", kind)
             XCTAssertNotNil(d.command, kind)
@@ -58,10 +59,11 @@ final class CompletionDeliveryWorksTests: XCTestCase {
             DetachedDispatch.waitDelivery(kind: "pilot", id: "r1", commandPrefix: "alln")
                 .command?.contains("loop status r1 --wait-for parked") == true
         )
-        XCTAssertTrue(
-            DetachedDispatch.waitDelivery(kind: "run", id: "run1", commandPrefix: "alln")
-                .command?.contains("team status") == true
-        )
+        let runNext = DetachedDispatch.runNextAction(id: "run1")
+        XCTAssertEqual(runNext.kind, "showRun")
+        XCTAssertEqual(runNext.command, "alln show run1 --stream")
+        XCTAssertFalse(runNext.command.contains("team status"))
+        XCTAssertFalse(runNext.command.contains("--wait-for"))
     }
 
     /// Structural: the `relay` no-wait path must attach waitDelivery (no silent omit).

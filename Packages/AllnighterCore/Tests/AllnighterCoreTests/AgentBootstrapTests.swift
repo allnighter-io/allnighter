@@ -106,10 +106,11 @@ final class AgentBootstrapTests: XCTestCase {
             let obj = try JSONSerialization.jsonObject(with: CoreJSON.encode(action)) as? [String: Any]
             XCTAssertNotNil(obj?["command"] as? String)
             XCTAssertNil(obj?["tool"])
-            XCTAssertTrue((obj?["command"] as? String)?.hasPrefix("alln team ") ?? false)
+            XCTAssertTrue((obj?["command"] as? String)?.hasPrefix("alln show ") ?? false)
             XCTAssertNotNil(ContractRegistry.resolveCommandName(from: action.command))
         }
         XCTAssertEqual(wait.kind, "waitForTerminal")
-        XCTAssertEqual(wait.command, "alln team status run-abc --wait-for terminal --timeout 7200 --json")
+        XCTAssertEqual(wait.command, "alln show run-abc --stream")
+        XCTAssertEqual(result.command, "alln show run-abc --json")
     }
 }

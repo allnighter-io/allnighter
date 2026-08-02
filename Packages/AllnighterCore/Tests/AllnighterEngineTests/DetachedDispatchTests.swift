@@ -202,12 +202,40 @@ final class DetachedDispatchTests: XCTestCase {
             delivery["command"] as? String,
             "alln loop status relay_test --wait-for terminal --timeout 7200 --json"
         )
+        XCTAssertNil(obj["nextAction"], "relay ack keeps delivery; no run nextAction")
+    }
+
+    /// ORS-S03a: detached **run** ack is one `nextAction` → `alln show <id> --stream`.
+    /// No `delivery`, no absolute binary path, no retired waiter grammar.
+    func testRunDetachedAckNextActionIsShowStream() throws {
+        let id = "run_test"
+        let next = DetachedDispatch.runNextAction(id: id)
+        XCTAssertEqual(next.kind, "showRun")
+        XCTAssertEqual(next.command, "alln show \(id) --stream")
+
+        let ack = DetachedDispatchJSON(
+            kind: "run", id: id, status: "dispatched", pid: 4242, nextAction: next)
+        let data = try XCTUnwrap(AllnighterCLI.jsonLine(ack).data(using: .utf8))
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(obj["kind"] as? String, "run")
+        XCTAssertEqual(obj["id"] as? String, id)
+        XCTAssertEqual(obj["status"] as? String, "dispatched")
+        XCTAssertNil(obj["delivery"], "ORS-S03a: run ack must not carry delivery.path/command")
+        let nextAction = try XCTUnwrap(obj["nextAction"] as? [String: Any])
+        XCTAssertEqual(nextAction["kind"] as? String, "showRun")
+        XCTAssertEqual(nextAction["command"] as? String, "alln show \(id) --stream")
+        let line = AllnighterCLI.jsonLine(ack)
+        XCTAssertFalse(line.contains("team status"))
+        XCTAssertFalse(line.contains("--wait-for"))
+        XCTAssertFalse(line.contains("delivery"))
+        XCTAssertFalse(line.contains("/usr/"), "no absolute binary path in run nextAction")
     }
 
     func testWaitDeliveryUsesExactSurfaceWaiters() {
+        // Loop/relay only — run no longer uses waitDelivery (ORS-S03a).
         XCTAssertEqual(
-            DetachedDispatch.waitDelivery(kind: "run", id: "run_test", commandPrefix: "/usr/local/bin/alln").command,
-            "/usr/local/bin/alln team status run_test --wait-for terminal --timeout 7200 --json"
+            DetachedDispatch.waitDelivery(kind: "relay", id: "relay_test", commandPrefix: "/usr/local/bin/alln").command,
+            "/usr/local/bin/alln loop status relay_test --wait-for terminal --timeout 7200 --json"
         )
         XCTAssertEqual(
             DetachedDispatch.waitDelivery(kind: "pilot", id: "relay_test", commandPrefix: "/usr/local/bin/alln").command,
@@ -215,15 +243,23 @@ final class DetachedDispatchTests: XCTestCase {
         )
     }
 
-    func testWakeDeliveryAckOmitsWaitCommand() throws {
+    /// `--delivery wake` remains an orthogonal notification receipt; run ack still
+    /// carries the canonical `show --stream` nextAction (no delivery field).
+    func testWakeDeliveryAckStillCarriesShowStreamNextAction() throws {
+        let id = "run_test"
         let ack = DetachedDispatchJSON(
-            kind: "run", id: "run_test", status: "dispatched", pid: 4242,
-            delivery: DetachedDispatch.wakeDelivery())
+            kind: "run", id: id, status: "dispatched", pid: 4242,
+            nextAction: DetachedDispatch.runNextAction(id: id))
         let data = try XCTUnwrap(AllnighterCLI.jsonLine(ack).data(using: .utf8))
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let delivery = try XCTUnwrap(object["delivery"] as? [String: Any])
-        XCTAssertEqual(delivery["path"] as? String, "wake")
-        XCTAssertNil(delivery["command"])
+        XCTAssertNil(object["delivery"])
+        let nextAction = try XCTUnwrap(object["nextAction"] as? [String: Any])
+        XCTAssertEqual(nextAction["kind"] as? String, "showRun")
+        XCTAssertEqual(nextAction["command"] as? String, "alln show \(id) --stream")
+        // Shared wakeDelivery helper still exists for loop/relay.
+        let wake = DetachedDispatch.wakeDelivery()
+        XCTAssertEqual(wake.path, "wake")
+        XCTAssertNil(wake.command)
     }
 
     // MARK: - Structural: exactly one "resolve binary, build Process" implementation

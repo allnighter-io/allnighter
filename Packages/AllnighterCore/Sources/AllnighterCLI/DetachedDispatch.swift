@@ -137,6 +137,9 @@ enum DetachedDispatch {
 }
 
 /// One dispatch ack shape for every detached verb (`kind`: `"relay"` | `"run"`).
+///
+/// ORS-S03a: `kind: "run"` carries `nextAction` (canonical `alln show <id> --stream`)
+/// and omits `delivery`. Loop/relay keep `delivery` (out of scope for this cutover).
 struct DetachedDispatchJSON: Encodable {
     struct Delivery: Encodable, Equatable {
         let path: String
@@ -156,11 +159,48 @@ struct DetachedDispatchJSON: Encodable {
         }
     }
 
+    /// One recommended next step on a detached **run** acknowledgement (ORS-S03a).
+    struct NextAction: Encodable, Equatable {
+        let kind: String
+        let command: String
+    }
+
     let kind: String
     let id: String
     let status: String
     let pid: Int32
-    let delivery: Delivery
+    let delivery: Delivery?
+    let nextAction: NextAction?
+
+    init(
+        kind: String,
+        id: String,
+        status: String,
+        pid: Int32,
+        delivery: Delivery? = nil,
+        nextAction: NextAction? = nil
+    ) {
+        self.kind = kind
+        self.id = id
+        self.status = status
+        self.pid = pid
+        self.delivery = delivery
+        self.nextAction = nextAction
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case kind, id, status, pid, delivery, nextAction
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(kind, forKey: .kind)
+        try container.encode(id, forKey: .id)
+        try container.encode(status, forKey: .status)
+        try container.encode(pid, forKey: .pid)
+        try container.encodeIfPresent(delivery, forKey: .delivery)
+        try container.encodeIfPresent(nextAction, forKey: .nextAction)
+    }
 }
 
 extension DetachedDispatch {
@@ -180,17 +220,24 @@ extension DetachedDispatch {
         ) ?? "alln"
     }
 
+    /// Loop/relay pull waiter (out of ORS-S03a scope). Run dispatch no longer uses
+    /// this — see `runNextAction(id:)`.
     static func waitDelivery(kind: String, id: String, commandPrefix: String) -> DetachedDispatchJSON.Delivery {
         let command: String
         switch kind {
-        case "run":
-            command = "\(commandPrefix) team status \(id) --wait-for terminal --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
         case "pilot":
             command = "\(commandPrefix) loop status \(id) --wait-for parked --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
         default:
+            // relay (and any non-run legacy kind)
             command = "\(commandPrefix) loop status \(id) --wait-for terminal --timeout \(defaultPMTurnWaitTimeoutSeconds) --json"
         }
         return .init(command: command)
+    }
+
+    /// Canonical detached **run** next action: observe the middle and deliver the end.
+    /// Bare `alln` (no absolute binary path). Real run id only — never `latest`/`--full`.
+    static func runNextAction(id: String) -> DetachedDispatchJSON.NextAction {
+        .init(kind: "showRun", command: "alln show \(id) --stream")
     }
 
     static func wakeDelivery() -> DetachedDispatchJSON.Delivery {
