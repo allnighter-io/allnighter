@@ -7,7 +7,7 @@ app installed in the canonical location, such that the launched app has
 restrictions)?
 
 It touches no product source. It is scaffolding for the
-`docs/phases/Codex_Alln_Run_Hot_Fix.md` packet and should be deleted once
+`docs/archive/phases/Codex_Alln_Run_Hot_Fix.md` packet and should be deleted once
 CAR-S00's verdict has been acted on.
 
 ## Contents

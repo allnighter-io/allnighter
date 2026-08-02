@@ -34,7 +34,7 @@ final class VersionIdentityTests: XCTestCase {
     /// enum is deleted. Pin the value so an accidental revert is caught here,
     /// not discovered downstream.
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.12.1")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.12.2")
     }
 
     /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at

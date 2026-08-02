@@ -52,7 +52,7 @@ import Foundation
 /// (9.2.0 → 9.3.0): Observation.required gains always-present nullable
 /// `lastActivityAt`. Not a major cut, so standard +0.0.1 batch bump.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.12.1"
+    public static let binaryVersion = "0.12.2"
 }
 
 /// `alln version` / `alln --version` machine contract.

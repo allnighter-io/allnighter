@@ -1,6 +1,6 @@
 # Codex `alln run` Hot Fix
 
-Status: **CODE COMPLETE — Works Tests pending PM live run; CAR-S01 and CAR-S04 deferred**
+Status: **CLOSED 2026-08-02 — both Works Tests PASS; CAR-S01 and CAR-S04 deferred (see Open follow-ups)**
 Owner: CLI handoff transport + Mac app handoff host + release/install contract
 Created: 2026-08-01
 Updated: 2026-08-02
@@ -300,8 +300,15 @@ Origin: a normal default Codex session.
 Action: alln run "Review docs/phases/fixtures/Codex_Handoff_Smoke.md and follow
         its instructions." --team code_doc_review --project . --json
 Expected: the run completes and the answer returns in the originating terminal.
-Result: (pending PM live run)
+Result: PASS
+
+exit code 0; outcome.status "completed"; 16s (18:01:02Z -> 18:01:18Z)
+run id handoff-B2EF7E71-11A1-4637-B3D5-8A92BD52C068
+answer returned in the originating terminal:
+  "I received the Codex Handoff Smoke document. Its only claim is "Test complete.""
+hand-off inbox empty afterwards
 ```
+
 
 Works Test B — host absent (the loud refusal):
 
@@ -314,8 +321,15 @@ Expected:
     code HANDOFF_HOST_NOT_RUNNING, exit code 1;
   - the hand-off inbox is still empty afterwards — nothing was queued;
   - no "already handed" claim and no `alln run resume` instruction anywhere.
-Result: (pending PM live run)
+Result: PASS
+exit code 1; 6005ms
+stdout is EXACTLY ONE JSON document: success:false,
+  code HANDOFF_HOST_NOT_RUNNING, ruleId handoff.host.not_running
+hand-off inbox empty BEFORE and AFTER — nothing was queued
+no "already handed" claim and no "alln run resume" instruction anywhere
 ```
+
+Dev-build override (verified separately in the same conditions, 5657ms): with `ALLNIGHTER_APP_PATH` unset the message reads "the Allnighter app is not installed on this Mac"; with it set to a locally-built app the message reads "not running" and names that exact path.
 
 Closeout proof: focused wrapper tests during implementation, then
 `bash scripts/check.sh` once at closeout, followed by Deslop and Code Audit.
