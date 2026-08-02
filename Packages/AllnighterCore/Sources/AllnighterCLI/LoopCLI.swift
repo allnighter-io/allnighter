@@ -15,6 +15,13 @@ import AllnighterEngine
 /// positional `<loop-id>` forwards straight into the existing `--relay <id>` entry points —
 /// no chair lookup needed before dispatch.
 enum LoopCLI {
+    /// Subcommands `run` dispatches. Single source for the unknown-subcommand
+    /// message and the contract gate that every live verb is declared in
+    /// `ContractRegistry` — add here and in the switch together.
+    static let implementedSubcommands: [String] = [
+        "start", "list", "status", "stop", "resume", "wait", "step", "pm",
+    ]
+
     static func run(_ args: [String], runtime: ToolRuntime) async {
         guard let sub = args.first else { usage() }
         let rest = Array(args.dropFirst())
@@ -34,8 +41,9 @@ enum LoopCLI {
         case "pm":
             await runPm(rest, runtime: runtime)
         default:
+            let known = implementedSubcommands.joined(separator: "|")
             FileHandle.standardError.write(Data(
-                "loop \(sub): not recognized — start|list|status|stop|resume|wait|step|pm.\n".utf8
+                "loop \(sub): not recognized — \(known).\n".utf8
             ))
             exit(2)
         }

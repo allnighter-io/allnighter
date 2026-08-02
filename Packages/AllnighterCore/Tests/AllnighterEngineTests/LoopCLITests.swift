@@ -84,6 +84,22 @@ final class LoopCLITests: XCTestCase {
         XCTAssertTrue(forwarded.contains("30"))
     }
 
+    // MARK: - Contract registration of every dispatched subcommand (LOOP-REG)
+
+    /// Enumerates `LoopCLI.implementedSubcommands` (the real dispatch list) so a
+    /// future verb added there fails until `ContractRegistry` declares `loop <sub>`.
+    func testEveryImplementedLoopSubcommandResolvesToRegisteredCommand() {
+        XCTAssertFalse(LoopCLI.implementedSubcommands.isEmpty)
+        for sub in LoopCLI.implementedSubcommands {
+            let name = "loop \(sub)"
+            let resolved = ContractRegistry.resolveCommandName(from: "alln \(name)")
+            XCTAssertEqual(
+                resolved, name,
+                "LoopCLI dispatches `\(sub)` but ContractRegistry has no M1 command `\(name)`"
+            )
+        }
+    }
+
     // MARK: - loop list: smallest honest listing, filtered to the resolved project
 
     func testRunListFiltersToTheResolvedProject() throws {

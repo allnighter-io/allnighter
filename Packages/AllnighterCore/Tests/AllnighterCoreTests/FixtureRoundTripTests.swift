@@ -143,7 +143,8 @@ final class FixtureRoundTripTests: XCTestCase {
         // ORS-S02b1 bumps contract 7.4.0 → 7.5.0 (additive: show --stream + inspectBlocker).
         // ORS-S02b2 bumps contract 7.5.0 → 7.6.0 (additive: attentionRequired + live follow).
         // ORS-S03c bumps contract 8.0.0 → 9.0.0 (major: delete public audit.runJournalPath).
-        XCTAssertEqual(trj.contractVersion, "9.0.0")
+        // LOOP-REG bumps contract 9.0.0 → 9.1.0 (additive: declare seven alln loop verbs).
+        XCTAssertEqual(trj.contractVersion, "9.1.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"

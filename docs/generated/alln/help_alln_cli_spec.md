@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.0.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.1.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -674,9 +674,9 @@ Flags:
 - `--conversation-id <id>` — Origin conversation id.
 - `--message-id <id>` — Origin message id.
 - `--dry-run` — Resolve project/worker/auth/writePolicy/effects/write-lock and return canStart + counts; exit 0, no dispatch. Research Teams are observational in the canonical repository; terminal repoDelta reports whether a mutating run wrote.
-- `--json` — Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait.
+- `--json` — Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with one nextAction.command (`alln show <id> --stream`) with --no-wait.
 - `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Shared framing: immediate snapshot first, bounded replay, live follow of new events, exactly one terminal frame. Ends at terminal or attention-required boundary; terminal exit class propagates unconditionally (no opt-in). Mutually exclusive with conflicting mode flags.
-- `--no-wait` — Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix.
+- `--no-wait` — Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with one nextAction.command = `alln show <id> --stream` (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream / --dry-run / --try-fix.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 
 Mutually exclusive: `--json`, `--stream`.
@@ -753,6 +753,111 @@ Flags:
 - `--dry-run` — Resolve the brief/spec/both seats/project and report readiness; exit 0, create nothing, spend nothing.
 - `--no-wait` — Spawn the same registered `loop start` verb in a detached child; return only after the child durably claims delivery.
 - `--json` — Emit structured JSON (LoopStartDryRunJSON with --dry-run; LoopJSON otherwise).
+
+Output schema: `relayJSON`.
+
+### `alln loop list`
+
+List durable PM↔dev loops for the resolved project (id, status, brief/spec, seats, updatedAt).
+
+Flags:
+- `--project <id>` — Project id, name, or repo path. Omitted → resolved from the current working directory.
+- `--json` — Emit LoopListJSON.
+
+### `alln loop status`
+
+Read a loop's durable state, or wait for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).
+
+Arguments:
+- `loop-id` (required) — Loop id.
+
+Flags:
+- `--wait-for <string>` — Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout.
+- `--timeout <number>` — Non-negative wait limit in seconds; required with --wait-for.
+- `--json` — Emit LoopJSON (plus additive live usage fields while running).
+
+Requires: `--wait-for` requires `--timeout`.
+
+Requires: `--timeout` requires `--wait-for`.
+
+Output schema: `relayJSON`.
+
+### `alln loop stop`
+
+Founder stop of a Loop: identity-checked teardown, durable stopped status with reason "founder stopped", and a PM Turn on transition. Idempotent on already done/stopped. Not ownership kill.
+
+Arguments:
+- `loop-id` (required) — Loop id.
+
+Flags:
+- `--json` — Emit LoopJSON (status=stopped, stoppedReason="founder stopped" on transition).
+
+Output schema: `relayJSON`.
+
+### `alln loop resume`
+
+Resume an escalated loop with the founder's answer, then continue rounds (may dispatch dev turns).
+
+Arguments:
+- `loop-id` (required) — Loop id.
+
+Flags:
+- `--answer <string>` — The founder's answer to the escalation (required).
+- `--until <time>` — Hard stop HH:MM (local) for the resumed stretch.
+- `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
+- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
+- `--no-wait` — Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
+- `--json` — Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+
+Requires: `--delivery` requires `--no-wait`.
+
+Output schema: `relayJSON`.
+
+### `alln loop wait`
+
+Optional interactive waiter: blocks until the in-flight round settles. Disposable — death ≠ job failure; prefer `loop status` for agents. Emits heartbeats while running; SIGTERM/SIGINT prints stillRunning goodbye.
+
+Arguments:
+- `loop-id` (required) — Loop id.
+
+Flags:
+- `--max-wait <integer>` — Stop waiting after N seconds while still running; exit with stillRunning and reattach to loop status (default 1800 when stdout is not a TTY; interactive TTY waits until settled unless set).
+- `--json` — Emit PilotWatchJSON (final single-line envelope; NDJSON heartbeats while waiting).
+
+Output schema: `relayJSON`.
+
+### `alln loop step`
+
+Submit this round's PM decision while the loop is awaitingPM: a message continues the dev turn; `--done <summary>` settles the loop. Blocks through the dev turn by default.
+
+Arguments:
+- `loop-id` (required) — Loop id.
+- `message` (optional) — Order for the dev seat (continue). Mutually exclusive with --done.
+
+Flags:
+- `--done <string>` — Close the loop with a done summary instead of dispatching a continue message.
+- `--json` — Emit structured handoff/result JSON (progress NDJSON while running).
+
+Output schema: `relayJSON`.
+
+### `alln loop pm`
+
+Reassign the PM chair mid-loop. `<agent-id>` converts a parked caller-held loop (awaitingPM|escalated) to a spawned PM and continues (dispatches). `caller` hands a parked spawned loop back to this session (status flip, no dispatch).
+
+Arguments:
+- `loop-id` (required) — Loop id.
+- `occupant` (required) — `caller` or a canonical agent id.
+
+Flags:
+- `--max-rounds <integer>` — Round ceiling for the adopted agent-PM stretch — counts TOTAL rounds including prior ones (default 20). Ignored for `caller`.
+- `--until <time>` — Hard stop HH:MM (local) for the adopted agent-PM stretch. Ignored for `caller`.
+- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch (agent-PM path).
+- `--no-wait` — Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud.
+- `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
+- `--json` — Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
+
+Requires: `--delivery` requires `--no-wait`.
 
 Output schema: `relayJSON`.
 
@@ -1557,7 +1662,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |
-| `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; treat the id as unreadable and start a new run if the work still matters. A corrupt journal is never silently treated as not-found or coerced to an invented status. |
+| `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; confirm via `alln show <id> --json` (typed error), then start a new run if the work still matters. Never inspect private journal paths by hand — a corrupt journal is never silently treated as not-found or coerced to an invented status. |
 | `STREAM_JOURNAL_FAILED` | yes | yes | `operational` | Fix the local run journal/storage failure, then rerun the foreground command. |
 | `RESIDENT_REQUEST_CONFLICT` | no | no | `operational` | Reuse the original payload for this idempotency key, or submit a new key for new work. |
 | `RESIDENT_ACCEPT_TIMEOUT` | no | yes | `operational` | Retry the same idempotency key and payload; do not create a second direct run. |
@@ -1741,7 +1846,7 @@ the selected CLI.
 - `skills_gc_json` — Purge lab and orphan custom skills: `alln skills gc --json`
 - `run_foreground_json` — Run in foreground: `alln run --json --lane code --team code_bug_hunt --effort low "tiny foreground sanity"`
 - `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
-- `show_latest_json` — Show the latest run: `alln show latest --json`
+- `show_latest_json` — Show one run by id: `alln show <run-id> --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`
 - `export_md` — Export the latest result: `alln export latest --format md`
 - `export_contracts_check` — Verify no contract drift: `alln dev export-contracts --check`

@@ -2478,7 +2478,7 @@
         },
         {
           "name" : "json",
-          "summary" : "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with delivery.path=wait and an exact status waiter with --no-wait.",
+          "summary" : "Emit TeamRunJSON (blocking run), RunDryRunJSON v2 with --dry-run, or a detached acknowledgement with one nextAction.command (`alln show <id> --stream`) with --no-wait.",
           "takesValue" : false
         },
         {
@@ -2488,7 +2488,7 @@
         },
         {
           "name" : "no-wait",
-          "summary" : "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with delivery.path=wait and the exact terminal status waiter (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream \/ --dry-run \/ --try-fix.",
+          "summary" : "Hand the run to a detached child of the same registered `alln run` verb; return only after the child durably accepts with one nextAction.command = `alln show <id> --stream` (real run id, including idempotency replay). A child refusal fails loud. Mutually exclusive with --stream \/ --dry-run \/ --try-fix.",
           "takesValue" : false
         },
         {
@@ -2711,6 +2711,402 @@
       "spendsQuota" : true,
       "summary" : "Start a durable PM↔dev loop. The brief is the only required input — both seats default by tier. `--pm caller` reviews every round yourself; `--pm <agent-id>` (or the default) spawns that agent as PM and runs unattended.",
       "trigger" : "Use when the user wants a multi-round PM↔dev loop that reviews real commits round after round until the work is done — with or without naming who sits in which chair.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "project",
+          "summary" : "Project id, name, or repo path. Omitted → resolved from the current working directory.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit LoopListJSON.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "loop list",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "List durable PM↔dev loops for the resolved project (id, status, brief\/spec, seats, updatedAt).",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "loop-id",
+          "required" : true,
+          "summary" : "Loop id."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+        {
+          "kind" : "requires",
+          "peers" : [
+            "timeout"
+          ],
+          "subject" : "wait-for"
+        },
+        {
+          "kind" : "requires",
+          "peers" : [
+            "wait-for"
+          ],
+          "subject" : "timeout"
+        }
+      ],
+      "flags" : [
+        {
+          "name" : "wait-for",
+          "summary" : "Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "timeout",
+          "summary" : "Non-negative wait limit in seconds; required with --wait-for.",
+          "takesValue" : true,
+          "valueType" : "number"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit LoopJSON (plus additive live usage fields while running).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "loop status",
+      "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
+      "summary" : "Read a loop's durable state, or wait for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "loop-id",
+          "required" : true,
+          "summary" : "Loop id."
+        }
+      ],
+      "effects" : {
+        "destructive" : "always",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit LoopJSON (status=stopped, stoppedReason=\"founder stopped\" on transition).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "loop stop",
+      "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
+      "summary" : "Founder stop of a Loop: identity-checked teardown, durable stopped status with reason \"founder stopped\", and a PM Turn on transition. Idempotent on already done\/stopped. Not ownership kill.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "loop-id",
+          "required" : true,
+          "summary" : "Loop id."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+        {
+          "kind" : "requires",
+          "peers" : [
+            "no-wait"
+          ],
+          "subject" : "delivery"
+        }
+      ],
+      "flags" : [
+        {
+          "name" : "answer",
+          "summary" : "The founder's answer to the escalation (required).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "until",
+          "summary" : "Hard stop HH:MM (local) for the resumed stretch.",
+          "takesValue" : true,
+          "valueType" : "time"
+        },
+        {
+          "name" : "max-rounds",
+          "summary" : "Round ceiling for the resumed stretch (default 20).",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "no-auto-serve",
+          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
+          "takesValue" : false
+        },
+        {
+          "name" : "no-wait",
+          "summary" : "Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.",
+          "takesValue" : false
+        },
+        {
+          "name" : "delivery",
+          "summary" : "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "loop resume",
+      "outputSchema" : "relayJSON",
+      "spendsQuota" : true,
+      "summary" : "Resume an escalated loop with the founder's answer, then continue rounds (may dispatch dev turns).",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "loop-id",
+          "required" : true,
+          "summary" : "Loop id."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "max-wait",
+          "summary" : "Stop waiting after N seconds while still running; exit with stillRunning and reattach to loop status (default 1800 when stdout is not a TTY; interactive TTY waits until settled unless set).",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit PilotWatchJSON (final single-line envelope; NDJSON heartbeats while waiting).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "loop wait",
+      "outputSchema" : "relayJSON",
+      "spendsQuota" : false,
+      "summary" : "Optional interactive waiter: blocks until the in-flight round settles. Disposable — death ≠ job failure; prefer `loop status` for agents. Emits heartbeats while running; SIGTERM\/SIGINT prints stillRunning goodbye.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "loop-id",
+          "required" : true,
+          "summary" : "Loop id."
+        },
+        {
+          "name" : "message",
+          "required" : false,
+          "summary" : "Order for the dev seat (continue). Mutually exclusive with --done."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "done",
+          "summary" : "Close the loop with a done summary instead of dispatching a continue message.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit structured handoff\/result JSON (progress NDJSON while running).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "loop step",
+      "outputSchema" : "relayJSON",
+      "spendsQuota" : true,
+      "summary" : "Submit this round's PM decision while the loop is awaitingPM: a message continues the dev turn; `--done <summary>` settles the loop. Blocks through the dev turn by default.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "loop-id",
+          "required" : true,
+          "summary" : "Loop id."
+        },
+        {
+          "name" : "occupant",
+          "required" : true,
+          "summary" : "`caller` or a canonical agent id."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+        {
+          "kind" : "requires",
+          "peers" : [
+            "no-wait"
+          ],
+          "subject" : "delivery"
+        }
+      ],
+      "flags" : [
+        {
+          "name" : "max-rounds",
+          "summary" : "Round ceiling for the adopted agent-PM stretch — counts TOTAL rounds including prior ones (default 20). Ignored for `caller`.",
+          "takesValue" : true,
+          "valueType" : "integer"
+        },
+        {
+          "name" : "until",
+          "summary" : "Hard stop HH:MM (local) for the adopted agent-PM stretch. Ignored for `caller`.",
+          "takesValue" : true,
+          "valueType" : "time"
+        },
+        {
+          "name" : "no-auto-serve",
+          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch (agent-PM path).",
+          "takesValue" : false
+        },
+        {
+          "name" : "no-wait",
+          "summary" : "Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud.",
+          "takesValue" : false
+        },
+        {
+          "name" : "delivery",
+          "summary" : "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "loop pm",
+      "outputSchema" : "relayJSON",
+      "spendsQuota" : true,
+      "summary" : "Reassign the PM chair mid-loop. `<agent-id>` converts a parked caller-held loop (awaitingPM|escalated) to a spawned PM and continues (dispatches). `caller` hands a parked spawned loop back to this session (status flip, no dispatch).",
       "visibility" : "public"
     },
     {
@@ -5523,7 +5919,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.0.0",
+  "contractVersion" : "9.1.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -5954,7 +6350,7 @@
       "ruleId" : "run.journal.unavailable"
     },
     {
-      "agentAction" : "Do not retry the same run id; treat the id as unreadable and start a new run if the work still matters. A corrupt journal is never silently treated as not-found or coerced to an invented status.",
+      "agentAction" : "Do not retry the same run id; confirm via `alln show <id> --json` (typed error), then start a new run if the work still matters. Never inspect private journal paths by hand — a corrupt journal is never silently treated as not-found or coerced to an invented status.",
       "code" : "JOURNAL_CORRUPT",
       "exitClass" : "operational",
       "explain" : "A durable journal exists for the id but failed to decode (e.g. an unknown\/legacy status raw value). Distinct from RUN_NOT_FOUND, which means no journal was ever found at all (RLR-L8).",
@@ -6992,9 +7388,9 @@
       "title" : "Auto Fix: Bug Hunt then one bounded fix"
     },
     {
-      "command" : "alln show latest --json",
+      "command" : "alln show <run-id> --json",
       "id" : "show_latest_json",
-      "title" : "Show the latest run"
+      "title" : "Show one run by id"
     },
     {
       "command" : "alln spec latest --detail full --json",

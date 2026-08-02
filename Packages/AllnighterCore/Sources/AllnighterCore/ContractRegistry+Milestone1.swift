@@ -9,7 +9,8 @@ public extension ContractRegistry {
     /// flag = major; adding a command/flag/error = minor. Distinct from
     /// `binaryVersion` (human release label) and `gitSha`/`buildTime` (build identity).
     // ORS-S03c: major cut — delete public audit.runJournalPath (filesystem escape hatch).
-    static let contractVersion = "9.0.0"
+    // LOOP-REG: minor — declare the seven already-implemented `alln loop` verbs.
+    static let contractVersion = "9.1.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -547,6 +548,129 @@ public extension ContractRegistry {
             outputSchema: .relayJSON,
             spendsQuota: true,
             freeTwinCommand: "alln loop start --dry-run"
+        ),
+        CommandSpec(
+            "loop list",
+            summary: "List durable PM↔dev loops for the resolved project (id, status, brief/spec, seats, updatedAt).",
+            milestone: .m1,
+            args: [],
+            flags: [
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. Omitted → resolved from the current working directory."),
+                FlagSpec("json", summary: "Emit LoopListJSON."),
+            ],
+            outputSchema: .none,
+            spendsQuota: false,
+            effects: EffectProfile()
+        ),
+        CommandSpec(
+            "loop status",
+            summary: "Read a loop's durable state, or wait for its parked or terminal PM boundary. Reconciles identity-dead `.running` owners on read (no manual reconcile).",
+            milestone: .m1,
+            args: [
+                ArgSpec("loop-id", required: true, summary: "Loop id."),
+            ],
+            flags: [
+                FlagSpec("wait-for", takesValue: true, valueType: "string", summary: "Wait for parked (awaitingPM|escalated) or terminal (done|stopped); requires --timeout."),
+                FlagSpec("timeout", takesValue: true, valueType: "number", summary: "Non-negative wait limit in seconds; required with --wait-for."),
+                FlagSpec("json", summary: "Emit LoopJSON (plus additive live usage fields while running)."),
+            ],
+            flagConstraints: [
+                FlagConstraint(.requires, "wait-for", "timeout"),
+                FlagConstraint(.requires, "timeout", "wait-for"),
+            ],
+            outputSchema: .relayJSON,
+            spendsQuota: false,
+            effects: EffectProfile()
+        ),
+        CommandSpec(
+            "loop stop",
+            summary: "Founder stop of a Loop: identity-checked teardown, durable stopped status with reason \"founder stopped\", and a PM Turn on transition. Idempotent on already done/stopped. Not ownership kill.",
+            milestone: .m1,
+            args: [
+                ArgSpec("loop-id", required: true, summary: "Loop id."),
+            ],
+            flags: [
+                FlagSpec("json", summary: "Emit LoopJSON (status=stopped, stoppedReason=\"founder stopped\" on transition)."),
+            ],
+            outputSchema: .relayJSON,
+            spendsQuota: false,
+            effects: EffectProfile(
+                workerStart: .never,
+                quotaSpend: .never,
+                repoWrite: .never,
+                destructive: .always,
+                humanInteraction: .never
+            )
+        ),
+        CommandSpec(
+            "loop resume",
+            summary: "Resume an escalated loop with the founder's answer, then continue rounds (may dispatch dev turns).",
+            milestone: .m1,
+            args: [
+                ArgSpec("loop-id", required: true, summary: "Loop id."),
+            ],
+            flags: [
+                FlagSpec("answer", takesValue: true, valueType: "string", summary: "The founder's answer to the escalation (required)."),
+                FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the resumed stretch."),
+                FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the resumed stretch (default 20)."),
+                FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
+                FlagSpec("no-wait", summary: "Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
+                FlagSpec("json", summary: "Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
+            ],
+            flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
+            outputSchema: .relayJSON,
+            spendsQuota: true
+        ),
+        CommandSpec(
+            "loop wait",
+            summary: "Optional interactive waiter: blocks until the in-flight round settles. Disposable — death ≠ job failure; prefer `loop status` for agents. Emits heartbeats while running; SIGTERM/SIGINT prints stillRunning goodbye.",
+            milestone: .m1,
+            args: [
+                ArgSpec("loop-id", required: true, summary: "Loop id."),
+            ],
+            flags: [
+                FlagSpec("max-wait", takesValue: true, valueType: "integer", summary: "Stop waiting after N seconds while still running; exit with stillRunning and reattach to loop status (default 1800 when stdout is not a TTY; interactive TTY waits until settled unless set)."),
+                FlagSpec("json", summary: "Emit PilotWatchJSON (final single-line envelope; NDJSON heartbeats while waiting)."),
+            ],
+            outputSchema: .relayJSON,
+            spendsQuota: false,
+            effects: EffectProfile()
+        ),
+        CommandSpec(
+            "loop step",
+            summary: "Submit this round's PM decision while the loop is awaitingPM: a message continues the dev turn; `--done <summary>` settles the loop. Blocks through the dev turn by default.",
+            milestone: .m1,
+            args: [
+                ArgSpec("loop-id", required: true, summary: "Loop id."),
+                ArgSpec("message", required: false, summary: "Order for the dev seat (continue). Mutually exclusive with --done."),
+            ],
+            flags: [
+                FlagSpec("done", takesValue: true, valueType: "string", summary: "Close the loop with a done summary instead of dispatching a continue message."),
+                FlagSpec("json", summary: "Emit structured handoff/result JSON (progress NDJSON while running)."),
+            ],
+            outputSchema: .relayJSON,
+            spendsQuota: true
+        ),
+        CommandSpec(
+            "loop pm",
+            summary: "Reassign the PM chair mid-loop. `<agent-id>` converts a parked caller-held loop (awaitingPM|escalated) to a spawned PM and continues (dispatches). `caller` hands a parked spawned loop back to this session (status flip, no dispatch).",
+            milestone: .m1,
+            args: [
+                ArgSpec("loop-id", required: true, summary: "Loop id."),
+                ArgSpec("occupant", required: true, summary: "`caller` or a canonical agent id."),
+            ],
+            flags: [
+                FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the adopted agent-PM stretch — counts TOTAL rounds including prior ones (default 20). Ignored for `caller`."),
+                FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted agent-PM stretch. Ignored for `caller`."),
+                FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch (agent-PM path)."),
+                FlagSpec("no-wait", summary: "Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud."),
+                FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
+                FlagSpec("json", summary: "Emit NDJSON progress events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
+            ],
+            flagConstraints: [FlagConstraint(.requires, "delivery", "no-wait")],
+            outputSchema: .relayJSON,
+            spendsQuota: true
         ),
         CommandSpec(
             "pair relay", summary: "Retired — use `alln loop start \"<what you want done>\"` instead. Runs the PM↔dev loop unattended: a PM seat reviews the repo and a dev seat builds, round after round, until done/escalate/a ceiling.", milestone: .m1,

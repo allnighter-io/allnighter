@@ -105,9 +105,9 @@
     "title" : "Auto Fix: Bug Hunt then one bounded fix"
   },
   {
-    "command" : "alln show latest --json",
+    "command" : "alln show <run-id> --json",
     "id" : "show_latest_json",
-    "title" : "Show the latest run"
+    "title" : "Show one run by id"
   },
   {
     "command" : "alln spec latest --detail full --json",
