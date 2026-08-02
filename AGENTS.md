@@ -199,6 +199,10 @@ rules: `docs/operations/Execution-Playbook.md` § Commits.
   fails. Parked driver, disabled model, unknown model id, and the per-root write
   lock still refuse (user intent / real invariants); sensor readings alone never
   veto.
+- A command that returns without queued work must leave none behind: if `alln run`
+  reports failure, no later process may execute that request. Prove a host will
+  claim before queuing, and refuse loudly — one typed terminal answer — when none
+  will.
 
 ## High-Risk Stops
 

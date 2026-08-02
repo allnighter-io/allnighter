@@ -1,6 +1,6 @@
 # Codex `alln run` Hot Fix
 
-Status: **BLOCKED — CAR-S00b RED (all five launch primitives refused or sandbox-inherited from default Codex); awaiting founder architecture decision per §2**
+Status: **CODE COMPLETE — Works Tests pending PM live run; CAR-S01 and CAR-S04 deferred**
 Owner: CLI handoff transport + Mac app handoff host + release/install contract
 Created: 2026-08-01
 Updated: 2026-08-02
@@ -256,6 +256,17 @@ exist internally but must not become competing run identities.
 One bounded implementation work order per slice. Do not combine installation,
 transport lifecycle, and expiry correctness into one patch.
 
+## Slice status
+
+| slice | status |
+| --- | --- |
+| CAR-S00 | DONE — harness built, verdict RED (`15c79edc`, `0a0eb4b8`) |
+| CAR-S01 | NOT DONE — canonical install + version handshake deferred |
+| CAR-S02 | DONE — host starts at app launch, not window task (`634d140d`) |
+| CAR-S03 | DONE as CAR-S03a + CAR-S03b (`79183de4`, `b0d2e65e`) |
+| CAR-S04 | NOT DONE — request expiry / race-safe claim deferred |
+| CAR-S05 | Works Tests run by PM; no full Code Audit performed |
+
 ## Required proofs
 
 Focused deterministic proofs:
@@ -278,18 +289,32 @@ session. A unit test that sets `CODEX_SANDBOX` is not a substitute.
 
 Required founder Works Test:
 
+The original Works Test (app initially closed, no manual launch, successful
+terminal answer) was retired by the founder ruling in §1 / §Open questions.
+
+Works Test A — host running (the working path):
+
 ```text
-Precondition: Allnighter app is not running; handoff inbox is empty.
+Precondition: Allnighter app IS running; hand-off inbox empty.
 Origin: a normal default Codex session.
-Action: one `alln run ... --team code_spec_review --project . --json`.
+Action: alln run "Review docs/phases/fixtures/Codex_Handoff_Smoke.md and follow
+        its instructions." --team code_doc_review --project . --json
+Expected: the run completes and the answer returns in the originating terminal.
+Result: (pending PM live run)
+```
+
+Works Test B — host absent (the loud refusal):
+
+```text
+Precondition: Allnighter app is NOT running; hand-off inbox empty.
+Origin: a normal default Codex session.
+Action: the same command.
 Expected:
-  - no manual app launch, paste, retry, doctor, or resume;
-  - one user-visible run id;
-  - the requested Team executes once through RunService.run;
-  - the complete answer returns in the originating terminal;
-  - terminal JSON is authoritative and successful;
-  - handoff inbox is empty afterward;
-  - opening/reopening the app later starts no stale work.
+  - exactly ONE JSON document on stdout, success:false,
+    code HANDOFF_HOST_NOT_RUNNING, exit code 1;
+  - the hand-off inbox is still empty afterwards — nothing was queued;
+  - no "already handed" claim and no `alln run resume` instruction anywhere.
+Result: (pending PM live run)
 ```
 
 Closeout proof: focused wrapper tests during implementation, then
@@ -320,9 +345,16 @@ requests eligible for later quota spend.
 
 ## Open questions
 
+**CLOSED by founder ruling 2026-08-02.**
+
 Only CAR-S00 may answer this: can LaunchServices start the signed installed app
 from default Codex with independent authority? If not, implementation stops for
 the founder choice named in §2. No implementation agent may infer that choice.
+
+**Founder ruling, 2026-08-02:** Allnighter will NOT attempt auto-launch. When no
+host will claim the work, `alln run` fails loudly, queues nothing, and tells the
+user to open the Allnighter app. Non-macOS hosts get a plain statement of the
+limitation.
 
 ---
 
@@ -428,3 +460,17 @@ codex exec "From the repo root /Users/mike/Documents/GitHub/Allnighter, run this
   from inside the sandbox.
 - Harness is product-free and temporary: `scripts/harness/car_s00/` (README
   includes cleanup steps). No product source was touched.
+
+## Open follow-ups
+
+1. **CAR-S01 — canonical signed app install + version/contract handshake.** No
+   `Allnighter.app` is installed on this Mac; a stale app can still accept work
+   because no compatibility handshake exists.
+2. **CAR-S04 — request expiry and race-safe claim.** Enqueue-nothing removed the
+   never-claimed case, but a host that pings healthy and then quits before
+   claiming still leaves work eligible. Live evidence of the class: the hand-off
+   log shows a request claimed `2026-08-02T13:34:51Z` and still being swept at
+   `2026-08-02T14:30:22Z`.
+3. **One run identity (§6).** The user-visible id on the hand-off path is the
+   transport id (`handoff-<uuid>`). Confirm this is genuinely one identity across
+   journal / `show` / artifact rather than a transport id promoted to a run id.
