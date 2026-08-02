@@ -1524,6 +1524,17 @@ public actor RunService {
                 emit(RunEventKind.workerReasoningDelta, [
                     "runId": .string(runId), "workerId": .string(worker.id), "text": .string(reasoning)])
             }
+            // ORS-S02a2: bounded tool title only, on incremental drivers (canStream).
+            // Never args / file contents / tool output. Empty titles are silence.
+            func emitToolActivity(_ title: String) {
+                guard manifest.canStream,
+                      let tool = Self.boundedToolTitle(title) else { return }
+                emit(RunEventKind.workerTool, [
+                    "runId": .string(runId),
+                    "workerId": .string(worker.id),
+                    "tool": .string(tool),
+                ])
+            }
             let startedAt = now()
             var firstTokenAt: Date?
             var firstAnswerDeltaAt: Date?
@@ -1556,8 +1567,8 @@ public actor RunService {
                         reasoning += text; emitWarmReasoning()
                     case .reportedUsage(let usage):
                         warmReportedUsage = (warmReportedUsage ?? ReportedTokenUsage()).merged(with: usage)
-                    case .toolActivity:
-                        break
+                    case .toolActivity(let title):
+                        emitToolActivity(title)
                     }
                 }
                 emitWarmAnswer(); if !reasoning.isEmpty { emitWarmReasoning() }
@@ -1624,6 +1635,17 @@ public actor RunService {
                 ])
                 lastReasoningEmit = now()
             }
+            // ORS-S02a2: cold/stream path — same bounded title rule as warm ACP.
+            // `WorkerStreamEvent.toolActivity` label only; `kind` (e.g. running) dropped.
+            func emitColdToolActivity(_ label: String) {
+                guard manifest.canStream,
+                      let tool = Self.boundedToolTitle(label) else { return }
+                emit(RunEventKind.workerTool, [
+                    "runId": .string(runId),
+                    "workerId": .string(worker.id),
+                    "tool": .string(tool),
+                ])
+            }
             do {
                 let invocationStream = ProcessOwnership.$currentWorkerId.withValue(worker.id) {
                     runner.invoke(WorkerInvocation(
@@ -1642,7 +1664,9 @@ public actor RunService {
                         if now().timeIntervalSince(lastReasoningEmit) >= 0.1 { emitReasoning() }
                     case .completed(let o), .failed(let o):
                         terminal = o
-                    case .started, .rawEvent, .toolActivity:
+                    case .toolActivity(let label, _):
+                        emitColdToolActivity(label)
+                    case .started, .rawEvent:
                         break
                     }
                 }
@@ -2347,6 +2371,17 @@ public actor RunService {
             reason: reason,
             diagnosticSnippet: reason ?? observation?.rawSnippet
         ))
+    }
+
+    /// ORS-S02a2 — tool title only: trim, drop empty, hard-cap length.
+    /// Excludes args, file contents, and tool output by construction (callers
+    /// pass the driver title/label alone).
+    private static let maxToolTitleChars = 128
+    private static func boundedToolTitle(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if trimmed.count <= maxToolTitleChars { return trimmed }
+        return String(trimmed.prefix(maxToolTitleChars))
     }
 
     private static func isRejectedVendorSession(_ outcome: WorkerRunOutcome) -> Bool {

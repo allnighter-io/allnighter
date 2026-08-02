@@ -231,6 +231,22 @@ final class NDJSONStreamProjectorTests: XCTestCase {
         }
     }
 
+    /// ORS-S02a2: durable `worker.tool` projects as `workerActivity` with
+    /// `activityKind: "tool"` via the existing frame schema — never a new envelope,
+    /// never the raw tool title string on the wire (counts only).
+    func testWorkerToolMapsToWorkerActivityToolBounded() throws {
+        let e = event(seq: 30, kind: RunEventKind.workerTool, [
+            "workerId": .string("w1"), "tool": .string("read_file")])
+        let mapped = try XCTUnwrap(NDJSONStreamProjector.LiveMapper().event(for: e))
+        XCTAssertEqual(mapped.event, "workerActivity")
+        XCTAssertEqual(mapped.data.activityKind, RunActivityKind.tool.rawValue)
+        XCTAssertEqual(mapped.data.agentId, "w1")
+        XCTAssertEqual(mapped.data.charCount, "read_file".count)
+        let line = NDJSONStreamProjector.encodeLine(mapped)
+        XCTAssertFalse(line.contains("read_file"), "tool title stays out of the stream frame")
+        XCTAssertFalse(line.contains("\"tool\""), "no tool key on the wire — activityKind only")
+    }
+
     /// `workerOutput` (bounded stdout/stderr metadata) → `workerActivity` with
     /// `activityKind: "stdout"`; `stageOutput` → a distinct `stageActivity` event
     /// carrying `stageId` instead of a bare worker id. Both share the ONE

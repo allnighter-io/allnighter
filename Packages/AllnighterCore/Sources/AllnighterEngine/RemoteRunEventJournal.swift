@@ -29,28 +29,31 @@ public struct RemoteRunEventJournal: Sendable {
     public let rootDirectory: URL
 
     /// Max durable event lines per run's `events.jsonl` (ORS binding rule 4).
-    /// Status/blocker/stage lifecycle/terminal settlement only — not a transcript
-    /// — so 512 is generous headroom for a long multi-seat answer team without
-    /// unbounded growth.
+    /// Status/blocker/stage lifecycle, terminal settlement, and bounded
+    /// `worker.tool` summaries (ORS-S02a2) — not a transcript. Tool events are
+    /// the highest-frequency durable kind; 512 caps growth. Past the cap further
+    /// appends refuse (`retentionBoundExceeded`); the run owner swallows that and
+    /// keeps going — history degrades, run truth stays in `RunStore` (rule 8).
     public static let maxEventsPerRun: Int = 512
 
     /// Max on-disk bytes per run's `events.jsonl` (ORS binding rule 4).
-    /// 256 KiB bounds worst-case payload size if a status payload grows large.
+    /// 256 KiB bounds worst-case payload size under a tool-heavy burst.
     public static let maxBytesPerRun: Int = 256 * 1024
 
     public init(rootDirectory: URL? = nil) {
         self.rootDirectory = rootDirectory ?? AllnighterPaths.runs
     }
 
-    /// Minimal durable set (ORS binding rule 2 / ORS-S02a1-fix PM ruling):
-    /// low-frequency state transitions that make a multi-stage Team run's middle
-    /// observable after `--no-wait` reattach.
+    /// Minimal durable set (ORS binding rule 2 / ORS-S02a1 + ORS-S02a2):
+    /// state transitions and bounded tool summaries that make a run's middle
+    /// observable after `--no-wait` reattach. Not a transcript.
     ///
     /// Durable:
     /// - `run.status_changed`, `worker.status_changed` (status/blocker entry and
     ///   terminal settlement)
     /// - `stage.started`, `stage.completed`, `stage.failed`, `stage.reused`
     ///   (stage lifecycle — not transcript)
+    /// - `worker.tool` (bounded tool title/name on incremental drivers only)
     ///
     /// Live-only (never persisted): high-frequency / transcript kinds —
     /// `worker.answer_delta`, `worker.reasoning_delta`, `worker.output`, and
@@ -61,6 +64,7 @@ public struct RemoteRunEventJournal: Sendable {
         switch kind {
         case RunEventKind.runStatusChanged,
              RunEventKind.workerStatusChanged,
+             RunEventKind.workerTool,
              RunEventKind.stageStarted,
              RunEventKind.stageCompleted,
              RunEventKind.stageFailed,

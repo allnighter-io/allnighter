@@ -41,6 +41,10 @@ public enum RunEventKind {
     /// Live streaming REASONING: the FULL accumulated thinking text so far for a
     /// worker, shown in a separate surface. Payload: `runId`, `workerId`, `text`.
     public static let workerReasoningDelta = "worker.reasoning_delta"
+    /// ORS-S02a2 — bounded tool activity on **incremental** drivers only.
+    /// Payload: `runId`, `workerId`, `tool` (title/name only — never args, file
+    /// contents, or tool output). Durable; not a transcript kind.
+    public static let workerTool = "worker.tool"
     // Generic stage events (RB1+) — one family for analysis/plan/review/final/
     // Stage payload carries `stageId` + `purpose`. No per-kind families.
     public static let stageStarted = "stage.started"

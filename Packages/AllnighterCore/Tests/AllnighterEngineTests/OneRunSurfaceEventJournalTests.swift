@@ -269,9 +269,10 @@ final class OneRunSurfaceEventJournalTests: XCTestCase {
     }
 
     func testDurableKindFilter() {
-        // Durable: status transitions + stage lifecycle edges (ORS-S02a1-fix).
+        // Durable: status transitions + stage lifecycle + bounded tool (ORS-S02a1/a2).
         XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.runStatusChanged))
         XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.workerStatusChanged))
+        XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.workerTool))
         XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageStarted))
         XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageCompleted))
         XCTAssertTrue(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageFailed))
@@ -281,6 +282,275 @@ final class OneRunSurfaceEventJournalTests: XCTestCase {
         XCTAssertFalse(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.workerReasoningDelta))
         XCTAssertFalse(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.workerOutput))
         XCTAssertFalse(RemoteRunEventJournal.isDurableSemanticEvent(RunEventKind.stageOutput))
+    }
+
+    // MARK: - ORS-S02a2: durable worker.tool on incremental / silence on terminalOnly
+
+    /// `--no-wait` equivalent (no `events:` continuation) on an incremental warm
+    /// driver that reports tool activity must land durable `worker.tool` lines
+    /// replayable after reattach. Proves the Works Test step-4 path without a
+    /// `--stream` launch.
+    func testNoWaitIncrementalProducesDurableWorkerTool() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ors-s02a2-tool-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let runsDir = repo.appendingPathComponent("runs", isDirectory: true)
+        let runStore = RunStore(rootDirectory: runsDir)
+        let journal = RemoteRunEventJournal(rootDirectory: runsDir)
+        let warmPool = WarmWorkerPool()
+
+        let threadId = "ors-tool-thread"
+        let modelId = "model_cursor_composer_25"
+        let driverId = "cursor_agent"
+        let root = RunWriteLock.normalize(repo.path) ?? repo.path
+
+        // Pre-seed warm worker so RunService reuses it (never spawns real ACP).
+        let key = ExternalWorkerSession.Key(
+            threadId: threadId, sourceId: driverId, modelId: modelId, repoRoot: root)
+        let scripted = ScriptedToolWarmDriver(events: [
+            .toolActivity("read_file"),
+            .toolActivity("git status"),
+            // Deliberately large "args-looking" title must still be title-only
+            // after bound (never stored as raw stdout/args).
+            .toolActivity("read_file"),
+            .answerDelta("Done via tools."),
+        ])
+        _ = try await warmPool.worker(for: key) { key in
+            WarmWorker(key: key, driver: scripted, cwd: root)
+        }
+
+        var manifest = TestSupport.headlessManifest(id: driverId, command: "cursor")
+        // Incremental: canStream true — activityMode + tool emission gate.
+        manifest.streaming = .init(
+            supported: true, mode: .jsonlStdout,
+            args: ["-p", "{{prompt}}", "--output-format", "streaming-json"],
+            partialOutput: true, finalAnswerSource: .parserAccumulator
+        )
+        let model = Model(
+            id: modelId, displayName: "Cursor Composer",
+            modelLabel: "composer-2.5", driverId: driverId, role: .both
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .frontier, allowHealthySubstitutions: true,
+            tiers: TierMembership(frontier: [modelId])
+        )
+        let probe = ToolProbeRecord(
+            driverId: driverId, status: .ready(version: "1.0"), lastProbeAt: .distantPast
+        )
+        let service = RunService(
+            models: [model],
+            registry: DriverRegistry([manifest]),
+            runStore: runStore,
+            // Cold fallback must never fire for this proof; fail loudly if it does.
+            commandRunner: MockCommandRunner(scripts: [:]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] },
+            warmPool: warmPool,
+            eventJournal: journal
+        )
+
+        let runId = UUID().uuidString
+        // No events continuation — the detached --no-wait child path.
+        let result = await service.run(
+            RunRequest(
+                message: "Use tools then say done",
+                repoRoot: repo.path,
+                threadId: threadId,
+                pinnedModelId: modelId
+            ),
+            origin: .cli,
+            runId: runId
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("run must settle: \(result)")
+        }
+        XCTAssertTrue(run.status.isTerminal)
+
+        let forRun = try journal.events(forRunId: runId)
+        let toolEvents = forRun.filter { $0.kind == RunEventKind.workerTool }
+        XCTAssertFalse(
+            toolEvents.isEmpty,
+            "incremental no-wait run must durable-record worker.tool; kinds=\(forRun.map(\.kind))"
+        )
+        XCTAssertEqual(RunEventKind.workerTool, "worker.tool")
+
+        // Bounded payload: tool title/name only — no args, stdout, or file bodies.
+        for event in toolEvents {
+            XCTAssertEqual(Set(event.payload.keys), Set(["runId", "workerId", "tool"]),
+                           "worker.tool payload keys must be exactly runId/workerId/tool")
+            guard case .string(let tool)? = event.payload["tool"] else {
+                return XCTFail("tool payload must be a string title")
+            }
+            XCTAssertFalse(tool.isEmpty)
+            XCTAssertLessThanOrEqual(tool.count, 128)
+            // Explicit exclusions — would pass a weaker "kind present" assertion.
+            XCTAssertFalse(tool.contains("arguments"))
+            XCTAssertFalse(tool.contains("stdout"))
+            XCTAssertNil(event.payload["arguments"])
+            XCTAssertNil(event.payload["text"])
+            XCTAssertNil(event.payload["output"])
+            XCTAssertNil(event.payload["content"])
+        }
+        XCTAssertTrue(toolEvents.contains {
+            if case .string(let t)? = $0.payload["tool"] { return t == "read_file" }
+            return false
+        })
+        XCTAssertTrue(toolEvents.contains {
+            if case .string(let t)? = $0.payload["tool"] { return t == "git status" }
+            return false
+        })
+
+        // Transcript kinds still banned from durable journal.
+        let banned: Set<String> = [
+            RunEventKind.workerAnswerDelta,
+            RunEventKind.workerReasoningDelta,
+            RunEventKind.workerOutput,
+        ]
+        XCTAssertTrue(forRun.filter { banned.contains($0.kind) }.isEmpty)
+
+        // Reattach: replay returns the same tool events (seq-monotonic history).
+        let replay = try journal.replay(after: 0)
+        let replayedTools = replay.events.filter { event in
+            guard event.kind == RunEventKind.workerTool,
+                  case .string(let id)? = event.payload["runId"] else { return false }
+            return id == runId
+        }
+        XCTAssertEqual(replayedTools.count, toolEvents.count)
+    }
+
+    /// terminalOnly driver: no tool events, healthy expected silence (inference ban).
+    func testTerminalOnlyProducesNoToolEventsAndReportsHealthy() async throws {
+        let h = try makeHarness(dribbleAnswerDeltas: false)
+        defer { try? FileManager.default.removeItem(at: h.repo) }
+
+        // Default headlessManifest has no streaming → canStream false → terminalOnly.
+        let runId = UUID().uuidString
+        let result = await h.service.run(
+            RunRequest(message: "Say done", repoRoot: h.repo.path),
+            origin: .cli,
+            runId: runId
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("terminalOnly run must settle: \(result)")
+        }
+        XCTAssertTrue(run.status.isTerminal)
+
+        let forRun = try h.journal.events(forRunId: runId)
+        let toolHits = forRun.filter { $0.kind == RunEventKind.workerTool }
+        XCTAssertTrue(
+            toolHits.isEmpty,
+            "terminalOnly must not fabricate worker.tool; got \(toolHits.count)"
+        )
+
+        // Observation reports terminalOnly (expected silence), not a defect.
+        let model = Model(
+            id: "model_cursor_composer_25", displayName: "Cursor Composer",
+            modelLabel: "composer-2.5", driverId: "cursor_agent", role: .both
+        )
+        let manifest = TestSupport.headlessManifest(id: "cursor_agent", command: "cursor")
+        XCTAssertFalse(manifest.canStream, "harness terminalOnly premise")
+        let json = TeamRunJSONMapper.map(
+            run, models: [model], manifests: [manifest],
+            context: .init(reproduceCommand: "alln show \(runId)")
+        )
+        XCTAssertEqual(json.observation.activityMode, .terminalOnly)
+        XCTAssertTrue(run.status.isTerminal, "still healthy/settled")
+    }
+
+    /// Tool-heavy burst past the retention cap: run still settles, RunStore holds
+    /// terminal truth, journal stays ≤ cap, show projection does not fail.
+    func testToolBurstPastRetentionCapStillSettles() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ors-s02a2-cap-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let runsDir = repo.appendingPathComponent("runs", isDirectory: true)
+        let runStore = RunStore(rootDirectory: runsDir)
+        let journal = RemoteRunEventJournal(rootDirectory: runsDir)
+        let warmPool = WarmWorkerPool()
+
+        let threadId = "ors-tool-cap"
+        let modelId = "model_cursor_composer_25"
+        let driverId = "cursor_agent"
+        let root = RunWriteLock.normalize(repo.path) ?? repo.path
+        let overflow = RemoteRunEventJournal.maxEventsPerRun + 40
+
+        var toolEvents: [ACPTurnEvent] = (0..<overflow).map { .toolActivity("tool_\($0)") }
+        toolEvents.append(.answerDelta("Settled after tools."))
+        let key = ExternalWorkerSession.Key(
+            threadId: threadId, sourceId: driverId, modelId: modelId, repoRoot: root)
+        _ = try await warmPool.worker(for: key) { key in
+            WarmWorker(key: key, driver: ScriptedToolWarmDriver(events: toolEvents), cwd: root)
+        }
+
+        var manifest = TestSupport.headlessManifest(id: driverId, command: "cursor")
+        manifest.streaming = .init(
+            supported: true, mode: .jsonlStdout,
+            args: ["-p", "{{prompt}}"], partialOutput: true, finalAnswerSource: .parserAccumulator
+        )
+        let model = Model(
+            id: modelId, displayName: "Cursor Composer",
+            modelLabel: "composer-2.5", driverId: driverId, role: .both
+        )
+        let settings = DefaultModelSettings(
+            defaultTier: .frontier, allowHealthySubstitutions: true,
+            tiers: TierMembership(frontier: [modelId])
+        )
+        let probe = ToolProbeRecord(
+            driverId: driverId, status: .ready(version: "1.0"), lastProbeAt: .distantPast
+        )
+        let service = RunService(
+            models: [model],
+            registry: DriverRegistry([manifest]),
+            runStore: runStore,
+            commandRunner: MockCommandRunner(scripts: [:]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] },
+            warmPool: warmPool,
+            eventJournal: journal
+        )
+
+        let runId = UUID().uuidString
+        let result = await service.run(
+            RunRequest(
+                message: "tool heavy",
+                repoRoot: repo.path,
+                threadId: threadId,
+                pinnedModelId: modelId
+            ),
+            origin: .cli,
+            runId: runId
+        )
+        guard case .success(let run) = result else {
+            return XCTFail("cap must not fail the run: \(result)")
+        }
+        XCTAssertTrue(run.status.isTerminal, "run settles even when journal is full")
+
+        let durable = try journal.events(forRunId: runId)
+        XCTAssertLessThanOrEqual(
+            durable.count, RemoteRunEventJournal.maxEventsPerRun,
+            "journal must refuse past the count cap (degrade, never grow unbounded)"
+        )
+        // At least some tool lines landed before the cap.
+        XCTAssertTrue(durable.contains { $0.kind == RunEventKind.workerTool })
+
+        // Terminal truth lives in RunStore — not the (possibly truncated) journal.
+        let loaded = runStore.load(runId: runId) ?? runStore.loadRaw(runId: runId)
+        XCTAssertEqual(loaded?.id, runId)
+        XCTAssertTrue(loaded?.status.isTerminal == true)
+
+        // show --json projection must not fail because history truncated.
+        let json = TeamRunJSONMapper.map(
+            loaded ?? run, models: [model], manifests: [manifest],
+            context: .init(reproduceCommand: "alln show \(runId)")
+        )
+        XCTAssertEqual(json.teamRun.id, runId)
+        XCTAssertEqual(json.observation.activityMode, .incremental)
     }
 }
 
@@ -308,4 +578,22 @@ private final class DribblingORSCommandRunner: CommandRunner, StreamingCommandRu
             continuation.finish()
         }
     }
+}
+
+/// Scripted warm ACP driver for ORS-S02a2 — yields fixed tool + answer events
+/// without spawning a real agent process.
+private final class ScriptedToolWarmDriver: WarmSessionDriver, @unchecked Sendable {
+    private let events: [ACPTurnEvent]
+    init(events: [ACPTurnEvent]) { self.events = events }
+
+    func start(cwd: String) async throws {}
+    func prompt(_ text: String) async -> AsyncThrowingStream<ACPTurnEvent, Error> {
+        let events = self.events
+        return AsyncThrowingStream { continuation in
+            for event in events { continuation.yield(event) }
+            continuation.finish()
+        }
+    }
+    func shutdown() async {}
+    var vendorSessionId: String? { get async { "ors-s02a2-session" } }
 }

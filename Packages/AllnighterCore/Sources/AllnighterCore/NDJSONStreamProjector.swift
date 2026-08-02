@@ -457,6 +457,18 @@ public enum NDJSONStreamProjector {
                     byteCount: text.map { $0.utf8.count },
                     charCount: text.map(\.count)
                 ))
+            // ORS-S02a2: durable `worker.tool` → same `workerActivity` frame with
+            // `activityKind: "tool"`. Payload carries only the bounded tool title
+            // length (never the title string itself, never args/output).
+            case RunEventKind.workerTool:
+                guard let activity = RunActivity.activityKind(for: e) else { return nil }
+                let tool = str("tool")
+                return ("workerActivity", runId, EventData(
+                    agentId: str("workerId"),
+                    activityKind: activity.rawValue,
+                    byteCount: tool.map { $0.utf8.count },
+                    charCount: tool.map(\.count)
+                ))
             case RunEventKind.stageOutput:
                 guard let activity = RunActivity.activityKind(for: e) else { return nil }
                 let text = str("text")

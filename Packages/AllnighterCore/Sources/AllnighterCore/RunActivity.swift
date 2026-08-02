@@ -44,6 +44,8 @@ public enum RunActivity {
     ///   `.message`, output to `.stdout`, and stage transitions to `.child`.
     public static func activityKind(for event: RunEvent) -> RunActivityKind? {
         switch event.kind {
+        case RunEventKind.workerTool:
+            return .tool
         case RunEventKind.workerAnswerDelta, RunEventKind.workerReasoningDelta:
             return .message
         case RunEventKind.workerOutput, RunEventKind.stageOutput:

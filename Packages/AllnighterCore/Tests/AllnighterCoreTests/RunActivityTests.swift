@@ -19,6 +19,13 @@ final class RunActivityTests: XCTestCase {
         XCTAssertEqual(RunActivity.activityKind(for: event(RunEventKind.workerReasoningDelta)), .message)
     }
 
+    func testWorkerToolIsToolActivity() {
+        XCTAssertEqual(
+            RunActivity.activityKind(for: event(RunEventKind.workerTool, ["tool": .string("read_file")])),
+            .tool
+        )
+    }
+
     func testWorkerAndRunTerminalMapToExit() {
         // Agent statuses use snake_case raw values (`timed_out`).
         for status in ["done", "failed", "timed_out", "cancelled"] {

@@ -291,6 +291,12 @@ Binding rules:
 1. `RunService.run` produces one event sequence regardless of CLI output mode.
 2. **Minimal event set**: status/blocker transitions, terminal settlement, and
    bounded tool summaries on `incremental` drivers only. Not a transcript.
+   Exact durable kind string: **`worker.tool`** (payload: `runId`, `workerId`,
+   `tool` title/name only — never args, file contents, or tool output).
+   `terminalOnly` drivers produce none (expected silence). Past the journal
+   retention cap (512 lines / 256 KiB) further tool appends are refused and
+   swallowed; the run settles from `RunStore` (rule 8 — degrade, never block).
+   Shipped as ORS-S02a2.
 3. `alln run --stream` may render live high-frequency deltas, but choosing that
    flag must not decide whether the durable run is observable later.
 4. Persist bounded summaries under an explicit retention/byte bound, not
@@ -587,9 +593,12 @@ Hero scenario:
 2. Execute **only** the returned `nextAction.command`.
 3. Assert an immediate snapshot identifies lifecycle, owner state, activity mode,
    last activity, and any blocker.
-4. Observe at least one normalized activity event **of `kind=tool`**, on work
-   guaranteed to call tools. A status-transition event alone would pass a weaker
-   assertion while proving nothing about activity capture.
+4. Observe at least one normalized activity event **of `kind=worker.tool`**
+   (dotted family; packet shorthand was `kind=tool`), on work guaranteed to call
+   tools — durable in `events.jsonl`, projected on `show --stream` as
+   `workerActivity` with `activityKind: "tool"`. A status-transition event alone
+   would pass a weaker assertion while proving nothing about activity capture.
+   (ORS-S02a2)
 5. Kill only the `show --stream` observer. Verify the agent seat remains alive
    **via `ProcessOwnership` directly** — asking `show` whether `show`'s death
    mattered is a proof that cannot fail.
