@@ -51,10 +51,10 @@ PM delegates via `alln run --model model_gemini`. Stop below 10% vendor context.
 | HY-S06 | [loop test comment scrub](hygiene/HY-S06-loop-test-comment-scrub.md) | **done** (`72ba1f5`) |
 | HY-S07 | [Folder_Native_Memory vocab](hygiene/HY-S07-folder-memory-vocab.md) | **done** (`d647f7b`) |
 | HY-S08 | [loop engine comment scrub](hygiene/HY-S08-loop-engine-comment-scrub.md) | **done** (`1567203`) |
-| HY-S09 | [Mac GUI loop vocabulary](hygiene/HY-S09-mac-gui-loop-vocab.md) | ready |
-| HY-S10 | [loop prompt headers](hygiene/HY-S10-loop-prompt-headers.md) | ready |
-| HY-S11 | [error explain + thread titles](hygiene/HY-S11-error-explain-thread-titles.md) | ready |
-| HY-S12 | [fixture seeder titles](hygiene/HY-S12-fixture-seeder-titles.md) | ready |
+| HY-S09 | [Mac GUI loop vocabulary](hygiene/HY-S09-mac-gui-loop-vocab.md) | **done** (`55a2723`) |
+| HY-S10 | [loop prompt headers](hygiene/HY-S10-loop-prompt-headers.md) | **done** (`13a3717`) |
+| HY-S11 | [error explain + thread titles](hygiene/HY-S11-error-explain-thread-titles.md) | **done** (`dc37276`) |
+| HY-S12 | [fixture seeder titles](hygiene/HY-S12-fixture-seeder-titles.md) | **done** (`8ed1231`) |
 
 All other work orders are archived under
 [`docs/archive/phases/sprint/`](../../archive/phases/sprint/).

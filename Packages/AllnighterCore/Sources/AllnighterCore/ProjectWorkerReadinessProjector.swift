@@ -1,7 +1,7 @@
 import Foundation
 
 /// Projects per-Project worker readiness for `project models` / `project
-/// recheck-models`. Pilot and PM Relay gate on **global** seat readiness (the
+/// recheck-models`. Pilot and Loop gate on **global** seat readiness (the
 /// same `ToolProbeRecord` cache the run path uses), not on project-level probes —
 /// `unsafeToProbe` is honest about that distinction.
 public enum ProjectWorkerReadinessProjector {

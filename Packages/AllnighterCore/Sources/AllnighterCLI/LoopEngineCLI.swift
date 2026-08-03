@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// The PM Relay control plane (`docs/archive/phases/PM_Relay.md` §6 R-S05):
+/// The Loop control plane (`docs/archive/phases/PM_Relay.md` §6 R-S05):
 /// unattended PM↔dev loop — pin baseline, PM turn + verdict, `HandoverGate`, dev
 /// turn, repeat until `done`/`escalate`/a ceiling — never by inference.
 ///

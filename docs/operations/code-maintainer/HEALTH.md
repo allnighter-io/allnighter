@@ -2,6 +2,14 @@
 
 Deltas must be explained, not minimized.
 
+## 2026-08-03 (Hygiene epoch — Doc truth)
+
+- HY-S09–S12 shipped: Loop vocabulary cutover complete in active Swift sources.
+- Open maintenance queue rows: 3 (Mac shell Structure candidates)
+- Suppressions: 0
+- Top Mac shell pressure: `RoutingComposer.swift` (1,648 LOC), `ThreadsViewModel.swift` (1,627), `ThreadView.swift` (1,326)
+- Next regular lens: Structure (index 0) — split plan for RoutingComposer
+
 ## 2026-06-19 (Batch 3 — Dead weight)
 
 - Deleted legacy `ThreadsView.swift` (superseded by `HomeView` + `ThreadView`).

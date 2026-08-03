@@ -1,6 +1,20 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Hygiene epoch closeout (Doc truth lens)
+
+Scope: HY-S09–S12 vocabulary cutover — PM Relay → Loop across Mac GUI, prompts,
+error explain, thread titles, fixtures; tail Core comment scrub
+Class: Doc truth / product vocabulary alignment (behavior-preserving)
+Lens: Doc truth (index 3)
+Files touched: Apps/AllnighterMac/Sources/{ThreadView,RelayLaunchView,RelayGUIRuntime,RootView,ThreadsFixtureSeeder}.swift; Packages/AllnighterCore/Sources/{LoopPrompts,ContractRegistry+Milestone1,LoopState,LoopJSON,ThreadTurn,ProjectWorkerReadinessProjector}.swift; Packages/AllnighterCore/Sources/AllnighterEngine/LoopThreadProjector.swift; Packages/AllnighterCore/Sources/AllnighterCLI/LoopEngineCLI.swift; matching tests; docs/phases/sprint/hygiene/HY-S09–S12; docs/operations/code-maintainer/MAINTENANCE-QUEUE.md
+Behavior guarantee: Product noun is Loop everywhere user/agent-facing; internal relay id/json field names unchanged
+Proof: scripts/swift-test.sh --filter 'RetiredVocabulary|LoopThreadProjection|StalledWork|LoopCoordinator' (33+ tests green on filtered suites)
+Before/after signal: 0 remaining "PM Relay" in active Swift sources except LoopThreadProjector PM_Relay.md stem guard and archive/historical docs
+Next lens: Structure (index 0) — RoutingComposer.swift split plan queued in MAINTENANCE-QUEUE
+```
+
+```text
 ## 2026-07-02 - AgentOS runner cutover (F2_B)
 
 Scope: Cut Allnighter (AgentOS consumer #1) onto the shared AgentOS DefaultWorkerRunner

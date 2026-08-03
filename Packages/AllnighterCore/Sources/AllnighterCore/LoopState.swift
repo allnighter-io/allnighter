@@ -1,6 +1,6 @@
 import Foundation
 
-/// One round of a PM Relay (docs/phases/PM_Relay.md §2, §6 R-S04). A round pins the repo
+/// One round of a Loop (docs/phases/PM_Relay.md §2, §6 R-S04). A round pins the repo
 /// HEAD before the PM turn, threads exactly that plus the dev's HEAD after their turn into
 /// the review range for the FOLLOWING round's PM prompt (`RelayPMPrompt.Context`), and
 /// records durable coordination facts only — the actual PM/dev transcripts live in
@@ -320,7 +320,7 @@ public struct LoopState: Sendable, Codable, Equatable {
 
     /// True when the caller — a live human/agent session outside Allnighter — holds
     /// the PM seat (Pilot), false when Allnighter dispatches a PM model each round
-    /// (the shipped PM Relay). Same `LoopState`, same rounds, same thread either way;
+    /// (the shipped Loop). Same `LoopState`, same rounds, same thread either way;
     /// this is the only fork ("one substrate, two entries").
     public var isCallerChair: Bool {
         pmModelId == Self.callerPMModelId

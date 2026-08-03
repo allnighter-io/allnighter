@@ -15,7 +15,7 @@ public struct LoopJSON: Codable, Equatable, Sendable {
     public var status: String
     /// `LoopState.PMMode` raw value: spawned | external. `external` is Pilot
     /// (`docs/phases/Pilot_Relay.md`) — a live session outside Allnighter holds the
-    /// PM seat; `spawned` is the shipped PM Relay.
+    /// PM seat; `spawned` is the shipped Loop.
     public var pmMode: String
     public var rounds: Int
     /// The last round's `LoopVerdict.Verdict` raw value (continue | done | escalate),
