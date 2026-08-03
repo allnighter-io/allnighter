@@ -1,6 +1,6 @@
 import Foundation
 
-/// The only structured artifact in the PM Relay loop (docs/phases/PM_Relay.md §4).
+/// The only structured artifact in the Loop (docs/phases/PM_Relay.md §4).
 /// Every PM turn ends with one small JSON block; everything else is prose. `done` is
 /// **declared, never inferred** — the loop only ends happily on `verdict == .done`.
 public struct LoopVerdict: Sendable, Codable, Equatable {

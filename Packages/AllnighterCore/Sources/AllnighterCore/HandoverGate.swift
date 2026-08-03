@@ -1,6 +1,6 @@
 import Foundation
 
-/// Danger scan over a PM Relay handover's free prose (PM_Relay.md §5 item 1). This is the
+/// Danger scan over a Loop handover's free prose (PM_Relay.md §5 item 1). This is the
 /// slice-queue danger gate's shape (`TryFixGate`/`SliceGate`): **danger blocks, doubt does
 /// not**. There is no confidence threshold, no "this sounds risky" fuzz — only a short,
 /// named list of danger classes fires: credential/secret exposure, signing/distribution,

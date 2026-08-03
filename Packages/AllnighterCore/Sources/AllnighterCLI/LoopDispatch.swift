@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// Shared PM Relay dispatch for CLI + MCP (same engine path, same JSON). Mirrors the
+/// Shared Loop dispatch for CLI + MCP (same engine path, same JSON). Mirrors the
 /// old `PairProgrammingDispatch` shape (docs/phases/PM_Relay.md §6 R-S05/R-S06) —
 /// that type was deleted at R-S09; this is now the only such dispatch enum.
 enum LoopDispatch {

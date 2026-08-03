@@ -1,7 +1,7 @@
 import Foundation
 import AllnighterCore
 
-/// Terminal classification for ONE PM Relay turn (PM or dev). Adapted from the old
+/// Terminal classification for ONE Loop turn (PM or dev). Adapted from the old
 /// slice queue's `SliceTerminalClassifier` (`Pair_Programming_Team.md` §5, deleted at
 /// R-S09 — see `PM_Relay.md` §1/§6) per PM_Relay.md §1's one named salvage:
 /// **compaction ≠ stall**. Ported verbatim (same logic, same text/structured-fact

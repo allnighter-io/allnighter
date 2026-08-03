@@ -6,7 +6,7 @@ import Glibc
 #endif
 import AllnighterCore
 
-/// PM Relay control plane (docs/phases/PM_Relay.md §2) — the turn-based, unattended
+/// Loop control plane (docs/phases/PM_Relay.md §2) — the turn-based, unattended
 /// PM↔dev loop that replaces the founder's copy-paste relay. Mirrors `PairCoordinator`'s
 /// shape: a plain `Sendable` struct whose async methods drive the actor-isolated
 /// `RunService`; no isolation of its own is needed because every mutating step already

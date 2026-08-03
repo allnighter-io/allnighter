@@ -1,7 +1,7 @@
 import Foundation
 import AllnighterCore
 
-/// Projects a PM Relay (`LoopState`) onto ONE `WorkThread` per relay, so the Mac inbox
+/// Projects a Loop (`LoopState`) onto ONE `WorkThread` per relay, so the Mac inbox
 /// shows the loop live "for free" (`docs/phases/PM_Relay.md` §6 R-S07) without a second
 /// GUI surface. Composition, not hardcoding: `LoopCoordinator` holds this as an optional
 /// collaborator (nil in tests/headless callers) and calls it at its own choke points —
