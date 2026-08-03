@@ -1,6 +1,6 @@
 # CM-S12 — Extract ThreadsViewModel rail + visibility
 
-Status: ready
+Status: done (`2d45a77c`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 
