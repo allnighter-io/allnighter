@@ -793,7 +793,7 @@ private struct HomeNewRunPane: View {
             // must stay process-quiet.
             guard !AppDelegate.isTesting else { return }
             if !capacity.isFixtureSeeded {
-                capacity.loadLive(notReadyOrParked: notReadyOrParked)
+                Task { await capacity.loadLive(notReadyOrParked: notReadyOrParked) }
             } else {
                 capacity.updateNotReadyOrParked(notReadyOrParked.union(GUIFixture.capacityNotReadyOrParked))
             }

@@ -42,9 +42,51 @@ final class CapacityStripModelTests: XCTestCase {
         }
     }
 
-    override func tearDown() {
-        CapacityFetch.clearMemo()
-        super.tearDown()
+    /// Resident backed by a probe executor — no real PTYs, no floor sleep,
+    /// history recorded into a temp store.
+    private func makeResident(
+        historyStore: CapacityHistoryStore,
+        probeExecutor: (any CapacityProbeExecuting)?,
+        killRecorder: KillRecorder? = nil
+    ) -> CapacityResidentService {
+        CapacityResidentService(
+            sleep: { _ in },
+            makeScope: {
+                if let killRecorder {
+                    return CapacityProbeScope { pid in killRecorder.record(pid) }
+                }
+                return CapacityProbeScope()
+            },
+            fetch: { source, scope in
+                CapacityFetch.liveSnapshot(
+                    refreshSource: source,
+                    historyStore: historyStore,
+                    probeExecutor: probeExecutor,
+                    probeScope: scope
+                )
+            }
+        )
+    }
+
+    private func makeModel(
+        historyStore: CapacityHistoryStore,
+        probeExecutor: (any CapacityProbeExecuting)?,
+        killRecorder: KillRecorder? = nil
+    ) -> CapacityStripModel {
+        CapacityStripModel(
+            resident: makeResident(
+                historyStore: historyStore,
+                probeExecutor: probeExecutor,
+                killRecorder: killRecorder
+            )
+        )
+    }
+
+    private func makeTempStore() throws -> (URL, CapacityHistoryStore) {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let historyRoot = tempRoot.appendingPathComponent("capacity", isDirectory: true)
+        return (tempRoot, CapacityHistoryStore(rootDirectory: historyRoot))
     }
 
     func testLoadLiveShowsPlaceholdersNotHistory() async throws {
@@ -52,12 +94,8 @@ final class CapacityStripModelTests: XCTestCase {
         let resetAt = clock.addingTimeInterval(32 * 3600)
         let staleObserved = clock.addingTimeInterval(-7_200)
 
-        let tempRoot = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let (tempRoot, store) = try makeTempStore()
         defer { try? FileManager.default.removeItem(at: tempRoot) }
-
-        let historyRoot = tempRoot.appendingPathComponent("capacity", isDirectory: true)
-        let store = CapacityHistoryStore(rootDirectory: historyRoot)
         try store.record([
             CapacityWindow(
                 used: 18,
@@ -72,8 +110,8 @@ final class CapacityStripModelTests: XCTestCase {
         ], now: clock)
 
         let executor = CountingProbeExecutor()
-        let model = CapacityStripModel()
-        model.loadLive(historyStore: store, probeExecutor: executor)
+        let model = makeModel(historyStore: store, probeExecutor: executor)
+        await model.loadLive()
 
         XCTAssertTrue(model.needsLiveRefresh)
         XCTAssertEqual(executor.callCount, 0, "launch must not probe")
@@ -82,25 +120,58 @@ final class CapacityStripModelTests: XCTestCase {
         XCTAssertNil(claude.usedPercent, "must not paint history on launch")
     }
 
-    func testLoadLiveDoesNotProbe() {
+    func testLoadLiveDoesNotProbe() async throws {
+        let (tempRoot, store) = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
         let executor = CountingProbeExecutor()
-        let model = CapacityStripModel()
-        model.loadLive(probeExecutor: executor)
+        let model = makeModel(historyStore: store, probeExecutor: executor)
+        await model.loadLive()
         XCTAssertEqual(executor.callCount, 0)
         XCTAssertFalse(model.isRefreshingAll)
         XCTAssertTrue(model.needsLiveRefresh)
+    }
+
+    func testLoadLivePaintsResidentSnapshotWhenPresent() async throws {
+        let clock = Date()
+        let (tempRoot, store) = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let probeExecutor = FixtureProbeExecutor(results: [
+            "claude_code": [
+                CapacityWindow(
+                    used: 96,
+                    source: "claude_code",
+                    scope: .weekly,
+                    resetAt: clock.addingTimeInterval(32 * 3600),
+                    resetPrecision: .exact,
+                    observedAt: clock,
+                    sourceTier: .tuiProbe,
+                    planTier: "Max"
+                ),
+            ],
+        ])
+        let resident = makeResident(historyStore: store, probeExecutor: probeExecutor)
+        let model = CapacityStripModel(resident: resident)
+        model.refreshAll()
+        for _ in 0..<400 where model.isRefreshingAll {
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
+
+        // A second launch surface over the same resident paints its snapshot —
+        // the resident, not a process memo, owns launch truth (CWB-S01a).
+        let second = CapacityStripModel(resident: resident)
+        await second.loadLive()
+        XCTAssertFalse(second.needsLiveRefresh)
+        let claude = try XCTUnwrap(second.windows.first { $0.source == "claude_code" })
+        XCTAssertEqual(try XCTUnwrap(claude.usedPercent), 96, accuracy: 0.5)
     }
 
     func testRefreshAllReplacesWithLiveProbe() async throws {
         let clock = Date()
         let resetAt = clock.addingTimeInterval(32 * 3600)
 
-        let tempRoot = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let (tempRoot, store) = try makeTempStore()
         defer { try? FileManager.default.removeItem(at: tempRoot) }
-
-        let historyRoot = tempRoot.appendingPathComponent("capacity", isDirectory: true)
-        let store = CapacityHistoryStore(rootDirectory: historyRoot)
 
         let probeExecutor = FixtureProbeExecutor(results: [
             "claude_code": [
@@ -117,9 +188,9 @@ final class CapacityStripModelTests: XCTestCase {
             ],
         ])
 
-        let model = CapacityStripModel()
-        model.loadLive(historyStore: store, probeExecutor: probeExecutor)
-        model.refreshAll(historyStore: store, probeExecutor: probeExecutor)
+        let model = makeModel(historyStore: store, probeExecutor: probeExecutor)
+        await model.loadLive()
+        model.refreshAll()
 
         for _ in 0..<400 where model.isRefreshingAll {
             try await Task.sleep(nanoseconds: 25_000_000)
@@ -135,12 +206,8 @@ final class CapacityStripModelTests: XCTestCase {
         let clock = Date()
         let resetAt = clock.addingTimeInterval(32 * 3600)
 
-        let tempRoot = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let (tempRoot, store) = try makeTempStore()
         defer { try? FileManager.default.removeItem(at: tempRoot) }
-
-        let historyRoot = tempRoot.appendingPathComponent("capacity", isDirectory: true)
-        let store = CapacityHistoryStore(rootDirectory: historyRoot)
         try store.record([
             CapacityWindow(
                 used: 18,
@@ -154,11 +221,8 @@ final class CapacityStripModelTests: XCTestCase {
             ),
         ], now: clock)
 
-        let model = CapacityStripModel()
-        model.refreshAll(
-            historyStore: store,
-            probeExecutor: CountingProbeExecutor()
-        )
+        let model = makeModel(historyStore: store, probeExecutor: CountingProbeExecutor())
+        model.refreshAll()
 
         for _ in 0..<400 where model.isRefreshingAll {
             try await Task.sleep(nanoseconds: 25_000_000)
@@ -176,56 +240,63 @@ final class CapacityStripModelTests: XCTestCase {
         XCTAssertEqual(bench.now, clock)
     }
 
-    // MARK: - CWB-S00a: strip cancel/supersede terminates acquisition scope
+    // MARK: - CWB-S01a: strip runs through the resident funnel
 
-    func testRefreshAllSupersedeTerminatesPriorScope() async throws {
-        let model = CapacityStripModel()
+    /// Resident single-flight: a second full refresh coalesces on the in-flight
+    /// generation — it must NOT kill the in-flight scope or start a second wave.
+    func testRefreshAllCoalescesInFlightFull() async throws {
+        let (tempRoot, store) = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
         let recorder = KillRecorder()
-        let scope = CapacityProbeScope { pid in recorder.record(pid) }
-        let blocker = BlockingScopeExecutor(fakePID: 7_000_001, mode: .untilKilled(recorder))
+        let gate = ExecutorGate()
+        let blocker = GatedScopeExecutor(fakePID: 7_000_001, gate: gate, recorder: recorder)
 
-        model.refreshAll(probeExecutor: blocker, probeScope: scope)
+        let model = makeModel(historyStore: store, probeExecutor: blocker, killRecorder: recorder)
+        model.refreshAll()
         for _ in 0..<200 where !blocker.executed {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
         XCTAssertTrue(blocker.executed, "first acquire must start")
 
-        // Supersede with a fast full refresh.
-        model.refreshAll(probeExecutor: CountingProbeExecutor(), probeScope: CapacityProbeScope())
+        // Double-tap: coalesces onto the same generation.
+        model.refreshAll()
+        try await Task.sleep(nanoseconds: 100_000_000)
+        XCTAssertTrue(recorder.killed.isEmpty, "coalesced full refresh must not kill the in-flight scope")
+        XCTAssertTrue(model.isRefreshingAll, "still one in-flight generation")
 
-        for _ in 0..<200 where !recorder.killed.contains(7_000_001) {
-            try await Task.sleep(nanoseconds: 25_000_000)
-        }
-        XCTAssertTrue(
-            recorder.killed.contains(7_000_001),
-            "superseding full refresh must terminate the prior scope"
-        )
-        XCTAssertTrue(scope.trackedPIDs.isEmpty, "terminated scope must drain its tracked set")
-
+        gate.open()
         for _ in 0..<200 where model.isRefreshingAll {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
-        XCTAssertFalse(model.isRefreshingAll, "new refresh must settle")
+        XCTAssertFalse(model.isRefreshingAll, "coalesced refresh must settle")
+        XCTAssertEqual(
+            blocker.executionCount, CapacityAcquisition.benchSourceOrder.count,
+            "exactly one probe wave — no second acquire behind the first"
+        )
     }
 
+    /// Full refresh supersedes an in-flight targeted seat refresh with a scoped
+    /// terminate (resident-owned, CWB-S00a scoped kill).
     func testRefreshAllSupersedesTargetedScope() async throws {
-        let model = CapacityStripModel()
+        let (tempRoot, store) = try makeTempStore()
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
         let recorder = KillRecorder()
-        let scope = CapacityProbeScope { pid in recorder.record(pid) }
         let blocker = BlockingScopeExecutor(
             fakePID: 7_000_002,
             mode: .untilKilled(recorder, source: "claude_code")
         )
 
-        model.refreshSource("claude_code", probeExecutor: blocker, probeScope: scope)
+        let model = makeModel(historyStore: store, probeExecutor: blocker, killRecorder: recorder)
+        model.refreshSource("claude_code")
         for _ in 0..<200 where !blocker.executed {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
         XCTAssertTrue(blocker.executed, "targeted acquire must start")
         XCTAssertTrue(model.isRefreshing("claude_code"))
 
-        // Full refresh supersedes the targeted one.
-        model.refreshAll(probeExecutor: CountingProbeExecutor(), probeScope: CapacityProbeScope())
+        // Full refresh supersedes the targeted one (blocking executor's
+        // untilKilled returns after the kill; non-claude seats fail fast).
+        model.refreshAll()
 
         for _ in 0..<200 where !recorder.killed.contains(7_000_002) {
             try await Task.sleep(nanoseconds: 25_000_000)
@@ -235,7 +306,7 @@ final class CapacityStripModelTests: XCTestCase {
             "full refresh must terminate the targeted scope"
         )
 
-        for _ in 0..<200 where model.isRefreshingAll {
+        for _ in 0..<400 where model.isRefreshingAll {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
         XCTAssertFalse(model.isRefreshingAll)
@@ -243,7 +314,7 @@ final class CapacityStripModelTests: XCTestCase {
     }
 }
 
-// MARK: - CWB-S00a test helpers
+// MARK: - Test helpers
 
 private final class KillRecorder: @unchecked Sendable {
     private let lock = NSLock()
@@ -270,6 +341,64 @@ private final class KillRecorder: @unchecked Sendable {
     }
 }
 
+private final class ExecutorGate: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _open = false
+
+    var isOpen: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return _open
+    }
+
+    func open() {
+        lock.lock(); _open = true; lock.unlock()
+    }
+}
+
+/// Registers a fake pid into the generation scope, then blocks until the test
+/// opens the gate (or the scope is killed). Used to prove coalesce vs kill.
+private final class GatedScopeExecutor: CapacityProbeExecuting, @unchecked Sendable {
+    let fakePID: pid_t
+    let gate: ExecutorGate
+    let recorder: KillRecorder
+    private let lock = NSLock()
+    private var _executions = 0
+
+    var executed: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return _executions > 0
+    }
+
+    var executionCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return _executions
+    }
+
+    init(fakePID: pid_t, gate: ExecutorGate, recorder: KillRecorder) {
+        self.fakePID = fakePID
+        self.gate = gate
+        self.recorder = recorder
+    }
+
+    func execute(_ request: CapacityProbeRequest) -> [CapacityWindow] {
+        lock.lock(); _executions += 1; lock.unlock()
+        request.scope?.track(fakePID)
+        while !gate.isOpen {
+            if recorder.killed.contains(fakePID) { break }
+            Thread.sleep(forTimeInterval: 0.01)
+        }
+        return [
+            CapacityWindow.unknown(
+                reason: .parserFailed(observedAt: request.now),
+                source: request.source,
+                scope: .weekly,
+                observedAt: request.now,
+                sourceTier: .tuiProbe
+            ),
+        ]
+    }
+}
+
 private final class BlockingScopeExecutor: CapacityProbeExecuting, @unchecked Sendable {
     enum Mode {
         case untilKilled(KillRecorder, source: String? = nil)
@@ -288,15 +417,6 @@ private final class BlockingScopeExecutor: CapacityProbeExecuting, @unchecked Se
     init(fakePID: pid_t, mode: Mode) {
         self.fakePID = fakePID
         self.mode = mode
-    }
-
-    func waitUntilExecuted(timeout: TimeInterval) -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if executed { return true }
-            Thread.sleep(forTimeInterval: 0.01)
-        }
-        return executed
     }
 
     func execute(_ request: CapacityProbeRequest) -> [CapacityWindow] {

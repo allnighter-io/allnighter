@@ -4,7 +4,8 @@ Status: **OPEN — founder priority (2026-08-03). Trust first; then instant.**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
 (`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
 Created: 2026-08-02
-Updated: 2026-08-03 (CWB-S00a scoped kill shipped — quit hook + kill -9 dogfood remain)
+Updated: 2026-08-03 (CWB-S01a resident actor + single-flight + paint gate shipped;
+displayMemo retired — resident snapshot is the one launch truth)
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 
 **Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
@@ -211,7 +212,7 @@ RPC to reach CLI-only settlements.
 | Item | Notes |
 | --- | --- |
 | Six-seat PTY re-wire | Disk acquire deleted |
-| `CapacityFetch` | Live-only; **memo retired when resident lands** |
+| `CapacityFetch` | Live-only; memo **retired at S01a** |
 | Mac strip placeholders / Refresh | Scoped cancel via `CapacityProbeScope` |
 | Hero binding | Tightest pool |
 | **CWB-S00a** | Acquisition-scoped probe registry + cancel; quit PGID ledger; scoped-kill tests (`b464ca491e`) |
@@ -231,10 +232,16 @@ Codex/Grok parsers shipped (`ac65bddf`) — do not re-spike.
 1. Global `terminateAllActiveProbes` → **S00a DONE** scoped registry.
 2. Detached cancel lie → **S00a DONE** (strip cancel now scoped).
 3. Quit reap proof → graceful quit hook in S00a; **kill -9 dogfood remains** at trust gate (socket unlink is S02).
-4. Dual freshness (memo vs paint) → retire memo at resident.
+4. Dual freshness (memo vs paint) → **S01a DONE** — `CapacityFetch.displayMemo`
+   retired; `CapacityResidentService` snapshot is the one launch/paint truth.
 5. Cold latency honesty (budgets, not `~5s`).
 6. Probe dump privacy.
 7. Loud unknown / disabled / expired.
+8. **GUI proof debt (pre-existing):** `CapacityStripView.swift`,
+   `AllnighterMacApp.swift`, `RoutingComposer.swift` changed since the proof
+   baseline (`dea7f813`) before S01a without fresh surface proof; S01a's own
+   `HomeView.swift` change is waived as non-visible in `WAIVERS.manifest`. The
+   capacity strip surface still owes a real `gui_proof` + watcher pass.
 
 ---
 
@@ -284,7 +291,7 @@ Dock Allnighter.app
 | --- | --- | --- | --- |
 | **CWB-S00a** | Scoped registry/cancel; quit reap basics | 1–2d | `CapacityAcquisitionScopedKill` |
 | **CWB-S00b** | CLI honesty cut | 2–3d | No hydrate-as-live; no menu capacity |
-| **CWB-S01a** | Resident actor + single-flight + explicit Refresh + launch acquire | 3–4d | `CapacitySingleFlight`, paint gate tests |
+| ~~**CWB-S01a**~~ ✅ Done 2026-08-03 | Resident actor + single-flight + explicit Refresh + launch paint (memo retired; no timer/socket) | 3–4d | `CapacitySingleFlight`, paint gate tests |
 | **CWB-S01b** | Deadline timer + wake + ON/OFF + App Nap activity | 2–3d | `CapacityFeatureOff`, `CapacityWakeCoalesce` |
 | **CWB-S02** | Socket + CLI fast/cold (**after** S00b) | 2–3d | Spy 100× p95 &lt;250 ms, zero PTYs |
 | **CWB-S03** | In-process post-run only | 0.5–1d | Boolean gate tests |
@@ -335,8 +342,8 @@ scripts/swift-test.sh --filter CapacityWakeCoalesce
 | Layer | Owner |
 | --- | --- |
 | Vendor I/O | `CapacityProbe` (scoped registries) |
-| One-shot | `CapacityFetch` (no display memo once resident) |
-| Schedule / freshness / socket | `CapacityResidentService` |
+| One-shot | `CapacityFetch` (display memo retired at S01a) |
+| Schedule / freshness / socket | `CapacityResidentService` (S01a: funnel + single-flight + snapshot + paint gate; timer S01b) |
 | Transport | CLI |
 | Strip | `CapacityStripModel` (projection) |
 | Runtime | `CapacityObservation` |

@@ -57,6 +57,9 @@ public enum CapacityUnknownReason: Sendable, Equatable, Codable {
     case probeTimeout(observedAt: Date)
     /// Probe ran but capture was empty (no usage pane text).
     case emptyCapture(observedAt: Date)
+    /// Sample succeeded but aged past the resident paint gate (CWB-S01a);
+    /// `observedAt` is the original sample time so age labels stay honest.
+    case expired(observedAt: Date)
 }
 
 /// Paid spend that is **not** a percentage — cursor dollars, grok on-demand

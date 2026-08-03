@@ -5,11 +5,6 @@ import AllnighterEngine
 final class CapacityFetchTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_753_833_600)
 
-    override func tearDown() {
-        CapacityFetch.clearMemo()
-        super.tearDown()
-    }
-
     func testLaunchPlaceholdersAreNeverSampled() {
         let windows = CapacityFetch.launchPlaceholders(now: now)
         XCTAssertEqual(windows.count, CapacityAcquisition.benchSourceOrder.count)
@@ -52,40 +47,10 @@ final class CapacityFetchTests: XCTestCase {
 
         let snap = CapacityFetch.liveSnapshot(
             historyStore: store,
-            probeExecutor: FailingExecutor(),
-            updateMemo: false
+            probeExecutor: FailingExecutor()
         )
         let claude = snap.windows.first { $0.source == "claude_code" }
         XCTAssertNil(claude?.usedPercent)
         XCTAssertNotNil(claude?.unknownReason)
-    }
-
-    func testMemoSurvivesWithinTTL() {
-        let live = [
-            CapacityWindow(
-                used: 50,
-                source: "grok",
-                scope: .weekly,
-                resetAt: now.addingTimeInterval(40 * 3600),
-                resetPrecision: .exact,
-                observedAt: now,
-                sourceTier: .tuiProbe
-            ),
-        ]
-        CapacityFetch.clearMemo()
-        _ = CapacityFetch.liveSnapshot(
-            now: now,
-            probeExecutor: FixtureExecutor(windows: live),
-            updateMemo: true
-        )
-        let memo = CapacityFetch.memoIfFresh(now: now.addingTimeInterval(60))
-        XCTAssertEqual(memo?.first(where: { $0.source == "grok" })?.usedPercent, 50)
-    }
-
-    private struct FixtureExecutor: CapacityProbeExecuting {
-        let windows: [CapacityWindow]
-        func execute(_ request: CapacityProbeRequest) -> [CapacityWindow] {
-            windows.filter { $0.source == request.source }
-        }
     }
 }

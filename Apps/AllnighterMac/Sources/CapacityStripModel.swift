@@ -4,9 +4,10 @@ import AllnighterEngine
 
 /// Mac launch-surface owner for the capacity strip.
 ///
-/// **SSOT:** `CapacityFetch` — live PTY only for painted %. Launch shows
-/// placeholders until the user taps Refresh (or a fresh in-process memo exists).
-/// Probes never run on the main actor.
+/// **SSOT:** `CapacityResidentService` (CWB-S01a) — every acquire goes through
+/// `requestRefresh(reason:)`; the resident owns single-flight, supersede, and
+/// the 2-minute floor. Launch paints the resident snapshot when one exists,
+/// else placeholders. Probes never run on the main actor.
 @MainActor
 @Observable
 final class CapacityStripModel {
@@ -25,13 +26,18 @@ final class CapacityStripModel {
     /// When set, the model is fixture-seeded and live acquire is skipped on appear.
     private(set) var isFixtureSeeded = false
 
+    /// The one refresh funnel. Shared instance in the Dock app; tests inject
+    /// their own with a fake clock / fake fetch.
+    private let resident: CapacityResidentService
+
     private var refreshTasks: [String: Task<Void, Never>] = [:]
-    private var refreshScopes: [String: CapacityProbeScope] = [:]
     private var refreshSourceGenerations: [String: Int] = [:]
     private var refreshAllTask: Task<Void, Never>?
-    private var refreshAllScope: CapacityProbeScope?
     private var refreshAllGeneration = 0
-    private var loadTask: Task<Void, Never>?
+
+    init(resident: CapacityResidentService = .shared) {
+        self.resident = resident
+    }
 
     // MARK: - Derived
 
@@ -58,21 +64,25 @@ final class CapacityStripModel {
         notReadyOrParked = ids
     }
 
-    /// Launch path: placeholders or in-process memo — never history hydrate.
-    func loadLive(
-        notReadyOrParked: Set<String> = [],
-        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
-        historyStore: CapacityHistoryStore = CapacityHistoryStore(),
-        probeExecutor: (any CapacityProbeExecuting)? = nil
-    ) {
+    /// Launch path: resident snapshot when one exists (paint-gated), else
+    /// placeholders — never history hydrate, never a probe at launch.
+    func loadLive(notReadyOrParked: Set<String> = []) async {
         guard !isFixtureSeeded else { return }
         self.notReadyOrParked = notReadyOrParked
-        loadTask?.cancel()
         isRefreshingAll = false
-        let bench = CapacityFetch.launchSnapshot()
-        now = bench.now
-        windows = bench.windows
-        needsLiveRefresh = bench.windows.allSatisfy { $0.unknownReason == .neverSampled }
+        if let settled = await resident.currentSnapshot() {
+            let paintedNow = Date()
+            now = paintedNow
+            windows = CapacityPaintGate.paintedWindows(
+                settled.windows, settledAt: settled.settledAt, now: paintedNow
+            )
+            needsLiveRefresh = false
+        } else {
+            let bench = CapacityFetch.launchSnapshot()
+            now = bench.now
+            windows = bench.windows
+            needsLiveRefresh = true
+        }
     }
 
     /// Fixture / proof path: inject Core windows directly. No IO.
@@ -93,118 +103,60 @@ final class CapacityStripModel {
 
     // MARK: - Refresh
 
-    /// Live PTY acquire for every seat (`CapacityFetch.liveSnapshot`).
-    func refreshAll(
-        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
-        historyStore: CapacityHistoryStore = CapacityHistoryStore(),
-        probeExecutor: (any CapacityProbeExecuting)? = nil,
-        probeScope: CapacityProbeScope? = nil
-    ) {
+    /// Full-bench acquire through the resident funnel. Repeat taps coalesce on
+    /// the in-flight generation (resident single-flight); an in-flight targeted
+    /// seat refresh is superseded by the resident with a scoped terminate.
+    func refreshAll() {
         guard !isFixtureSeeded else { return }
-        // Full refresh supersedes every in-flight generation. Terminate scopes
-        // before cancelling so the cancellation path always reaps PTYs.
-        refreshAllScope?.terminate()
-        refreshAllScope = nil
         refreshAllTask?.cancel()
-        for scope in refreshScopes.values { scope.terminate() }
-        refreshScopes.removeAll()
-        for task in refreshTasks.values { task.cancel() }
-        refreshTasks.removeAll()
-        refreshingSources.removeAll()
-        refreshSourceGenerations.removeAll()
-
         refreshAllGeneration += 1
         let generation = refreshAllGeneration
         isRefreshingAll = true
-        let scope = probeScope ?? CapacityProbeScope()
-        refreshAllScope = scope
         refreshAllTask = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
                 if generation == self.refreshAllGeneration {
                     self.isRefreshingAll = false
                     self.refreshAllTask = nil
-                    self.refreshAllScope = nil
                 }
             }
-            let bench = await Self.acquireLive(
-                homeRoot: homeRoot,
-                historyStore: historyStore,
-                probeExecutor: probeExecutor,
-                refreshSource: nil,
-                probeScope: scope
-            )
+            let bench = await self.resident.requestRefresh(reason: .userRefresh)
             guard !Task.isCancelled else { return }
+            guard generation == self.refreshAllGeneration else { return }
             self.now = bench.now
             self.windows = bench.windows
             self.needsLiveRefresh = false
         }
     }
 
-    /// Live PTY acquire for one seat.
-    func refreshSource(
-        _ source: String,
-        homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
-        historyStore: CapacityHistoryStore = CapacityHistoryStore(),
-        probeExecutor: (any CapacityProbeExecuting)? = nil,
-        probeScope: CapacityProbeScope? = nil
-    ) {
+    /// Targeted seat acquire through the resident funnel. Same-seat taps
+    /// coalesce; a different seat takes its turn after the in-flight settle.
+    func refreshSource(_ source: String) {
         guard !isFixtureSeeded else { return }
         if let message = CapacityAcquisition.validateRefreshSourceId(source) {
             _ = message
             return
         }
-        // Supersede any in-flight targeted refresh for this source.
-        refreshScopes[source]?.terminate()
-        refreshScopes.removeValue(forKey: source)
         refreshTasks[source]?.cancel()
         refreshingSources.insert(source)
         let nextGeneration = (refreshSourceGenerations[source] ?? 0) + 1
         refreshSourceGenerations[source] = nextGeneration
         let generation = nextGeneration
-        let scope = probeScope ?? CapacityProbeScope()
-        refreshScopes[source] = scope
         refreshTasks[source] = Task { @MainActor [weak self] in
             guard let self else { return }
             defer {
                 if generation == self.refreshSourceGenerations[source, default: 0] {
                     self.refreshingSources.remove(source)
                     self.refreshTasks[source] = nil
-                    self.refreshScopes.removeValue(forKey: source)
                 }
             }
-            let bench = await Self.acquireLive(
-                homeRoot: homeRoot,
-                historyStore: historyStore,
-                probeExecutor: probeExecutor,
-                refreshSource: source,
-                probeScope: scope
-            )
+            let bench = await self.resident.requestRefresh(reason: .userRefreshSeat(source))
             guard !Task.isCancelled else { return }
+            guard generation == self.refreshSourceGenerations[source, default: 0] else { return }
             self.now = bench.now
             self.windows = Self.merge(prior: self.windows, acquired: bench.windows, refreshedSource: source)
             self.needsLiveRefresh = false
         }
-    }
-
-    /// Off-main-actor live acquire — CapacityFetch, no history hydrate.
-    private static func acquireLive(
-        homeRoot: URL,
-        historyStore: CapacityHistoryStore,
-        probeExecutor: (any CapacityProbeExecuting)?,
-        refreshSource: String?,
-        probeScope: CapacityProbeScope?
-    ) async -> CapacityFetch.Snapshot {
-        await Task.detached(priority: .userInitiated) {
-            CapacityFetch.liveSnapshot(
-                homeRoot: homeRoot,
-                refreshSource: refreshSource,
-                historyStore: historyStore,
-                probeExecutor: probeExecutor,
-                updateMemo: refreshSource == nil,
-                probeScope: probeScope
-            )
-        }.value
     }
 
     /// Keep prior windows for every source except `refreshedSource`, which is
