@@ -28,7 +28,7 @@ extension EnvironmentValues {
     }
 }
 
-/// R-S08 — the Mac GUI's PM Relay launch surface (`docs/phases/PM_Relay.md` §6, the last
+/// R-S08 — the Mac GUI's Loop launch surface (`docs/phases/PM_Relay.md` §6, the last
 /// open slice). A doc picker (ranked file search, reusing `ProjectFileCatalog` — the same
 /// engine the composer's `@`-file-reference picker ranks against), a PM seat + dev seat
 /// picker (the composer's own bench data, `AppModel.composeBench`), ceilings, and Start.

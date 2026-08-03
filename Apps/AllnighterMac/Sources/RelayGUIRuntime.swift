@@ -2,7 +2,7 @@ import Foundation
 import AllnighterCore
 import AllnighterEngine
 
-/// GUI-side PM Relay construction (R-S08, `docs/phases/PM_Relay.md` §6). Mirrors
+/// GUI-side Loop construction (R-S08, `docs/phases/PM_Relay.md` §6). Mirrors
 /// `LoopDispatch.makeCoordinator(runtime:)` (`AllnighterCLI`) field-for-field so a relay
 /// launched from the Mac app dispatches through the exact same `RunService` shape and the
 /// exact same `LoopThreadProjector` default (`ThreadStore()`/`RunStore()` roots) as the CLI

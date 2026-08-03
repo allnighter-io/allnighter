@@ -30,7 +30,7 @@ struct RootView: View {
     /// The Factory Floor reader open over the workspace (a deep surface). Owned here so a
     /// top-bar route command can dismiss it (HomeView renders it via this binding).
     @State private var floorRun: TeamRun?
-    /// R-S08: which project's PM Relay launch sheet is open (mirrors `floorRun`'s
+    /// R-S08: which project's Loop launch sheet is open (mirrors `floorRun`'s
     /// RootView-owned shape) — a "Start relay" tap in the sidebar, or a GUI-proof
     /// deep-link (`GUIFixture.opensRelayLaunch`), sets this.
     @State private var relayLaunchRequest: RelayLaunchRequest?

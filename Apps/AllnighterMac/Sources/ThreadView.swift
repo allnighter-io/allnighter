@@ -663,7 +663,7 @@ private struct ThreadTurnRow: View {
         case .mutatingRun:
             ThreadMutatingRunRow(turn: turn, isLastTurn: isLastTurn)
         case .systemEvent where turn.systemEvent == .relayEscalated && turn.status == .running:
-            // R-S08: the ONE open, actionable system event — a PM Relay round asked the
+            // R-S08: the ONE open, actionable system event — a Loop round asked the
             // founder a real question and is waiting. ATL-S04: resume gating reads
             // `LoopState.isResumable` via `RelayResumeController` — never turn prose.
             RelayEscalationRow(turn: turn)
@@ -793,7 +793,7 @@ private struct ThreadTurnRow: View {
 
 // MARK: - R-S08 relay escalation (resume-from-GUI)
 
-/// The one place a PM Relay round asks the founder a real question
+/// The one place a Loop round asks the founder a real question
 /// (`docs/phases/PM_Relay.md` §4.1) and stops. `turn.threadId` IS the relay id
 /// (`LoopThreadProjector`'s identity rule — no separate lookup). No existing composer
 /// seam answers an open system event inline (`ThreadTurnRow` had no case for
@@ -825,7 +825,7 @@ private struct RelayEscalationRow: View {
     private var readOnlyEscalation: some View {
         HStack(spacing: 8) {
             Image(systemName: "questionmark.circle").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
-            Text("PM Relay question (closed)")
+            Text("Loop question (closed)")
                 .font(ALFont.caption).foregroundStyle(ALColor.textMuted)
             if let note = turn.text, !note.isEmpty {
                 Text("— \(note)")
@@ -839,7 +839,7 @@ private struct RelayEscalationRow: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Image(systemName: "questionmark.circle.fill").font(.system(size: 13)).foregroundStyle(ALPalette.amber400)
-                Text("PM Relay needs an answer").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
+                Text("Loop needs an answer").font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
             }
             if let note = turn.text, !note.isEmpty {
                 Text(note).font(.system(size: 13)).foregroundStyle(ALColor.textSecondary).textSelection(.enabled)
