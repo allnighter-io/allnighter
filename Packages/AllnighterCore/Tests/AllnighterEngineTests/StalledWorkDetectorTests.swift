@@ -439,7 +439,7 @@ final class StalledWorkDetectorTests: XCTestCase {
         let ancient = Date(timeIntervalSince1970: 1_699_000_000)
         let thread = WorkThread(
             id: "relay_museum",
-            title: "PM Relay: museum",
+            title: "Loop: museum",
             createdAt: ancient,
             updatedAt: old,
             projectId: "projA",

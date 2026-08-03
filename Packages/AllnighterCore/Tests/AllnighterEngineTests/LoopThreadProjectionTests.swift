@@ -117,7 +117,7 @@ final class LoopThreadProjectionTests: HermeticSupportTestCase {
         let thread = rig.threadStore.get(state.id)
         XCTAssertNotNil(thread, "the relay's thread id must equal the relay id")
         XCTAssertEqual(thread?.projectId, "proj_relay_1")
-        XCTAssertEqual(thread?.title, "Delivery Loop: PM Relay")
+        XCTAssertEqual(thread?.title, "Delivery Loop")
         XCTAssertEqual(thread?.workingDir, repo.path)
     }
 
@@ -295,7 +295,7 @@ final class LoopThreadProjectionTests: HermeticSupportTestCase {
     // MARK: - Title derivation
 
     func testTitleFromDocPath() {
-        XCTAssertEqual(LoopThreadProjector.title(forDocPath: "docs/phases/PM_Relay.md"), "Delivery Loop: PM Relay")
+        XCTAssertEqual(LoopThreadProjector.title(forDocPath: "docs/phases/PM_Relay.md"), "Delivery Loop")
         XCTAssertEqual(LoopThreadProjector.title(forDocPath: "docs/phases/foo-bar.md"), "Delivery Loop: foo bar")
         XCTAssertEqual(LoopThreadProjector.title(forDocPath: ""), "Delivery Loop")
     }

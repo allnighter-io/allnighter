@@ -268,6 +268,9 @@ public struct LoopThreadProjector: Sendable {
             .replacingOccurrences(of: "_", with: " ")
             .replacingOccurrences(of: "-", with: " ")
             .trimmingCharacters(in: .whitespaces)
+        if cleaned.caseInsensitiveCompare("PM Relay") == .orderedSame {
+            return "Delivery Loop"
+        }
         return cleaned.isEmpty ? "Delivery Loop" : "Delivery Loop: \(cleaned)"
     }
 }
