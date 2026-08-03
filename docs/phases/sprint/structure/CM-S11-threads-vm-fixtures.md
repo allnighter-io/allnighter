@@ -1,6 +1,6 @@
 # CM-S11 — Extract ThreadsViewModel fixtures
 
-Status: ready
+Status: done (`04f1214e`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 

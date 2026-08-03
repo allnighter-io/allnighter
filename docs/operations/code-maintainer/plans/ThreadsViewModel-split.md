@@ -26,7 +26,7 @@ Owner: code-maintainer Structure lens
 | Batch | File | LOC | Status | Job |
 | --- | --- | ---: | --- | --- |
 | CM-S10 | `ThreadsViewModel+Notifications.swift` | ~101 | **done** (`95a68cc7`, Gemini) |
-| CM-S11 | `ThreadsViewModel+Fixtures.swift` | ~116 | proposed | GUI fixture application and live artifact debug state seeding |
+| CM-S11 | `ThreadsViewModel+Fixtures.swift` | ~116 | **done** (`04f1214e`, Gemini) |
 | CM-S12 | `ThreadsViewModel+RailControls.swift` | ~165 | proposed | Rail operations (rename, pin, archive, new thread, project scope) & visibility reporting |
 | CM-S13 | `ThreadsViewModel+Attachments.swift` | ~112 | proposed | Attachment resolution, worker output image harvesting/cleaning, thumb cache, Finder actions |
 | CM-S14 | `ThreadsViewModel+RunService.swift` | ~390 | proposed | `RunService` execution, `RunDecodeCache`, live artifact projector updates, vendor park/resume |
