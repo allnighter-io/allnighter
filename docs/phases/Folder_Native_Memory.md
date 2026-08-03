@@ -14,7 +14,7 @@ Every CLI vendor is building memory at the ACCOUNT level, siloed per vendor —
 Claude's memory doesn't know what Codex learned about this repo; Cursor's rules
 don't know what the Grok seat discovered last session. Allnighter is the only
 thing that sits above all seats at the FOLDER level: it watches every vendor's
-worker succeed, fail, get gated, get flagged, get corrected — in one place.
+agent succeed, fail, get gated, get flagged, get corrected — in one place.
 
 > "Your repo remembers, no matter which CLI touched it" — a sentence no lab can
 > say, structurally (they won't consolidate a competitor's lessons).
@@ -22,7 +22,7 @@ worker succeed, fail, get gated, get flagged, get corrected — in one place.
 Evidence from the first week of piloted deliveries (#1–#5): the loop worked better
 *because the piloting PM had cross-session memory* (verdict-tail traps, cursor
 allowlist behavior, known test baselines, seat speeds). A cold-start PM seat has
-none of that — every relay is a cold read. The signals already exist and are
+none of that — every loop is a cold read. The signals already exist and are
 durable (round logs, verdicts, dev reports, repoDeltas, gate blocks, escalations,
 founder resume answers — the highest-signal events, the analog of Ikiro's
 reverts/rejections). They are stored as run-truth and never distilled: they
@@ -43,21 +43,21 @@ The 10x is NOT better retrieval — no vector DB, no RAG, no memory subsystem. T
 > shift. Every other surface makes agents re-earn the same scars.
 
 Product sentence: **"Stop paying the cold-start tax."** The conversion event is
-**second-run**: the first unattended relay that opens by citing what the first run learned.
+**second-run**: the first unattended loop that opens by citing what the first run learned.
 Everything below serves those two sentences; anything that doesn't is bloat.
 
 ## Design skeleton (v0 — harden as we learn)
 
 - **One read seam:** the repo's own `MEMORY.md` (open format, portable,
-  git-versioned) + the freshest not-yet-consolidated relay events. The PM prompt
+  git-versioned) + the freshest not-yet-consolidated loop events. The PM prompt
   and dev preamble carry ONE pointer line: "read `MEMORY.md` if present." This is
   NOT a context packet (which the Unified Run Model killed) — the agent reads a
   real file in the repo, which is the law that replaced packets.
 - **Write authority (the ONE statement — everything else defers here):**
-  Allnighter the PRODUCT never writes the repo. Sessions and workers do:
+  Allnighter the PRODUCT never writes the repo. Sessions and agents do:
   a cockpit pilot session (the user's agent with repo hands) may write MEMORY.md
-  directly; unattended contexts write via a dispatched worker (the seed pattern);
-  a scheduled consolidation round is that worker on a clock. Concurrent-writer
+  directly; unattended contexts write via a dispatched agent (the seed pattern);
+  a scheduled consolidation round is that agent on a clock. Concurrent-writer
   sequencing is an open question (below).
 - **No second memory system.** Allnighter's stores stay episodic run-truth; the
   folder file is the distilled posterior. No vector DB, no embeddings, no new
@@ -93,7 +93,7 @@ Everything below serves those two sentences; anything that doesn't is bloat.
   evicts, never just appends. `decision` lines are never auto-evicted — but they
   COUNT against the cap; if decisions alone crowd the file, consolidation flags
   it for founder revocation hygiene rather than evicting scar tissue silently.
-- **Secrets refusal binds EVERY writer** — cockpit sessions, ordered workers, and
+- **Secrets refusal binds EVERY writer** — cockpit sessions, ordered agents, and
   consolidation alike: memory never holds tokens, key paths, credentials, or
   private URLs. Consolidation orders state it explicitly; sessions are bound by
   it as a standing decision line.
@@ -120,11 +120,11 @@ Who writes: per the Write authority block above — no second statement here.
 
 ## Remaining work (pointer + seed SHIPPED: 061b1a1b + 40235f8f)
 
-1. ~~Pointer line in relay prompts + pilot scaffold~~ DONE.
+1. ~~Pointer line in loop prompts + pilot scaffold~~ DONE.
 2. Convention (live): done-round orders fold lessons / record seat observations.
-3. NEXT: concurrent-writer sequencing convention (cockpit vs ordered workers —
+3. NEXT: concurrent-writer sequencing convention (cockpit vs ordered agents —
    simplest candidate: writers rebase-on-conflict and re-fold; decide before 4).
-4. THEN: the scheduled consolidation round (dispatched worker; Allnighter
+4. THEN: the scheduled consolidation round (dispatched agent; Allnighter
    schedules, never writes) — emits the Learning card (that card IS the founder
    digest surface; no separate surface). "Fold lessons" means: WRITE the lines
    into MEMORY.md; a done-note observation alone is fodder, not a fold. This
@@ -154,7 +154,7 @@ Who writes: per the Write authority block above — no second statement here.
 Until consolidation ships, the honest variant is pilot-driven: the cockpit
 session folds lessons at done and the next session cites them (proven live
 2026-07-16, piloted delivery #9 round 1). The full unattended version: same doc, two
-unattended relays back-to-back. The first run goes cold and its closing consolidation
+unattended loops back-to-back. The first run goes cold and its closing consolidation
 writes MEMORY.md (Learning card emitted). The second run's PM opens by citing at least
 one memory line, avoids at least one first-run trap without re-discovering it, and the
 founder's digest shows the delta.
@@ -163,8 +163,8 @@ that was not paid twice. (Cold-vs-warm side-by-side is also the demo asset.)
 
 ## Open questions (harden here as dogfood teaches)
 
-- Consolidation cadence: per-relay closing round vs periodic sweep vs on-adopt?
-- Concurrent writers: cockpit direct-writes vs a consolidation worker could race
+- Consolidation cadence: per-loop closing round vs periodic sweep vs on-adopt?
+- Concurrent writers: cockpit direct-writes vs a consolidation agent could race
   on MEMORY.md — sequencing convention needed before consolidation ships (panel
   finding, accepted 2026-07-16).
 - Shared/public repos: default is commit-to-repo; an opt-out/redaction posture
@@ -179,7 +179,7 @@ that was not paid twice. (Cold-vs-warm side-by-side is also the demo asset.)
 
 - 2026-07-16: doc created from the founder brainstorm + Ikiro 88 read. First week
   of piloted deliveries recorded as the motivating evidence above.
-- 2026-07-16 (round 2, pointer line): relay prompts + pilot scaffold carry the one
+- 2026-07-16 (round 2, pointer line): loop prompts + pilot scaffold carry the one
   MEMORY.md pointer; prompt-assembly tests assert presence and cite wording. Pointer
   commit: `40235f8f`.
   Candidate future memory line: dev-seat stall-retry can double-commit the same
