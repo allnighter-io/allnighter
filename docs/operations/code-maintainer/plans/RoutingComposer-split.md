@@ -1,6 +1,6 @@
 # RoutingComposer split plan
 
-Status: plan only — no code movement authorized beyond CM-S01/S02 (types + attachment tile).
+Status: CM-S03 shipped — target popover in `RoutingComposerTargetPopover.swift`.
 Updated: 2026-08-03
 Owner: code-maintainer Structure lens
 
@@ -10,7 +10,8 @@ Owner: code-maintainer Structure lens
 | --- | ---: | --- |
 | `RoutingComposerTypes.swift` | ~130 | Shared compose models + popover key catcher |
 | `ComposerAttachmentTile.swift` | ~80 | Attachment chip/tile UI |
-| `RoutingComposer.swift` | ~1,450 | Main composer view + target popover + @ file search |
+| `RoutingComposer.swift` | ~985 | Main composer + send + @ file search |
+| `RoutingComposerTargetPopover.swift` | ~470 | Model/team/loop target popover |
 
 `RoutingComposer.swift` still mixes four concerns:
 
@@ -23,7 +24,8 @@ Owner: code-maintainer Structure lens
 
 | Batch | New file | Extract from | Proof |
 | --- | --- | --- | --- |
-| CM-S03 | `RoutingComposerTargetPopover.swift` | Target popover + navigation (sections 3–4) | xcodebuild test AllnighterMac |
+| CM-S03 | `RoutingComposerTargetPopover.swift` | Target popover + navigation (sections 3–4) | **done** (`efc68f8`) |
+| CM-S04 | `RoutingComposerFileSearch.swift` | `@` file-reference session (scan, rank, palette) | xcodebuild + FR-S04 Works Test when palette ships |
 | CM-S04 | `RoutingComposerFileSearch.swift` | `@` file-reference session (scan, rank, palette) | xcodebuild + FR-S04 Works Test when palette ships |
 | CM-S05 | `RoutingComposerSend.swift` | Send + auto-resolution helpers | AppModelTests / composer send tests |
 
