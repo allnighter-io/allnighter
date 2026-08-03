@@ -30,7 +30,7 @@ struct ComposeSpecimen: View {
 struct RoutingComposer: View {
     @Environment(AppModel.self) var appModel
     @Environment(ThreadsViewModel.self) private var threads
-    @Environment(ProjectsViewModel.self) private var projects
+    @Environment(ProjectsViewModel.self) var projects
     @Environment(CommandCenter.self) private var commands
     @Environment(\.openLoopLaunch) private var openLoopLaunch
     @State var team: String?
@@ -41,7 +41,7 @@ struct RoutingComposer: View {
     @State var lane: ComposeLane
     /// Cached Default-model settings (refreshed on appear) — Auto's tier preview.
     @State var defaultSettings: DefaultModelSettings = .fresh
-    @State private var text: String = ""
+    @State var text: String = ""
     @State var targetOpen = false
     /// Keyboard/hover navigation in the target popover: which visible row is highlighted.
     @State var targetHighlight = 0
@@ -50,18 +50,18 @@ struct RoutingComposer: View {
     @State private var effortHighlight: ComposeEffort?
     /// Model-row effort popover — effort for a specific bench seat (nil = closed).
     @State var modelEditModelId: String?
-    @State private var fileSearchOpen = false
-    @State private var fileSearchQuery = ""
+    @State var fileSearchOpen = false
+    @State var fileSearchQuery = ""
     /// Project corpus size (cached per @-session) for the "N / total" scope hint.
-    @State private var fileTotalCount = 0
+    @State var fileTotalCount = 0
     /// The project file corpus, scanned ONCE (off-main) per @-session and then ranked
     /// in-memory per keystroke — so typing never blocks on git/stat.
-    @State private var fileSnapshot: ProjectFileCatalog.Snapshot?
-    @State private var fileScanRoot: String?
-    @State private var fileScanning = false
-    @State private var fileCandidates: [ProjectFileCatalog.Candidate] = []
-    @State private var highlightedFileIndex = 0
-    @State private var selectedFileReferences: [ComposeFileReference] = []
+    @State var fileSnapshot: ProjectFileCatalog.Snapshot?
+    @State var fileScanRoot: String?
+    @State var fileScanning = false
+    @State var fileCandidates: [ProjectFileCatalog.Candidate] = []
+    @State var highlightedFileIndex = 0
+    @State var selectedFileReferences: [ComposeFileReference] = []
     /// Pasted/picked images, frozen to temp files, shown as thumbnail chips and sent
     /// with the run. Thumbnails are cached by id (NSImage isn't part of the Equatable
     /// routing payload).
@@ -75,7 +75,7 @@ struct RoutingComposer: View {
     @State var targetTab: TargetTab = .model
     enum TargetTab: Hashable { case model, team, loop }
 
-    @State private var composerFocused = false
+    @State var composerFocused = false
     @State private var editorHeight = ComposeEditorMetrics.minHeight
     /// First-edit latch — fires `onEdit` once (the Pending-review modal un-arms on edit).
     @State private var didEdit = false
@@ -227,20 +227,6 @@ struct RoutingComposer: View {
         }
     }
 
-    private var effectivePlaceholder: String {
-        if targetTab == .loop {
-            return "Brief the PM — what should this loop deliver?"
-        }
-        return placeholder
-    }
-
-    private var canSend: Bool {
-        if targetTab == .loop { return true }
-        // Image-only (or text-attachment-only) sends are valid — a pasted screenshot with
-        // no typed text must enable Send.
-        let hasBody = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return (hasBody || !attachments.isEmpty) && onSend != nil
-    }
 
     private func seedDefaults() {
         defaultSettings = DefaultModelSettingsPersistence().load()
@@ -249,37 +235,6 @@ struct RoutingComposer: View {
         }
     }
 
-    // MARK: Auto resolution (the chip preview == what the run will do)
-
-    /// Model ids runnable right now — reuse AppModel's canonical availability (ON-bench
-    /// AND source ready), the same gate the run path applies, so the Auto chip never
-    /// previews a model the run would skip (e.g. an off-bench model whose CLI is up).
-    private var sourceReadyIds: Set<ModelID> { Set(appModel.availableModels.map(\.id)) }
-
-    /// What Auto resolves to now — the tier default, or a same-tier substitute when a
-    /// CLI is down. nil = the tier is fully down (Auto would wait).
-    var autoModelId: String? {
-        SubstitutionResolver.resolveAuto(settings: defaultSettings, readyModelIds: sourceReadyIds).resolvedModelId
-    }
-
-    /// The model the route currently runs: an explicit pin, else the team's model,
-    /// else the tier-resolved Auto model.
-    private var selectedModelId: String? {
-        if let pinnedModelId { return pinnedModelId }
-        if team != nil { return resolvedModelId(forTeam: team) }
-        return autoModelId
-    }
-
-    /// The model a team actually runs — its first worker's pinned model (or the
-    /// lead's). This is the SSOT the composer chip must mirror, exactly as the Team
-    /// Studio editor shows it. Returns nil only if the team pins nothing.
-    func resolvedModelId(forTeam team: String?) -> String? {
-        let preset = team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
-        guard let id = preset?.agentSpecs.first?.preferredModelId ?? preset?.lead.preferredModelId else { return nil }
-        // Only honor it if it's actually on the bench (else the chip would show a
-        // model the user can't run); otherwise the ready-fallback applies.
-        return appModel.composeBench.contains(where: { $0.id == id }) ? id : nil
-    }
 
     private func consumePendingPrefillIfNeeded() {
         guard let pending = threads.pendingQuickCaptureText,
@@ -351,51 +306,6 @@ struct RoutingComposer: View {
         selectedFileReferences.map { FileReferenceInput(path: $0.path) }
     }
 
-    /// Proof-only: force the file-reference panel rendered so its ranking/highlight can
-    /// be captured in-process (the panel is inline, but the open-state can race the
-    /// fixture's async project load).
-    private var fileReferenceFixtureOpen: Bool {
-        #if DEBUG
-        return GUIFixture.composeFileReferenceOpen
-        #else
-        return false
-        #endif
-    }
-
-    private var fileReferenceChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 6) {
-                ForEach(selectedFileReferences) { ref in
-                    HStack(spacing: 6) {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 10))
-                            .foregroundStyle(ALColor.textMuted)
-                        // Cursor-style: once added, show just the filename. The full
-                        // root-relative path stays available on hover (the chip's help).
-                        Text(fileReferenceName(ref.path))
-                            .font(ALFont.monoSm)
-                            .foregroundStyle(ALColor.textSecondary)
-                            .lineLimit(1)
-                            .help(ref.path)
-                        Button { removeFileReference(ref.path) } label: {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(ALColor.textFaint)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Remove")
-                    }
-                    .padding(.horizontal, 8)
-                    .frame(height: 24)
-                    .background(ALColor.subtle, in: Capsule())
-                    .overlay { Capsule().strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-                }
-            }
-            .padding(.horizontal, 11)
-            .padding(.top, 5)
-            .padding(.bottom, 1)
-        }
-    }
 
     // Cursor-style attachment row: images are bigger thumbnail tiles (no label, hover-X
     // top-right, click to view); a captured .txt keeps a compact doc chip. The attachment is
@@ -478,433 +388,8 @@ struct RoutingComposer: View {
         NSWorkspace.shared.open(att.fileURL)
     }
 
-    /// Show the floating suggestions only when there's something to pick — an open @
-    /// query with matches. No matches ⇒ nothing floats (no empty box).
-    // Show the panel whenever an @ query is open — NEVER silently nothing. It shows the
-    // matches, or an honest status (scanning / no project / no matches).
-    private var showsFileSuggestions: Bool {
-        fileSearchOpen || fileReferenceFixtureOpen
-    }
 
-    /// Why the suggestion list is empty — so we never fail silently.
-    private var fileEmptyReason: String {
-        if fileScanning { return "Scanning project files…" }
-        if activeFileSearchRoot() == nil { return "Open a project to reference its files." }
-        return fileSearchQuery.isEmpty ? "No files in this project." : "No files match “\(fileSearchQuery)”."
-    }
 
-    // A floating autocomplete that sits ABOVE the composer (no search box): a compact
-    // list of root-relative paths with matched chars highlighted, the top row selected,
-    // ↑/↓ to move, ⏎ to insert, Esc to dismiss — exactly the editor-grade @ pattern.
-    private var fileSuggestions: some View {
-        VStack(spacing: 0) {
-            // Quiet scope count, top-right (e.g. "6 / 1469" of project files).
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                Text(fileSearchQuery.isEmpty ? "\(fileCandidates.count)" : "\(fileCandidates.count) / \(fileTotalCount)")
-                    .font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-            }
-            .padding(.horizontal, 12).padding(.top, 7).padding(.bottom, 3)
-            if fileCandidates.isEmpty {
-                HStack(spacing: 7) {
-                    if fileScanning { ProgressView().controlSize(.small) }
-                    Text(fileEmptyReason).font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
-                    Spacer(minLength: 0)
-                }
-                .padding(.horizontal, 12).padding(.vertical, 8)
-            } else {
-                // Hug the rows (candidates are capped at 12) — no over-expanding scroll
-                // area, so the popup stays compact like a real autocomplete.
-                VStack(spacing: 1) {
-                    ForEach(Array(fileCandidates.enumerated()), id: \.element.path) { index, candidate in
-                        fileCandidateRow(candidate, index: index)
-                    }
-                }
-                .padding(.horizontal, 5).padding(.bottom, 5)
-            }
-        }
-        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-        .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
-        .shadow(color: .black.opacity(0.35), radius: 18, y: 8)
-    }
-
-    // One compact row: a chevron marks the selected row, then the root-relative FULL path
-    // with the matched characters highlighted (Grok-Build style), middle-truncated so the
-    // basename stays visible. No icon, no card, no preview.
-    private func fileCandidateRow(_ candidate: ProjectFileCatalog.Candidate, index: Int) -> some View {
-        let active = index == highlightedFileIndex
-        return Button { selectFileReference(candidate.path) } label: {
-            HStack(spacing: 7) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(active ? ALColor.textSecondary : .clear)
-                    .frame(width: 10)
-                Text(highlightedPath(candidate.path, query: fileSearchQuery))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Spacer(minLength: 8)
-            }
-            .padding(.horizontal, 9)
-            .frame(height: 26)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(active ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.sm))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .onHover { if $0 { highlightedFileIndex = index } }
-    }
-
-    /// Root-relative path with the query's matched characters emphasized — a contiguous
-    /// substring when present, else the fuzzy subsequence (mirrors the catalog's match).
-    private func highlightedPath(_ path: String, query: String) -> AttributedString {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let matched = Set(Self.matchOffsets(query: q, in: path.lowercased()))
-        var result = AttributedString()
-        for (i, ch) in path.enumerated() {
-            var piece = AttributedString(String(ch))
-            if matched.contains(i) {
-                piece.foregroundColor = ALColor.accent
-                piece.font = .system(size: 12.5, weight: .semibold)
-            } else {
-                piece.foregroundColor = ALColor.textMuted
-                piece.font = .system(size: 12.5)
-            }
-            result += piece
-        }
-        return result
-    }
-
-    private static func matchOffsets(query q: String, in lowerPath: String) -> [Int] {
-        guard !q.isEmpty else { return [] }
-        if let r = lowerPath.range(of: q) {
-            let start = lowerPath.distance(from: lowerPath.startIndex, to: r.lowerBound)
-            return Array(start..<(start + q.count))
-        }
-        var offsets: [Int] = []
-        var qi = q.startIndex
-        for (i, ch) in lowerPath.enumerated() where qi < q.endIndex && ch == q[qi] {
-            offsets.append(i)
-            qi = q.index(after: qi)
-        }
-        return qi == q.endIndex ? offsets : []
-    }
-
-    /// Team runs keep a standalone effort chip. Model routes surface effort in the
-    /// target chip (`Grok 4.5 · High`) and in each model row's effort pill.
-    private var showsEffortChip: Bool { team != nil }
-
-    private func benchModelSupportsEffort(_ id: String?) -> Bool {
-        guard let id else { return false }
-        return appModel.composeBench.first(where: { $0.id == id })?.supportsEffort == true
-    }
-
-    var autoModelSupportsEffort: Bool { benchModelSupportsEffort(autoModelId) }
-
-    private var selectedModelSupportsEffort: Bool { benchModelSupportsEffort(selectedModelId) }
-
-    private var bar: some View {
-        HStack(spacing: 9) {
-            targetChip
-            if showsEffortChip { effortChip }
-            Spacer(minLength: 8)
-            IconButton(systemImage: "paperclip", accessibilityLabel: "Attach image", small: true, action: pickImages)
-            sendButton
-        }
-        .padding(.horizontal, 11).padding(.vertical, 10)
-    }
-
-    // Scope, not control: the active project · branch floats ABOVE the box as quiet
-    // read-only context (reflects what's active — you switch projects in the sidebar,
-    // not here). No box, no helper line restating it.
-    @ViewBuilder private var projectScope: some View {
-        if let active = projects.activeProject {
-            HStack(spacing: 6) {
-                Image(systemName: "folder").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
-                Text(active.displayName).font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(ALColor.textSecondary).lineLimit(1)
-                if let branch = active.gitBranch, !branch.isEmpty {
-                    Text("·").font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-                    Image(systemName: "arrow.triangle.branch").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
-                    Text(branch).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint).lineLimit(1)
-                }
-            }
-            .padding(.horizontal, 4)
-        }
-    }
-
-    // Two honest modes, never crossed: a single model reads `model · effort`; a team
-    // reads its own identity — team glyph + `name · N workers` (or `1 agent`) — and
-    // never a fake model · effort that hides the worker count.
-    private var targetChip: some View {
-        Button { targetOpen.toggle() } label: {
-            HStack(spacing: 6) {
-                targetChipContent
-                Image(systemName: "chevron.down").font(.system(size: 10)).foregroundStyle(ALColor.textFaint)
-            }
-            .padding(.horizontal, 9).frame(height: 28)
-            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
-            .overlay { RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1) }
-        }
-        .buttonStyle(.plain)
-        .fixedSize()
-        .alPopover(isPresented: $targetOpen, arrowEdge: .top) { targetPopoverPanel }
-    }
-
-    @ViewBuilder private var targetChipContent: some View {
-        if targetTab == .loop {
-            Image(systemName: "arrow.2.circlepath").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
-            Text("Delivery Loop").font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
-        } else if let id = team, let preset = TeamCatalog.get(id) {
-            Image(systemName: "person.2").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
-            Text(preset.displayName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
-            Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
-            Text(teamAgentLabel(preset)).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
-        } else if pinnedModelId == nil {
-            // Auto: name the mode AND the model it resolves to, so the user can tell
-            // they're in Auto and not pinned to that model (founder: "Auto · <model>").
-            Image(systemName: "infinity").font(.system(size: 11)).foregroundStyle(ALColor.textMuted)
-            Text("Auto").font(ALFont.mono).foregroundStyle(ALColor.textSecondary)
-            if let name = autoModelName {
-                Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
-                Text(name).font(ALFont.mono).foregroundStyle(ALColor.textMuted).lineLimit(1)
-                if autoModelSupportsEffort {
-                    Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
-                    Text(effort.label).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
-                }
-            }
-        } else {
-            Text(singleModelName).font(ALFont.mono).foregroundStyle(ALColor.textSecondary).lineLimit(1)
-            if selectedModelSupportsEffort {
-                Text("·").font(ALFont.mono).foregroundStyle(ALColor.textFaint)
-                Text(effort.label).font(ALFont.mono).foregroundStyle(ALColor.textMuted)
-            }
-        }
-    }
-
-    /// The model the single-model route runs — the tier-resolved Auto model, or an
-    /// explicit pin. Equals what the run will actually execute.
-    private var singleModelName: String {
-        appModel.composeBench.first(where: { $0.id == selectedModelId })?.name ?? "Auto"
-    }
-
-    /// The model name Auto resolves to right now (nil when the tier is fully down and
-    /// Auto would wait — the chip then reads just "Auto").
-    var autoModelName: String? {
-        guard let id = autoModelId else { return nil }
-        return appModel.composeBench.first { $0.id == id }?.name
-    }
-
-    /// A team's honest size: execution teams are one agent; answer teams show agent count.
-    private func teamAgentLabel(_ preset: TeamPreset) -> String {
-        if preset.runShape == .execution { return "1 agent" }
-        let n = preset.agentSpecs.count
-        return "\(n) \(n == 1 ? "agent" : "agents")"
-    }
-
-    // Round, small, and deliberately not bright-white — a soft circle, not a loud
-    // square. Restraint over theater (founder: "learn from the leader").
-    private var sendButton: some View {
-        Button(action: performSend) {
-            Image(systemName: "arrow.up").font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(canSend ? ALColor.textOnLight : ALColor.textFaint)
-                .frame(width: 28, height: 28)
-                .background(canSend ? ALPalette.ink150 : ALColor.active, in: Circle())
-        }
-        .buttonStyle(.plain)
-        .disabled(!canSend)
-        .keyboardShortcut(.return, modifiers: .command)
-        .accessibilityLabel(targetTab == .loop ? "Start loop" : "Send")
-    }
-
-    private func performSend() {
-        if targetTab == .loop {
-            let kickoff = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            let projectId = projects.activeProjectId ?? threads.currentProjectId ?? projects.projects.first?.id
-            guard let projectId else { return }
-            openLoopLaunch(kickoff: kickoff, projectId: projectId)
-            targetOpen = false
-            return
-        }
-        let body = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        // Allow an attachment-only send (e.g. a pasted screenshot with no typed text).
-        guard !body.isEmpty || !attachments.isEmpty else { return }
-        // Auto (no team, no pin) sends an EMPTY worker so the run resolves the tier
-        // default and substitutes across CLIs. A team or an explicit pin sends a
-        // concrete worker (exact, no substitution).
-        let toSend: String
-        if team != nil {
-            toSend = (pinnedModelId ?? resolvedModelId(forTeam: team)) ?? ""
-        } else {
-            toSend = pinnedModelId ?? ""
-        }
-        onSend?(ComposeRouting(
-            team: team,
-            to: toSend,
-            effort: effort,
-            lane: lane,
-            text: body,
-            fileReferences: selectedFileInputs,
-            attachments: attachments
-        ))
-        text = ""
-        selectedFileReferences = []
-        attachments = []
-        attachmentThumbs = [:]
-        closeFileSearch()
-        targetOpen = false
-        editorHeight = ComposeEditorMetrics.minHeight
-    }
-
-    /// Plain Return (Cursor-style): accept the highlighted @ file if the picker is open,
-    /// else send. Shift+Return inserts a newline (handled in the text view).
-    private func handleReturn() -> Bool {
-        if fileSearchOpen {
-            guard fileCandidates.indices.contains(highlightedFileIndex) else { return false }
-            selectFileReference(fileCandidates[highlightedFileIndex].path)
-            return true
-        }
-        guard canSend else { return false }
-        performSend()
-        return true
-    }
-
-    private func handleEditorCommand(_ command: ALTextEditorCommand) -> Bool {
-        guard fileSearchOpen else { return false }
-        switch command {
-        case .returnKey:
-            guard fileCandidates.indices.contains(highlightedFileIndex) else { return false }
-            selectFileReference(fileCandidates[highlightedFileIndex].path)
-            return true
-        case .escape:
-            closeFileSearch()
-            return true
-        case .moveUp:
-            moveFileHighlight(-1)
-            return true
-        case .moveDown:
-            moveFileHighlight(1)
-            return true
-        }
-    }
-
-    private func moveFileHighlight(_ delta: Int) {
-        guard !fileCandidates.isEmpty else { return }
-        highlightedFileIndex = (highlightedFileIndex + delta + fileCandidates.count) % fileCandidates.count
-    }
-
-    private func updateFileSearchFromText() {
-        guard let trigger = activeFileTrigger(in: text) else {
-            closeFileSearch()
-            return
-        }
-        if selectedFileReferences.contains(where: { $0.path == trigger.query }) {
-            closeFileSearch()
-            return
-        }
-        fileSearchQuery = trigger.query
-        fileSearchOpen = true
-        refreshFileCandidates()
-    }
-
-    private func activeFileSearchRoot() -> String? {
-        #if DEBUG
-        if let fxRoot = GUIFixture.fileReferenceFixtureRoot() { return fxRoot }
-        #endif
-        guard let project = projects.activeProject else { return nil }
-        let root = project.normalizedRootPath.isEmpty ? project.localRootPath : project.normalizedRootPath
-        // A stamped-but-wrong path resolves to nothing — treat it as no root so the
-        // honest empty state shows instead of a silent blank.
-        guard !root.isEmpty, FileManager.default.fileExists(atPath: root) else { return nil }
-        return root
-    }
-
-    private func refreshFileCandidates() {
-        guard let root = activeFileSearchRoot() else {
-            fileCandidates = []; fileScanning = false; highlightedFileIndex = 0; return
-        }
-        // Cached snapshot for this root → rank in-memory, instantly.
-        if let snap = fileSnapshot, fileScanRoot == root {
-            rankFileCandidates(snap)
-            return
-        }
-        // A scan for this root is already in flight — let it finish and rank.
-        if fileScanRoot == root, fileScanning { return }
-        // First @ in this session: scan ONCE off the main thread (git subprocesses), then
-        // back on the main actor cache + rank. Typing never blocks on this.
-        fileScanRoot = root
-        fileScanning = true
-        fileCandidates = []
-        Task { @MainActor in
-            let snap = await Task.detached(priority: .userInitiated) {
-                ProjectFileCatalog().snapshot(rootPath: root)
-            }.value
-            guard fileSearchOpen || fileReferenceFixtureOpen, fileScanRoot == root else { fileScanning = false; return }
-            fileSnapshot = snap
-            fileTotalCount = snap.paths.count
-            fileScanning = false
-            FileHandle.standardError.write(Data("[@refs] root=\(root) paths=\(snap.paths.count) dirty=\(snap.dirty.count)\n".utf8))
-            rankFileCandidates(snap)
-        }
-    }
-
-    private func rankFileCandidates(_ snapshot: ProjectFileCatalog.Snapshot) {
-        let selectedPaths = Set(selectedFileReferences.map(\.path))
-        fileCandidates = ProjectFileCatalog()
-            .rank(snapshot, query: fileSearchQuery, limit: 12,
-                  recentlyReferenced: selectedFileReferences.map(\.path))
-            .filter { !selectedPaths.contains($0.path) }
-        highlightedFileIndex = min(highlightedFileIndex, max(fileCandidates.count - 1, 0))
-    }
-
-    private func closeFileSearch() {
-        fileSearchOpen = false
-        fileSearchQuery = ""
-        fileCandidates = []
-        fileTotalCount = 0
-        fileSnapshot = nil
-        fileScanRoot = nil
-        fileScanning = false
-        highlightedFileIndex = 0
-    }
-
-    private func selectFileReference(_ path: String) {
-        if !selectedFileReferences.contains(where: { $0.path == path }) {
-            selectedFileReferences.append(ComposeFileReference(path: path))
-        }
-        // The chip is the durable attachment — drop the typed "@query" from the editor so
-        // the file isn't shown twice (no leftover @path text + chip).
-        if let range = activeFileTrigger(in: text)?.range {
-            text.removeSubrange(range)
-            text = text.replacingOccurrences(of: "  ", with: " ")
-            if text == " " { text = "" }
-        }
-        closeFileSearch()
-        composerFocused = true
-    }
-
-    private func removeFileReference(_ path: String) {
-        // The @path no longer lives in the text (the chip owns it), so just drop the chip.
-        selectedFileReferences.removeAll { $0.path == path }
-    }
-
-    /// The chip label for a referenced file — just the filename (Cursor-style). The full
-    /// root-relative path is still resolved/sent; only the display is shortened.
-    private func fileReferenceName(_ path: String) -> String {
-        let name = (path as NSString).lastPathComponent
-        return name.isEmpty ? path : name
-    }
-
-    private func activeFileTrigger(in value: String) -> (range: Range<String.Index>, query: String)? {
-        var start = value.endIndex
-        while start > value.startIndex {
-            let previous = value.index(before: start)
-            if value[previous].isWhitespace { break }
-            start = previous
-        }
-        let token = value[start..<value.endIndex]
-        guard token.first == "@", !token.dropFirst().contains("@") else { return nil }
-        return (start..<value.endIndex, String(token.dropFirst()))
-    }
 
 
     // Team runs only — model routes show effort in the target chip + row pill.
