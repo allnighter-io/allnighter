@@ -1,6 +1,6 @@
 # HY-S08 — Loop engine comment scrub (PM Relay → Loop)
 
-Status: ready
+Status: done
 Owner: hygiene / comment truth
 Updated: 2026-08-03
 
