@@ -242,23 +242,56 @@ public actor CapacityResidentService {
         snapshot
     }
 
+    // MARK: S02 socket publisher
+
+    /// S02 socket publisher — the Dock app wires this to `capacity.sock`.
+    /// Called after every state change that alters the served answer (settle,
+    /// ON/OFF). Default no-op.
+    private var socketPublisher: @Sendable (CapacitySocketSnapshot) -> Void = { _ in }
+
+    /// Wire the S02 socket publisher. Publishes the current answer immediately
+    /// so a server bound before the first settle never serves a void.
+    public func setSocketPublisher(
+        _ publisher: @escaping @Sendable (CapacitySocketSnapshot) -> Void
+    ) {
+        socketPublisher = publisher
+        publisher(currentSocketSnapshot())
+    }
+
+    /// The answer the S02 socket serves right now. Read-only — never starts
+    /// an acquire. OFF → disabled answer (never the stale snapshot); ON with
+    /// no settle yet → warming; settled → the ungated windows + settle time
+    /// (consumers apply the paint gate with their own clock).
+    public func currentSocketSnapshot() -> CapacitySocketSnapshot {
+        guard enabled else { return .disabledAnswer }
+        guard let snapshot else { return .warmingAnswer }
+        return CapacitySocketSnapshot(
+            disabled: false,
+            settledAt: snapshot.settledAt,
+            windows: snapshot.windows
+        )
+    }
+
     /// Feature flag read (strip CTA, S02 socket disabled answer).
     public var isEnabled: Bool { enabled }
 
     /// The only ON/OFF write path. Persisted write-through by injection.
+    /// Every call (including the idempotent re-arm at app launch) republishes
+    /// the S02 socket answer so `capacity.sock` never serves a void or a lie.
     public func setEnabled(_ newValue: Bool) {
         if newValue == enabled {
             // Idempotent re-arm: startup when ON wires the scheduler if needed.
             if newValue { startSchedulerIfNeeded() }
-            return
-        }
-        enabled = newValue
-        persistEnabled(newValue)
-        if newValue {
-            startSchedulerIfNeeded()
         } else {
-            stopForFeatureOff()
+            enabled = newValue
+            persistEnabled(newValue)
+            if newValue {
+                startSchedulerIfNeeded()
+            } else {
+                stopForFeatureOff()
+            }
         }
+        socketPublisher(currentSocketSnapshot())
     }
 
     /// NSWorkspace wake / detected resume. Coalesces: signals arriving while a
@@ -469,6 +502,8 @@ public actor CapacityResidentService {
             windows: merged,
             rows: CapacityBenchProjection.rows(from: merged, now: settledAt)
         )
+        // S02: every settle republishes the socket answer (read-only serving).
+        socketPublisher(currentSocketSnapshot())
     }
 }
 

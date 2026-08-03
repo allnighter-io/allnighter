@@ -1,13 +1,15 @@
 # Capacity Warm Bench
 
-Status: **OPEN — founder priority (2026-08-03). Trust first; then instant.**
+Status: **OPEN — S02 instant path shipped 2026-08-03. S03 (post-run) + Resident trust gate (dogfood) remain.**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
 (`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
 Created: 2026-08-02
 Updated: 2026-08-03 (CWB-S01a resident actor + single-flight + paint gate shipped;
 displayMemo retired — resident snapshot is the one launch truth. CWB-S01b
 shipped: one rearmed monotonic deadline through `requestRefresh`, wake
-coalesce, feature ON/OFF with tiny persisted setting, App Nap activity lease)
+coalesce, feature ON/OFF with tiny persisted setting, App Nap activity lease.
+CWB-S02 shipped: read-only `capacity.sock` fast path — resident publisher →
+socket server, CLI fast→cold fallback, OFF answers disabled, quit unlinks)
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 
 **Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
@@ -303,8 +305,36 @@ Dock Allnighter.app
 | **CWB-S00b** | CLI honesty cut | 2–3d | No hydrate-as-live; no menu capacity |
 | ~~**CWB-S01a**~~ ✅ Done 2026-08-03 | Resident actor + single-flight + explicit Refresh + launch paint (memo retired; no timer/socket) | 3–4d | `CapacitySingleFlight`, paint gate tests |
 | ~~**CWB-S01b**~~ ✅ Done 2026-08-03 | Deadline timer + wake + ON/OFF + App Nap activity | 2–3d | `CapacityFeatureOff`, `CapacityWakeCoalesce` |
-| **CWB-S02** | Socket + CLI fast/cold (**after** S00b) | 2–3d | Spy 100× p95 &lt;250 ms, zero PTYs |
+| ~~**CWB-S02**~~ ✅ Done 2026-08-03 | Socket + CLI fast/cold (**after** S00b) | 2–3d | Spy 100× p95 &lt;250 ms, zero PTYs |
 | **CWB-S03** | In-process post-run only | 0.5–1d | Boolean gate tests |
+
+### CWB-S02 as shipped (code SSOT: `CapacitySocket.swift`)
+
+- `CapacitySocketServer` binds `…/Allnighter/Capacity/capacity.sock`
+  (`AllnighterPaths.capacitySocket`) from the Dock app **at launch — ON or
+  OFF**. Per the product law ("Feature OFF → socket answers **disabled**,
+  not a stale snapshot"), the socket stays bound while OFF and serves
+  `disabledAnswer`; it is unlinked on **quit** (AppDelegate terminate,
+  alongside the S00a PGID reap). Unlink-before-bind at start reconciles a
+  stale socket after a hard kill — never a sync crash-cleanup claim.
+- Wire protocol: versioned one-shot JSON (`CapacitySocketSnapshot`,
+  `schemaVersion: 1`) — `disabled` flag, `settledAt` (age derived client-side),
+  ungated per-seat `windows` (consumers apply `CapacityPaintGate` with their
+  own clock). No request message: the server writes the last published answer
+  and closes; it never reads the connection and has no code path into
+  `CapacityFetch`/PTYs.
+- Resident publishes via `setSocketPublisher` on every settle and every
+  `setEnabled` (including the idempotent launch re-arm, so the socket never
+  serves a void). Warming (ON, no settle yet) serves `warmingAnswer` → CLI
+  paints `neverSampled` placeholders instead of racing the launch acquire.
+- CLI `alln capacity` (bare / `--refresh`): one `CapacitySocketClient.read`
+  (non-blocking connect behind `poll`, `SO_RCVTIMEO` reads, 1s budget) →
+  `CapacitySocketFastPath` mapping. Miss / hang / bad version → **one** cold
+  `CapacityFetch.liveSnapshot` — never a retry. `--source <id>` stays a live
+  one-seat probe (explicit diagnostics).
+- Dogfood note: PATH `alln` install is still human-coordinated by the
+  founder — the fast path ships in source; the in-tree binary + filtered
+  package tests are the proof. Agents must not run `alln install-cli`.
 
 ---
 
@@ -332,12 +362,21 @@ scripts/swift-test.sh --filter CapacityFeatureOff
 scripts/swift-test.sh --filter CapacityWakeCoalesce
 ```
 
+### S02
+
+```text
+scripts/swift-test.sh --filter CapacitySocket
+# spy: 100 reads → zero acquires (fetch spy == 1, the explicit settle);
+# p95 < 250 ms (real socket); hang / bad version / miss → nil → cold once;
+# OFF answers disabled (never stale); stop() unlinks
+```
+
 ### Resident trust gate (dogfood / lifecycle — not fakeable unit rows)
 
 | Proof | Catches |
 | --- | --- |
-| Socket spy 100× p95 &lt;250 ms, zero PTYs | Read triggering probes |
-| Cold fallback miss/hang/bad version | Hang / stale |
+| Socket spy 100× p95 &lt;250 ms, zero PTYs — ✅ unit-proven S02 (`CapacitySocketTests`) | Read triggering probes |
+| Cold fallback miss/hang/bad version — ✅ unit-proven S02 (`CapacitySocketTests`) | Hang / stale |
 | kill -9 mid-probe → next launch empty PGID + stale sock | Orphans (graceful ≠ crash) |
 | App Nap: deadline fires within tolerance while windowless | Silent schedule death |
 | Live canary vs `/usage` | Parser drift |
@@ -353,7 +392,8 @@ scripts/swift-test.sh --filter CapacityWakeCoalesce
 | --- | --- |
 | Vendor I/O | `CapacityProbe` (scoped registries) |
 | One-shot | `CapacityFetch` (display memo retired at S01a) |
-| Schedule / freshness / socket | `CapacityResidentService` (funnel + single-flight + snapshot + paint gate + rearmed deadline timer + wake + ON/OFF + App Nap lease; socket S02) |
+| Schedule / freshness / socket | `CapacityResidentService` (funnel + single-flight + snapshot + paint gate + rearmed deadline timer + wake + ON/OFF + App Nap lease + socket publisher, S02) |
+| Socket transport | `CapacitySocketServer` / `CapacitySocketClient` / `CapacitySocketFastPath` (`CapacitySocket.swift`, S02) |
 | Transport | CLI |
 | Strip | `CapacityStripModel` (projection) |
 | Runtime | `CapacityObservation` |

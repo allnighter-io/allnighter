@@ -346,13 +346,16 @@ struct AllnighterCLI {
 
     /// `alln capacity [--json] [--refresh] [--source <id>]` — vendor quota strip.
     ///
-    /// **Bare** (default): live cold PTY acquire for all six seats (measured
-    /// budget). No disk, no history hydrate-as-live. Always prints the full
-    /// six-row table (TTY or piped).
+    /// **Bare** (default): while the Dock app is open, reads the resident's
+    /// gated in-memory snapshot over `capacity.sock` (CWB-S02 — read-only,
+    /// never starts probes). Socket miss / hang / bad version → one cold live
+    /// PTY acquire for all six seats (measured budget). No disk, no history
+    /// hydrate-as-live. Always prints the full six-row table (TTY or piped).
     ///
     /// **`--refresh`**: legacy no-op; bare is already live. Kept for scripts.
     ///
-    /// **`--source <id>`**: live probe of one seat, still returning all six rows;
+    /// **`--source <id>`**: live probe of one seat (explicit per-seat
+    /// diagnostics — bypasses the socket), still returning all six rows;
     /// unprobed siblings show `neverSampled`.
     ///
     /// Unknown / disabled / expired are loud, never blocks (exit 0). Non-TTY
@@ -368,9 +371,19 @@ struct AllnighterCLI {
 
         // Feature OFF: zero probes from every trigger (CWB-S01b).
         let featureEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
+
+        // CWB-S02 fast path: one read of the resident snapshot over
+        // capacity.sock. Any failure (app quit, stale socket, hang, foreign
+        // schema version) → nil → one cold live acquire — never a retry.
+        let socketAnswer: CapacitySocketSnapshot? = (featureEnabled && refreshSource == nil)
+            ? CapacitySocketClient.read()
+            : nil
+
         if featureEnabled {
             let target = refreshSource.map { " \($0)" } ?? ""
-            if refreshFlag {
+            if let answer = socketAnswer {
+                capacityProgress("capacity: resident snapshot (\(socketAgeLabel(answer, now: now)))")
+            } else if refreshFlag {
                 capacityProgress("capacity: refreshing\(target)…")
             } else {
                 capacityProgress("capacity: live acquire\(target)…")
@@ -381,13 +394,16 @@ struct AllnighterCLI {
             guard featureEnabled else {
                 return CapacityFetch.disabledSnapshot(now: now)
             }
+            if let answer = socketAnswer {
+                return CapacitySocketFastPath.snapshot(from: answer, now: now)
+            }
             return CapacityFetch.liveSnapshot(
                 now: now,
                 refreshSource: refreshSource
             )
         }()
 
-        if featureEnabled {
+        if featureEnabled, socketAnswer == nil {
             capacityProgress("capacity: done")
         }
         let rows = bench.rows
@@ -417,6 +433,15 @@ struct AllnighterCLI {
         if let data = message.data(using: .utf8) {
             try? FileHandle.standardError.write(contentsOf: data)
         }
+    }
+
+    /// One-line age honesty for a socket-served answer (CWB-S02). Instant
+    /// delivery never hides how old the snapshot is.
+    private static func socketAgeLabel(_ answer: CapacitySocketSnapshot, now: Date) -> String {
+        if answer.disabled { return "feature OFF" }
+        guard let settledAt = answer.settledAt else { return "warming — no settle yet" }
+        let minutes = max(0, Int(now.timeIntervalSince(settledAt) / 60))
+        return minutes < 1 ? "age <1m" : "age \(minutes)m"
     }
 
     /// CWB-S00b — menu capacity stays omitted until the Resident trust gate.

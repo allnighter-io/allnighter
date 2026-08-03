@@ -17,11 +17,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// app's lifetime; the process exit removes it.
     private var capacityWakeObserver: NSObjectProtocol?
 
+    /// CWB-S02: read-only `capacity.sock` server. Bound at launch while the
+    /// app runs (ON or OFF — OFF answers `disabled`); unlinked on quit.
+    private var capacitySocketServer: CapacitySocketServer?
+
     func applicationWillTerminate(_ notification: Notification) {
         guard !Self.isTesting else { return }
         // CWB-S00a: reap any leftover capacity probe PGIDs on graceful quit.
-        // Socket unlink is S02.
         CapacityProbe.terminateAllForProcessShutdown()
+        // CWB-S02: unlink capacity.sock so a later CLI sees a clean miss and
+        // goes cold once, instead of hitting a refused stale endpoint.
+        capacitySocketServer?.stop()
+        capacitySocketServer = nil
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -57,6 +64,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             forName: NSWorkspace.didWakeNotification, object: nil, queue: nil
         ) { _ in
             Task { await CapacityResidentService.shared.notifyWake() }
+        }
+        // CWB-S02: bind the read-only capacity.sock fast path. Serving is a
+        // pure read of the resident's last published answer — the socket never
+        // starts an acquire. OFF answers `disabled` (never a stale snapshot);
+        // quit unlinks; a stale file after a hard kill is reconciled by
+        // unlink-before-bind here. A bind failure degrades to the honest cold
+        // CLI path, never a crash.
+        let socketServer = CapacitySocketServer()
+        do {
+            try socketServer.start()
+            socketServer.update(capacityEnabled ? .warmingAnswer : .disabledAnswer)
+            capacitySocketServer = socketServer
+            Task {
+                await CapacityResidentService.shared.setSocketPublisher { answer in
+                    socketServer.update(answer)
+                }
+            }
+        } catch {
+            NSLog("capacity.sock bind failed: \(error.localizedDescription) — CLI cold path unaffected")
         }
         #if DEBUG
         // Grant fixture: request Screen Recording at launch, before SwiftUI paints.

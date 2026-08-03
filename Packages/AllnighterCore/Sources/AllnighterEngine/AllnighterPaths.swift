@@ -108,6 +108,14 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Capacity", isDirectory: true)
     }
 
+    /// `…/Allnighter/Capacity/capacity.sock` — CWB-S02 read-only resident
+    /// snapshot endpoint. Bound by the Dock app while it runs, unlinked on
+    /// graceful quit; a stale file after a hard kill is reconciled by
+    /// unlink-before-bind at the next launch.
+    public static var capacitySocket: URL {
+        capacity.appendingPathComponent("capacity.sock")
+    }
+
     /// `…/Allnighter/Release/` — cached release-channel check (OPC-S06).
     /// Product SSOT for "is there a newer release?" is remote `latest.json`;
     /// this directory holds only the local fail-open cache (`latest-check.json`).
