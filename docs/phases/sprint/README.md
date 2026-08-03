@@ -55,6 +55,7 @@ PM delegates via `alln run --model model_gemini --commit-message "..." --proof "
 | CM-S13 | [ThreadsViewModel attachments](structure/CM-S13-threads-vm-attachments.md) | **done** (`d9b245c3`, Gemini) |
 | CM-S14 | [ThreadsViewModel run service](structure/CM-S14-threads-vm-run-service.md) | **done** (`ba1665ac`, Gemini) |
 | CM-S15 | [ThreadsViewModel routing send](structure/CM-S15-threads-vm-routing-send.md) | **done** (`9e43b1f5`, Gemini) |
+| CM-S16 | [ThreadMutatingRunRow extract](structure/CM-S16-thread-mutating-run-row.md) | ready |
 
 ### Hygiene queue (doc truth + help fidelity — one slice per commit)
 
