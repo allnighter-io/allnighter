@@ -535,7 +535,7 @@ struct ThreadsFixtureSeeder {
             )
             saveRelayFixtureState(state)
             guard (try? store.create(
-                id: id, title: "PM Relay: SPEC", now: base.addingTimeInterval(-500),
+                id: id, title: "Loop: SPEC", now: base.addingTimeInterval(-500),
                 workingDir: state.projectRoot
             )) != nil else { return }
             bind(id)
@@ -576,7 +576,7 @@ struct ThreadsFixtureSeeder {
             )
             saveRelayFixtureState(state)
             guard (try? store.create(
-                id: id, title: "PM Relay: Agent Team Loop", now: base.addingTimeInterval(-250),
+                id: id, title: "Loop: Agent Team Loop", now: base.addingTimeInterval(-250),
                 workingDir: state.projectRoot
             )) != nil else { return }
             bind(id)
@@ -619,7 +619,7 @@ struct ThreadsFixtureSeeder {
             )
             saveRelayFixtureState(state)
             guard (try? store.create(
-                id: id, title: "PM Relay: SPEC (stopped)", now: base.addingTimeInterval(-1000),
+                id: id, title: "Loop: SPEC (stopped)", now: base.addingTimeInterval(-1000),
                 workingDir: state.projectRoot
             )) != nil else { return }
             bind(id)
@@ -661,7 +661,7 @@ struct ThreadsFixtureSeeder {
         reload()
     }
 
-    /// R-S08 proof: a PM Relay thread (id == loopId, `LoopThreadProjector`'s identity
+    /// R-S08 proof: a Loop thread (id == loopId, `LoopThreadProjector`'s identity
     /// rule) two rounds in, with round 2's PM turn escalated and still OPEN — the one
     /// actionable system-event row (`RelayEscalationRow` in ThreadView.swift). Built
     /// directly from `ThreadTurn`s in the SAME shape `LoopThreadProjector.sync` produces
@@ -678,7 +678,7 @@ struct ThreadsFixtureSeeder {
         let base = Date().addingTimeInterval(-600)
 
         guard (try? store.create(
-            id: id, title: "PM Relay: Spec Review", now: base, workingDir: "/Users/you/code/allnighter"
+            id: id, title: "Loop: Spec Review", now: base, workingDir: "/Users/you/code/allnighter"
         )) != nil else { return }
 
         func turn(_ suffix: String, modelId: String, text: String, at offset: TimeInterval) -> ThreadTurn {
@@ -737,7 +737,7 @@ struct ThreadsFixtureSeeder {
         saveRelayFixtureState(state)
 
         guard (try? store.create(
-            id: id, title: "PM Relay: Agent Team Loop", now: base, workingDir: state.projectRoot
+            id: id, title: "Loop: Agent Team Loop", now: base, workingDir: state.projectRoot
         )) != nil else { return }
         appendRelayFixtureTurns(
             id: id, pmModelId: pmModelId, devModelId: devModelId, base: base,
@@ -791,7 +791,7 @@ struct ThreadsFixtureSeeder {
         try? PMTurnStore().save(pmTurn)
 
         guard (try? store.create(
-            id: id, title: "PM Relay: Agent Team Loop (stopped)", now: base, workingDir: state.projectRoot
+            id: id, title: "Loop: Agent Team Loop (stopped)", now: base, workingDir: state.projectRoot
         )) != nil else { return }
         appendRelayFixtureTurns(
             id: id, pmModelId: pmModelId, devModelId: devModelId, base: base,
