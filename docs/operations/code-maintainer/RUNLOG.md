@@ -1,6 +1,19 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S16 (ThreadMutatingRunRow extract)
+
+Scope: Extract mutating run row from ThreadView to ThreadMutatingRunRow.swift
+Class: Structure lens (index 0)
+Delegation: Gemini 3.6 Flash via `alln run --model model_gemini`
+Files touched: NEW ThreadMutatingRunRow.swift (187 LOC); ThreadView.swift 978→793 LOC
+Behavior guarantee: Move-only extraction; mutating run row UI unchanged
+Proof: xcodebuild build -scheme AllnighterMac (BUILD SUCCEEDED via alln proof)
+Before/after signal: ThreadView split CM-S08+S16 complete; 3 row files extracted
+Next lens: Duplication lens or next MAINTENANCE-QUEUE target
+```
+
+```text
 ## 2026-08-03 - Structure CM-S10–S15 (ThreadsViewModel complete)
 
 Scope: Decompose ThreadsViewModel monolith into shell + 6 focused extensions

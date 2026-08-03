@@ -1,6 +1,6 @@
 # CM-S16 — Extract ThreadMutatingRunRow from ThreadView
 
-Status: ready
+Status: done (`04983459`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 
