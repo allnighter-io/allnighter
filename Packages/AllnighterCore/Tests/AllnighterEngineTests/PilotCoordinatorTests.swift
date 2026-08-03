@@ -4,7 +4,7 @@ import AllnighterCore
 @testable import AllnighterEngine
 
 /// PL-S01/S02 works tests: Pilot (`docs/phases/Pilot_Relay.md`) is the SAME substrate
-/// as the shipped PM Relay — caller-chaired (`isCallerChair`), a parked `awaitingPM`
+/// as the shipped Loop — caller-chaired (`isCallerChair`), a parked `awaitingPM`
 /// status between rounds, and `LoopCoordinator.runExternalRound` standing in for a
 /// spawned PM turn.
 /// Fixtures mirror `LoopCoordinatorTests` (real git repo, scripted dev CLI only — Pilot
@@ -248,7 +248,7 @@ final class PilotCoordinatorTests: HermeticSupportTestCase {
         ))
 
         let handover = """
-        # PM Relay — round 1 (dev seat)
+        # Loop — round 1 (dev seat)
 
         Mention ```json fenced blocks in the handover prose.
 

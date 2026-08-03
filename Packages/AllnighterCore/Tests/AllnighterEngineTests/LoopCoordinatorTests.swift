@@ -211,7 +211,7 @@ final class LoopCoordinatorTests: HermeticSupportTestCase {
             "playbook preamble must appear exactly once on the assembled dev prompt; got \(count). Prefix:\n\(String(prompt.prefix(600)))"
         )
         XCTAssertTrue(
-            prompt.contains("# PM Relay — round 1 (dev seat)"),
+            prompt.contains("# Loop — round 1 (dev seat)"),
             "LoopDevPrompt wrapper must still be present after the single preamble"
         )
     }

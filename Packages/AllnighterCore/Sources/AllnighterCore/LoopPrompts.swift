@@ -64,7 +64,7 @@ public enum RelayPMPrompt {
 
     public static func assemble(context: Context) -> String {
         var parts = [
-            "# PM Relay — round \(context.roundNumber) (PM seat)",
+            "# Loop — round \(context.roundNumber) (PM seat)",
             anchorParagraph(context: context),
             memoryPointerLine(),
             "You have \(context.roundsRemaining) of \(context.maxRounds) rounds left before this relay stops itself. Plan the remaining work with that ceiling in mind — escalate rather than let it run out silently.",
@@ -198,7 +198,7 @@ public enum LoopDevPrompt {
 
     public static func assemble(context: Context) -> String {
         let parts = [
-            "# PM Relay — round \(context.roundNumber) (dev seat)",
+            "# Loop — round \(context.roundNumber) (dev seat)",
             anchorParagraph(context: context),
             memoryPointerLine(),
             ProvenanceConvention.commitTrailerAsk(displayName: context.workerDisplayName),
@@ -239,7 +239,7 @@ public enum LoopDevPrompt {
 public enum RelayReaskPrompt {
     public static func assemble(previousOutput: String, parseError: LoopVerdictParser.ExtractError) -> String {
         let parts = [
-            "# PM Relay — verdict re-ask",
+            "# Loop — verdict re-ask",
             """
             Your last reply didn't end with a usable `LoopVerdict` tail: \(describe(parseError))
             """,
