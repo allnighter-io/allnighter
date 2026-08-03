@@ -125,9 +125,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // PTD-1f adds detached delivery acknowledgements in 6.3.0.
         // CLI_Park bumps contract 6.3.0 → 6.4.0 (`drivers`/`drivers park`/
         // `drivers unpark` additions, plus registering the existing `detect`).
-        // ATL-S01 bumps contract 6.4.0 → 6.5.0 (`pair relay --message` /
+        // ATL-S01 bumps contract 6.4.0 → 6.5.0 (`alln loop --message` /
         // `--message-file` kickoff brief flags).
-        // ATL-S02 bumps contract 6.5.0 → 6.6.0 (`pair relay stop` + RELAY_STOP_FAILED).
+        // ATL-S02 bumps contract 6.5.0 → 6.6.0 (`alln loop stop` + RELAY_STOP_FAILED).
         // CAP-S06 bumps contract 6.6.0 → 6.8.0 (`alln capacity` + `--json`).
         // CAP-S08 bumps contract 6.8.0 → 6.9.0 (`alln capacity --refresh`, tier-3 PTY probe).
         // CAP-S09 bumps contract 6.9.0 → 6.10.0 (Claude Code `/usage` probe + capacity --refresh seat).

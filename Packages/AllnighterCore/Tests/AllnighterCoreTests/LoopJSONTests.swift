@@ -2,7 +2,7 @@ import XCTest
 @testable import AllnighterCore
 import AllnighterEngine
 
-/// `LoopJSON` is the one wire shape `alln pair relay*` and MCP `pair_relay*` both
+/// `LoopJSON` is the one wire shape `alln loop` and MCP `pair_relay*` both
 /// project (docs/phases/PM_Relay.md §6 R-S05/R-S06, §7 works-test output shape).
 /// These tests cover the `LoopState` → `LoopJSON` projection — never a second
 /// copy of run-truth, only its wire mapping.

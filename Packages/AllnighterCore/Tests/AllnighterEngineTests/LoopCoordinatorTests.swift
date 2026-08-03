@@ -680,7 +680,7 @@ final class LoopCoordinatorTests: HermeticSupportTestCase {
 
     /// A ceiling-fired `.stopped` relay (`--max-rounds`/`--until`/stagnation) is a
     /// deliberate stop, not an orphan — `reconcileOrphan`'s `.running`-only guard means it
-    /// is never mistaken for one, and `relay-resume` must keep refusing it.
+    /// is never mistaken for one, and `loop resume` must keep refusing it.
     func testCeilingStoppedRelayIsNeitherReconciledNorResumable() async throws {
         let runStore = RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         let stateStore = LoopStateStore(rootDirectory: tmp.appendingPathComponent("loops"))
@@ -916,7 +916,7 @@ final class LoopCoordinatorTests: HermeticSupportTestCase {
         heldLock = nil
     }
 
-    /// RSC-HF: a stray duplicate `pair relay --no-wait` start racing a genuinely live
+    /// RSC-HF: a stray duplicate `alln loop --no-wait` start racing a genuinely live
     /// relay on the same root+doc is refused by the pre-existing RSC-S02 guard even
     /// when it names a DIFFERENT id than the live relay's — the child re-runs the full
     /// guarded `run(config:id:)` path every time.
@@ -938,7 +938,7 @@ final class LoopCoordinatorTests: HermeticSupportTestCase {
             projectRoot: repo.path, docPath: "docs/spec.md", pmModelId: "model_pm", devModelId: "model_dev", maxRounds: 5
         )
 
-        // A stray `pair relay --no-wait` duplicate start racing the same root+doc as
+        // A stray `alln loop --no-wait` duplicate start racing the same root+doc as
         // the live relay above.
         let strayResult = await coordinator.run(config: config, id: "relay_stray_duplicate_start")
         guard case .failure(let refusal) = strayResult else { return XCTFail("expected the stray duplicate start to be refused") }
@@ -948,7 +948,7 @@ final class LoopCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(stateStore.list().count, 1, "no second relay landed on disk")
     }
 
-    /// `run(config:id:)` — RSC-S03's pre-minted id for `pair relay --no-wait` — uses
+    /// `run(config:id:)` — RSC-S03's pre-minted id for `alln loop --no-wait` — uses
     /// the SUPPLIED id verbatim instead of `idFactory()`, so a foreground caller's
     /// dispatch ack names the exact id the (detached) real dispatch is about to create.
     func testRunWithPreMintedIdUsesSuppliedIdInsteadOfIdFactory() async throws {
@@ -973,7 +973,7 @@ final class LoopCoordinatorTests: HermeticSupportTestCase {
         XCTAssertNil(stateStore.load(id: "relay_from_factory_should_not_be_used"))
     }
 
-    /// `LoopCoordinator.mintLoopId()` — the format `pair relay --no-wait`'s
+    /// `LoopCoordinator.mintLoopId()` — the format `alln loop --no-wait`'s
     /// foreground pre-mint step uses — matches the coordinator's own default
     /// `idFactory` format (`"relay_" + lowercase UUID`), so a caller minting one
     /// externally can never drift from what `run(config:)` would have generated on
@@ -1157,7 +1157,7 @@ final class LoopCoordinatorTests: HermeticSupportTestCase {
         XCTAssertEqual(id, "relay_live")
     }
 
-    /// A second `pair relay` start on the SAME normalized root + doc while the first is
+    /// A second `alln loop` start on the SAME normalized root + doc while the first is
     /// genuinely live (`.running`, owner alive) is refused with `.alreadyActive` naming
     /// the existing relay id — never a second, independently-dispatching relay against
     /// the same repo.
