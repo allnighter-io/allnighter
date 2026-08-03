@@ -40,15 +40,16 @@ Each sprint file must fit on **one to two screens** and include:
 
 ### Hygiene queue (doc truth + help fidelity — one slice per commit)
 
-PM assigns **one** row at a time. Report Gemini context % after each slice; stop
-delegating below 10%.
+PM delegates via `alln run --model model_gemini`. Stop below 10% vendor context.
 
 | Order | Doc | Status |
 | --- | --- | --- |
-| HY-S01 | [phases README vocab](hygiene/HY-S01-phases-readme-vocab.md) | **ready** ← start here |
-| HY-S03 | [help loop step truth](hygiene/HY-S03-help-loop-step-truth.md) | ready (after S01) |
-| HY-S04 | contract retired handoff summary (not yet written) | queued |
-| HY-S05 | loop comment scrub Core (not yet written) | queued |
+| HY-S01 | [phases README vocab](hygiene/HY-S01-phases-readme-vocab.md) | **done** (`290ca0c`) |
+| HY-S03 | [help loop step truth](hygiene/HY-S03-help-loop-step-truth.md) | **done** (`14200a6`) |
+| HY-S04 | [contract handoff summary](hygiene/HY-S04-contract-handoff-summary.md) | **done** (`a1c7685`) |
+| HY-S05 | [loop comment scrub](hygiene/HY-S05-loop-comment-scrub.md) | **done** (`5c11c0f`) |
+| HY-S06 | [loop test comment scrub](hygiene/HY-S06-loop-test-comment-scrub.md) | **in_progress** |
+| HY-S07 | [Folder_Native_Memory vocab](hygiene/HY-S07-folder-memory-vocab.md) | ready |
 
 All other work orders are archived under
 [`docs/archive/phases/sprint/`](../../archive/phases/sprint/).
