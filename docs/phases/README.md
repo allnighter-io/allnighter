@@ -104,15 +104,15 @@ archive index (do not reopen).
 
 ## Post-MVP Product Laws
 
-- Allnighter coordinates workers the user already pays for. It is not a model
+- Allnighter coordinates the agents the user already pays for. It is not a model
   provider, IDE, chat aggregator, cloud coding service, or terminal viewer.
 - Allnighter uses the user's existing CLI subscriptions/logins, **never** API
   keys / BYOK.
-- Allnighter has nothing to do with git. Safety = one mutating worker + write
+- Allnighter has nothing to do with git. Safety = one mutating agent + write
   lock + bounded order + proof surface.
 - The agent-facing contract is CLI-only. **MCP was retired 2026-07-16**.
-- Execution lane serialization is INVIOLABLE: one Running worker per repo root.
-- Workers fail honestly. A failed worker is shown failed, never hidden or faked.
+- Execution lane serialization is INVIOLABLE: one mutating run per repo root.
+- Agents fail honestly. A failed agent is shown failed, never hidden or faked.
 
 Full laws: prior README sections and `docs/workflows/Product_Vocabulary.md`.
 
