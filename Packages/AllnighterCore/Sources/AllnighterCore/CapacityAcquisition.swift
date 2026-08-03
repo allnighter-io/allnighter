@@ -71,13 +71,20 @@ public enum CapacityAcquisition {
     }
 
     /// Acquire capacity windows for the fixed bench under `homeRoot`.
+    ///
+    /// - Parameter probeScope: acquisition scope for this wave's probe children
+    ///   (CWB-S00a). Pass a caller-owned scope to cancel this generation early
+    ///   (e.g. supersede a targeted refresh with a full bench). Default: a
+    ///   fresh scope owned by this call. On group timeout, **only this scope**
+    ///   is terminated — never another in-flight acquire's probes.
     public static func windows(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         now: Date,
         refresh: Bool = false,
         refreshSource: String? = nil,
         probeExecutor: (any CapacityProbeExecuting)? = nil,
-        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout
+        probeTimeout: TimeInterval = CapacityProbe.defaultTimeout,
+        probeScope: CapacityProbeScope? = nil
     ) -> [CapacityWindow] {
         _ = homeRoot // reserved for warm-pool / resident cache (CWB-S01+)
         let sourcesToProbe = Set(sourcesProbed(refresh: refresh, refreshSource: refreshSource))
@@ -105,6 +112,8 @@ public enum CapacityAcquisition {
         }
 
         let executor = probeExecutor ?? LiveCapacityProbeExecutor()
+        // One scope per acquisition wave — its probes, its kill set (CWB-S00a).
+        let scope = probeScope ?? CapacityProbeScope()
         let group = DispatchGroup()
         final class ProbeResults: @unchecked Sendable {
             private let lock = NSLock()
@@ -135,7 +144,7 @@ public enum CapacityAcquisition {
                     ? CapacityProbe.timeout(for: source)
                     : probeTimeout
                 let windows = executor.execute(
-                    CapacityProbeRequest(source: source, now: now, timeout: seatTimeout)
+                    CapacityProbeRequest(source: source, now: now, timeout: seatTimeout, scope: scope)
                 )
                 let safe: [CapacityWindow]
                 if windows.isEmpty {
@@ -166,7 +175,10 @@ public enum CapacityAcquisition {
         let groupTimeout = maxProbeTimeout + margin
         let waitResult = group.wait(timeout: .now() + groupTimeout)
         if waitResult == .timedOut {
-            CapacityProbe.terminateAllActiveProbes()
+            // Scoped kill (CWB-S00a): reap only THIS acquire's probe children —
+            // never the process-wide set, which may hold another in-flight
+            // acquire's PTYs (timer vs explicit Refresh).
+            scope.terminate()
             _ = group.wait(timeout: .now() + 1.0)
         }
 

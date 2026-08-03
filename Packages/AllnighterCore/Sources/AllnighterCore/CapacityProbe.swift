@@ -4,6 +4,70 @@ import Foundation
 import Darwin
 #endif
 
+// MARK: - Acquisition-scoped probe registry (CWB-S00a)
+
+/// Per-acquisition registry of probe child process groups.
+///
+/// Product law: a strip/acquire timeout may kill only the PTYs **its own**
+/// acquire spawned — never another in-flight acquire's (timer must never
+/// cross-kill an explicit Refresh). Each `CapacityAcquisition.windows(refresh:)`
+/// call owns one scope; live probes register their child process group into it
+/// while it runs, and on timeout only that scope is terminated.
+///
+/// Lock-protected — safe across the DispatchQueue probe wave. `terminate()` is
+/// idempotent: it drains the tracked set, so a second call is a no-op.
+public final class CapacityProbeScope: Equatable, @unchecked Sendable {
+    private let lock = NSLock()
+    private var pids: Set<pid_t> = []
+    private let terminator: @Sendable (pid_t) -> Void
+
+    /// The default terminator (nil) kills the real process group (SIGTERM →
+    /// SIGKILL escalation + reap). Tests inject a recorder so scoped-kill
+    /// proofs stay deterministic and off live processes.
+    public init(terminator: (@Sendable (pid_t) -> Void)? = nil) {
+        self.terminator = terminator ?? { pid in
+            #if os(macOS)
+            CapacityProbe.terminateProcessGroup(pid)
+            #endif
+        }
+    }
+
+    /// Track a child process group spawned under this scope.
+    func track(_ pid: pid_t) {
+        guard pid > 0 else { return }
+        lock.lock(); pids.insert(pid); lock.unlock()
+    }
+
+    /// Stop tracking a child that already finished / was reaped by its owner.
+    func untrack(_ pid: pid_t) {
+        guard pid > 0 else { return }
+        lock.lock(); pids.remove(pid); lock.unlock()
+    }
+
+    /// Still-tracked process groups (tests / diagnostics).
+    var trackedPIDs: Set<pid_t> {
+        lock.lock(); defer { lock.unlock() }
+        return pids
+    }
+
+    /// Kill every process group still tracked by **this** scope only.
+    /// Drains the set first, so concurrent late `track`s after a terminate
+    /// stay tracked (their owning probe still kills them on exit).
+    public func terminate() {
+        lock.lock()
+        let drained = pids
+        pids.removeAll()
+        lock.unlock()
+        for pid in drained {
+            terminator(pid)
+        }
+    }
+
+    public static func == (lhs: CapacityProbeScope, rhs: CapacityProbeScope) -> Bool {
+        lhs === rhs
+    }
+}
+
 // MARK: - Probe executor seam
 
 /// One tier-3 PTY capture request. Callers pass every clock value — no `Date()` inside.
@@ -11,11 +75,20 @@ public struct CapacityProbeRequest: Sendable, Equatable {
     public let source: String
     public let now: Date
     public let timeout: TimeInterval
+    /// Acquisition scope this probe registers its child into (CWB-S00a).
+    /// Nil for standalone probes outside an acquisition wave.
+    public let scope: CapacityProbeScope?
 
-    public init(source: String, now: Date, timeout: TimeInterval = CapacityProbe.defaultTimeout) {
+    public init(
+        source: String,
+        now: Date,
+        timeout: TimeInterval = CapacityProbe.defaultTimeout,
+        scope: CapacityProbeScope? = nil
+    ) {
         self.source = source
         self.now = now
         self.timeout = timeout
+        self.scope = scope
     }
 }
 
@@ -39,7 +112,8 @@ public struct LiveCapacityProbeExecutor: CapacityProbeExecuting, Sendable {
         return CapacityProbe.windows(
             source: request.source,
             now: request.now,
-            timeout: budget
+            timeout: budget,
+            scope: request.scope
         )
     }
 }
@@ -91,9 +165,10 @@ public enum CapacityProbe {
         "grok",
     ]
 
-    /// Active probe child process groups — reaped on timeout / parent cancel.
-    /// Lock-protected mutable set; `nonisolated(unsafe)` is required because
-    /// Swift 6 treats static vars as global shared state even when locked.
+    /// Active probe child process groups — the process-wide PGID ledger for
+    /// quit-time reap (CWB-S00a Gap 3). Lock-protected mutable set;
+    /// `nonisolated(unsafe)` is required because Swift 6 treats static vars as
+    /// global shared state even when locked.
     private final class ActiveProbeRegistry: @unchecked Sendable {
         private let lock = NSLock()
         private var pids: Set<pid_t> = []
@@ -119,10 +194,16 @@ public enum CapacityProbe {
 
     private static let activeProbes = ActiveProbeRegistry()
 
-    /// Force-kill every still-running capacity probe child (process group).
-    /// Safe to call when no probes are live. Used after a strip-level timeout
-    /// or when the parent capacity command is interrupted.
-    public static func terminateAllActiveProbes() {
+    /// **Process shutdown / quit only.** Force-kill every still-running
+    /// capacity probe child in this process (process group), regardless of
+    /// which acquisition spawned it.
+    ///
+    /// Never call this for a strip/acquire timeout — that cross-kills another
+    /// in-flight acquire's PTYs (CWB-S00a product law). Timeouts terminate the
+    /// per-acquire `CapacityProbeScope` instead. This exists for graceful-quit
+    /// PGID reap, where acquisition scoping no longer matters because the whole
+    /// process is going away. Safe to call when no probes are live.
+    public static func terminateAllForProcessShutdown() {
         #if os(macOS)
         for pid in activeProbes.drain() {
             terminateProcessGroup(pid)
@@ -266,6 +347,9 @@ public enum CapacityProbe {
     ///   - pathEnvironment: PATH string for binary resolution (default: real PATH).
     ///   - homeDirectory: Home for known-path fallbacks (default: real home).
     ///   - executableOverride: Force a specific binary (tests: `/bin/sleep`).
+    ///   - scope: Acquisition scope the spawned child registers into (CWB-S00a).
+    ///     The child is always killed by this probe itself on return; the scope
+    ///     exists so an acquisition timeout can kill it early — and only it.
     public static func windows(
         source: String,
         now: Date,
@@ -274,7 +358,8 @@ public enum CapacityProbe {
         pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
         homeDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         executableOverride: String? = nil,
-        dumpDirectory: URL? = nil
+        dumpDirectory: URL? = nil,
+        scope: CapacityProbeScope? = nil
     ) -> [CapacityWindow] {
         #if os(macOS)
         let budget = timeout ?? Self.timeout(for: source)
@@ -306,7 +391,8 @@ public enum CapacityProbe {
             executable: executable,
             workingDirectory: cwd,
             timeout: budget,
-            source: source
+            source: source,
+            scope: scope
         )
 
         switch capture {
@@ -454,11 +540,15 @@ public enum CapacityProbe {
 
     #if os(macOS)
     /// Spawn `executable` in a PTY, send `/usage`, capture screen text, always kill.
+    /// The child registers into both the process-wide quit ledger and the
+    /// caller's acquisition `scope` (CWB-S00a) so a scope terminate can kill
+    /// exactly this generation.
     static func captureUsageRender(
         executable: String,
         workingDirectory: String,
         timeout: TimeInterval,
-        source: String = ""
+        source: String = "",
+        scope: CapacityProbeScope? = nil
     ) -> CaptureResult {
         var master: Int32 = -1
         var slave: Int32 = -1
@@ -494,9 +584,11 @@ public enum CapacityProbe {
         close(slave)
 
         trackActiveProbe(pid)
+        scope?.track(pid)
         defer {
             terminateProcessGroup(pid)
             untrackActiveProbe(pid)
+            scope?.untrack(pid)
             close(master)
         }
 
