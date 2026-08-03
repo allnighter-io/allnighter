@@ -221,11 +221,17 @@ RPC to reach CLI-only settlements.
 
 ### Remaining
 
-| Slice | Scope |
-| --- | --- |
-| **CWB-S00b** | CLI → live/`CapacityFetch`; omit menu capacity; delete `--cached`; six-row `--source` (coordinate `alln` rebuild) |
+| Slice | Scope | Status |
+| --- | --- | --- |
+| **CWB-S00b** | CLI → live/`CapacityFetch`; omit menu capacity; delete `--cached`; six-row `--source`; loud unknown/disabled/expired | ✅ Done — source changed + package tests; `alln` PATH install still human-coordinated by founder |
 
 Codex/Grok parsers shipped (`ac65bddf`) — do not re-spike.
+
+**Install note (2026-08-03):** S00b changes the CLI source only. Rebuilding the in-tree
+binary and running filtered package tests is sufficient proof. The product PATH `alln`
+install/reinstall is coordinated by the founder — agents must not run `alln install-cli`,
+overwrite `/usr/local`/`~/.local` binaries, or tell other agents to switch binaries. S02
+(resident socket) is the next hard slice. Menu capacity stays off until the Resident trust gate.
 
 ---
 

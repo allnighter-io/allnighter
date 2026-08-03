@@ -121,6 +121,7 @@ public enum CapacityStripUnknownKind: String, Sendable, Equatable, Codable {
     case probeTimeout
     case emptyCapture
     case expired
+    case disabled
 }
 
 // MARK: - Renderer
@@ -611,6 +612,8 @@ public enum CapacityStripRenderer {
             return "unknown — empty capture \(dayStampCompact(at))"
         case .expired(let at):
             return "unknown — expired \(dayStampCompact(at))"
+        case .disabled:
+            return "disabled — capacity feature OFF"
         }
     }
 
@@ -623,6 +626,7 @@ public enum CapacityStripRenderer {
         case .probeTimeout: return "timeout"
         case .emptyCapture: return "empty"
         case .expired: return "expired"
+        case .disabled: return "disabled"
         }
     }
 
@@ -688,6 +692,7 @@ public enum CapacityStripRenderer {
         case .probeTimeout: return .probeTimeout
         case .emptyCapture: return .emptyCapture
         case .expired: return .expired
+        case .disabled: return .disabled
         }
     }
 

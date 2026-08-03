@@ -15,7 +15,7 @@ public extension ContractRegistry {
     // `workerActivity.data.tool` is wire-only and does not change EventSpec.
     // CAP-PRINT: patch — capacity command trigger/summary/antiExample/example teach
     // verbatim human-table delivery; --json only on explicit machine request.
-    static let contractVersion = "9.3.1"
+    static let contractVersion = "9.3.2"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -106,17 +106,15 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "capacity",
-            summary: "Show the six-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or \"shown above\". Bare is instant no-spawn (disk + last-known); --refresh live-acquires; --json only on explicit JSON/machine request.",
+            summary: "Show the six-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or \"shown above\". Bare is live cold PTY (no disk/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON/machine request.",
             milestone: .m1,
             trigger: "Use when the user asks to print, show, or display `alln capacity` / quota headroom — run bare `alln capacity` and include the complete human-readable stdout table verbatim in your final response.",
             example: "alln capacity",
             antiExample: "Do NOT summarize the table, pick highlights, reply with JSON, or say \"shown above\" when the user asked to print capacity — hosts often hide shell tool output. Do NOT default to `alln capacity --json` unless the user explicitly requested JSON/machine-readable output or a program needs the schema.",
             flags: [
                 FlagSpec("json", summary: "Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema."),
-                FlagSpec("refresh", summary: "Live re-acquire now (PTY probes for PTY-only seats; disk re-read for codex/grok). Progress on stderr."),
-                FlagSpec("source", takesValue: true, summary: "With --refresh: target one seat (still full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy."),
-                FlagSpec("cached", summary: "Legacy no-op alias for bare snapshot (no spawns). Cannot combine with --refresh."),
-                FlagSpec("no-refresh", summary: "Legacy alias for --cached."),
+                FlagSpec("refresh", summary: "Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts."),
+                FlagSpec("source", takesValue: true, summary: "Target one seat for the live probe (still returns the full six-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy."),
             ],
             outputSchema: .capacityStripJSON,
             spendsQuota: false

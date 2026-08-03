@@ -118,15 +118,13 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains("plain `alln` works everywhere"))
     }
 
-    /// Ten-rule body + markers stays compact (AVQ-S03 mutator/progress law).
-    /// `TeachingSnippet.reflexLines` grew from 8 to 10 rules (pmTurn.report,
-    /// artifact.path disclosure) without a matching budget bump; the 2-line
-    /// growth is real content, not budget rot, so the ceiling moves with it
-    /// (12→14 on-path, 14→16 off-path — same zero/one-line slack as before).
+    /// 11-rule body + markers stays compact (AVQ-S03 mutator/progress law).
+    /// `TeachingSnippet.reflexLines` is now 11 rules, so the ceiling moves with it
+    /// (15 on-path, 16 off-path) — no slack beyond the real line count.
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(onPathLines.count, 14, "on-path snippet grew past ≤14 budget")
+        XCTAssertLessThanOrEqual(onPathLines.count, 15, "on-path snippet grew past ≤15 budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)

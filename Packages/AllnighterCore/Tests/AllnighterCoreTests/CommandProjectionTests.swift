@@ -107,6 +107,22 @@ final class CommandProjectionTests: XCTestCase {
         )
     }
 
+    /// CWB-S00b — capacity bare is live; `--cached` / `--no-refresh` are gone.
+    func testCapacityFlagsRejectCachedAndNoRefresh() {
+        let capacity = reg.commands.first(where: { $0.name == "capacity" })
+        XCTAssertNotNil(capacity)
+        let flagNames = capacity?.flags.map(\.name) ?? []
+        XCTAssertFalse(flagNames.contains("cached"), "--cached must be removed in CWB-S00b")
+        XCTAssertFalse(flagNames.contains("no-refresh"), "--no-refresh must be removed in CWB-S00b")
+        XCTAssertTrue(flagNames.contains("refresh"), "--refresh stays as a legacy no-op")
+        XCTAssertTrue(flagNames.contains("source"), "--source stays for targeted live probes")
+
+        let cachedError = CLIUsage.validateFlags(args: ["--cached"], commandName: "capacity", registry: reg)
+        XCTAssertNotNil(cachedError, "--cached must be rejected as an unknown flag")
+        let noRefreshError = CLIUsage.validateFlags(args: ["--no-refresh"], commandName: "capacity", registry: reg)
+        XCTAssertNotNil(noRefreshError, "--no-refresh must be rejected as an unknown flag")
+    }
+
     func testMenuActionsStayShortAndBudgetHolds() throws {
         let menu = MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam })
         XCTAssertLessThanOrEqual(menu.actions.count, 8, "do not expand actions for coverage ratio")

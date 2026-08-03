@@ -61,5 +61,20 @@ public enum CapacityFetch {
         return Snapshot(now: now, windows: windows, rows: rows)
     }
 
+    /// Feature OFF: six honest `disabled` rows, no probe attempted.
+    public static func disabledSnapshot(now: Date = Date()) -> Snapshot {
+        let windows = CapacityAcquisition.benchSourceOrder.map { source in
+            CapacityWindow.unknown(
+                reason: .disabled,
+                source: source,
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            )
+        }
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        return Snapshot(now: now, windows: windows, rows: rows)
+    }
+
     private static let placeholderHome = URL(fileURLWithPath: "/var/empty", isDirectory: true)
 }

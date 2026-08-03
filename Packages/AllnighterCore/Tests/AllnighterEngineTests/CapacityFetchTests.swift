@@ -53,4 +53,43 @@ final class CapacityFetchTests: XCTestCase {
         XCTAssertNil(claude?.usedPercent)
         XCTAssertNotNil(claude?.unknownReason)
     }
+
+    func testDisabledSnapshotReturnsSixDisabledRows() {
+        let snap = CapacityFetch.disabledSnapshot(now: now)
+        XCTAssertEqual(snap.windows.count, CapacityAcquisition.benchSourceOrder.count)
+        XCTAssertTrue(snap.windows.allSatisfy { $0.unknownReason == .disabled })
+        XCTAssertEqual(snap.rows.count, CapacityAcquisition.benchSourceOrder.count)
+        XCTAssertTrue(snap.rows.allSatisfy { $0.unknownReason == .disabled })
+    }
+
+    func testLiveSnapshotWithSourceTargetsOneSeatAndReturnsSixRows() {
+        final class ReturningExecutor: CapacityProbeExecuting, @unchecked Sendable {
+            func execute(_ request: CapacityProbeRequest) -> [CapacityWindow] {
+                [
+                    CapacityWindow(
+                        used: 30,
+                        source: request.source,
+                        scope: .weekly,
+                        resetAt: request.now.addingTimeInterval(24 * 3600),
+                        resetPrecision: .exact,
+                        observedAt: request.now,
+                        sourceTier: .tuiProbe
+                    ),
+                ]
+            }
+        }
+
+        let snap = CapacityFetch.liveSnapshot(
+            now: now,
+            refreshSource: "claude_code",
+            probeExecutor: ReturningExecutor()
+        )
+        XCTAssertEqual(snap.windows.count, CapacityAcquisition.benchSourceOrder.count)
+        let claude = snap.windows.filter { $0.source == "claude_code" }
+        XCTAssertEqual(claude.count, 1)
+        XCTAssertEqual(claude.first?.usedPercent, 30)
+        let codex = snap.windows.filter { $0.source == "codex" }
+        XCTAssertEqual(codex.count, 1)
+        XCTAssertEqual(codex.first?.unknownReason, .neverSampled)
+    }
 }

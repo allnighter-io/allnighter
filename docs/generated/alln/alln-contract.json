@@ -363,23 +363,13 @@
         },
         {
           "name" : "refresh",
-          "summary" : "Live re-acquire now (PTY probes for PTY-only seats; disk re-read for codex\/grok). Progress on stderr.",
+          "summary" : "Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts.",
           "takesValue" : false
         },
         {
           "name" : "source",
-          "summary" : "With --refresh: target one seat (still full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.",
+          "summary" : "Target one seat for the live probe (still returns the full six-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.",
           "takesValue" : true
-        },
-        {
-          "name" : "cached",
-          "summary" : "Legacy no-op alias for bare snapshot (no spawns). Cannot combine with --refresh.",
-          "takesValue" : false
-        },
-        {
-          "name" : "no-refresh",
-          "summary" : "Legacy alias for --cached.",
-          "takesValue" : false
         }
       ],
       "menuAction" : false,
@@ -390,7 +380,7 @@
       "name" : "capacity",
       "outputSchema" : "capacityStripJSON",
       "spendsQuota" : false,
-      "summary" : "Show the six-row vendor capacity\/quota table. When the user asks to print\/show\/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or \"shown above\". Bare is instant no-spawn (disk + last-known); --refresh live-acquires; --json only on explicit JSON\/machine request.",
+      "summary" : "Show the six-row vendor capacity\/quota table. When the user asks to print\/show\/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or \"shown above\". Bare is live cold PTY (no disk\/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON\/machine request.",
       "trigger" : "Use when the user asks to print, show, or display `alln capacity` \/ quota headroom — run bare `alln capacity` and include the complete human-readable stdout table verbatim in your final response.",
       "visibility" : "public"
     },
@@ -5958,7 +5948,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.3.1",
+  "contractVersion" : "9.3.2",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

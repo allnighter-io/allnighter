@@ -287,6 +287,26 @@ final class CapacityStripRendererTests: XCTestCase {
         XCTAssertNil(jsonRow.shortRemainingPercent)
     }
 
+    /// CWB-S00b — disabled (feature OFF) rows are loud, not blank or zero-filled.
+    func testDisabledRowRendersLoudlyInPlainAndJSON() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .disabled,
+                source: "claude_code",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            ),
+        ]
+        let projected = rows(from: windows)
+        let line = table(CapacityStripRenderer.renderPlain(rows: projected, now: now))
+            .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
+        XCTAssertTrue(line.contains("disabled"), "disabled row must say disabled: \(line)")
+
+        let jsonRow = CapacityStripRenderer.json(rows: projected, now: now).rows[0]
+        XCTAssertEqual(jsonRow.unknownReason, .disabled)
+    }
+
     /// The founder-visible Claude case: session 86% remaining under a 47% weekly
     /// rendered `47%` in a column headed `5h`, so the 5h limit was never shown.
     func testClaudeSessionColumnShowsSessionNotWeekly() {

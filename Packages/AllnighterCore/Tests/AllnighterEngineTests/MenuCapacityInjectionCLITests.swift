@@ -35,10 +35,9 @@ final class MenuCapacityInjectionCLITests: XCTestCase {
         XCTAssertEqual(executor.callCount, 0, "reading the menu must never spawn a probe (QABC-S00 law)")
     }
 
-    func testMenuCapacityReturnsUsableSnapshot() {
+    func testMenuCapacityIsOmittedUntilResidentTrustGate() {
         let capacity = AllnighterCLI.menuCapacity(now: now)
-        XCTAssertNotNil(capacity, "bench sources are always projected even with refresh:false")
-        XCTAssertFalse(capacity?.rows.isEmpty ?? true)
+        XCTAssertNil(capacity, "menu capacity stays omitted until the Resident trust gate (CWB-S00b)")
     }
 
     func testMenuShowModelDetailCarriesOnlyMatchingSourceRow() throws {

@@ -346,53 +346,48 @@ struct AllnighterCLI {
 
     /// `alln capacity [--json] [--refresh] [--source <id>]` — vendor quota strip.
     ///
-    /// **Bare** (default): instant, no-spawn snapshot — disk adapters for
-    /// codex/grok + last-known hydrate for PTY seats. Always prints the full
+    /// **Bare** (default): live cold PTY acquire for all six seats (measured
+    /// budget). No disk, no history hydrate-as-live. Always prints the full
     /// six-row table (TTY or piped).
     ///
-    /// **`--refresh`**: live re-acquire (disk re-read + PTY probes). Progress on
-    /// stderr; complete six-row table/JSON on stdout. Targeted `--source`
-    /// requires `--refresh` and still returns all six rows.
+    /// **`--refresh`**: legacy no-op; bare is already live. Kept for scripts.
     ///
-    /// Unknown never blocks (exit 0). Non-TTY path is plain ASCII, zero ANSI.
+    /// **`--source <id>`**: live probe of one seat, still returning all six rows;
+    /// unprobed siblings show `neverSampled`.
+    ///
+    /// Unknown / disabled / expired are loud, never blocks (exit 0). Non-TTY
+    /// path is plain ASCII, zero ANSI.
     static func runCapacity(_ args: [String]) {
         let opts = Options(args)
         let now = Date()
         let refreshFlag = opts.flag("refresh")
-        // Legacy aliases still force the bare/no-spawn path if someone passes them
-        // without --refresh (harmless). --refresh wins when both appear.
-        let forceCached = opts.flag("cached") || opts.flag("no-refresh")
-        if refreshFlag && forceCached {
-            fail(
-                code: "CLI_USAGE_ERROR",
-                message: "conflicting flags: --refresh cannot be combined with --cached / --no-refresh"
-            )
-        }
-        let refresh = refreshFlag
         let refreshSource = opts.value("source")
-        if let refreshSource {
-            if !refresh {
-                fail(
-                    code: "CLI_USAGE_ERROR",
-                    message: "--source requires --refresh (bare capacity is a no-spawn snapshot)"
-                )
-            }
-            if let message = CapacityAcquisition.validateRefreshSourceId(refreshSource) {
-                fail(code: "CLI_USAGE_ERROR", message: message)
-            }
+        if let refreshSource, let message = CapacityAcquisition.validateRefreshSourceId(refreshSource) {
+            fail(code: "CLI_USAGE_ERROR", message: message)
         }
 
-        if refresh {
+        // Feature OFF: zero probes from every trigger (CWB-S01b).
+        let featureEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
+        if featureEnabled {
             let target = refreshSource.map { " \($0)" } ?? ""
-            capacityProgress("capacity: refreshing\(target)…")
+            if refreshFlag {
+                capacityProgress("capacity: refreshing\(target)…")
+            } else {
+                capacityProgress("capacity: live acquire\(target)…")
+            }
         }
 
-        let bench = CapacityDisplayAcquisition.snapshot(
-            now: now,
-            refresh: refresh,
-            refreshSource: refreshSource
-        )
-        if refresh {
+        let bench: CapacityFetch.Snapshot = {
+            guard featureEnabled else {
+                return CapacityFetch.disabledSnapshot(now: now)
+            }
+            return CapacityFetch.liveSnapshot(
+                now: now,
+                refreshSource: refreshSource
+            )
+        }()
+
+        if featureEnabled {
             capacityProgress("capacity: done")
         }
         let rows = bench.rows
@@ -424,32 +419,16 @@ struct AllnighterCLI {
         }
     }
 
-    /// QABC-S00d — plan-time capacity for `alln menu` / `alln menu show` /
-    /// `alln bootstrap`. LAW: always acquires with `refresh: false` — reading
-    /// the menu must never spawn a probe or cost latency. `alln capacity` bare
-    /// is also no-spawn; only `--refresh` probes. `probeExecutor` only exists
-    /// so tests can assert zero probe invocations; production callers never
-    /// pass one.
-    ///
-    /// Returns `nil` (never crashes, never blocks) if acquisition yields
-    /// nothing usable — unknown capacity must never block menu or seating.
+    /// CWB-S00b — menu capacity stays omitted until the Resident trust gate.
+    /// Returns `nil` so `alln menu` / `alln menu show` / `alln bootstrap --json`
+    /// never inject a strip and never spawn a probe.
     static func menuCapacity(
         now: Date,
         probeExecutor: (any CapacityProbeExecuting)? = nil
     ) -> MenuJSON.Capacity? {
-        let windows = CapacityDisplayAcquisition.windows(
-            now: now,
-            refresh: false,
-            probeExecutor: probeExecutor
-        )
-        let rows = CapacityBenchProjection.rows(from: windows, now: now)
-        guard !rows.isEmpty else { return nil }
-        let strip = CapacityStripRenderer.json(
-            rows: rows,
-            now: now,
-            contractVersion: ContractRegistry.contractVersion
-        )
-        return MenuJSON.Capacity(strip: strip)
+        _ = now
+        _ = probeExecutor
+        return nil
     }
 
     /// OPC-S06 — release-channel announcement for menu / version / doctor.

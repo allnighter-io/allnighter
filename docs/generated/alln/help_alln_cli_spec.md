@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.3.1, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.3.2, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -97,14 +97,12 @@ Headless first-run CLI detection — probes sources, assembles the Bench/default
 
 ### `alln capacity`
 
-Show the six-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or "shown above". Bare is instant no-spawn (disk + last-known); --refresh live-acquires; --json only on explicit JSON/machine request.
+Show the six-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or "shown above". Bare is live cold PTY (no disk/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON/machine request.
 
 Flags:
 - `--json` — Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema.
-- `--refresh` — Live re-acquire now (PTY probes for PTY-only seats; disk re-read for codex/grok). Progress on stderr.
-- `--source <value>` — With --refresh: target one seat (still full strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.
-- `--cached` — Legacy no-op alias for bare snapshot (no spawns). Cannot combine with --refresh.
-- `--no-refresh` — Legacy alias for --cached.
+- `--refresh` — Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts.
+- `--source <value>` — Target one seat for the live probe (still returns the full six-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.
 
 Output schema: `capacityStripJSON`.
 

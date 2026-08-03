@@ -60,6 +60,9 @@ public enum CapacityUnknownReason: Sendable, Equatable, Codable {
     /// Sample succeeded but aged past the resident paint gate (CWB-S01a);
     /// `observedAt` is the original sample time so age labels stay honest.
     case expired(observedAt: Date)
+    /// Capacity feature is switched OFF (CWB-S01b). No probe attempted;
+    /// no history is painted as live.
+    case disabled
 }
 
 /// Paid spend that is **not** a percentage — cursor dollars, grok on-demand
