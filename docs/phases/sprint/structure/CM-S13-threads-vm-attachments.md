@@ -1,6 +1,6 @@
 # CM-S13 — Extract ThreadsViewModel attachments
 
-Status: ready
+Status: done (`d9b245c3`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 

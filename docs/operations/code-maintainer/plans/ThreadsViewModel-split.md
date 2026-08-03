@@ -28,7 +28,7 @@ Owner: code-maintainer Structure lens
 | CM-S10 | `ThreadsViewModel+Notifications.swift` | ~101 | **done** (`95a68cc7`, Gemini) |
 | CM-S11 | `ThreadsViewModel+Fixtures.swift` | ~116 | **done** (`04f1214e`, Gemini) |
 | CM-S12 | `ThreadsViewModel+RailControls.swift` | ~165 | **done** (`2d45a77c`, Gemini) |
-| CM-S13 | `ThreadsViewModel+Attachments.swift` | ~112 | proposed | Attachment resolution, worker output image harvesting/cleaning, thumb cache, Finder actions |
+| CM-S13 | `ThreadsViewModel+Attachments.swift` | ~112 | **done** (`d9b245c3`, Gemini) |
 | CM-S14 | `ThreadsViewModel+RunService.swift` | ~390 | proposed | `RunService` execution, `RunDecodeCache`, live artifact projector updates, vendor park/resume |
 | CM-S15 | `ThreadsViewModel+RoutingSend.swift` | ~285 | proposed | `sendRouting`, `runChat`, quick capture, file reference context, attachment staging |
 | Shell | `ThreadsViewModel.swift` | ~400 | proposed | Core shell: stored properties, init, store reload/coalescing, streaming deltas |
