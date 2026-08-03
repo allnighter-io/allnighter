@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.3.2, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.3.3, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -970,7 +970,7 @@ Output schema: `relayJSON`.
 
 ### `alln pair pilot handoff`
 
-Retired — use `alln loop step <loop-id>` instead. Submits this round's review (LoopVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.
+Retired — use `alln loop step <loop-id>` instead. Submits this round's review (LoopVerdict tail or --verdict + handover file); loop step blocks by default; after step use `loop wait <loop-id>` or `loop status <loop-id> --wait-for parked`. `--no-wait` is NOT on loop step.
 
 Flags:
 - `--relay <id>` — Relay id (required).

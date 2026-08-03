@@ -15,7 +15,8 @@ public extension ContractRegistry {
     // `workerActivity.data.tool` is wire-only and does not change EventSpec.
     // CAP-PRINT: patch — capacity command trigger/summary/antiExample/example teach
     // verbatim human-table delivery; --json only on explicit machine request.
-    static let contractVersion = "9.3.2"
+    // HY-S04: patch — retired pair pilot handoff summary drops false loop step --no-wait.
+    static let contractVersion = "9.3.3"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -774,7 +775,7 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "pair pilot handoff", summary: "Retired — use `alln loop step <loop-id>` instead. Submits this round's review (LoopVerdict tail or --verdict + handover file); blocks through the dev turn by default and prints the dev's report verbatim. Long jobs: prefer --no-wait, then run its returned parked status waiter once.", milestone: .m1,
+            "pair pilot handoff", summary: "Retired — use `alln loop step <loop-id>` instead. Submits this round's review (LoopVerdict tail or --verdict + handover file); loop step blocks by default; after step use `loop wait <loop-id>` or `loop status <loop-id> --wait-for parked`. `--no-wait` is NOT on loop step.", milestone: .m1,
             flags: [
                 FlagSpec("relay", takesValue: true, valueType: "id", summary: "Relay id (required)."),
                 FlagSpec("file", takesValue: true, valueType: "path", summary: "Read the full submission markdown from a file (verdict tail included; omit to read stdin)."),
