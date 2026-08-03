@@ -29,10 +29,10 @@ struct ComposeSpecimen: View {
 
 struct RoutingComposer: View {
     @Environment(AppModel.self) var appModel
-    @Environment(ThreadsViewModel.self) private var threads
+    @Environment(ThreadsViewModel.self) var threads
     @Environment(ProjectsViewModel.self) var projects
     @Environment(CommandCenter.self) private var commands
-    @Environment(\.openLoopLaunch) private var openLoopLaunch
+    @Environment(\.openLoopLaunch) var openLoopLaunch
     @State var team: String?
     /// An EXPLICIT worker override. `nil` (with no team) = **Auto** — the run resolves
     /// the Default-model tier and substitutes across CLIs.
@@ -65,8 +65,8 @@ struct RoutingComposer: View {
     /// Pasted/picked images, frozen to temp files, shown as thumbnail chips and sent
     /// with the run. Thumbnails are cached by id (NSImage isn't part of the Equatable
     /// routing payload).
-    @State private var attachments: [ComposeAttachment] = []
-    @State private var attachmentThumbs: [String: NSImage] = [:]
+    @State var attachments: [ComposeAttachment] = []
+    @State var attachmentThumbs: [String: NSImage] = [:]
     /// The Floor-handoff context already adopted into this composer (so it's added once).
     @State private var adoptedContextId: UUID?
     /// Which form the route popover shows — never both at once.
@@ -76,7 +76,7 @@ struct RoutingComposer: View {
     enum TargetTab: Hashable { case model, team, loop }
 
     @State var composerFocused = false
-    @State private var editorHeight = ComposeEditorMetrics.minHeight
+    @State var editorHeight = ComposeEditorMetrics.minHeight
     /// First-edit latch — fires `onEdit` once (the Pending-review modal un-arms on edit).
     @State private var didEdit = false
     /// Composer team picker search — empty shows Recent + Favorites, non-empty searches
@@ -302,7 +302,7 @@ struct RoutingComposer: View {
         .overlay { RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1) }
     }
 
-    private var selectedFileInputs: [FileReferenceInput] {
+    var selectedFileInputs: [FileReferenceInput] {
         selectedFileReferences.map { FileReferenceInput(path: $0.path) }
     }
 
@@ -355,7 +355,7 @@ struct RoutingComposer: View {
     }
 
     /// Paperclip → pick image files. Each is frozen to a temp PNG and added as a chip.
-    private func pickImages() {
+    func pickImages() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
         panel.canChooseDirectories = false
@@ -393,7 +393,7 @@ struct RoutingComposer: View {
 
 
     // Team runs only — model routes show effort in the target chip + row pill.
-    private var effortChip: some View {
+    var effortChip: some View {
         Button { effortOpen.toggle() } label: {
             HStack(spacing: 5) {
                 Text(effort.label).font(ALFont.mono).foregroundStyle(ALColor.textSecondary)

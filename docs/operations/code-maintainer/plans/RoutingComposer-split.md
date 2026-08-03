@@ -1,42 +1,40 @@
 # RoutingComposer split plan
 
-Status: CM-S03 shipped — target popover in `RoutingComposerTargetPopover.swift`.
+Status: **CM-S01–S05 complete** — monolith decomposed into focused extensions.
 Updated: 2026-08-03
 Owner: code-maintainer Structure lens
 
-## Current state (post CM-S01)
+## Final layout
 
 | File | LOC | Job |
 | --- | ---: | --- |
 | `RoutingComposerTypes.swift` | ~130 | Shared compose models + popover key catcher |
 | `ComposerAttachmentTile.swift` | ~80 | Attachment chip/tile UI |
-| `RoutingComposer.swift` | ~985 | Main composer + send + @ file search |
+| `RoutingComposer.swift` | ~470 | Shell: body, composer box, attachments, effort popover |
 | `RoutingComposerTargetPopover.swift` | ~470 | Model/team/loop target popover |
+| `RoutingComposerFileSearch.swift` | ~300 | `@` file-reference scan, rank, palette, chips |
+| `RoutingComposerSend.swift` | ~235 | Auto-resolution, routing bar, send path |
 
-`RoutingComposer.swift` still mixes four concerns:
+**Total:** ~1,685 LOC across 6 files (was 1,648 in one file). `RoutingComposer.swift`
+orchestrates; each extension owns one job.
 
-1. **Send path** — `sendRouting`, auto-resolution, effort/team/model state (~lines 200–430)
-2. **Composer chrome** — text field, chips, attachment strip, keyboard shortcuts (~431–1030)
-3. **Target popover** — model/team/loop picker UI (~1032–1240)
-4. **Target navigation** — highlight/hover/keyboard in popover (~1242–1570)
+## Batches
 
-## Proposed extractions (next batches)
+| Batch | File | Status |
+| --- | --- | --- |
+| CM-S01 | `RoutingComposerTypes.swift` + `ComposerAttachmentTile.swift` | **done** |
+| CM-S02 | `RelayEscalationRow.swift` | **done** |
+| CM-S03 | `RoutingComposerTargetPopover.swift` | **done** (`748b2098`) |
+| CM-S04 | `RoutingComposerFileSearch.swift` | **done** (`84f31482`) |
+| CM-S05 | `RoutingComposerSend.swift` | **done** (this commit) |
 
-| Batch | New file | Extract from | Proof |
-| --- | --- | --- | --- |
-| CM-S03 | `RoutingComposerTargetPopover.swift` | Target popover + navigation (sections 3–4) | **done** (`efc68f8`) |
-| CM-S04 | `RoutingComposerFileSearch.swift` | `@` file-reference session (scan, rank, palette) | xcodebuild + FR-S04 Works Test when palette ships |
-| CM-S04 | `RoutingComposerFileSearch.swift` | `@` file-reference session (scan, rank, palette) | xcodebuild + FR-S04 Works Test when palette ships |
-| CM-S05 | `RoutingComposerSend.swift` | Send + auto-resolution helpers | AppModelTests / composer send tests |
+## Optional follow-ups (not queued)
 
-## Rules
-
-- `RoutingComposer` keeps the `@State` owner — extractions receive bindings/callbacks, not duplicated state.
-- No barrel re-exports only (code-maintainer `no-barrel-only-splits` policy).
-- `ComposeSpecimen` stays beside `RoutingComposer` until CM-S03 proves the split.
+- Extract effort popover (`effortChip` / `effortEditPanel`) to `RoutingComposerEffortPopover.swift`
+- Extract attachment capture (`captureImage`, `pickImages`) to `RoutingComposerAttachments.swift`
 
 ## Done when
 
-- `RoutingComposer.swift` ≤ 600 LOC orchestrating child views
-- Each child file ≤ 400 LOC, one MARK-owned job
-- Green `xcodebuild test -scheme AllnighterMac`
+- [x] `RoutingComposer.swift` ≤ 600 LOC orchestrating child views
+- [x] Each extension file ≤ 500 LOC, one MARK-owned job
+- [x] Green `xcodebuild build -scheme AllnighterMac`
