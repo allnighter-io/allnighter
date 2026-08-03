@@ -1,6 +1,20 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S10–S15 (ThreadsViewModel complete)
+
+Scope: Decompose ThreadsViewModel monolith into shell + 6 focused extensions
+Class: Structure lens (index 0)
+Delegation: Gemini 3.6 Flash via `alln run --model model_gemini` for all 6 slices
+Files touched: NEW ThreadsViewModel+{Notifications,Fixtures,RailControls,Attachments,RunService,RoutingSend}.swift;
+  ThreadsViewModel.swift 1627→470 LOC
+Behavior guarantee: Move-only extractions; thread/run/composer behavior unchanged
+Proof: xcodebuild build -scheme AllnighterMac (BUILD SUCCEEDED on each slice)
+Before/after signal: ThreadsViewModel split plan complete; 7 focused files (~1689 LOC total)
+Next lens: ThreadView ThreadMutatingRunRow extract or Duplication lens
+```
+
+```text
 ## 2026-08-03 - Structure CM-S09 (RoutingComposer attachments)
 
 Scope: Extract attachment chips/capture/pick/open/remove to RoutingComposerAttachments.swift

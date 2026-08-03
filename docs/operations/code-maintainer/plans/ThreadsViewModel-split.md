@@ -1,6 +1,6 @@
 # ThreadsViewModel split plan
 
-Status: **CM-S07 complete (scout plan)** — decomposition proposed for CM-S10+.
+Status: **CM-S10–S15 complete** — monolith decomposed into focused extensions.
 Updated: 2026-08-03
 Owner: code-maintainer Structure lens
 
@@ -30,8 +30,8 @@ Owner: code-maintainer Structure lens
 | CM-S12 | `ThreadsViewModel+RailControls.swift` | ~165 | **done** (`2d45a77c`, Gemini) |
 | CM-S13 | `ThreadsViewModel+Attachments.swift` | ~112 | **done** (`d9b245c3`, Gemini) |
 | CM-S14 | `ThreadsViewModel+RunService.swift` | ~390 | **done** (`ba1665ac`, Gemini) |
-| CM-S15 | `ThreadsViewModel+RoutingSend.swift` | ~285 | proposed | `sendRouting`, `runChat`, quick capture, file reference context, attachment staging |
-| Shell | `ThreadsViewModel.swift` | ~400 | proposed | Core shell: stored properties, init, store reload/coalescing, streaming deltas |
+| CM-S15 | `ThreadsViewModel+RoutingSend.swift` | ~285 | **done** (`9e43b1f5`, Gemini) |
+| Shell | `ThreadsViewModel.swift` | ~470 | **done** | Core shell: stored properties, init, store reload/coalescing, streaming deltas |
 
 ## Natural seams
 
@@ -57,6 +57,6 @@ Recommend **CM-S10 (`ThreadsViewModel+Notifications.swift`)** as the first extra
 
 ## Done when (for future extraction)
 
-- [ ] `ThreadsViewModel.swift` shell ≤ 500 LOC orchestrating child extensions
-- [ ] Each extension file ≤ 500 LOC, focused on one job
-- [ ] Green `xcodebuild build -scheme AllnighterMac`
+- [x] `ThreadsViewModel.swift` shell ≤ 500 LOC orchestrating child extensions
+- [x] Each extension file ≤ 500 LOC, focused on one job
+- [x] Green `xcodebuild build -scheme AllnighterMac`

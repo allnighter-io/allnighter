@@ -1,6 +1,6 @@
 # CM-S15 — Extract ThreadsViewModel routing send
 
-Status: ready
+Status: done (`9e43b1f5`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 
