@@ -1,6 +1,19 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S07 (ThreadsViewModel scout)
+
+Scope: Analyze ThreadsViewModel.swift (~1,627 LOC) and write split plan for CM-S10+ batches
+Class: Structure lens (index 0) — scout only, no Swift
+Delegation: Gemini 3.6 Flash via `alln run --model model_gemini`
+Files touched: NEW plans/ThreadsViewModel-split.md; MAINTENANCE-QUEUE.md
+Behavior guarantee: Docs only — no code change
+Proof: test -f plans/ThreadsViewModel-split.md
+Before/after signal: 7 proposed extension batches; shell target ~400 LOC
+Next lens: CM-S08 ThreadBoardRow extract, then CM-S09 composer attachments
+```
+
+```text
 ## 2026-08-03 - Structure CM-S06 (RoutingComposer effort popover)
 
 Scope: Extract effort chip/panel/key monitor to RoutingComposerEffortPopover.swift

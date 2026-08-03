@@ -46,7 +46,7 @@ PM delegates via `alln run --model model_gemini --commit-message "..." --proof "
 | Order | Doc | Status |
 | --- | --- | --- |
 | CM-S06 | [effort popover extract](structure/CM-S06-effort-popover-extract.md) | **done** (`1679c5c2`, Gemini) |
-| CM-S07 | [ThreadsViewModel scout](structure/CM-S07-threads-vm-scout.md) | ready |
+| CM-S07 | [ThreadsViewModel scout](structure/CM-S07-threads-vm-scout.md) | **done** (`5bed561e`, Gemini) |
 | CM-S08 | [ThreadBoardRow extract](structure/CM-S08-thread-board-row.md) | ready |
 | CM-S09 | [composer attachments](structure/CM-S09-composer-attachments.md) | ready |
 

@@ -1,6 +1,6 @@
 # ThreadsViewModel split plan
 
-Status: **CM-S07 complete (scout plan)** — decomposition proposed for CM-S08+.
+Status: **CM-S07 complete (scout plan)** — decomposition proposed for CM-S10+.
 Updated: 2026-08-03
 Owner: code-maintainer Structure lens
 
@@ -21,16 +21,16 @@ Owner: code-maintainer Structure lens
 
 **Total:** ~1,627 LOC in one file (`Apps/AllnighterMac/Sources/ThreadsViewModel.swift`).
 
-## Proposed layout & batches (CM-S08+)
+## Proposed layout & batches (CM-S10+)
 
 | Batch | File | LOC | Status | Job |
 | --- | --- | ---: | --- | --- |
-| CM-S08 | `ThreadsViewModel+Notifications.swift` | ~101 | proposed | Notification candidates, policy filtering, suppression, and delivery |
-| CM-S09 | `ThreadsViewModel+Fixtures.swift` | ~116 | proposed | GUI fixture application and live artifact debug state seeding |
-| CM-S10 | `ThreadsViewModel+RailControls.swift` | ~165 | proposed | Rail operations (rename, pin, archive, new thread, project scope) & visibility reporting |
-| CM-S11 | `ThreadsViewModel+Attachments.swift` | ~112 | proposed | Attachment resolution, worker output image harvesting/cleaning, thumb cache, Finder actions |
-| CM-S12 | `ThreadsViewModel+RunService.swift` | ~390 | proposed | `RunService` execution, `RunDecodeCache`, live artifact projector updates, vendor park/resume |
-| CM-S13 | `ThreadsViewModel+RoutingSend.swift` | ~285 | proposed | `sendRouting`, `runChat`, quick capture, file reference context, attachment staging |
+| CM-S10 | `ThreadsViewModel+Notifications.swift` | ~101 | proposed | Notification candidates, policy filtering, suppression, and delivery |
+| CM-S11 | `ThreadsViewModel+Fixtures.swift` | ~116 | proposed | GUI fixture application and live artifact debug state seeding |
+| CM-S12 | `ThreadsViewModel+RailControls.swift` | ~165 | proposed | Rail operations (rename, pin, archive, new thread, project scope) & visibility reporting |
+| CM-S13 | `ThreadsViewModel+Attachments.swift` | ~112 | proposed | Attachment resolution, worker output image harvesting/cleaning, thumb cache, Finder actions |
+| CM-S14 | `ThreadsViewModel+RunService.swift` | ~390 | proposed | `RunService` execution, `RunDecodeCache`, live artifact projector updates, vendor park/resume |
+| CM-S15 | `ThreadsViewModel+RoutingSend.swift` | ~285 | proposed | `sendRouting`, `runChat`, quick capture, file reference context, attachment staging |
 | Shell | `ThreadsViewModel.swift` | ~400 | proposed | Core shell: stored properties, init, store reload/coalescing, streaming deltas |
 
 ## Natural seams
@@ -50,7 +50,7 @@ Owner: code-maintainer Structure lens
 
 ## First extraction batch recommendation
 
-Recommend **CM-S08 (`ThreadsViewModel+Notifications.swift`)** as the first extraction batch:
+Recommend **CM-S10 (`ThreadsViewModel+Notifications.swift`)** as the first extraction batch:
 - **Low risk**: ~101 LOC of highly isolated domain logic at the bottom of the file.
 - **Clean boundary**: Self-contained interaction with `NotificationPolicy`, `MacNotificationDelivery`, and candidates.
 - **Immediate gain**: Begins reducing file size while establishing the extension pattern for subsequent batches.
