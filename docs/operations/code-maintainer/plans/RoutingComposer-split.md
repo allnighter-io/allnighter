@@ -17,7 +17,7 @@ Owner: code-maintainer Structure lens
 | `RoutingComposerFileSearch.swift` | ~300 | `@` file-reference scan, rank, palette, chips |
 | `RoutingComposerSend.swift` | ~235 | Auto-resolution, routing bar, send path |
 
-**Total:** ~1,685 LOC across 6 files (was 1,648 in one file). `RoutingComposer.swift`
+**Total:** ~1,622 LOC across 8 files (was 1,648 in one file). `RoutingComposer.swift`
 orchestrates; each extension owns one job.
 
 ## Batches
