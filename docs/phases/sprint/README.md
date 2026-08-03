@@ -38,9 +38,16 @@ Each sprint file must fit on **one to two screens** and include:
 
 ## Active sprints
 
-### Hygiene queue (doc truth + help fidelity — one slice per commit)
+### Structure queue (code-maintainer — delegate via alln)
 
-PM delegates via `alln run --model model_gemini`. Stop below 10% vendor context.
+PM delegates via `alln run --model model_gemini --commit-message "..." --proof "..."`.
+**PM does not edit Swift.** Stop below 10% vendor context.
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| CM-S06 | [effort popover extract](structure/CM-S06-effort-popover-extract.md) | ready |
+
+### Hygiene queue (doc truth + help fidelity — one slice per commit)
 
 | Order | Doc | Status |
 | --- | --- | --- |
