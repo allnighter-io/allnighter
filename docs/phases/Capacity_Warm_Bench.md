@@ -5,7 +5,9 @@ Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
 (`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
 Created: 2026-08-02
 Updated: 2026-08-03 (CWB-S01a resident actor + single-flight + paint gate shipped;
-displayMemo retired — resident snapshot is the one launch truth)
+displayMemo retired — resident snapshot is the one launch truth. CWB-S01b
+shipped: one rearmed monotonic deadline through `requestRefresh`, wake
+coalesce, feature ON/OFF with tiny persisted setting, App Nap activity lease)
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 
 **Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
@@ -237,11 +239,13 @@ Codex/Grok parsers shipped (`ac65bddf`) — do not re-spike.
 5. Cold latency honesty (budgets, not `~5s`).
 6. Probe dump privacy.
 7. Loud unknown / disabled / expired.
-8. **GUI proof debt (pre-existing):** `CapacityStripView.swift`,
+8. **GUI proof debt (pre-existing, extended by S01b):** `CapacityStripView.swift`,
    `AllnighterMacApp.swift`, `RoutingComposer.swift` changed since the proof
    baseline (`dea7f813`) before S01a without fresh surface proof; S01a's own
-   `HomeView.swift` change is waived as non-visible in `WAIVERS.manifest`. The
-   capacity strip surface still owes a real `gui_proof` + watcher pass.
+   `HomeView.swift` change is waived as non-visible in `WAIVERS.manifest`.
+   S01b adds the OFF Enable-CTA state and the strip-header Turn-off control to
+   `CapacityStripView.swift` — the capacity strip surface still owes a real
+   `gui_proof` + watcher pass.
 
 ---
 
@@ -292,7 +296,7 @@ Dock Allnighter.app
 | **CWB-S00a** | Scoped registry/cancel; quit reap basics | 1–2d | `CapacityAcquisitionScopedKill` |
 | **CWB-S00b** | CLI honesty cut | 2–3d | No hydrate-as-live; no menu capacity |
 | ~~**CWB-S01a**~~ ✅ Done 2026-08-03 | Resident actor + single-flight + explicit Refresh + launch paint (memo retired; no timer/socket) | 3–4d | `CapacitySingleFlight`, paint gate tests |
-| **CWB-S01b** | Deadline timer + wake + ON/OFF + App Nap activity | 2–3d | `CapacityFeatureOff`, `CapacityWakeCoalesce` |
+| ~~**CWB-S01b**~~ ✅ Done 2026-08-03 | Deadline timer + wake + ON/OFF + App Nap activity | 2–3d | `CapacityFeatureOff`, `CapacityWakeCoalesce` |
 | **CWB-S02** | Socket + CLI fast/cold (**after** S00b) | 2–3d | Spy 100× p95 &lt;250 ms, zero PTYs |
 | **CWB-S03** | In-process post-run only | 0.5–1d | Boolean gate tests |
 
@@ -343,7 +347,7 @@ scripts/swift-test.sh --filter CapacityWakeCoalesce
 | --- | --- |
 | Vendor I/O | `CapacityProbe` (scoped registries) |
 | One-shot | `CapacityFetch` (display memo retired at S01a) |
-| Schedule / freshness / socket | `CapacityResidentService` (S01a: funnel + single-flight + snapshot + paint gate; timer S01b) |
+| Schedule / freshness / socket | `CapacityResidentService` (funnel + single-flight + snapshot + paint gate + rearmed deadline timer + wake + ON/OFF + App Nap lease; socket S02) |
 | Transport | CLI |
 | Strip | `CapacityStripModel` (projection) |
 | Runtime | `CapacityObservation` |

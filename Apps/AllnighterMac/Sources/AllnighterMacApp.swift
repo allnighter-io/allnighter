@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import AllnighterCore
+import AllnighterEngine
 
 /// The bundle launches as an accessory (`LSUIElement` in Info.plist) so the
 /// hosted unit-test runner can connect without hanging. For a real launch we
@@ -11,6 +12,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let env = ProcessInfo.processInfo.environment
         return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
     }
+
+    /// CWB-S01b: NSWorkspace wake → resident `.wake` trigger. Retained for the
+    /// app's lifetime; the process exit removes it.
+    private var capacityWakeObserver: NSObjectProtocol?
 
     func applicationWillTerminate(_ notification: Notification) {
         guard !Self.isTesting else { return }
@@ -42,6 +47,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // ONB-S02b: keep Application Support/Recipes in sync with the bundled cards
         // so Finder / agents find them without opening Settings.
         RecipeInstallMirror.sync()
+        // CWB-S01b: capacity feature — apply persisted ON/OFF. ON wires the
+        // resident's deadline scheduler and fires the immediate silent launch
+        // acquire; OFF means zero probes and a disabled snapshot. Wake is the
+        // other always-wired trigger (one coalesced refresh, no catch-up).
+        let capacityEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
+        Task { await CapacityResidentService.shared.setEnabled(capacityEnabled) }
+        capacityWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: nil
+        ) { _ in
+            Task { await CapacityResidentService.shared.notifyWake() }
+        }
         #if DEBUG
         // Grant fixture: request Screen Recording at launch, before SwiftUI paints.
         // No env flags, no gating — macOS must see the request from a frontmost app.

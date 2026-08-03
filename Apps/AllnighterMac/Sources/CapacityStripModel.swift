@@ -25,6 +25,9 @@ final class CapacityStripModel {
     private(set) var notReadyOrParked: Set<String> = []
     /// When set, the model is fixture-seeded and live acquire is skipped on appear.
     private(set) var isFixtureSeeded = false
+    /// CWB-S01b feature ON/OFF. OFF: the strip renders the Enable CTA instead
+    /// of rows, and no acquire ever starts (resident enforces zero probes).
+    private(set) var featureEnabled = true
 
     /// The one refresh funnel. Shared instance in the Dock app; tests inject
     /// their own with a fake clock / fake fetch.
@@ -66,9 +69,17 @@ final class CapacityStripModel {
 
     /// Launch path: resident snapshot when one exists (paint-gated), else
     /// placeholders — never history hydrate, never a probe at launch.
+    /// OFF paints nothing: the view renders the Enable CTA instead.
     func loadLive(notReadyOrParked: Set<String> = []) async {
         guard !isFixtureSeeded else { return }
         self.notReadyOrParked = notReadyOrParked
+        featureEnabled = await resident.isEnabled
+        guard featureEnabled else {
+            isRefreshingAll = false
+            windows = []
+            needsLiveRefresh = false
+            return
+        }
         isRefreshingAll = false
         if let settled = await resident.currentSnapshot() {
             let paintedNow = Date()
@@ -82,6 +93,34 @@ final class CapacityStripModel {
             now = bench.now
             windows = bench.windows
             needsLiveRefresh = true
+            // Startup when ON fires a silent .launch through the resident;
+            // coalesce on it so the strip paints as soon as it settles
+            // (launch may show warming — timer ticks never do).
+            refreshAll()
+        }
+    }
+
+    /// Enable CTA: turn the feature on (persisted via the resident) and load.
+    func enableFeature() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.resident.setEnabled(true)
+            self.featureEnabled = true
+            await self.loadLive()
+        }
+    }
+
+    /// Turn the feature off: resident scoped-cancels in-flight probes, stops
+    /// the scheduler, and drops the snapshot (no memo-as-live).
+    func disableFeature() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.resident.setEnabled(false)
+            self.featureEnabled = false
+            self.windows = []
+            self.refreshingSources = []
+            self.isRefreshingAll = false
+            self.needsLiveRefresh = false
         }
     }
 

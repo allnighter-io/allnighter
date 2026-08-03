@@ -15,27 +15,63 @@ struct CapacityStripView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            heroZone
-            stripHeader
-            columnHeaders
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(model.rows, id: \.source) { row in
-                        CapacityStripRowView(
-                            row: row,
-                            now: model.now,
-                            isRefreshing: model.isRefreshing(row.source),
-                            isDimmed: model.notReadyOrParked.contains(row.source),
-                            isExpanded: expandedSources.contains(row.source),
-                            onToggleExpand: { toggleExpand(row.source) },
-                            onRefresh: { model.refreshSource(row.source) }
-                        )
+            if model.featureEnabled {
+                heroZone
+                stripHeader
+                columnHeaders
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(model.rows, id: \.source) { row in
+                            CapacityStripRowView(
+                                row: row,
+                                now: model.now,
+                                isRefreshing: model.isRefreshing(row.source),
+                                isDimmed: model.notReadyOrParked.contains(row.source),
+                                isExpanded: expandedSources.contains(row.source),
+                                onToggleExpand: { toggleExpand(row.source) },
+                                onRefresh: { model.refreshSource(row.source) }
+                            )
+                        }
                     }
                 }
+                .frame(maxHeight: .infinity)
+            } else {
+                disabledState
             }
-            .frame(maxHeight: .infinity)
         }
         .background(ALColor.base)
+    }
+
+    // MARK: - Feature OFF (CWB-S01b): Enable CTA, zero rows, zero probes
+
+    private var disabledState: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "gauge.with.dots.needle.0percent")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(ALColor.textFaint)
+            VStack(spacing: 6) {
+                Text("Capacity is off")
+                    .font(ALFont.sans(16, .semibold))
+                    .foregroundStyle(ALColor.textSecondary)
+                Text("Allnighter checks each CLI's weekly and 5-hour windows every 30 minutes\nwhile the app is open — silently, no toasts, no Dock bounce.")
+                    .font(ALFont.sans(12))
+                    .foregroundStyle(ALColor.textMuted)
+                    .multilineTextAlignment(.center)
+            }
+            Button {
+                model.enableFeature()
+            } label: {
+                Text("Enable capacity")
+                    .font(ALFont.sans(12, .semibold))
+                    .foregroundStyle(ALColor.textOnAmber)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .background(ALColor.accent, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+            }
+            .buttonStyle(.plain)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(24)
     }
 
     // MARK: - Hero (fixed height — layout never shifts)
@@ -231,6 +267,15 @@ struct CapacityStripView: View {
             .buttonStyle(.plain)
             .disabled(model.isRefreshingAll)
             .help("Refresh every seat so the strip stays comparable")
+            Button {
+                model.disableFeature()
+            } label: {
+                Text("Turn off")
+                    .font(ALFont.sans(11, .medium))
+                    .foregroundStyle(ALColor.textFaint)
+            }
+            .buttonStyle(.plain)
+            .help("Stop all capacity checks — no probes until you enable it again")
         }
         .padding(.horizontal, 24)
         .padding(.top, 16)

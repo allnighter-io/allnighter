@@ -7,16 +7,154 @@ import XCTest
 private final class FakeClock: @unchecked Sendable {
     private let lock = NSLock()
     private var current: Date
+    private var mono: TimeInterval
 
-    init(_ start: Date) { current = start }
+    init(_ start: Date) {
+        current = start
+        mono = start.timeIntervalSince1970
+    }
 
     func now() -> Date {
         lock.lock(); defer { lock.unlock() }
         return current
     }
 
+    /// Monotonic seconds — same origin as `now`, but only `advance` moves it.
+    func monotonicNow() -> TimeInterval {
+        lock.lock(); defer { lock.unlock() }
+        return mono
+    }
+
+    /// Advance wall + monotonic together (normal time passing).
     func advance(by interval: TimeInterval) {
+        lock.lock(); current += interval; mono += interval; lock.unlock()
+    }
+
+    /// Advance wall only — a machine sleep / clock jump the monotonic clock
+    /// did not see (wake classification input).
+    func advanceWall(by interval: TimeInterval) {
         lock.lock(); current += interval; lock.unlock()
+    }
+}
+
+/// Budgeted fake sleep for scheduler tests: advances the fake clock only while
+/// the test-granted budget lasts, then blocks (cancellation-aware) until more
+/// budget is added. Prevents the rearmed scheduler loop from free-running the
+/// fake clock to infinity in one hot loop.
+private final class FakeSleep: @unchecked Sendable {
+    private let lock = NSLock()
+    private let clock: FakeClock
+    private var budget: TimeInterval = 0
+    private var _blocked = false
+
+    init(clock: FakeClock) { self.clock = clock }
+
+    /// True while a sleep call is parked waiting for more budget.
+    var blocked: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return _blocked
+    }
+
+    func addBudget(_ interval: TimeInterval) {
+        lock.lock(); budget += interval; lock.unlock()
+    }
+
+    func sleep(_ interval: TimeInterval) async {
+        var remaining = interval
+        while remaining > 0 {
+            if Task.isCancelled { return }
+            let step = takeStep(upTo: remaining)
+            if step > 0 {
+                clock.advance(by: step)
+                remaining -= step
+            }
+            if remaining > 0 {
+                try? await Task.sleep(nanoseconds: 5_000_000)
+            }
+        }
+        clearBlocked()
+    }
+
+    /// Sync helper — NSLock is unavailable directly in async contexts.
+    private func clearBlocked() {
+        lock.lock(); _blocked = false; lock.unlock()
+    }
+
+    /// Sync helper — NSLock is unavailable directly in async contexts.
+    private func takeStep(upTo remaining: TimeInterval) -> TimeInterval {
+        lock.lock()
+        let step = min(remaining, budget)
+        budget -= step
+        if step < remaining { _blocked = true }
+        lock.unlock()
+        return step
+    }
+}
+
+/// Spy for the App Nap activity controller (CWB-S01b): records every begin
+/// reason and end so tests can prove leases balance.
+private final class ActivitySpy: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _begins: [String] = []
+    private var _ends = 0
+
+    var begins: [String] {
+        lock.lock(); defer { lock.unlock() }
+        return _begins
+    }
+
+    var endCount: Int {
+        lock.lock(); defer { lock.unlock() }
+        return _ends
+    }
+
+    /// Activities begun but not yet ended — must be 1 while a wait is held and
+    /// 0 after every fire / OFF / cancel.
+    var outstanding: Int {
+        lock.lock(); defer { lock.unlock() }
+        return _begins.count - _ends
+    }
+
+    var controller: CapacityActivityController {
+        CapacityActivityController(
+            begin: { reason in
+                self.lock.lock(); self._begins.append(reason); self.lock.unlock()
+                return reason as NSString
+            },
+            end: { _ in
+                self.lock.lock(); self._ends += 1; self.lock.unlock()
+            }
+        )
+    }
+}
+
+/// Records scheduler fire reasons (`.deadline` / `.wake`) in order.
+private final class FireRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _fires: [CapacityResidentService.RefreshReason] = []
+
+    var fires: [CapacityResidentService.RefreshReason] {
+        lock.lock(); defer { lock.unlock() }
+        return _fires
+    }
+
+    func record(_ reason: CapacityResidentService.RefreshReason) {
+        lock.lock(); _fires.append(reason); lock.unlock()
+    }
+}
+
+/// Records persisted ON/OFF writes.
+private final class PersistRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _writes: [Bool] = []
+
+    var writes: [Bool] {
+        lock.lock(); defer { lock.unlock() }
+        return _writes
+    }
+
+    func record(_ enabled: Bool) {
+        lock.lock(); _writes.append(enabled); lock.unlock()
     }
 }
 
@@ -410,5 +548,363 @@ final class CapacityPaintGateTests: XCTestCase {
         )
         XCTAssertEqual(past.first { $0.source == "grok" }?.unknownReason, .expired(observedAt: t0))
         XCTAssertNotNil(past.first { $0.source == "claude_code" }?.unknownReason)
+    }
+}
+
+// MARK: - Scheduler test helpers (CWB-S01b)
+
+/// Resident wired for scheduler tests: fake wall + monotonic clock, budgeted
+/// fake sleep, activity spy, fire/persist recorders, and a zero acquire floor
+/// (the floor is proven by `CapacitySingleFlightTests`; scheduler tests budget
+/// fake time instead).
+private func makeSchedulerResident(
+    clock: FakeClock,
+    fakeSleep: FakeSleep,
+    activity: ActivitySpy,
+    fires: FireRecorder,
+    persisted: PersistRecorder,
+    fetch: @escaping CapacityResidentService.Fetch
+) -> CapacityResidentService {
+    CapacityResidentService(
+        now: { clock.now() },
+        sleep: { interval in await fakeSleep.sleep(interval) },
+        monotonicNow: { clock.monotonicNow() },
+        activities: activity.controller,
+        acquireFloor: 0,
+        persistEnabled: { enabled in persisted.record(enabled) },
+        onSchedulerFire: { reason in fires.record(reason) },
+        fetch: fetch
+    )
+}
+
+/// Instant six-seat full-bench fetch.
+private func instantFullBenchFetch(
+    clock: FakeClock,
+    recorder: FetchRecorder
+) -> CapacityResidentService.Fetch {
+    { source, _ in
+        recorder.recordStart(source: source, at: clock.now())
+        let now = clock.now()
+        let windows = CapacityAcquisition.benchSourceOrder.map {
+            knownWindow(source: $0, used: 42, at: now)
+        }
+        return snapshot(now: now, windows: windows)
+    }
+}
+
+// MARK: - CapacityResidentDeadline (CWB-S01b)
+
+final class CapacityResidentDeadlineTests: XCTestCase {
+    private let t0 = Date(timeIntervalSince1970: 1_753_833_600)
+
+    /// Deadline fires 30m after the last **settle**, never after fire alone:
+    /// the fetch takes 5 fake minutes, so the second deadline lands 35m after
+    /// the first fire — not 30m.
+    func testDeadlineFiresAfterIntervalAndRearmsAfterSettle() async throws {
+        let clock = FakeClock(t0)
+        let fakeSleep = FakeSleep(clock: clock)
+        let recorder = FetchRecorder()
+        let activity = ActivitySpy()
+        let fires = FireRecorder()
+        let persisted = PersistRecorder()
+        let resident = makeSchedulerResident(
+            clock: clock, fakeSleep: fakeSleep, activity: activity,
+            fires: fires, persisted: persisted
+        ) { source, _ in
+            recorder.recordStart(source: source, at: clock.now())
+            clock.advance(by: 5 * 60)   // slow bench: settle lands 5m after start
+            let now = clock.now()
+            let windows = CapacityAcquisition.benchSourceOrder.map {
+                knownWindow(source: $0, used: 42, at: now)
+            }
+            return snapshot(now: now, windows: windows)
+        }
+
+        await resident.setEnabled(true)
+        try await waitUntil("silent launch acquire") { recorder.startCount == 1 }
+
+        fakeSleep.addBudget(35 * 60)
+        try await waitUntil("first deadline fire") { recorder.startCount == 2 }
+        XCTAssertEqual(fires.fires, [.deadline])
+        XCTAssertEqual(
+            recorder.starts[1].at, t0.addingTimeInterval(35 * 60),
+            "deadline = launch settle (t0+5m) + 30m"
+        )
+        XCTAssertEqual(activity.outstanding, 1, "activity still held across the next wait")
+
+        fakeSleep.addBudget(25 * 60)
+        try await waitUntil("second deadline fire") { recorder.startCount == 3 }
+        XCTAssertEqual(fires.fires, [.deadline, .deadline])
+        XCTAssertEqual(
+            recorder.starts[2].at, t0.addingTimeInterval(70 * 60),
+            "rearmed from settle (t0+40m) + 30m — rearm-from-fire would give t0+65m"
+        )
+        XCTAssertEqual(activity.begins.count, 3, "one activity per deadline wait")
+        XCTAssertEqual(activity.begins, Array(repeating: "Allnighter capacity deadline wait", count: 3))
+        XCTAssertEqual(activity.outstanding, 1)
+
+        await resident.setEnabled(false)
+    }
+
+    /// The App Nap activity is held for the whole wait and always ended —
+    /// including feature OFF mid-wait.
+    func testActivityHeldAcrossWaitAndReleasedOnFeatureOff() async throws {
+        let clock = FakeClock(t0)
+        let fakeSleep = FakeSleep(clock: clock)
+        let recorder = FetchRecorder()
+        let activity = ActivitySpy()
+        let fires = FireRecorder()
+        let persisted = PersistRecorder()
+        let resident = makeSchedulerResident(
+            clock: clock, fakeSleep: fakeSleep, activity: activity,
+            fires: fires, persisted: persisted,
+            fetch: instantFullBenchFetch(clock: clock, recorder: recorder)
+        )
+
+        await resident.setEnabled(true)
+        try await waitUntil("silent launch acquire") { recorder.startCount == 1 }
+        try await waitUntil("scheduler waiting with activity held") {
+            activity.begins.count == 1 && fakeSleep.blocked
+        }
+        XCTAssertEqual(activity.begins, ["Allnighter capacity deadline wait"])
+        XCTAssertEqual(activity.outstanding, 1, "lease held for the whole wait")
+
+        await resident.setEnabled(false)
+        try await waitUntil("activity ended on OFF") { activity.outstanding == 0 }
+        XCTAssertEqual(activity.endCount, activity.begins.count, "every begin is ended")
+
+        // OFF: even with plenty of time granted, nothing fires, nothing probes.
+        fakeSleep.addBudget(2 * 3600)
+        try await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertEqual(recorder.startCount, 1)
+        XCTAssertTrue(fires.fires.isEmpty)
+        XCTAssertEqual(persisted.writes, [false], "initially-ON resident persists only the OFF flip")
+    }
+}
+
+// MARK: - CapacityWakeCoalesce (CWB-S01b)
+
+final class CapacityWakeCoalesceTests: XCTestCase {
+    private let t0 = Date(timeIntervalSince1970: 1_753_833_600)
+
+    /// Rapid wake signals (NSWorkspace didWake + repeats) collapse into one
+    /// `.wake` refresh — never a burst.
+    func testRapidWakeSignalsCoalesceToOneRefresh() async throws {
+        let clock = FakeClock(t0)
+        let fakeSleep = FakeSleep(clock: clock)
+        let recorder = FetchRecorder()
+        let activity = ActivitySpy()
+        let fires = FireRecorder()
+        let persisted = PersistRecorder()
+        let resident = makeSchedulerResident(
+            clock: clock, fakeSleep: fakeSleep, activity: activity,
+            fires: fires, persisted: persisted,
+            fetch: instantFullBenchFetch(clock: clock, recorder: recorder)
+        )
+
+        await resident.setEnabled(true)
+        try await waitUntil("silent launch acquire") { recorder.startCount == 1 }
+        try await waitUntil("scheduler waiting") { fakeSleep.blocked }
+
+        await resident.notifyWake()
+        await resident.notifyWake()
+        await resident.notifyWake()
+
+        try await waitUntil("one wake refresh") { fires.fires.count == 1 }
+        XCTAssertEqual(fires.fires, [.wake])
+        XCTAssertEqual(recorder.startCount, 2, "three signals → exactly one acquire")
+
+        // No burst afterwards: the deadline rearmed from the wake settle.
+        try await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertEqual(fires.fires, [.wake])
+        XCTAssertEqual(recorder.startCount, 2)
+
+        await resident.setEnabled(false)
+    }
+
+    /// A large wall-clock jump past the deadline is classified as wake — one
+    /// refresh, no catch-up burst — and the next deadline is a normal one.
+    func testClockJumpClassifiedAsWakeWithNoCatchUpBurst() async throws {
+        let clock = FakeClock(t0)
+        let fakeSleep = FakeSleep(clock: clock)
+        let recorder = FetchRecorder()
+        let activity = ActivitySpy()
+        let fires = FireRecorder()
+        let persisted = PersistRecorder()
+        let resident = makeSchedulerResident(
+            clock: clock, fakeSleep: fakeSleep, activity: activity,
+            fires: fires, persisted: persisted,
+            fetch: instantFullBenchFetch(clock: clock, recorder: recorder)
+        )
+
+        await resident.setEnabled(true)
+        try await waitUntil("silent launch acquire") { recorder.startCount == 1 }
+
+        // Machine "sleeps" three hours: wall jumps, monotonic does not.
+        clock.advanceWall(by: 3 * 3600)
+        fakeSleep.addBudget(30 * 60)
+        try await waitUntil("wake fire after clock jump") { fires.fires.count == 1 }
+        XCTAssertEqual(fires.fires, [.wake], "wall jump past deadline = wake, not deadline")
+        XCTAssertEqual(recorder.startCount, 2, "exactly one refresh after resume")
+
+        // No catch-up burst: a small grant only feeds the next (normal) wait.
+        fakeSleep.addBudget(2 * 60)
+        try await Task.sleep(nanoseconds: 150_000_000)
+        XCTAssertEqual(fires.fires, [.wake])
+        XCTAssertEqual(recorder.startCount, 2)
+
+        // The deadline after a wake is an ordinary 30m deadline again.
+        fakeSleep.addBudget(28 * 60)
+        try await waitUntil("normal deadline after wake") { fires.fires.count == 2 }
+        XCTAssertEqual(fires.fires, [.wake, .deadline])
+        XCTAssertEqual(recorder.startCount, 3)
+
+        await resident.setEnabled(false)
+    }
+}
+
+// MARK: - CapacityFeatureOff (CWB-S01b)
+
+final class CapacityFeatureOffTests: XCTestCase {
+    private let t0 = Date(timeIntervalSince1970: 1_753_833_600)
+
+    /// OFF mid-acquire: scoped cancel of the in-flight generation (never a
+    /// global kill), then zero probes from every trigger in the vocabulary.
+    func testOFFScopedCancelsInFlightAndZeroesProbesFromEveryTrigger() async throws {
+        let clock = FakeClock(t0)
+        let recorder = FetchRecorder()
+        let kills = KillRecorder()
+        let persisted = PersistRecorder()
+        let fakePID: pid_t = 7_100_002
+
+        let resident = CapacityResidentService(
+            now: { clock.now() },
+            sleep: { interval in clock.advance(by: interval); await Task.yield() },
+            monotonicNow: { clock.monotonicNow() },
+            activities: .disabled,
+            makeScope: { CapacityProbeScope { pid in kills.record(pid) } },
+            acquireFloor: 0,
+            persistEnabled: { enabled in persisted.record(enabled) },
+            fetch: { source, scope in
+                recorder.recordStart(source: source, at: clock.now())
+                scope.track(fakePID)
+                // Block until the scoped terminate lands (or the task is cancelled).
+                while !kills.killed.contains(fakePID), !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 5_000_000)
+                }
+                let now = clock.now()
+                return snapshot(now: now, windows: [failedWindow(source: "grok", at: now)])
+            }
+        )
+
+        let refresh = Task { await resident.requestRefresh(reason: .userRefresh) }
+        try await waitUntil("acquire in flight") { recorder.startCount == 1 }
+
+        await resident.setEnabled(false)
+        XCTAssertTrue(kills.killed.contains(fakePID), "OFF must scoped-terminate the in-flight generation")
+        let isEnabled = await resident.isEnabled
+        XCTAssertFalse(isEnabled)
+        XCTAssertEqual(persisted.writes, [false])
+        let snapshotAfterOff = await resident.currentSnapshot()
+        XCTAssertNil(snapshotAfterOff, "OFF drops painted truth — no memo-as-live")
+
+        let cancelledResult = await refresh.value
+        XCTAssertTrue(cancelledResult.windows.isEmpty, "waiter on a killed generation gets empty truth, not a partial")
+
+        // Zero probes from every trigger in the vocabulary.
+        for reason in [
+            CapacityResidentService.RefreshReason.launch,
+            .deadline, .wake, .userRefresh,
+            .userRefreshSeat("grok"), .postRun(source: "codex"),
+        ] {
+            let result = await resident.requestRefresh(reason: reason)
+            XCTAssertTrue(result.windows.isEmpty, "OFF: \(reason) must return empty truth")
+        }
+        await resident.notifyWake()
+        XCTAssertEqual(recorder.startCount, 1, "OFF: zero probes from every trigger")
+    }
+
+    /// OFF drops the snapshot; re-ON wires the scheduler and fires the
+    /// immediate silent launch acquire.
+    func testOFFDropsSnapshotAndReEnableStartsScheduler() async throws {
+        let clock = FakeClock(t0)
+        let fakeSleep = FakeSleep(clock: clock)
+        let recorder = FetchRecorder()
+        let activity = ActivitySpy()
+        let fires = FireRecorder()
+        let persisted = PersistRecorder()
+        let resident = makeSchedulerResident(
+            clock: clock, fakeSleep: fakeSleep, activity: activity,
+            fires: fires, persisted: persisted,
+            fetch: instantFullBenchFetch(clock: clock, recorder: recorder)
+        )
+
+        _ = await resident.requestRefresh(reason: .userRefresh)
+        let settled = await resident.currentSnapshot()
+        XCTAssertNotNil(settled)
+
+        await resident.setEnabled(false)
+        let afterOff = await resident.currentSnapshot()
+        XCTAssertNil(afterOff, "OFF: snapshot cleared, no memo-as-live")
+
+        await resident.setEnabled(true)
+        try await waitUntil("re-ON silent launch acquire") { recorder.startCount == 2 }
+        XCTAssertNil(recorder.starts[1].source, "re-ON acquire is the full-bench silent launch")
+        XCTAssertEqual(persisted.writes, [false, true])
+        // Settle runs inside the generation task; poll the actor for repopulation.
+        var repopulated = false
+        for _ in 0..<100 where !repopulated {
+            repopulated = await resident.currentSnapshot() != nil
+            if !repopulated { try await Task.sleep(nanoseconds: 10_000_000) }
+        }
+        XCTAssertTrue(repopulated, "snapshot repopulated after re-ON silent launch")
+        await resident.setEnabled(false)
+    }
+
+    /// Startup when ON: `setEnabled(true)` on an already-enabled resident
+    /// wires the scheduler if it was never started, and fires one silent
+    /// full-bench `.launch` — no persisted write for an unchanged flag.
+    func testStartupWhenONWiresSchedulerAndFiresSilentLaunch() async throws {
+        let clock = FakeClock(t0)
+        let fakeSleep = FakeSleep(clock: clock)
+        let recorder = FetchRecorder()
+        let activity = ActivitySpy()
+        let fires = FireRecorder()
+        let persisted = PersistRecorder()
+        let resident = makeSchedulerResident(
+            clock: clock, fakeSleep: fakeSleep, activity: activity,
+            fires: fires, persisted: persisted,
+            fetch: instantFullBenchFetch(clock: clock, recorder: recorder)
+        )
+
+        XCTAssertEqual(recorder.startCount, 0, "nothing fires before the feature is wired")
+        await resident.setEnabled(true)
+        try await waitUntil("immediate silent launch") { recorder.startCount == 1 }
+        XCTAssertNil(recorder.starts[0].source, "startup acquire is the full-bench silent launch")
+        XCTAssertTrue(persisted.writes.isEmpty, "unchanged flag is not re-persisted")
+
+        await resident.setEnabled(false)
+    }
+
+    /// Tiny settings file: missing → ON default, round-trip, corrupt backup.
+    func testSettingsPersistenceRoundTrip() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("capacity-feature-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let fileURL = dir.appendingPathComponent("capacity_feature.json")
+        let persistence = CapacityFeatureSettingsPersistence(fileURL: fileURL)
+
+        XCTAssertTrue(persistence.loadEnabled(), "missing file → ON (shipped default)")
+        persistence.saveEnabled(false)
+        XCTAssertFalse(persistence.loadEnabled())
+        persistence.saveEnabled(true)
+        XCTAssertTrue(persistence.loadEnabled())
+
+        try Data("not json".utf8).write(to: fileURL)
+        XCTAssertTrue(persistence.loadEnabled(), "corrupt file falls back to ON")
+        XCTAssertTrue(
+            FileManager.default.fileExists(atPath: fileURL.appendingPathExtension("corrupt").path),
+            "corrupt file is backed up, never silently discarded"
+        )
     }
 }
