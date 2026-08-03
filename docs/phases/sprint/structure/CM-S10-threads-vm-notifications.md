@@ -1,6 +1,6 @@
 # CM-S10 — Extract ThreadsViewModel notifications
 
-Status: ready
+Status: done (`95a68cc7`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 

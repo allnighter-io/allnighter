@@ -49,7 +49,7 @@ PM delegates via `alln run --model model_gemini --commit-message "..." --proof "
 | CM-S07 | [ThreadsViewModel scout](structure/CM-S07-threads-vm-scout.md) | **done** (`5bed561e`, Gemini) |
 | CM-S08 | [ThreadBoardRow extract](structure/CM-S08-thread-board-row.md) | **done** (`3bd188a7`, Gemini) |
 | CM-S09 | [composer attachments](structure/CM-S09-composer-attachments.md) | **done** (`d4e971bb`, Gemini) |
-| CM-S10 | [ThreadsViewModel notifications](structure/CM-S10-threads-vm-notifications.md) | ready |
+| CM-S10 | [ThreadsViewModel notifications](structure/CM-S10-threads-vm-notifications.md) | **done** (`95a68cc7`, Gemini) |
 | CM-S11 | [ThreadsViewModel fixtures](structure/CM-S11-threads-vm-fixtures.md) | ready |
 | CM-S12 | [ThreadsViewModel rail](structure/CM-S12-threads-vm-rail.md) | ready |
 | CM-S13 | [ThreadsViewModel attachments](structure/CM-S13-threads-vm-attachments.md) | ready |
