@@ -26,7 +26,11 @@ final class CapacityStripModel {
     private(set) var isFixtureSeeded = false
 
     private var refreshTasks: [String: Task<Void, Never>] = [:]
+    private var refreshScopes: [String: CapacityProbeScope] = [:]
+    private var refreshSourceGenerations: [String: Int] = [:]
     private var refreshAllTask: Task<Void, Never>?
+    private var refreshAllScope: CapacityProbeScope?
+    private var refreshAllGeneration = 0
     private var loadTask: Task<Void, Never>?
 
     // MARK: - Derived
@@ -93,26 +97,47 @@ final class CapacityStripModel {
     func refreshAll(
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
-        probeExecutor: (any CapacityProbeExecuting)? = nil
+        probeExecutor: (any CapacityProbeExecuting)? = nil,
+        probeScope: CapacityProbeScope? = nil
     ) {
         guard !isFixtureSeeded else { return }
+        // Full refresh supersedes every in-flight generation. Terminate scopes
+        // before cancelling so the cancellation path always reaps PTYs.
+        refreshAllScope?.terminate()
+        refreshAllScope = nil
         refreshAllTask?.cancel()
+        for scope in refreshScopes.values { scope.terminate() }
+        refreshScopes.removeAll()
+        for task in refreshTasks.values { task.cancel() }
+        refreshTasks.removeAll()
+        refreshingSources.removeAll()
+        refreshSourceGenerations.removeAll()
+
+        refreshAllGeneration += 1
+        let generation = refreshAllGeneration
         isRefreshingAll = true
-        refreshAllTask = Task { @MainActor in
+        let scope = probeScope ?? CapacityProbeScope()
+        refreshAllScope = scope
+        refreshAllTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             defer {
-                isRefreshingAll = false
-                refreshAllTask = nil
+                if generation == self.refreshAllGeneration {
+                    self.isRefreshingAll = false
+                    self.refreshAllTask = nil
+                    self.refreshAllScope = nil
+                }
             }
             let bench = await Self.acquireLive(
                 homeRoot: homeRoot,
                 historyStore: historyStore,
                 probeExecutor: probeExecutor,
-                refreshSource: nil
+                refreshSource: nil,
+                probeScope: scope
             )
             guard !Task.isCancelled else { return }
-            now = bench.now
-            windows = bench.windows
-            needsLiveRefresh = false
+            self.now = bench.now
+            self.windows = bench.windows
+            self.needsLiveRefresh = false
         }
     }
 
@@ -121,30 +146,44 @@ final class CapacityStripModel {
         _ source: String,
         homeRoot: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
-        probeExecutor: (any CapacityProbeExecuting)? = nil
+        probeExecutor: (any CapacityProbeExecuting)? = nil,
+        probeScope: CapacityProbeScope? = nil
     ) {
         guard !isFixtureSeeded else { return }
         if let message = CapacityAcquisition.validateRefreshSourceId(source) {
             _ = message
             return
         }
+        // Supersede any in-flight targeted refresh for this source.
+        refreshScopes[source]?.terminate()
+        refreshScopes.removeValue(forKey: source)
         refreshTasks[source]?.cancel()
         refreshingSources.insert(source)
-        refreshTasks[source] = Task { @MainActor in
+        let nextGeneration = (refreshSourceGenerations[source] ?? 0) + 1
+        refreshSourceGenerations[source] = nextGeneration
+        let generation = nextGeneration
+        let scope = probeScope ?? CapacityProbeScope()
+        refreshScopes[source] = scope
+        refreshTasks[source] = Task { @MainActor [weak self] in
+            guard let self else { return }
             defer {
-                refreshingSources.remove(source)
-                refreshTasks[source] = nil
+                if generation == self.refreshSourceGenerations[source, default: 0] {
+                    self.refreshingSources.remove(source)
+                    self.refreshTasks[source] = nil
+                    self.refreshScopes.removeValue(forKey: source)
+                }
             }
             let bench = await Self.acquireLive(
                 homeRoot: homeRoot,
                 historyStore: historyStore,
                 probeExecutor: probeExecutor,
-                refreshSource: source
+                refreshSource: source,
+                probeScope: scope
             )
             guard !Task.isCancelled else { return }
-            now = bench.now
-            windows = Self.merge(prior: windows, acquired: bench.windows, refreshedSource: source)
-            needsLiveRefresh = false
+            self.now = bench.now
+            self.windows = Self.merge(prior: self.windows, acquired: bench.windows, refreshedSource: source)
+            self.needsLiveRefresh = false
         }
     }
 
@@ -153,7 +192,8 @@ final class CapacityStripModel {
         homeRoot: URL,
         historyStore: CapacityHistoryStore,
         probeExecutor: (any CapacityProbeExecuting)?,
-        refreshSource: String?
+        refreshSource: String?,
+        probeScope: CapacityProbeScope?
     ) async -> CapacityFetch.Snapshot {
         await Task.detached(priority: .userInitiated) {
             CapacityFetch.liveSnapshot(
@@ -161,7 +201,8 @@ final class CapacityStripModel {
                 refreshSource: refreshSource,
                 historyStore: historyStore,
                 probeExecutor: probeExecutor,
-                updateMemo: refreshSource == nil
+                updateMemo: refreshSource == nil,
+                probeScope: probeScope
             )
         }.value
     }

@@ -4,7 +4,7 @@ Status: **OPEN — founder priority (2026-08-03). Trust first; then instant.**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
 (`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
 Created: 2026-08-02
-Updated: 2026-08-03 (Spec Review Min Ready — scheduler contract locked)
+Updated: 2026-08-03 (CWB-S00a scoped kill shipped — quit hook + kill -9 dogfood remain)
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 
 **Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
@@ -212,14 +212,14 @@ RPC to reach CLI-only settlements.
 | --- | --- |
 | Six-seat PTY re-wire | Disk acquire deleted |
 | `CapacityFetch` | Live-only; **memo retired when resident lands** |
-| Mac strip placeholders / Refresh | Needs S00a cancel harden |
+| Mac strip placeholders / Refresh | Scoped cancel via `CapacityProbeScope` |
 | Hero binding | Tightest pool |
+| **CWB-S00a** | Acquisition-scoped probe registry + cancel; quit PGID ledger; scoped-kill tests (`b464ca491e`) |
 
 ### Remaining
 
 | Slice | Scope |
 | --- | --- |
-| **CWB-S00a** | Acquisition-scoped probe registry + cancel; remove cross-kill via global terminate; quit PGID ledger |
 | **CWB-S00b** | CLI → live/`CapacityFetch`; omit menu capacity; delete `--cached`; six-row `--source` (coordinate `alln` rebuild) |
 
 Codex/Grok parsers shipped (`ac65bddf`) — do not re-spike.
@@ -228,9 +228,9 @@ Codex/Grok parsers shipped (`ac65bddf`) — do not re-spike.
 
 ## Gaps (owned by S00a / S01)
 
-1. Global `terminateAllActiveProbes` → **S00a** scoped registry.
-2. Detached cancel lie → **S00a**.
-3. Quit reap proof → **S00a** + trust gate dogfood.
+1. Global `terminateAllActiveProbes` → **S00a DONE** scoped registry.
+2. Detached cancel lie → **S00a DONE** (strip cancel now scoped).
+3. Quit reap proof → graceful quit hook in S00a; **kill -9 dogfood remains** at trust gate (socket unlink is S02).
 4. Dual freshness (memo vs paint) → retire memo at resident.
 5. Cold latency honesty (budgets, not `~5s`).
 6. Probe dump privacy.

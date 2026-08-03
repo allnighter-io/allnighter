@@ -82,7 +82,8 @@ public enum CapacityFetch {
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
         probeExecutor: (any CapacityProbeExecuting)? = nil,
         probeTimeout: TimeInterval = CapacityProbe.defaultTimeout,
-        updateMemo: Bool = true
+        updateMemo: Bool = true,
+        probeScope: CapacityProbeScope? = nil
     ) -> Snapshot {
         let windows = CapacityAcquisition.windows(
             homeRoot: homeRoot,
@@ -90,7 +91,8 @@ public enum CapacityFetch {
             refresh: true,
             refreshSource: refreshSource,
             probeExecutor: probeExecutor,
-            probeTimeout: probeTimeout
+            probeTimeout: probeTimeout,
+            probeScope: probeScope
         )
         try? historyStore.record(windows, now: now)
         if updateMemo, refreshSource == nil {

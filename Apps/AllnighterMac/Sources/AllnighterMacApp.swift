@@ -12,6 +12,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        guard !Self.isTesting else { return }
+        // CWB-S00a: reap any leftover capacity probe PGIDs on graceful quit.
+        // Socket unlink is S02.
+        CapacityProbe.terminateAllForProcessShutdown()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isTesting else { return }   // stay accessory under XCTest
         // The handoff host is a process-level service, not window work — it must
