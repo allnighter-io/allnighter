@@ -11,7 +11,20 @@ Files touched: Apps/AllnighterMac/Sources/{ThreadView,RelayLaunchView,RelayGUIRu
 Behavior guarantee: Product noun is Loop everywhere user/agent-facing; internal relay id/json field names unchanged
 Proof: scripts/swift-test.sh --filter 'RetiredVocabulary|LoopThreadProjection|StalledWork|LoopCoordinator' (33+ tests green on filtered suites)
 Before/after signal: 0 remaining "PM Relay" in active Swift sources except LoopThreadProjector PM_Relay.md stem guard and archive/historical docs
-Next lens: Structure (index 0) — RoutingComposer.swift split plan queued in MAINTENANCE-QUEUE
+Next lens: Structure (index 0) — CM-S03 target popover extraction per `plans/RoutingComposer-split.md`
+```
+
+```text
+## 2026-08-03 - Structure batch CM-S01 (RoutingComposer + ThreadView)
+
+Scope: Extract shared composer types, attachment tile, and loop escalation row
+Class: Structure lens (index 0) — behavior-preserving file splits
+Lens: Structure (index 0)
+Files touched: NEW RoutingComposerTypes.swift, ComposerAttachmentTile.swift, RelayEscalationRow.swift; trimmed RoutingComposer.swift (1648→1448 LOC), ThreadView.swift (1326→1238 LOC); plans/RoutingComposer-split.md
+Behavior guarantee: No UI or send-path behavior change — move-only extractions
+Proof: xcodebuild build -scheme AllnighterMac (BUILD SUCCEEDED); 3 pre-existing CapacityStripModelTests failures unrelated
+Before/after signal: RoutingComposer −200 LOC; ThreadView −88 LOC; 3 new single-job files
+Next lens: Structure continues — CM-S03 target popover per split plan
 ```
 
 ```text
