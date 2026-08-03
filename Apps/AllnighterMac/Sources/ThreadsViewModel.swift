@@ -889,6 +889,15 @@ final class ThreadsViewModel {
                 if turnKind == .teamRun, run.status.isTerminal {
                     ArtifactFloorOpener.regenerateArtifact(for: run, models: models)
                 }
+                // CWB-S03: in-process post-run capacity refresh for the worker's source.
+                // The boolean gate lives in CapacityResidentService; this caller satisfies
+                // `settlementObservedInDockAppProcess` by being the Dock app's run observer.
+                if let modelId = run.answers.first?.modelId,
+                   let source = models.first(where: { $0.id == modelId })?.driverId
+                       ?? ModelCatalog.get(modelId)?.driverId,
+                   CapacityAcquisition.validRefreshSourceIds.contains(source) {
+                    await CapacityResidentService.shared.postRunSettled(source: source)
+                }
             }
             reload()
         }

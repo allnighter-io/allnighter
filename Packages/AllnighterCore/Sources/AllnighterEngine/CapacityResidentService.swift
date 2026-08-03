@@ -479,6 +479,30 @@ public actor CapacityResidentService {
         }
     }
 
+    // MARK: S03 — in-process post-run refresh gate
+
+    /// S03: in-process post-run refresh gate.
+    ///
+    /// The Dock app calls this when it observes a run settle in-process. The
+    /// boolean is enforced here:
+    ///
+    ///     postRunRefreshAllowed = featureON
+    ///         && settlementObservedInDockAppProcess   (caller contract)
+    ///         && !acquireInFlight
+    ///
+    /// Cuts otherwise — the 30-minute schedule / launch / wake cover it. This
+    /// method deliberately does NOT add a socket write RPC for CLI-only
+    /// settlements; keeping the socket read-only is the product lock.
+    ///
+    /// - Returns: `true` if a `.postRun(source:)` refresh was started, `false`
+    ///   if the gate cut it.
+    @discardableResult
+    public func postRunSettled(source: String) async -> Bool {
+        guard enabled, inFlight == nil else { return false }
+        _ = await requestRefresh(reason: .postRun(source: source))
+        return true
+    }
+
     /// Settle a completed generation. Runs inside the generation task before it
     /// completes; a superseded generation settles nothing (killed partials are
     /// never painted). Every settle (success or fail, any reason) rearms the

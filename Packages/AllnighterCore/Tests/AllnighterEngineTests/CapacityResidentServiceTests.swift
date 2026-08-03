@@ -908,3 +908,112 @@ final class CapacityFeatureOffTests: XCTestCase {
         )
     }
 }
+
+
+// MARK: - CapacityPostRunGate (CWB-S03)
+
+final class CapacityPostRunGateTests: XCTestCase {
+    private let t0 = Date(timeIntervalSince1970: 1_753_833_600)
+
+    private func makeResident(
+        clock: FakeClock,
+        recorder: FetchRecorder,
+        enabled: Bool = true
+    ) -> CapacityResidentService {
+        CapacityResidentService(
+            now: { clock.now() },
+            sleep: { interval in clock.advance(by: interval); await Task.yield() },
+            activities: .disabled,
+            acquireFloor: 0,
+            initiallyEnabled: enabled,
+            fetch: { source, _ in
+                recorder.recordStart(source: source, at: clock.now())
+                let now = clock.now()
+                let windows = CapacityAcquisition.benchSourceOrder.map {
+                    knownWindow(source: $0, used: 42, at: now)
+                }
+                return snapshot(now: now, windows: windows)
+            }
+        )
+    }
+
+    /// Allowed path: feature ON, no acquire in flight, settlement observed in
+    /// the Dock app process (caller contract).
+    func testPostRunAllowedWhenFeatureOnAndIdle() async {
+        let clock = FakeClock(t0)
+        let recorder = FetchRecorder()
+        let resident = makeResident(clock: clock, recorder: recorder, enabled: true)
+
+        let triggered = await resident.postRunSettled(source: "codex")
+
+        XCTAssertTrue(triggered, "post-run refresh must start when ON and idle")
+        XCTAssertEqual(recorder.startCount, 1)
+        XCTAssertEqual(recorder.starts.first?.source, "codex")
+    }
+
+    /// Cut reason: feature OFF.
+    func testPostRunCutWhenFeatureOff() async {
+        let clock = FakeClock(t0)
+        let recorder = FetchRecorder()
+        let resident = makeResident(clock: clock, recorder: recorder, enabled: false)
+
+        let triggered = await resident.postRunSettled(source: "codex")
+
+        XCTAssertFalse(triggered, "post-run refresh must cut when feature OFF")
+        XCTAssertEqual(recorder.startCount, 0, "OFF: zero probes from post-run")
+    }
+
+    /// Cut reason: an acquire is already in flight (no queue storm).
+    func testPostRunCutWhenAcquireInFlight() async throws {
+        let clock = FakeClock(t0)
+        let recorder = FetchRecorder()
+        let resident = CapacityResidentService(
+            now: { clock.now() },
+            sleep: { interval in clock.advance(by: interval); await Task.yield() },
+            activities: .disabled,
+            acquireFloor: 0,
+            initiallyEnabled: true,
+            fetch: { source, _ in
+                recorder.recordStart(source: source, at: clock.now())
+                let now = clock.now()
+                if source == nil {
+                    // Full bench blocks until the test opens the gate.
+                    await recorder.waitForGate()
+                }
+                let windows = CapacityAcquisition.benchSourceOrder.map {
+                    knownWindow(source: $0, used: 42, at: now)
+                }
+                return snapshot(now: now, windows: windows)
+            }
+        )
+
+        let inFlight = Task { await resident.requestRefresh(reason: .userRefresh) }
+        try await waitUntil("full acquire in flight") { recorder.startCount == 1 }
+
+        let triggered = await resident.postRunSettled(source: "codex")
+        XCTAssertFalse(triggered, "post-run refresh must cut when an acquire is already in flight")
+
+        recorder.openGate()
+        _ = await inFlight.value
+        XCTAssertEqual(recorder.startCount, 1, "cut post-run must not queue a second generation")
+    }
+
+    /// Cut reason: settlement observed outside the Dock app process.
+    ///
+    /// This is enforced by caller discipline, not by a runtime flag:
+    /// `postRunSettled(source:)` lives on `CapacityResidentService`, which only
+    /// exists in the Dock app, and there is no socket write RPC for CLI-only
+    /// settlements. The Mac app's `ThreadsViewModel.runViaRunService` satisfies
+    /// the caller contract by calling this only after its in-process
+    /// `RunService.run()` observation settles.
+    func testPostRunOutsideDockProcessIsCallerContract() async {
+        let clock = FakeClock(t0)
+        let recorder = FetchRecorder()
+        let resident = makeResident(clock: clock, recorder: recorder, enabled: true)
+
+        let triggered = await resident.postRunSettled(source: "codex")
+
+        XCTAssertTrue(triggered, "in-process caller satisfies the Dock-process contract")
+        XCTAssertEqual(recorder.startCount, 1)
+    }
+}

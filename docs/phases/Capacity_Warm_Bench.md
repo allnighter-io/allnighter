@@ -1,6 +1,6 @@
 # Capacity Warm Bench
 
-Status: **OPEN — S02 instant path shipped 2026-08-03. S03 (post-run) + Resident trust gate (dogfood) remain.**
+Status: **OPEN — S03 in-process post-run refresh gate shipped 2026-08-03. Resident trust gate (dogfood) only remains.**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
 (`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
 Created: 2026-08-02
@@ -9,7 +9,10 @@ displayMemo retired — resident snapshot is the one launch truth. CWB-S01b
 shipped: one rearmed monotonic deadline through `requestRefresh`, wake
 coalesce, feature ON/OFF with tiny persisted setting, App Nap activity lease.
 CWB-S02 shipped: read-only `capacity.sock` fast path — resident publisher →
-socket server, CLI fast→cold fallback, OFF answers disabled, quit unlinks)
+socket server, CLI fast→cold fallback, OFF answers disabled, quit unlinks.
+CWB-S03 shipped: in-process `postRunSettled(source:)` boolean gate — Dock app
+`RunService.run()` settlement observer only; no socket write RPC for CLI-only
+settlements; `CapacityPostRunGate` tests cover allowed vs each cut reason).
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 
 **Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
@@ -306,7 +309,7 @@ Dock Allnighter.app
 | ~~**CWB-S01a**~~ ✅ Done 2026-08-03 | Resident actor + single-flight + explicit Refresh + launch paint (memo retired; no timer/socket) | 3–4d | `CapacitySingleFlight`, paint gate tests |
 | ~~**CWB-S01b**~~ ✅ Done 2026-08-03 | Deadline timer + wake + ON/OFF + App Nap activity | 2–3d | `CapacityFeatureOff`, `CapacityWakeCoalesce` |
 | ~~**CWB-S02**~~ ✅ Done 2026-08-03 | Socket + CLI fast/cold (**after** S00b) | 2–3d | Spy 100× p95 &lt;250 ms, zero PTYs |
-| **CWB-S03** | In-process post-run only | 0.5–1d | Boolean gate tests |
+| ~~**CWB-S03**~~ ✅ Done 2026-08-03 | In-process post-run only | 0.5–1d | Boolean gate tests (`CapacityPostRunGate`) |
 
 ### CWB-S02 as shipped (code SSOT: `CapacitySocket.swift`)
 
@@ -369,6 +372,14 @@ scripts/swift-test.sh --filter CapacitySocket
 # spy: 100 reads → zero acquires (fetch spy == 1, the explicit settle);
 # p95 < 250 ms (real socket); hang / bad version / miss → nil → cold once;
 # OFF answers disabled (never stale); stop() unlinks
+```
+
+### S03
+
+```text
+scripts/swift-test.sh --filter CapacityPostRunGate
+# allowed (ON + idle); cut (OFF); cut (acquire in flight);
+# cut (outside Dock process) documented as caller contract — no socket write RPC
 ```
 
 ### Resident trust gate (dogfood / lifecycle — not fakeable unit rows)
