@@ -1,6 +1,20 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S06 (RoutingComposer effort popover)
+
+Scope: Extract effort chip/panel/key monitor to RoutingComposerEffortPopover.swift
+Class: Structure lens (index 0)
+Lens: Structure (index 0)
+Delegation: Gemini 3.6 Flash via `alln run --model model_gemini` (PM did not edit Swift)
+Files touched: NEW RoutingComposerEffortPopover.swift; RoutingComposer.swift 470→390 LOC
+Behavior guarantee: Move-only extraction; effort popover behavior unchanged
+Proof: xcodebuild build -scheme AllnighterMac (BUILD SUCCEEDED via alln proof)
+Before/after signal: RoutingComposer split plan CM-S01–S06 complete; 7 focused files
+Next lens: ThreadsViewModel Structure scout or ThreadView ThreadBoardRow extract
+```
+
+```text
 ## 2026-08-03 - Structure CM-S03–S05 (RoutingComposer complete)
 
 Scope: Decompose RoutingComposer monolith into 6 single-job files

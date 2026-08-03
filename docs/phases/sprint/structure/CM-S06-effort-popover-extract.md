@@ -1,6 +1,6 @@
 # CM-S06 — Extract effort popover from RoutingComposer
 
-Status: ready
+Status: done (`1679c5c2`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 
