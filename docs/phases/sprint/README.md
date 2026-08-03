@@ -48,8 +48,9 @@ PM delegates via `alln run --model model_gemini`. Stop below 10% vendor context.
 | HY-S03 | [help loop step truth](hygiene/HY-S03-help-loop-step-truth.md) | **done** (`14200a6`) |
 | HY-S04 | [contract handoff summary](hygiene/HY-S04-contract-handoff-summary.md) | **done** (`a1c7685`) |
 | HY-S05 | [loop comment scrub](hygiene/HY-S05-loop-comment-scrub.md) | **done** (`5c11c0f`) |
-| HY-S06 | [loop test comment scrub](hygiene/HY-S06-loop-test-comment-scrub.md) | **in_progress** |
-| HY-S07 | [Folder_Native_Memory vocab](hygiene/HY-S07-folder-memory-vocab.md) | ready |
+| HY-S06 | [loop test comment scrub](hygiene/HY-S06-loop-test-comment-scrub.md) | **done** (`72ba1f5`) |
+| HY-S07 | [Folder_Native_Memory vocab](hygiene/HY-S07-folder-memory-vocab.md) | **done** (`d647f7b`) |
+| HY-S08 | LoopDispatch/Coordinator comment scrub (queued) | queued |
 
 All other work orders are archived under
 [`docs/archive/phases/sprint/`](../../archive/phases/sprint/).
