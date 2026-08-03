@@ -38,7 +38,19 @@ Each sprint file must fit on **one to two screens** and include:
 
 ## Active sprints
 
-**None.** All known work orders are archived under
+### Hygiene queue (doc truth + help fidelity — one slice per commit)
+
+PM assigns **one** row at a time. Report Gemini context % after each slice; stop
+delegating below 10%.
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| HY-S01 | [phases README vocab](hygiene/HY-S01-phases-readme-vocab.md) | **ready** ← start here |
+| HY-S03 | [help loop step truth](hygiene/HY-S03-help-loop-step-truth.md) | ready (after S01) |
+| HY-S04 | contract retired handoff summary (not yet written) | queued |
+| HY-S05 | loop comment scrub Core (not yet written) | queued |
+
+All other work orders are archived under
 [`docs/archive/phases/sprint/`](../../archive/phases/sprint/).
 
 ### Founder-blocked (archived, not active engineering)
