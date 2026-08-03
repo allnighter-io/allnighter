@@ -1,6 +1,19 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S09 (RoutingComposer attachments)
+
+Scope: Extract attachment chips/capture/pick/open/remove to RoutingComposerAttachments.swift
+Class: Structure lens (index 0)
+Delegation: Gemini 3.6 Flash via `alln run --model model_gemini`
+Files touched: NEW RoutingComposerAttachments.swift (90 LOC); RoutingComposer.swift 390→308 LOC
+Behavior guarantee: Move-only extraction; composer attachment behavior unchanged
+Proof: xcodebuild build -scheme AllnighterMac (BUILD SUCCEEDED via alln proof)
+Before/after signal: RoutingComposer split plan CM-S01–S09 complete; 8 extension files
+Next lens: CM-S10 ThreadsViewModel+Notifications per ThreadsViewModel-split.md
+```
+
+```text
 ## 2026-08-03 - Structure CM-S08 (ThreadBoardRow extract)
 
 Scope: Extract team board row from ThreadView to ThreadBoardRow.swift
