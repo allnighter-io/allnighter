@@ -2,255 +2,190 @@
 
 Status: **OPEN — founder priority (2026-08-03). Trust first; then instant.**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
-(`CapacityResidentService` TBD) + AllnighterCLI (`alln capacity`)
+(`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
 Created: 2026-08-02
-Updated: 2026-08-03 (Doc Review: GPT-5.6 Sol / `code_doc_review` —
-`13169420-BDF9-4E23-B48D-40DC3A25C42D`)
+Updated: 2026-08-03 (final lock: Dock-app schedule + effort vs warm PTY)
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
-(`refresh: false` default, disk-as-primary, cold PTY per request).
 
-**Cross-doc:** Plan-time menu capacity injection stays **OFF** until the
-**Resident trust gate** below is green (suspends QABC-S00d). Runtime
-park/substitute from [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md)
-**unchanged**.
+**Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
+(suspends QABC-S00d). Runtime park/substitute from
+[`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) **unchanged**.
 
 Phases are ephemeral. At closeout: promote product law into help / teaching /
 `Product_Vocabulary.md`; code remains SSOT; archive this packet.
 
 ---
 
-## Doc Review — GPT-5.6 Sol (2026-08-03)
+## Final product lock (2026-08-03)
 
-Team: `code_doc_review` · seat `model_gpt_sol` · run
-`13169420-BDF9-4E23-B48D-40DC3A25C42D`
-
-**Lead call: Partial** — honesty direction and one-probe-per-CLI stand; the
-appendix “six warm PTYs” resident design is **not** the first build. Simpler
-rival locked below.
-
-### Locked recommendations (accepted)
-
-| Recommendation | Why |
+| Decision | Lock |
 | --- | --- |
-| **Scheduled one-shot probes**, not persistent warm PTYs, for first resident | Reuses proven `CapacityProbe` spawn→parse→kill; avoids unproven session resync / child-death recovery |
-| **`CapacityResidentService` actor** in Mac app | Sole owner of schedule, single-flight acquire, per-seat state, socket |
-| **Keep `CapacityFetch`** as one-shot Engine owner | Resident schedules and caches; Engine still acquires |
-| **No resident cache file** | File outlives app, races, becomes a second truth owner |
-| **Socket = cross-process read only** | 250 ms deadline; miss → CLI cold path / menu omit |
-| **Per-seat freshness** (not snapshot-wide) | Latest attempt authoritative; failed refresh paints unknown |
-| **Hard paint gate ~10 min**; refresh ~5 min + wake + after capacity-consuming runs | 30 min process memo is too long for trust |
-| **Menu bar + login default on** after trust gate | Preserve founder ruling; explainer + opt-out; do **not** ship defaults early |
-| **Collapse S01 warm + S02 resident** | Background acquire needs a resident owner; no orphan warm-pool slice |
-| **Plan-time still blocked** until Resident trust gate | Stale routing poisons seating |
+| **Host** | **Main Dock app only** — capacity is a reason to keep Allnighter open (share of mind). Same process Codex CLI already needs. |
+| **Menu bar residency** | **Non-goal for v1** — deferred; removes MenuBarExtra dual-lifecycle |
+| **Instant how** | In-memory snapshot + local socket while app is open — **not** live probe in 1s |
+| **Background acquire** | **Silent schedule** of existing one-shot six-seat PTY (`CapacityFetch`) |
+| **Default interval** | **30 minutes** (settings-tunable) |
+| **Paint / honesty** | Always show age; hard-expire painted % at **~15 min** (schedule may be lazier than paint) |
+| **Post-run** | Refresh **that CLI** when an Allnighter run on it settles — **if easy**; else skip (schedule covers) |
+| **Settings** | Capacity feature ON/OFF + interval; optional start-at-login later |
+| **App quit** | Socket gone → CLI cold path (honest, slow). Not a big ask if users want instant. |
+| **Warm / persistent PTYs** | **Rejected for v1** — later only if dogfood proves schedule too heavy/slow |
 
-### Explicit rejects (accepted)
-
-- Persistent six-PTY sessions in the **first** resident release
-- Disk / history fallback for painted %
-- Cross-launch resident cache file
-- `alln serve` or a second daemon as capacity owner
-- Socket retry loops (one bounded attempt, then cold / omit)
-- Snapshot-wide “ready” boolean
-- Plan-time injection before trust gate
-- Calling “instant” proven by `time alln capacity` alone (fast wrong = still fail)
-- Silently flipping start-at-login to opt-in before trust gate (default-on stands)
-
-### Founder / prior rulings still in force
-
-| Decision | Ruling |
-| --- | --- |
-| All six seats | **PTY only** — live probe or unknown |
-| Codex/Grok disk | **Deleted** from capacity display acquire |
-| Live or absent | Successful live PTY sample, or unknown — never stale % |
-| Dumb routing (until trust gate) | `alln menu` / bootstrap **omit** `capacity` |
-| Runtime capacity | **Unchanged** — `CapacityObservation` on vendor failure |
-| Nothing on main thread | Beach ball = always a bug |
+**One-liner:** Dock app open → silent 30m one-shot probes + optional post-run seat
+refresh → socket serves strip/CLI in &lt;250 ms. App closed → cold live or unknown.
 
 ---
 
-## Verdict
+## Effort: warm PTY vs schedule (dev-day estimates)
 
-**S00 honesty:** Core/Engine/Mac largely done; CLI cutover still pending (do not
-rebuild installed `alln` until coordination clears).
+Estimates are calendar **focused eng days** after S00 CLI honesty is green.
+Single engineer, includes tests named in trust gate — not wall-clock with
+context-switch tax.
 
-**Resident / instant:** Packet was not ready — appendix assumed persistent warm
-PTYs without proving today’s disposable probe can host them. **First resident
-architecture is locked:**
+| Work | **Warm six-PTY + menu bar** (old plan) | **Dock + scheduled one-shot** (now) |
+| --- | ---: | ---: |
+| Persistent session pool (resync, death, idle teardown, RAM) | 6–9 | **0** (deferred) |
+| Menu bar residency / dual process story | 2–4 | **0** |
+| Resident service + single-flight + strip wire | 3–4 | 3–4 |
+| Silent schedule + wake + settings interval | 1–2 | 1–2 |
+| Post-run seat refresh (if easy) | 1 | 0.5–1 |
+| `capacity.sock` + CLI fallback | 2–3 | 2–3 |
+| Login / first-launch explainer | 1–2 | 0–1 (optional; Dock already open) |
+| Cancel/reap/PGID + trust proofs / soak | 4–6 | 3–4 (fewer failure modes) |
+| **Subtotal after S00** | **~19–31** | **~10–15** |
+| S00 CLI cutover remaining (either path) | 2–3 | 2–3 |
+| **Total to “instant while app open”** | **~21–34** | **~12–18** |
 
-> Allnighter.app periodically runs the existing six parallel **one-shot** PTY
-> probes, owns the in-memory snapshot, and serves it over a local socket.
-> Instant = fast delivery of a **recent live** observation — not a fake cache.
+**Roughly half the post-honesty work** — and far less memory at idle (no six hung
+CLIs). Warm PTY only earns its days if measured refresh cost after schedule ships
+is still unacceptable.
 
-Persistent warm sessions remain a **later optimization** only if measured
-refresh cost makes scheduled one-shots unacceptable.
+---
+
+## Doc Review — GPT-5.6 Sol (2026-08-03)
+
+Team: `code_doc_review` · seat `model_gpt_sol` ·
+`13169420-BDF9-4E23-B48D-40DC3A25C42D` · **Partial**
+
+Accepted and still in force: scheduled one-shot over persistent warm PTYs;
+`CapacityResidentService` actor; no cache file; socket read-only; per-seat
+latest-attempt; plan-time blocked until trust gate; no `alln serve` as owner.
+
+**Superseded by founder lock same day:** menu-bar default-on residency → **Dock
+app only**; ~5 min schedule → **30 min silent default** with separate paint gate.
 
 ---
 
 ## Product law
 
-1. **Live or absent** — % only from a successful live PTY observation that still
-   passes the paint gate.
-2. **PTY only, all six seats** — no disk path for capacity display.
+1. **Live or absent** — % only from successful live PTY still inside the paint gate.
+2. **PTY only, all six** — no disk for capacity display.
 3. **Nothing on the main thread.**
-4. **One output contract** — `[CapacityWindow]` → `CapacityBenchProjection` →
-   `CapacityStripRenderer`.
-5. **One cold acquire owner** — `CapacityFetch` (Engine).
-6. **One resident owner** — `CapacityResidentService` (Mac app actor): schedule,
-   single-flight, freshness, lifecycle, socket.
-7. **Latest attempt wins per seat** — a failed refresh paints **unknown** for
-   that seat immediately; prior success may live in diagnostics only.
-8. **Instant describes delivery latency**, not observation age — always show
-   honest age; hard-expire painted values (~10 min).
-9. **Dumb routing until trust gate** — menu/bootstrap omit `capacity`.
-10. **Runtime unchanged** — do not touch vendor park/substitute for display work.
+4. **One output contract** — windows → projection → renderer.
+5. **One cold acquire owner** — `CapacityFetch`.
+6. **One resident owner** — `CapacityResidentService` in the **Dock app** process.
+7. **Latest attempt wins per seat** — failed refresh → unknown immediately.
+8. **Instant = delivery**, not observation time — always honest age.
+9. **Schedule is silent only** — never user-visible “probing…” on the timer path
+   (strip may show age/warming; no modal, no beach ball).
+10. **Dumb routing until trust gate** — menu/bootstrap omit `capacity`.
+11. **Runtime unchanged.**
 
 ---
 
-## Paint matrix (single law per surface)
+## Paint matrix
 
-History store and disk logs **never** paint as live.
+History / disk **never** paint as live.
 
-| Surface | When % may appear | Default | After live success |
-| --- | --- | --- | --- |
-| **Mac strip launch (no resident / cold)** | Never auto | Unknown + loud Refresh CTA | — |
-| **Mac strip Refresh** | User taps | Spinner; off main; **single-flight** | % + honest age |
-| **Mac strip (resident)** | Per-seat paint gate | Warming / unknown until fresh | % if last **success** &lt; ~10 min and latest attempt not failed |
-| **Mac strip after wake** | Never keep pre-sleep paint | Mark stale → warming; one refresh | Same as resident |
-| **`alln capacity` (app closed)** | Every invoke | Cold live PTY (measured p50/p95 — **not** “~5s”) | Table or unknown |
-| **`alln capacity` (app + socket)** | Socket &lt; 250 ms | Resident snapshot | Same rows as strip |
-| **Socket miss / hang / version mismatch** | — | Stderr note + **cold** path (CLI); no retry loop | — |
-| **`alln capacity --source`** | Targeted | **Lock:** full six-row table; unprobed seats `neverSampled` (matches acquire) | Named seat live |
-| **`alln menu` / bootstrap** | Never until trust gate | `capacity` key **absent** | After gate: socket-fresh only; omit if stale/unavailable |
-| **Partial bench** | Per seat | Some % + some unknown/warming | Never one global “ready” |
-| **Runtime run failure** | Vendor said no | `CapacityObservation` | Park/substitute/wake |
-
-**Clarifications**
-- Distinguish `lastAttemptAt` vs `lastSuccessfulObservationAt` per seat.
-- Process-local 30 min memo (S00 Mac) is a **temporary** cold-path aid — resident
-  path uses the shorter hard gate.
-- CLI cold path has **no** memo.
+| Surface | When % may appear | Behavior |
+| --- | --- | --- |
+| **Dock strip (app open)** | Per-seat paint gate (~15 min success age) | Schedule fills snapshot silently; Refresh = loud explicit |
+| **Dock strip launch** | After first successful sample this process | Else unknown + Refresh CTA |
+| **After wake** | Never keep pre-sleep paint | Stale → warming → one refresh |
+| **`alln capacity` (app open + sock)** | Socket &lt;250 ms | Same gated snapshot as strip |
+| **`alln capacity` (app quit)** | Cold live PTY | Measured budget — not “~5s” |
+| **Socket miss** | — | One try; stderr + cold; no retry loop |
+| **`--source`** | Targeted probe | **Full six-row table**; others `neverSampled` |
+| **menu / bootstrap** | Never until trust gate | Key absent |
+| **Post-run hook** | That seat after settle | Independent of 30m timer |
+| **Runtime failure** | Vendor observation | Unchanged |
 
 ---
 
-## CWB-S00 — honesty cut (ship first)
+## CWB-S00 — honesty cut
 
-### Already shipped: Codex + Grok cold PTY (do not re-spike)
+### Done
 
-| Asset | Location |
+| Item | Notes |
 | --- | --- |
-| Codex `/status` parser | `CodexCapacityProbe.swift` |
-| Grok `/usage` parser | `GrokCapacityProbe.swift` |
-| Founder fixtures | `CodexCapacityProbeTests`, `GrokCapacityProbeTests` |
-| PTY plumbing | `CapacityProbe` — `/status` for codex |
+| Six-seat PTY re-wire | `probeableSources` = 6; disk acquire deleted |
+| `CapacityFetch` | Live-only Engine acquire |
+| Mac strip placeholders + Refresh | Off-main; needs cancel/reap hardening |
+| Hero binding | Tightest pool, not Fable-over-primary |
 
-Phase 1 recovery demoted them to disk; **re-wired** 2026-08-02.
+### Remaining (CLI — coordinate `alln` rebuild)
 
-### S00 status
-
-| Item | Owner | State | Proof / note |
-| --- | --- | --- | --- |
-| Six-seat PTY re-wire | Core | **Done** | `probeableSources` = 6; disk acquire deleted |
-| `CapacityFetch` | Engine | **Done** | Live-only acquire; memo semantics **not** resident-ready (see Gaps) |
-| Mac strip launch / Refresh | Mac | **Done** | Placeholders + CTA; off-main Refresh |
-| Hero binding (Fable vs primary) | Core/Mac | **Done** | Binding pool for hero/banner |
-| CLI → `CapacityFetch` | CLI | **Pending** | Blocked on coordinated `alln` rebuild |
-| `menuCapacity()` → omit key | CLI | **Pending** | With CLI cutover |
-| Kill CLI history hydrate | CLI | **Pending** | Wire bare `alln capacity` to live / resident |
-| Teaching / help / contract | CLI | **With cutover** | Not a standalone slice |
-| Cancel / reap gaps | Core/Mac | **Open** | Outer `Task` cancel ≠ probe cancel; global terminate races (Sol) |
-
-### CLI cutover (S00 remaining)
-
-| Today (installed `alln`) | After S00 CLI |
+| Item | Notes |
 | --- | --- |
-| Bare = stale / no-spawn | Bare = cold live PTY **or** resident socket if up |
-| `--refresh` | Alias of bare or removed |
-| `--cached` / `--no-refresh` | Deleted — usage error |
-| `--source` + `--refresh` | `--source` = live one seat; **output = full six-row table** |
-| `menuCapacity()` injects | Key omitted until trust gate |
+| Wire CLI to `CapacityFetch` / later socket | Kill hydrate-as-live; bare = live or resident |
+| Omit `menuCapacity` key | Until trust gate |
+| Delete `--cached` / `--no-refresh` | Usage error |
+| Teaching / contract | With cutover, not standalone slice |
+| Cancel / single-flight / quit reap | Open gaps before resident soak |
 
-Do **not** claim cold latency as `~5s` — code budgets up to ~20s/seat (Claude ~35s)
-plus group margin. Teach measured p50/p95 after dogfood.
-
-### What S00 already deleted / still deletes
-
-**Done:** disk acquire for display; Mac history-as-live on launch.
-
-**Still:** CLI `refresh:false` default; `--cached`; CLI history hydrate as live;
-plan-time injection; fold `CapacityDisplayAcquisition` into `CapacityFetch` for
-CLI.
-
-**Keep:** PTY parsers, fail-closed reasons, Claude `allmodels` normalization,
-runtime `CapacityObservation`, TeachingSnippet verbatim table rule.
+Codex/Grok parsers already shipped (`ac65bddf`); do not re-spike.
 
 ---
 
-## Gaps (must fix before / during resident)
+## Gaps (before / during resident)
 
-From Doc Review — do not ignore:
-
-1. **Cancel lie** — `CapacityStripModel` cancels outer task; `Task.detached`
-   acquire continues. Need acquisition-scoped cancel + child registry.
-2. **Global `terminateAllActiveProbes`** can kill a newer refresh’s children —
-   resident must be **single-flight**.
-3. **App quit / orphan children** — name lifecycle hook + proof (PGID ledger).
-4. **`CapacityFetch` memo** writes after every full attempt (including
-   all-unknown) and uses one array `fetchedAt` — unsuitable for resident;
-   per-seat success/attempt timestamps required.
-5. **Cold latency honesty** — replace `~5s` with measured budgets.
-6. **Probe dump privacy** — redaction / size caps / disable outside diagnostics.
-7. **Unknown must be loud** — warming / expired / auth / parser distinct.
+1. Cancel outer task ≠ cancel detached PTY — acquisition-scoped cancel + registry.
+2. Global `terminateAllActiveProbes` cross-kills — **single-flight** resident.
+3. App quit PGID reap + proof.
+4. Per-seat `lastAttemptAt` / `lastSuccessfulObservationAt` (memo unsuitable).
+5. Honest cold latency (budgets, not `~5s`).
+6. Probe dump privacy caps.
+7. Loud unknown / warming / expired / auth.
 
 ---
 
-## Resident architecture (first release)
+## Resident architecture (v1)
 
-**Rival (locked):** scheduled one-shot six-seat probes + in-memory snapshot +
-local socket. **Not** six long-lived PTY sessions.
+```
+Dock Allnighter.app
+  └─ CapacityResidentService (actor)
+        ├─ silent timer (default 30m)
+        ├─ wake / clock jump
+        ├─ post-run seat refresh (if easy)
+        ├─ explicit Refresh (user)
+        ├─ single-flight → CapacityFetch (six one-shot PTYs)
+        ├─ in-memory ResidentCapacitySnapshot
+        └─ capacity.sock  ──►  alln capacity / strip
+```
 
-### Components
-
-| Piece | Responsibility |
+| Piece | Role |
 | --- | --- |
-| `CapacityFetch` | Unchanged one-shot Engine acquire |
-| `CapacityResidentService` (Mac actor) | Timer / wake / post-run triggers; **one** in-flight acquire; per-seat state; paint gate; socket server |
-| `ResidentCapacitySnapshot` | Envelope: protocol + contract versions, generation, service state, per-seat attempt/success times, provenance, gated rows |
-| `capacity.sock` | Read-only request; owner-only dir `0700`, socket `0600`, `getpeereid` UID check; reject bad protocol; **no** token |
-| Strip / menu bar UI | **Projection only** — must not own acquisition |
-| CLI | Prefer socket (&lt;250 ms); else cold `CapacityFetch` |
+| `CapacityFetch` | One-shot acquire (unchanged Engine) |
+| `CapacityResidentService` | Schedule, single-flight, freshness, socket, quit reap |
+| `ResidentCapacitySnapshot` | Versions, generation, per-seat times, gated rows |
+| `capacity.sock` | `0700` dir, `0600` sock, `getpeereid`; read-only; no token |
+| Strip | Projection only |
+| Settings | Feature ON/OFF, interval (10/15/30/60), optional login later |
 
-### Lifecycle
+### Explicit non-goals (v1)
 
-- Start with app process (menu-bar residency enabled) — **not** `alln serve`.
-- Refresh: app start, every **~5 min**, wake / clock jump, after Allnighter runs
-  that may burn quota, explicit Refresh.
-- Hard-expire painted success after **~10 min** per seat.
-- On wake: mark all painted values stale → show warming/unknown → single refresh.
-- Teardown: reap every tracked PGID; remove socket; no orphans.
-
-### Explicit non-goals (v1 resident)
-
-- Persistent warm PTY pool (`CapacityWarmPool` deferred)
+- Menu bar / MenuBarExtra residency
+- Persistent warm PTY pool
 - On-disk resident cache
-- Second daemon / `alln serve` ownership
+- `alln serve` as capacity owner
+- CLI-spawned forever helper
 - Plan-time injection before trust gate
 
-### Menu bar / login
+### Why Dock-only
 
-Founder ruling preserved: **default on** when shipping resident, with
-first-launch explainer and clear opt-out. **Do not enable defaults** until
-Resident trust gate is green. Menu-bar visibility ≠ service ownership — service
-is process-owned.
-
----
-
-## Routing: three worlds
-
-| Layer | Source | Until trust gate | After trust gate |
-| --- | --- | --- | --- |
-| **Display** | Strip / `alln capacity` | Live PTY or unknown | Resident snapshot or cold live |
-| **Plan-time** | menu/bootstrap | **Off** (key absent) | Socket-fresh only; omit if bad |
-| **Runtime** | Vendor on failure | **On** | Unchanged |
+Less is more: one process, one “keep the app open” story (Codex + capacity),
+share of mind, no menu-bar dual state. Users who want instant keep the Dock app
+running — not a big ask.
 
 ---
 
@@ -258,114 +193,91 @@ is process-owned.
 
 | Scenario | Behavior |
 | --- | --- |
-| PTY / parser fail | Unknown + reason — never disk |
-| Parallel cold timeout | Per-seat unknown; progress stderr; exit 0 |
-| Auth / TCC / missing binary | Distinct unknown reasons; doctor surfaces class |
-| Concurrent Refresh / strip / CLI | **Single-flight** coalesce; no global cross-kill |
-| Cancel Refresh | Cancel **acquire + children**, not only UI task |
-| App quit / kill | Reap tracked PGIDs; socket gone; CLI falls cold |
-| Socket miss / hang / bad version | One attempt; CLI cold; menu omit |
+| Probe / parse fail | Unknown + reason |
+| Timer tick while Refresh in flight | Coalesce (single-flight) |
+| App quit | Reap PGIDs; socket gone; CLI cold |
+| Socket miss / bad version | Cold / omit once |
 | Sleep / wake | Immediate stale; one refresh |
-| Partial bench | Paint per seat; never one “ready” bit |
-| Parser drift | Live canary vs manual `/usage` |
-| Probe dump growth | Cap / redact / disable outside diagnostics |
-| Agent expects instant bare CLI | Teaching: resident ≈ instant; cold = measured budget |
+| Feature OFF in settings | No schedule; strip CTA; CLI cold only |
+| Post-run hard | Skip; rely on schedule (must not block run teardown) |
 
 ---
 
 ## Implementation slices
 
-| Slice | Scope | Gate |
-| --- | --- | --- |
-| **CWB-S00** | Finish CLI honesty cut + cancel/reap fixes named in Gaps | S00 ship gate |
-| **CWB-S01** | `CapacityResidentService` + scheduled one-shot + strip consume | Single-flight, wake, main-actor heartbeat, no orphans |
-| **CWB-S02** | `capacity.sock` + CLI fast path + cold fallback | Spy: 100 queries p95 &lt;250 ms, zero new PTYs |
-| **CWB-S03** | Menu bar / login defaults + optional plan-time injection | **Resident trust gate** green |
+| Slice | Scope | Est. | Gate |
+| --- | --- | --- | --- |
+| **CWB-S00** | CLI honesty + cancel/reap | 2–3d | S00 checklist |
+| **CWB-S01** | `CapacityResidentService` + 30m silent schedule + strip + settings ON/OFF/interval | 4–6d | Single-flight, wake, heartbeat, no orphans |
+| **CWB-S02** | Socket + CLI fast/cold | 2–3d | 100× p95 &lt;250 ms, zero PTYs on hit |
+| **CWB-S03** | Post-run seat refresh (if easy) + optional login + plan-time only after gate | 1–2d | Trust gate |
 
-Persistent warm PTY pool: only if S01–S02 dogfood shows refresh cost is the
-bottleneck — new packet, not sneak into S01.
+**Was (warm + menu bar):** ~21–34d end-to-end after honesty.  
+**Now (Dock + schedule):** ~12–18d end-to-end after honesty.
 
 ---
 
 ## S00 ship gate
 
-**Acquire**
-- [x] No Codex/Grok disk in `CapacityAcquisition`
+- [x] No disk Codex/Grok in acquire
 - [ ] CLI never hydrates history as live
 - [x] Failed probe → unknown
-- [ ] Acquisition-scoped cancel + no cross-refresh terminate races
-
-**CLI / menu**
-- [ ] Bare `alln capacity` = live (or resident when up)
+- [ ] Acquisition-scoped cancel; no cross-refresh terminate races
+- [ ] Bare `alln capacity` live or resident
 - [ ] `--cached` / `--no-refresh` gone
 - [ ] menu/bootstrap: no `capacity` key
-- [ ] `--source` → full six-row table (document + test)
-
-**Mac**
+- [ ] `--source` → six-row table
 - [x] Launch unknown / CTA
-- [x] Refresh off main (improve cancel)
 - [ ] Quit reap proof
-
-**Runtime regression**
-- [ ] `VendorSubstitutionPolicy` / LoopCoordinator capacity park filters
-
-**Dogfood**
-- [ ] Founder: CLI vs manual `/usage` ledger
-- [ ] Founder: Mac Refresh matches CLI same session
+- [ ] VendorSubstitution / LoopCoordinator park regression filters
+- [ ] Founder dogfood CLI vs `/usage` + Mac Refresh
 
 ---
 
-## Resident trust gate (before defaults / plan-time)
+## Resident trust gate
 
 | Proof | Catches |
 | --- | --- |
-| Socket spy: 100 queries, p95 &lt;250 ms, **zero** new PTYs | Socket triggering probes |
-| Cold fallback: missing / hung / bad version socket | Silent stale or infinite wait |
-| Single-flight: scheduler + strip + N CLI clients | Duplicate PTYs / cross-kill |
-| Per-seat freshness: success → fail → stale → recovery | Old % masking failure |
-| Sleep/wake / clock-jump fixture | Hours-old paint after wake |
-| Abrupt app-kill PGID ledger | Orphans / stale socket |
-| Main-actor heartbeat during max-budget six-seat acquire | Beach ball |
-| Installed-app + real CLI credentials | PATH / Keychain / TCC |
-| Live canary vs manual `/usage` within 60s (all six) | Parser drift |
-| Soak (≥8h): bounded RSS/CPU, stable children, no dump growth | Leaks / respawn storms |
-| Menu omit when stale/unavailable | Plan-time poison |
-| Accuracy dogfood ledger | The actual trust target |
+| Socket spy: 100 queries, p95 &lt;250 ms, **zero** new PTYs | Accidental probe on read |
+| Cold fallback: missing / hung / bad version | Silent stale / hang |
+| Single-flight: timer + strip + N CLI | Duplicate / cross-kill |
+| Per-seat freshness fixture | Old % after failed attempt |
+| Sleep/wake | Hours-old paint |
+| App-kill PGID ledger | Orphans |
+| Main-actor heartbeat during max acquire | Beach ball |
+| Installed app + real CLI auth | PATH / Keychain / TCC |
+| Live canary vs `/usage` (60s) | Parser drift |
+| Soak ≥8h: RSS/CPU, child count, no dump growth | Leaks (schedule must stay quiet) |
+| Feature OFF: no timer probes | Settings lie |
+| Accuracy dogfood ledger | Trust target |
 
-Fast delivery of a wrong snapshot is **failure**.
+Fast wrong snapshot = **failure**.
 
 ---
 
 ## Truth owner
 
-| Layer | Owner | Lie risk |
-| --- | --- | --- |
-| Vendor I/O + parse | `CapacityProbe` | Wrong surface / drift |
-| One-shot acquire | `CapacityFetch` | Memo as success; hydrate |
-| Schedule / freshness / socket | `CapacityResidentService` | Stale paint; dual owners |
-| Transport pick | CLI | Socket hang; wrong fallback |
-| View projection | `CapacityStripModel` | Owning acquire; cancel lie |
-| Render | `CapacityStripRenderer` | Age/pool/unknown presentation |
-| Plan-time | menu/bootstrap | Stale seating (off until gate) |
-| Runtime | `CapacityObservation` | Unchanged |
-
-Code SSOT today: `CapacityFetch.swift`, `CapacityAcquisition.swift`,
-`CapacityProbe.swift`, `CapacityStripModel.swift`.  
-CLI resume: `AllnighterCLI.runCapacity`, `menuCapacity`.  
-Next: `CapacityResidentService.swift` + `ResidentCapacitySnapshot`.
+| Layer | Owner |
+| --- | --- |
+| Vendor I/O + parse | `CapacityProbe` |
+| One-shot acquire | `CapacityFetch` |
+| Schedule / freshness / socket / quit | `CapacityResidentService` (Dock) |
+| Transport | CLI |
+| Strip projection | `CapacityStripModel` |
+| Render | `CapacityStripRenderer` |
+| Runtime park | `CapacityObservation` (untouched) |
 
 ---
 
-## Why this simplifies
+## Why this is enough
 
-| Delete / defer | Gain |
+| Choice | Gain |
 | --- | --- |
-| Persistent warm PTY v1 | No session state machine; reuse working probes |
-| Resident cache file | One truth owner (memory + socket) |
-| Separate warm-pool slice | Resident owns background acquire |
-| Stale menu routing | Agents stop seating on fake % |
-| History-as-live | Live or unknown |
-| Adversarial transcript sprawl | Laws folded into this packet |
+| Schedule not warm PTY | ~½ the eng days; idle RAM stays small |
+| Dock not menu bar | One residency story; less UI/lifecycle |
+| 30m silent + 15m paint | Lazy probes; honest display |
+| Post-run if easy | Fresh after burn without hammering timer |
+| App open required | Aligns with Codex; builds share of mind |
 
-**Lying is not acceptable while waiting for instant.** Instant is additive on top
-of honesty — via resident **scheduled** probes, not a second truth path.
+**Lying is never acceptable while waiting for instant.** Instant is a socket on a
+gated snapshot owned by the Dock app — nothing fancier.
