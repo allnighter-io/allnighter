@@ -1,6 +1,6 @@
 # CM-S08 — Extract ThreadBoardRow from ThreadView
 
-Status: ready
+Status: done (`3bd188a7`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 

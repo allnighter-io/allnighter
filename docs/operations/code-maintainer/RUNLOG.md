@@ -1,6 +1,19 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S08 (ThreadBoardRow extract)
+
+Scope: Extract team board row from ThreadView to ThreadBoardRow.swift
+Class: Structure lens (index 0)
+Delegation: Gemini 3.6 Flash via `alln run --model model_gemini`
+Files touched: NEW ThreadBoardRow.swift (266 LOC); ThreadView.swift 1238→978 LOC
+Behavior guarantee: Move-only extraction; team board UI unchanged
+Proof: xcodebuild build -scheme AllnighterMac (BUILD SUCCEEDED via alln proof)
+Before/after signal: ThreadView −260 LOC; follows RelayEscalationRow pattern
+Next lens: CM-S09 RoutingComposer attachments extract
+```
+
+```text
 ## 2026-08-03 - Structure CM-S07 (ThreadsViewModel scout)
 
 Scope: Analyze ThreadsViewModel.swift (~1,627 LOC) and write split plan for CM-S10+ batches
