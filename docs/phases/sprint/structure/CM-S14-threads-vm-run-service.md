@@ -1,6 +1,6 @@
 # CM-S14 — Extract ThreadsViewModel run service
 
-Status: ready
+Status: done (`ba1665ac`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 
