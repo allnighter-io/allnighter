@@ -67,27 +67,27 @@ final class ThreadsViewModel {
     private let writeLock: RunWriteLockRegistry
     private let projectStore: ProjectStore
     /// Explicit scroll target (notification deep-link only; cleared after scroll).
-    private(set) var pendingScrollToTurnId: String?
+    var pendingScrollToTurnId: String?
     /// After composer submit, keep the timeline pinned to the bottom through the brief
     /// burst of user + worker turns so the user sees their message land.
     private var forceScrollToBottomAfterSend = false
     private var forceScrollToBottomClearTask: Task<Void, Never>?
     private var readClearDebounceTask: Task<Void, Never>?
-    private let isAppActiveForReadClear: () -> Bool
+    let isAppActiveForReadClear: () -> Bool
     private var notificationSnapshots: [String: ThreadNotificationSnapshot]?
     /// Prior run park/resume snapshots for once-each vendor continuity notices.
-    private var previousRunNotificationSnapshots: [String: RunNotificationSnapshot]?
-    private var notificationPolicy: NotificationPolicy
-    private let notificationPolicyStore: NotificationPolicyStore
-    private let notificationDelivery: any ThreadNotificationDelivering
+    var previousRunNotificationSnapshots: [String: RunNotificationSnapshot]?
+    var notificationPolicy: NotificationPolicy
+    let notificationPolicyStore: NotificationPolicyStore
+    let notificationDelivery: any ThreadNotificationDelivering
     /// Liveness check for `alln serve`'s background `NotificationScheduler`
     /// (URN-S01 "exactly one owner"). When the daemon is `.available` it is
     /// already delivering every transition this view model would also
     /// deliver, so the Mac app suppresses its own delivery rather than
     /// double-firing the same banner.
-    private let serveDaemonProbe: ServeDaemonProbe
-    private let floorStatus: FloorManagerStatus?
-    private var latestVisibleTurnIds: [String: Set<String>] = [:]
+    let serveDaemonProbe: ServeDaemonProbe
+    let floorStatus: FloorManagerStatus?
+    var latestVisibleTurnIds: [String: Set<String>] = [:]
 
     /// Coalesced-reload state: a burst of streaming deltas must not produce a burst of
     /// full `ThreadStore.list()` decodes (PERF-S01). `requestReload()` schedules at most
@@ -1524,104 +1524,4 @@ final class ThreadsViewModel {
         _ = bumpPublishGeneration()
     }
     #endif
-
-    // MARK: - Notifications (02 + UNR-S06)
-
-    func isThreadNotificationsMuted(_ threadId: String) -> Bool {
-        notificationPolicy.isThreadMuted(threadId)
-    }
-
-    func setThreadNotificationsMuted(_ threadId: String, muted: Bool) {
-        notificationPolicy.setThreadMuted(threadId, muted: muted)
-        try? notificationPolicyStore.save(notificationPolicy)
-    }
-
-    func shouldSuppressNotification(candidate: NotificationCandidate) -> Bool {
-        guard let thread = threads.first(where: { $0.id == candidate.threadId }) else { return true }
-        return NotificationSuppression.shouldSuppress(
-            candidate: candidate,
-            thread: thread,
-            visibility: notificationVisibilityContext()
-        )
-    }
-
-    func notificationVisibilityContext() -> NotificationVisibilityContext {
-        NotificationVisibilityContext(
-            selectedThreadId: selectedThreadId,
-            visibleTurnIdsByThread: latestVisibleTurnIds,
-            isAppActive: isAppActiveForReadClear()
-        )
-    }
-
-    func openFromNotification(threadId: String, turnId: String) {
-        guard let thread = threads.first(where: { $0.id == threadId }) else { return }
-        select(thread)
-        pendingScrollToTurnId = turnId
-    }
-
-    func openPriorityThreadFromMenuBar() {
-        guard let id = floorStatus?.priorityThreadId,
-              let thread = threads.first(where: { $0.id == id }) else { return }
-        select(thread)
-    }
-
-    private func processNotificationTransitions(
-        before: [String: ThreadNotificationSnapshot]?,
-        after: [String: ThreadNotificationSnapshot]
-    ) async {
-        let now = Date()
-        var candidates = NotificationCandidateDetection.candidates(before: before, after: after, now: now)
-
-        var runsById: [String: TeamRun] = [:]
-        for thread in threads {
-            for turn in thread.turns {
-                guard let runId = turn.runId, runsById[runId] == nil else { continue }
-                if let run = teamRun(forRunId: runId) {
-                    runsById[runId] = run
-                }
-            }
-        }
-        let afterRuns = NotificationCandidateDetection.runSnapshots(
-            from: threads,
-            runsById: runsById
-        )
-        let beforeRuns: [String: RunNotificationSnapshot]? = {
-            guard before != nil else { return nil }
-            // Cold-start quiet: first reload after launch should not flood park notices.
-            // Subsequent reloads pass the previous run snapshot via stored property.
-            return previousRunNotificationSnapshots
-        }()
-        candidates += NotificationCandidateDetection.runCandidates(
-            before: beforeRuns,
-            after: afterRuns,
-            now: now
-        )
-        previousRunNotificationSnapshots = afterRuns
-
-        guard !candidates.isEmpty, notificationPolicy.enabled else { return }
-        // URN-S01 "exactly one owner": `alln serve`'s NotificationScheduler
-        // already delivers every transition below when the daemon is alive —
-        // an open Mac app must not also fire, or the same event double-fires.
-        // The daemon wins; the cost is this path's deep link, a Mac-only
-        // affordance, acceptable for v1.
-        guard serveDaemonProbe.health(binaryVersion: "").state != .available else { return }
-        _ = await MacNotificationDelivery.shared.requestAuthorizationIfNeeded()
-        for candidate in candidates {
-            guard let thread = threads.first(where: { $0.id == candidate.threadId }) else { continue }
-            if NotificationSuppression.shouldSuppress(
-                candidate: candidate,
-                thread: thread,
-                visibility: notificationVisibilityContext()
-            ) { continue }
-            if !NotificationDeliveryFilter.shouldDeliver(
-                candidate: candidate, policy: notificationPolicy, now: now
-            ) { continue }
-            let workerName = candidate.modelId.map { driverName(for: $0) }
-            await notificationDelivery.deliver(candidate: candidate, workerDisplayName: workerName)
-            NotificationDeliveryFilter.recordDelivery(
-                candidate: candidate, policy: &notificationPolicy, now: now
-            )
-            try? notificationPolicyStore.save(notificationPolicy)
-        }
-    }
 }
