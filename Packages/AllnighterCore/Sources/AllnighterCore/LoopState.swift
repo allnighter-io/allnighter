@@ -236,7 +236,7 @@ public struct LoopState: Sendable, Codable, Equatable {
     /// next PM turn's prompt context (`RelayPMPrompt.Context.founderNote`), then cleared
     /// once consumed.
     public var founderNote: String?
-    /// ATL-S01: founder kickoff brief from `pair relay --message` / `--message-file`.
+    /// ATL-S01: founder kickoff brief from `alln loop --message` / `--message-file`.
     /// Set once at `claimStart`, injected into the first PM prompt assemble, then
     /// cleared (consume-once). Never written into `founderNote` (resume-only).
     public var kickoffMessage: String?
@@ -362,20 +362,20 @@ public struct LoopState: Sendable, Codable, Equatable {
     public static let orphanReconciledReason = "owner process died mid-round (reconciled)"
 
     /// ATL-S02: stamped as `stoppedReason` when the founder stops a Loop via
-    /// `LoopCoordinator.stop` / `pair relay stop`. Distinct from ceiling /
+    /// `LoopCoordinator.stop` / `loop stop`. Distinct from ceiling /
     /// orphan / ownership-kill reasons so resume eligibility and teaching stay honest.
     public static let founderStoppedReason = "founder stopped"
 
     /// True for a relay reconciled by `reconcileIfOrphaned` rather than a ceiling
     /// (`--max-rounds`/`--until`/stagnation) firing — the ONLY kind of `.stopped` relay
-    /// `relay-resume` accepts (PM_Relay.md works-test hazard #1: "escalated-only was
-    /// too narrow" for `relay-resume`, but a ceiling stop is still a deliberate stop,
+    /// `loop resume` accepts (PM_Relay.md works-test hazard #1: "escalated-only was
+    /// too narrow" for `loop resume`, but a ceiling stop is still a deliberate stop,
     /// never silently resumable).
     public var isReconciledStopped: Bool {
         status == .stopped && stoppedReason == Self.orphanReconciledReason
     }
 
-    /// `relay-resume`'s eligibility gate: an `.escalated` relay (a real founder
+    /// `loop resume`'s eligibility gate: an `.escalated` relay (a real founder
     /// question) or a reconciled-stopped one (the process died — resuming continues
     /// from the last durable round). `.done` and a ceiling-`.stopped` relay are never
     /// resumable.

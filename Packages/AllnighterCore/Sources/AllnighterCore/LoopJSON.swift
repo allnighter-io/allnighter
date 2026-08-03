@@ -1,7 +1,7 @@
 import Foundation
 
-/// `LoopJSON` — the public machine contract for `alln pair relay` /
-/// `pair relay-status` / `pair relay-resume` and their MCP projections
+/// `LoopJSON` — the public machine contract for `alln loop` /
+/// `loop status` / `loop resume` and their MCP projections
 /// (docs/phases/PM_Relay.md §6 R-S05/R-S06, §7 works-test output shape). A thin,
 /// versioned projection of `LoopState` — the durable truth stays in
 /// `LoopState`/`LoopStateStore`; this is never a second copy of run-truth, only
@@ -94,7 +94,7 @@ public struct LoopJSON: Codable, Equatable, Sendable {
     }
 
     /// Projects a durable `LoopState` to its wire shape. The one place CLI and MCP
-    /// both call, so `alln pair relay` output and MCP `pair_relay` output can never
+    /// both call, so `alln loop` output and MCP `pair_relay` output can never
     /// drift (Agent-First Product Law: MCP never richer than the CLI).
     ///
     /// Pass `runStore` to attach the shared CD-S01a dev-leg projection (pilot +
@@ -253,7 +253,7 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
     }
 }
 
-/// NDJSON progress events emitted during `alln pair relay --json` before the final
+/// NDJSON progress events emitted during `alln loop --json` before the final
 /// `LoopJSON` envelope (mirrors `PairQueueProgressJSON`). The wire shape only —
 /// the mapping from `LoopCoordinator.RelayEvent` lives in `AllnighterCLI` (that
 /// type is Engine-only; this type is Core so CLI and MCP share one contract).

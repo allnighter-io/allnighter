@@ -6,7 +6,7 @@ import AllnighterEngine
 /// unattended PM↔dev loop — pin baseline, PM turn + verdict, `HandoverGate`, dev
 /// turn, repeat until `done`/`escalate`/a ceiling — never by inference.
 ///
-/// `pair relay`/`pair relay-status`/`pair relay-resume` no longer dispatch here
+/// Retired `pair relay`/`pair relay-status`/`pair relay-resume` no longer dispatch here
 /// (LVC Piece 1, hard cutover) — `LoopCLI` is the live caller, forwarding into
 /// `runStatus`/`runStop`/`runResume`/`runAdopt` and the `config:`-based `runRelay`
 /// overload below directly. Flag parsing/validation for the retired raw-args shape
@@ -43,8 +43,8 @@ enum LoopEngineCLI {
         }
     }
 
-    /// RSC-HF: `pair relay --no-wait`. Non-mutating preflight fails loud and spawns
-    /// nothing. On success, spawn the same registered `pair relay` verb (no hidden
+    /// RSC-HF: `alln loop --no-wait`. Non-mutating preflight fails loud and spawns
+    /// nothing. On success, spawn the same registered `alln loop` verb (no hidden
     /// continuation) and ack only after the child durably claims via `DetachedHandoff`.
     private static func runRelayNoWait(
         config: LoopCoordinator.Config, opts: Options, wakeDelivery: Bool
@@ -347,8 +347,8 @@ enum LoopEngineCLI {
         )
     }
 
-    /// RSC-HF: `pair relay-resume --no-wait`. Parent does not mutate — the child runs
-    /// the normal registered `relay-resume` path (one guarded entry point) and reports
+    /// RSC-HF: `alln loop resume --no-wait`. Parent does not mutate — the child runs
+    /// the normal registered `loop resume` path (one guarded entry point) and reports
     /// acceptance via `DetachedHandoff` after the durable `.running` claim.
     private static func runResumeNoWait(
         loopId: String, founderAnswer: String, config: LoopCoordinator.Config,
@@ -359,7 +359,7 @@ enum LoopEngineCLI {
             cwd: config.projectRoot, json: opts.flag("json"), wakeDelivery: wakeDelivery)
     }
 
-    /// ATL-S02: `pair relay stop --relay <id>` — founder abandonment of a Loop.
+    /// ATL-S02: `alln loop stop --relay <id>` — founder abandonment of a Loop.
     /// Settlement lives in `LoopCoordinator.stop` (exact ten-step order). Exit 0 on
     /// transition or idempotent terminal; never exits 1 just because status is stopped
     /// (that exit class is for ceiling/escalate endings of run/resume, not stop).
@@ -376,10 +376,10 @@ enum LoopEngineCLI {
         }
     }
 
-    /// `pair relay adopt --relay <id> --pm-model <id>` (docs/phases/Pilot_Relay.md
+    /// `alln loop adopt --relay <id> --pm-model <id>` (docs/phases/Pilot_Relay.md
     /// §5, PL-S06) — adopt (unattended handover): hands a parked Pilot relay to a
-    /// spawned PM, then lets the loop run to a terminal state exactly like `relay`/
-    /// `relay-resume`. `projectRoot`/`docPath`/`devModelId` are always read from the
+    /// spawned PM, then lets the loop run to a terminal state exactly like `alln loop`/
+    /// `loop resume`. `projectRoot`/`docPath`/`devModelId` are always read from the
     /// loaded relay (never from a flag here) — an adopt can never silently redirect a
     /// relay at a different doc or repo, same discipline `resume` already follows.
     static func runAdopt(
@@ -415,7 +415,7 @@ enum LoopEngineCLI {
         _ = DetachedDispatch.validateWakeDelivery(opts)
 
         // URN-S02: guarantee a live notifier before dispatching a real dev turn.
-        // Reachable both directly (`pair relay adopt`) and via `runRelay`'s
+        // Reachable both directly (`alln loop adopt`) and via `runRelay`'s
         // early redirect — this is the only place the check runs for adopt.
         ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
 
@@ -432,8 +432,8 @@ enum LoopEngineCLI {
         }
     }
 
-    /// RSC-HF: `pair relay adopt --no-wait`. Parent does not mutate — child runs the
-    /// normal registered `relay adopt` path and reports acceptance after claim.
+    /// RSC-HF: `alln loop adopt --no-wait`. Parent does not mutate — child runs the
+    /// normal registered `loop adopt` path and reports acceptance after claim.
     private static func runAdoptNoWait(
         loopId: String, pmModelId: String, config: LoopCoordinator.Config,
         opts: Options, runtime: ToolRuntime, wakeDelivery: Bool
