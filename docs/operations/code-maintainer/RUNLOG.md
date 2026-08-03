@@ -1,6 +1,19 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S03–S05 (RoutingComposer complete)
+
+Scope: Decompose RoutingComposer monolith into 6 single-job files
+Class: Structure lens (index 0)
+Lens: Structure (index 0)
+Files touched: RoutingComposerTargetPopover.swift, RoutingComposerFileSearch.swift, RoutingComposerSend.swift, RoutingComposerTypes.swift, ComposerAttachmentTile.swift; RoutingComposer.swift 1648→470 LOC
+Behavior guarantee: Move-only extractions; composer send, @ refs, target picker unchanged
+Proof: xcodebuild build -scheme AllnighterMac (BUILD SUCCEEDED)
+Before/after signal: Split plan CM-S01–S05 complete; MAINTENANCE-QUEUE row closed
+Next lens: Duplication (index 1) or ThreadsViewModel Structure scout
+```
+
+```text
 ## 2026-08-03 - Hygiene epoch closeout (Doc truth lens)
 
 Scope: HY-S09–S12 vocabulary cutover — PM Relay → Loop across Mac GUI, prompts,
