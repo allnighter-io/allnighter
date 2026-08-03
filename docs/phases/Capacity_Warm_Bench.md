@@ -4,7 +4,7 @@ Status: **OPEN — founder priority (2026-08-03). Trust first; then instant.**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
 (`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
 Created: 2026-08-02
-Updated: 2026-08-03 (final lock: Dock-app schedule + effort vs warm PTY)
+Updated: 2026-08-03 (Spec Review Min in flight — scheduler architecture)
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 
 **Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
@@ -33,6 +33,18 @@ Phases are ephemeral. At closeout: promote product law into help / teaching /
 
 **One-liner:** Dock app open → silent 30m one-shot probes + optional post-run seat
 refresh → socket serves strip/CLI in &lt;250 ms. App closed → cold live or unknown.
+
+### Spec Review Min — scheduler (in flight)
+
+**Goal:** a super-simple, reliable silent scheduler that just works. Architecture
+above has never had Spec Review on the **timer / single-flight / wake / settings**
+surface — only Sol Doc Review on resident-vs-warm.
+
+| Field | Value |
+| --- | --- |
+| Team | `code_spec_review_min` |
+| Status | **In flight** — fold Lead Call here when landed |
+| Focus | Scheduler simplicity + reliability (not warm PTY, not menu bar) |
 
 ---
 
