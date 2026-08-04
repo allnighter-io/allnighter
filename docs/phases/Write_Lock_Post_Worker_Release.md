@@ -1,10 +1,10 @@
-# Write Lock Post-Worker Release
+# Delegated Run Supervision and Lock Recovery
 
-Status: **OPEN — S00 COMPLETE. Implement S02 (L2) then L3 pivot, then S01 (L1).**
-Owner: AllnighterEngine (`RunService`, `ExecutionLaneRegistry` /
-`ExecutionLaneFlock`, `KillSettlement`, `ProcessOwnershipSurface`)
+Status: **OPEN — FOUNDER PIVOT after S00. Simplify; do not implement old L1/L2/L3 plan.**
+Owner: AllnighterEngine (`LoopCoordinator`, `RunService`,
+`ProcessOwnershipSurface`, `ExecutionLane`)
 Created: 2026-08-04
-Updated: 2026-08-04 (S00 locus spike complete)
+Updated: 2026-08-04 (supervised-delegation simplification pivot)
 
 Related: archived
 [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md)
@@ -17,32 +17,64 @@ known follow-up on killed-run lane deadlock) · code SSOT `RunService.swift`,
 
 ## Founder intent
 
-A mutating run that is **no longer allowed to edit the repo** must not block
-the next mutating run on that root. Queueing behind an active worker (or
-harness proof that mutates) is correct. Queueing behind a coordinator that is
-only writing a receipt, or wedged after mutation authority ended, is not.
+Delegation is not fire-and-forget. The PM that delegates a run owns two jobs:
+
+1. delegate;
+2. supervise that child until it settles or needs a PM decision.
+
+The PM must be woken automatically from durable facts. The founder must not
+have to press the PM to notice that commits landed, progress stopped, a lane is
+still held, or another AI is blocked.
+
+This packet must **simplify** the control plane. Useful existing instruments
+stay. Machinery that duplicates truth, cannot recover the floor, or only asks
+the caller to check again must be removed or routed to one owner. A watcher
+that becomes another service, store, lifecycle, or status contract is a
+rejection, not an implementation.
 
 ## Product value
 
-Default mutating path (`default_chat` / warm ACP) is the attended bench hero
-loop. Multi-slice dogfood on one root becomes an outage when the next slice
-sits in `waitingForWriteLock` for tens of minutes while the prior coordinator
-is silent. Operators then kill by hand and harnesses learn the wrong lesson
-from `attentionRequired` exit 0 (ORS — **out of scope** here).
+Allnighter is an AI control loop. An AI PM that delegates and then receives no
+automatic reason to think again is not controlling the loop. Multi-slice work
+becomes an outage when the next AI sits in `waitingForWriteLock` for tens of
+minutes while the parent PM is dormant and the child is observably stale.
 
-## Binding product law (target)
+## Binding product laws (target)
 
 ```text
-Build lane = exclusive mutate authority on the canonical root.
-Hold only while this run (worker and/or harnessProof for this run) may mutate.
-Release when mutation authority ends — not when the coordinator process exits.
-External terminal must free the OS flock (unlock or process death), not only
-journal status / holder.json cosmetics.
+Delegate implies supervise: the parent coordinator owns the child until
+terminal settlement or an explicit PM decision.
+
+Observation is deterministic and token-free. AI reasoning wakes only on a
+material state transition or sourced anomaly.
+
+One observation, one supervisor loop, one authoritative revoke.
+
+Revoke means the former mutator cannot edit and the OS flock is free. Journal
+or holder metadata alone is not revocation.
+
+Git is supplementary work evidence. A commit is neither required nor treated
+as terminal.
+
+Failure, timeout, or PM intervention must not retain the lane indefinitely.
 ```
 
-RLR-L3 already names phases `proving` | `settling` for **journal visibility**.
-This packet **adds** lock-lifetime coupling to those phases. That is a new law,
-not “finish unfinished RLR.”
+### Binding simplification rule
+
+This phase is **replacement work, not additive work**:
+
+- no new daemon, resident service, socket, lock, store, durable lifecycle, or
+  parallel JSON contract;
+- no second Git/process/token observer;
+- no periodic PM model calls;
+- no prompt-only supervision or release semantics;
+- the existing `LoopCoordinator` remains the parent owner;
+- the existing run journal / `alln show` observation and process/lane facts
+  remain truth;
+- kill, cancel, timeout, and PM intervention converge on one revoke operation;
+- each new branch must delete or route away an independent old decision path;
+- closeout includes a before/after concept inventory. If the number of truth
+  owners or recovery paths grows, the phase fails even if tests are green.
 
 ## Incident classification
 
@@ -58,9 +90,10 @@ Full record: [`docs/debuglog/WL_PWR_S00_Locus.md`](../debuglog/WL_PWR_S00_Locus.
 ```text
 Studio primary: M2 (cursor_agent stream never terminal — run 641A3C68, commits landed, no repoDelta)
 Hermetic proof: T-M1 FAIL (M1), T-M2 kill FAIL (M3), T-M3 FAIL (M3), T-M2 hang PASS, T-PARK/T-PROOF PASS
-Gate: implement L2 + L3 pivot; L1 still required for post-worker path but NOT sufficient alone
+Founder pivot: preserve this evidence; replace the mechanism-first L1/L2/L3
+plan with parent supervision + one authoritative revoke.
 ```
-| Work posture until S00 | **Spike**, not feature implement |
+| Work posture | **Simplification design first; no old L1/L2/L3 implementation** |
 
 ### Evidence — 2026-08-04 (`Ikiro.Studio`)
 
@@ -74,9 +107,8 @@ Gate: implement L2 + L3 pivot; L1 still required for post-worker path but NOT su
 FIFO queue semantics work (`attentionRequired` / `sourcedBlocker`); manual kill
 eventually unblocks.
 
-**What this does not prove:** whether the hang is (1) inside `warm.prompt`
-before `WorkerRunOutcome`, (2) post-outcome proof/settlement/persist, or
-(3) clock/kill failed to reap. **Do not implement L1 until S00 names the locus.**
+**What this does not prove:** that a Git commit is completion, that a commit
+should be required, or that a new watcher subsystem is justified.
 
 ### What is NOT broken (do not re-litigate)
 
@@ -97,6 +129,9 @@ before `WorkerRunOutcome`, (2) post-outcome proof/settlement/persist, or
 | `ExecutionLaneFlock.removeHolder` | Metadata only. Identity-alive / foreign-flock holders are preserved (PO-F9). Empty `holder.json` + foreign flock still blocks (PO-F9 #6). |
 | `KillSettlement` | Does not SIGTERM responsive `inProcess` coordinator (RLR-L5). |
 | RLR-L3 | Phases exist; terminal clears phase; **no lock-lifetime rule**. |
+| `LoopCoordinator` | Already owns the PM/dev round and persists `devRunId`; it already sleeps/adopts vendor-parked children. This is the supervision owner — do not add another. |
+| `PilotStatusJSON` / status projection | Already exposes owner liveness, `lastProgressAt`, `silenceAgeSeconds`, stream warning, `commitsSinceBaseline`, observed usage, and `devLeg`. Reuse/consolidate; do not create another status envelope. |
+| `LoopDispatch` | Already renders relay progress and status hints. Replace manual “check again” posture where supervision can own the wait. |
 
 ### Fingerprint (candidate mechanisms — pick via S00)
 
@@ -114,204 +149,233 @@ M3 — kill/clock: journal terminal or operator kill while coordinator alive;
 Primary product bug may be M1, M2, M3, or a combination. Packet must not
 pretend they share one lever.
 
-## Proposed design (gated)
+## Active design — supervised delegation
 
-### WL-PWR-L1 — early release after mutation authority ends
+### One observation
 
-**Only if S00 shows M1 (or M1+M3), not pure M2.**
+Do not invent a new snapshot. Consolidate the facts already exposed by
+`alln show`, `ProcessOwnershipSurface`, `StreamLiveness`, `GitObserver`, and the
+pilot status projection into one engine-owned observation consumed by the
+parent coordinator:
 
-After the single execution worker reaches a **terminal** `WorkerRunOutcome` and
-any in-flight mutating subprocess for that turn is finished:
+```text
+child run id and lifecycle
+worker/coordinator identity alive | dead | unknown
+lane state, held duration, and blocked queue
+last semantic activity and silence age
+baseline HEAD, current HEAD, commits since baseline
+dirty/untracked file count and last observed repo change
+observed usage delta when sourced; unknown when unavailable
+```
 
-1. Capture `repoDelta` (and any other git snapshot that must reflect *this*
-   worker) **before** release.
-2. Release build lane (registry token + flock unlock) in the same control path
-   that would have held until `runExecution` returned.
-3. Clear `lockToken` so the outer `run()` release is idempotent no-op.
-4. If run still non-terminal, stamp `phase` → `proving` (when `proofCommand`
-   present) or `settling` in the **same journal revision** as the conceptual
-   “no longer exclusive mutator” moment (RLR-L3 atomic style).
-5. Harness proof **re-acquires** under `harnessProof` (already coded).
-6. Park / substitution early returns keep today’s park-before-return release.
-7. Answer / read-only paths unchanged.
+Language must remain observational:
 
-### WL-PWR-L2 — external terminal frees the **flock**, not only metadata
+- “HEAD advanced 18 minutes ago,” not “work completed”;
+- “no observed repository change for 18 minutes,” not “worker did nothing”;
+- “token telemetry unavailable,” not “zero tokens”;
+- “journal says running while progress is stale,” not an invented failure.
 
-**Required regardless of L1**, but the mechanism is **not** “call
-`removeHolder` and hope.”
+Git commits are useful evidence presented to the PM. They are not required and
+do not release the lane by themselves.
 
-When kill / cancel / clock stamps terminal (or verified stop) for a run that
-**held** the build lane:
+### One supervisor loop
 
-| Step | Requirement |
-| --- | --- |
-| Cooperative | Holder’s `runExecution` must observe terminal (or cancel token), call `writeLock.release` / registry `release`, exit cleanly. |
-| Flock | Waiters must observe **unlocked** `lane.lock` (or dead holder process), not merely missing `holder.json`. |
-| Metadata | `removeHolder` / withdraw waiter as today for blocked waiters; do not strip unrelated docs-only holders (PO-S06). |
-| Unresponsive | Bounded grace then escalate coordinator kill **only** per RLR-L5 orphan/force path — document; do not invent silent PG-kill of all inProcess holders. |
+`LoopCoordinator` already owns the parent/child relationship through
+`devRunId`. Extend that existing wait boundary; do not create a watcher type
+with its own persistence.
 
-S02 acceptance is: **next waiter can acquire within bound after kill**, with
-holder process either unlocked or dead — not “holder.json empty while flock
-still held.”
+Conceptual API:
 
-### WL-PWR-L3 — if S00 shows pure M2 (pivot)
+```text
+supervise(childRunId, now) ->
+  wait(checkAgainAfter)
+  wakePM(reason, observation)
+  finished(run)
+```
 
-Do **not** ship L1 as the primary fix. Pivot packet (or expand S01) to:
+The deterministic loop samples locally without model tokens. It wakes the PM
+only when:
 
-- cancel / abort of `warm.prompt` await on idle/wall/kill, **and/or**
-- turn-complete / session hygiene so ACP prompt ends when the agent turn ends,
-  **and**
-- post-worker or global wall so outage is bounded.
+1. the child becomes terminal;
+2. stream progress is stale while the lane is held and another mutator waits;
+3. commits or repo changes exist but no later progress is observed for the
+   existing silence-warning bound;
+4. journal, owner, and lane facts contradict one another;
+5. the loop deadline or existing clock fires.
 
-L2 cooperative cancel still applies.
+No fixed “commit means done” rule. No mandatory commit. No AI polling on a
+timer. The PM receives a compact evidence packet and chooses among existing
+product actions: continue waiting, revoke and advance, retry/redelegate, or
+escalate a real ambiguity.
 
-## When to REJECT early release (L1)
+### One authoritative revoke
 
-Reject or defer L1 if any of:
+Supervision is useless if the PM can diagnose a zombie but cannot recover the
+floor. Kill, cancel, timeout, and PM “revoke and advance” must converge on one
+operation with one success criterion:
 
-1. S00 shows hang **inside** worker stream before terminal outcome (pure M2).
-2. Proof after early release cannot reliably re-acquire or races mutate
-   (Works Test 3 fails with a real root cause, not flake).
-3. Dogfood shows second run corrupting first run’s intended tree because warm
-   session still mutates after “terminal” outcome (false terminal).
-4. Implementation requires a second parallel lock system or weakens
-   one-mutating-worker-per-root.
-5. S00 cannot produce a hermetic failing test that fails on `main` for the
-   claimed mechanism.
+```text
+former mutator cannot edit
+AND lane.lock flock is free
+AND next FIFO waiter can acquire
+```
+
+Journal terminality and `holder.json` cleanup are consequences, not proof.
+Cross-process limits remain honest: cooperative cancel first, bounded
+identity-checked process termination when necessary. Do not add a second lock
+or metadata-only escape hatch.
+
+### PM wake example
+
+```text
+Child 641A3C68 requires review.
+
+Git: HEAD advanced 18m ago (d93bdeca, cf9126f5)
+Tree: 0 dirty files; no observed repo change for 18m
+Run: running / working; no semantic activity for 18m
+Owner: alive
+Lane: held for 19m; 1 mutating run blocked
+Usage: telemetry unavailable
+
+Recommended next action: revoke child and advance the queue.
+```
+
+The recommendation is derived from sourced facts. The PM remains the judgment
+owner; supervision is deterministic plumbing.
+
+## Rejected directions
+
+- **Commit-required write lane:** rejected by founder 2026-08-04. Work orders
+  may legitimately finish without a commit; Git remains evidence.
+- **Commit → terminal/release:** rejected. A commit does not prove the worker
+  cannot mutate again.
+- **New watcher daemon/service:** rejected. Parent supervision belongs in
+  `LoopCoordinator`.
+- **Status-only watcher:** rejected. Better display without automatic PM wake
+  preserves the “founder must press” defect.
+- **Old L1/L2/L3 mechanism plan as active sequence:** superseded. Its S00
+  evidence and tests remain useful; implementation now converges through the
+  supervisor and authoritative revoke.
 
 ## Non-goals
 
 - `attentionRequired` exit codes (ORS).
-- Background `alln serve` sweeper for settling phases (defer until L1+L2 proven
-  insufficient).
+- Background `alln serve` sweeper or any new resident watcher.
 - Auto-reconcile on every `ps` (RLR: `ps` never kills).
-- Full vendor warm-driver hang fix as the only deliverable (may be pivot L3).
+- Requiring commits or treating Git activity as terminal truth.
+- Solving every vendor-specific stream hang.
 - Museum / `alln gc` hygiene for ancient terminal rows.
 
 ## Slices
 
 | Slice | Goal | Gate |
 | --- | --- | --- |
-| **WL-PWR-S00** | Locus proof + failing hermetic tests | **Required before S01/S02 code** |
-| **WL-PWR-S01** | L1 early release (if M1) | S00 locus ∈ {M1, M1+M3}; reject list clear |
-| **WL-PWR-S02** | L2 external terminal frees flock | Can start after S00 even if L1 rejected; must not be metadata-only |
-| **WL-PWR-S03** | Closeout | Deslop, AGENTS router one-liner if law sticks, archive |
+| **WL-PWR-S00** | Locus proof + failing hermetic tests | **COMPLETE** — evidence retained |
+| **WL-PWR-S01** | Simplification inventory + pure supervision decisions | Must reuse existing observation facts; no production polling service |
+| **WL-PWR-S02** | Supervise delegated dev run inside `LoopCoordinator` | S01 proves PM wakes only on material transitions |
+| **WL-PWR-S03** | Converge recovery on one authoritative revoke | Next waiter acquires; former mutator cannot edit |
+| **WL-PWR-S04** | Delete/route duplicate machinery and close out | Concept count does not grow; dogfood green |
 
-### WL-PWR-S00 — locus spike + tests (do first)
+### WL-PWR-S00 — retained incident proof (**COMPLETE**)
 
-**Deliverables**
+Record: [`docs/debuglog/WL_PWR_S00_Locus.md`](../debuglog/WL_PWR_S00_Locus.md).
+Existing `WriteLockPostWorkerTests` retain the three demonstrated failures:
 
-1. **Locus decision record** (short, in this packet or `docs/debuglog/`): for
-   one reproduced hang (hermetic preferred, Studio acceptable with journal
-   artifacts), classify M1 / M2 / M3 with evidence:
-   - Was `WorkerRunOutcome` / answer terminal recorded before silence?
-   - Was `lastActivityAt` advancing? Did idle/wall evaluate/fire?
-   - After `alln kill`, did `lane.lock` flock clear before coordinator death?
-2. **Hermetic tests that fail on current `main`** (filter
-   `WriteLockPostWorker`):
+- post-worker/proof lock retention;
+- kill during an in-prompt hang does not free the lane;
+- kill during post-worker settlement does not free the lane.
 
-| Test id | Setup | Pass criteria (after fix) | Falsifies |
-| --- | --- | --- | --- |
-| **T-M1** | Run A: worker → `.done`; injectable gate blocks post-worker path while still holding lock (today). Run B waits. | After S01: B acquires in &lt; 5s without A process exit | “Lock must span settlement” |
-| **T-M2** | Run A: injectable warm stream never ends; no worker terminal. | Document: L1 must **not** claim to fix; cancel/clock must free lane or test marked pivot | “Early release fixes warm hang” |
-| **T-M3** | Run A holds lane mid-worker or post-worker; external kill from **other** process. | After S02: B acquires in &lt; 5s; flock unlocked or A dead; not merely empty holder.json while flock held | “removeHolder alone frees lane” |
-| **T-PROOF** | Proof command set; early release path. | Proof runs under `harnessProof`; `proofResult` set; no double exclusive build without claim | “Proof lost the lane forever” |
-| **T-PARK** | Vendor park path. | Lock released before parked return (regression) | Park-before-return broken |
+These tests are evidence and regression seeds. They no longer dictate the
+superseded L1/L2/L3 sequence.
 
-3. Optional Studio note with run ids above — not SSOT.
+### WL-PWR-S01 — simplification inventory + decision seam
 
-**Decision gate (end of S00)**
+Before production code:
 
-```text
-if pure M2:
-  reject L1 as primary; schedule L3 pivot (cancel/clock/warm end); still do L2
-elif M1 or M1+M3:
-  implement L1 + L2
-elif pure M3:
-  implement L2 first; L1 optional product improvement
-```
+1. Inventory every existing owner of liveness, Git observation, status
+   projection, clocks, kill/cancel, and flock release.
+2. Name what is reused, what is routed to one owner, and what will be deleted.
+3. Add a pure, hermetic supervision decision seam using existing facts.
+4. Prove no PM model call occurs for ordinary `wait`.
 
-Proof:
+Required decisions:
 
-```bash
-scripts/swift-test.sh --filter WriteLockPostWorker
-```
+| Observation | Decision |
+| --- | --- |
+| Active child, recent semantic progress | `wait` |
+| Terminal child | `finished` |
+| Stale progress + lane held + waiter blocked | `wakePM` |
+| Commit/repo delta + stale progress + lane held | `wakePM` with Git evidence, never invented completion |
+| Usage unavailable | Preserve `unknown`; never emit zero |
+| Journal/identity/lane contradiction | `wakePM` with exact contradiction |
 
-### WL-PWR-S01 — early release (M1 only)
+**Simplification gate:** reject S01 if it needs a new durable type, service,
+store, lock, or JSON envelope.
 
-**Read:** `RunService.swift` (`run`, `runExecution`), `ExecutionLane.swift`,
-RLR-L3 phase table.
+### WL-PWR-S02 — parent supervision
 
-**Change:** factor release to immediately after worker terminal + pre-release
-git snapshot; phase → `proving`|`settling`; outer release idempotent.
+Extend `LoopCoordinator` at the existing delegated-dev boundary:
 
-**Do not:** release before worker terminal; break park-before-return; release
-before capturing `repoDelta` for this worker.
+- persist/retain `devRunId` as today;
+- sample through the S01 decision seam with the existing injected sleeper;
+- ordinary samples are local and token-free;
+- on `wakePM`, invoke the next PM judgment turn with the compact observation;
+- on `finished`, continue the existing PM review path;
+- remove manual caller polling where this loop now owns the wait.
 
-**Acceptance**
+Do not route through `alln serve`. Do not create a watcher process. Do not
+poll `alln` CLI output from engine code.
 
-- [ ] T-M1 green
-- [ ] T-PROOF green
-- [ ] T-PARK green
-- [ ] Existing `ExecutionWriteLockTests` / relevant `RunAcceptanceBoundaryTests` green
-- [ ] No second lock subsystem
+### WL-PWR-S03 — one authoritative revoke
 
-### WL-PWR-S02 — external terminal frees flock
+Route PM revoke, kill, cancel, and clock expiry to one recovery owner. Preserve
+identity checks and FIFO safety, but delete duplicated settlement decisions as
+they converge.
 
-**Read:** `ProcessOwnershipSurface.killRun`, `AsyncTeamService.cancel`,
-`RunClockEnforcer.fire`, `ExecutionLane.release`, `KillSettlement`.
+Acceptance:
 
-**Change:** shared helper that is honest about cross-process limits, e.g.
-`releaseLaneIfHeld(run:)` only works **in the holder process**; killer path
-must (1) stamp terminal / cancel signal the holder observes, and/or
-(2) after grace, escalate so process death unlocks flock. Tests must assert
-**acquire success**, not only deleted `holder.json`.
+- former worker/coordinator is quiescent or identity-checked terminated;
+- build flock is unlocked, not merely absent from metadata;
+- next FIFO waiter acquires in under 5 seconds;
+- blocked-waiter cancellation still withdraws only that waiter;
+- docs-only/disjoint holders remain untouched;
+- repeated revoke is idempotent.
 
-**Acceptance**
+### WL-PWR-S04 — delete and close out
 
-- [ ] T-M3 green (B acquires without waiting for full wall timeout)
-- [ ] Blocked waiter still withdrawn on kill (existing RLR-S02c behavior)
-- [ ] Docs-only / disjoint holders not stripped (PO-S06)
-- [ ] KillSettlement tests still pass for non-terminal partial kills (no premature
-      lane free when outcome ≠ stopped, operator kill)
-
-Proof:
-
-```bash
-scripts/swift-test.sh --filter WriteLockPostWorker
-scripts/swift-test.sh --filter RunAcceptanceBoundary
-scripts/swift-test.sh --filter KillSettlement
-```
-
-### WL-PWR-S03 — closeout
-
-When acceptance green and dogfood item waived or proven: promote one-line law
-to `AGENTS.md` First Routing (run/lane row); archive packet; trim ORS
-follow-up bullet if L2 actually fixed serve-holder deadlock (only if proven —
-do not claim).
+- Remove superseded/manual supervision paths; do not leave aliases.
+- Produce the before/after concept inventory.
+- Run Deslop and Code Audit specifically for additive control-plane machinery.
+- Promote only the durable `delegate implies supervise` and simplification laws
+  to routed SSOT.
+- Archive this packet when dogfood and Works Tests pass.
 
 ## Works Test (closeout)
 
 | # | Scenario | Pass |
 | --- | --- | --- |
-| 1 | Worker done, coordinator hung post-worker (injected) | Second mutating run acquires &lt; 5s |
-| 2 | Active holder killed | Next run acquires &lt; 5s; flock not foreign-held by dead claim |
-| 3 | Proof after early release | `harnessProof` claim; `proofResult` populated |
-| 4 | Vendor park | Lock released before return |
-| 5 | In-prompt hang (if S00 M2) | Documented pivot path green **or** explicit founder waiver |
-| 6 | Dogfood | Two consecutive mutating slices without manual kill when first worker finishes cleanly — waiver OK if 1–4 green and replay scheduled |
+| 1 | Active delegated child with progress | Supervisor waits locally; zero PM model turns |
+| 2 | Commit(s) landed, then stale stream while lane blocks next AI | PM automatically wakes with sourced Git/activity/lane facts |
+| 3 | No commit, stale stream while lane blocks next AI | PM automatically wakes; no commit requirement or invented completion |
+| 4 | Telemetry unavailable | PM sees `unknown`, never false zero |
+| 5 | PM chooses revoke | Former mutator cannot edit; next waiter acquires &lt; 5s |
+| 6 | Child settles normally | Existing PM review continues; no duplicate watcher lifecycle |
+| 7 | Dogfood | Three delegated mutating slices progress without founder prompting the PM |
+| 8 | Simplification | Before/after inventory has no added truth owner, recovery path, or durable lifecycle |
 
 ## Inference bans
 
 | Junction | Bad inference | Ban | Negative test |
 | --- | --- | --- | --- |
-| Git commit → run terminal | “Commit means done” | Terminal requires coordinator settlement; lane may free earlier | T-M1: run still `running`, lane free |
+| Git commit → run terminal | “Commit means done” | Commit is supplementary evidence only; no commit requirement | supervision test with valid no-commit work |
+| No repo delta → no work | “Zero files means idle” | Report only no **observed** repo change | active reasoning fixture |
+| Missing usage → zero usage | “No telemetry means zero tokens” | Preserve `unknown` | non-streaming source fixture |
 | Worker silent → capacity | Silence invents vendor wait | Sourced signals only | existing RLR bans |
 | `attentionRequired` → failure | Exit 0 means run finished | Observer complete ≠ run terminal | ORS tests |
 | `kill` → lane free via metadata | Cancelled journal / empty holder.json frees build lane | Flock unlock or process death | T-M3 |
-| Early release → no proof | Proof cannot run | Re-acquire `harnessProof` | T-PROOF |
 | `team reconcile` fixes live wedge | Reconcile should kill live coordinators | Reconcile identity-dead only | existing POS tests |
-| Warm hang → L1 | ACP hang fixed by post-outcome release | S00 must show outcome exists | T-M2 |
+| Watcher → new service | Supervision needs a daemon | Parent `LoopCoordinator` owns it | architecture-policy / concept inventory |
+| PM wake → automatic kill | Suspicion proves abandonment | PM receives evidence and chooses; hard clocks remain deterministic | stale-but-active fixture |
 
 ## Operator recovery (until shipped)
 
@@ -322,19 +386,23 @@ do not claim).
 4. Re-dispatch; `alln show <id> --stream` — parse terminal /
    `attentionRequired` payload, not exit code alone.
 
-## Open follow-ups (out of scope unless pivot)
+## Open follow-ups (out of scope)
 
-- Serve-side sweeper for long `settling` / silent `working`.
 - Museum / `alln gc` for ancient terminal rows.
-- Warm ACP turn-complete / idle-TTL (likely L3 if M2).
-- `alln serve` as lane holder deadlock (ORS follow-up) — only close if L2
-  actually covers that holder shape.
+- Vendor-specific warm ACP turn-complete / idle-TTL.
+- `alln serve` as lane holder deadlock (ORS follow-up) — only close if the
+  authoritative revoke actually covers that holder shape.
 
 ## Closeout checklist
 
 - [x] S00 locus recorded; reject/pivot decision explicit — see `docs/debuglog/WL_PWR_S00_Locus.md`
-- [ ] S01 only if L1 accepted
-- [ ] S02 proves acquire, not metadata
-- [ ] Works Test 1–4 green; 5–6 waived or proven
+- [ ] S01 inventory names reuse, convergence, and deletion before code
+- [ ] S01 adds no service/store/lock/status contract
+- [ ] S02 automatically wakes PM from sourced evidence without periodic model turns
+- [ ] S03 proves former mutator stopped **and** next waiter acquired
+- [ ] Kill/cancel/timeout/PM recovery route to one revoke owner
+- [ ] Works Tests 1–8 green
+- [ ] Before/after concept inventory has not grown
+- [ ] Commit-required direction remains rejected
 - [ ] AGENTS one-liner if law sticks
 - [ ] Archive packet
