@@ -1,6 +1,20 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S17–S21 (ThreadView shell + TeamEditor scout)
+
+Scope: Finish ThreadView decomposition; scout TeamEditorView (~1,036 LOC)
+Class: Structure lens (index 0)
+Delegation: Gemini 3.6 Flash via `alln run --model model_gemini` for all 5 slices
+Files touched: NEW ThreadTurnIndicators, AnswerBody, ThreadTurnRow, ThreadTurnTimeline;
+  ThreadView.swift 793→272 LOC; NEW plans/TeamEditorView-split.md (CM-S22+ batches)
+Behavior guarantee: Move-only extractions; thread UI unchanged
+Proof: xcodebuild build -scheme AllnighterMac on each Swift slice
+Before/after signal: ThreadView split complete (272 LOC shell); TeamEditor scout ready
+Next lens: CM-S22 EditSkillView extract per TeamEditorView-split.md
+```
+
+```text
 ## 2026-08-03 - Structure CM-S16 (ThreadMutatingRunRow extract)
 
 Scope: Extract mutating run row from ThreadView to ThreadMutatingRunRow.swift
