@@ -1,6 +1,6 @@
 # CM-S19 — Extract ThreadTurnRow from ThreadView
 
-Status: ready
+Status: done (`fb4eae45`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 
