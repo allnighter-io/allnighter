@@ -1,10 +1,10 @@
 # Write Lock Post-Worker Release
 
-Status: **OPEN — SPIKE FIRST (S00). Implementation gated on locus proof.**
+Status: **OPEN — S00 COMPLETE. Implement S02 (L2) then L3 pivot, then S01 (L1).**
 Owner: AllnighterEngine (`RunService`, `ExecutionLaneRegistry` /
 `ExecutionLaneFlock`, `KillSettlement`, `ProcessOwnershipSurface`)
 Created: 2026-08-04
-Updated: 2026-08-04 (pre-implementation skeptic revision)
+Updated: 2026-08-04 (S00 locus spike complete)
 
 Related: archived
 [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md)
@@ -49,7 +49,17 @@ not “finish unfinished RLR.”
 | Field | Value |
 | --- | --- |
 | Severity (outage) | **T3** if multi-slice mutating FIFO is blocked ≥ ~15m with no active mutation — dogfood 2026-08-04 supports this |
-| Diagnosis confidence | **Low–medium until S00** — hang locus not proven |
+| Diagnosis confidence | **Medium (post-S00)** — locus proven; Studio = M2 primary, M1+M3 compounding |
+
+### S00 locus decision (2026-08-04)
+
+Full record: [`docs/debuglog/WL_PWR_S00_Locus.md`](../debuglog/WL_PWR_S00_Locus.md)
+
+```text
+Studio primary: M2 (cursor_agent stream never terminal — run 641A3C68, commits landed, no repoDelta)
+Hermetic proof: T-M1 FAIL (M1), T-M2 kill FAIL (M3), T-M3 FAIL (M3), T-M2 hang PASS, T-PARK/T-PROOF PASS
+Gate: implement L2 + L3 pivot; L1 still required for post-worker path but NOT sufficient alone
+```
 | Work posture until S00 | **Spike**, not feature implement |
 
 ### Evidence — 2026-08-04 (`Ikiro.Studio`)
@@ -322,7 +332,7 @@ do not claim).
 
 ## Closeout checklist
 
-- [ ] S00 locus recorded; reject/pivot decision explicit
+- [x] S00 locus recorded; reject/pivot decision explicit — see `docs/debuglog/WL_PWR_S00_Locus.md`
 - [ ] S01 only if L1 accepted
 - [ ] S02 proves acquire, not metadata
 - [ ] Works Test 1–4 green; 5–6 waived or proven
