@@ -1,6 +1,6 @@
 # CM-S20 — Extract ThreadTurnTimeline from ThreadView
 
-Status: ready
+Status: done (`a640f0ec`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 

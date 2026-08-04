@@ -59,7 +59,7 @@ PM delegates via `alln run --model model_gemini --commit-message "..." --proof "
 | CM-S17 | [thread turn indicators](structure/CM-S17-thread-turn-indicators.md) | **done** (`cd5eebcf`, Gemini) |
 | CM-S18 | [AnswerBody extract](structure/CM-S18-answer-body.md) | **done** (`e76c9e5b`, Gemini) |
 | CM-S19 | [ThreadTurnRow extract](structure/CM-S19-thread-turn-row.md) | **done** (`fb4eae45`, Gemini) |
-| CM-S20 | [ThreadTurnTimeline extract](structure/CM-S20-thread-turn-timeline.md) | ready |
+| CM-S20 | [ThreadTurnTimeline extract](structure/CM-S20-thread-turn-timeline.md) | **done** (`a640f0ec`, Gemini) |
 | CM-S21 | [TeamEditorView scout](structure/CM-S21-team-editor-scout.md) | ready |
 
 ### Hygiene queue (doc truth + help fidelity — one slice per commit)
