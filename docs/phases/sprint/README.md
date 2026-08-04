@@ -57,7 +57,7 @@ PM delegates via `alln run --model model_gemini --commit-message "..." --proof "
 | CM-S15 | [ThreadsViewModel routing send](structure/CM-S15-threads-vm-routing-send.md) | **done** (`9e43b1f5`, Gemini) |
 | CM-S16 | [ThreadMutatingRunRow extract](structure/CM-S16-thread-mutating-run-row.md) | **done** (`04983459`, Gemini) |
 | CM-S17 | [thread turn indicators](structure/CM-S17-thread-turn-indicators.md) | **done** (`cd5eebcf`, Gemini) |
-| CM-S18 | [AnswerBody extract](structure/CM-S18-answer-body.md) | ready |
+| CM-S18 | [AnswerBody extract](structure/CM-S18-answer-body.md) | **done** (`e76c9e5b`, Gemini) |
 | CM-S19 | [ThreadTurnRow extract](structure/CM-S19-thread-turn-row.md) | ready |
 | CM-S20 | [ThreadTurnTimeline extract](structure/CM-S20-thread-turn-timeline.md) | ready |
 | CM-S21 | [TeamEditorView scout](structure/CM-S21-team-editor-scout.md) | ready |

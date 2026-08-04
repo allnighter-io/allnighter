@@ -1,6 +1,6 @@
 # CM-S18 — Extract AnswerBody from ThreadView
 
-Status: ready
+Status: done (`e76c9e5b`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 
