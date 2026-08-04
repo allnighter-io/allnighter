@@ -1,6 +1,6 @@
 # Worker Turn Termination and Lane Release
 
-Status: **IN FLIGHT — S01 complete; S02 hang/cancel approved 2026-08-04**
+Status: **S02 COMPLETE — dogfood next (founder ceiling 2026-08-04)**
 Owner: AllnighterEngine (`RunService`, `ExecutionLane`, kill path)
 Created: 2026-08-04
 Finalized: 2026-08-04 (scope narrowed by founder)
@@ -50,7 +50,7 @@ Proof: T-M1, T-PROOF, T-PARK, nested relay — green.
 
 ## Remaining slice (founder ceiling)
 
-### WL-PWR-S02 — hang / cancel frees the repo
+### WL-PWR-S02 — hang / cancel frees the repo (**COMPLETE**)
 
 One product rule:
 
@@ -62,29 +62,19 @@ alln kill (or cancel) on a live mutating run
   → if the holder process will not unwind, stop that process (kernel frees flock)
 ```
 
-Reuse only:
+Shipped: `RunExecutionRegistry` + `LiveRunStop` — same-process kill releases
+mutation/proof holds immediately and cancels in-flight proof; durable kill
+journal wins on return. Cross-process holders still rely on identity-checked
+worker stop (`KillSettlement`) plus owner unwind.
 
-- `KillSettlement` / `ProcessOwnership` identity-checked stops
-- `WarmWorker.shutdown` / pool shutdown when warm
-- existing `MutationAuthorityHold` release
-- journal terminal stamp already done by kill (do not overwrite it on return)
+Acceptance:
 
-Mirror the cooperative cancel pattern in `AsyncTeamService.cancel` for
-in-process `RunService` — register the live run, stop it on kill, release the
-lane. Do not invent a parallel lifecycle.
+- [x] T-M2 kill green
+- [x] T-M3 green
+- [x] T-M1 / T-PROOF / T-PARK / nested relay stay green
 
-Acceptance (this slice only):
-
-- T-M2 kill green — kill during in-prompt hang frees the lane within 2s
-- T-M3 green — kill during post-worker proof frees the lane within 2s
-- T-M1 / T-PROOF / T-PARK / nested relay stay green
-- No false kill from output silence alone (do not change idle clocks here)
-
-Out of scope for this packet after S02 (dogfood first):
-
-- Broad warm/cold clock matrix beyond kill/cancel
-- Works Tests 2–3–8 full matrix as a build gate
-- Deslop / archive / SSOT promotion (S04) — after dogfood, not before
+**Stop here and dogfood.** No further lifecycle work in this packet without a
+new founder ruling.
 
 ## Inference bans (still binding)
 
@@ -108,6 +98,6 @@ Out of scope for this packet after S02 (dogfood first):
 - [x] Founder approved root-fix direction
 - [x] Final worker terminal releases `RunService` depth before settlement (S01)
 - [x] Founder ceiling: hang/cancel frees repo; then dogfood (2026-08-04)
-- [ ] S02: kill/cancel stops worker and frees lane (T-M2 kill, T-M3)
+- [x] S02: kill/cancel stops worker and frees lane (T-M2 kill, T-M3)
 - [ ] Dogfood: consecutive mutating turns without manual lock recovery
 - [ ] Later (new ruling): archive / promote durable law

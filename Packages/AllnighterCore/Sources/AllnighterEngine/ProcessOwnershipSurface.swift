@@ -360,6 +360,14 @@ public struct ProcessOwnershipSurface: Sendable {
                     laneKey: ExecutionLane.key(repoRoot: current.repoRoot), claimId: current.id)
             }
             _ = try? runStore.save(current, models: [])
+            // WL-PWR-S02: if this process owns the live run, free its lane now.
+            let runId = current.id
+            let finished = DispatchSemaphore(value: 0)
+            Task {
+                await RunExecutionRegistry.shared.requestStop(runId: runId)
+                finished.signal()
+            }
+            _ = finished.wait(timeout: .now() + 2.0)
             return .success(OwnershipKillRowJSON(
                 id: current.id, kind: "run",
                 endReason: "killed", killOutcome: KillOutcome.stopped.rawValue,

@@ -1571,6 +1571,16 @@ public actor RunService {
         if let skillId { startedPayload["skillId"] = .string(skillId) }
         emit(RunEventKind.workerStatusChanged, startedPayload)
 
+        // WL-PWR-S02: register so same-process kill can free the lane and cancel work.
+        let liveStop = LiveRunStop(mutationAuthority: mutationAuthority, writeLock: writeLock)
+        let pool = warmPool
+        await RunExecutionRegistry.shared.register(runId: runId) {
+            await liveStop.performStop(warmPool: pool)
+        }
+        defer {
+            Task { await RunExecutionRegistry.shared.unregister(runId: runId) }
+        }
+
         // Stream the single execution worker live when it can: emit accumulated
         // visible answer (`workerAnswerDelta`) AND reasoning (`workerReasoningDelta`)
         // on a time cadence so even short replies visibly stream. If streaming yields
@@ -1749,6 +1759,12 @@ public actor RunService {
             outcome = terminal ?? WorkerRunOutcome(
                 status: .failed, errorKind: .emptyOutput,
                 errorReason: "stream ended without a terminal event")
+        }
+
+        // External kill already stamped the durable journal — do not resurrect it.
+        if let durable = runStore.loadRaw(runId: runId), durable.status.isTerminal {
+            await liveStop.performStop(warmPool: pool)
+            return .success(durable)
         }
         // A long park can outlive the vendor's stored session. One rejected
         // resume gets exactly one fresh-session handoff; capacity rejections
@@ -2081,6 +2097,10 @@ public actor RunService {
         // mutating depth before settlement/proof. Nested relay/pilot depth remains.
         // Harness proof re-acquires as harnessProof (same pattern as LoopCoordinator).
         await mutationAuthority?.releaseIfHeld(endReason: "workerTerminal")
+        if let durable = runStore.loadRaw(runId: runId), durable.status.isTerminal {
+            await liveStop.performStop(warmPool: pool)
+            return .success(durable)
+        }
         if let proofCommand, !proofCommand.isEmpty {
             // PO-S03: harness proof is build-class — holds the per-root execution lane.
             // (Dev turns already hold the lane for their full duration; a nested proof
@@ -2102,18 +2122,28 @@ public actor RunService {
                 claim: proofClaim,
                 timeout: Self.writeLockWaitTimeout
             )
+            if let proofToken {
+                await liveStop.setProof(key: laneKey, token: proofToken)
+            }
             defer {
-                if let proofToken {
-                    Task { await writeLock.release(laneKey, token: proofToken, endReason: "completed") }
+                Task {
+                    await liveStop.clearProofRegistration()
+                    if let proofToken {
+                        await writeLock.release(laneKey, token: proofToken, endReason: "completed")
+                    }
                 }
             }
             let proofRunner = RunProofRunner(commandRunner: commandRunner)
-            if proofToken != nil {
-                run.proofResult = await proofRunner.run(
-                    command: proofCommand,
-                    cwd: repoRoot,
-                    timeoutSeconds: proofTimeoutSeconds ?? RunProofRunner.defaultTimeoutSeconds)
-            } else {
+            if let proofToken, !(await liveStop.stopRequested) {
+                let proofTask = Task {
+                    await proofRunner.run(
+                        command: proofCommand,
+                        cwd: repoRoot,
+                        timeoutSeconds: proofTimeoutSeconds ?? RunProofRunner.defaultTimeoutSeconds)
+                }
+                await liveStop.setProofTask(proofTask)
+                run.proofResult = await proofTask.value
+            } else if proofToken == nil {
                 run.proofResult = RunProofResult(
                     command: proofCommand,
                     exitCode: nil,
@@ -2121,6 +2151,10 @@ public actor RunService {
                     timedOut: false,
                     outputTail: "EXECUTION_LANE_BUSY: harness proof could not acquire the per-root lane"
                 )
+            }
+            if let durable = runStore.loadRaw(runId: runId), durable.status.isTerminal {
+                await liveStop.performStop(warmPool: pool)
+                return .success(durable)
             }
         }
         if answer.result.status == .done, let text = answer.output {
@@ -2154,6 +2188,11 @@ public actor RunService {
         activityRecorder.stamp(&run)
         // CR-S02: the terminal result is authoritative. A swallowed write here would
         // report success while the durable journal is lost — surface it (RUN_JOURNAL_UNAVAILABLE).
+        // WL-PWR-S02: an external kill's durable terminal wins over in-memory settlement.
+        if let durable = runStore.loadRaw(runId: runId), durable.status.isTerminal {
+            await liveStop.performStop(warmPool: pool)
+            return .success(durable)
+        }
         do {
             try persistTerminalRun(run)
         } catch {
