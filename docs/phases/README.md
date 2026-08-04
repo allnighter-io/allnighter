@@ -43,7 +43,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
-| [`Write_Lock_Post_Worker_Release.md`](Write_Lock_Post_Worker_Release.md) | **READY FOR IMPLEMENTATION — founder approved 2026-08-04** | Root fix: every warm/cold worker turn terminates exactly once and releases its `RunService` lane depth immediately; keep `LoopCoordinator` nesting, retries, scope, and proof. No watcher, PM dependency, commit requirement, or metadata force-release. |
+| [`Write_Lock_Post_Worker_Release.md`](Write_Lock_Post_Worker_Release.md) | **IN FLIGHT — S01 complete; S02 next** | S01: final worker terminal releases `RunService` depth before settlement/proof. Next: guaranteed warm/cold termination (S02). |
 
 ### Forward feature packets
 

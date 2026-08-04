@@ -192,6 +192,30 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
 /// Unified run entry — one primitive for chat, execution, and answer teams.
 /// Every project-scoped run spawns with `cwd = repoRoot`. Mutating runs take
 /// `RunWriteLock`; answer runs never take it.
+/// WL-PWR-S01 — owner-local mutating-run lane release.
+///
+/// Releases `RunService`'s lane depth at most once after the final worker
+/// terminal. Nested relay/pilot depth is untouched: a second call is a no-op
+/// so the outer `run()` path cannot decrement the coordinator's hold.
+actor MutationAuthorityHold {
+    private let writeLock: ExecutionLaneRegistry
+    private let key: String
+    private let token: ExecutionLane.Token
+    private var released = false
+
+    init(writeLock: ExecutionLaneRegistry, key: String, token: ExecutionLane.Token) {
+        self.writeLock = writeLock
+        self.key = key
+        self.token = token
+    }
+
+    func releaseIfHeld(endReason: String = "workerTerminal") async {
+        guard !released else { return }
+        released = true
+        await writeLock.release(key, token: token, endReason: endReason)
+    }
+}
+
 public actor RunService {
     private let models: [Model]
     private let registry: DriverRegistry
@@ -713,6 +737,9 @@ public actor RunService {
         parked.blocker = nil
         try? runStore.save(parked, models: models)
 
+        let mutationAuthority = MutationAuthorityHold(
+            writeLock: writeLock, key: lockKey, token: token
+        )
         let runner = WorkerInvokerFactory.makeWorkerInvoker(
             commandRunner: (commandRunner as? StreamingCommandRunner)
                 ?? CommandRunnerAsStreaming(commandRunner),
@@ -752,10 +779,11 @@ public actor RunService {
             clockBudgets: parked.clockBudgets,
             existingRun: parked,
             resumeSelectionOrigin: resumeOrigin,
-            substitutionOfAttempt: substitutionOfAttempt
+            substitutionOfAttempt: substitutionOfAttempt,
+            mutationAuthority: mutationAuthority
         )
         ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: nil)
-        await writeLock.release(lockKey, token: token)
+        await mutationAuthority.releaseIfHeld(endReason: "runReturned")
         if case .failure(let error) = result,
            var failed = runStore.loadRaw(runId: runId),
            !failed.status.isTerminal {
@@ -854,7 +882,7 @@ public actor RunService {
         let effectiveLane = invocation.lane
         let effort = invocation.effort
         let lockKey = invocation.lockKey
-        var lockToken: RunWriteLock.Token?
+        var mutationAuthority: MutationAuthorityHold?
         let takesWriteLock = invocation.takesWriteLock
 
         var prompt = request.message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1021,7 +1049,9 @@ public actor RunService {
                 }
                 return .failure(.writeLockBusy(root))
             }
-            lockToken = token
+            mutationAuthority = MutationAuthorityHold(
+                writeLock: writeLock, key: lockKey, token: token
+            )
             // RLR-S02c pre-spawn terminal guard: the grant may have handed us the lane for
             // an already-terminal run — a cross-process kill stamped the journal terminal and
             // withdrew our waiter file, but the in-process grant still fired before our
@@ -1029,8 +1059,8 @@ public actor RunService {
             // explicitly here (this early return is INSIDE the takesWriteLock block, before the
             // release `defer` below is registered) and return the durable terminal run.
             if let terminal = runStore.loadRaw(runId: id), terminal.status.isTerminal {
-                await writeLock.release(lockKey, token: token)
-                lockToken = nil
+                await mutationAuthority?.releaseIfHeld(endReason: "preSpawnTerminal")
+                mutationAuthority = nil
                 return .success(terminal)
             }
             // Lock acquired → advance to spawningWorker and clear the blocker in the
@@ -1120,13 +1150,12 @@ public actor RunService {
                 clockBudgets: clockBudgets,
                 initialSelectionOrigin: initialSelectionOrigin,
                 // AVQ-S04: stamp journal mutating from resolved write policy (not always true).
-                mutating: invocation.writePolicy == .mutating
+                mutating: invocation.writePolicy == .mutating,
+                mutationAuthority: mutationAuthority
             )
-            // Parking must release the write lock before the parked journal is
-            // returned to the caller; an un-awaited defer could freeze this repo.
-            if let lockToken {
-                await writeLock.release(lockKey, token: lockToken)
-            }
+            // Parking / early worker-terminal release may already have dropped our depth;
+            // this is an idempotent no-op when so (WL-PWR-S01).
+            await mutationAuthority?.releaseIfHeld(endReason: "runReturned")
             return result
         }
 
@@ -1147,9 +1176,7 @@ public actor RunService {
             retryLinks: retryLinks,
             clockBudgets: clockBudgets
         )
-        if let lockToken {
-            await writeLock.release(lockKey, token: lockToken)
-        }
+        await mutationAuthority?.releaseIfHeld(endReason: "runReturned")
         return result
     }
 
@@ -1286,7 +1313,8 @@ public actor RunService {
         resumeSelectionOrigin: String? = nil,
         initialSelectionOrigin: String? = nil,
         substitutionOfAttempt: Int? = nil,
-        mutating: Bool = true
+        mutating: Bool = true,
+        mutationAuthority: MutationAuthorityHold? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let timeoutOverride = workerTimeoutSeconds.map { Duration.seconds($0) }
@@ -1859,7 +1887,8 @@ public actor RunService {
                     clockBudgets: clockBudgets,
                     existingRun: run,
                     resumeSelectionOrigin: candidate.selectionOrigin,
-                    substitutionOfAttempt: priorAttempt
+                    substitutionOfAttempt: priorAttempt,
+                    mutationAuthority: mutationAuthority
                 )
             }
 
@@ -1917,6 +1946,8 @@ public actor RunService {
                 baseline: baselineHead,
                 head: gitObserver.observe(rootPath: repoRoot).head
             )
+            // WL-PWR-S01 / T-PARK: release mutation authority before returning parked.
+            await mutationAuthority?.releaseIfHeld(endReason: "vendorPark")
             // One atomic run.json revision carries both phase and blocker.
             do {
                 activityRecorder.stamp(&run)
@@ -2046,6 +2077,10 @@ public actor RunService {
         if noCommit, run.repoDelta?.changed != true {
             run.uncommittedFileCount = gitObserver.dirtyFiles(rootPath: repoRoot).count
         }
+        // WL-PWR-S01 / WT-L3: capture repo truth above, then release RunService's
+        // mutating depth before settlement/proof. Nested relay/pilot depth remains.
+        // Harness proof re-acquires as harnessProof (same pattern as LoopCoordinator).
+        await mutationAuthority?.releaseIfHeld(endReason: "workerTerminal")
         if let proofCommand, !proofCommand.isEmpty {
             // PO-S03: harness proof is build-class — holds the per-root execution lane.
             // (Dev turns already hold the lane for their full duration; a nested proof

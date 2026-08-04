@@ -154,13 +154,16 @@ final class WriteLockPostWorkerTests: HermeticSupportTestCase {
 
     // MARK: - T-M1 post-worker settlement holds lane (fails until WL-PWR-L1)
 
-    /// Worker reaches `.done`, then harness proof sleeps. Today the coordinator keeps
-    /// the build lane until `run()` returns; run B must not wait that long.
+    /// Worker reaches `.done`, then harness proof sleeps. After S01 the coordinator
+    /// releases mutation depth at worker terminal so a queued run B can acquire
+    /// while A is still in proof/settlement (FIFO: B was waiting before release).
     func testTM1_SecondRunAcquiresAfterWorkerTerminalBeforeCoordinatorExit() async throws {
         let gate = WorkerDoneGate()
         let worker = WorkerDoneSignallingRunner(
             gate: gate,
-            inner: MockCommandRunner(scripts: ["grok": .init(stdout: "Done.", exitCode: 0)]))
+            inner: MockCommandRunner(scripts: [
+                "grok": .init(stdout: "Done.", exitCode: 0, delay: .milliseconds(400)),
+            ]))
         let h = try makeHarness(
             workerRunner: worker,
             proofRunner: SubprocessCommandRunner())
@@ -175,26 +178,98 @@ final class WriteLockPostWorkerTests: HermeticSupportTestCase {
                 origin: .cli, runId: runA)
         }
 
-        let workerFinished = await gate.waitForDone(timeout: 5)
-        XCTAssertTrue(workerFinished, "worker A must finish before proof sleep")
+        // Let A acquire and begin the worker so B queues behind the live holder.
         try await Task.sleep(for: .milliseconds(150))
+        let aHolds = await h.registry.isHeld(h.lockKey)
+        XCTAssertTrue(aHolds, "run A must hold before B queues")
 
         let taskB = Task {
             await h.service.run(
                 RunRequest(message: "second slice", repoRoot: h.repo.path, pinnedModelId: "model_grok"),
                 origin: .cli, runId: runB)
         }
-
         _ = try await waitUntilBlocked(runId: runB, store: h.pollStore(), timeout: 3)
 
-        let acquiredWhileAInProof = await waitUntilLaneFree(registry: h.registry, key: h.lockKey, timeout: 2)
+        let workerFinished = await gate.waitForDone(timeout: 5)
+        XCTAssertTrue(workerFinished, "worker A must finish")
+
+        // After worker terminal, A releases mutation depth; B leaves the write-lock wait
+        // while A's coordinator is still in proof (sleep 8).
+        let bLeftWriteLockWait = await waitUntilLeftWriteLockWait(
+            runId: runB, store: h.pollStore(), timeout: 2)
+        let aStillInFlight = await boundedValue(of: taskA, timeout: 0.3) == nil
+
         taskA.cancel()
         taskB.cancel()
         _ = await boundedValue(of: taskA, timeout: 1)
         _ = await boundedValue(of: taskB, timeout: 1)
 
-        XCTAssertTrue(acquiredWhileAInProof,
-                      "WL-PWR-L1: run B must acquire the lane within 2s after A's worker terminal while A's coordinator is still in proof/settlement")
+        XCTAssertTrue(bLeftWriteLockWait,
+                      "WL-PWR-L1: run B must leave write-lock wait within 2s after A's worker terminal while A's coordinator is still in proof/settlement")
+        XCTAssertTrue(aStillInFlight,
+                      "run A must still be in proof/settlement when B acquires")
+    }
+
+    private func waitUntilLeftWriteLockWait(
+        runId: String, store: RunStore, timeout: TimeInterval
+    ) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let run = store.loadRaw(runId: runId) {
+                let blocked = run.status == .queued && run.blocker?.resource == .repoWriteLock
+                if !blocked { return true }
+            }
+            try? await Task.sleep(for: .milliseconds(40))
+        }
+        return false
+    }
+
+    // MARK: - Nested relay: inner depth releases; outer remains (WL-PWR-S01)
+
+    /// Outer relayDevTurn + nested RunService: early worker-terminal release must not
+    /// free the outer hold (idempotent MutationAuthorityHold).
+    func testNestedRelay_WorkerTerminalReleasesInnerDepthOuterRemains() async throws {
+        let gate = WorkerDoneGate()
+        let worker = WorkerDoneSignallingRunner(
+            gate: gate,
+            inner: MockCommandRunner(scripts: ["grok": .init(stdout: "Done.", exitCode: 0)]))
+        let h = try makeHarness(workerRunner: worker)
+
+        let outerClaim = try XCTUnwrap(
+            ExecutionLane.Claim.current(
+                id: "relay-outer-\(UUID().uuidString)",
+                kind: ExecutionLaneSite.relayDevTurn.rawValue
+            )
+        )
+        guard case .success(let outerToken) = await h.registry.tryAcquire(
+            h.lockKey, claim: outerClaim, now: Date()
+        ) else {
+            return XCTFail("outer relayDevTurn must acquire")
+        }
+
+        let runId = "run-nested-\(UUID().uuidString)"
+        let result = await h.service.run(
+            RunRequest(message: "nested mutate", repoRoot: h.repo.path, pinnedModelId: "model_grok"),
+            origin: .cli, runId: runId)
+
+        guard case .success = result else {
+            await h.registry.release(h.lockKey, token: outerToken, endReason: "testCleanup")
+            return XCTFail("nested run failed: \(result)")
+        }
+        let workerFinished = await gate.waitForDone(timeout: 2)
+        XCTAssertTrue(workerFinished)
+
+        // RunService returned; idempotent owner release must leave the outer depth held.
+        // (Nested depth decrement does not stamp lastEndReason — only the outermost free does.)
+        let stillHeld = await h.registry.isHeld(h.lockKey)
+        let holderCount = await h.registry.localHolderCount(for: h.lockKey)
+        XCTAssertTrue(stillHeld,
+                      "outer relay depth must remain after RunService worker-terminal release")
+        XCTAssertEqual(holderCount, 1)
+
+        await h.registry.release(h.lockKey, token: outerToken, endReason: "testDone")
+        let freed = await h.registry.isHeld(h.lockKey)
+        XCTAssertFalse(freed, "outermost release frees the lane")
     }
 
     // MARK: - T-M2 in-prompt hang (documents M2; L1 must not claim to fix)

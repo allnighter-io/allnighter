@@ -239,7 +239,7 @@ closeout.
 
 Retain `WriteLockPostWorkerTests` and the S00 debug record.
 
-### WL-PWR-S01 — terminal outcome releases owner depth
+### WL-PWR-S01 — terminal outcome releases owner depth (**COMPLETE**)
 
 Change `RunService` so the final worker terminal:
 
@@ -335,11 +335,11 @@ Acceptance:
 - [x] S00 incident locus and failing tests recorded
 - [x] Founder approved root-fix direction
 - [ ] Every warm/cold worker turn resolves exactly once
-- [ ] Final worker terminal releases `RunService` depth before settlement
+- [x] Final worker terminal releases `RunService` depth before settlement
 - [ ] External cancel/clock reaches the active owner
 - [ ] No raw PGID kill or metadata-only force release
 - [ ] No commit requirement, Git heuristic, watcher, or PM dependency
-- [ ] Existing `LoopCoordinator` retry/scope/proof behavior preserved
+- [x] Existing `LoopCoordinator` retry/scope/proof behavior preserved
 - [ ] Works Tests 1–10 green
 - [ ] Deslop + Code Audit clean
 - [ ] Dogfood requires no manual lock recovery
