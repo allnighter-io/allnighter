@@ -62,7 +62,7 @@ PM delegates via `alln run --model model_gemini --commit-message "..." --proof "
 | CM-S20 | [ThreadTurnTimeline extract](structure/CM-S20-thread-turn-timeline.md) | **done** (`a640f0ec`, Gemini) |
 | CM-S21 | [TeamEditorView scout](structure/CM-S21-team-editor-scout.md) | **done** (`d97ba5c0`, Gemini) |
 | CM-S23 | [TeamDraft extract](structure/CM-S23-team-draft.md) | **done** (`204ac582`, Gemini) |
-| CM-S22 | [EditSkillView extract](structure/CM-S22-edit-skill-view.md) | ready |
+| CM-S22 | [EditSkillView extract](structure/CM-S22-edit-skill-view.md) | **done** (`86969cc9`, Gemini) |
 | CM-S24 | roster extension | **deferred** — no active Team Editor work |
 
 ### Hygiene queue (doc truth + help fidelity — one slice per commit)

@@ -1,6 +1,6 @@
 # CM-S22 — Extract EditSkillView from TeamEditorView
 
-Status: ready
+Status: done (`86969cc9`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 

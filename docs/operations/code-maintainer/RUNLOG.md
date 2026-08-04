@@ -1,6 +1,20 @@
 # Code Maintainer Runlog
 
 ```text
+## 2026-08-03 - Structure CM-S22–S23 (TeamEditor high-value extracts)
+
+Scope: Extract TeamDraft model + EditSkillView; defer CM-S24 roster extension
+Class: Structure lens (index 0)
+Delegation: Gemini 3.6 Flash via `alln run --model model_gemini`
+Files touched: NEW TeamDraft.swift (175 LOC), EditSkillView.swift (241 LOC);
+  TeamEditorView.swift 1036→625 LOC
+Behavior guarantee: Move-only; team editor save/skill edit unchanged
+Proof: xcodebuild build -scheme AllnighterMac (BUILD SUCCEEDED on both slices)
+Before/after signal: High-ROI TeamEditor splits done; roster UI stays in shell until needed
+Next lens: Pause Structure — shift to product work or AppModel scout if run lifecycle changes
+```
+
+```text
 ## 2026-08-03 - Structure CM-S17–S21 (ThreadView shell + TeamEditor scout)
 
 Scope: Finish ThreadView decomposition; scout TeamEditorView (~1,036 LOC)
