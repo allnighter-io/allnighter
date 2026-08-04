@@ -1,6 +1,6 @@
 # CM-S23 — Extract TeamDraft from TeamEditorView
 
-Status: ready
+Status: done (`204ac582`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 

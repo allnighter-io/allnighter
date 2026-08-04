@@ -23,7 +23,7 @@ Owner: code-maintainer Structure lens
 | Batch | File | LOC | Status | Job |
 | --- | --- | ---: | --- | --- |
 | CM-S22 | `EditSkillView.swift` | ~239 | proposed | Level-2 detail view for editing skill templates (`skill.md`), search/create dropdowns, and worker skill commits |
-| CM-S23 | `TeamDraft.swift` | ~173 | proposed | Pure in-memory edit state (`TeamDraft`, `TeamDraft.Row`) and team catalog persistence / validation (`commit()`) |
+| CM-S23 | `TeamDraft.swift` | ~173 | **done** (`204ac582`, Gemini) |
 | CM-S24 | `TeamEditorView+Roster.swift` | ~221 | proposed | Roster section subviews (`leadSection`, `workers`), model pickers, triangulated model cells, and stage-0 scout section |
 | Shell | `TeamEditorView.swift` | ~403 | proposed | Core editor view layout, header bar, team name input, execution posture toggles, deletion dialog, save/restore footer |
 
