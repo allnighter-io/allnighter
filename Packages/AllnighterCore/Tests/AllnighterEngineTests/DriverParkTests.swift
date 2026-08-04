@@ -72,6 +72,17 @@ final class DriverParkTests: XCTestCase {
         XCTAssertEqual(list.drivers.map(\.status), ["notChecked", "parked"])
     }
 
+    func testDriverListProjectorSurfacesIdleTimeoutSeconds() {
+        let registry = DriverRegistry([
+            DriverManifest(
+                id: "antigravity", displayName: "Antigravity", kind: .headlessCLI,
+                invoke: DriverManifest.Invoke(command: "agy", args: [], timeoutSeconds: 1800)),
+        ])
+        let list = DriverListProjector.build(
+            registry: registry, probeRecords: [], models: [], parkedDriverIds: [])
+        XCTAssertEqual(list.drivers.first?.idleTimeoutSeconds, 1800)
+    }
+
     func testDriverListProjectorSurfacesRateLimitedDetail() {
         let reset = Date(timeIntervalSince1970: 7_200)
         let observation = CapacityObservation(

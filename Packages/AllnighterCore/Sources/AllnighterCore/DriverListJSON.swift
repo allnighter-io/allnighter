@@ -17,6 +17,8 @@ public struct DriverListJSON: Codable, Sendable, Equatable {
         public var version: String?
         public var modelsOn: Int
         public var probeDetail: String?
+        /// Manifest `invoke.timeoutSeconds` when the driver declares an invoke block.
+        public var idleTimeoutSeconds: Int?
     }
 
     public init(

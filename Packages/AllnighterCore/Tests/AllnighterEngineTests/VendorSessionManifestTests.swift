@@ -43,6 +43,9 @@ final class VendorSessionManifestTests: XCTestCase {
         XCTAssertEqual(agy.session?.capture?.from, .sessionDir)
         XCTAssertEqual(agy.session?.capture?.dir, "~/.gemini/antigravity-cli/brain")
         XCTAssertNil(agy.session?.capture?.field, "session_dir captures the folder NAME, no string field")
+        XCTAssertEqual(agy.invoke?.printTimeoutFlag, "--print-timeout",
+                       "agy --print defaults to 5m; harness must pass --print-timeout")
+        XCTAssertEqual(agy.invoke?.timeoutSeconds, 1800)
         let ctx = DriverManifest.ResolveContext(prompt: "p", model: "Gemini 3.6 Flash (Low)", resumeSessionId: "conv-123")
         let args = try XCTUnwrap(agy.resolvedSessionArgs(ctx, resuming: true))
         XCTAssertTrue(args.contains("--conversation"), "agy resumes by --conversation <id>")

@@ -42,7 +42,8 @@ public enum DriverListProjector {
                     parked: parked,
                     version: record?.version,
                     modelsOn: onCount[manifest.id] ?? 0,
-                    probeDetail: detail
+                    probeDetail: detail,
+                    idleTimeoutSeconds: manifest.invoke?.timeoutSeconds
                 )
             }
 
