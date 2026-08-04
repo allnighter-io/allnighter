@@ -43,7 +43,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
-| [`Write_Lock_Post_Worker_Release.md`](Write_Lock_Post_Worker_Release.md) | **OPEN — reproduced 2026-08-04 (Ikiro.Studio B/C)** | Release repo write lock after worker terminal; drop flock holder on external kill/clock. Code SSOT: `RunService`, `ExecutionLaneFlock`, `ProcessOwnershipSurface`. |
+| [`Write_Lock_Post_Worker_Release.md`](Write_Lock_Post_Worker_Release.md) | **OPEN — SPIKE FIRST (S00 locus); Grok review 2026-08-04** | Prove hang locus (M1/M2/M3) before L1 early release; L2 must free flock not metadata-only. SSOT: `RunService`, `ExecutionLaneFlock`. |
 
 ### Forward feature packets
 

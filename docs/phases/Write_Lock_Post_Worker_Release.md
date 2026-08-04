@@ -1,200 +1,225 @@
 # Write Lock Post-Worker Release
 
-Status: **OPEN — incident reproduced twice; fix not started**
-Owner: AllnighterEngine (`RunService`, `ExecutionLaneRegistry` / `ExecutionLaneFlock`,
-`KillSettlement`, `ProcessOwnershipSurface`)
+Status: **OPEN — SPIKE FIRST (S00). Implementation gated on locus proof.**
+Owner: AllnighterEngine (`RunService`, `ExecutionLaneRegistry` /
+`ExecutionLaneFlock`, `KillSettlement`, `ProcessOwnershipSurface`)
 Created: 2026-08-04
-Updated: 2026-08-04
+Updated: 2026-08-04 (pre-implementation skeptic revision)
 
-Related: archived [`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md)
-(RLR-L3 phases, RLR-L5 kill settlement) · [`One_Run_Surface.md`](One_Run_Surface.md)
-(attention-required stream exit; known follow-up on killed-run lane deadlock) ·
-code SSOT `RunService.swift`, `ExecutionLane.swift`, `ExecutionLaneFlock.swift`,
-`ProcessOwnershipSurface.swift`, `RunClockEnforcer.swift`
+Related: archived
+[`Run_Lifecycle_Reliability.md`](../archive/phases/Run_Lifecycle_Reliability.md)
+(RLR-L3 phases, RLR-L5 kill settlement) ·
+[`One_Run_Surface.md`](One_Run_Surface.md) (attention-required stream exit;
+known follow-up on killed-run lane deadlock) · code SSOT `RunService.swift`,
+`ExecutionLane.swift`, `ExecutionLaneFlock.swift`,
+`ProcessOwnershipSurface.swift`, `RunClockEnforcer.swift`,
+`KillSettlement.swift`
 
 ## Founder intent
 
-A mutating run that has **finished editing the repo** must not block every later
-mutating run on that root. Queueing behind an active worker is correct; queueing
-behind a coordinator that is only settling, rendering a report, or waiting on a
-warm session tail is not.
-
-Agents already pay for parallel Teams. A zombie lane holder turns a healthy FIFO
-into an hour-long outage and trains harnesses to misread `attentionRequired`
-exit 0 as “done.”
+A mutating run that is **no longer allowed to edit the repo** must not block
+the next mutating run on that root. Queueing behind an active worker (or
+harness proof that mutates) is correct. Queueing behind a coordinator that is
+only writing a receipt, or wedged after mutation authority ended, is not.
 
 ## Product value
 
-Allnighter's default mutating path (`default_chat` / `cursor_agent` warm ACP) is
-the hero loop for attended bench work. When slice B or C commits, passes tests,
-and goes silent for 20–40 minutes while still holding `repoWriteLock`, the product
-is lying: the journal says `running` / `phase: working`, `alln ps` shows a live
-coordinator, and the next slice sits in `waitingForWriteLock` until someone kills
-the stuck process by hand.
+Default mutating path (`default_chat` / warm ACP) is the attended bench hero
+loop. Multi-slice dogfood on one root becomes an outage when the next slice
+sits in `waitingForWriteLock` for tens of minutes while the prior coordinator
+is silent. Operators then kill by hand and harnesses learn the wrong lesson
+from `attentionRequired` exit 0 (ORS — **out of scope** here).
+
+## Binding product law (target)
+
+```text
+Build lane = exclusive mutate authority on the canonical root.
+Hold only while this run (worker and/or harnessProof for this run) may mutate.
+Release when mutation authority ends — not when the coordinator process exits.
+External terminal must free the OS flock (unlock or process death), not only
+journal status / holder.json cosmetics.
+```
+
+RLR-L3 already names phases `proving` | `settling` for **journal visibility**.
+This packet **adds** lock-lifetime coupling to those phases. That is a new law,
+not “finish unfinished RLR.”
 
 ## Incident classification
 
-Tier: **T3 Critical** — core mutating path, repeated dogfood, multi-slice outage.
-
-Bug fingerprint:
-
-```text
-mutating alln run (warm cursor_agent)
-  -> worker commits / finishes visible work
-  -> coordinator stays running inside RunService.runExecution
-  -> write lock held until runExecution returns
-  -> warm.prompt() or post-worker settlement never completes
-  -> next run queues at attentionRequired / sourcedBlocker for 20–40m
-  -> operator kills run; lane frees only when coordinator process exits
-```
+| Field | Value |
+| --- | --- |
+| Severity (outage) | **T3** if multi-slice mutating FIFO is blocked ≥ ~15m with no active mutation — dogfood 2026-08-04 supports this |
+| Diagnosis confidence | **Low–medium until S00** — hang locus not proven |
+| Work posture until S00 | **Spike**, not feature implement |
 
 ### Evidence — 2026-08-04 (`Ikiro.Studio`)
 
-Dogfood on `~/Documents/GitHub/Ikiro.Studio` (parallel slices A–E via `alln run`).
-
-| Slice | Run id (prefix) | Symptom | Git / work truth | Journal truth |
+| Slice | Run id | Symptom | Git / work truth | Journal truth |
 | --- | --- | --- | --- | --- |
-| **B** | (prior session) | ~40m silence after commit `e2476cc1` | Installer landed | Coordinator `running`, lock held |
-| **C** | `641A3C68` | ~19m silence after connect work | `d93bdeca`, `cf9126f5` at 10:39 AM PT | `cancelled`, `phase: working`, **no `repoDelta`**; last activity `17:41:18Z`; cleared `18:00:52Z` |
-| **E** | `7B7BDEA9` | Dispatched after manual clear | — | Acquired lane `18:00:59Z` (~8s after C cleared) |
+| B | (prior) | ~40m silence after commit `e2476cc1` | Installer landed | Coordinator `running`, lock held |
+| C | `641A3C68` | ~19m silence after connect work | `d93bdeca`, `cf9126f5` ~10:39 PT | `cancelled`, `phase: working`, no `repoDelta`; last activity `17:41:18Z`; cleared `18:00:52Z` |
+| E | `7B7BDEA9` | After manual clear | — | Acquired lane ~8s after C cleared |
 
-Supporting observations (same day):
+**What this proves:** live coordinator + held lane after visible worker commits;
+FIFO queue semantics work (`attentionRequired` / `sourcedBlocker`); manual kill
+eventually unblocks.
 
-- `alln show <queued-id> --stream` correctly emits
-  `attentionRequired` / `sourcedBlocker` / `status: queued` — queue semantics are
-  fine; harness misread exit 0 (documented in ORS; not this packet's primary fix).
-- A **22-hour-old timed-out** run still visible in inventory — stale terminal cleanup
-  is a separate hygiene item (`alln gc` prunes records; does not reap live lane
-  holders). Track as follow-up, not WL-PWR scope.
-- `One_Run_Surface.md` already notes: “Killed run deadlocks the repo write lock
-  when its recorded owner is the shared `alln serve` daemon” — same family, different
-  holder shape; WL-PWR-S02 must not regress that case.
+**What this does not prove:** whether the hang is (1) inside `warm.prompt`
+before `WorkerRunOutcome`, (2) post-outcome proof/settlement/persist, or
+(3) clock/kill failed to reap. **Do not implement L1 until S00 names the locus.**
 
 ### What is NOT broken (do not re-litigate)
 
-- FIFO queueing and `attentionRequired` stream boundary (ORS-S02b2) — working as designed.
-- `RunWriteLock.waitToAcquire` timeout (30m) — last-resort, not the product story.
-- `alln team reconcile` — reaps **identity-dead** owners only; a live coordinator
-  wedged post-worker is `ownedLive` and correctly skipped.
+- FIFO queue + `attentionRequired` stream boundary (ORS) — designed behavior;
+  exit-code education stays in ORS / agent rules.
+- `RunWriteLock.waitToAcquire` 30m timeout — last-resort safety valve.
+- `alln team reconcile` — reaps **identity-dead** owners only; live wedged
+  coordinator is correctly skipped.
 
-## Root cause
+## Code truth (read before changing)
 
-**Truth owners**
+| Path | Fact |
+| --- | --- |
+| `RunService.run` | Acquires lock before `runExecution`; releases **after** `runExecution` returns (or on park-before-return). |
+| `RunService.runExecution` | Warm path: `for try await event in warm.prompt(...)` then builds `WorkerRunOutcome`. Proof optionally re-acquires under `ExecutionLaneSite.harnessProof`. Terminal persist after proof/stages. |
+| `ProcessOwnershipSurface.killRun` | On verified stop: stamps terminal; `withdrawWaiter` only if `blocker != nil`. **Does not** unlock active holder flock. |
+| `ExecutionLane.release` | Drops registry token, `removeHolder`, **unlocks flock**, grants waiters. |
+| `ExecutionLaneFlock.removeHolder` | Metadata only. Identity-alive / foreign-flock holders are preserved (PO-F9). Empty `holder.json` + foreign flock still blocks (PO-F9 #6). |
+| `KillSettlement` | Does not SIGTERM responsive `inProcess` coordinator (RLR-L5). |
+| RLR-L3 | Phases exist; terminal clears phase; **no lock-lifetime rule**. |
 
-| Layer | Owner | Role |
-| --- | --- | --- |
-| Lane admission | `ExecutionLaneRegistry` + `ExecutionLaneFlock` | One build-class holder per canonical repo root |
-| Lock lifetime in a foreground run | `RunService.run` → `runExecution` | Acquire before worker; release after full execution returns |
-| Worker completion | `WorkerRunOutcome` / warm `prompt()` stream | Mutating work finishes here |
-| External stop | `KillSettlement` + `ProcessOwnershipSurface.killRun` | Journal terminal; worker group signals |
-| Stale holder reap | `ExecutionLaneRegistry.reconcile` | Identity-dead holders only |
-
-**Lie-prone layer:** treating “worker committed” or “stream went quiet” as “run
-terminal.” Git and the vendor CLI can finish while the coordinator still holds the
-lane for proof, stage append, PM-turn write, or an open warm ACP session.
-
-### Mechanism 1 — lock scope too wide (primary)
-
-Today `RunService` holds `lockToken` for the **entire** `runExecution`, including
-post-worker proof, `persistTerminalRun`, and plan-stage append. Release happens only
-at the bottom of `run()`:
+### Fingerprint (candidate mechanisms — pick via S00)
 
 ```text
-runExecution(...)   // worker + proof + terminal persist
-await writeLock.release(lockKey, token: lockToken)
+M1 — post-worker: outcome known; hang in proof / stage / persistTerminal;
+     lock still held until runExecution returns.
+
+M2 — in-prompt: warm.prompt (or cold stream) never ends after agent commits;
+     WorkerRunOutcome never exists → early release never runs.
+
+M3 — kill/clock: journal terminal or operator kill while coordinator alive;
+     OS flock remains until process death; removeHolder alone does not free lane.
 ```
 
-For warm `cursor_agent`, the coordinator blocks on `await warm.prompt(...)` until
-the ACP stream ends. The agent may commit and stop emitting events while that call
-remains open. The journal stays `running` / `phase: working`; the lane stays held.
+Primary product bug may be M1, M2, M3, or a combination. Packet must not
+pretend they share one lever.
 
-RLR-L3 already names post-worker phases (`proving`, `settling`) that should not imply
-build-lane exclusivity for the full coordinator lifetime — they were never wired to
-early release.
+## Proposed design (gated)
 
-### Mechanism 2 — kill clears journal, not lane metadata (secondary)
+### WL-PWR-L1 — early release after mutation authority ends
 
-`ProcessOwnershipSurface.killRun` withdraws FIFO **waiter** files when
-`blocker != nil` (queued behind another holder). It does **not** call
-`ExecutionLaneFlock.removeHolder(laneKey:id:)` for a run that was **actively
-holding** the lane.
+**Only if S00 shows M1 (or M1+M3), not pure M2.**
 
-`KillSettlement` intentionally does not SIGTERM an `inProcess` coordinator (receipt,
-not a PG-kill target). Killing the warm worker can leave the `alln run` process
-alive inside `runExecution`, still holding the in-process token and OS flock until
-the process exits.
+After the single execution worker reaches a **terminal** `WorkerRunOutcome` and
+any in-flight mutating subprocess for that turn is finished:
 
-`RunClockEnforcer.fire` withdraws waiters on terminal clock fire but likewise does
-not clear an active holder entry for the firing run id.
+1. Capture `repoDelta` (and any other git snapshot that must reflect *this*
+   worker) **before** release.
+2. Release build lane (registry token + flock unlock) in the same control path
+   that would have held until `runExecution` returned.
+3. Clear `lockToken` so the outer `run()` release is idempotent no-op.
+4. If run still non-terminal, stamp `phase` → `proving` (when `proofCommand`
+   present) or `settling` in the **same journal revision** as the conceptual
+   “no longer exclusive mutator” moment (RLR-L3 atomic style).
+5. Harness proof **re-acquires** under `harnessProof` (already coded).
+6. Park / substitution early returns keep today’s park-before-return release.
+7. Answer / read-only paths unchanged.
 
-`RunLifecycleReliabilityWorksTest` already manually calls `removeHolder` after clock
-settlement — product code does not.
+### WL-PWR-L2 — external terminal frees the **flock**, not only metadata
 
-## Binding decision
+**Required regardless of L1**, but the mechanism is **not** “call
+`removeHolder` and hope.”
 
-Two coordinated changes. **Both** are required; S01 alone leaves kill/cancel gaps;
-S02 alone does not fix the common “worker done, coordinator quiet” path.
+When kill / cancel / clock stamps terminal (or verified stop) for a run that
+**held** the build lane:
 
-### WL-PWR-L1 — release build lane when worker work ends
+| Step | Requirement |
+| --- | --- |
+| Cooperative | Holder’s `runExecution` must observe terminal (or cancel token), call `writeLock.release` / registry `release`, exit cleanly. |
+| Flock | Waiters must observe **unlocked** `lane.lock` (or dead holder process), not merely missing `holder.json`. |
+| Metadata | `removeHolder` / withdraw waiter as today for blocked waiters; do not strip unrelated docs-only holders (PO-S06). |
+| Unresponsive | Bounded grace then escalate coordinator kill **only** per RLR-L5 orphan/force path — document; do not invent silent PG-kill of all inProcess holders. |
 
-After the single execution worker reaches a **terminal worker outcome**
-(`done` / `failed` / `timedOut` / etc.) and any in-flight mutating subprocess work
-is finished, **release the repo write lock before** proof, settlement, stage append,
-and `persistTerminalRun`.
+S02 acceptance is: **next waiter can acquire within bound after kill**, with
+holder process either unlocked or dead — not “holder.json empty while flock
+still held.”
 
-- Set journal `phase` to `proving` (when `proofCommand` present) or `settling`
-  (otherwise) in the same revision that clears the in-process hold, if the run is
-  still non-terminal.
-- Harness proof (`RunProofRunner`) **already** re-acquires the lane under
-  `ExecutionLaneSite.harnessProof` — no new parallel lane system.
-- Vendor park, substitution retry, and capacity branches that return early must
-  continue to release the lock exactly as today (park-before-return invariant).
-- Answer / read-only paths unchanged (never took the lock).
+### WL-PWR-L3 — if S00 shows pure M2 (pivot)
 
-### WL-PWR-L2 — external terminal must drop lane holder metadata
+Do **not** ship L1 as the primary fix. Pivot packet (or expand S01) to:
 
-When any path stamps a mutating run terminal from **outside** the holder's
-`runExecution` stack — `kill`, `cancel`, `RunClockEnforcer.fire`, and explicit
-`reconcile` that reaps a holder — also call
-`ExecutionLaneFlock.removeHolder(laneKey: ExecutionLane.key(repoRoot:), id: runId)`
-(and unlock any reconciled in-process state) so the FIFO queue can advance even if
-the coordinator process is wedged.
+- cancel / abort of `warm.prompt` await on idle/wall/kill, **and/or**
+- turn-complete / session hygiene so ACP prompt ends when the agent turn ends,
+  **and**
+- post-worker or global wall so outage is bounded.
 
-Gate: only when the run id matches a holder entry for that root (do not strip
-unrelated docs-only scoped holders per PO-S06).
+L2 cooperative cancel still applies.
 
-## User-visible claim
+## When to REJECT early release (L1)
 
-```text
-When the worker is done editing, the next mutating run on this repo may start —
-even if Allnighter is still writing the receipt.
-```
+Reject or defer L1 if any of:
 
-## Non-goals (this packet)
+1. S00 shows hang **inside** worker stream before terminal outcome (pure M2).
+2. Proof after early release cannot reliably re-acquire or races mutate
+   (Works Test 3 fails with a real root cause, not flake).
+3. Dogfood shows second run corrupting first run’s intended tree because warm
+   session still mutates after “terminal” outcome (false terminal).
+4. Implementation requires a second parallel lock system or weakens
+   one-mutating-worker-per-root.
+5. S00 cannot produce a hermetic failing test that fails on `main` for the
+   claimed mechanism.
 
-- Changing `attentionRequired` exit codes (harness education stays in ORS / agent rules).
-- Background `alln serve` sweeper for stale coordinators (defer unless S01+S02 insufficient).
-- Automatic `alln team reconcile` on every `ps` (RLR contract: `ps` never kills).
-- Fixing warm-session hang at the vendor driver (may still happen; must not hold the lane).
-- Stale terminal record GC / museum row policy (separate hygiene).
+## Non-goals
+
+- `attentionRequired` exit codes (ORS).
+- Background `alln serve` sweeper for settling phases (defer until L1+L2 proven
+  insufficient).
+- Auto-reconcile on every `ps` (RLR: `ps` never kills).
+- Full vendor warm-driver hang fix as the only deliverable (may be pivot L3).
+- Museum / `alln gc` hygiene for ancient terminal rows.
 
 ## Slices
 
-| Slice | Goal | Touch |
+| Slice | Goal | Gate |
 | --- | --- | --- |
-| **WL-PWR-S00** | Freeze repro + failing test | Hermetic two-run test: holder's worker completes; coordinator block simulates post-worker hang; second run must acquire lane without waiting for holder process exit |
-| **WL-PWR-S01** | WL-PWR-L1 early release | `RunService.runExecution` / `run()` lock lifetime; phase transitions |
-| **WL-PWR-S02** | WL-PWR-L2 kill/clock/reconcile holder drop | `ProcessOwnershipSurface.killRun`, `AsyncTeamService.cancel`, `RunClockEnforcer.fire`; shared helper if needed |
-| **WL-PWR-S03** | Closeout | Deslop, promote one-line law to `AGENTS.md` router if needed, archive packet |
+| **WL-PWR-S00** | Locus proof + failing hermetic tests | **Required before S01/S02 code** |
+| **WL-PWR-S01** | L1 early release (if M1) | S00 locus ∈ {M1, M1+M3}; reject list clear |
+| **WL-PWR-S02** | L2 external terminal frees flock | Can start after S00 even if L1 rejected; must not be metadata-only |
+| **WL-PWR-S03** | Closeout | Deslop, AGENTS router one-liner if law sticks, archive |
 
-### WL-PWR-S00 — evidence + test (do first)
+### WL-PWR-S00 — locus spike + tests (do first)
 
-Deliverables:
+**Deliverables**
 
-1. One hermetic engine test that fails on current `main` and passes after S01:
-   - Run A acquires lane, worker outcome `.done`, A's `runExecution` blocks on injectable gate.
-   - Run B on same root must `waitToAcquire` successfully within a short bound.
-2. Incident note in `docs/debuglog/` (optional) pointing at run ids above — not SSOT.
+1. **Locus decision record** (short, in this packet or `docs/debuglog/`): for
+   one reproduced hang (hermetic preferred, Studio acceptable with journal
+   artifacts), classify M1 / M2 / M3 with evidence:
+   - Was `WorkerRunOutcome` / answer terminal recorded before silence?
+   - Was `lastActivityAt` advancing? Did idle/wall evaluate/fire?
+   - After `alln kill`, did `lane.lock` flock clear before coordinator death?
+2. **Hermetic tests that fail on current `main`** (filter
+   `WriteLockPostWorker`):
+
+| Test id | Setup | Pass criteria (after fix) | Falsifies |
+| --- | --- | --- | --- |
+| **T-M1** | Run A: worker → `.done`; injectable gate blocks post-worker path while still holding lock (today). Run B waits. | After S01: B acquires in &lt; 5s without A process exit | “Lock must span settlement” |
+| **T-M2** | Run A: injectable warm stream never ends; no worker terminal. | Document: L1 must **not** claim to fix; cancel/clock must free lane or test marked pivot | “Early release fixes warm hang” |
+| **T-M3** | Run A holds lane mid-worker or post-worker; external kill from **other** process. | After S02: B acquires in &lt; 5s; flock unlocked or A dead; not merely empty holder.json while flock held | “removeHolder alone frees lane” |
+| **T-PROOF** | Proof command set; early release path. | Proof runs under `harnessProof`; `proofResult` set; no double exclusive build without claim | “Proof lost the lane forever” |
+| **T-PARK** | Vendor park path. | Lock released before parked return (regression) | Park-before-return broken |
+
+3. Optional Studio note with run ids above — not SSOT.
+
+**Decision gate (end of S00)**
+
+```text
+if pure M2:
+  reject L1 as primary; schedule L3 pivot (cancel/clock/warm end); still do L2
+elif M1 or M1+M3:
+  implement L1 + L2
+elif pure M3:
+  implement L2 first; L1 optional product improvement
+```
 
 Proof:
 
@@ -202,96 +227,104 @@ Proof:
 scripts/swift-test.sh --filter WriteLockPostWorker
 ```
 
-### WL-PWR-S01 — early release
+### WL-PWR-S01 — early release (M1 only)
 
-Read:
+**Read:** `RunService.swift` (`run`, `runExecution`), `ExecutionLane.swift`,
+RLR-L3 phase table.
 
-- `Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift` (`run`, `runExecution`)
-- `Packages/AllnighterCore/Sources/AllnighterEngine/ExecutionLane.swift`
-- `docs/archive/phases/Run_Lifecycle_Reliability.md` § RLR-L3 (phases)
+**Change:** factor release to immediately after worker terminal + pre-release
+git snapshot; phase → `proving`|`settling`; outer release idempotent.
 
-Change:
+**Do not:** release before worker terminal; break park-before-return; release
+before capturing `repoDelta` for this worker.
 
-- Factor lock release to immediately after worker terminal outcome is known and
-  recorded (before proof / terminal persist).
-- Clear `lockToken` after release so the outer `run()` defer path stays idempotent.
-- Stamp `phase` → `proving` | `settling` while journal remains non-terminal.
+**Acceptance**
 
-Do not:
+- [ ] T-M1 green
+- [ ] T-PROOF green
+- [ ] T-PARK green
+- [ ] Existing `ExecutionWriteLockTests` / relevant `RunAcceptanceBoundaryTests` green
+- [ ] No second lock subsystem
 
-- Release before worker outcome is terminal (running worker still needs the lane).
-- Release on vendor park without the existing park-before-return path.
+### WL-PWR-S02 — external terminal frees flock
 
-Proof: S00 test green + existing `ExecutionWriteLockTests` / `RunAcceptanceBoundaryTests` green.
+**Read:** `ProcessOwnershipSurface.killRun`, `AsyncTeamService.cancel`,
+`RunClockEnforcer.fire`, `ExecutionLane.release`, `KillSettlement`.
 
-### WL-PWR-S02 — external terminal drops holder
+**Change:** shared helper that is honest about cross-process limits, e.g.
+`releaseLaneIfHeld(run:)` only works **in the holder process**; killer path
+must (1) stamp terminal / cancel signal the holder observes, and/or
+(2) after grace, escalate so process death unlocks flock. Tests must assert
+**acquire success**, not only deleted `holder.json`.
 
-Read:
+**Acceptance**
 
-- `ProcessOwnershipSurface.swift` (`killRun`)
-- `AsyncTeamService.swift` (`cancel`)
-- `RunClockEnforcer.swift` (`fire`)
-- `ExecutionLaneFlock.swift` (`removeHolder`)
-
-Change:
-
-- Shared `releaseLaneHolderIfRecorded(run:)` (name TBD) invoked from each external
-  terminal path when the run was mutating and matched holder metadata.
-- Extend `RunAcceptanceBoundaryTests` kill-while-holding scenario: after kill, lane
-  `holder.json` empty and next waiter grantable without waiting for coordinator exit.
+- [ ] T-M3 green (B acquires without waiting for full wall timeout)
+- [ ] Blocked waiter still withdrawn on kill (existing RLR-S02c behavior)
+- [ ] Docs-only / disjoint holders not stripped (PO-S06)
+- [ ] KillSettlement tests still pass for non-terminal partial kills (no premature
+      lane free when outcome ≠ stopped, operator kill)
 
 Proof:
 
 ```bash
+scripts/swift-test.sh --filter WriteLockPostWorker
 scripts/swift-test.sh --filter RunAcceptanceBoundary
 scripts/swift-test.sh --filter KillSettlement
-scripts/swift-test.sh --filter WriteLockPostWorker
 ```
+
+### WL-PWR-S03 — closeout
+
+When acceptance green and dogfood item waived or proven: promote one-line law
+to `AGENTS.md` First Routing (run/lane row); archive packet; trim ORS
+follow-up bullet if L2 actually fixed serve-holder deadlock (only if proven —
+do not claim).
 
 ## Works Test (closeout)
 
-| # | Scenario | Pass criteria |
+| # | Scenario | Pass |
 | --- | --- | --- |
-| 1 | Worker done, coordinator hung (injected) | Second mutating run acquires lane &lt; 5s |
-| 2 | Active holder killed via `alln kill` | `holder.json` cleared; queued run advances |
-| 3 | Proof command after early release | Proof still runs under `harnessProof` claim; journal `proofResult` populated |
-| 4 | Vendor park unchanged | Parked run still releases lock before return (regression) |
-| 5 | Dogfood replay | Two consecutive `alln run` mutating slices on one repo without manual kill between them when first worker finishes cleanly |
-
-Item 5 is founder/dogfood waiver acceptable if 1–4 are green and Studio replay is
-scheduled explicitly.
+| 1 | Worker done, coordinator hung post-worker (injected) | Second mutating run acquires &lt; 5s |
+| 2 | Active holder killed | Next run acquires &lt; 5s; flock not foreign-held by dead claim |
+| 3 | Proof after early release | `harnessProof` claim; `proofResult` populated |
+| 4 | Vendor park | Lock released before return |
+| 5 | In-prompt hang (if S00 M2) | Documented pivot path green **or** explicit founder waiver |
+| 6 | Dogfood | Two consecutive mutating slices without manual kill when first worker finishes cleanly — waiver OK if 1–4 green and replay scheduled |
 
 ## Inference bans
 
-| Junction | Owner | Bad inference | Ban | Negative test |
-| --- | --- | --- | --- | --- |
-| Worker commit → run terminal | `RunStore` / `TeamRun` | “Git has a commit, so the run is done” | Terminal lifecycle requires coordinator settlement path; lane may free earlier | S00: commit simulated, coordinator blocked — run still `running`, lane free |
-| `attentionRequired` → failure | `alln show --stream` | “Exit 0 means the watched run finished” | Exit 0 at attention boundary is observer complete, not run terminal | Existing `OneRunSurfaceShowStreamTests` |
-| `kill` → lane free | `ExecutionLaneFlock` | “Cancelled journal implies lock released” | External terminal must drop holder metadata | S02: kill holder, assert `holder.json` empty before coordinator exit |
-| Early release → no proof | `RunProofRunner` | “Proof lost the lane forever” | Proof re-acquires under `harnessProof` | S01: proof runs after early release |
-| Reconcile sweep | `RunStore.reconcileAll` | “`team reconcile` should fix live wedged holders” | Reconcile never kills identity-alive coordinators; this fix is in-run + kill path | `ProcessOwnershipSurfaceTests` scoped reap unchanged |
+| Junction | Bad inference | Ban | Negative test |
+| --- | --- | --- | --- |
+| Git commit → run terminal | “Commit means done” | Terminal requires coordinator settlement; lane may free earlier | T-M1: run still `running`, lane free |
+| Worker silent → capacity | Silence invents vendor wait | Sourced signals only | existing RLR bans |
+| `attentionRequired` → failure | Exit 0 means run finished | Observer complete ≠ run terminal | ORS tests |
+| `kill` → lane free via metadata | Cancelled journal / empty holder.json frees build lane | Flock unlock or process death | T-M3 |
+| Early release → no proof | Proof cannot run | Re-acquire `harnessProof` | T-PROOF |
+| `team reconcile` fixes live wedge | Reconcile should kill live coordinators | Reconcile identity-dead only | existing POS tests |
+| Warm hang → L1 | ACP hang fixed by post-outcome release | S00 must show outcome exists | T-M2 |
 
 ## Operator recovery (until shipped)
 
-1. `alln ps --json` — find holder id + `lane.state == held`.
+1. `alln ps --json` — holder id, `lane.state == held`, identity pid.
 2. `alln kill <holder-run-id> --json`.
-3. If lane still held after ~30s, kill coordinator pid from `identity.pid` (flock
-   releases on process death).
-4. Re-dispatch; attach with `alln show <id> --stream` and **parse the terminal or
-   `attentionRequired` payload**, not exit code alone.
+3. If lane still held ~30s: kill coordinator pid from identity (flock releases on
+   process death).
+4. Re-dispatch; `alln show <id> --stream` — parse terminal /
+   `attentionRequired` payload, not exit code alone.
 
-## Open follow-ups (out of scope)
+## Open follow-ups (out of scope unless pivot)
 
-- Proactive coordinator wall-clock sweep in `alln serve` for `phase: settling` runs.
-- `alln gc` / museum policy for ancient terminal rows still shown in `ps --all`.
-- Warm `cursor_agent` session hang after turn complete (driver/session layer).
-- `alln serve` as lane holder deadlock (`One_Run_Surface.md` known follow-up).
+- Serve-side sweeper for long `settling` / silent `working`.
+- Museum / `alln gc` for ancient terminal rows.
+- Warm ACP turn-complete / idle-TTL (likely L3 if M2).
+- `alln serve` as lane holder deadlock (ORS follow-up) — only close if L2
+  actually covers that holder shape.
 
-## Closeout
+## Closeout checklist
 
-When S00–S02 are green and item 5 is waived or proven:
-
-1. Promote WL-PWR-L1/L2 one-liners into `AGENTS.md` First Routing table (run/lane row).
-2. Archive this packet to `docs/archive/phases/`.
-3. Remove the duplicate “killed run deadlocks lock” bullet from `One_Run_Surface.md`
-   known follow-ups if fixed.
+- [ ] S00 locus recorded; reject/pivot decision explicit
+- [ ] S01 only if L1 accepted
+- [ ] S02 proves acquire, not metadata
+- [ ] Works Test 1–4 green; 5–6 waived or proven
+- [ ] AGENTS one-liner if law sticks
+- [ ] Archive packet
