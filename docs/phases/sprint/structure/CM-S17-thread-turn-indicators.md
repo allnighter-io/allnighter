@@ -1,6 +1,6 @@
 # CM-S17 — Extract thread turn indicators from ThreadView
 
-Status: ready
+Status: done (`cd5eebcf`, Gemini via `alln run`)
 Owner: code-maintainer Structure lens
 Updated: 2026-08-03
 
