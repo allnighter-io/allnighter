@@ -28,6 +28,12 @@ if [[ ! -f "$ROOT/scripts/rebuild_cli.sh" ]] \
   exit 1
 fi
 
+echo "==> assert installed alln CLI on PATH is functional (auto-relinking if stale)"
+if ! command -v alln >/dev/null 2>&1 || ! alln menu --json >/dev/null 2>&1; then
+  echo "check: alln on PATH is missing or stale — auto-healing via scripts/rebuild_cli.sh..." >&2
+  bash "$ROOT/scripts/rebuild_cli.sh"
+fi
+
 echo "==> check GUI visual proof gate"
 bash "$ROOT/scripts/check_gui_proof.sh"
 

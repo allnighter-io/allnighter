@@ -197,23 +197,10 @@ if [[ -f "$ROOT/Packages/AllnighterCore/Package.swift" ]]; then
   ran_any=true
 
   # ASF-S08: contract drift gate (same check StandingInvariants runs opportunistically).
-  echo "==> alln dev export-contracts --check"
-  ALLN_BIN=""
-  if [[ -x "$ROOT/Packages/AllnighterCore/.build/debug/alln" ]]; then
-    ALLN_BIN="$ROOT/Packages/AllnighterCore/.build/debug/alln"
-  elif [[ -x "$ROOT/Packages/AllnighterCore/.build/release/alln" ]]; then
-    ALLN_BIN="$ROOT/Packages/AllnighterCore/.build/release/alln"
-  elif command -v alln >/dev/null 2>&1; then
-    ALLN_BIN="$(command -v alln)"
-  fi
-  if [[ -n "$ALLN_BIN" ]]; then
-    ( cd "$ROOT" && "$ALLN_BIN" dev export-contracts --check )
-  else
-    echo "check: no alln binary found after swift test; building product alln for export-contracts --check"
-    # build is not gated; only `test` is.
-    swift build --package-path "$ROOT/Packages/AllnighterCore" --product alln
-    ( cd "$ROOT" && "$ROOT/Packages/AllnighterCore/.build/debug/alln" dev export-contracts --check )
-  fi
+  echo "==> alln dev export-contracts --check (via rebuild_cli.sh)"
+  bash "$ROOT/scripts/rebuild_cli.sh"
+  ALLN_BIN="${ALLNIGHTER_CLI_INSTALL_DIR:-$HOME/.local/bin}/alln"
+  ( cd "$ROOT" && "$ALLN_BIN" dev export-contracts --check )
   ran_any=true
 fi
 
