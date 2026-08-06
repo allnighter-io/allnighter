@@ -1,8 +1,28 @@
 # Mac Studio LAN Bench Node & Remote Multi-Seat Offloading
 
-Status: **Brainstorm — NOT ready for implementation. No slice authorized.**
-Owner: unassigned
+Status: **SHELVED / NO BUILD (2026-08-06)** — founder agreed after review.
+Do not resume this packet or authorize slices from it without a new founder
+ruling. Historical brainstorm only; no product law was promoted.
+
+**Why shelved:** The pain (multi-account quota, remote local-GPU inference) is
+real; the proposed architecture is not. Streamed prompt/context → diffs onto the
+laptop working tree fights how agent CLIs actually work (iterative FS + tools +
+tests) and collides with one-mutator-per-root. Reusing the iOS Tailscale pairing
+spine for a Mac execution plane confuses control plane with worker offload.
+“Remote Bench Node” + 5–10× leverage framing selects Mac Studio vanity over the
+real ICP (multi-CLI power user, one floor, agent-native). Bundle of three
+different problems (local inference URL, second-identity ops, multi-host
+mutators) into one phase would become a home-cluster product by accident.
+
+**If anything returns later (separate packets only):** (1) optional remote
+inference `baseURL` / Ollama host for local-model seats; (2) research-only remote
+seats (snapshot in → text out); (3) explicit session host ownership — never
+silent cross-host mutator failover or PeerTransport-as-execution fabric.
+Priority stays single-Mac capacity truth, park/substitute, and agent teaching.
+
+Owner: unassigned (shelved)
 Created: 2026-08-06
+Archived: 2026-08-06
 Origin: Founder input / ICP First Principles brainstorm. High-frequency vibe coders frequently own dedicated Mac Studio / local hardware (128GB+ RAM) and multiple CLI subscriptions, but suffer from single-machine thermal load and mid-session quota exhaustion.
 
 ---

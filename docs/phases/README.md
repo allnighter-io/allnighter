@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-08-01
+Updated: 2026-08-06
 
 ## Purpose
 
@@ -74,13 +74,14 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`sprint/`](sprint/README.md) | **No active work orders** | All sprint docs archived; open new ones here when slicing. |
 | `wiring/`, `mockups/` | Design-handoff assets | Pixel reference for composer/setup/send-to-team surfaces. |
 
-## Recently archived (2026-08-01 cleanup)
+## Recently archived
 
 Verified against code/commits; full index:
 [`docs/archive/phases/README.md`](../archive/phases/README.md).
 
 | Packet | Why archived | Successor |
 | --- | --- | --- |
+| [`Mac_Studio_LAN_Bench.md`](../archive/phases/Mac_Studio_LAN_Bench.md) | **SHELVED / NO BUILD (2026-08-06)** — streamed-diffs + iOS-pairing-as-execution fabric rejected; wrong ICP hero (Studio farm vs one-floor multi-CLI). Do not resume. | None — optional future: remote inference URL / research-only remote seats as separate packets. Active attention: capacity truth, park/substitute, teaching (`Vendor_Signal_Isolation`, `Quota_Aware_Bench_Continuity`, `Agent_Teaching_Surface`). |
 | [`CLI_Park.md`](../archive/phases/CLI_Park.md) | `alln drivers park\|unpark` shipped `073522c7` | `SetupStore.parkedDriverIds`, `DriversCLI`, `Product_Vocabulary.md` |
 | [`Worker_To_Agent_Migration.md`](../archive/phases/Worker_To_Agent_Migration.md) | Ship line complete 2026-07-29 | `Product_Vocabulary.md`; optional hygiene backlog in archive doc |
 | [`threads/04_Observed_Usage.md`](../archive/phases/threads/04_Observed_Usage.md) | Superseded by OUR packet | `ObservedUsagePresentation`, archived `Observed_Usage_On_Receipts_And_Live_Status.md` |
