@@ -1,9 +1,9 @@
 # Pricing Recommendation
 
-Status: **v3 — recommended offer** (supersedes v2 free-single-worker, and v1 "3 free Team runs / $9.95")  
+Status: **v4 — recommended offer** (supersedes v3 $12/$120/$199, v2 free-single-worker, and v1 "3 free Team runs / $9.95")  
 Owner: Founder  
 Created: 2026-06-15  
-Updated: 2026-07-31 (daily free allowance · plain 14-day trial · $12/$120)
+Updated: 2026-08-06 (daily free allowance · plain 14-day trial · $8/$80/$160)
 
 Change process: `docs/phases/Pricing_Change_Process.md`. Do not edit numbers in
 this doc without running it.
@@ -13,8 +13,8 @@ this doc without running it.
 ```text
 Free forever: see your whole bench + any 3 runs every day
 14 days of unlimited, starting at your first run
-$12/month or $120/year after that
-Founding Builder: $199 once, first 100 only
+$8/month or $80/year after that
+Founding Builder: $160 once, first 100 only
 Mac app + iPhone app included
 Bring your own AI subscriptions
 No per-run fee, no model markup
@@ -24,8 +24,8 @@ No per-run fee, no model markup
 | --- | --- | --- |
 | **Free** | $0, forever | Capacity view (CLI + Mac app) · doctor / setup / readiness · menu, bootstrap, help · run history + Markdown export · **3 runs per day** — a run is any dispatch: one worker or six, single-shot or a multi-round loop. Nothing is feature-locked |
 | **Trial** | $0, **14 days** | Unlimited dispatch. Starts at your first run, not at install |
-| **Builder** | **$12/mo** or **$120/yr** | Unlimited dispatch within your own provider limits · Mac command center · iPhone floor manager · team presets · synthesis presets |
-| **Founding Builder** | **$199 once** | Everything in Builder, for life. **First 100 buyers only**, then retired permanently |
+| **Builder** | **$8/mo** or **$80/yr** | Unlimited dispatch within your own provider limits · Mac command center · iPhone floor manager · team presets · synthesis presets |
+| **Founding Builder** | **$160 once** | Everything in Builder, for life. **First 100 buyers only**, then retired permanently |
 
 Later, after iOS ships and the surface deepens: $19–24/month for **new**
 customers. Everyone earlier is grandfathered.
@@ -131,38 +131,21 @@ net.** A trial ending early now costs unlimited runs, not the product.
 Enforcement detail and the anti-reinstall ledger:
 `docs/phases/One_Paste_Cold_Start.md` §Trial.
 
-## Why $12
+## Why $8
 
-The anchor is not "what is this worth." It is "is this a rounding error next to
-the cheapest thing already in my stack." That thing is $20 (Claude Pro, Cursor,
-ChatGPT Plus).
+The anchor is not "what is an AI subscription worth" ($20+ anchor). It is "what is a pure Mac developer orchestration utility worth when it provides zero model tokens."
 
-The category is also not "AI product" ($20+ anchor) — it is prosumer Mac dev
-utility (Raycast, Warp, CleanShot: $8–20). Pricing at or above $20 forces a
-comparison we lose: *"I'd rather add another Claude seat."*
+The category is prosumer Mac dev utility (Raycast: $8/mo, GitKraken: $5–10/mo, CleanShot: $29 upfront). Charging $12/mo (60% of a full Claude or Cursor sub) created friction for a tool that routes subscriptions the user already pays for.
 
-- **Above $10**, because sub-$10 signals "utility that might disappear." We are
-  asking users to trust that we will keep working against six moving vendor
-  CLIs. $9.95 undersells that commitment.
-- **Well under $20**, so it reads as obviously cheaper than one model
-  subscription.
-- **$12 vs $9.95 costs approximately zero conversion.** Nobody's budget breaks
-  at $2, in an audience spending $60–250/month on AI.
-- **It leaves headroom.** $12 → $19–24 later is a raise. $9.95 → $19.95 is a 2x
-  and reads as a bait-and-switch.
-
-**$120/year** because it is rounder and more marketable than $140, and
-"**$10/month, billed annually**" is a strong second line.
+- **$8/month** stays comfortably under the single-digit $10 barrier, positioning ALLN as a no-brainer utility add-on next to $20/mo model subs.
+- **$80/year ($6.67/month)** sits below the $100 annual hurdle rate where developers can expense or personal-card it without friction (37.5% annual discount).
+- **It leaves headroom.** $8 → $15–19 later after iOS and deep multi-agent automation land is a natural raise.
 
 ## Why A Capped Founding Cohort
 
-100 × $199 ≈ $20k now. The same 100 users at $12/month takes ~17 months to get
-there. At zero funding, cash timing beats lifetime value, and early buyers
-convert into evangelists.
+100 × $160 = $16k upfront cash. At $160 (2x annual cost), Founding Builder is an instant purchase for power users. At zero funding, cash timing beats lifetime value, and early buyers convert into evangelists.
 
-The risk is real and is why it is capped: lifetime users are perpetual support
-with no recurring revenue. **First 100, then retired permanently.** Never a
-standing tier, never reopened.
+The risk is real and is why it is capped: lifetime users are perpetual support with no recurring revenue. **First 100, then retired permanently.** Never a standing tier, never reopened.
 
 ## Why Not Usage-Based
 
@@ -272,7 +255,7 @@ Any 3 runs, every day.
 - Run history and Markdown export
 
 Builder
-$12/month — or $120/year
+$8/month — or $80/year
 Make your AI team show up all day.
 
 - Unlimited dispatch, within your own provider limits
@@ -286,7 +269,7 @@ Make your AI team show up all day.
 When it ends you keep the free tier, your three runs a day, and all your history.
 
 Founding Builder
-$199 once — first 100 only
+$160 once — first 100 only
 Everything in Builder, for life.
 
 Bring your own AI subscriptions. Allnighter does not include model access.
@@ -302,5 +285,5 @@ Bring your own AI subscriptions. Allnighter does not include model access.
 | Limit connected CLIs | Rejected | Most users have two; it gates nothing and punishes multi-vendor use |
 | v1: $9.95/month | $12/month | Sub-$10 signals disposable; $2 costs no conversion; headroom to $19–24 |
 | v1: $95/year | $120/year | Rounder; "$10/month billed annually" |
-| v1: no lifetime option | $199 capped at 100 | Cash timing beats LTV at zero funding |
+| v3: $12/mo, $120/yr, $199 Founding | **v4: $8/mo, $80/yr, $160 Founding** | Retuned as pure dev utility pricing (zero token markup); sub-$10/mo impulse buy; $80/yr under $100 expense threshold; $160 Founding (2x annual) for rapid cash collection |
 | "quota harvester" as a feature name | Retired from all public copy | Reads as circumvention |

@@ -155,6 +155,7 @@ Append to the decision log. A price with no logged ruling is a bug.
 | 2026-06-15 | v1 offer: 3 free Team runs → $9.95/mo | Founder (superseded) |
 | 2026-07-31 | v2: free core forever · 14-day trial from first team run · $12/mo, $120/yr · Founding Builder $199 capped at 100 · degrade-don't-brick | Founder |
 | 2026-07-31 | v3: free tier is **3 full-power dispatches per day**, not an unlimited single-worker lane (a free single-worker lane is a working multi-model router — the product, not a demo). Trial is a plain **14 calendar days** from first run. Connected-CLI limits rejected. | Founder |
+| 2026-08-06 | v4: **$8/mo, $80/yr ($6.67/mo), Founding Builder $160 capped at 100**. Retuned as pure dev utility pricing (zero token markup); sub-$10/mo impulse buy; $80/yr under $100 expense threshold; $160 Founding (2x annual). | Founder |
 
 ---
 
