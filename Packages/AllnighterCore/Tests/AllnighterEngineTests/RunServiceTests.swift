@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSTeam
 import AllnighterCore
 @testable import AllnighterEngine
 
@@ -662,5 +663,193 @@ final class RunServiceTests: XCTestCase {
         }
         XCTAssertEqual(err.code, "AGENT_NOT_AVAILABLE")
         XCTAssertTrue(err.description.contains("model_bogus_id"))
+    }
+
+    // MARK: - VSI-S05 partial-answer durability
+
+    /// Mid-stream answer deltas must land in `run.json` before kill; after kill
+    /// the durable partial survives (not watcher-buffer-only).
+    func testKillAfterDeltaPreservesDurablePartial() async throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-partial-kill-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        var manifest = TestSupport.headlessManifest(id: "grok", command: "grok")
+        manifest.streaming = .init(
+            supported: true, mode: .jsonlStdout,
+            args: ["-p", "{{prompt}}", "--output-format", "streaming-json"],
+            partialOutput: true, finalAnswerSource: .parserAccumulator)
+        let model = Model(
+            id: "model_grok", displayName: "Grok", modelLabel: "grok",
+            driverId: "grok", role: .both)
+        let settings = DefaultModelSettings(
+            defaultTier: .frontier, allowHealthySubstitutions: true,
+            tiers: TierMembership(frontier: ["model_grok"]))
+        let probe = ToolProbeRecord(
+            driverId: "grok", status: .ready(version: "1.0"), lastProbeAt: .distantPast)
+        let team = TeamPreset(
+            id: "vsi_s05_kill_team", displayName: "VSI Kill Team", lane: .code,
+            outputKind: .plan, mutating: true, defaultEffort: .low, isDefaultForLane: false,
+            agentSpecs: [TeamAgentSpec(
+                id: "r1", skillId: "bug_reproducer", purpose: .answer,
+                preferredModelId: "model_grok")],
+            lead: TeamLeadSpec(skillId: "plan_writer_build", preferredModelId: "model_grok"),
+            builtIn: false)
+
+        let marker = "VSI_S05_DURABLE_PARTIAL_MARKER"
+        // Exceed StreamingPartialBuffer.flushByteThreshold so emitAnswer runs
+        // mid-stream while the runner is still hung (cadence alone never fires
+        // without a later delta after 0.1s — both lines arrive in one stdout).
+        let pad = String(repeating: "x", count: 2_100)
+        let ndjson = """
+        {"type":"text","data":"\(marker) \(pad)"}
+        {"type":"text","data":" more work"}
+
+        """
+        let hang = HangAfterDribbleRunner(events: [
+            .started(startedAt: Date()),
+            .stdout(Data(ndjson.utf8)),
+        ])
+        let runsDir = repo.appendingPathComponent("runs", isDirectory: true)
+        let runStore = RunStore(rootDirectory: runsDir)
+        let service = RunService(
+            models: [model],
+            registry: DriverRegistry([manifest]),
+            teams: [team],
+            runStore: runStore,
+            commandRunner: hang,
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: { settings },
+            probeRecords: { [probe] }
+        )
+
+        let runId = UUID().uuidString
+        let runTask = Task {
+            await service.run(
+                RunRequest(message: "produce work", repoRoot: repo.path, presetId: team.id),
+                origin: .cli, runId: runId)
+        }
+
+        let deadline = Date().addingTimeInterval(8)
+        var sawPartial = false
+        while Date() < deadline {
+            if let live = runStore.loadRaw(runId: runId),
+               let out = live.answers.first?.result.output,
+               out.contains(marker) {
+                sawPartial = true
+                break
+            }
+            try await Task.sleep(nanoseconds: 30_000_000)
+        }
+        XCTAssertTrue(sawPartial, "mid-stream flush must persist the partial to run.json before kill")
+
+        // Stamp a verified kill the same way ProcessOwnershipSurface does once
+        // settlement returns `.stopped` — status cancelled, endReason killed,
+        // answers cancelled without erasing output.
+        var durable = try XCTUnwrap(runStore.loadRaw(runId: runId))
+        durable.status = .cancelled
+        durable.endReason = .killed
+        durable.phase = nil
+        for i in durable.answers.indices where !durable.answers[i].result.status.isTerminal {
+            durable.answers[i].result.status = .cancelled
+        }
+        try runStore.save(durable, models: [model])
+        hang.cancel()
+
+        let settled = await runTask.value
+        guard case .success(let returned) = settled else {
+            return XCTFail("expected durable terminal return, got \(settled)")
+        }
+        XCTAssertEqual(returned.status, .cancelled)
+        let text = try XCTUnwrap(returned.answers.first?.result.output)
+        XCTAssertTrue(text.contains(marker), "kill must preserve durable partial: \(text)")
+
+        let trj = TeamRunJSONMapper.map(
+            returned, models: [model], manifests: [manifest], context: .init())
+        XCTAssertEqual(trj.answer?.markdown?.contains(marker), true)
+        XCTAssertEqual(trj.answer?.status, .cancelled)
+        XCTAssertNotEqual(trj.answer?.status, .done)
+    }
+
+    /// A late partial flush against an already-terminal run must no-op — never
+    /// resurrect status or clobber settled truth.
+    func testLatePartialFlushCannotResurrectTerminalRun() throws {
+        let repo = FileManager.default.temporaryDirectory
+            .appendingPathComponent("run-late-flush-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: repo, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: repo) }
+
+        let runStore = RunStore(rootDirectory: repo.appendingPathComponent("runs"))
+        let worker = Agent(id: "model_grok#0", modelId: "model_grok", instanceIndex: 0)
+        let run = TeamRun(
+            id: UUID().uuidString, prompt: "done", status: .failed,
+            workers: [worker],
+            answers: [TeamAnswer(
+                memberId: worker.id, modelId: worker.modelId, role: "answer",
+                result: WorkerRunResult(status: .failed, output: "settled output"))],
+            createdAt: Date(), endReason: .failed)
+        try runStore.save(run, models: [])
+
+        let wrote = runStore.updatePartialAnswer(
+            runId: run.id, workerId: worker.id,
+            output: "late flush must not land", at: Date())
+        XCTAssertFalse(wrote, "terminal run must refuse the late partial flush")
+
+        let after = try XCTUnwrap(runStore.loadRaw(runId: run.id))
+        XCTAssertEqual(after.status, .failed)
+        XCTAssertEqual(after.endReason, .failed)
+        XCTAssertEqual(after.answers.first?.result.output, "settled output")
+        XCTAssertNotEqual(after.status, .running)
+    }
+}
+
+/// Streams scripted events then parks until `cancel()` — models a worker killed
+/// mid-answer after durable partial text has already flushed.
+private final class HangAfterDribbleRunner: CommandRunner, StreamingCommandRunner, @unchecked Sendable {
+    private let events: [CommandEvent]
+    private let lock = NSLock()
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var cancelled = false
+
+    init(events: [CommandEvent]) { self.events = events }
+
+    func cancel() {
+        lock.lock()
+        cancelled = true
+        let cont = continuation
+        continuation = nil
+        lock.unlock()
+        cont?.resume()
+    }
+
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        CommandResult(stdout: "", exitCode: 1)
+    }
+
+    func runStreaming(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) -> AsyncThrowingStream<CommandEvent, Error> {
+        let events = self.events
+        return AsyncThrowingStream { cont in
+            Task {
+                for event in events { cont.yield(event) }
+                await withCheckedContinuation { (c: CheckedContinuation<Void, Never>) in
+                    self.lock.lock()
+                    if self.cancelled {
+                        self.lock.unlock()
+                        c.resume()
+                    } else {
+                        self.continuation = c
+                        self.lock.unlock()
+                    }
+                }
+                cont.finish()
+            }
+        }
     }
 }

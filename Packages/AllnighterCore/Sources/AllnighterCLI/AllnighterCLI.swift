@@ -2243,14 +2243,41 @@ struct AllnighterCLI {
         guard let run = resolveRun(ref) else {
             failRunNotFound(ref == "latest" ? nil : ref, "no run matches \(ref)")
         }
-        if let dir = try? RunStore().runDirectory(forRunId: run.id),
-           let bundle = try? String(contentsOf: dir.appendingPathComponent("bundle.md"), encoding: .utf8) {
-            print(bundle)
-        } else {
-            let body = humanAnswer(for: run, models: runtime.models, manifests: runtime.registry.all)
-                ?? "(no answer)"
-            print("# \(run.id)\n\n\(run.prompt)\n\n\(body)")
+        let dir = try? RunStore().runDirectory(forRunId: run.id)
+        let bundle = dir.flatMap {
+            try? String(contentsOf: $0.appendingPathComponent("bundle.md"), encoding: .utf8)
         }
+        print(exportMarkdown(
+            for: run,
+            models: runtime.models,
+            manifests: runtime.registry.all,
+            existingBundle: bundle
+        ))
+    }
+
+    /// VSI-S05 export body. Prefer a durable partial over a stale prompt-first
+    /// `bundle.md` — that precedence is exactly why the incident export returned
+    /// prompt-only text while 26k chars of work lived only in a watcher buffer.
+    static func exportMarkdown(
+        for run: TeamRun,
+        models: [Model],
+        manifests: [DriverManifest],
+        existingBundle: String?
+    ) -> String {
+        let trj = TeamRunJSONMapper.map(
+            run, models: models, manifests: manifests, context: .init()
+        )
+        if let answer = trj.answer,
+           let md = answer.markdown, !md.isEmpty,
+           answer.status != .done {
+            return "# \(run.id)\n\n# Partial answer\n\n\(md)"
+        }
+        if let existingBundle, !existingBundle.isEmpty {
+            return existingBundle
+        }
+        let body = humanAnswer(for: run, models: models, manifests: manifests)
+            ?? "(no answer)"
+        return "# \(run.id)\n\n\(run.prompt)\n\n\(body)"
     }
 
     /// `alln doctor explain <code> [--json]` — explain one registry error code.
@@ -2451,6 +2478,7 @@ struct AllnighterCLI {
 
     /// Canonical human result text from the TeamRunJSON answer projection.
     /// Falls back to seat markdown only when no canonical answer exists (partial multi-seat).
+    /// Non-success single-worker partials are labeled `Partial answer` (VSI-S05).
     static func humanAnswer(
         for run: TeamRun,
         models: [Model],
@@ -2460,7 +2488,12 @@ struct AllnighterCLI {
             run, models: models, manifests: manifests,
             context: .init()
         )
-        if let md = trj.answer?.markdown, !md.isEmpty { return md }
+        if let answer = trj.answer, let md = answer.markdown, !md.isEmpty {
+            if answer.status != .done {
+                return "Partial answer\n\n\(md)"
+            }
+            return md
+        }
         return trj.answers.lazy
             .compactMap(\.markdown)
             .first { !$0.isEmpty }

@@ -108,6 +108,45 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertTrue(root["answer"] is NSNull)
     }
 
+    /// VSI-S05: a failed single-worker run with durable partial text hoists that
+    /// text under `answer` whose status is `.failed` — not `.done`. Regression
+    /// for consumers that assumed `answer != null` ⇒ `status == done`.
+    func testFailedSingleWorkerHoistsPartialWithFailedStatus() throws {
+        let partial = "Durable partial work that survived a bad termination."
+        let run = terminalRun(
+            status: .failed,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .failed, output: partial))],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: ctx())
+        let answer = try XCTUnwrap(trj.answer)
+        XCTAssertEqual(answer.markdown, partial)
+        XCTAssertEqual(answer.status, .failed)
+        XCTAssertNotEqual(answer.status, .done)
+        XCTAssertEqual(trj.teamRun.status, .failed)
+        XCTAssertEqual(answer.source.kind, .worker)
+    }
+
+    /// VSI-S05 Law 2: hoisted partial markdown appears on `answer` exactly once
+    /// — the seat row's markdown is cleared.
+    func testPartialMarkdownAppearsExactlyOnce() throws {
+        let partial = "Exactly-once partial markdown body."
+        let run = terminalRun(
+            status: .cancelled,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .cancelled, output: partial))],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: ctx())
+        XCTAssertEqual(trj.answer?.markdown, partial)
+        XCTAssertEqual(trj.answer?.status, .cancelled)
+        XCTAssertNil(trj.answers.first?.markdown)
+        let encoded = try CoreJSON.encode(trj)
+        let text = String(decoding: encoded, as: UTF8.self)
+        XCTAssertEqual(text.components(separatedBy: partial).count - 1, 1)
+    }
+
     func testPartialRunIsDoneWithNoPlanButFailuresCarryErrors() throws {
         let run = try Fixtures.run(.runPartial)             // status .partial, plan failed
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())

@@ -548,6 +548,39 @@ public struct RunStore: Sendable {
         run.lastActivityKind = kind
         try? CoreJSON.encode(run).write(to: runURL, options: .atomic)
     }
+
+    /// VSI-S05: locked, terminal-safe partial-answer update. Re-reads `run.json`,
+    /// updates only the named worker's `result.output` + activity clock, and
+    /// refuses to write when the run is already terminal (a late flush must
+    /// never resurrect or clobber settled truth). Writes `run.json` only —
+    /// never the event journal (`workerAnswerDelta` stays non-durable).
+    @discardableResult
+    public func updatePartialAnswer(
+        runId: String,
+        workerId: String,
+        output: String,
+        at: Date = Date()
+    ) -> Bool {
+        guard !output.isEmpty else { return false }
+        let directory = rootDirectory.appendingPathComponent("run_\(runId)", isDirectory: true)
+        return ProcessOwnership.withRunLock(in: directory) {
+            let runURL = directory.appendingPathComponent("run.json")
+            guard let data = try? Data(contentsOf: runURL),
+                  var run = try? CoreJSON.decode(TeamRun.self, from: data),
+                  !run.status.isTerminal,
+                  let idx = run.answers.firstIndex(where: { $0.memberId == workerId })
+            else { return false }
+            run.answers[idx].result.output = output
+            run.lastActivityAt = at
+            run.lastActivityKind = .message
+            do {
+                try CoreJSON.encode(run).write(to: runURL, options: .atomic)
+                return true
+            } catch {
+                return false
+            }
+        }
+    }
 }
 
 /// RLR-S03a: the one durable-activity projection wiring. Classifies a `RunEvent`

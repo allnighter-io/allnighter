@@ -262,7 +262,15 @@ public enum TeamRunJSONMapper {
         answers: inout [TeamRunJSON.AnswerInfo],
         designBoard: TeamRunJSON.DesignBoard?
     ) -> TeamRunJSON.Answer? {
-        guard runStatus == .done else { return nil }
+        // VSI-S05: hoist a non-empty single-worker partial even when the run did
+        // not succeed. Consumers must not assume `answer != null` ⇒ `status == done`.
+        if runStatus != .done {
+            return hoistSingleWorkerPartial(
+                runStatus: runStatus,
+                outputKind: outputKind,
+                answers: &answers
+            )
+        }
 
         // 1. Completed synthesized plan → answer from plan; plan keeps provenance only.
         if var donePlan = plan, donePlan.status == .done,
@@ -318,6 +326,38 @@ public enum TeamRunJSONMapper {
 
         // 4. Partial multi-seat without synthesis → answer null; keep seat markdowns.
         return nil
+    }
+
+    /// VSI-S05 — non-success single-worker hoist. Live `.running` stays null so
+    /// mid-stream show does not invent a terminal answer; parked (`.queued`) and
+    /// failed/killed/timed-out/interrupted runs surface the durable partial.
+    private static func hoistSingleWorkerPartial(
+        runStatus: TeamRunJSON.Status,
+        outputKind: String?,
+        answers: inout [TeamRunJSON.AnswerInfo]
+    ) -> TeamRunJSON.Answer? {
+        switch runStatus {
+        case .failed, .timedOut, .cancelled, .interrupted, .queued:
+            break
+        case .running, .done, .skipped:
+            return nil
+        }
+        let seats = answers.filter { $0.status != .skipped }
+        guard seats.count == 1, let only = seats.first,
+              let markdown = only.markdown, !markdown.isEmpty,
+              let idx = answers.firstIndex(where: { $0.agentId == only.agentId })
+        else { return nil }
+        answers[idx].markdown = nil
+        return TeamRunJSON.Answer(
+            status: runStatus,
+            outputKind: outputKind,
+            markdown: markdown,
+            source: .init(
+                kind: .worker,
+                agentId: only.agentId,
+                modelId: only.modelId
+            )
+        )
     }
 
     /// Agent terminal states → mechanical outcome status (never a correctness verdict).

@@ -117,7 +117,13 @@ public enum ArtifactProjector {
     let leadCall = LeadCallParser.parse(from: leadMarkdown)
 
     let teamLabel = run.teamDisplayName ?? run.presetId ?? "Team run"
-    let verdict = normalizedVerdict(leadCall?.status)
+    // VSI-S05: a failed/killed/timed-out/parked run may hoist a durable partial
+    // whose body still contains a Lead Call "Ready" fence — never present that
+    // as a ready verdict for a non-success answer.
+    var verdict = normalizedVerdict(leadCall?.status)
+    if verdict == "Ready", trj.answer?.status != .done {
+      verdict = nil
+    }
     let call = leadCall?.call
       ?? fallbackCall(from: leadMarkdown)
       ?? "(no synthesized output — status \(run.status.rawValue))"

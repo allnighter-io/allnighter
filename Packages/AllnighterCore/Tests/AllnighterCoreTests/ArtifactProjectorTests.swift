@@ -396,6 +396,39 @@ final class ArtifactProjectorTests: XCTestCase {
     XCTAssertEqual(card.call, "(no synthesized output — status failed)")
   }
 
+  /// VSI-S05: a failed run whose durable partial still embeds a Lead Call
+  /// `Ready` fence must not render a ready verdict.
+  func testFailedRunRendersPartialWithoutReadyVerdict() {
+    let partial = """
+    ```lead-call
+    {"schemaVersion":1,"status":"Ready","call":"Looks ready but the run failed."}
+    ```
+
+    Durable partial work that must remain visible.
+    """
+    let worker = Agent(id: "model_a#0", modelId: "model_a", instanceIndex: 0, purpose: .answer)
+    let run = TeamRun(
+      id: "run_failed_partial", prompt: "Ship it?", status: .failed,
+      workers: [worker],
+      answers: [
+        TeamAnswer(memberId: "model_a#0", modelId: "model_a", role: "answer",
+                   result: WorkerRunResult(status: .failed, output: partial,
+                                           timing: RunTiming(durationMs: 40))),
+      ],
+      stages: [], createdAt: now, endReason: .failed
+    )
+    let card = ArtifactProjector.project(run)
+    // Cleared Ready — not Partial either; stylesheet still defines `.verdict-ready`.
+    XCTAssertNil(card.verdict)
+    let html = ArtifactProjector.renderHTML(card)
+    XCTAssertFalse(html.contains("class=\"verdict verdict-ready\""), html)
+    XCTAssertTrue(
+      html.contains("Durable partial work that must remain visible")
+        || html.contains("Looks ready but the run failed."),
+      html
+    )
+  }
+
   func testQuestionAndOneLinerCaps() {
     // When Lead omits asked, prompt fallback is capped.
     let longPrompt = String(repeating: "q", count: 150)

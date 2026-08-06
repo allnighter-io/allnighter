@@ -1598,9 +1598,16 @@ public actor RunService {
             var reasoning = ""
             var lastAnswerEmit = now()
             func emitWarmAnswer() {
+                // VSI-S05: persist accumulated text to run.json BEFORE the live
+                // stream delta — kill/park must not depend on a watcher buffer.
+                let visible = answer.visibleText
+                if !visible.isEmpty {
+                    _ = runStore.updatePartialAnswer(
+                        runId: runId, workerId: worker.id, output: visible, at: now())
+                }
                 emit(RunEventKind.workerAnswerDelta, [
                     "runId": .string(runId), "workerId": .string(worker.id),
-                    "text": .string(answer.visibleText), "truncated": .bool(answer.isTruncated)])
+                    "text": .string(visible), "truncated": .bool(answer.isTruncated)])
                 lastAnswerEmit = now()
             }
             func emitWarmReasoning() {
@@ -1706,9 +1713,16 @@ public actor RunService {
             var lastReasoningEmit = now()
             var terminal: WorkerRunOutcome?
             func emitAnswer() {
+                // VSI-S05: persist accumulated text to run.json BEFORE the live
+                // stream delta — kill/park must not depend on a watcher buffer.
+                let visible = answer.visibleText
+                if !visible.isEmpty {
+                    _ = runStore.updatePartialAnswer(
+                        runId: runId, workerId: worker.id, output: visible, at: now())
+                }
                 emit(RunEventKind.workerAnswerDelta, [
                     "runId": .string(runId), "workerId": .string(worker.id),
-                    "text": .string(answer.visibleText), "truncated": .bool(answer.isTruncated),
+                    "text": .string(visible), "truncated": .bool(answer.isTruncated),
                 ])
                 lastAnswerEmit = now()
             }
@@ -1819,12 +1833,16 @@ public actor RunService {
                 guard let requestedAt, let invokedAt = outcome.timing.startedAt else { return nil }
                 return max(0, Int(invokedAt.timeIntervalSince(requestedAt) * 1000))
             }()
-            let answer = TeamAnswer(
-                memberId: worker.id,
-                modelId: model.id,
-                role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
-                result: outcome,
-                queueMs: queueMs
+            let answer = Self.preservingNonEmptyOutput(
+                TeamAnswer(
+                    memberId: worker.id,
+                    modelId: model.id,
+                    role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
+                    result: outcome,
+                    queueMs: queueMs
+                ),
+                prior: run.workerAnswer(workerId: worker.id)
+                    ?? runStore.loadRaw(runId: runId)?.workerAnswer(workerId: worker.id)
             )
             run.answers = [answer]
             Self.settleLatestAttempt(
@@ -1995,9 +2013,14 @@ public actor RunService {
             guard let requestedAt, let startedAt = outcome.timing.startedAt else { return nil }
             return max(0, Int(startedAt.timeIntervalSince(requestedAt) * 1000))
         }()
-        let answer = TeamAnswer(
-            memberId: worker.id, modelId: model.id, role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
-            result: outcome, queueMs: queueMs
+        let answer = Self.preservingNonEmptyOutput(
+            TeamAnswer(
+                memberId: worker.id, modelId: model.id,
+                role: worker.purpose?.rawValue ?? AgentStage.answer.rawValue,
+                result: outcome, queueMs: queueMs
+            ),
+            prior: run.workerAnswer(workerId: worker.id)
+                ?? runStore.loadRaw(runId: runId)?.workerAnswer(workerId: worker.id)
         )
         var workerPayload: [String: JSONValue] = [
             "runId": .string(runId), "workerId": .string(worker.id), "modelId": .string(model.id),
@@ -2476,6 +2499,22 @@ public actor RunService {
             selectionOrigin: selectionOrigin,
             substitutionOfAttempt: nil
         ))
+    }
+
+    /// VSI-S05: terminal settlement may change status but must never erase a
+    /// non-empty mid-stream partial that already landed in `run.json`.
+    private static func preservingNonEmptyOutput(
+        _ answer: TeamAnswer,
+        prior: TeamAnswer?
+    ) -> TeamAnswer {
+        let incomingEmpty = answer.result.output?.isEmpty != false
+        guard incomingEmpty,
+              let priorOut = prior?.result.output,
+              !priorOut.isEmpty
+        else { return answer }
+        var merged = answer
+        merged.result.output = priorOut
+        return merged
     }
 
     private static func settleLatestAttempt(

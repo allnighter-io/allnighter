@@ -85,8 +85,10 @@ public enum RunMarkdown {
             let member = run.workerAnswer(workerId: seat.id)
             lines.append("### \(seatName(seat))")
             lines.append("")
-            if let member, member.hasAnswer {
-                lines.append(member.output ?? "")
+            // VSI-S05: show durable text even when the seat did not finish `.done`
+            // (`hasAnswer` requires done — that hid killed/failed partials).
+            if let output = member?.output, !output.isEmpty {
+                lines.append(output)
             } else {
                 let status = member?.result.status.rawValue ?? "no answer"
                 lines.append("_\(status): \(member?.result.errorReason ?? "no answer")_")
