@@ -412,7 +412,7 @@ private struct CapacityStripRowView: View {
 
     @ViewBuilder
     private var weeklyColumn: some View {
-        if isDimmed {
+        if isDimmed, row.unknownReason != nil || row.pools.isEmpty {
             Text("not ready — probe failed")
                 .font(ALFont.sans(12))
                 .foregroundStyle(ALColor.textFaint)
@@ -501,7 +501,7 @@ private struct CapacityStripRowView: View {
 
     @ViewBuilder
     private var shortColumn: some View {
-        if isDimmed {
+        if isDimmed, row.unknownReason != nil || row.pools.isEmpty {
             EmptyView()
         } else if row.unknownReason != nil {
             Text("—")

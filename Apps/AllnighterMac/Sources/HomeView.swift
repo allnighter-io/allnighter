@@ -763,6 +763,8 @@ private struct HomeNewRunPane: View {
         let parked = appModel.parkedDriverIds
         var down = Set(parked)
         for record in appModel.toolStatuses where !record.status.isSmokeReady {
+            // Rate-limited seats still have live capacity numbers — same as bare `alln capacity`.
+            if case .rateLimited = record.status { continue }
             down.insert(record.driverId)
             // Capacity source id for Antigravity is `agy`; setup uses `antigravity`.
             if record.driverId == "antigravity" { down.insert("agy") }
