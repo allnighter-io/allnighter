@@ -1,10 +1,10 @@
 # OpenCode Go Capacity
 
-Status: **Dogfood spike shipped (OCG-S00–S03) — live qualification in progress**
-Owner: AllnighterCore (targeted dashboard acquisition + parser diagnostics) +
-AllnighterCLI (existing `capacity` surface only during qualification)
+Status: **CLI beta promotion in progress (founder 2026-08-06) — live proof landed; Mac GUI deferred**
+Owner: AllnighterCore (dashboard acquisition + parser) + AllnighterCLI (capacity +
+`opencode-go` setup — next slice)
 Created: 2026-08-05
-Revised: 2026-08-05 (spike OCG-S00–S03 shipped; dogfood pattern `7429f81a`)
+Revised: 2026-08-06 (founder CLI promotion; live proof; parser hotfix pending commit)
 Origin: Founder dogfood — OpenCode Go plan limits exist only on the browser
 `/go` dashboard, not in the `opencode` TUI. ALLN meters six local CLI seats via
 PTY; Go is the seventh seat with the **same per-source module shape**, but
@@ -230,7 +230,40 @@ weeks of real comparisons rather than test count.
 
 ---
 
-## Dogfood CLI (spike only)
+## Founder promotion (2026-08-06)
+
+**Decision:** promote **CLI capacity only** immediately — **beta**, **developer
+visibility**, Mac strip / menu / park **deferred**. Full bench integration is
+the plan; setup UX is the blocker, not scrape truth.
+
+**Why now (founder ruling — supersedes SOL wait-for-14-days for CLI only):**
+
+1. **Proof landed.** First credentialed live scrape matched the browser `/go`
+   page (rolling 0%, weekly 5%, monthly 2%; reset clocks within tolerance).
+2. **Speed.** The scrape works today; tomorrow is likely the same page with at
+   most minor parser tweaks. Waiting two weeks while manually exporting env vars
+   buys little and blocks the pilot loop.
+3. **Setup is the real cost.** Founder dogfood proved the parser; DevTools copy-paste
+   proved the credential UX is unacceptable for daily use.
+
+**Still not promoted:** Mac capacity strip, menu envelope, park/substitution,
+`benchSourceOrder` seventh seat on the default resident refresh path until setup
+ships (OCG-S04b). Qualification ledger **continues** — false numeric readings still
+reset the clock.
+
+### Live dogfood hotfix (2026-08-06)
+
+First credentialed run exposed two real-page parser bugs (both fixed in the next
+commit):
+
+| Bug | Symptom | Fix |
+| --- | --- | --- |
+| SolidJS `resetInSec` before `usagePercent` | `strategy_mismatch`; SSR showed 17837% used | `uniqueSolidMatch` respects capture order per regex variant |
+| Dual-format on same page | SSR exact seconds vs data-slot rounded text ("4h 57m") | Percentages must agree; prefer SSR for reset clocks |
+
+---
+
+## Dogfood CLI (transitional — until OCG-S04b)
 
 First **developer-gated** capacity surface in ALLN (`--dogfood` on the existing
 `capacity` command — not a new top-level verb).
@@ -756,7 +789,9 @@ fallback.
 | **OCG-S01** | Pure parser + fixtures (atomic 3-window) | **Done** |
 | **OCG-S02** | HTTP client + env creds + `authRequired` + executor | **Done** |
 | **OCG-S03** | Wire dogfood path + strip display + qualification ledger | **Done** |
-| **OCG-S04** | Promotion only (after SOL gate) | Open |
+| **OCG-S04a** | CLI beta: `benchSourceOrder`, drop `--dogfood`, help/contract **beta** label | **Next** |
+| **OCG-S05** | `alln opencode-go setup` + encrypted store + validate-on-save | **Next** (blocker for daily use) |
+| **OCG-S06** | Mac strip + menu + park (after CLI stable) | Open |
 
 Estimate: **1–2 focused days** for OCG-S00–S03 spike; OCG-S04 is a separate promotion packet.
 
@@ -803,14 +838,63 @@ ledger to replace `/go` %.
 - [x] `CapacityProbe` / PTY path unchanged (grep: no opencode_go / cookie / HTML scrape in PTY file)
 - [x] `benchSourceOrder` still six seats; `opencode_go` not in default refresh
 - [x] Qualification ledger appends redacted outcomes
-- [ ] Founder dogfood: live refresh matches browser /go %
+- [x] Founder dogfood: live refresh matches browser /go % (2026-08-06; rolling 0 / weekly 5 / monthly 2)
 
-## Done when (promotion — OCG-S04+)
+## Done when (CLI beta — OCG-S04a–S05)
 
-- [ ] SOL qualification gate passed (14d / 100 refreshes / 20 browser compares / …)
-- [ ] `benchSourceOrder` includes `opencode_go`; strip/help row count updated
-- [ ] Optional: encrypted credential store + `configure`/`status` CLI
-- [ ] Sprint docs archived; promote strip/help law; archive this packet
+- [ ] `alln opencode-go setup` — one-command credential capture (see below)
+- [ ] Encrypted credential file; env override still works
+- [ ] `alln capacity --source opencode_go` without `--dogfood` (developer/beta visibility)
+- [ ] `benchSourceOrder` includes `opencode_go`; dashboard wave on default refresh
+- [ ] Help/contract updated; **beta** label in command summary
+- [ ] Qualification ledger continues; promotion does not waive false-reading gate
+
+## Done when (Mac / product — OCG-S06+)
+
+- [ ] SOL extended qualification complete OR official `/zen/go/v1/usage` API ships
+- [ ] Mac capacity strip seventh row
+- [ ] Menu envelope; park/substitution
+- [ ] Sprint docs archived; archive this packet
+
+## Setup UX — `alln opencode-go setup` (OCG-S05, **not in spike**)
+
+**Not in OCG-S00–S03.** The spike deliberately shipped env-only credentials and
+deferred `alln opencode-go configure` (manual DevTools paste). Browser automation
+was explicitly cut from the qualification slice.
+
+**Founder target (next slice):**
+
+```text
+alln opencode-go setup
+  → opens https://opencode.ai (or workspace picker) in the default browser
+  → user logs in if needed (human step — no password in ALLN)
+  → ALLN captures session without DevTools:
+      preferred: read `auth` cookie from the user's default browser profile
+      fallback: local callback / paste wrk_* from clipboard after login
+  → writes encrypted `opencode_go.enc` under Allnighter support
+  → prints workspace id; never prints cookie after save
+```
+
+**Ranked implementation options (fast → thorough):**
+
+| Option | UX | Notes |
+| --- | --- | --- |
+| **A. Browser cookie import (Firefox first)** | `setup` reads `cookies.sqlite` for `opencode.ai` / `auth` | Proven pattern ([opencode-go-usage](https://ai.rud.is/posts/2026-06-06-opencode-go-usage/)); no headless browser; Chrome/Safari need Keychain/TCC — document or defer |
+| **B. Open browser + clipboard assist** | `open https://opencode.ai/workspace` + prompt "paste wrk_* from URL" + hidden cookie paste | Ships in hours; still one paste for cookie unless paired with A |
+| **C. Loopback OAuth-style callback** | Local HTTP server on `127.0.0.1`; OpenCode would need to redirect with token | Blocked on upstream — no callback endpoint today |
+| **D. Official API** | `setup` runs `opencode auth login`; capacity uses API key against `/zen/go/v1/usage` | Best long-term ([PR #16513](https://github.com/anomalyco/opencode/pull/16513)); not live yet |
+
+**Recommendation:** ship **A + B** in one slice — try Firefox/Safari cookie read;
+on miss, open browser + clipboard workspace + optional hidden cookie paste; encrypt
+and validate with a test scrape before save. Drop env vars as the happy path for
+agents once file exists.
+
+**Explicit non-goals for setup v1:** Keychain popup for cookie storage; npm
+dependency; headless Chromium bundle.
+
+## Done when (promotion — superseded)
+
+Legacy OCG-S04 checklist moved to CLI beta + Mac sections above.
 
 ## AGENTS.md routing
 

@@ -93,7 +93,10 @@ public enum OpenCodeGoCapacityProbe {
         let candidate: ParsedSample
         switch (solid, slot) {
         case (.success(let s), .success(let d)):
-            guard samplesAgree(s, d) else { return .failure(.strategyMismatch) }
+            // Both formats often coexist on the live page. SSR carries exact
+            // resetInSec; data-slot parses rounded human text ("4h 59m" vs 18000s).
+            // Percentages must agree; prefer SSR for reset clocks.
+            guard percentagesAgree(s, d) else { return .failure(.strategyMismatch) }
             candidate = s
         case (.success(let s), .failure):
             candidate = s
@@ -229,7 +232,7 @@ public enum OpenCodeGoCapacityProbe {
         resetFirst: NSRegularExpression,
         name: String
     ) -> WindowSample? {
-        switch uniqueSolidMatch(html: html, regex: pctFirst, name: name) {
+        switch uniqueSolidMatch(html: html, regex: pctFirst, name: name, pctIsFirstCapture: true) {
         case .success(let sample):
             return sample
         case .failure(.duplicateWindow):
@@ -237,7 +240,7 @@ public enum OpenCodeGoCapacityProbe {
         case .failure:
             break
         }
-        switch uniqueSolidMatch(html: html, regex: resetFirst, name: name) {
+        switch uniqueSolidMatch(html: html, regex: resetFirst, name: name, pctIsFirstCapture: false) {
         case .success(let sample):
             return sample
         default:
@@ -253,7 +256,8 @@ public enum OpenCodeGoCapacityProbe {
     private static func uniqueSolidMatch(
         html: String,
         regex: NSRegularExpression,
-        name: String
+        name: String,
+        pctIsFirstCapture: Bool
     ) -> SolidMatchResult {
         let range = NSRange(html.startIndex..., in: html)
         let matches = regex.matches(in: html, range: range)
@@ -261,14 +265,16 @@ public enum OpenCodeGoCapacityProbe {
         var samples: [WindowSample] = []
         for match in matches {
             guard match.numberOfRanges >= 3,
-                  let pctRange = Range(match.range(at: 1), in: html),
-                  let resetRange = Range(match.range(at: 2), in: html),
-                  let pct = Double(html[pctRange]),
-                  let reset = TimeInterval(html[resetRange])
+                  let firstRange = Range(match.range(at: 1), in: html),
+                  let secondRange = Range(match.range(at: 2), in: html),
+                  let first = Double(html[firstRange]),
+                  let second = TimeInterval(html[secondRange])
             else {
                 return .failure(.invalidValue(field: name))
             }
-            samples.append(WindowSample(usedPercent: pct, resetInSec: reset))
+            let usedPercent = pctIsFirstCapture ? first : second
+            let resetInSec = pctIsFirstCapture ? second : first
+            samples.append(WindowSample(usedPercent: usedPercent, resetInSec: resetInSec))
         }
         let distinct = Set(samples.map { "\($0.usedPercent)|\($0.resetInSec)" })
         guard distinct.count == 1, let sample = samples.first else {
@@ -376,6 +382,12 @@ public enum OpenCodeGoCapacityProbe {
         if lower.contains("<title>sign in") { return true }
         if lower.contains("type=\"password\"") { return true }
         return false
+    }
+
+    private static func percentagesAgree(_ a: ParsedSample, _ b: ParsedSample) -> Bool {
+        a.rolling.usedPercent == b.rolling.usedPercent
+            && a.weekly.usedPercent == b.weekly.usedPercent
+            && a.monthly.usedPercent == b.monthly.usedPercent
     }
 
     private static func samplesAgree(_ a: ParsedSample, _ b: ParsedSample) -> Bool {

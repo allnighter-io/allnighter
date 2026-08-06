@@ -138,6 +138,46 @@ final class OpenCodeGoCapacityProbeTests: XCTestCase {
         """
         XCTAssertEqual(OpenCodeGoCapacityProbe.parseSample(html: html), .failure(.strategyMismatch))
     }
+
+    func testDualFormatAgreesOnPercentPrefersSolidReset() throws {
+        let html = """
+        rollingUsage:$R[0]={usagePercent:0,resetInSec:18000}
+        weeklyUsage:$R[1]={usagePercent:5,resetInSec:299015}
+        monthlyUsage:$R[2]={usagePercent:2,resetInSec:2646068}
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Rolling Usage</span>
+          <span data-slot="usage-value">0%</span>
+          <span data-slot="reset-time">Resets in 4 hours 59 minutes</span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Weekly Usage</span>
+          <span data-slot="usage-value">5%</span>
+          <span data-slot="reset-time">Resets in 3 days 11 hours</span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Monthly Usage</span>
+          <span data-slot="usage-value">2%</span>
+          <span data-slot="reset-time">Resets in 30 days 15 hours</span>
+        </div>
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.strategy, .solidSSR)
+        XCTAssertEqual(sample.rolling.usedPercent, 0)
+        XCTAssertEqual(sample.rolling.resetInSec, 18000)
+    }
+
+    func testSolidResetFirstFieldOrder() throws {
+        let html = """
+        rollingUsage:$R[33]={status:"ok",resetInSec:17837,usagePercent:0}
+        weeklyUsage:$R[34]={status:"ok",resetInSec:298852,usagePercent:5}
+        monthlyUsage:$R[35]={status:"ok",resetInSec:2645905,usagePercent:2}
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 0)
+        XCTAssertEqual(sample.rolling.resetInSec, 17837)
+        XCTAssertEqual(sample.weekly.usedPercent, 5)
+        XCTAssertEqual(sample.monthly.usedPercent, 2)
+    }
 }
 
 private extension Result where Success == OpenCodeGoCapacityProbe.ParsedSample, Failure == OpenCodeGoCapacityProbe.ParseFailure {
