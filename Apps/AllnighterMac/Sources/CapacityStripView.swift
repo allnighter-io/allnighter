@@ -677,6 +677,7 @@ private struct CapacityStripRowView: View {
         case .tuiProbe: return "TUI probe · /usage"
         case .streamPiggyback: return "stream piggyback"
         case .failureClassification: return "failure classification"
+        case .dashboardScrape: return "dashboard scrape"
         }
     }
 
