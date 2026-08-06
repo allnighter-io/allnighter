@@ -44,6 +44,12 @@ public enum CapacityAcquisition {
     /// The OpenCode Go dashboard seat.
     public static let dogfoodSourceId = "opencode_go"
 
+    /// Bailian Token Plan Personal (intl) — dogfood-only until qualification passes.
+    public static let bailianTokenPlanSourceId = "bailian_token_plan"
+
+    /// Dashboard scrape seats gated behind `--dogfood` until promoted.
+    public static let gatedDashboardSourceIds: [String] = [bailianTokenPlanSourceId]
+
     /// Retired — disk is not a capacity display path (CWB-S00). Kept empty so
     /// stale call sites fail compile or tests rather than silently routing to disk.
     public static let diskOnlySources: [String] = []
@@ -68,8 +74,11 @@ public enum CapacityAcquisition {
 
     /// `nil` when `id` is a known bench source; otherwise the usage error message.
     public static func validateRefreshSourceId(_ id: String, dogfood: Bool = false) -> String? {
+        if gatedDashboardSourceIds.contains(id), !dogfood {
+            return "--dogfood required for \(id)"
+        }
         _ = dogfood // promoted (OCG-S08): the Go seat no longer needs the gate
-        guard validRefreshSourceIds.contains(id) else {
+        guard validRefreshSourceIds.contains(id) || gatedDashboardSourceIds.contains(id) else {
             return unknownRefreshSourceMessage(id)
         }
         return nil

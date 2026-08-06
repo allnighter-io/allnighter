@@ -96,6 +96,7 @@ struct AllnighterCLI {
         case "detect": await runDetect(runtime)
         case "capacity": runCapacity(args)
         case "opencode-go": OpenCodeGoCLI.run(args)
+        case "bailian-token-plan": BailianTokenPlanCLI.run(args)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "drivers": await DriversCLI.run(args, runtime: runtime)
         case "catalog" where args.first == "validate": CatalogValidateCLI.run(Array(args.dropFirst()))
@@ -375,24 +376,43 @@ struct AllnighterCLI {
             fail(code: "CLI_USAGE_ERROR", message: message)
         }
         if dogfood {
-            guard refreshSource == CapacityAcquisition.dogfoodSourceId else {
+            guard let refreshSource else {
                 fail(
                     code: "CLI_USAGE_ERROR",
-                    message: "--dogfood requires --source \(CapacityAcquisition.dogfoodSourceId)"
+                    message: "--dogfood requires --source <dashboard_id>"
                 )
             }
-            capacityProgress("capacity: dogfood \(CapacityAcquisition.dogfoodSourceId) scrape…")
+            capacityProgress("capacity: dogfood \(refreshSource) scrape…")
             let featureEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
-            let dogfoodBench = CapacityFetch.dogfoodOpenCodeGoSnapshot(now: now, featureEnabled: featureEnabled)
-            let bench = dogfoodBench.snapshot
-            let diagnostics = dogfoodBench.diagnostics
-            capacityProgress(
-                "opencode_go: \(diagnostics.ok ? "ok" : "failed")"
-                    + " strategy=\(diagnostics.parserStrategy ?? "-")"
-                    + " http=\(diagnostics.httpStatus.map(String.init) ?? "-")"
-                    + " kind=\(diagnostics.failureKind ?? "none")"
-            )
-            emitCapacityOutput(rows: bench.rows, now: now, json: opts.flag("json"))
+            switch refreshSource {
+            case CapacityAcquisition.dogfoodSourceId:
+                let dogfoodBench = CapacityFetch.dogfoodOpenCodeGoSnapshot(now: now, featureEnabled: featureEnabled)
+                let bench = dogfoodBench.snapshot
+                let diagnostics = dogfoodBench.diagnostics
+                capacityProgress(
+                    "\(refreshSource): \(diagnostics.ok ? "ok" : "failed")"
+                        + " strategy=\(diagnostics.parserStrategy ?? "-")"
+                        + " http=\(diagnostics.httpStatus.map(String.init) ?? "-")"
+                        + " kind=\(diagnostics.failureKind ?? "none")"
+                )
+                emitCapacityOutput(rows: bench.rows, now: now, json: opts.flag("json"))
+            case CapacityAcquisition.bailianTokenPlanSourceId:
+                let dogfoodBench = CapacityFetch.dogfoodBailianTokenPlanSnapshot(now: now, featureEnabled: featureEnabled)
+                let bench = dogfoodBench.snapshot
+                let diagnostics = dogfoodBench.diagnostics
+                capacityProgress(
+                    "\(refreshSource): \(diagnostics.ok ? "ok" : "failed")"
+                        + " strategy=\(diagnostics.parserStrategy ?? "-")"
+                        + " http=\(diagnostics.httpStatus.map(String.init) ?? "-")"
+                        + " kind=\(diagnostics.failureKind ?? "none")"
+                )
+                emitCapacityOutput(rows: filterDogfoodRows(bench.rows, source: refreshSource), now: now, json: opts.flag("json"))
+            default:
+                fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: "--dogfood requires --source \(CapacityAcquisition.dogfoodSourceId) or \(CapacityAcquisition.bailianTokenPlanSourceId)"
+                )
+            }
             return
         }
 
@@ -434,6 +454,10 @@ struct AllnighterCLI {
             capacityProgress("capacity: done")
         }
         emitCapacityOutput(rows: bench.rows, now: now, json: opts.flag("json"))
+    }
+
+    private static func filterDogfoodRows(_ rows: [CapacityBenchRow], source: String) -> [CapacityBenchRow] {
+        rows.filter { $0.source == source }
     }
 
     private static func emitCapacityOutput(rows: [CapacityBenchRow], now: Date, json: Bool) {

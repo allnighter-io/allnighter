@@ -122,5 +122,27 @@ public enum CapacityFetch {
         return (snapshot, outcome.diagnostics)
     }
 
+    /// Dogfood Bailian Token Plan scrape: six `neverSampled` PTY rows + dashboard wave.
+    public static func dogfoodBailianTokenPlanSnapshot(
+        now: Date = Date(),
+        featureEnabled: Bool
+    ) -> (snapshot: Snapshot, diagnostics: BailianTokenPlanCapacityExecutor.ScrapeDiagnostics) {
+        guard featureEnabled else {
+            let diagnostics = BailianTokenPlanCapacityExecutor.ScrapeDiagnostics(
+                attempted: false,
+                ok: false,
+                failureKind: "feature_disabled",
+                observedAt: now
+            )
+            return (disabledSnapshot(now: now), diagnostics)
+        }
+        let six = CapacityAcquisition.windows(now: now, refresh: false)
+        let outcome = BailianTokenPlanCapacityExecutor.execute(now: now)
+        let windows = six + outcome.windows
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        let snapshot = Snapshot(now: now, windows: windows, rows: rows)
+        return (snapshot, outcome.diagnostics)
+    }
+
     private static let placeholderHome = URL(fileURLWithPath: "/var/empty", isDirectory: true)
 }

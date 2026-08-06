@@ -1,0 +1,20 @@
+{
+  "code": "200",
+  "data": {
+    "DataV2": {
+      "data": {
+        "success": true,
+        "data": {
+          "per5HourLimitRemoved": true,
+          "per5HourStatus": "Limit Temporarily Removed",
+          "per1WeekPercentage": 0.0137,
+          "per1WeekResetTime": 1786635840000,
+          "specCode": "standard"
+        }
+      },
+      "success": true,
+      "httpStatus": 200
+    }
+  },
+  "successResponse": true
+}
