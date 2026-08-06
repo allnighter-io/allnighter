@@ -129,7 +129,11 @@ public enum CapacityFetch {
     /// Dogfood Bailian Token Plan scrape: six `neverSampled` PTY rows + dashboard wave.
     public static func dogfoodBailianTokenPlanSnapshot(
         now: Date = Date(),
-        featureEnabled: Bool
+        featureEnabled: Bool,
+        // Threaded through so a test can state "not configured" as a fact
+        // rather than depending on whether this machine happens to have the
+        // feature set up.
+        credentialsResolver: (() -> Result<BailianTokenPlanCredentialStore.Credentials, BailianTokenPlanCredentialStore.LoadError>)? = nil
     ) -> (snapshot: Snapshot, diagnostics: BailianTokenPlanCapacityExecutor.ScrapeDiagnostics) {
         guard featureEnabled else {
             let diagnostics = BailianTokenPlanCapacityExecutor.ScrapeDiagnostics(
@@ -141,7 +145,7 @@ public enum CapacityFetch {
             return (disabledSnapshot(now: now), diagnostics)
         }
         let six = CapacityAcquisition.windows(now: now, refresh: false)
-        let outcome = BailianTokenPlanCapacityExecutor.execute(now: now)
+        let outcome = BailianTokenPlanCapacityExecutor.execute(now: now, credentialsResolver: credentialsResolver)
         let windows = six + outcome.windows
         let rows = CapacityBenchProjection.rows(from: windows, now: now)
         let snapshot = Snapshot(now: now, windows: windows, rows: rows)

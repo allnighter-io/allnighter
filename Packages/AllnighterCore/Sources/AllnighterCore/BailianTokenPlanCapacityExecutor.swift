@@ -19,12 +19,17 @@ public enum BailianTokenPlanCapacityExecutor {
         now: Date,
         credentials: BailianTokenPlanCredentialStore.Credentials? = nil,
         transport: (any BailianTokenPlanCapacityClient.Transport)? = nil,
-        ledger: (any BailianTokenPlanLedgerSink)? = nil
+        ledger: (any BailianTokenPlanLedgerSink)? = nil,
+        // Injectable so a test can state "not configured" as a fact instead of
+        // hoping the developer's machine has no stored credential. Reading the
+        // real store made these tests pass only until the feature was actually
+        // set up - the same contamination class as the qualification ledger.
+        credentialsResolver: (() -> Result<BailianTokenPlanCredentialStore.Credentials, BailianTokenPlanCredentialStore.LoadError>)? = nil
     ) -> Outcome {
         let ledger = ledger ?? BailianTokenPlanQualificationLedger.fileSink
         let credsResult: Result<BailianTokenPlanCredentialStore.Credentials, BailianTokenPlanCredentialStore.LoadError> =
             credentials.map { Result.success($0) }
-                ?? BailianTokenPlanCredentialStore.load().map(\.credentials)
+                ?? (credentialsResolver ?? { BailianTokenPlanCredentialStore.load().map(\.credentials) })()
         guard case .success(let creds) = credsResult else {
             let failure = credentialFailureKind(credsResult)
             let windows: [CapacityWindow]

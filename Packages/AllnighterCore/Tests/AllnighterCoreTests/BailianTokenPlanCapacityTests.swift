@@ -55,7 +55,12 @@ final class BailianTokenPlanCapacityProbeTests: XCTestCase {
         XCTAssertNil(windows.first?.unknownReason)
 
         let row = CapacityBenchProjection.rows(from: windows, now: observedAt).first
-        guard case .none = row?.pools.first?.shortWindow else {
+        // Unwrap before matching: `case .none = row?...shortWindow` is ambiguous
+        // on an Optional<CapacityShortWindowState> — `.none` binds to
+        // Optional.none (nil), not to CapacityShortWindowState.none, so a
+        // present pool whose short window is genuinely `.none` (n/a) would
+        // wrongly fail this guard.
+        guard let shortWindow = row?.pools.first?.shortWindow, case .none = shortWindow else {
             return XCTFail("limit removed → no short window (n/a), got \(String(describing: row?.pools.first?.shortWindow))")
         }
     }
@@ -126,7 +131,8 @@ final class BailianTokenPlanCapacityExecutorTests: XCTestCase {
         let outcome = BailianTokenPlanCapacityExecutor.execute(
             now: observedAt,
             credentials: nil,
-            transport: FixtureTransport(json: Data())
+            transport: FixtureTransport(json: Data()),
+            credentialsResolver: { .failure(.notConfigured) }
         )
         XCTAssertFalse(outcome.diagnostics.attempted)
         XCTAssertTrue(outcome.windows.allSatisfy { $0.unknownReason == .neverSampled })
