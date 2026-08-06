@@ -415,3 +415,106 @@ final class OpenCodeGoLedgerIsolationTests: XCTestCase {
         XCTAssertTrue(OpenCodeGoQualificationLedger.fileSink is OpenCodeGoQualificationLedger.FileSink)
     }
 }
+
+/// OCG-S06 — encrypted credential persistence.
+final class OpenCodeGoCredentialPersistenceTests: XCTestCase {
+
+    private var dir: URL!
+    private var credURL: URL!
+    private var keyURL: URL!
+
+    override func setUpWithError() throws {
+        dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("ocg-creds-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        credURL = dir.appendingPathComponent("opencode_go.enc")
+        keyURL = dir.appendingPathComponent("machine.key")
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: dir)
+    }
+
+    private let sample = OpenCodeGoCredentialStore.Credentials(
+        workspaceId: "wrk_TESTONLY", authCookie: "cookie-value-testonly"
+    )
+
+    func testRoundTrip() throws {
+        try OpenCodeGoCredentialStore.save(sample, credentialURL: credURL, keyURL: keyURL)
+        let loaded = OpenCodeGoCredentialStore.loadFromFile(credentialURL: credURL, keyURL: keyURL)
+        XCTAssertEqual(try loaded.get(), sample)
+    }
+
+    /// The cookie is a full web session. It must not be recoverable from the
+    /// file by anything that does not hold the machine key.
+    func testCookieIsNotPresentInPlaintextOnDisk() throws {
+        try OpenCodeGoCredentialStore.save(sample, credentialURL: credURL, keyURL: keyURL)
+        let raw = try Data(contentsOf: credURL)
+        XCTAssertNil(
+            raw.range(of: Data(sample.authCookie.utf8)),
+            "the auth cookie must never appear as plaintext bytes on disk"
+        )
+        XCTAssertNil(raw.range(of: Data(sample.workspaceId.utf8)))
+    }
+
+    func testCredentialAndKeyAreOwnerOnly() throws {
+        try OpenCodeGoCredentialStore.save(sample, credentialURL: credURL, keyURL: keyURL)
+        for url in [credURL!, keyURL!] {
+            let perms = try FileManager.default
+                .attributesOfItem(atPath: url.path)[.posixPermissions] as? NSNumber
+            XCTAssertEqual(perms?.intValue, 0o600, "\(url.lastPathComponent) must be owner-only")
+        }
+    }
+
+    /// A rotated or corrupt key must be distinguishable from "never configured",
+    /// so the strip can say auth-required instead of inviting a fresh setup.
+    func testWrongKeyIsDecryptFailedNotNotConfigured() throws {
+        try OpenCodeGoCredentialStore.save(sample, credentialURL: credURL, keyURL: keyURL)
+        try Data(RemoteMediaCrypto.randomContentKey()).write(to: keyURL)
+        let result = OpenCodeGoCredentialStore.loadFromFile(credentialURL: credURL, keyURL: keyURL)
+        guard case .failure(let error) = result else { return XCTFail("expected failure") }
+        XCTAssertEqual(error, .decryptFailed)
+    }
+
+    func testAbsentFileIsNotConfigured() {
+        let result = OpenCodeGoCredentialStore.loadFromFile(credentialURL: credURL, keyURL: keyURL)
+        guard case .failure(let error) = result else { return XCTFail("expected failure") }
+        XCTAssertEqual(error, .notConfigured)
+    }
+
+    func testEnvironmentOverridesStoredFile() throws {
+        try OpenCodeGoCredentialStore.save(sample, credentialURL: credURL, keyURL: keyURL)
+        let resolved = try OpenCodeGoCredentialStore.load(
+            environment: [
+                OpenCodeGoCredentialStore.workspaceIdEnv: "wrk_FROM_ENV",
+                OpenCodeGoCredentialStore.authCookieEnv: "env-cookie",
+            ],
+            credentialURL: credURL,
+            keyURL: keyURL
+        ).get()
+        XCTAssertEqual(resolved.source, .environment)
+        XCTAssertEqual(resolved.credentials.workspaceId, "wrk_FROM_ENV")
+    }
+
+    /// Half-set env is a mistake, not an intention. It must refuse rather than
+    /// quietly scrape with the stored credential the caller was overriding.
+    func testPartialEnvironmentRefusesAndDoesNotFallBackToFile() throws {
+        try OpenCodeGoCredentialStore.save(sample, credentialURL: credURL, keyURL: keyURL)
+        let result = OpenCodeGoCredentialStore.load(
+            environment: [OpenCodeGoCredentialStore.workspaceIdEnv: "wrk_ONLY"],
+            credentialURL: credURL,
+            keyURL: keyURL
+        )
+        guard case .failure(let error) = result else { return XCTFail("expected refusal") }
+        XCTAssertEqual(error, .partialEnvironment)
+    }
+
+    func testFallsBackToFileWhenEnvironmentEmpty() throws {
+        try OpenCodeGoCredentialStore.save(sample, credentialURL: credURL, keyURL: keyURL)
+        let resolved = try OpenCodeGoCredentialStore.load(
+            environment: [:], credentialURL: credURL, keyURL: keyURL
+        ).get()
+        XCTAssertEqual(resolved.source, .encryptedFile)
+        XCTAssertEqual(resolved.credentials, sample)
+    }
+}

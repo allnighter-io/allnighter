@@ -63,11 +63,21 @@ public enum OpenCodeGoCapacityExecutor {
         // internal, and widening it to public just to satisfy a default would
         // export the ledger as API for no reason.
         let ledger = ledger ?? OpenCodeGoQualificationLedger.fileSink
-        let credsResult = credentials.map { Result.success($0) }
-            ?? OpenCodeGoCredentialStore.loadFromEnvironment()
+        let credsResult: Result<OpenCodeGoCredentialStore.Credentials, OpenCodeGoCredentialStore.LoadError> =
+            credentials.map { Result.success($0) }
+                ?? OpenCodeGoCredentialStore.load().map(\.credentials)
         guard case .success(let creds) = credsResult else {
             let failure = credentialFailureKind(credsResult)
-            let windows = neverSampledWindows(at: now)
+            // A stored credential we cannot decrypt is NOT "never configured" —
+            // we hold something and it is unusable, which is an auth problem the
+            // owner must fix. Painting it neverSampled would read as "just set it
+            // up" and hide a rotated machine key.
+            let windows: [CapacityWindow]
+            if case .failure(.decryptFailed) = credsResult {
+                windows = unknownWindows(reason: .authRequired(observedAt: now), at: now)
+            } else {
+                windows = neverSampledWindows(at: now)
+            }
             let diagnostics = ScrapeDiagnostics(
                 attempted: false,
                 ok: false,
@@ -138,6 +148,23 @@ public enum OpenCodeGoCapacityExecutor {
     }
 
     private static func unknownWindows(
+        reason: CapacityUnknownReason,
+        at now: Date
+    ) -> [CapacityWindow] {
+        let tier = CapacityAcquisitionTier.dashboardScrape
+        return [CapacityWindowScope.fiveHour, .weekly, .monthly].map {
+            CapacityWindow.unknown(
+                reason: reason,
+                source: OpenCodeGoCapacityProbe.sourceId,
+                scope: $0,
+                observedAt: now,
+                sourceTier: tier,
+                planTier: "Go"
+            )
+        }
+    }
+
+    private static func unknownWindows(
         for failure: OpenCodeGoCapacityClient.FetchFailure,
         at now: Date
     ) -> [CapacityWindow] {
@@ -171,6 +198,8 @@ public enum OpenCodeGoCapacityExecutor {
         case .failure(.partialEnvironment): return "partial_env"
         case .failure(.missingWorkspaceId): return "missing_workspace_id"
         case .failure(.missingAuthCookie): return "missing_auth_cookie"
+        case .failure(.decryptFailed): return "decrypt_failed"
+        case .failure(.notConfigured): return "not_configured"
         }
     }
 
