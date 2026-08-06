@@ -406,7 +406,7 @@ struct AllnighterCLI {
                         + " http=\(diagnostics.httpStatus.map(String.init) ?? "-")"
                         + " kind=\(diagnostics.failureKind ?? "none")"
                 )
-                emitCapacityOutput(rows: filterDogfoodRows(bench.rows, source: refreshSource), now: now, json: opts.flag("json"))
+                emitCapacityOutput(rows: bench.rows, now: now, json: opts.flag("json"))
             default:
                 fail(
                     code: "CLI_USAGE_ERROR",
@@ -454,10 +454,6 @@ struct AllnighterCLI {
             capacityProgress("capacity: done")
         }
         emitCapacityOutput(rows: bench.rows, now: now, json: opts.flag("json"))
-    }
-
-    private static func filterDogfoodRows(_ rows: [CapacityBenchRow], source: String) -> [CapacityBenchRow] {
-        rows.filter { $0.source == source }
     }
 
     private static func emitCapacityOutput(rows: [CapacityBenchRow], now: Date, json: Bool) {

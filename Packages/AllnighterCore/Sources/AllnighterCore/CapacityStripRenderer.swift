@@ -181,6 +181,7 @@ public enum CapacityStripRenderer {
         case "kimi": return "Kimi"
         case "agy", "antigravity": return "Antigravity"
         case "opencode_go": return "OpenCode Go"
+        case "bailian_token_plan": return "Qwen"
         default: return source
         }
     }

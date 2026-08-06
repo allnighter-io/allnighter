@@ -146,7 +146,7 @@ public enum CapacityFetch {
         }
         let six = CapacityAcquisition.windows(now: now, refresh: false)
         let outcome = BailianTokenPlanCapacityExecutor.execute(now: now, credentialsResolver: credentialsResolver)
-        let windows = six + outcome.windows
+        let windows = six.filter { $0.source != CapacityAcquisition.bailianTokenPlanSourceId } + outcome.windows
         let rows = CapacityBenchProjection.rows(from: windows, now: now)
         let snapshot = Snapshot(now: now, windows: windows, rows: rows)
         return (snapshot, outcome.diagnostics)

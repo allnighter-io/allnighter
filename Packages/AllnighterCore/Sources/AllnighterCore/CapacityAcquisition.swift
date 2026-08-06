@@ -34,8 +34,11 @@ public enum CapacityAcquisition {
         "agy",
     ]
 
-    /// Seats metered by scraping a browser dashboard over HTTP (OCG-S08).
-    public static let dashboardSourceOrder: [String] = [dogfoodSourceId]
+    /// Seats metered by scraping a browser dashboard over HTTP (OCG-S08+).
+    public static let dashboardSourceOrder: [String] = [
+        dogfoodSourceId,
+        bailianTokenPlanSourceId,
+    ]
 
     /// Fixed product display order (source ids). Not-ready/parked seats are
     /// reordered by the strip renderer, not here.

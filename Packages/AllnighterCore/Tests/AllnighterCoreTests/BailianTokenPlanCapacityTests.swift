@@ -164,12 +164,16 @@ final class BailianTokenPlanCapacityExecutorTests: XCTestCase {
 
 final class BailianTokenPlanDogfoodGateTests: XCTestCase {
 
-    func testNotOnBenchRoster() {
-        XCTAssertFalse(
+    func testOnBenchRosterButNotPTY() {
+        XCTAssertTrue(
             CapacityAcquisition.benchSourceOrder.contains(CapacityAcquisition.bailianTokenPlanSourceId)
         )
         XCTAssertFalse(
             CapacityAcquisition.ptySourceOrder.contains(CapacityAcquisition.bailianTokenPlanSourceId)
+        )
+        XCTAssertEqual(
+            CapacityStripRenderer.displayName(for: CapacityAcquisition.bailianTokenPlanSourceId),
+            "Qwen"
         )
     }
 
@@ -195,6 +199,15 @@ final class BailianTokenPlanDogfoodGateTests: XCTestCase {
         )
         XCTAssertFalse(result.diagnostics.attempted)
         XCTAssertEqual(result.diagnostics.failureKind, "feature_disabled")
+    }
+
+    func testDogfoodDisabledSnapshotIncludesQwenRow() {
+        let snap = CapacityFetch.dogfoodBailianTokenPlanSnapshot(
+            now: Date(timeIntervalSince1970: 1_786_000_000),
+            featureEnabled: false
+        ).snapshot
+        XCTAssertEqual(snap.rows.count, CapacityAcquisition.benchSourceOrder.count)
+        XCTAssertTrue(snap.rows.contains { $0.source == CapacityAcquisition.bailianTokenPlanSourceId })
     }
 }
 
