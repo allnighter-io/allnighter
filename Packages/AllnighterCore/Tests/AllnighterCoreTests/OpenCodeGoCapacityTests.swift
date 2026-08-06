@@ -92,6 +92,61 @@ final class OpenCodeGoCapacityExecutorTests: XCTestCase {
             $0.unknownReason == .authRequired(observedAt: observedAt)
         })
     }
+
+    func testSchemaDriftRecordsMissingFields() {
+        let html = "<html><body><h1>Dashboard</h1></body></html>"
+        let outcome = OpenCodeGoCapacityExecutor.execute(
+            now: observedAt,
+            credentials: .init(workspaceId: "wrk_test", authCookie: "secret"),
+            transport: FixtureTransport(html: html)
+        )
+        XCTAssertFalse(outcome.diagnostics.ok)
+        XCTAssertEqual(outcome.diagnostics.failureKind, "schema_drift")
+        XCTAssertTrue(outcome.diagnostics.missingFields.contains("rolling"))
+        XCTAssertTrue(outcome.diagnostics.missingFields.contains("weekly"))
+        XCTAssertTrue(outcome.diagnostics.missingFields.contains("monthly"))
+    }
+
+    func testSuccessfulScrapeRecordsContentTypeAndFingerprint() {
+        let html = """
+        rollingUsage:$R[0]={usagePercent:5,resetInSec:300}
+        weeklyUsage:$R[1]={usagePercent:10,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:15,resetInSec:7200}
+        """
+        let outcome = OpenCodeGoCapacityExecutor.execute(
+            now: observedAt,
+            credentials: .init(workspaceId: "wrk_test", authCookie: "secret"),
+            transport: FixtureTransport(html: html)
+        )
+        XCTAssertEqual(outcome.diagnostics.contentType, "text/html; charset=utf-8")
+        XCTAssertNotNil(outcome.diagnostics.bodyFingerprint)
+        XCTAssertFalse(outcome.diagnostics.bodyFingerprint?.isEmpty ?? true)
+    }
+
+    func testEncodedDiagnosticsExcludeCookieAndHTML() {
+        let html = """
+        rollingUsage:$R[0]={usagePercent:5,resetInSec:300}
+        weeklyUsage:$R[1]={usagePercent:10,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:15,resetInSec:7200}
+        <div class="dashboard">Go usage dashboard</div>
+        """
+        let outcome = OpenCodeGoCapacityExecutor.execute(
+            now: observedAt,
+            credentials: .init(workspaceId: "wrk_test", authCookie: "super_secret_cookie"),
+            transport: FixtureTransport(html: html)
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try! encoder.encode(outcome.diagnostics)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertFalse(json.contains("super_secret_cookie"),
+                       "Encoded diagnostics must not contain the auth cookie value")
+        XCTAssertFalse(json.contains("dashboard"),
+                       "Encoded diagnostics must not contain HTML fragments")
+        XCTAssertFalse(json.contains("rollingUsage"),
+                       "Encoded diagnostics must not contain raw HTML markers")
+    }
 }
 
 final class OpenCodeGoCapacityTransportTests: XCTestCase {

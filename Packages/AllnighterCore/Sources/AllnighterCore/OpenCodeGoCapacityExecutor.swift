@@ -1,3 +1,8 @@
+#if canImport(CryptoKit)
+import CryptoKit
+#else
+import Crypto
+#endif
 import Foundation
 
 /// Orchestrates OpenCode Go dashboard scrape → parse for the dogfood spike.
@@ -10,6 +15,10 @@ public enum OpenCodeGoCapacityExecutor {
         public let httpStatus: Int?
         public let failureKind: String?
         public let contentBytes: Int?
+        public let contentType: String?
+        public let finalURLClass: String?
+        public let missingFields: [String]
+        public let bodyFingerprint: String?
         public let observedAt: Date
 
         public init(
@@ -19,6 +28,10 @@ public enum OpenCodeGoCapacityExecutor {
             httpStatus: Int? = nil,
             failureKind: String? = nil,
             contentBytes: Int? = nil,
+            contentType: String? = nil,
+            finalURLClass: String? = nil,
+            missingFields: [String] = [],
+            bodyFingerprint: String? = nil,
             observedAt: Date
         ) {
             self.attempted = attempted
@@ -27,6 +40,10 @@ public enum OpenCodeGoCapacityExecutor {
             self.httpStatus = httpStatus
             self.failureKind = failureKind
             self.contentBytes = contentBytes
+            self.contentType = contentType
+            self.finalURLClass = finalURLClass
+            self.missingFields = missingFields
+            self.bodyFingerprint = bodyFingerprint
             self.observedAt = observedAt
         }
     }
@@ -88,6 +105,10 @@ public enum OpenCodeGoCapacityExecutor {
                 httpStatus: success.statusCode,
                 failureKind: ok ? nil : (parsed.failure.map(describe) ?? "parse_failed"),
                 contentBytes: success.byteCount,
+                contentType: success.contentType,
+                finalURLClass: redactURLClass(success.finalURL, workspaceId: creds.workspaceId),
+                missingFields: missingFields(from: parsed),
+                bodyFingerprint: bodyFingerprint(from: success.html),
                 observedAt: now
             )
             OpenCodeGoQualificationLedger.append(diagnostics)
@@ -175,6 +196,31 @@ public enum OpenCodeGoCapacityExecutor {
         case .invalidValue: return "invalid_value"
         case .duplicateWindow: return "duplicate_window"
         }
+    }
+
+    private static func redactURLClass(_ url: URL, workspaceId: String) -> String? {
+        guard let host = url.host else { return nil }
+        var path = url.path
+        if !workspaceId.isEmpty {
+            path = path.replacingOccurrences(of: workspaceId, with: "{id}")
+        }
+        return "\(host)\(path)"
+    }
+
+    private static func bodyFingerprint(from html: String) -> String? {
+        guard let data = html.data(using: .utf8) else { return nil }
+        let digest = SHA256.hash(data: data)
+        let hex = digest.map { String(format: "%02x", $0) }.joined()
+        return String(hex.prefix(16))
+    }
+
+    private static func missingFields(
+        from result: Result<OpenCodeGoCapacityProbe.ParsedSample, OpenCodeGoCapacityProbe.ParseFailure>
+    ) -> [String] {
+        if case .failure(.schemaDrift(_, let missing)) = result {
+            return missing
+        }
+        return []
     }
 }
 
