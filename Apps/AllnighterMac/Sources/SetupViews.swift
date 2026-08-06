@@ -587,18 +587,18 @@ struct BenchHealthPopover: View {
     // CLI-setup redesign §2: grouped CLI rows — Needs attention → Ready → Dormant → Parked.
     // Rows are tappable (opens CLI setup for that driver); no in-popover selection ring.
     // Ready = installed + signed in + ≥1 model ON; Dormant = ready CLI with 0 models on;
-    // Needs attention = genuinely broken; Parked = user ignored (listed last).
+    // Needs attention = sign-in, probe, not-checked, etc.; Parked = user ignored (listed last).
     private var attentionCards: [SetupCardModel] {
-        cards.filter { CLIStatusGroup.isAttention($0.state) }
+        CLISetupGrouping.attentionCards(from: cards, onModelNames: onModelNames(for:))
     }
     private var readyCards: [SetupCardModel] {
-        cards.filter { $0.state == .ready && !onModelNames(for: $0.driverId).isEmpty }
+        CLISetupGrouping.readyCards(from: cards, onModelNames: onModelNames(for:))
     }
     private var dormantCards: [SetupCardModel] {
-        cards.filter { ($0.state == .ready && onModelNames(for: $0.driverId).isEmpty) || $0.state == .notChecked }
+        CLISetupGrouping.dormantCards(from: cards, onModelNames: onModelNames(for:))
     }
     private var parkedCards: [SetupCardModel] {
-        cards.filter { $0.state == .parked }
+        CLISetupGrouping.parkedCards(from: cards)
     }
 
     private func onModelNames(for driverId: String) -> [String] {
@@ -697,17 +697,50 @@ struct BenchHealthPopover: View {
 
 // MARK: - Shared CLI status row (CLI-setup redesign §CLI row)
 
+/// Partitions setup cards into the CLI-setup redesign groups (Needs attention → Ready
+/// → Dormant → Parked). Dormant means ready with zero models on bench — not
+/// "unchecked" or "needs sign-in".
+enum CLISetupGrouping {
+    static func attentionCards(
+        from cards: [SetupCardModel],
+        onModelNames: (String) -> [String]
+    ) -> [SetupCardModel] {
+        cards.filter { CLIStatusGroup.isAttention($0.state) }
+    }
+
+    static func readyCards(
+        from cards: [SetupCardModel],
+        onModelNames: (String) -> [String]
+    ) -> [SetupCardModel] {
+        cards.filter { $0.state == .ready && !onModelNames($0.driverId).isEmpty }
+    }
+
+    static func dormantCards(
+        from cards: [SetupCardModel],
+        onModelNames: (String) -> [String]
+    ) -> [SetupCardModel] {
+        cards.filter { $0.state == .ready && onModelNames($0.driverId).isEmpty }
+    }
+
+    static func parkedCards(from cards: [SetupCardModel]) -> [SetupCardModel] {
+        cards.filter { $0.state == .parked }
+    }
+}
+
 /// Which redesign group a CLI row belongs to — drives the status dot, content, and
 /// dormant dimming. Shared by the CLI dropdown (non-interactive) and the CLI setup
 /// page (selectable).
 enum CLIStatusGroup {
     case attention, ready, dormant, parked
 
-    /// A genuinely broken state (vs. dormant/parked, which are not errors).
+    /// Needs a setup step or in-progress check (vs. dormant = ready with 0 models on).
     static func isAttention(_ state: SetupCardState) -> Bool {
         switch state {
-        case .needsLogin, .needsPath, .notInstalled, .probeFailed, .rateLimited, .waiting: return true
-        case .ready, .notChecked, .installedNotProbed, .detecting, .reprobing, .queued, .parked: return false
+        case .needsLogin, .needsPath, .notInstalled, .probeFailed, .rateLimited, .waiting,
+             .notChecked, .installedNotProbed, .detecting, .reprobing, .queued:
+            return true
+        case .ready, .parked:
+            return false
         }
     }
 }
@@ -794,6 +827,10 @@ struct CLIStatusRow: View {
         case .notInstalled: return "Not installed."
         case .probeFailed: return "Health check failed — re-check or fix."
         case .rateLimited: return card.probeReason ?? "Vendor quota wall — will retry when the limit resets."
+        case .notChecked: return "Not checked yet — run a scan to detect this CLI."
+        case .installedNotProbed: return "Installed but not checked yet — run a scan."
+        case .detecting, .reprobing: return "Re-checking this CLI…"
+        case .queued: return "Queued for check…"
         default: return "Needs a step."
         }
     }

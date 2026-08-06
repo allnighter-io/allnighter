@@ -114,16 +114,16 @@ struct TeamReadinessView: View {
         model.models.filter { $0.enabled && $0.driverId == driverId }.map(\.displayName)
     }
     private var attentionCards: [SetupCardModel] {
-        cards.filter { CLIStatusGroup.isAttention($0.state) }
+        CLISetupGrouping.attentionCards(from: cards, onModelNames: onModelNames(for:))
     }
     private var readyCards: [SetupCardModel] {
-        cards.filter { $0.state == .ready && !onModelNames(for: $0.driverId).isEmpty }
+        CLISetupGrouping.readyCards(from: cards, onModelNames: onModelNames(for:))
     }
     private var dormantCards: [SetupCardModel] {
-        cards.filter { ($0.state == .ready && onModelNames(for: $0.driverId).isEmpty) || $0.state == .notChecked }
+        CLISetupGrouping.dormantCards(from: cards, onModelNames: onModelNames(for:))
     }
     private var parkedCards: [SetupCardModel] {
-        cards.filter { $0.state == .parked }
+        CLISetupGrouping.parkedCards(from: cards)
     }
 
     private var bodyColumns: some View {
