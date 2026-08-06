@@ -13,6 +13,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     public var commands: [Command]
     public var teams: [Team]
     public var models: [Model]
+    /// Present in Tier-1, where per-row templates are normalised away.
+    public var modelInvocation: Invocation?
     /// Present only when Tier-1 filtered disabled seats out of `models`.
     public var blocked: OmittedSeats?
     public var recipes: [Recipe]
@@ -74,8 +76,22 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var blockedReason: String?
         public var useWhen: String?
         public var dontUseWhen: String?
-        public var runTemplate: String
-        public var validateTemplate: String
+        public var runTemplate: String?
+        public var validateTemplate: String?
+    }
+
+    /// How to invoke any seat, stated once instead of per row.
+    ///
+    /// The surface still teaches by example — `worked` is a complete, runnable
+    /// command with a real id in it. What stage 2 removes is the 39 further
+    /// copies of that same shape, which stored bytes without teaching anything
+    /// the first one did not. `{model}` is substituted from a row's `id`, the
+    /// same operation callers already perform on `{message}` throughout this
+    /// payload.
+    public struct Invocation: Codable, Sendable, Equatable {
+        public var run: String
+        public var validate: String
+        public var worked: String
     }
 
     /// Seats omitted from a Tier-1 menu because they are off the bench, plus how
@@ -124,6 +140,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         commands: [Command],
         teams: [Team],
         models: [Model],
+        modelInvocation: Invocation? = nil,
         blocked: OmittedSeats? = nil,
         recipes: [Recipe],
         effectProfiles: [String: ContractRegistry.EffectProfile],
@@ -142,6 +159,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         self.commands = commands
         self.teams = teams
         self.models = models
+        self.modelInvocation = modelInvocation
         self.blocked = blocked
         self.recipes = recipes
         self.effectProfiles = effectProfiles
@@ -153,7 +171,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, contractHash, catalogRevision, truncated,
-            detailTemplate, actions, commands, teams, models, blocked, recipes, effectProfiles,
+            detailTemplate, actions, commands, teams, models, modelInvocation, blocked, recipes,
+            effectProfiles,
             defaults, completeness, capacity, update
     }
 
@@ -173,6 +192,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         try container.encode(commands, forKey: .commands)
         try container.encode(teams, forKey: .teams)
         try container.encode(models, forKey: .models)
+        try container.encodeIfPresent(modelInvocation, forKey: .modelInvocation)
         try container.encodeIfPresent(blocked, forKey: .blocked)
         try container.encode(recipes, forKey: .recipes)
         try container.encode(effectProfiles, forKey: .effectProfiles)

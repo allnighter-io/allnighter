@@ -126,15 +126,23 @@ public enum MenuCatalog {
                 blockedReason: modelBlockedReason(entry),
                 useWhen: detailed ? copy.useWhen : nil,
                 dontUseWhen: detailed ? copy.dontUseWhen : nil,
-                runTemplate: "alln run \"{message}\" --model \(entry.id) --json",
-                validateTemplate: "alln run \"{message}\" --model \(entry.id) --dry-run"
+                runTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --json" : nil,
+                validateTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --dry-run" : nil
             )
         }
 
         // Tier-1 lists what can be SELECTED right now. An off-bench seat is not
         // selectable, so it is summarised rather than described in full — but it
         // is never silently absent: `blocked` says how many and where to look.
+        // Stage 2: state the invocation shape ONCE, with a complete worked
+        // example carrying a real id, instead of repeating it per seat. The
+        // worked example uses the first selectable seat so it is always runnable.
         let selectableRows = detailed ? modelRows : modelRows.filter(\.enabled)
+        let invocation: MenuJSON.Invocation? = detailed ? nil : .init(
+            run: "alln run \"{message}\" --model {model} --json",
+            validate: "alln run \"{message}\" --model {model} --dry-run",
+            worked: "alln run \"audit the parser\" --model \(selectableRows.first?.id ?? "model_sonnet") --json"
+        )
         let omittedCount = modelRows.count - selectableRows.count
         let omitted: MenuJSON.OmittedSeats? = omittedCount > 0
             ? .init(count: omittedCount, see: "alln models")
@@ -190,6 +198,7 @@ public enum MenuCatalog {
             commands: commandRows,
             teams: teamRows,
             models: selectableRows,
+            modelInvocation: invocation,
             blocked: omitted,
             recipes: recipeRows,
             effectProfiles: effectProfiles,
@@ -315,7 +324,7 @@ public enum MenuCatalog {
                 title: model.displayName,
                 useWhen: model.useWhen,
                 dontUseWhen: model.dontUseWhen,
-                extras: [model.driverId, model.runTemplate, model.validateTemplate]
+                extras: [model.driverId, model.runTemplate, model.validateTemplate].compactMap { $0 }
             )
             guard raw >= minimumHitScore else { continue }
             scored.append((

@@ -181,11 +181,16 @@ final class MenuCatalogTests: XCTestCase {
         XCTAssertNil(m.ref, "ref is \"model:\" + id — derivable, so not information")
         XCTAssertNil(m.useWhen)
         XCTAssertNil(m.dontUseWhen)
-        // The worked example must stay in front of the caller: this surface
-        // teaches by example, and that is not what stage 1 trades away.
-        XCTAssertFalse(m.runTemplate.isEmpty)
-        XCTAssertFalse(m.validateTemplate.isEmpty)
-        XCTAssertTrue(m.runTemplate.contains("model_a"))
+        // Stage 2: per-row templates are normalised into `modelInvocation`.
+        // Teaching by example survives — a complete, runnable command with a
+        // real id is still in the payload, just once instead of per seat.
+        XCTAssertNil(m.runTemplate)
+        XCTAssertNil(m.validateTemplate)
+        let inv = try XCTUnwrap(menu.modelInvocation)
+        XCTAssertTrue(inv.run.contains("{model}"), "shape is stated with a placeholder")
+        XCTAssertTrue(inv.worked.contains("model_a"), "worked example carries a REAL id")
+        XCTAssertTrue(inv.worked.hasPrefix("alln run "))
+        XCTAssertFalse(inv.worked.contains("{"), "the worked example must be runnable as-is")
     }
 
     /// An off-bench seat is not selectable, so Tier-1 summarises it — but never

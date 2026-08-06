@@ -94,13 +94,13 @@ final class MenuSelectionGradeTests: XCTestCase {
             XCTAssertTrue(team.validateTemplate.contains("--dry-run"), team.id)
         }
         for model in m.models {
-            let runVars = MenuSelectionCopy.templateVariables(in: model.runTemplate)
-            let valVars = MenuSelectionCopy.templateVariables(in: model.validateTemplate)
+            let runVars = MenuSelectionCopy.templateVariables(in: model.runTemplate ?? "")
+            let valVars = MenuSelectionCopy.templateVariables(in: model.validateTemplate ?? "")
             XCTAssertEqual(runVars.subtracting(declared), [], model.id)
             XCTAssertEqual(valVars.subtracting(declared), [], model.id)
-            XCTAssertTrue(model.runTemplate.contains("--model \(model.id)"), model.id)
-            XCTAssertTrue(model.validateTemplate.contains("--model \(model.id)"), model.id)
-            XCTAssertTrue(model.validateTemplate.contains("--dry-run"), model.id)
+            XCTAssertTrue((model.runTemplate ?? "").contains("--model \(model.id)"), model.id)
+            XCTAssertTrue((model.validateTemplate ?? "").contains("--model \(model.id)"), model.id)
+            XCTAssertTrue((model.validateTemplate ?? "").contains("--dry-run"), model.id)
         }
     }
 
@@ -224,7 +224,7 @@ final class MenuSelectionGradeTests: XCTestCase {
         // Tier-1 built-in fixture measures 32,168 B after the stage-1 slimming
         // (was 36,934 B when this gated the pre-slim payload). Tightened rather
         // than left slack: a budget above what ships stops gating growth.
-        XCTAssertLessThanOrEqual(data.count, 33792, "built-in Tier-1 MenuJSON \(data.count) exceeds 33 KiB")
+        XCTAssertLessThanOrEqual(data.count, 29696, "built-in Tier-1 MenuJSON \(data.count) exceeds 29 KiB")
     }
 
     func testPerRowBoundsAndRealisticCatalogWithinBudget() throws {
@@ -259,7 +259,7 @@ final class MenuSelectionGradeTests: XCTestCase {
         // covers the measured 35,027 B live bench plus the S00b capacity row
         // plus headroom for a realistic number of saved custom teams/models,
         // without being so loose it stops gating growth.
-        XCTAssertLessThanOrEqual(data.count, 38912, "realistic Tier-1 MenuJSON \(data.count) exceeds 38 KiB budget")
+        XCTAssertLessThanOrEqual(data.count, 33792, "realistic Tier-1 MenuJSON \(data.count) exceeds 33 KiB budget")
     }
 
     func testAuthoredBoundsRejectOversizedCustomRecord() {
