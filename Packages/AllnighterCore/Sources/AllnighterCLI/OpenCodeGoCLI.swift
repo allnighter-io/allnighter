@@ -136,7 +136,10 @@ enum OpenCodeGoCLI {
             print("OpenCode Go capacity: not usable — \(payload.error ?? "unknown")")
             print("Fix: alln opencode-go configure")
         }
-        print("Meter: alln capacity --dogfood --refresh --source opencode_go")
+        // --dogfood was retired for this source at promotion (OCG-S08); the seat
+        // is a normal bench member now. Teaching the dead flag here would send
+        // the owner to a gate that no longer exists.
+        print("Meter: alln capacity --refresh --source opencode_go")
     }
 
     /// Recovery-oriented, and careful to keep "never configured" distinct from
