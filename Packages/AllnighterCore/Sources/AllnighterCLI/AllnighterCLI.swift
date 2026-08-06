@@ -95,6 +95,7 @@ struct AllnighterCLI {
         case "doctor": await runDoctor(args, runtime)
         case "detect": await runDetect(runtime)
         case "capacity": runCapacity(args)
+        case "opencode-go": OpenCodeGoCLI.run(args)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "drivers": await DriversCLI.run(args, runtime: runtime)
         case "catalog" where args.first == "validate": CatalogValidateCLI.run(Array(args.dropFirst()))
