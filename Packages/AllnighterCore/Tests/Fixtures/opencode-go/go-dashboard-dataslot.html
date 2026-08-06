@@ -1,0 +1,48 @@
+<!--
+  ============================================================================
+  OPENCODE GO FIXTURE — SYNTHETIC, HAND-AUTHORED. NOT A CAPTURED PAGE.
+  ============================================================================
+
+  ORIGIN:    SYNTHETIC — hand-authored, NOT a captured page.
+  AUTHORED:  2026-08-05
+  STRATEGY:  data_slot_v1   (see OpenCodeGoCapacityProbe.ParseStrategy.dataSlot)
+  USE:       parser test fixture. Synthetic markers for the data-slot HTML
+             fallback (when SolidJS SSR hydration is not present in the
+             response). No live account, session cookie, workspace id,
+             request header, response header, or timestamp from a real
+             credentialed scrape appears anywhere in this file.
+
+  --------------------------------------------------------------------------
+  DO NOT TREAT THIS FILE AS EVIDENCE OF THE REAL OPENCODE GO DASHBOARD.
+  --------------------------------------------------------------------------
+  This markup is a hand-written stand-in for the parser's data_slot_v1
+  strategy. No developer has run a credentialed scrape against
+  https://opencode.ai/workspace/{id}/go to produce it. The values are
+  arbitrary and exist only so the parser can be exercised against a
+  plausible-looking shape.
+
+  If a future reader finds a value, label, or structure here and assumes it
+  was lifted from production, that confusion is precisely the failure this
+  header is here to prevent. Quote the strategy id (data_slot_v1) when
+  reasoning about this fixture; never quote the values.
+
+  When a real fixture does eventually exist, it will be added under a
+  filename that clearly distinguishes it from this synthetic one (see
+  README.md in this directory for the capture protocol).
+  ============================================================================
+-->
+<div data-slot="usage-item">
+  <span data-slot="usage-label">Rolling Usage</span>
+  <span data-slot="usage-value">10%</span>
+  <span data-slot="reset-time">Resets in 1 hour 30 minutes</span>
+</div>
+<div data-slot="usage-item">
+  <span data-slot="usage-label">Weekly Usage</span>
+  <span data-slot="usage-value">20%</span>
+  <span data-slot="reset-now"></span>
+</div>
+<div data-slot="usage-item">
+  <span data-slot="usage-label">Monthly Usage</span>
+  <span data-slot="usage-value">55.5%</span>
+  <span data-slot="reset-time">Resets in 6 days 2 hours</span>
+</div>

@@ -5,31 +5,13 @@ final class OpenCodeGoCapacityProbeTests: XCTestCase {
 
     private let observedAt = Date(timeIntervalSince1970: 1_754_000_000)
 
-    private let solidHTML = """
-    <html><body>
-    rollingUsage:$R[0]={usagePercent:12.5,resetInSec:7200}
-    weeklyUsage:$R[1]={usagePercent:30,resetInSec:86400}
-    monthlyUsage:$R[2]={usagePercent:45,resetInSec:1209600}
-    </body></html>
-    """
-
-    private let dataSlotHTML = """
-    <div data-slot="usage-item">
-      <span data-slot="usage-label">Rolling Usage</span>
-      <span data-slot="usage-value">10%</span>
-      <span data-slot="reset-time">Resets in 1 hour 30 minutes</span>
-    </div>
-    <div data-slot="usage-item">
-      <span data-slot="usage-label">Weekly Usage</span>
-      <span data-slot="usage-value">20%</span>
-      <span data-slot="reset-now"></span>
-    </div>
-    <div data-slot="usage-item">
-      <span data-slot="usage-label">Monthly Usage</span>
-      <span data-slot="usage-value">55.5%</span>
-      <span data-slot="reset-time">Resets in 6 days 2 hours</span>
-    </div>
-    """
+    // Hand-authored synthetic fixtures live in
+    // Packages/AllnighterCore/Tests/Fixtures/opencode-go/. They are NOT
+    // captured pages — see the header comments in each fixture and the
+    // README in that directory. The shape stays the same; the provenance
+    // is what changed.
+    private var solidHTML: String { OpenCodeGoFixture.solidSSR }
+    private var dataSlotHTML: String { OpenCodeGoFixture.dataSlot }
 
     func testSolidSSRParseAllThreeWindowsAtomically() throws {
         let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: solidHTML).success)
@@ -167,5 +149,27 @@ private extension Result where Success == OpenCodeGoCapacityProbe.ParsedSample, 
     var failure: Failure? {
         if case .failure(let value) = self { return value }
         return nil
+    }
+}
+
+private enum OpenCodeGoFixture {
+    static let solidSSRFile = "go-dashboard-ssr.html"
+    static let dataSlotFile = "go-dashboard-dataslot.html"
+
+    static var solidSSR: String { try! loadHTML(solidSSRFile) }
+    static var dataSlot: String { try! loadHTML(dataSlotFile) }
+
+    /// Resolves a fixture path relative to this test file using `#filePath`,
+    /// so SwiftPM resource wiring is not required. Crashes loudly if a
+    /// referenced file is missing — that is a test infrastructure failure
+    /// and should not be papered over with a synthetic fallback.
+    static func loadHTML(_ name: String, file: StaticString = #filePath) throws -> String {
+        let url = URL(fileURLWithPath: "\(file)")
+            .deletingLastPathComponent()   // AllnighterCoreTests
+            .deletingLastPathComponent()   // Tests
+            .appendingPathComponent("Fixtures")
+            .appendingPathComponent("opencode-go")
+            .appendingPathComponent(name)
+        return try String(contentsOf: url, encoding: .utf8)
     }
 }
