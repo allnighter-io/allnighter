@@ -1,10 +1,18 @@
 # OpenCode Go Capacity
 
-Status: **CLI beta promotion in progress (founder 2026-08-06) — live proof landed; Mac GUI deferred**
+Status: **CLI beta SHIPPED (founder 2026-08-06) — metering live; Mac GUI deferred**
 Owner: AllnighterCore (dashboard acquisition + parser) + AllnighterCLI (capacity +
-`opencode-go` setup — next slice)
+`opencode-go` setup)
 Created: 2026-08-05
-Revised: 2026-08-06 (founder CLI promotion; live proof; parser hotfix pending commit)
+Revised: 2026-08-06 (CLI beta complete end to end; first live reading recorded)
+
+**First live reading, 2026-08-06:** `alln capacity --refresh --source opencode_go`
+returned weekly **91% remaining** (resets 2026-08-10) and rolling 5h **89%
+remaining**, from the founder's own dashboard via the stored cookie. The seven-seat
+strip meters for real: Chrome cookie → AES-GCM store → HTTPS fetch → SSR tokenizer
+→ strip. The tokenizer parsed production HTML on its first attempt, with no
+`strategy_mismatch` — the first time it had met anything other than fixtures we
+wrote ourselves.
 Origin: Founder dogfood — OpenCode Go plan limits exist only on the browser
 `/go` dashboard, not in the `opencode` TUI. ALLN meters six local CLI seats via
 PTY; Go is the seventh seat with the **same per-source module shape**, but
@@ -210,6 +218,39 @@ Both `d5c23bdb` and `f40db6c9` fixed defects that had passed a **green suite** �
 the first because the test asserted only that the bad window was unknown, the
 second because a content hash trivially satisfies "records a hash." Both are the
 `Spec_Review.md` §3 measurement failure: a proof that could not fail.
+
+### CLI beta — what shipped after promotion (2026-08-06)
+
+| Commit | Change |
+| --- | --- |
+| `f2550bcb` | Ledger test isolation. The qualification ledger had none, so every test run appended fabricated rows to the real evidence file — 45 `ok:true` entries were all unit tests, identifiable by a hardcoded timestamp and 155-byte bodies against a real page of ~16,600. Anyone reading it would have concluded the scraper worked |
+| `8d658848` | AES-GCM credential persistence. `decryptFailed` is a distinct state from `notConfigured`, and both files are 0600 from before they are reachable |
+| `e50467e9` · `bb4a8a15` | `configure` / `status`; then the fix for `configure` blocking forever on non-TTY stdin, which had already eaten one delegated run |
+| `edab2b92` · `b80ed934` | Promotion. The load-bearing half: `ptyOnlySources` and `tier3ProbeableSources` were *aliases* of `benchSourceOrder`, so promoting without splitting them would have sent a browser-scrape seat into the PTY executor |
+| `cbf2ed7f` | `capacity.sock` fast path completed the roster — a resident compiled before promotion served six rows forever |
+| `59b9b073` | The Go placeholder masked the real scrape failure. Not a wrong number — a wrong **cause**: a dead cookie displayed as "never sampled" |
+| `a2ab63b6` · `dc37768f` | Four wrong-number defects, then host pinning plus a redirect guard so a hand-set `Cookie:` header cannot follow a cross-host redirect |
+| `0ff44950` · `9758a2e7` | Teaching surfaces for seven seats; the contract bump was shipped half-done with five failing tests and had to be completed |
+| `868ec20d` · `f3c9c7b5` | Workspace id discovered from local OpenCode state; one-command cookie import from Chrome |
+| `ee4fe6df` · `eeed51d5` | SSR regex replaced with a real object tokenizer — string state, escapes, brace depth, top-level-only fields. Proven by running the new tests against the previous parser: 5 failures |
+
+**Three defects reached `main` behind a green suite** (partial sample, whole-body
+fingerprint, ledger contamination) and one delivered test could not fail at all
+and was reverted (`91c5bb7b`). Every one was caught by re-running the gate
+independently or by mutation-testing, never by the delivering seat's own report.
+That is the operating lesson of this packet: a seat's green suite is a claim, not
+evidence.
+
+### Setup
+
+```text
+bash scripts/opencode-go-import-cookie.sh     # Chrome → encrypted store, one command
+pbpaste | alln opencode-go configure          # manual fallback, no keychain
+```
+
+Founder ruling 2026-08-06: a keychain prompt is acceptable when the surface
+explains what it wants, why it is unavoidable, where the secret ends up, and what
+declining costs — **before** triggering it. A surprise prompt is the defect.
 
 ### Still open on the spike
 
