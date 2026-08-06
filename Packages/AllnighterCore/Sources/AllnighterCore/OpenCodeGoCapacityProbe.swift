@@ -34,26 +34,7 @@ public enum OpenCodeGoCapacityProbe {
         case duplicateWindow(String)
     }
 
-    private static let number = #"(-?\d+(?:\.\d+)?)"#
 
-    private static let rollingPctFirst = solidRegex(
-        window: "rollingUsage", pctFirst: true
-    )
-    private static let rollingResetFirst = solidRegex(
-        window: "rollingUsage", pctFirst: false
-    )
-    private static let weeklyPctFirst = solidRegex(
-        window: "weeklyUsage", pctFirst: true
-    )
-    private static let weeklyResetFirst = solidRegex(
-        window: "weeklyUsage", pctFirst: false
-    )
-    private static let monthlyPctFirst = solidRegex(
-        window: "monthlyUsage", pctFirst: true
-    )
-    private static let monthlyResetFirst = solidRegex(
-        window: "monthlyUsage", pctFirst: false
-    )
 
     /// Parse dashboard HTML into capacity windows for `observedAt`.
     ///
@@ -215,95 +196,176 @@ public enum OpenCodeGoCapacityProbe {
         return windows
     }
 
-    // MARK: - Solid SSR
+    // MARK: - Solid SSR (tokenizer)
+
+    private static let solidWindowPattern =
+        #"(rollingUsage|weeklyUsage|monthlyUsage):\$R\[\d+\]=\{"#
 
     private static func parseSolidBundle(html: String) -> Result<ParsedSample, ParseFailure> {
-        guard let rolling = parseSolidWindow(
-            html: html, pctFirst: rollingPctFirst, resetFirst: rollingResetFirst, name: "rolling"
-        ),
-        let weekly = parseSolidWindow(
-            html: html, pctFirst: weeklyPctFirst, resetFirst: weeklyResetFirst, name: "weekly"
-        ),
-        let monthly = parseSolidWindow(
-            html: html, pctFirst: monthlyPctFirst, resetFirst: monthlyResetFirst, name: "monthly"
-        ) else {
-            return .failure(.schemaDrift(strategy: ParseStrategy.solidSSR.rawValue, missing: ["rolling", "weekly", "monthly"]))
+        var seenKeys: [String: [WindowSample]] = [:]
+
+        guard let windowRegex = try? NSRegularExpression(pattern: solidWindowPattern) else {
+            return .failure(.schemaDrift(strategy: ParseStrategy.solidSSR.rawValue,
+                                         missing: ["rolling", "weekly", "monthly"]))
         }
-        return .success(
-            ParsedSample(
-                strategy: .solidSSR,
-                rolling: rolling,
-                weekly: weekly,
-                monthly: monthly
+        let nsRange = NSRange(html.startIndex..., in: html)
+        for match in windowRegex.matches(in: html, range: nsRange) {
+            guard let labelRange = Range(match.range(at: 1), in: html) else { continue }
+            let label = String(html[labelRange])
+            let shortName = String(label.dropLast(5))
+
+            let matchEnd = match.range.location + match.range.length
+            guard matchEnd < html.utf16.count else { continue }
+
+            let bodyStart = String.Index(utf16Offset: matchEnd, in: html)
+            guard let bodyEnd = findClosingBrace(in: html, from: bodyStart) else { continue }
+            let body = String(html[bodyStart..<bodyEnd])
+
+            guard let fields = tokenizeObjectBody(body),
+                  let used = fields["usagePercent"],
+                  let reset = fields["resetInSec"]
+            else { continue }
+
+            seenKeys[shortName, default: []].append(
+                WindowSample(usedPercent: used, resetInSec: reset)
             )
-        )
-    }
-
-    private static func parseSolidWindow(
-        html: String,
-        pctFirst: NSRegularExpression,
-        resetFirst: NSRegularExpression,
-        name: String
-    ) -> WindowSample? {
-        switch uniqueSolidMatch(html: html, regex: pctFirst, name: name, pctIsFirstCapture: true) {
-        case .success(let sample):
-            return sample
-        case .failure(.duplicateWindow):
-            return nil
-        case .failure:
-            break
         }
-        switch uniqueSolidMatch(html: html, regex: resetFirst, name: name, pctIsFirstCapture: false) {
-        case .success(let sample):
-            return sample
-        default:
-            return nil
-        }
-    }
 
-    private enum SolidMatchResult {
-        case success(WindowSample)
-        case failure(ParseFailure)
-    }
-
-    private static func uniqueSolidMatch(
-        html: String,
-        regex: NSRegularExpression,
-        name: String,
-        pctIsFirstCapture: Bool
-    ) -> SolidMatchResult {
-        let range = NSRange(html.startIndex..., in: html)
-        let matches = regex.matches(in: html, range: range)
-        guard !matches.isEmpty else { return .failure(.schemaDrift(strategy: nil, missing: [name])) }
-        var samples: [WindowSample] = []
-        for match in matches {
-            guard match.numberOfRanges >= 3,
-                  let firstRange = Range(match.range(at: 1), in: html),
-                  let secondRange = Range(match.range(at: 2), in: html),
-                  let first = Double(html[firstRange]),
-                  let second = TimeInterval(html[secondRange])
-            else {
-                return .failure(.invalidValue(field: name))
+        let windowNames = ["rolling", "weekly", "monthly"]
+        var windows: [String: WindowSample] = [:]
+        for name in windowNames {
+            guard let samples = seenKeys[name], !samples.isEmpty else {
+                return .failure(.schemaDrift(strategy: ParseStrategy.solidSSR.rawValue,
+                                             missing: windowNames))
             }
-            let usedPercent = pctIsFirstCapture ? first : second
-            let resetInSec = pctIsFirstCapture ? second : first
-            samples.append(WindowSample(usedPercent: usedPercent, resetInSec: resetInSec))
+            let distinct = Set(samples.map { "\($0.usedPercent)|\($0.resetInSec)" })
+            guard distinct.count == 1, let sample = samples.first else {
+                return .failure(.duplicateWindow(name))
+            }
+            windows[name] = sample
         }
-        let distinct = Set(samples.map { "\($0.usedPercent)|\($0.resetInSec)" })
-        guard distinct.count == 1, let sample = samples.first else {
-            return .failure(.duplicateWindow(name))
+
+        guard let rolling = windows["rolling"],
+              let weekly = windows["weekly"],
+              let monthly = windows["monthly"]
+        else {
+            return .failure(.schemaDrift(strategy: ParseStrategy.solidSSR.rawValue,
+                                         missing: windowNames))
         }
-        return .success(sample)
+        return .success(ParsedSample(strategy: .solidSSR,
+                                     rolling: rolling, weekly: weekly, monthly: monthly))
     }
 
-    private static func solidRegex(window: String, pctFirst: Bool) -> NSRegularExpression {
-        let pattern: String
-        if pctFirst {
-            pattern = #"\#(window):\$R\[\d+\]=\{[^}]*?usagePercent:\#(number)[^}]*?resetInSec:\#(number)[^}]*?\}"#
-        } else {
-            pattern = #"\#(window):\$R\[\d+\]=\{[^}]*?resetInSec:\#(number)[^}]*?usagePercent:\#(number)[^}]*?\}"#
+    private static func findClosingBrace(in text: String, from start: String.Index) -> String.Index? {
+        var depth = 1
+        var inString = false
+        var escapeNext = false
+        var i = start
+        while i < text.endIndex {
+            let ch = text[i]
+            if escapeNext {
+                escapeNext = false
+                text.formIndex(after: &i)
+                continue
+            }
+            if inString {
+                if ch == "\\" { escapeNext = true }
+                else if ch == "\"" { inString = false }
+                text.formIndex(after: &i)
+                continue
+            }
+            if ch == "\"" { inString = true }
+            else if ch == "{" { depth += 1 }
+            else if ch == "}" {
+                depth -= 1
+                if depth == 0 { return i }
+            }
+            text.formIndex(after: &i)
         }
-        return try! NSRegularExpression(pattern: pattern)
+        return nil
+    }
+
+    private static func tokenizeObjectBody(_ body: String) -> [String: Double]? {
+        var result: [String: Double] = [:]
+        var inString = false
+        var escapeNext = false
+        var braceDepth = 0
+        var bracketDepth = 0
+        var i = body.startIndex
+
+        while i < body.endIndex {
+            let ch = body[i]
+
+            if escapeNext {
+                escapeNext = false
+                body.formIndex(after: &i)
+                continue
+            }
+            if inString {
+                if ch == "\\" { escapeNext = true }
+                else if ch == "\"" { inString = false }
+                body.formIndex(after: &i)
+                continue
+            }
+            if ch == "\"" { inString = true; body.formIndex(after: &i); continue }
+            if ch == "{" { braceDepth += 1; body.formIndex(after: &i); continue }
+            if ch == "}" { if braceDepth > 0 { braceDepth -= 1 }; body.formIndex(after: &i); continue }
+            if ch == "[" { bracketDepth += 1; body.formIndex(after: &i); continue }
+            if ch == "]" { if bracketDepth > 0 { bracketDepth -= 1 }; body.formIndex(after: &i); continue }
+
+            if braceDepth == 0 && bracketDepth == 0 && (ch.isLetter || ch == "_") {
+                let fieldStart = i
+                body.formIndex(after: &i)
+                while i < body.endIndex && (body[i].isLetter || body[i].isNumber || body[i] == "_") {
+                    body.formIndex(after: &i)
+                }
+                if i < body.endIndex && body[i] == ":" {
+                    let fieldName = String(body[fieldStart..<i])
+                    body.formIndex(after: &i)
+                    if let value = readNumberValue(in: body, from: &i) {
+                        if let existing = result[fieldName], existing != value {
+                            return nil
+                        }
+                        result[fieldName] = value
+                    }
+                }
+                continue
+            }
+
+            body.formIndex(after: &i)
+        }
+        return result
+    }
+
+    private static func readNumberValue(in body: String, from i: inout String.Index) -> Double? {
+        while i < body.endIndex {
+            let ch = body[i]
+            if ch.isNumber || ch == "-" {
+                let numStart = i
+                body.formIndex(after: &i)
+                while i < body.endIndex {
+                    let nch = body[i]
+                    if nch.isNumber || nch == "." { body.formIndex(after: &i) }
+                    else { break }
+                }
+                return Double(String(body[numStart..<i]))
+            }
+            if ch == "\"" {
+                body.formIndex(after: &i)
+                var escaped = false
+                while i < body.endIndex {
+                    let qch = body[i]
+                    if escaped { escaped = false }
+                    else if qch == "\\" { escaped = true }
+                    else if qch == "\"" { break }
+                    body.formIndex(after: &i)
+                }
+                if i < body.endIndex { body.formIndex(after: &i) }
+                continue
+            }
+            return nil
+        }
+        return nil
     }
 
     // MARK: - data-slot HTML

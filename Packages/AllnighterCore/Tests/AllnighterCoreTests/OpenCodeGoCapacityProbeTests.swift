@@ -263,7 +263,58 @@ final class OpenCodeGoCapacityProbeTests: XCTestCase {
         )
     }
 
-    /// Defect #4: Substring-based label classification is order-dependent.
+    // MARK: - Wrong-number adversarial regression
+
+    /// A quoted string containing `usagePercent:` and `resetInSec:` decoys
+    /// placed BEFORE the real fields must never supply values.  Lazy `[^}]*?`
+    /// prefers the *earliest* occurrence and will capture the  decoy inside
+    /// the string.
+    func testDecoyInStringBeforeRealFieldsIsIgnored() throws {
+        let html = """
+        rollingUsage:$R[0]={x:"usagePercent:1,resetInSec:2",usagePercent:50,resetInSec:100}
+        weeklyUsage:$R[1]={usagePercent:30,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:45,resetInSec:86400}
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 50,
+                       "Decoy usagePercent:1 in string before real field must not win")
+        XCTAssertEqual(sample.rolling.resetInSec, 100,
+                       "Decoy resetInSec:2 in string before real field must not win")
+    }
+
+    /// A backslash-escaped quote inside a string value must not end the string
+    /// early, so a decoy placed after the `\"` stays inside the quoted context
+    /// and is ignored.
+    func testBackslashEscapedQuoteKeepsStringIntact() throws {
+        let html = """
+        rollingUsage:$R[0]={x:"abc\\"usagePercent:5,resetInSec:9",usagePercent:50,resetInSec:100}
+        weeklyUsage:$R[1]={usagePercent:30,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:45,resetInSec:86400}
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 50,
+                       "Decoy after backslash-escaped quote must not supply usagePercent")
+        XCTAssertEqual(sample.rolling.resetInSec, 100,
+                       "Decoy after backslash-escaped quote must not supply resetInSec")
+    }
+
+    /// A nested object whose keys shadow `usagePercent` must not supply values
+    /// for the outer object.  The regex `[^}]*?` is greedy-averse and may
+    /// capture the nested value before hitting the inner `}`.
+    func testNestedObjectShadowKeysAreIgnored() throws {
+        let html = """
+        rollingUsage:$R[0]={meta:{usagePercent:9},usagePercent:50,resetInSec:100}
+        weeklyUsage:$R[1]={usagePercent:30,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:45,resetInSec:86400}
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 50,
+                       "Nested usagePercent:9 must not shadow outer usagePercent:50")
+        XCTAssertEqual(sample.rolling.resetInSec, 100,
+                       "Outer resetInSec must be extracted when nested shadow exists")
+    }
+
+    /// Label ambiguity: Substring-based label classification is order-dependent.
     /// "Weekly Rolling Usage" contains both "rolling" and "weekly" — the parser
     /// must not silently assign it to "rolling" (first check wins).
     func testLabelAmbiguitySkipsBlockLeadingToMissingWindow() {
