@@ -20,7 +20,7 @@ public extension ContractRegistry {
     // register opencode-go configure + status commands; new help topic.
     // CWB-S01c: minor — register capacity --enable and --disable flags with
     // mutually-exclusive constraint; repoWrite effect. saveEnabled throws.
-    static let contractVersion = "9.8.0"
+    static let contractVersion = "9.9.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,

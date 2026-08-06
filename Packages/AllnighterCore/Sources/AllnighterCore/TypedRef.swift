@@ -153,7 +153,7 @@ public enum TypedRef {
             append(cmd.ref, kind: .command, consumers: [.menuShow, .docs], source: "menu.commands")
         }
         for team in projected.teams {
-            append(team.ref, kind: .team, consumers: [.menuShow], source: "menu.teams")
+            append("team:\(team.id)", kind: .team, consumers: [.menuShow], source: "menu.teams")
         }
         for model in projected.models {
             append("model:\(model.id)", kind: .model, consumers: [.menuShow], source: "menu.models")

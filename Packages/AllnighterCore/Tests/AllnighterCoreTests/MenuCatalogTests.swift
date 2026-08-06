@@ -23,7 +23,7 @@ final class MenuCatalogTests: XCTestCase {
         let menu = MenuCatalog.project()
         let refs =
             menu.commands.map(\.ref)
-            + menu.teams.map(\.ref)
+            + menu.teams.map { "team:\($0.id)" }   // Tier-1 omits ref; it is derivable
             + menu.models.map { "model:\($0.id)" }   // Tier-1 omits ref; it is derivable
             + menu.recipes.map(\.ref)
         XCTAssertEqual(refs.count, Set(refs).count, "duplicate menu refs")
@@ -82,7 +82,7 @@ final class MenuCatalogTests: XCTestCase {
             XCTAssertNotNil(menu.effectProfiles[action.effectsRef], "action \(action.id) effectsRef dangling")
         }
         XCTAssertTrue(
-            menu.teams.contains { $0.ref == menu.defaults.defaultTeamRef },
+            menu.teams.contains { "team:\($0.id)" == menu.defaults.defaultTeamRef },
             "defaults.defaultTeamRef missing from teams"
         )
     }
@@ -229,6 +229,34 @@ final class MenuCatalogTests: XCTestCase {
         let full = try MenuCatalog.encodeCompact(
             MenuCatalog.project(teams: teams, modelEntries: seats, detailed: true)).count
         XCTAssertLessThan(tier1, full, "Tier-1 must actually be the cheaper payload")
+    }
+
+
+    /// A switched-off team is a REAL runtime state (`TeamVisibility`), and the
+    /// menu must never be the surface that hides it — an agent asked for a
+    /// switched-off team has to be able to say so rather than fail to find it.
+    /// `active` is omitted while true (it said `true` on all 26 rows and carried
+    /// nothing); it must appear the moment it is false.
+    func testSwitchedOffTeamIsAnnouncedNotHidden() throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-teamvis-\(UUID().uuidString).json")
+        TeamVisibility.overrideForTesting(file: tmp)
+        defer {
+            TeamVisibility.overrideForTesting(file: nil)
+            try? FileManager.default.removeItem(at: tmp)
+        }
+        let target = try XCTUnwrap(BuiltInTeams.all.first { !$0.isLabTeam })
+        _ = try TeamVisibility.setEnabled(target.id, false)
+        TeamVisibility.invalidateCache()
+
+        let menu = MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam })
+        let row = try XCTUnwrap(menu.teams.first { $0.id == target.id })
+        XCTAssertEqual(row.active, false, "a switched-off team must say so")
+        XCTAssertNotNil(row.blockedReason)
+        // Every still-active team stays silent about it.
+        for other in menu.teams where other.id != target.id {
+            XCTAssertNil(other.active, "active is omitted while true")
+        }
     }
 
 }

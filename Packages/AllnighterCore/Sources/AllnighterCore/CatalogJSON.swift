@@ -83,7 +83,8 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
         let byId = Dictionary(uniqueKeysWithValues: scoped.map { ($0.id, $0) })
         let menu = MenuCatalog.project(teams: scoped.filter { !$0.isLabTeam })
         let entries = menu.teams.compactMap { row -> Entry? in
-            guard row.active || includeInactive else { return nil }
+            // `active` is emitted only when FALSE, so absent means active.
+            guard (row.active ?? true) || includeInactive else { return nil }
             guard let team = byId[row.id] else { return nil }
             return Entry(
                 id: row.id,
@@ -95,7 +96,7 @@ public struct TeamCatalogJSON: Codable, Sendable, Equatable {
                 builtIn: team.builtIn,
                 isDefaultForLane: team.isDefaultForLane,
                 seatCount: row.seatCount,
-                active: row.active,
+                active: row.active ?? true,
                 disabledReason: row.blockedReason
             )
         }

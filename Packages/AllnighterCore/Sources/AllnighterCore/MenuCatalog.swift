@@ -90,7 +90,7 @@ public enum MenuCatalog {
             let run = "alln run \"{message}\" --team \(team.id) --json"
             let validate = "alln run \"{message}\" --team \(team.id) --dry-run"
             return MenuJSON.Team(
-                ref: "team:\(team.id)",
+                ref: detailed ? "team:\(team.id)" : nil,
                 id: team.id,
                 displayName: displayName,
                 useWhen: copy.useWhen,
@@ -99,10 +99,11 @@ public enum MenuCatalog {
                 mutating: team.mutating,
                 seatCount: team.catalogSeatCount,
                 isDefault: team.isDefaultForLane || team.id == "default_chat",
-                active: active,
+                // Only when switched off — see `MenuJSON.Team.active`.
+                active: active ? nil : false,
                 blockedReason: active ? nil : "Switched off (TeamVisibility)",
-                runTemplate: run,
-                validateTemplate: validate
+                runTemplate: detailed ? run : nil,
+                validateTemplate: detailed ? validate : nil
             )
         }
 
@@ -129,6 +130,11 @@ public enum MenuCatalog {
         // example carrying a real id, instead of repeating it per seat. The
         // worked example uses the first selectable seat so it is always runnable.
         let selectableRows = detailed ? modelRows : modelRows.filter(\.enabled)
+        let teamInvocation: MenuJSON.Invocation? = detailed ? nil : .init(
+            run: "alln run \"{message}\" --team {team} --json",
+            validate: "alln run \"{message}\" --team {team} --dry-run",
+            worked: "alln run \"audit the parser\" --team \(teamRows.first?.id ?? "code_spec_review") --json"
+        )
         let invocation: MenuJSON.Invocation? = detailed ? nil : .init(
             run: "alln run \"{message}\" --model {model} --json",
             validate: "alln run \"{message}\" --model {model} --dry-run",
@@ -190,6 +196,7 @@ public enum MenuCatalog {
             teams: teamRows,
             models: selectableRows,
             modelInvocation: invocation,
+            teamInvocation: teamInvocation,
             blocked: omitted,
             recipes: recipeRows,
             effectProfiles: effectProfiles,
@@ -285,13 +292,13 @@ public enum MenuCatalog {
                 title: team.displayName,
                 useWhen: team.useWhen,
                 dontUseWhen: team.dontUseWhen,
-                extras: [team.shape, team.runTemplate, team.validateTemplate]
+                extras: [team.shape, team.runTemplate, team.validateTemplate].compactMap { $0 }
             )
             guard raw >= minimumHitScore else { continue }
             scored.append((
                 MenuSearchHit(
                     kind: "team",
-                    ref: team.ref,
+                    ref: "team:\(team.id)",
                     id: team.id,
                     title: team.displayName,
                     useWhen: team.useWhen,
@@ -449,7 +456,7 @@ public enum MenuCatalog {
                 message: "Menu ref must be typed (command:, team:, model:, or recipe:)",
                 suggestions: [
                     "command:run",
-                    menu.teams.first.map(\.ref) ?? "team:default_chat",
+                    menu.teams.first.map { "team:\($0.id)" } ?? "team:default_chat",
                     menu.models.first.map { "model:\($0.id)" } ?? "model:model_sonnet",
                     menu.recipes.first.map(\.ref) ?? "recipe:ask-several-models-and-compare",
                 ]
@@ -615,12 +622,12 @@ public enum MenuCatalog {
         menu: MenuJSON
     ) throws -> MenuShowJSON {
         guard let team = teams.first(where: { $0.id == id }) else {
-            let suggestions = menu.teams.map(\.ref).filter { $0.contains(id.prefix(4)) }
+            let suggestions = menu.teams.map { "team:\($0.id)" }.filter { $0.contains(id.prefix(4)) }
             throw MenuRefError(
                 ref: ref,
                 kind: "team",
                 message: "Unknown team ref \(ref)",
-                suggestions: Array((suggestions.isEmpty ? menu.teams.prefix(5).map(\.ref) : suggestions).prefix(8))
+                suggestions: Array((suggestions.isEmpty ? menu.teams.prefix(5).map { "team:\($0.id)" } : suggestions).prefix(8))
             )
         }
         let active = TeamVisibility.isEnabled(team.id)

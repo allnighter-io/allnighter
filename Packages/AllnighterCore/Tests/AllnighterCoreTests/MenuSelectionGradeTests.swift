@@ -84,14 +84,14 @@ final class MenuSelectionGradeTests: XCTestCase {
             []
         )
         for team in m.teams {
-            let runVars = MenuSelectionCopy.templateVariables(in: team.runTemplate)
-            let valVars = MenuSelectionCopy.templateVariables(in: team.validateTemplate)
+            let runVars = MenuSelectionCopy.templateVariables(in: team.runTemplate ?? "")
+            let valVars = MenuSelectionCopy.templateVariables(in: team.validateTemplate ?? "")
             XCTAssertEqual(runVars.subtracting(declared), [], team.id)
             XCTAssertEqual(valVars.subtracting(declared), [], team.id)
             XCTAssertTrue(runVars.contains("message"), team.id)
-            XCTAssertTrue(team.runTemplate.contains("--team \(team.id)"), team.id)
-            XCTAssertTrue(team.validateTemplate.contains("--team \(team.id)"), team.id)
-            XCTAssertTrue(team.validateTemplate.contains("--dry-run"), team.id)
+            XCTAssertTrue((team.runTemplate ?? "").contains("--team \(team.id)"), team.id)
+            XCTAssertTrue((team.validateTemplate ?? "").contains("--team \(team.id)"), team.id)
+            XCTAssertTrue((team.validateTemplate ?? "").contains("--dry-run"), team.id)
         }
         for model in m.models {
             let runVars = MenuSelectionCopy.templateVariables(in: model.runTemplate ?? "")

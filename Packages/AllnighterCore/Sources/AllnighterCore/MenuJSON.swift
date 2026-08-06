@@ -15,6 +15,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     public var models: [Model]
     /// Present in Tier-1, where per-row templates are normalised away.
     public var modelInvocation: Invocation?
+    /// Same normalisation for teams; `{team}` substitutes a row's `id`.
+    public var teamInvocation: Invocation?
     /// Present only when Tier-1 filtered disabled seats out of `models`.
     public var blocked: OmittedSeats?
     public var recipes: [Recipe]
@@ -43,8 +45,12 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var effectsRef: String
     }
 
+    /// A Team is Allnighter-specific: its roster, skills and posture exist
+    /// nowhere else, so unlike a model its `useWhen`/`dontUseWhen` cannot be
+    /// looked up and stay in Tier-1. They also carry routing value — several
+    /// name the team to use INSTEAD ("Not mutating; build_slice").
     public struct Team: Codable, Sendable, Equatable {
-        public var ref: String
+        public var ref: String?
         public var id: String
         public var displayName: String
         public var useWhen: String
@@ -53,10 +59,15 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var mutating: Bool
         public var seatCount: Int
         public var isDefault: Bool
-        public var active: Bool
+        /// Emitted ONLY when a team is switched off (`TeamVisibility`), which is
+        /// a real runtime state. Omitted when active, where it said `true` on
+        /// every row and carried nothing. It must never be silently absent: an
+        /// agent asked for a switched-off team has to be able to say so instead
+        /// of failing to find it.
+        public var active: Bool?
         public var blockedReason: String?
-        public var runTemplate: String
-        public var validateTemplate: String
+        public var runTemplate: String?
+        public var validateTemplate: String?
     }
 
     /// A selectable seat. Tier-1 carries only what selection needs — identity,
@@ -150,6 +161,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         teams: [Team],
         models: [Model],
         modelInvocation: Invocation? = nil,
+        teamInvocation: Invocation? = nil,
         blocked: OmittedSeats? = nil,
         recipes: [Recipe],
         effectProfiles: [String: ContractRegistry.EffectProfile],
@@ -169,6 +181,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         self.teams = teams
         self.models = models
         self.modelInvocation = modelInvocation
+        self.teamInvocation = teamInvocation
         self.blocked = blocked
         self.recipes = recipes
         self.effectProfiles = effectProfiles
@@ -180,7 +193,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, contractHash, catalogRevision, truncated,
-            detailTemplate, actions, commands, teams, models, modelInvocation, blocked, recipes,
+            detailTemplate, actions, commands, teams, teamInvocation, models, modelInvocation,
+            blocked, recipes,
             effectProfiles,
             defaults, completeness, capacity, update
     }
@@ -200,6 +214,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         try container.encode(actions, forKey: .actions)
         try container.encode(commands, forKey: .commands)
         try container.encode(teams, forKey: .teams)
+        try container.encodeIfPresent(teamInvocation, forKey: .teamInvocation)
         try container.encode(models, forKey: .models)
         try container.encodeIfPresent(modelInvocation, forKey: .modelInvocation)
         try container.encodeIfPresent(blocked, forKey: .blocked)
