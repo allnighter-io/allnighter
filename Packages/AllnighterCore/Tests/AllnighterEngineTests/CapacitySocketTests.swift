@@ -339,6 +339,47 @@ final class CapacitySocketTests: XCTestCase {
         XCTAssertEqual(observedAt, window.observedAt)
     }
 
+    /// A resident answer settled before a seat was promoted onto the bench
+    /// (e.g. an old-build Dock app process still running after OCG-S08) must
+    /// still yield the full current roster over the socket-served path — the
+    /// missing seat painted as an honest `neverSampled` unknown, never
+    /// silently dropped. A live-path proof does not cover this: the gap is
+    /// specific to the resident's answer being stale/partial, and the fast
+    /// path (`CapacitySocketFastPath.snapshot`) is what has to complete it.
+    func testFastPathCompletesSeatMissingFromStaleResidentAnswer() {
+        let settledAt = Date()
+        let now = settledAt.addingTimeInterval(60)
+        // Simulate a pre-promotion resident: only the PTY seats settled,
+        // exactly as `CapacityAcquisition.ptySourceOrder` (not benchSourceOrder).
+        let staleWindows = CapacityAcquisition.ptySourceOrder.map { source in
+            knownWindow(source: source, used: 10, at: settledAt)
+        }
+        XCTAssertFalse(
+            CapacityAcquisition.ptySourceOrder.contains(CapacityAcquisition.dogfoodSourceId),
+            "fixture must omit the dashboard seat to model the stale-resident gap"
+        )
+        let answer = CapacitySocketSnapshot(disabled: false, settledAt: settledAt, windows: staleWindows)
+
+        let bench = CapacitySocketFastPath.snapshot(from: answer, now: now)
+
+        XCTAssertEqual(
+            bench.rows.count, CapacityAcquisition.benchSourceOrder.count,
+            "bare capacity over the socket path must show every current bench seat"
+        )
+        let sources = Set(bench.windows.map(\.source))
+        XCTAssertEqual(sources, Set(CapacityAcquisition.benchSourceOrder))
+
+        let goWindow = bench.windows.first { $0.source == CapacityAcquisition.dogfoodSourceId }
+        XCTAssertEqual(
+            goWindow?.unknownReason, .neverSampled,
+            "a seat absent from the resident's answer must paint an honest unknown, never be invented or dropped"
+        )
+        // Seats the stale answer did carry stay untouched by the completion step.
+        let codexWindow = bench.windows.first { $0.source == "codex" }
+        XCTAssertNil(codexWindow?.unknownReason)
+        XCTAssertEqual(codexWindow?.usedPercent, 10)
+    }
+
     private final class AnswerRecorder: @unchecked Sendable {
         private let lock = NSLock()
         private var _answers: [CapacitySocketSnapshot] = []

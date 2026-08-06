@@ -93,7 +93,8 @@ public enum CapacitySocketFastPath {
     /// - disabled answer → honest disabled rows (never a stale snapshot).
     /// - warming (no settle yet) → `neverSampled` launch placeholders.
     /// - settled → windows paint-gated at the caller's clock (age always
-    ///   honest; a snapshot past the 30m gate expires client-side).
+    ///   honest; a snapshot past the 30m gate expires client-side), then
+    ///   completed against the CLI's own compiled bench roster.
     public static func snapshot(
         from answer: CapacitySocketSnapshot,
         now: Date
@@ -112,11 +113,42 @@ public enum CapacitySocketFastPath {
         let gated = CapacityPaintGate.paintedWindows(
             answer.windows, settledAt: settledAt, now: now
         )
+        let complete = completingMissingBenchSeats(gated, now: now)
         return CapacityFetch.Snapshot(
             now: now,
-            windows: gated,
-            rows: CapacityBenchProjection.rows(from: gated, now: now)
+            windows: complete,
+            rows: CapacityBenchProjection.rows(from: complete, now: now)
         )
+    }
+
+    /// Pads any seat on `CapacityAcquisition.benchSourceOrder` that is absent
+    /// from a settled resident answer with an honest `neverSampled` unknown.
+    ///
+    /// A resident process compiled before a seat was promoted onto the bench
+    /// (e.g. the OpenCode Go dashboard seat, OCG-S08) has no way to know that
+    /// seat exists — its in-memory snapshot simply omits it. Without this
+    /// step the fast path would silently render one row short of the current
+    /// roster instead of an honest unknown; this is the CLI-side merge (the
+    /// resident stays the single owner of *how* a seat is acquired, the CLI's
+    /// own compiled `benchSourceOrder` stays the single owner of *which*
+    /// seats exist — no second hand-maintained roster). Never invents a
+    /// value: a missing seat paints `neverSampled`, matching the same reason
+    /// `CapacityAcquisition.windows` uses for an unprobed seat.
+    private static func completingMissingBenchSeats(
+        _ windows: [CapacityWindow], now: Date
+    ) -> [CapacityWindow] {
+        let present = Set(windows.map(\.source))
+        let missing = CapacityAcquisition.benchSourceOrder.filter { !present.contains($0) }
+        guard !missing.isEmpty else { return windows }
+        return windows + missing.map { source in
+            CapacityWindow.unknown(
+                reason: .neverSampled,
+                source: source,
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            )
+        }
     }
 }
 
