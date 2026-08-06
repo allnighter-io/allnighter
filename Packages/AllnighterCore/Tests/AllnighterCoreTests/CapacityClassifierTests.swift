@@ -37,9 +37,13 @@ final class CapacityClassifierTests: XCTestCase {
         let obs = CapacityClassifier.classify(input(stderr: stderr))
         XCTAssertEqual(obs?.kind, .providerBusy)
         XCTAssertEqual(obs?.sourceConfidence, .structured)
-        XCTAssertEqual(obs?.retryAfterSeconds, 60)
+        // VSI-S03: the vendor stated no retry, so we state none. This test used
+        // to assert 60s and a wake derived from it — both were invented by a
+        // deleted `providerBusyBackoffSeconds` constant, and asserting them
+        // pinned the defect in place.
+        XCTAssertNil(obs?.retryAfterSeconds, "no vendor retry means no retry")
         XCTAssertNil(obs?.observedResetAt)
-        XCTAssertEqual(obs?.wakeAfter, fixedNow.addingTimeInterval(60))
+        XCTAssertNil(obs?.wakeAfter, "no invented wake on the observation")
     }
 
     func testCodexJSONLErrorUsageLimit() {
@@ -108,13 +112,19 @@ final class CapacityClassifierTests: XCTestCase {
         XCTAssertNil(obs?.wakeAfter)
     }
 
-    func testNoEstimateUsesLocalPolicyWithoutProviderReset() {
+    /// Renamed in intent, not just in fact: this used to assert a wake the
+    /// classifier invented, under a name claiming "no estimate". VSI-S03 made
+    /// the name true — an unsourced capacity fact carries no numbers at all.
+    /// The local recheck cadence is the SCHEDULER's job (§10.2 rule 2), not the
+    /// observation's.
+    func testNoEstimateCarriesNoInventedNumbers() {
         let stderr = "rate limited — try again later"
         let obs = CapacityClassifier.classify(input(stderr: stderr))
         XCTAssertEqual(obs?.kind, .unknownCapacity)
-        XCTAssertEqual(obs?.sourceConfidence, .localPolicy)
+        XCTAssertNotEqual(obs?.sourceConfidence, .structured)
         XCTAssertNil(obs?.observedResetAt)
-        XCTAssertNotNil(obs?.wakeAfter)
+        XCTAssertNil(obs?.retryAfterSeconds)
+        XCTAssertNil(obs?.wakeAfter)
     }
 
     func testNoFalsePositiveOnGenericFailure() {
@@ -161,7 +171,11 @@ final class CapacityClassifierTests: XCTestCase {
         let stderr = "402 Payment Required: Grok Build usage balance exhausted"
         let obs = try XCTUnwrap(CapacityClassifier.classify(input(sourceId: "grok", stderr: stderr)))
         XCTAssertEqual(obs.kind, .accountRateLimit)
-        XCTAssertEqual(obs.sourceConfidence, .localPolicy)
+        // Was .localPolicy only because an invented wake tripped
+        // makeObservation's downgrade. With no invented wake, the honest
+        // derivation label stands: this came from matching text.
+        XCTAssertEqual(obs.sourceConfidence, .messageFallback)
+        XCTAssertNil(obs.retryAfterSeconds)
         XCTAssertTrue(obs.rawSnippet.lowercased().contains("payment required"))
     }
 
