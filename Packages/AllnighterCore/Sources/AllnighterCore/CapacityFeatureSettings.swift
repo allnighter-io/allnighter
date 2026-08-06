@@ -29,9 +29,9 @@ public struct CapacityFeatureSettingsPersistence: Sendable {
         return file.enabled
     }
 
-    public func saveEnabled(_ enabled: Bool) {
-        try? FileManager.default.createDirectory(
+    public func saveEnabled(_ enabled: Bool) throws {
+        try FileManager.default.createDirectory(
             at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? JSONEncoder().encode(File(enabled: enabled)).write(to: fileURL, options: .atomic)
+        try JSONEncoder().encode(File(enabled: enabled)).write(to: fileURL, options: .atomic)
     }
 }

@@ -151,7 +151,9 @@ final class FixtureRoundTripTests: XCTestCase {
         // Claim-vs-reality bumps contract 9.4.0 → 9.5.0 (additive:
         // outcome.completedWithoutChanges — a mutating run that reported
         // success and changed nothing).
-        XCTAssertEqual(trj.contractVersion, "9.5.0")
+        // Capacity feature toggle bumps contract 9.5.0 → 9.6.0 (additive:
+        // capacity --enable / --disable).
+        XCTAssertEqual(trj.contractVersion, "9.6.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"

@@ -368,6 +368,12 @@ struct AllnighterCLI {
     /// path is plain ASCII, zero ANSI.
     static func runCapacity(_ args: [String]) {
         let opts = Options(args)
+        // Setting operations run before anything else and never read a meter:
+        // turning capacity OFF must not be the thing that probes it.
+        if opts.flag("enable") || opts.flag("disable") {
+            runCapacityFeatureToggle(enable: opts.flag("enable"), disable: opts.flag("disable"))
+            return
+        }
         let now = Date()
         let refreshFlag = opts.flag("refresh")
         let dogfood = opts.flag("dogfood")
@@ -454,6 +460,50 @@ struct AllnighterCLI {
             capacityProgress("capacity: done")
         }
         emitCapacityOutput(rows: bench.rows, now: now, json: opts.flag("json"))
+    }
+
+    /// `alln capacity --enable | --disable` — the only supported way to flip the
+    /// capacity feature.
+    ///
+    /// `CapacityFeatureSettingsPersistence.saveEnabled` existed with no caller,
+    /// so the only way to turn capacity off was hand-editing JSON. That blocked
+    /// the Capacity Warm Bench trust-gate row "Feature OFF: zero timer probes",
+    /// which cannot be exercised if the feature cannot be turned off.
+    ///
+    /// Default stays ON: a missing config file means enabled, and nothing here
+    /// writes a file until the owner asks for one.
+    static func runCapacityFeatureToggle(enable: Bool, disable: Bool) {
+        guard enable != disable else {
+            fail(
+                code: "CLI_USAGE_ERROR",
+                message: "--enable and --disable are mutually exclusive",
+                suggestions: ["alln capacity --enable", "alln capacity --disable"]
+            )
+        }
+        let store = CapacityFeatureSettingsPersistence()
+        do {
+            try store.saveEnabled(enable)
+        } catch {
+            fail(
+                code: "INTERNAL_ERROR",
+                message: "failed to persist capacity setting: \(error.localizedDescription)"
+            )
+        }
+        // Read back rather than echo the request: report what is true, not what
+        // was asked for. A failed write must never print success.
+        let persisted = store.loadEnabled()
+        guard persisted == enable else {
+            fail(
+                code: "INTERNAL_ERROR",
+                message: "capacity setting did not persist — still \(persisted ? "enabled" : "disabled")"
+            )
+        }
+        print("Capacity feature: \(enable ? "enabled" : "disabled")")
+        if enable {
+            print("Next: alln capacity")
+        } else {
+            print("No seats will be probed. Re-enable with: alln capacity --enable")
+        }
     }
 
     private static func emitCapacityOutput(rows: [CapacityBenchRow], now: Date, json: Bool) {

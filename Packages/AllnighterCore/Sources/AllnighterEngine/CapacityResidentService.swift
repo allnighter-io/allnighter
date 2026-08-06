@@ -176,7 +176,7 @@ public actor CapacityResidentService {
         scheduleInterval: TimeInterval = CapacityPaintGate.gateInterval,
         initiallyEnabled: Bool = true,
         persistEnabled: @escaping @Sendable (Bool) -> Void = { enabled in
-            CapacityFeatureSettingsPersistence().saveEnabled(enabled)
+            try? CapacityFeatureSettingsPersistence().saveEnabled(enabled)
         },
         onSchedulerFire: @escaping @Sendable (RefreshReason) -> Void = { _ in },
         fetch: @escaping Fetch = { source, scope in

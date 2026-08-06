@@ -676,3 +676,37 @@ final class OpenCodeGoWorkspaceDiscoveryTests: XCTestCase {
         XCTAssertNil(OpenCodeGoCredentialStore.discoverWorkspaceId(home: empty))
     }
 }
+
+/// The capacity feature toggle. `saveEnabled` had no caller, so the only way to
+/// turn capacity off was hand-editing JSON — which blocked the trust-gate row
+/// "Feature OFF: zero timer probes".
+final class CapacityFeatureToggleTests: XCTestCase {
+
+    private func store() throws -> (CapacityFeatureSettingsPersistence, URL) {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("cap-toggle-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("capacity_feature.json")
+        return (CapacityFeatureSettingsPersistence(fileURL: url), dir)
+    }
+
+    /// A fresh install must be ON without any file being written.
+    func testDefaultIsEnabledWithNoFile() throws {
+        let (s, dir) = try store()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        XCTAssertTrue(s.loadEnabled())
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: dir.appendingPathComponent("capacity_feature.json").path),
+            "reading the default must not create a file"
+        )
+    }
+
+    func testRoundTripDisableThenEnable() throws {
+        let (s, dir) = try store()
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try s.saveEnabled(false)
+        XCTAssertFalse(s.loadEnabled(), "disable must persist")
+        try s.saveEnabled(true)
+        XCTAssertTrue(s.loadEnabled(), "enable must persist")
+    }
+}

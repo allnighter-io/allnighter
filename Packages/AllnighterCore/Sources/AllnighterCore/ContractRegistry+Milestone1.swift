@@ -18,7 +18,9 @@ public extension ContractRegistry {
     // HY-S04: patch — retired pair pilot handoff summary drops false loop step --no-wait.
     // OCG-S09: minor — capacity six→seven seats; --dogfood no longer gates opencode_go;
     // register opencode-go configure + status commands; new help topic.
-    static let contractVersion = "9.5.0"
+    // CWB-S01c: minor — register capacity --enable and --disable flags with
+    // mutually-exclusive constraint; repoWrite effect. saveEnabled throws.
+    static let contractVersion = "9.6.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -118,10 +120,14 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema."),
                 FlagSpec("refresh", summary: "Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts."),
                 FlagSpec("source", takesValue: true, summary: "Target one seat for the live probe (still returns the full seven-row strip). Valid: \(CapacityAcquisition.validRefreshSourceIds.joined(separator: ", "))."),
+                FlagSpec("enable", summary: "Turn the capacity feature ON and exit. Writes a setting; probes nothing. Default for a new install is already ON."),
+                FlagSpec("disable", summary: "Turn the capacity feature OFF and exit. Writes a setting; probes nothing. While OFF no seat is probed from any trigger."),
                 FlagSpec("dogfood", summary: "Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it."),
             ],
+            mutuallyExclusiveFlags: [["enable", "disable"]],
             outputSchema: .capacityStripJSON,
-            spendsQuota: false
+            spendsQuota: false,
+            effects: EffectProfile(repoWrite: .dependsOnFlags)
         ),
         CommandSpec(
             "opencode-go configure",

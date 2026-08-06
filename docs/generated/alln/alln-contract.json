@@ -345,7 +345,7 @@
         "destructive" : "never",
         "humanInteraction" : "never",
         "quotaSpend" : "never",
-        "repoWrite" : "never",
+        "repoWrite" : "dependsOnFlags",
         "workerStart" : "never"
       },
       "example" : "alln capacity",
@@ -372,6 +372,16 @@
           "takesValue" : true
         },
         {
+          "name" : "enable",
+          "summary" : "Turn the capacity feature ON and exit. Writes a setting; probes nothing. Default for a new install is already ON.",
+          "takesValue" : false
+        },
+        {
+          "name" : "disable",
+          "summary" : "Turn the capacity feature OFF and exit. Writes a setting; probes nothing. While OFF no seat is probed from any trigger.",
+          "takesValue" : false
+        },
+        {
           "name" : "dogfood",
           "summary" : "Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it.",
           "takesValue" : false
@@ -380,7 +390,10 @@
       "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
-
+        [
+          "enable",
+          "disable"
+        ]
       ],
       "name" : "capacity",
       "outputSchema" : "capacityStripJSON",
@@ -6041,7 +6054,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.5.0",
+  "contractVersion" : "9.6.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.5.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.6.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -103,7 +103,11 @@ Flags:
 - `--json` — Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema.
 - `--refresh` — Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts.
 - `--source <value>` — Target one seat for the live probe (still returns the full seven-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy, opencode_go, bailian_token_plan.
+- `--enable` — Turn the capacity feature ON and exit. Writes a setting; probes nothing. Default for a new install is already ON.
+- `--disable` — Turn the capacity feature OFF and exit. Writes a setting; probes nothing. While OFF no seat is probed from any trigger.
 - `--dogfood` — Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it.
+
+Mutually exclusive: `--enable`, `--disable`.
 
 Output schema: `capacityStripJSON`.
 
