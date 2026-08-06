@@ -902,6 +902,67 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertNotNil(windows.first { $0.scope == .weekly })
     }
 
+    func testCodexUpgradePromptMatcherHandlesSpaceStrippedRender() {
+        // Real ProbeScratch dump 2026-08-06: Codex 0.146.0 → 0.146.1 nudge blocked /status.
+        let dump = """
+        ✨ Update available!0.146.0 -> 0.146.1Release notes: https://github.com/openai/codex/releases/latest› 1. Update now (runs `brew upgrade --cask codex`)2.Skip3.SkipuntilnextversionPress enter to continue
+        """
+        XCTAssertTrue(CapacityProbe.looksLikeCodexUpgradePrompt(dump))
+        XCTAssertFalse(CapacityProbe.looksReadyForUsageCommand(dump))
+        XCTAssertFalse(CapacityProbe.looksLikeCodexUpgradePrompt(
+            "Weekly limit: [░░░░░░░░░░░░░░░░░░░░] 12% left (resets 21:32 on 4 Aug)"
+        ))
+    }
+
+    func testCodexStatusRenderStillParsesAfterUpgradePromptCleared() {
+        let upgrade = """
+        Update available! 0.146.0 -> 0.146.1
+        1. Update now
+        2. Skip
+        3. Skip until next version
+        """
+        let status = """
+        Weekly limit: [████░░░░░░░░░░░░░░░░] 12% left
+        (resets 21:32 on 4 Aug)
+        Account: user@example.com (Plus)
+        """
+        let combined = upgrade + String(repeating: "·", count: 2200) + status
+        XCTAssertTrue(CapacityProbe.looksLikeCodexUpgradePrompt(upgrade))
+        XCTAssertFalse(
+            CapacityProbe.looksLikeCodexUpgradePrompt(CapacityProbe.recentPaintWindow(combined))
+        )
+        XCTAssertTrue(CapacityProbe.looksLikeCodexStatusPane(status))
+        XCTAssertTrue(CapacityProbe.looksReadyForUsageCommand(combined))
+        let windows = CodexCapacityProbe.capacityWindows(fromRender: combined, observedAt: now)
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(windows.first?.remainingPercent, 12.0)
+        XCTAssertEqual(windows.first?.planTier, "Plus")
+    }
+
+    func testCodexBootChromeAndLowQuotaBannerAreNotStatusPane() {
+        let boot = """
+        │ >_ OpenAI Codex (v0.146.1)                     │
+        │ model:     loading   /model to change          │
+        │ directory: ~/Library/…/Allnighter/ProbeScratch │
+        Starting MCP servers (1/2): codex_apps (esc to interrupt)
+        """
+        XCTAssertFalse(CapacityProbe.looksLikeCodexReadyForStatusCommand(boot))
+        XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane(boot))
+
+        let loaded = """
+        │ >_ OpenAI Codex (v0.146.1)                     │
+        │ model:     gpt-5.6-sol high   /model to change   │
+        │ directory: ~/Library/…/Allnighter/ProbeScratch │
+        › Summarize recent commits
+        """
+        XCTAssertTrue(CapacityProbe.looksLikeCodexReadyForStatusCommand(loaded))
+        XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane(loaded))
+
+        let banner = "Heads up, you have less than 25% of your weekly limit left. Run /status for a breakdown."
+        XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane(banner))
+        XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane("›/status gpt-5.6-sol high"))
+    }
+
     func testNeutralWorkingDirectoryUsesProbeScratch() {
         let path = CapacityProbe.neutralWorkingDirectory()
         XCTAssertNotNil(path)

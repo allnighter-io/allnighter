@@ -266,6 +266,19 @@ public enum CapacityProbe {
         return false
     }
 
+    /// Codex post-upgrade version nudge — blocks `/status` until dismissed.
+    /// Real ProbeScratch dumps paint as `2.Skip` / `skipuntilnextversion` with no spaces.
+    public static func looksLikeCodexUpgradePrompt(_ text: String) -> Bool {
+        let c = collapsedForMatch(text)
+        if c.contains("skipuntilnextversion") { return true }
+        if c.contains("updateavailable"), c.contains("brewupgrade") { return true }
+        if c.contains("updateavailable"), c.contains("releasenotes"), c.contains("skip") {
+            return true
+        }
+        if c.contains("updatenow"), c.contains("skip"), c.contains("codex") { return true }
+        return false
+    }
+
     /// Recent paint window — PTY buffers accumulate; trust dialog text stays in
     /// the head after accept, so readiness must look at the tail.
     public static func recentPaintWindow(_ text: String, maxChars: Int = 2000) -> String {
@@ -280,8 +293,9 @@ public enum CapacityProbe {
     /// (real dogfood: welcome screen paints under stale "Yes,Itrustthisfolder").
     public static func looksReadyForUsageCommand(_ text: String) -> Bool {
         let window = recentPaintWindow(text)
-        // If the *recent* paint is still the trust dialog, not ready.
+        // If the *recent* paint is still boot chrome, not ready.
         if looksLikeWorkspaceTrustDialog(window) { return false }
+        if looksLikeCodexUpgradePrompt(window) { return false }
         let lower = window.lowercased()
         let collapsed = collapsedForMatch(window)
         let spacedMarkers = [
@@ -299,7 +313,32 @@ public enum CapacityProbe {
             "claudecodev", // version banner "Claude Code v…"
         ]
         if collapsedMarkers.contains(where: { collapsed.contains($0) }) { return true }
+        if looksLikeCodexReadyForStatusCommand(text) { return true }
         // Product name alone is not enough (trust dialog also says Claude Code).
+        return false
+    }
+
+    /// Codex interactive boot is ready for `/status` — model loaded, MCP boot done.
+    public static func looksLikeCodexReadyForStatusCommand(_ text: String) -> Bool {
+        let window = recentPaintWindow(text)
+        if looksLikeCodexUpgradePrompt(window) { return false }
+        let c = collapsedForMatch(window)
+        if c.contains("startingmcpservers") || c.contains("escrtointerrupt") { return false }
+        if c.contains("model"), c.contains("loading") { return false }
+        // Status pane is already up — do not re-send /status from the boot waiter.
+        if looksLikeCodexStatusPane(text) { return true }
+        // Boot chrome: directory box painted and model name resolved.
+        if c.contains("directory:"), c.contains("model:"), !c.contains("loading") { return true }
+        return false
+    }
+
+    /// Codex `/status` pane — not the low-quota banner that merely suggests /status.
+    public static func looksLikeCodexStatusPane(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let c = collapsedForMatch(text)
+        if c.contains("weeklylimit"), c.contains("%left") { return true }
+        if lower.contains("resets "), lower.contains("% left") { return true }
+        if c.contains("chatgpt.com/codex/settings/usage") { return true }
         return false
     }
 
@@ -598,6 +637,7 @@ public enum CapacityProbe {
         var sawReady = false
         var sawUsagePane = false
         var trustAccepts = 0
+        var codexUpgradeSkips = 0
 
         // 1) Wait for the interactive prompt / boot chrome. Handle Claude's
         // workspace trust dialog — real captures often strip spaces
@@ -629,6 +669,25 @@ public enum CapacityProbe {
                 }
                 continue
             }
+            if source == "codex", looksLikeCodexUpgradePrompt(recent) {
+                // Option 2 is "Skip" — never run `brew upgrade` from a probe.
+                if codexUpgradeSkips < 4 {
+                    let two: [UInt8] = [UInt8(ascii: "2")]
+                    _ = two.withUnsafeBufferPointer { ptr in
+                        write(master, ptr.baseAddress!, ptr.count)
+                    }
+                    _ = waitBrief(0.15)
+                    let cr: [UInt8] = [0x0D]
+                    _ = cr.withUnsafeBufferPointer { ptr in
+                        write(master, ptr.baseAddress!, ptr.count)
+                    }
+                    codexUpgradeSkips += 1
+                    _ = waitBrief(0.9)
+                } else {
+                    _ = waitBrief(0.2)
+                }
+                continue
+            }
             if looksReadyForUsageCommand(text) {
                 sawReady = true
                 break
@@ -642,12 +701,22 @@ public enum CapacityProbe {
 
         if !sawReady {
             let text = decodeAndStrip(buffer)
-            if looksLikeWorkspaceTrustDialog(recentPaintWindow(text)) {
+            let recent = recentPaintWindow(text)
+            if looksLikeWorkspaceTrustDialog(recent) {
                 // Still on trust in the recent window — dump; fail closed.
                 writeDebugDump(
                     source: source.isEmpty ? "unknown" : source,
                     text: text,
                     tag: "trustStuck",
+                    directory: debugDumpDirectory
+                )
+                return buffer.isEmpty ? .timeout : .empty
+            }
+            if source == "codex", looksLikeCodexUpgradePrompt(recent) {
+                writeDebugDump(
+                    source: source,
+                    text: text,
+                    tag: "upgradeStuck",
                     directory: debugDumpDirectory
                 )
                 return buffer.isEmpty ? .timeout : .empty
@@ -688,6 +757,9 @@ public enum CapacityProbe {
                     write(master, ptr.baseAddress!, ptr.count)
                 }
             }
+            if source == "codex" {
+                _ = waitBrief(0.6)
+            }
         }
 
         // 3) Drain until usage markers appear or budget expires.
@@ -715,6 +787,11 @@ public enum CapacityProbe {
             let hasOther = usageMarkers.contains(where: { lower.contains($0) })
             if source == "claude_code" {
                 if hasClaudeUsage {
+                    sawUsagePane = true
+                    break
+                }
+            } else if source == "codex" {
+                if looksLikeCodexStatusPane(decodeAndStrip(buffer)) {
                     sawUsagePane = true
                     break
                 }
