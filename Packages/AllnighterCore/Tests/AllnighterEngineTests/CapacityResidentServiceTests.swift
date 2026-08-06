@@ -895,9 +895,9 @@ final class CapacityFeatureOffTests: XCTestCase {
         let persistence = CapacityFeatureSettingsPersistence(fileURL: fileURL)
 
         XCTAssertTrue(persistence.loadEnabled(), "missing file → ON (shipped default)")
-        persistence.saveEnabled(false)
+        try persistence.saveEnabled(false)
         XCTAssertFalse(persistence.loadEnabled())
-        persistence.saveEnabled(true)
+        try persistence.saveEnabled(true)
         XCTAssertTrue(persistence.loadEnabled())
 
         try Data("not json".utf8).write(to: fileURL)
