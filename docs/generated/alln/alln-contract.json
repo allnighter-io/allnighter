@@ -368,7 +368,7 @@
         },
         {
           "name" : "source",
-          "summary" : "Target one seat for the live probe (still returns the full seven-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy, opencode_go.",
+          "summary" : "Target one seat for the live probe (still returns the full seven-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy, opencode_go, bailian_token_plan.",
           "takesValue" : true
         },
         {

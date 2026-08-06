@@ -102,7 +102,7 @@ Show the seven-row vendor capacity/quota table. When the user asks to print/show
 Flags:
 - `--json` — Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema.
 - `--refresh` — Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts.
-- `--source <value>` — Target one seat for the live probe (still returns the full seven-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy, opencode_go.
+- `--source <value>` — Target one seat for the live probe (still returns the full seven-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy, opencode_go, bailian_token_plan.
 - `--dogfood` — Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it.
 
 Output schema: `capacityStripJSON`.
