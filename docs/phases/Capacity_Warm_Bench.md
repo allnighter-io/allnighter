@@ -1,6 +1,6 @@
 # Capacity Warm Bench
 
-Status: **OPEN — S03 in-process post-run refresh gate shipped 2026-08-03. Resident trust gate (dogfood) only remains.**
+Status: **OPEN — resident trust gate only. 2 of 8 rows proven, 1 recorder shipped, 5 are founder dogfood (see Trust gate progress below).**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
 (`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
 Created: 2026-08-02
@@ -18,6 +18,44 @@ Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_
 **Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
 (suspends QABC-S00d). Runtime park/substitute from
 [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) **unchanged**.
+
+---
+
+## Trust gate progress — 2026-08-06
+
+Two gate rows moved. Both were **blocked on missing capability, not on evidence**,
+which is why they had sat: no amount of dogfood could have passed them.
+
+| Row | Change |
+| --- | --- |
+| Feature OFF: zero timer probes | Was **unexercisable** — `saveEnabled` had no caller, so the only way to turn capacity off was hand-editing JSON. `alln capacity --enable/--disable` shipped (`568b7e0a`). The row is now runnable |
+| Accuracy dogfood ledger | No ledger existed. `CapacityAccuracyLedger` shipped (`2857cd1c`) — one line per seat per acquisition: what was displayed, when, at which tier, what triggered it. **Not yet wired to an acquisition path** |
+
+The ledger records; it does not judge. Whether a number matched the vendor's own
+UI is a human comparison made later against these rows. An unknown seat records
+a nil percentage and a named reason — never a zero standing in for "we do not
+know", which would manufacture exactly the confidence this gate withholds.
+
+It also ships with both isolation guards learned the hard way today: injectable
+sink, plus a file sink that refuses to write under a test runner. The OpenCode
+Go qualification ledger had neither and accumulated **45 fabricated successes**
+before anyone read it; 114 of its 123 rows turned out to be test output.
+
+### What is left, and who owns it
+
+| Row | Owner |
+| --- | --- |
+| `kill -9` mid-probe → next launch empty PGID + stale sock | Founder — one deliberate action, minutes |
+| App Nap: deadline fires while windowless | Founder — leave the app windowless past a deadline |
+| Feature OFF: zero timer probes | Founder — now runnable via the CLI toggle |
+| Live canary vs `/usage` | Founder — needs real vendor data |
+| Soak ≥8h RSS/CPU/children/dumps | Founder — the long pole; costs only leaving the app open |
+| Accuracy dogfood ledger | Wire it to an acquisition path (next slice), then founder observation |
+
+**Engineering is no longer the constraint on five of six.** They are satisfied by
+running the Dock app with capacity ON through a normal working day. The gate was
+always going to end in dogfood — the point of today's work is that the dogfood
+now leaves a record instead of a recollection.
 
 Phases are ephemeral. At closeout: promote product law into help / teaching /
 `Product_Vocabulary.md`; code remains SSOT; archive this packet.
