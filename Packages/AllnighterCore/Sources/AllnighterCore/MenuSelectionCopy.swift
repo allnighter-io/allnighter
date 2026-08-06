@@ -329,6 +329,14 @@ public enum MenuSelectionCopy {
             useWhen: "Kimi K2.7 HighSpeed, plan-gated fast",
             dontUseWhen: "Prefer K3; model_kimi_k27_hs"
         ),
+        "model_muse_spark_12": Pair(
+            useWhen: "Muse Spark 1.2, Meta coding agent (medium)",
+            dontUseWhen: "Pin seat; model_muse_spark_12"
+        ),
+        "model_muse_spark_12_contributor": Pair(
+            useWhen: "Muse Spark 1.2 Contributor, lower-cost Meta seat",
+            dontUseWhen: "Pin seat; model_muse_spark_12_contributor"
+        ),
         "model_grok_composer_25_fast": Pair(
             useWhen: "Grok Composer 2.5 Fast (Grok)",
             dontUseWhen: "Not Cursor; model_cursor_composer_25"

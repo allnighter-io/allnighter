@@ -242,7 +242,8 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
             frontier: ["model_fable", "model_gpt_sol", "model_kimi_k3"],
             balanced: [
                 "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
-                "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini"
+                "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini",
+                "model_muse_spark_12", "model_muse_spark_12_contributor"
             ],
             economy: [
                 "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",

@@ -4,7 +4,7 @@ import Foundation
 /// seat runs on a non-default driver for its reasoning family — e.g.
 /// `GPT-5.6 Sol` on Codex (default) vs `GPT-5.6 Sol (Cursor)` on Cursor.
 public enum ModelDisplayName {
-    private static let knownCLILabels = ["Claude", "Codex", "Cursor", "Grok", "Antigravity", "Kimi"]
+    private static let knownCLILabels = ["Claude", "Codex", "Cursor", "Grok", "Antigravity", "Kimi", "Muse"]
 
     /// Strip a legacy ` (CLI)` suffix so catalog migrations stay idempotent.
     public static func canonicalBaseName(_ name: String) -> String {
@@ -25,6 +25,7 @@ public enum ModelDisplayName {
         case "grok": return "Grok"
         case "antigravity": return "Antigravity"
         case "kimi": return "Kimi"
+        case "muse": return "Muse"
         default:
             return driverId.replacingOccurrences(of: "_", with: " ").capitalized
         }
@@ -50,6 +51,8 @@ public enum ModelDisplayName {
             return "antigravity"
         case "model_kimi_k3", "model_kimi_k27", "model_kimi_k27_hs":
             return "kimi"
+        case "model_muse_spark_12", "model_muse_spark_12_contributor":
+            return "muse"
         case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
             return "cursor_agent"
         default:

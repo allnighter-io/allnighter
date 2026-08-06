@@ -61,6 +61,8 @@ public enum ModelCatalog {
             return "grok"
         case "model_kimi_k3", "model_kimi_k27":
             return "kimi"
+        case "model_muse_spark_12", "model_muse_spark_12_contributor":
+            return "muse"
         case "model_gemini", "model_gemini_pro":
             return "gemini"
         case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
@@ -83,6 +85,7 @@ public enum ModelCatalog {
         case "codex": return "gpt"
         case "grok": return "grok"
         case "kimi": return "kimi"
+        case "muse": return "muse"
         default:
             return "driver:\(driverId)"
         }
