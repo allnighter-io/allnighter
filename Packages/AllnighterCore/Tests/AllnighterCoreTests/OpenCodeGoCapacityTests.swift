@@ -635,3 +635,42 @@ final class OpenCodeGoCookieLeakDefenseTests: XCTestCase {
         XCTAssertEqual(result, .failure(.finalURLHostMismatch))
     }
 }
+
+/// Workspace discovery — the id is a URL path segment, not a secret, and the
+/// machine already knows it, so setup should not ask for it.
+final class OpenCodeGoWorkspaceDiscoveryTests: XCTestCase {
+
+    func testFindsIdInArbitraryBytes() {
+        let data = Data("\u{0}\u{1}garbage wrk_01KZAKC3FS66DE4V0CG7YESNC3 more".utf8)
+        XCTAssertEqual(
+            OpenCodeGoCredentialStore.workspaceIds(in: data),
+            ["wrk_01KZAKC3FS66DE4V0CG7YESNC3"]
+        )
+    }
+
+    /// Short runs are noise, not ids — a bare `wrk_` marker in a schema string
+    /// must not be mistaken for a workspace.
+    func testIgnoresShortNoiseTokens() {
+        XCTAssertTrue(OpenCodeGoCredentialStore.workspaceIds(in: Data("wrk_ wrk_abc".utf8)).isEmpty)
+    }
+
+    /// Two workspaces is a genuine choice. Guessing which one to meter is the
+    /// silent inference this project bans, so discovery must decline.
+    func testDeclinesWhenAmbiguous() throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("ocg-home-\(UUID().uuidString)", isDirectory: true)
+        let state = dir.appendingPathComponent(".local/share/opencode", isDirectory: true)
+        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        try Data("wrk_01KZAKC3FS66DE4V0CG7YESNC3 wrk_01AAAAAAAAAAAAAAAAAAAAAAAA".utf8)
+            .write(to: state.appendingPathComponent("auth.json"))
+        XCTAssertNil(OpenCodeGoCredentialStore.discoverWorkspaceId(home: dir))
+    }
+
+    func testReturnsNilWhenNoLocalState() {
+        let empty = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("ocg-empty-\(UUID().uuidString)", isDirectory: true)
+        XCTAssertNil(OpenCodeGoCredentialStore.discoverWorkspaceId(home: empty))
+    }
+}

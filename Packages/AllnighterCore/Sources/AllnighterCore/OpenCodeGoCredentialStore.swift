@@ -60,6 +60,58 @@ public enum OpenCodeGoCredentialStore {
         AllnighterSupportRoot.config.appendingPathComponent("opencode_go.enc")
     }
 
+    // MARK: - Workspace discovery
+
+    /// Local OpenCode CLI state that may already name the workspace.
+    static func opencodeStateFiles(home: URL) -> [URL] {
+        [
+            home.appendingPathComponent(".local/share/opencode/opencode.db"),
+            home.appendingPathComponent(".local/share/opencode/auth.json"),
+            home.appendingPathComponent(".config/opencode/config.json"),
+        ]
+    }
+
+    /// Recover the workspace id from local OpenCode CLI state so setup does not
+    /// have to ask for something the machine already knows.
+    ///
+    /// The id is NOT a secret — it is a path segment in the dashboard URL — so
+    /// reading it costs nothing in exposure. Scanned bytewise for the `wrk_`
+    /// token rather than parsed, because `opencode.db` is SQLite and its schema
+    /// is not ours to depend on. Returns nil unless exactly one distinct id is
+    /// present: two would mean a genuine choice, and guessing which workspace
+    /// to meter is precisely the kind of silent inference this project bans.
+    public static func discoverWorkspaceId(
+        home: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+    ) -> String? {
+        var found = Set<String>()
+        for url in opencodeStateFiles(home: home) {
+            guard let data = try? Data(contentsOf: url) else { continue }
+            found.formUnion(workspaceIds(in: data))
+        }
+        return found.count == 1 ? found.first : nil
+    }
+
+    /// `wrk_` followed by the id's alphanumeric body, scanned over raw bytes.
+    static func workspaceIds(in data: Data) -> Set<String> {
+        let marker = Array("wrk_".utf8)
+        let bytes = [UInt8](data)
+        var out = Set<String>()
+        guard bytes.count > marker.count else { return out }
+        for start in 0...(bytes.count - marker.count) where Array(bytes[start..<start + marker.count]) == marker {
+            var end = start + marker.count
+            while end < bytes.count, isIdentifierByte(bytes[end]) { end += 1 }
+            let body = end - (start + marker.count)
+            // Real ids are long; a short run is noise, not an id.
+            guard body >= 10 else { continue }
+            if let id = String(bytes: bytes[start..<end], encoding: .utf8) { out.insert(id) }
+        }
+        return out
+    }
+
+    private static func isIdentifierByte(_ b: UInt8) -> Bool {
+        (b >= 0x30 && b <= 0x39) || (b >= 0x41 && b <= 0x5A) || (b >= 0x61 && b <= 0x7A)
+    }
+
     // MARK: - Resolution
 
     /// Environment override wins when both vars are set. Partial env is a hard

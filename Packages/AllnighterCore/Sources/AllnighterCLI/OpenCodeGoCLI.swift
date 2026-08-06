@@ -29,15 +29,26 @@ enum OpenCodeGoCLI {
         let opts = Options(args)
         let interactive = isatty(STDIN_FILENO) == 1
 
-        if !interactive, opts.value("workspace-id") == nil {
+        // The machine usually already knows the workspace — the OpenCode CLI
+        // stores it. Ask only when discovery is ambiguous or comes up empty.
+        let discovered = OpenCodeGoCredentialStore.discoverWorkspaceId()
+        if !interactive, opts.value("workspace-id") == nil, discovered == nil {
             AllnighterCLI.fail(
                 code: "CLI_USAGE_ERROR",
-                message: "non-interactive stdin: pass --workspace-id",
+                message: "non-interactive stdin and no workspace id found in local OpenCode state: pass --workspace-id",
                 suggestions: ["alln opencode-go configure --workspace-id <wrk_…>"]
             )
         }
-        let workspaceId = (opts.value("workspace-id") ?? readLine(prompt: "Workspace ID (wrk_…): "))?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let workspaceId: String
+        if let explicit = opts.value("workspace-id") {
+            workspaceId = explicit.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if let discovered {
+            warn("using workspace \(discovered) discovered from local OpenCode state — pass --workspace-id to override")
+            workspaceId = discovered
+        } else {
+            workspaceId = readLine(prompt: "Workspace ID (wrk_…): ")?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        }
 
         let cookie: String
         if let flagValue = opts.value("cookie") {
