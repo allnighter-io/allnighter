@@ -21,10 +21,16 @@ let package = Package(
     ],
     targets: [
         .target(
+            name: "CCommonCrypto",
+            path: "Sources/CCommonCrypto",
+            publicHeadersPath: "include"
+        ),
+        .target(
             name: "AllnighterCore",
             dependencies: [
                 .product(name: "AgentOSCLI", package: "AgentOS"),
-                .product(name: "AgentOSTeam", package: "AgentOS")
+                .product(name: "AgentOSTeam", package: "AgentOS"),
+                "CCommonCrypto",
             ],
             resources: [
                 .copy("Resources/Fixtures"),
@@ -38,7 +44,7 @@ let package = Package(
         ),
         .testTarget(
             name: "AllnighterCoreTests",
-            dependencies: ["AllnighterCore", "AllnighterEngine"]
+            dependencies: ["AllnighterCore", "AllnighterEngine", "CCommonCrypto"]
         ),
         // Execution layer: subprocess team coordination. Depends on Core;
         // contains all the I/O so Core stays pure. The Mac app imports this.

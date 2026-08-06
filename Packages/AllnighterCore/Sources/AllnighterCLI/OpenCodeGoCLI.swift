@@ -51,7 +51,15 @@ enum OpenCodeGoCLI {
         }
 
         let cookie: String
-        if let flagValue = opts.value("cookie") {
+        if opts.flag("from-chrome") {
+            if opts.value("cookie") != nil {
+                AllnighterCLI.fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: "--from-chrome and --cookie are mutually exclusive — the whole point of --from-chrome is to never hand-paste a cookie"
+                )
+            }
+            cookie = configureFromChrome()
+        } else if let flagValue = opts.value("cookie") {
             warn("WARNING: --cookie puts the session token in shell history and process listings. Pipe via stdin or set \(OpenCodeGoCredentialStore.authCookieEnv).")
             cookie = flagValue.trimmingCharacters(in: .whitespacesAndNewlines)
         } else if interactive {
@@ -64,7 +72,8 @@ enum OpenCodeGoCLI {
                 message: "non-interactive stdin with no cookie: pipe value to stdin, pass --cookie, or set \(OpenCodeGoCredentialStore.authCookieEnv)",
                 suggestions: [
                     "echo '<cookie>' | alln opencode-go configure --workspace-id <wrk_…>",
-                    "alln opencode-go configure --workspace-id <wrk_…> --cookie <auth>"
+                    "alln opencode-go configure --workspace-id <wrk_…> --cookie <auth>",
+                    "alln opencode-go configure --from-chrome --workspace-id <wrk_…>"
                 ]
             )
         }
@@ -193,5 +202,88 @@ enum OpenCodeGoCLI {
             FileHandle.standardError.write(Data("\n".utf8))
         }
         return Swift.readLine(strippingNewline: true)
+    }
+
+    /// Finds the auth cookie in Chrome, prints a disclosure, reads the keychain,
+    /// decrypts the cookie, and returns it. Disclosure is printed BEFORE keychain
+    /// access — this ordering is the whole point of the slice.
+    private static func configureFromChrome() -> String {
+        let (profileName, encrypted): (String, Data)
+        do {
+            (profileName, encrypted) = try OpenCodeGoChromeCookieImporter.findCookie(
+                chromeRoot: OpenCodeGoChromeCookieImporter.defaultChromeRoot,
+                fileManager: .default
+            )
+        } catch let error as OpenCodeGoChromeCookieImporter.ImportError {
+            switch error {
+            case .chromeNotFound:
+                AllnighterCLI.fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: "Chrome not found. If you use Safari or Firefox, tell Fable — those store cookie values in plaintext and need a different reader."
+                )
+            case .cookieNotFound:
+                AllnighterCLI.fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: "No opencode.ai 'auth' cookie in any Chrome profile.\nLog in at https://opencode.ai in Chrome, then re-run:\n  alln opencode-go configure --from-chrome"
+                )
+            default:
+                AllnighterCLI.fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: "could not read Chrome cookies: \(error)"
+                )
+            }
+        } catch {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "could not read Chrome cookies: \(error)"
+            )
+        }
+
+        // Disclosure before the prompt — required by founder ruling 2026-08-06.
+        let disclosure = OpenCodeGoChromeCookieImporter.disclosureMessage(profileName: profileName)
+        FileHandle.standardError.write(Data(disclosure.utf8))
+        FileHandle.standardError.write(Data("\n".utf8))
+
+        let password: String
+        do {
+            password = try OpenCodeGoChromeCookieImporter.readKeychainPassword()
+        } catch OpenCodeGoChromeCookieImporter.ImportError.keychainDenied {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "Keychain access was denied, so the cookie cannot be decrypted.\nRe-run and choose Always Allow, or paste manually:\n  pbpaste | alln opencode-go configure"
+            )
+        } catch {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "could not access keychain: \(error)"
+            )
+        }
+
+        let key = OpenCodeGoChromeCookieImporter.deriveKey(password: password)
+        let cookie: String
+        do {
+            cookie = try OpenCodeGoChromeCookieImporter.decrypt(encrypted: encrypted, key: key)
+        } catch OpenCodeGoChromeCookieImporter.ImportError.unexpectedPrefix(let prefix) {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "unexpected Chrome cookie encryption prefix \(prefix) — Chrome may have changed its format. Try manually:\n  pbpaste | alln opencode-go configure"
+            )
+        } catch OpenCodeGoChromeCookieImporter.ImportError.decryptionFailed {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "could not decrypt the Chrome cookie — the key or format may have changed. Try manually:\n  pbpaste | alln opencode-go configure"
+            )
+        } catch OpenCodeGoChromeCookieImporter.ImportError.emptyCookie {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "decrypted Chrome cookie was empty — the session may be expired. Log in at https://opencode.ai in Chrome and try again."
+            )
+        } catch {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "could not decrypt Chrome cookie: \(error)"
+            )
+        }
+        return cookie
     }
 }
