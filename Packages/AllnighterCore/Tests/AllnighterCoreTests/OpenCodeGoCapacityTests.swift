@@ -263,4 +263,46 @@ final class OpenCodeGoDogfoodGateTests: XCTestCase {
     func testOpenCodeGoAcceptedWithDogfoodFlag() {
         XCTAssertNil(CapacityAcquisition.validateRefreshSourceId("opencode_go", dogfood: true))
     }
+
+    func testFullRefreshPTYSourcesExcludeDogfoodSource() {
+        let sources = CapacityAcquisition.sourcesProbed(refresh: true)
+        XCTAssertFalse(
+            sources.contains(CapacityAcquisition.dogfoodSourceId),
+            "The Go dashboard seat is a browser scrape and must never be sent through the PTY probe path"
+        )
+    }
+
+    func testTargetedRefreshOfDogfoodSourceProbesNoPTYSeat() {
+        let sources = CapacityAcquisition.sourcesProbed(
+            refresh: true,
+            refreshSource: CapacityAcquisition.dogfoodSourceId
+        )
+        XCTAssertTrue(
+            sources.isEmpty,
+            "Asking to refresh the Go seat must probe no PTY seat at all, not fall back to the full bench"
+        )
+    }
+
+    func testBenchSourceOrderKeepsDogfoodSourceExcludedAtSix() {
+        XCTAssertFalse(
+            CapacityAcquisition.benchSourceOrder.contains(CapacityAcquisition.dogfoodSourceId),
+            "opencode_go must not join benchSourceOrder until OCG-S04 qualification passes"
+        )
+        XCTAssertEqual(
+            CapacityAcquisition.benchSourceOrder.count,
+            6,
+            "The bench must stay at six seats until the Go promotion gate passes"
+        )
+    }
+
+    func testValidateRefreshSourceIdDogfoodConstant() {
+        XCTAssertNotNil(
+            CapacityAcquisition.validateRefreshSourceId(CapacityAcquisition.dogfoodSourceId, dogfood: false),
+            "The dogfood source must be refused without the --dogfood gate"
+        )
+        XCTAssertNil(
+            CapacityAcquisition.validateRefreshSourceId(CapacityAcquisition.dogfoodSourceId, dogfood: true),
+            "The dogfood source must be accepted with the --dogfood gate"
+        )
+    }
 }
