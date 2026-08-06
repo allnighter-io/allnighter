@@ -43,7 +43,7 @@ alln capacity --dogfood --source bailian_token_plan --json
 
 | Console label | Scope | Notes |
 | --- | --- | --- |
-| 5-hour quota | `.fiveHour` | `vendorExposesNothing` when "Limit Temporarily Removed" |
+| 5-hour quota | `.fiveHour` when limited; omitted when "Limit Temporarily Removed" (strip `n/a`, same as Grok) |
 | 7-day quota | `.weekly` | Required — whole sample fails without it |
 
 ## Code SSOT

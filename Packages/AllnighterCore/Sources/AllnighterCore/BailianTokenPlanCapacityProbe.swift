@@ -7,9 +7,9 @@ import Foundation
 
 /// Pure JSON parser for Alibaba Token Plan Personal (intl) rolling-window usage.
 ///
-/// Atomic rule: the 7-day window must parse or the whole sample fails. The
-/// 5-hour window may be absent when Alibaba lifts the limit ("Limit
-/// Temporarily Removed" in the console).
+/// Atomic rule: the 7-day window must parse or the whole sample fails. When
+/// Alibaba lifts the 5-hour limit ("Limit Temporarily Removed"), omit the
+/// short window entirely so the strip shows `n/a` like Grok — not `unknown`.
 public enum BailianTokenPlanCapacityProbe {
 
     public static let sourceId = "bailian_token_plan"
@@ -155,16 +155,8 @@ public enum BailianTokenPlanCapacityProbe {
                 )
             )
         case .limitRemoved:
-            out.append(
-                CapacityWindow.unknown(
-                    reason: .vendorExposesNothing,
-                    source: sourceId,
-                    scope: .fiveHour,
-                    observedAt: observedAt,
-                    sourceTier: tier,
-                    planTier: plan
-                )
-            )
+            // No short window — same strip semantics as Grok (n/a), not unknown.
+            break
         }
         out.append(
             CapacityWindow(

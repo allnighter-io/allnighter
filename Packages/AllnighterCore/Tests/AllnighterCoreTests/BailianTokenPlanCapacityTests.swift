@@ -50,9 +50,14 @@ final class BailianTokenPlanCapacityProbeTests: XCTestCase {
             usageJSON: data,
             observedAt: observedAt
         )
-        XCTAssertEqual(windows.count, 2)
-        XCTAssertEqual(windows.first?.unknownReason, .vendorExposesNothing)
-        XCTAssertNil(windows.last?.unknownReason)
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(windows.first?.scope, .weekly)
+        XCTAssertNil(windows.first?.unknownReason)
+
+        let row = CapacityBenchProjection.rows(from: windows, now: observedAt).first
+        guard case .none = row?.pools.first?.shortWindow else {
+            return XCTFail("limit removed → no short window (n/a), got \(String(describing: row?.pools.first?.shortWindow))")
+        }
     }
 
     func testSchemaDriftFailsClosed() {

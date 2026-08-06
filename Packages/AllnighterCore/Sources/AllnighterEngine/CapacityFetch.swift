@@ -100,7 +100,11 @@ public enum CapacityFetch {
     /// `attempted == false` diagnostics — no network, no ledger append (CWB-S01b).
     public static func dogfoodOpenCodeGoSnapshot(
         now: Date = Date(),
-        featureEnabled: Bool
+        featureEnabled: Bool,
+        // Threaded through so a test can state "not configured" as a fact
+        // rather than depending on whether this machine happens to have the
+        // feature set up.
+        credentialsResolver: (() -> Result<OpenCodeGoCredentialStore.Credentials, OpenCodeGoCredentialStore.LoadError>)? = nil
     ) -> (snapshot: Snapshot, diagnostics: OpenCodeGoCapacityExecutor.ScrapeDiagnostics) {
         guard featureEnabled else {
             let diagnostics = OpenCodeGoCapacityExecutor.ScrapeDiagnostics(
@@ -112,7 +116,7 @@ public enum CapacityFetch {
             return (disabledSnapshot(now: now), diagnostics)
         }
         let six = CapacityAcquisition.windows(now: now, refresh: false)
-        let outcome = OpenCodeGoCapacityExecutor.execute(now: now)
+        let outcome = OpenCodeGoCapacityExecutor.execute(now: now, credentialsResolver: credentialsResolver)
         // Same placeholder-masking hazard as liveSnapshot above: drop the
         // acquisition placeholder for the Go seat before appending the real
         // dashboard result.

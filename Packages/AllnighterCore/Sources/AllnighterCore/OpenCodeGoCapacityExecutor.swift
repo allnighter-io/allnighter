@@ -57,7 +57,12 @@ public enum OpenCodeGoCapacityExecutor {
         now: Date,
         credentials: OpenCodeGoCredentialStore.Credentials? = nil,
         transport: (any OpenCodeGoCapacityClient.Transport)? = nil,
-        ledger: (any OpenCodeGoLedgerSink)? = nil
+        ledger: (any OpenCodeGoLedgerSink)? = nil,
+        // Injectable so a test can state "not configured" as a fact instead of
+        // hoping the developer's machine has no stored credential. Reading the
+        // real store made these tests pass only until the feature was actually
+        // set up - the same contamination class as the qualification ledger.
+        credentialsResolver: (() -> Result<OpenCodeGoCredentialStore.Credentials, OpenCodeGoCredentialStore.LoadError>)? = nil
     ) -> Outcome {
         // Resolved here rather than as a default argument: the production sink is
         // internal, and widening it to public just to satisfy a default would
@@ -65,7 +70,7 @@ public enum OpenCodeGoCapacityExecutor {
         let ledger = ledger ?? OpenCodeGoQualificationLedger.fileSink
         let credsResult: Result<OpenCodeGoCredentialStore.Credentials, OpenCodeGoCredentialStore.LoadError> =
             credentials.map { Result.success($0) }
-                ?? OpenCodeGoCredentialStore.load().map(\.credentials)
+                ?? (credentialsResolver ?? { OpenCodeGoCredentialStore.load().map(\.credentials) })()
         guard case .success(let creds) = credsResult else {
             let failure = credentialFailureKind(credsResult)
             // A stored credential we cannot decrypt is NOT "never configured" —

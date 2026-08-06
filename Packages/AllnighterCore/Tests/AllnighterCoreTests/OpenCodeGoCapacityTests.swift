@@ -64,7 +64,8 @@ final class OpenCodeGoCapacityExecutorTests: XCTestCase {
         let outcome = OpenCodeGoCapacityExecutor.execute(
             now: observedAt,
             credentials: nil,
-            transport: FixtureTransport(html: "")
+            transport: FixtureTransport(html: ""),
+            credentialsResolver: { .failure(.notConfigured) }
         )
         XCTAssertFalse(outcome.diagnostics.attempted)
         XCTAssertFalse(outcome.diagnostics.ok)
@@ -356,7 +357,8 @@ final class OpenCodeGoDogfoodFeatureGateTests: XCTestCase {
         unsetenv(OpenCodeGoCredentialStore.authCookieEnv)
         let result = CapacityFetch.dogfoodOpenCodeGoSnapshot(
             now: observedAt,
-            featureEnabled: true
+            featureEnabled: true,
+            credentialsResolver: { .failure(.notConfigured) }
         )
         XCTAssertTrue(
             result.snapshot.rows.contains { $0.source == CapacityAcquisition.dogfoodSourceId },
