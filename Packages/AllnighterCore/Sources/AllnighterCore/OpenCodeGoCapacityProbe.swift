@@ -90,18 +90,58 @@ public enum OpenCodeGoCapacityProbe {
         let solid = parseSolidBundle(html: html)
         let slot = parseDataSlotBundle(html: html)
 
+        let candidate: ParsedSample
         switch (solid, slot) {
         case (.success(let s), .success(let d)):
             guard samplesAgree(s, d) else { return .failure(.strategyMismatch) }
-            return .success(s)
+            candidate = s
         case (.success(let s), .failure):
-            return .success(s)
+            candidate = s
         case (.failure, .success(let d)):
-            return .success(d)
+            candidate = d
         case (.failure, .failure):
             let missing = missingWindows(solid: solid, slot: slot)
             return .failure(.schemaDrift(strategy: nil, missing: missing))
         }
+        if let invalid = firstInvalidField(in: candidate) {
+            return .failure(.invalidValue(field: invalid))
+        }
+        return .success(candidate)
+    }
+
+    // MARK: - Bounds
+
+    /// Ordered window layout: field name, scope, and the credible upper bound on
+    /// `resetInSec` for that scope (small clock tolerance included).
+    private static let windowLayout:
+        [(field: String, scope: CapacityWindowScope, resetMax: TimeInterval)] = [
+            ("rolling", .fiveHour, 5 * 3600 + 600),
+            ("weekly", .weekly, 7 * 86400 + 3600),
+            ("monthly", .monthly, 31 * 86400 + 3600),
+        ]
+
+    private static func sample(
+        _ parsed: ParsedSample,
+        for field: String
+    ) -> WindowSample {
+        switch field {
+        case "rolling": return parsed.rolling
+        case "weekly": return parsed.weekly
+        default: return parsed.monthly
+        }
+    }
+
+    /// Name of the first window whose percentage or reset is out of bounds.
+    ///
+    /// Atomic rule: one bad value poisons the whole sample. Never clamp, and
+    /// never emit the siblings that happened to parse — a plausible wrong
+    /// number is more dangerous than an honest unknown.
+    private static func firstInvalidField(in parsed: ParsedSample) -> String? {
+        windowLayout.first { entry in
+            let window = sample(parsed, for: entry.field)
+            return !isValidPercent(window.usedPercent)
+                || !isValidReset(window.resetInSec, max: entry.resetMax)
+        }?.field
     }
 
     // MARK: - Window construction
@@ -111,49 +151,22 @@ public enum OpenCodeGoCapacityProbe {
         observedAt: Date
     ) -> [CapacityWindow] {
         let tier = CapacityAcquisitionTier.dashboardScrape
-        return [
+        return windowLayout.map { entry in
             window(
-                sample: sample.rolling,
-                scope: .fiveHour,
+                sample: self.sample(sample, for: entry.field),
+                scope: entry.scope,
                 observedAt: observedAt,
-                tier: tier,
-                resetMax: 5 * 3600 + 600
-            ),
-            window(
-                sample: sample.weekly,
-                scope: .weekly,
-                observedAt: observedAt,
-                tier: tier,
-                resetMax: 7 * 86400 + 3600
-            ),
-            window(
-                sample: sample.monthly,
-                scope: .monthly,
-                observedAt: observedAt,
-                tier: tier,
-                resetMax: 31 * 86400 + 3600
-            ),
-        ]
+                tier: tier
+            )
+        }
     }
 
     private static func window(
         sample: WindowSample,
         scope: CapacityWindowScope,
         observedAt: Date,
-        tier: CapacityAcquisitionTier,
-        resetMax: TimeInterval
+        tier: CapacityAcquisitionTier
     ) -> CapacityWindow {
-        guard isValidPercent(sample.usedPercent),
-              isValidReset(sample.resetInSec, max: resetMax)
-        else {
-            return CapacityWindow.unknown(
-                reason: .parserFailed(observedAt: observedAt),
-                source: sourceId,
-                scope: scope,
-                observedAt: observedAt,
-                sourceTier: tier
-            )
-        }
         let resetAt = observedAt.addingTimeInterval(sample.resetInSec)
         return CapacityWindow(
             used: sample.usedPercent,

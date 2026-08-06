@@ -67,14 +67,39 @@ final class OpenCodeGoCapacityProbeTests: XCTestCase {
         XCTAssertTrue(windows.allSatisfy { $0.usedPercent == nil })
     }
 
-    func testOutOfRangePercentRejected() {
+    /// One out-of-range window poisons the whole sample — the siblings that
+    /// parsed cleanly must not be emitted. Asserting only the bad window would
+    /// let a plausible wrong 0% ship next to it.
+    func testOutOfRangePercentRejectsEntireSample() {
         let html = """
         rollingUsage:$R[0]={usagePercent:150,resetInSec:60}
         weeklyUsage:$R[1]={usagePercent:0,resetInSec:60}
         monthlyUsage:$R[2]={usagePercent:0,resetInSec:60}
         """
+        XCTAssertEqual(
+            OpenCodeGoCapacityProbe.parseSample(html: html).failure,
+            .invalidValue(field: "rolling")
+        )
         let windows = OpenCodeGoCapacityProbe.capacityWindows(html: html, observedAt: observedAt)
-        XCTAssertTrue(windows.contains { $0.scope == .fiveHour && $0.unknownReason != nil })
+        XCTAssertEqual(windows.count, 3)
+        XCTAssertTrue(windows.allSatisfy { $0.unknownReason == .parserFailed(observedAt: observedAt) })
+        XCTAssertTrue(windows.allSatisfy { $0.usedPercent == nil })
+    }
+
+    /// A reset clock beyond the window's credible ceiling is the same class of
+    /// lie as a bad percentage — reject the sample, do not clamp.
+    func testOutOfRangeResetRejectsEntireSample() {
+        let html = """
+        rollingUsage:$R[0]={usagePercent:10,resetInSec:60}
+        weeklyUsage:$R[1]={usagePercent:20,resetInSec:60}
+        monthlyUsage:$R[2]={usagePercent:30,resetInSec:9999999}
+        """
+        XCTAssertEqual(
+            OpenCodeGoCapacityProbe.parseSample(html: html).failure,
+            .invalidValue(field: "monthly")
+        )
+        let windows = OpenCodeGoCapacityProbe.capacityWindows(html: html, observedAt: observedAt)
+        XCTAssertTrue(windows.allSatisfy { $0.usedPercent == nil })
     }
 
     func testLoginPageIsAuthRequired() {
@@ -111,6 +136,11 @@ final class OpenCodeGoCapacityProbeTests: XCTestCase {
 private extension Result where Success == OpenCodeGoCapacityProbe.ParsedSample, Failure == OpenCodeGoCapacityProbe.ParseFailure {
     var success: Success? {
         if case .success(let value) = self { return value }
+        return nil
+    }
+
+    var failure: Failure? {
+        if case .failure(let value) = self { return value }
         return nil
     }
 }
