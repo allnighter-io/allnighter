@@ -380,7 +380,8 @@ struct AllnighterCLI {
                 )
             }
             capacityProgress("capacity: dogfood \(CapacityAcquisition.dogfoodSourceId) scrape…")
-            let dogfoodBench = CapacityFetch.dogfoodOpenCodeGoSnapshot(now: now)
+            let featureEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
+            let dogfoodBench = CapacityFetch.dogfoodOpenCodeGoSnapshot(now: now, featureEnabled: featureEnabled)
             let bench = dogfoodBench.snapshot
             let diagnostics = dogfoodBench.diagnostics
             capacityProgress(

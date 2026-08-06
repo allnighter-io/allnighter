@@ -1,5 +1,6 @@
 import XCTest
 @testable import AllnighterCore
+@testable import AllnighterEngine
 
 final class OpenCodeGoCredentialStoreTests: XCTestCase {
 
@@ -303,6 +304,59 @@ final class OpenCodeGoDogfoodGateTests: XCTestCase {
         XCTAssertNil(
             CapacityAcquisition.validateRefreshSourceId(CapacityAcquisition.dogfoodSourceId, dogfood: true),
             "The dogfood source must be accepted with the --dogfood gate"
+        )
+    }
+}
+
+final class OpenCodeGoDogfoodFeatureGateTests: XCTestCase {
+
+    private let observedAt = Date(timeIntervalSince1970: 1_754_000_000)
+
+    func testFeatureDisabledReturnsDisabledRowsNotNeverSampled() {
+        let result = CapacityFetch.dogfoodOpenCodeGoSnapshot(
+            now: observedAt,
+            featureEnabled: false
+        )
+        XCTAssertTrue(
+            result.snapshot.rows.allSatisfy { $0.unknownReason == .disabled },
+            "Feature OFF must produce .disabled rows, not .neverSampled — the gate must be honoured"
+        )
+        XCTAssertFalse(
+            result.diagnostics.attempted,
+            "Feature OFF must not attempt a network scrape"
+        )
+        XCTAssertFalse(result.diagnostics.ok)
+    }
+
+    func testFeatureDisabledDoesNotCallExecutor() {
+        let result = CapacityFetch.dogfoodOpenCodeGoSnapshot(
+            now: observedAt,
+            featureEnabled: false
+        )
+        XCTAssertEqual(result.diagnostics.failureKind, "feature_disabled")
+        XCTAssertNil(result.diagnostics.httpStatus)
+        XCTAssertNil(result.diagnostics.parserStrategy)
+        XCTAssertEqual(
+            result.snapshot.rows.count,
+            CapacityAcquisition.benchSourceOrder.count,
+            "Feature OFF must return only the six bench rows, no dogfood seat"
+        )
+    }
+
+    func testFeatureEnabledCallsExecutor() {
+        unsetenv(OpenCodeGoCredentialStore.workspaceIdEnv)
+        unsetenv(OpenCodeGoCredentialStore.authCookieEnv)
+        let result = CapacityFetch.dogfoodOpenCodeGoSnapshot(
+            now: observedAt,
+            featureEnabled: true
+        )
+        XCTAssertTrue(
+            result.snapshot.rows.count > CapacityAcquisition.benchSourceOrder.count,
+            "Feature ON must include the dogfood seat rows beyond the six bench rows"
+        )
+        XCTAssertFalse(
+            result.diagnostics.attempted,
+            "Without credentials the executor must not attempt a scrape"
         )
     }
 }

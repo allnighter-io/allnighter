@@ -77,7 +77,21 @@ public enum CapacityFetch {
     }
 
     /// Dogfood OpenCode Go scrape: six `neverSampled` PTY rows + dashboard wave.
-    public static func dogfoodOpenCodeGoSnapshot(now: Date = Date()) -> (snapshot: Snapshot, diagnostics: OpenCodeGoCapacityExecutor.ScrapeDiagnostics) {
+    /// When `featureEnabled` is false, returns `disabledSnapshot` with
+    /// `attempted == false` diagnostics — no network, no ledger append (CWB-S01b).
+    public static func dogfoodOpenCodeGoSnapshot(
+        now: Date = Date(),
+        featureEnabled: Bool
+    ) -> (snapshot: Snapshot, diagnostics: OpenCodeGoCapacityExecutor.ScrapeDiagnostics) {
+        guard featureEnabled else {
+            let diagnostics = OpenCodeGoCapacityExecutor.ScrapeDiagnostics(
+                attempted: false,
+                ok: false,
+                failureKind: "feature_disabled",
+                observedAt: now
+            )
+            return (disabledSnapshot(now: now), diagnostics)
+        }
         let six = CapacityAcquisition.windows(now: now, refresh: false)
         let outcome = OpenCodeGoCapacityExecutor.execute(now: now)
         let windows = six + outcome.windows
