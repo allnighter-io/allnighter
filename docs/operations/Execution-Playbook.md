@@ -164,6 +164,18 @@ Closeout is complete when all are true:
   docs.
 - Changed work that should be saved is committed directly with git (explicit
   paths), or the save waiver/blocker is explicit.
+- **If the contract changed, the derived artifacts were regenerated** —
+  `bash scripts/rebuild_cli.sh` then `alln dev export-contracts`, **before**
+  committing. A contract change means: bumping `ContractRegistry.contractVersion`,
+  or adding/removing/renaming any command, flag, error code, or wire field.
+
+`docs/generated/alln/` is derived from the registry, so hand-editing it is
+already banned — but the regeneration step is easy to forget and
+`ContractExportTests` only catches it at test time. It caught three separate
+slices on 2026-08-06 alone. Note also that the contract version is pinned in
+**more than one place**: the registry, the `team_run.json` fixture, and at least
+two test assertions. Bumping one and missing the others is the same slice that
+shipped with five failing tests.
 
 ## Phase Archive
 
