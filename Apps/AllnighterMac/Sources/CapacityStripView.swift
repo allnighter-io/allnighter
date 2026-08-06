@@ -1,6 +1,37 @@
 import SwiftUI
 import AllnighterCore
 
+/// Column geometry for the bench table — **one** definition, read by the column
+/// headers and by every row.
+///
+/// A width declared in two places is a width that drifts. The weekly bars used
+/// to start at a different x on every row because single-pool and multi-pool
+/// lines were separate views with separate constants; both now render through
+/// `weeklyPoolLine` against these numbers, so the bars share one left edge and
+/// are actually comparable down the column.
+private enum CapacityStripLayout {
+    // Outer table columns.
+    static let rowInset: CGFloat = 24
+    /// Headers sit slightly inboard of the rows — the row's leading chevron is
+    /// chrome, not a column, so the label lines up with the CLI glyph instead.
+    static let headerInset: CGFloat = 34
+    static let columnGap: CGFloat = 18
+    static let shortWidth: CGFloat = 88
+    static let ageWidth: CGFloat = 72
+
+    // Weekly-cell sub-columns. Every pool line uses all four, always.
+    static let poolLabelWidth: CGFloat = 62
+    static let barWidth: CGFloat = 68
+    static let percentWidth: CGFloat = 46
+    static let resetWidth: CGFloat = 54
+    static let cellGap: CGFloat = 10
+
+    /// Pool lines are fixed-height so the weekly and 5h columns stay on shared
+    /// baselines however many pools a row carries.
+    static let poolLineHeight: CGFloat = 18
+    static let poolLineSpacing: CGFloat = 8
+}
+
 /// Launch-surface capacity strip — renders the same Core projection the CLI prints.
 ///
 /// Locked product law (`docs/phases/CLI_Capacity_TUI_Sampling.md` §Launch surface):
@@ -291,21 +322,21 @@ struct CapacityStripView: View {
     }
 
     private var columnHeaders: some View {
-        HStack(spacing: 18) {
+        HStack(spacing: CapacityStripLayout.columnGap) {
             Text("CLI")
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("Weekly headroom")
                 .frame(maxWidth: .infinity, alignment: .leading)
             Text("5h window")
-                .frame(width: 88, alignment: .leading)
+                .frame(width: CapacityStripLayout.shortWidth, alignment: .leading)
             Text("")
-                .frame(width: 72, alignment: .trailing)
+                .frame(width: CapacityStripLayout.ageWidth, alignment: .trailing)
         }
         .font(ALFont.sans(10, .semibold))
         .tracking(0.8)
         .textCase(.uppercase)
         .foregroundStyle(ALColor.textFaint)
-        .padding(.horizontal, 34)
+        .padding(.horizontal, CapacityStripLayout.headerInset)
         .padding(.bottom, 8)
         .overlay(alignment: .bottom) {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
@@ -338,23 +369,23 @@ private struct CapacityStripRowView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 18) {
+            HStack(alignment: .center, spacing: CapacityStripLayout.columnGap) {
                 cliColumn
                     .frame(maxWidth: .infinity, alignment: .leading)
                 weeklyColumn
                     .frame(maxWidth: .infinity, alignment: .leading)
                 shortColumn
-                    .frame(width: 88, alignment: .leading)
+                    .frame(width: CapacityStripLayout.shortWidth, alignment: .leading)
                 ageChip
-                    .frame(width: 72, alignment: .trailing)
+                    .frame(width: CapacityStripLayout.ageWidth, alignment: .trailing)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal, CapacityStripLayout.rowInset)
             .padding(.vertical, 12)
             .opacity(isDimmed ? 0.42 : 1)
 
             if isExpanded {
                 detailDisclosure
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, CapacityStripLayout.rowInset)
                     .padding(.bottom, 12)
             }
         }
@@ -403,9 +434,41 @@ private struct CapacityStripRowView: View {
     }
 
     private var poolSummary: String {
-        let labels = row.pools.compactMap(\.poolLabel).map(compressPoolLabel)
+        let labels = poolLines.map(\.label)
         if labels.isEmpty { return "\(row.pools.count) pools" }
         return "\(row.pools.count) pools · " + labels.joined(separator: ", ")
+    }
+
+    // MARK: Pool lines — the one shape both metric columns render
+
+    /// One rendered line inside the weekly and 5h columns.
+    ///
+    /// Single-pool and multi-pool rows produce the *same* line, label column and
+    /// all. That is what keeps the bars aligned: there is no second code path
+    /// that can omit a column.
+    private struct PoolLine: Identifiable {
+        let id: Int
+        let label: String
+        let pool: CapacityBenchPoolMetrics
+    }
+
+    /// Pools in display order, each with its resolved label.
+    ///
+    /// A pool the vendor did not name is that row's whole allowance, so it reads
+    /// `Total` and sorts first. Vendor-named pools (Fable, Gemini, Claude/GPT)
+    /// keep their own name and their own order — a named bucket is a vendor fact
+    /// and must never be relabelled as a total it does not cover.
+    private var poolLines: [PoolLine] {
+        let unnamed = row.pools.filter { ($0.poolLabel ?? "").isEmpty }
+        let named = row.pools.filter { !($0.poolLabel ?? "").isEmpty }
+        return (unnamed + named).enumerated().map { index, pool in
+            PoolLine(id: index, label: poolLineLabel(pool), pool: pool)
+        }
+    }
+
+    private func poolLineLabel(_ pool: CapacityBenchPoolMetrics) -> String {
+        guard let label = pool.poolLabel, !label.isEmpty else { return "Total" }
+        return compressPoolLabel(label)
     }
 
     // MARK: Weekly / monthly
@@ -421,79 +484,63 @@ private struct CapacityStripRowView: View {
                 .font(ALFont.sans(12))
                 .foregroundStyle(ALColor.textFaint)
                 .lineLimit(2)
-        } else if row.pools.count > 1 {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(Array(row.pools.enumerated()), id: \.offset) { _, pool in
-                    multiPoolDashboardLine(pool)
-                }
-            }
-        } else if let pool = row.pools.first {
-            singlePoolDashboard(pool)
-        } else {
+        } else if poolLines.isEmpty {
             Text("—")
                 .font(ALFont.mono(13))
                 .foregroundStyle(ALColor.textFaint)
+        } else {
+            VStack(alignment: .leading, spacing: CapacityStripLayout.poolLineSpacing) {
+                ForEach(poolLines) { line in
+                    weeklyPoolLine(line)
+                }
+            }
         }
+    }
+
+    /// The only weekly line in the strip: `[label][bar][%][resets in]`, every
+    /// column a fixed width from `CapacityStripLayout`.
+    private func weeklyPoolLine(_ line: PoolLine) -> some View {
+        HStack(spacing: CapacityStripLayout.cellGap) {
+            Text(line.label)
+                .font(ALFont.sans(10))
+                .foregroundStyle(ALColor.textFaint)
+                .lineLimit(1)
+                .frame(width: CapacityStripLayout.poolLabelWidth, alignment: .leading)
+            weeklyPoolMetrics(line.pool)
+        }
+        .frame(height: CapacityStripLayout.poolLineHeight)
     }
 
     @ViewBuilder
-    private func singlePoolDashboard(_ pool: CapacityBenchPoolMetrics) -> some View {
-        if let reason = pool.unknownReason, pool.dashboardRemainingPercent == nil {
-            Text(CapacityStripRenderer.unknownCopy(reason))
-                .font(ALFont.sans(12))
-                .foregroundStyle(ALColor.textFaint)
-        } else if let remaining = pool.dashboardRemainingPercent {
-            HStack(spacing: 10) {
-                CapacityBar(remaining: remaining, color: color)
-                Text(CapacityStripRenderer.formatPercent(remaining))
-                    .font(ALFont.mono(13))
-                    .foregroundStyle(toneColor)
-                    .frame(minWidth: 36, alignment: .trailing)
+    private func weeklyPoolMetrics(_ pool: CapacityBenchPoolMetrics) -> some View {
+        if let remaining = pool.dashboardRemainingPercent {
+            CapacityBar(remaining: remaining, color: color)
+            Text(CapacityStripRenderer.formatPercent(remaining))
+                .font(ALFont.mono(13))
+                .foregroundStyle(toneColor)
+                .frame(width: CapacityStripLayout.percentWidth, alignment: .trailing)
+            Group {
                 if let reset = pool.dashboardResetAt {
                     Text(CapacityStripRenderer.relativeClock(from: now, to: reset))
-                        .font(ALFont.mono(11))
                         .foregroundStyle(toneColor.opacity(color == .neutral ? 0.75 : 1))
                 } else {
                     Text("—")
-                        .font(ALFont.mono(11))
                         .foregroundStyle(ALColor.textFaint)
                 }
             }
+            .font(ALFont.mono(11))
+            .lineLimit(1)
+            .frame(width: CapacityStripLayout.resetWidth, alignment: .leading)
+        } else if let reason = pool.unknownReason {
+            Text(CapacityStripRenderer.unknownCopy(reason))
+                .font(ALFont.sans(11))
+                .foregroundStyle(ALColor.textFaint)
+                .lineLimit(1)
+                .help(CapacityStripRenderer.unknownCopy(reason))
         } else {
             Text("—")
                 .font(ALFont.mono(13))
                 .foregroundStyle(ALColor.textFaint)
-        }
-    }
-
-    private func multiPoolDashboardLine(_ pool: CapacityBenchPoolMetrics) -> some View {
-        HStack(spacing: 8) {
-            Text(compressPoolLabel(pool.poolLabel ?? "pool"))
-                .font(ALFont.sans(10))
-                .foregroundStyle(ALColor.textFaint)
-                .frame(width: 62, alignment: .leading)
-                .lineLimit(1)
-            if let remaining = pool.dashboardRemainingPercent {
-                CapacityBar(remaining: remaining, color: color)
-                Text(CapacityStripRenderer.formatPercent(remaining))
-                    .font(ALFont.mono(12))
-                    .foregroundStyle(toneColor)
-                    .frame(minWidth: 32, alignment: .trailing)
-                if let reset = pool.dashboardResetAt {
-                    Text(CapacityStripRenderer.relativeClock(from: now, to: reset))
-                        .font(ALFont.mono(11))
-                        .foregroundStyle(toneColor.opacity(color == .neutral ? 0.75 : 1))
-                }
-            } else if let reason = pool.unknownReason {
-                Text(CapacityStripRenderer.unknownCopy(reason))
-                    .font(ALFont.sans(11))
-                    .foregroundStyle(ALColor.textFaint)
-                    .lineLimit(1)
-            } else {
-                Text("—")
-                    .font(ALFont.mono(12))
-                    .foregroundStyle(ALColor.textFaint)
-            }
         }
     }
 
@@ -507,18 +554,19 @@ private struct CapacityStripRowView: View {
             Text("—")
                 .font(ALFont.mono(13))
                 .foregroundStyle(ALColor.textFaint)
-        } else if row.pools.count > 1 {
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(Array(row.pools.enumerated()), id: \.offset) { _, pool in
-                    shortCell(pool: pool)
-                }
-            }
-        } else if let pool = row.pools.first {
-            shortCell(pool: pool)
-        } else {
+        } else if poolLines.isEmpty {
             Text("—")
                 .font(ALFont.mono(13))
                 .foregroundStyle(ALColor.textFaint)
+        } else {
+            // Same lines, same order, same heights as the weekly column — that is
+            // what keeps a pool's 5h number level with its own weekly bar.
+            VStack(alignment: .leading, spacing: CapacityStripLayout.poolLineSpacing) {
+                ForEach(poolLines) { line in
+                    shortCell(pool: line.pool)
+                        .frame(height: CapacityStripLayout.poolLineHeight, alignment: .leading)
+                }
+            }
         }
     }
 
@@ -717,7 +765,7 @@ private struct CapacityBar: View {
                     .frame(width: max(2, geo.size.width * CGFloat(clamped / 100)))
             }
         }
-        .frame(width: 68, height: 5)
+        .frame(width: CapacityStripLayout.barWidth, height: 5)
     }
 
     private var clamped: Double {
