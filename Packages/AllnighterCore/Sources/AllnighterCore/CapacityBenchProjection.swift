@@ -288,6 +288,7 @@ public enum CapacityBenchProjection {
     public static let sourcesWithShortWindow: Set<String> = [
         "claude_code",
         "kimi",
+        "opencode_go",
     ]
 
     /// Short column: `fiveHour` (agy/kimi) **or** `session` (Claude).

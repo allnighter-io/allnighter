@@ -28,6 +28,9 @@ public enum CapacityAcquisition {
         "agy",
     ]
 
+    /// Dogfood-only dashboard seat — not in `benchSourceOrder` until promotion (OCG-S04).
+    public static let dogfoodSourceId = "opencode_go"
+
     /// Retired — disk is not a capacity display path (CWB-S00). Kept empty so
     /// stale call sites fail compile or tests rather than silently routing to disk.
     public static let diskOnlySources: [String] = []
@@ -51,7 +54,13 @@ public enum CapacityAcquisition {
     }
 
     /// `nil` when `id` is a known bench source; otherwise the usage error message.
-    public static func validateRefreshSourceId(_ id: String) -> String? {
+    public static func validateRefreshSourceId(_ id: String, dogfood: Bool = false) -> String? {
+        if id == dogfoodSourceId {
+            guard dogfood else {
+                return unknownRefreshSourceMessage(id)
+            }
+            return nil
+        }
         guard validRefreshSourceIds.contains(id) else {
             return unknownRefreshSourceMessage(id)
         }

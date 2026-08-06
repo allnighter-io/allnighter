@@ -107,7 +107,7 @@ public enum CapacityHydration {
         guard !windows.isEmpty else { return false }
         return windows.allSatisfy { window in
             switch window.unknownReason {
-            case .parserFailed, .spawnFailed, .probeTimeout, .emptyCapture, .vendorExposesNothing:
+            case .parserFailed, .spawnFailed, .probeTimeout, .emptyCapture, .vendorExposesNothing, .authRequired:
                 return true
             case .neverSampled, .expired, .disabled, .none:
                 return false

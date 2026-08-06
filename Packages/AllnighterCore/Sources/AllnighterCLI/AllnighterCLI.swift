@@ -344,7 +344,7 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln capacity [--json] [--refresh] [--source <id>]` — vendor quota strip.
+    /// `alln capacity [--json] [--refresh] [--source <id>] [--dogfood]` — vendor quota strip.
     ///
     /// **Bare** (default): while the Dock app is open, reads the resident's
     /// gated in-memory snapshot over `capacity.sock` (CWB-S02 — read-only,
@@ -358,15 +358,39 @@ struct AllnighterCLI {
     /// diagnostics — bypasses the socket), still returning all six rows;
     /// unprobed siblings show `neverSampled`.
     ///
+    /// **`--dogfood --source opencode_go`**: developer-only OpenCode Go dashboard
+    /// scrape (env credentials). Adds a seventh row; does not touch PTY seats.
+    ///
     /// Unknown / disabled / expired are loud, never blocks (exit 0). Non-TTY
     /// path is plain ASCII, zero ANSI.
     static func runCapacity(_ args: [String]) {
         let opts = Options(args)
         let now = Date()
         let refreshFlag = opts.flag("refresh")
+        let dogfood = opts.flag("dogfood")
         let refreshSource = opts.value("source")
-        if let refreshSource, let message = CapacityAcquisition.validateRefreshSourceId(refreshSource) {
+        if let refreshSource, let message = CapacityAcquisition.validateRefreshSourceId(refreshSource, dogfood: dogfood) {
             fail(code: "CLI_USAGE_ERROR", message: message)
+        }
+        if dogfood {
+            guard refreshSource == CapacityAcquisition.dogfoodSourceId else {
+                fail(
+                    code: "CLI_USAGE_ERROR",
+                    message: "--dogfood requires --source \(CapacityAcquisition.dogfoodSourceId)"
+                )
+            }
+            capacityProgress("capacity: dogfood \(CapacityAcquisition.dogfoodSourceId) scrape…")
+            let dogfoodBench = CapacityFetch.dogfoodOpenCodeGoSnapshot(now: now)
+            let bench = dogfoodBench.snapshot
+            let diagnostics = dogfoodBench.diagnostics
+            capacityProgress(
+                "opencode_go: \(diagnostics.ok ? "ok" : "failed")"
+                    + " strategy=\(diagnostics.parserStrategy ?? "-")"
+                    + " http=\(diagnostics.httpStatus.map(String.init) ?? "-")"
+                    + " kind=\(diagnostics.failureKind ?? "none")"
+            )
+            emitCapacityOutput(rows: bench.rows, now: now, json: opts.flag("json"))
+            return
         }
 
         // Feature OFF: zero probes from every trigger (CWB-S01b).
@@ -406,8 +430,11 @@ struct AllnighterCLI {
         if featureEnabled, socketAnswer == nil {
             capacityProgress("capacity: done")
         }
-        let rows = bench.rows
-        if opts.flag("json") {
+        emitCapacityOutput(rows: bench.rows, now: now, json: opts.flag("json"))
+    }
+
+    private static func emitCapacityOutput(rows: [CapacityBenchRow], now: Date, json: Bool) {
+        if json {
             let payload = CapacityStripRenderer.json(
                 rows: rows,
                 now: now,
@@ -416,9 +443,6 @@ struct AllnighterCLI {
             print(jsonString(payload))
             return
         }
-        // Always print the full human table — TTY colour when interactive,
-        // plain ASCII when piped by another agent (founder law: complete table
-        // on stdout either way).
         if capacityStdoutIsTTY() {
             print(CapacityStripRenderer.renderTTY(rows: rows, now: now))
         } else {

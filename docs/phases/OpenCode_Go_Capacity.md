@@ -1,10 +1,10 @@
 # OpenCode Go Capacity
 
-Status: **Dogfood spike approved — qualification required before bench integration**
+Status: **Dogfood spike shipped (OCG-S00–S03) — live qualification in progress**
 Owner: AllnighterCore (targeted dashboard acquisition + parser diagnostics) +
 AllnighterCLI (existing `capacity` surface only during qualification)
 Created: 2026-08-05
-Revised: 2026-08-05 (SOL reliability review; baseline `adc582cd`)
+Revised: 2026-08-05 (spike OCG-S00–S03 shipped; dogfood pattern `7429f81a`)
 Origin: Founder dogfood — OpenCode Go plan limits exist only on the browser
 `/go` dashboard, not in the `opencode` TUI. ALLN meters six local CLI seats via
 PTY; Go is the seventh seat with the **same per-source module shape**, but
@@ -208,6 +208,78 @@ alln capacity --dogfood --refresh --source opencode_go [--json]
 Human stderr (never stdout): fetch attempted, parser strategy id, failure class.
 JSON: existing `CapacityStripJSON` rows plus stderr diagnostics — no raw HTML, no
 cookie values.
+
+---
+
+## Implementation log (2026-08-05)
+
+### Shipped (OCG-S00–S03)
+
+Code commit adds the full dogfood spike in one pass:
+
+| Module | Path |
+| --- | --- |
+| Credential store (env only) | `OpenCodeGoCredentialStore.swift` |
+| HTTP client | `OpenCodeGoCapacityClient.swift` |
+| Pure HTML parser | `OpenCodeGoCapacityProbe.swift` |
+| Orchestrator + ledger | `OpenCodeGoCapacityExecutor.swift` |
+
+Wiring:
+
+- `alln capacity --dogfood --refresh --source opencode_go [--json]`
+- `CapacityAcquisition.dogfoodSourceId` + `validateRefreshSourceId(_:dogfood:)`
+- `CapacityFetch.dogfoodOpenCodeGoSnapshot()` — six `neverSampled` PTY rows + Go wave
+- `CapacityUnknownReason.authRequired` + `CapacityAcquisitionTier.dashboardScrape`
+- Strip display name `OpenCode Go`; rolling → `fiveHour` scope; plan tier `Go`
+- Qualification ledger: `…/Allnighter/Capacity/opencode-go-qualification.jsonl`
+  (redacted JSON lines — no HTML, no cookie)
+
+Proof: `scripts/swift-test.sh --filter OpenCodeGo` — 13 tests (parser fixtures,
+executor with injected transport, credential both-or-neither, dogfood gate).
+
+### Smoke observations (no live credentials yet)
+
+| Invocation | Result |
+| --- | --- |
+| `--source opencode_go` (no `--dogfood`) | `CLI_USAGE_ERROR` — unknown source (six-seat list unchanged) |
+| `--dogfood --source opencode_go` without env | Seventh row `neverSampled`; stderr `kind=missing_workspace_id`; `attempted=false` |
+| `--dogfood` without `--source opencode_go` | `CLI_USAGE_ERROR` — requires `opencode_go` |
+
+### Learnings so far
+
+1. **Architecture holds.** Dashboard scrape lives entirely outside `CapacityProbe`
+   PTY. `benchSourceOrder` remains six seats; Go appears only on the explicit
+   dogfood invocation.
+2. **Atomic parse is enforceable.** SolidJS SSR regex and `data-slot` fallback both
+   port cleanly to Swift. When both strategies match, values must agree exactly or
+   the whole sample fails (`strategyMismatch`). Partial windows never emit numeric
+   percentages.
+3. **`authRequired` was missing.** Added to `CapacityUnknownReason` and strip JSON
+   (`authRequired` kind + copy). HTTP 401/403 and login-page HTML map here; generic
+   parse misses stay `parserFailed`.
+4. **Credentials: env-only works for spike.** Both-or-neither is tested. Partial env
+   (`OPENCODE_GO_WORKSPACE_ID` without cookie) refuses with `partial_env` — no
+   half-configured scrape.
+5. **Cookie shape confirmed from npm reference:** `Cookie: auth={value}` against
+   `GET https://opencode.ai/workspace/{id}/go`.
+6. **Not yet qualified.** No founder live scrape with real session cookie — browser
+   side-by-side comparison and the 14-day / 100-refresh gate are still open.
+7. **Promotion blockers unchanged:** encrypted store, `configure`/`status`, Mac
+   strip, menu, park/substitution, and `benchSourceOrder` seventh seat all wait
+   on SOL qualification passing.
+
+### Next dogfood step
+
+```bash
+export OPENCODE_GO_WORKSPACE_ID='wrk_…'   # from browser URL while logged in
+export OPENCODE_GO_AUTH_COOKIE='…'        # DevTools → Application → Cookies → auth
+
+alln capacity --dogfood --refresh --source opencode_go
+```
+
+Compare rolling / weekly / monthly % and reset clocks against the browser `/go`
+page. Record outcomes in the qualification ledger; any false numeric reading
+resets the promotion clock.
 
 ---
 
@@ -636,13 +708,13 @@ fallback.
 
 ## Slice plan
 
-| Slice | Goal | Allowlist | Works Test |
-| --- | --- | --- | --- |
-| **OCG-S00** | `--dogfood` gate + refuse `opencode_go` without it; contract flag | `AllnighterCLI.runCapacity`, `ContractRegistry`, `CapacityAcquisition.validateRefreshSourceId` | CLI usage tests |
-| **OCG-S01** | Pure parser + fixtures (atomic 3-window) | `OpenCodeGoCapacityProbe.swift`, tests | `swift-test.sh --filter OpenCodeGoCapacityProbe` |
-| **OCG-S02** | HTTP client + env creds + `authRequired` + executor | `OpenCodeGoCapacityClient.swift`, `OpenCodeGoCredentialStore.swift`, `OpenCodeGoCapacityExecutor.swift`, `CapacityWindow` tier/reason | `swift-test.sh --filter OpenCodeGo` |
-| **OCG-S03** | Wire dogfood path + strip display + qualification ledger | `CapacityFetch`, `CapacityStripRenderer`, `CapacityBenchProjection` (short window), `AllnighterCLI` | `swift-test.sh --filter OpenCodeGo` |
-| **OCG-S04** | Promotion only (after SOL gate) | `benchSourceOrder`, Mac strip, help, optional encrypted store | Full wall |
+| Slice | Goal | Status |
+| --- | --- | --- |
+| **OCG-S00** | `--dogfood` gate + refuse `opencode_go` without it; contract flag | **Done** |
+| **OCG-S01** | Pure parser + fixtures (atomic 3-window) | **Done** |
+| **OCG-S02** | HTTP client + env creds + `authRequired` + executor | **Done** |
+| **OCG-S03** | Wire dogfood path + strip display + qualification ledger | **Done** |
+| **OCG-S04** | Promotion only (after SOL gate) | Open |
 
 Estimate: **1–2 focused days** for OCG-S00–S03 spike; OCG-S04 is a separate promotion packet.
 
@@ -679,13 +751,13 @@ ledger to replace `/go` %.
 
 ## Done when (spike — OCG-S00–S03)
 
-- [ ] `--dogfood` required for `opencode_go`; refused without it
-- [ ] `OpenCodeGoCapacityProbe` parses fixtures → three windows with % + reset (atomic)
-- [ ] Env-only credentials; both-or-neither; no Keychain; no encrypted file in spike
-- [ ] `alln capacity --dogfood --refresh --source opencode_go` shows seventh row when configured
-- [ ] `CapacityProbe` / PTY path unchanged (grep: no opencode_go / cookie / HTML scrape in PTY file)
-- [ ] `benchSourceOrder` still six seats; `opencode_go` not in default refresh
-- [ ] Qualification ledger appends redacted outcomes
+- [x] `--dogfood` required for `opencode_go`; refused without it
+- [x] `OpenCodeGoCapacityProbe` parses fixtures → three windows with % + reset (atomic)
+- [x] Env-only credentials; both-or-neither; no Keychain; no encrypted file in spike
+- [x] `alln capacity --dogfood --refresh --source opencode_go` shows seventh row when configured
+- [x] `CapacityProbe` / PTY path unchanged (grep: no opencode_go / cookie / HTML scrape in PTY file)
+- [x] `benchSourceOrder` still six seats; `opencode_go` not in default refresh
+- [x] Qualification ledger appends redacted outcomes
 - [ ] Founder dogfood: live refresh matches browser /go %
 
 ## Done when (promotion — OCG-S04+)

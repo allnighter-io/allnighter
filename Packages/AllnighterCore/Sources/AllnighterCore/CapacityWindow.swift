@@ -32,6 +32,8 @@ public enum CapacityAcquisitionTier: Int, Sendable, Equatable, Codable, CaseIter
     case tuiProbe = 3
     /// Reactive failure classification (existing 429 path).
     case failureClassification = 4
+    /// Browser dashboard HTTP scrape (OpenCode Go `/go` — dogfood only until promotion).
+    case dashboardScrape = 5
 }
 
 /// Routing bucket. Decisions consume the bucket, never the raw percentage —
@@ -63,6 +65,8 @@ public enum CapacityUnknownReason: Sendable, Equatable, Codable {
     /// Capacity feature is switched OFF (CWB-S01b). No probe attempted;
     /// no history is painted as live.
     case disabled
+    /// Dashboard scrape returned 401/403 or positive login-page evidence (OpenCode Go).
+    case authRequired(observedAt: Date)
 }
 
 /// Paid spend that is **not** a percentage — cursor dollars, grok on-demand

@@ -76,5 +76,15 @@ public enum CapacityFetch {
         return Snapshot(now: now, windows: windows, rows: rows)
     }
 
+    /// Dogfood OpenCode Go scrape: six `neverSampled` PTY rows + dashboard wave.
+    public static func dogfoodOpenCodeGoSnapshot(now: Date = Date()) -> (snapshot: Snapshot, diagnostics: OpenCodeGoCapacityExecutor.ScrapeDiagnostics) {
+        let six = CapacityAcquisition.windows(now: now, refresh: false)
+        let outcome = OpenCodeGoCapacityExecutor.execute(now: now)
+        let windows = six + outcome.windows
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        let snapshot = Snapshot(now: now, windows: windows, rows: rows)
+        return (snapshot, outcome.diagnostics)
+    }
+
     private static let placeholderHome = URL(fileURLWithPath: "/var/empty", isDirectory: true)
 }

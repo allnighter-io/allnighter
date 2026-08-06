@@ -115,7 +115,8 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("json", summary: "Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema."),
                 FlagSpec("refresh", summary: "Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts."),
-                FlagSpec("source", takesValue: true, summary: "Target one seat for the live probe (still returns the full six-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy."),
+                FlagSpec("source", takesValue: true, summary: "Target one seat for the live probe (still returns the full six-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy. With --dogfood: opencode_go only."),
+                FlagSpec("dogfood", summary: "Developer-only OpenCode Go dashboard scrape. Requires --source opencode_go and OPENCODE_GO_* env credentials. Not in alln menu."),
             ],
             outputSchema: .capacityStripJSON,
             spendsQuota: false

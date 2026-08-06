@@ -122,6 +122,7 @@ public enum CapacityStripUnknownKind: String, Sendable, Equatable, Codable {
     case emptyCapture
     case expired
     case disabled
+    case authRequired
 }
 
 // MARK: - Renderer
@@ -183,6 +184,7 @@ public enum CapacityStripRenderer {
         case "grok": return "Grok"
         case "kimi": return "Kimi"
         case "agy", "antigravity": return "Antigravity"
+        case "opencode_go": return "OpenCode Go"
         default: return source
         }
     }
@@ -614,6 +616,8 @@ public enum CapacityStripRenderer {
             return "unknown — expired \(dayStampCompact(at))"
         case .disabled:
             return "disabled — capacity feature OFF"
+        case .authRequired(let at):
+            return "unknown — auth required \(dayStampCompact(at))"
         }
     }
 
@@ -627,6 +631,7 @@ public enum CapacityStripRenderer {
         case .emptyCapture: return "empty"
         case .expired: return "expired"
         case .disabled: return "disabled"
+        case .authRequired: return "auth req"
         }
     }
 
@@ -693,6 +698,7 @@ public enum CapacityStripRenderer {
         case .emptyCapture: return .emptyCapture
         case .expired: return .expired
         case .disabled: return .disabled
+        case .authRequired: return .authRequired
         }
     }
 
