@@ -1,6 +1,6 @@
 # OpenCode Go Capacity
 
-Status: **Draft — reliability qualification required before bench integration**
+Status: **Dogfood spike approved — qualification required before bench integration**
 Owner: AllnighterCore (targeted dashboard acquisition + parser diagnostics) +
 AllnighterCLI (existing `capacity` surface only during qualification)
 Created: 2026-08-05
@@ -61,14 +61,20 @@ This review is binding where it conflicts with the candidate design below.
 Before implementation, revise the rest of this packet to match it; do not treat
 the older three-slice plan as an allowlist.
 
-### Smallest reliable slice
+### Smallest reliable slice (founder-approved dogfood gate)
 
 ```text
 OPENCODE_GO_WORKSPACE_ID + OPENCODE_GO_AUTH_COOKIE
-  -> alln capacity --refresh --source opencode_go
+  -> alln capacity --dogfood --refresh --source opencode_go [--json]
   -> either all three dashboard windows, atomically validated,
      or one typed unknown result with scrape diagnostics
 ```
+
+**Without `--dogfood`:** `opencode_go` is an unknown `--source` (same error as a
+typo). The spike is intentionally invisible to the normal agent front door.
+
+**Not in v1 spike:** `benchSourceOrder` stays six seats; no Mac strip, menu
+envelope, park/substitution, or `alln opencode-go configure|status`.
 
 Cut from the qualification slice:
 
@@ -182,10 +188,33 @@ reduces configuration and integration surface; it does not weaken truthfulness.
 
 ---
 
+## Dogfood CLI (spike only)
+
+First **developer-gated** capacity surface in ALLN (`--dogfood` on the existing
+`capacity` command — not a new top-level verb).
+
+```text
+alln capacity --dogfood --refresh --source opencode_go [--json]
+```
+
+| Gate | Rule |
+| --- | --- |
+| `--dogfood` | Required for any `opencode_go` scrape; refuse without it |
+| Credentials | Env only: `OPENCODE_GO_WORKSPACE_ID` + `OPENCODE_GO_AUTH_COOKIE` (both-or-neither) |
+| Bench | Six-row product path unchanged; dogfood adds a seventh row only on this invocation |
+| Visibility | Documented in phase packet + contract flag; omitted from `alln menu` (`.public` only) |
+| Ledger | Append redacted scrape outcome to `…/Allnighter/Capacity/opencode-go-qualification.jsonl` |
+
+Human stderr (never stdout): fetch attempted, parser strategy id, failure class.
+JSON: existing `CapacityStripJSON` rows plus stderr diagnostics — no raw HTML, no
+cookie values.
+
+---
+
 ## One claim
 
 ```text
-With Go credentials supplied, `alln capacity --refresh --source opencode_go`
+With Go credentials supplied, `alln capacity --dogfood --refresh --source opencode_go`
 shows the same rolling / weekly / monthly values as the browser `/go` page, or
 a typed unknown result. It never emits a partial or plausibly stale Go sample.
 ```
@@ -197,7 +226,7 @@ a typed unknown result. It never emits a partial or plausibly stale Go sample.
 ```text
 Allnighter Feature Packet
 
-Status: Draft — blocked on SOL reliability qualification
+Status: Dogfood spike approved — blocked on SOL reliability qualification for promotion
 
 Founder Intent
 - Raw request: Meter OpenCode Go in ALLN like Claude/Codex/Grok, but scrape
@@ -208,11 +237,11 @@ Founder Intent
   Swift parse + encrypted file, no runtime npm).
 - Product value: Go is $5→$10/mo with $12/5h · $30/wk · $60/mo caps and no
   official quota API. One avoided wall during pilot/relay pays for ALLN.
-- Trusted workflow slice:
-    alln opencode-go configure (once)
-    → alln capacity --refresh --source opencode_go
-    → strip shows rolling / weekly / monthly % + reset clocks
-    → (phase 2) park/substitute before the 5h wall
+- Trusted workflow slice (spike):
+    export OPENCODE_GO_WORKSPACE_ID + OPENCODE_GO_AUTH_COOKIE
+    → alln capacity --dogfood --refresh --source opencode_go
+    → seventh row shows rolling / weekly / monthly % + reset clocks
+    → (promotion) default bench; (phase 2) park/substitute before the 5h wall
 - Non-goals: invent % from /usage ledger sums; Keychain; npm dependency;
   block `opencode` driver dispatch on missing Go config; OpenCode Zen;
   menu/park in v1.
@@ -499,19 +528,27 @@ Packages/AllnighterCore/Sources/AllnighterCLI/
 
 ## CLI contract
 
-### `alln capacity` (existing — extended)
+### `alln capacity` (existing — dogfood extension, OCG-S00–S03)
 
 ```text
-alln capacity [--json] [--refresh] [--source opencode_go]
+alln capacity [--json] [--refresh] [--source <id>] [--dogfood]
 ```
 
-- `opencode_go` becomes a valid `--source` when wired (OCG-S03);
-  `validateRefreshSourceId` / `validRefreshSourceIds` follow `benchSourceOrder`.
-- JSON: existing `CapacityStripJSON` / bench rows; new source id only.
-- Bare / no prior sample: `neverSampled` for `opencode_go` until a successful
-  refresh path samples it (same honesty as other seats).
+**Spike (OCG-S00–S03):**
 
-### `alln opencode-go configure` (new)
+- `--dogfood` unlocks `--source opencode_go` only. Without it, `opencode_go`
+  is rejected as an unknown source (six-seat valid list unchanged).
+- Targeted dogfood: six `neverSampled` PTY rows + one `opencode_go` dashboard
+  wave (no PTY siblings probed).
+- JSON: existing `CapacityStripJSON`; seventh row uses source id `opencode_go`.
+- Scrape diagnostics on stderr only (redacted fingerprint — no HTML/cookie).
+
+**Promotion (OCG-S04+ — after qualification gate):**
+
+- Add `opencode_go` to `benchSourceOrder`; drop `--dogfood` requirement for Go.
+- Update help/contract row count; Mac strip + menu envelope.
+
+### `alln opencode-go configure` (deferred — promotion only)
 
 ```text
 alln opencode-go configure [--workspace-id <wrk_…>] [--cookie <auth>]
@@ -599,18 +636,15 @@ fallback.
 
 ## Slice plan
 
-The original S01–S03 plan below is deferred and must be rewritten after OCG-S00
-evidence. It is retained only to show the previously considered integration
-surface.
-
 | Slice | Goal | Allowlist | Works Test |
 | --- | --- | --- | --- |
-| **OCG-S00** | Env-only targeted dogfood + redacted evidence ledger; no default bench | Rewrite packet allowlist before starting | Atomic three-window fixtures + live qualification protocol |
-| **OCG-S01 (deferred)** | Pure parser + fixtures | `OpenCodeGoCapacityProbe.swift`, tests, fixtures | `swift-test.sh --filter OpenCodeGoCapacityProbe` |
-| **OCG-S02 (deferred)** | Client + encrypted store + CLI | `OpenCodeGoCapacityClient.swift`, `OpenCodeGoCredentialStore.swift`, `OpenCodeGoCLI.swift`, `authRequired` enum/copy if first emit, tests | `swift-test.sh --filter OpenCodeGo` |
-| **OCG-S03 (deferred)** | Acquisition + strip + help | `OpenCodeGoCapacityExecutor.swift`, `CapacityAcquisition.swift` (PTY/dashboard split), `CapacityAcquisitionTier`, `CapacityBenchProjection`, `CapacityStripRenderer`, help/contract | `swift-test.sh --filter OpenCodeGoCapacityExecutor` + `CapacityAcquisition` + help/contract checks |
+| **OCG-S00** | `--dogfood` gate + refuse `opencode_go` without it; contract flag | `AllnighterCLI.runCapacity`, `ContractRegistry`, `CapacityAcquisition.validateRefreshSourceId` | CLI usage tests |
+| **OCG-S01** | Pure parser + fixtures (atomic 3-window) | `OpenCodeGoCapacityProbe.swift`, tests | `swift-test.sh --filter OpenCodeGoCapacityProbe` |
+| **OCG-S02** | HTTP client + env creds + `authRequired` + executor | `OpenCodeGoCapacityClient.swift`, `OpenCodeGoCredentialStore.swift`, `OpenCodeGoCapacityExecutor.swift`, `CapacityWindow` tier/reason | `swift-test.sh --filter OpenCodeGo` |
+| **OCG-S03** | Wire dogfood path + strip display + qualification ledger | `CapacityFetch`, `CapacityStripRenderer`, `CapacityBenchProjection` (short window), `AllnighterCLI` | `swift-test.sh --filter OpenCodeGo` |
+| **OCG-S04** | Promotion only (after SOL gate) | `benchSourceOrder`, Mac strip, help, optional encrypted store | Full wall |
 
-Estimate: **2–3 focused days** / three sprint work orders.
+Estimate: **1–2 focused days** for OCG-S00–S03 spike; OCG-S04 is a separate promotion packet.
 
 Sprint docs: create under `docs/phases/sprint/opencode-go/` at slice start;
 archive on close per `docs/phases/sprint/README.md`.
@@ -643,15 +677,22 @@ ledger to replace `/go` %.
 
 ---
 
-## Done when (v1)
+## Done when (spike — OCG-S00–S03)
 
-- [ ] `OpenCodeGoCapacityProbe` parses fixtures → three windows with % + reset
-- [ ] Encrypted credential round-trip; env override; no plaintext on disk; no Keychain
-- [ ] `alln opencode-go configure` + `status` ship with help topics
-- [ ] `alln capacity --refresh --source opencode_go` shows live row when configured
+- [ ] `--dogfood` required for `opencode_go`; refused without it
+- [ ] `OpenCodeGoCapacityProbe` parses fixtures → three windows with % + reset (atomic)
+- [ ] Env-only credentials; both-or-neither; no Keychain; no encrypted file in spike
+- [ ] `alln capacity --dogfood --refresh --source opencode_go` shows seventh row when configured
 - [ ] `CapacityProbe` / PTY path unchanged (grep: no opencode_go / cookie / HTML scrape in PTY file)
-- [ ] `ptyOnlySources` excludes `opencode_go`; `benchSourceOrder` includes it
+- [ ] `benchSourceOrder` still six seats; `opencode_go` not in default refresh
+- [ ] Qualification ledger appends redacted outcomes
 - [ ] Founder dogfood: live refresh matches browser /go %
+
+## Done when (promotion — OCG-S04+)
+
+- [ ] SOL qualification gate passed (14d / 100 refreshes / 20 browser compares / …)
+- [ ] `benchSourceOrder` includes `opencode_go`; strip/help row count updated
+- [ ] Optional: encrypted credential store + `configure`/`status` CLI
 - [ ] Sprint docs archived; promote strip/help law; archive this packet
 
 ## AGENTS.md routing
