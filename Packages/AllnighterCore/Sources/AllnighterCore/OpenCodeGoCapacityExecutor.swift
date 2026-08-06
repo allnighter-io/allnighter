@@ -207,8 +207,34 @@ public enum OpenCodeGoCapacityExecutor {
         return "\(host)\(path)"
     }
 
-    private static func bodyFingerprint(from html: String) -> String? {
-        guard let data = html.data(using: .utf8) else { return nil }
+    static func bodyFingerprint(from html: String) -> String? {
+        let slotPattern = #"data-slot="([^"]+)""#
+        let windowPattern = #"(rollingUsage|weeklyUsage|monthlyUsage):\$R\["#
+
+        var slotValues = Set<String>()
+        if let slotRegex = try? NSRegularExpression(pattern: slotPattern) {
+            let range = NSRange(html.startIndex..., in: html)
+            for match in slotRegex.matches(in: html, range: range) {
+                if let r = Range(match.range(at: 1), in: html) {
+                    slotValues.insert(String(html[r]))
+                }
+            }
+        }
+
+        var windowKeys = Set<String>()
+        if let windowRegex = try? NSRegularExpression(pattern: windowPattern) {
+            let range = NSRange(html.startIndex..., in: html)
+            for match in windowRegex.matches(in: html, range: range) {
+                if let r = Range(match.range(at: 1), in: html) {
+                    windowKeys.insert(String(html[r]))
+                }
+            }
+        }
+
+        let canonical = "slots:" + slotValues.sorted().joined(separator: ",")
+            + "|windows:" + windowKeys.sorted().joined(separator: ",")
+
+        guard let data = canonical.data(using: .utf8) else { return nil }
         let digest = SHA256.hash(data: data)
         let hex = digest.map { String(format: "%02x", $0) }.joined()
         return String(hex.prefix(16))
