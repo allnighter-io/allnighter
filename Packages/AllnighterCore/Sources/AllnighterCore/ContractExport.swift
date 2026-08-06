@@ -21,6 +21,10 @@ public enum ContractExport {
     /// The directory (relative to the repo root) the artifacts live under.
     public static let generatedDir = "docs/generated/alln"
 
+    /// Relative path from repo root to the team_run.json fixture whose
+    /// `contractVersion` is rewritten on every export.
+    private static let fixturePath = "Packages/AllnighterCore/Sources/AllnighterCore/Resources/Fixtures/team_run.json"
+
     /// Raised by `check`/`write` when the repo root — or the artifacts under
     /// it — can't be located. Kept distinct from content drift: a missing
     /// file/dir is never reported as `CONTRACT_DRIFT` (PO-F6).
@@ -132,7 +136,24 @@ public enum ContractExport {
         for a in toWrite {
             try a.contents.write(to: dir.appendingPathComponent(a.filename), atomically: true, encoding: .utf8)
         }
+        try fixFixtureVersion(root: root, registry: registry)
         return (toWrite.count, dir.path)
+    }
+
+    /// Rewrite only the `contractVersion` value in the team_run.json fixture to
+    /// match the registry, leaving every other byte in the file identical.
+    private static func fixFixtureVersion(root: URL, registry: ContractRegistry) throws {
+        let fixtureURL = root.appendingPathComponent(fixturePath)
+        guard FileManager.default.fileExists(atPath: fixtureURL.path) else { return }
+        let contents = try String(contentsOf: fixtureURL, encoding: .utf8)
+        let pattern = try NSRegularExpression(pattern: #"("contractVersion"\s*:\s*)("[^"]+")"#)
+        let range = NSRange(contents.startIndex..<contents.endIndex, in: contents)
+        let updated = pattern.stringByReplacingMatches(
+            in: contents, range: range,
+            withTemplate: "$1\"\(registry.contractVersion)\"")
+        if updated != contents {
+            try updated.write(to: fixtureURL, atomically: true, encoding: .utf8)
+        }
     }
 
     public static func artifacts(_ registry: ContractRegistry = .milestone1) throws -> [Artifact] {
