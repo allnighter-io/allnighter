@@ -108,6 +108,31 @@ final class OpenCodeGoCapacityProbeTests: XCTestCase {
         XCTAssertTrue(windows.allSatisfy { $0.unknownReason == .authRequired(observedAt: observedAt) })
     }
 
+    /// A SolidJS route manifest naming `/sign-in` is not proof of rejection.
+    /// A dashboard that carries usage markers must parse, never be written off
+    /// as an auth failure on a substring.
+    func testSignInRouteInBundleDoesNotFakeAuthRequired() throws {
+        let html = """
+        <html><body>
+        <script>const routes=["/sign-in","/workspace","/auth/login"];</script>
+        \(solidHTML)
+        </body></html>
+        """
+        let windows = OpenCodeGoCapacityProbe.capacityWindows(html: html, observedAt: observedAt)
+        XCTAssertTrue(windows.allSatisfy { $0.unknownReason == nil })
+        let rolling = try XCTUnwrap(windows.first { $0.scope == .fiveHour })
+        XCTAssertEqual(rolling.usedPercent, 12.5)
+    }
+
+    /// An unrecognized page is schema drift, not a manufactured auth verdict.
+    func testUnrecognizedPageIsSchemaDriftNotAuthRequired() {
+        let windows = OpenCodeGoCapacityProbe.capacityWindows(
+            html: "<html><body><h1>Something else entirely</h1></body></html>",
+            observedAt: observedAt
+        )
+        XCTAssertTrue(windows.allSatisfy { $0.unknownReason == .parserFailed(observedAt: observedAt) })
+    }
+
     func testStrategyMismatchFailsClosed() {
         let html = """
         rollingUsage:$R[0]={usagePercent:10,resetInSec:60}

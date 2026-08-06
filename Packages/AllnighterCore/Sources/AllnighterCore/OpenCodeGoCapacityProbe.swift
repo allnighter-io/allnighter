@@ -353,16 +353,28 @@ public enum OpenCodeGoCapacityProbe {
 
     // MARK: - Helpers
 
+    /// Positive login-page evidence only, and only on a page carrying no usage
+    /// markers at all.
+    ///
+    /// A SolidJS bundle routinely inlines a route manifest naming `/sign-in`,
+    /// so those substrings alone do not prove the request was rejected — they
+    /// appear on a perfectly good dashboard. Claiming `authRequired` there
+    /// would assert an unobserved cause *and* discard real numbers. When usage
+    /// markers are present the parser decides, and an unrecognized page falls
+    /// through to schema drift rather than a manufactured auth verdict.
+    ///
+    /// The load-bearing auth signals live in the client (HTTP 401/403 and a
+    /// final URL on the sign-in route); this is the HTML backstop.
     private static func looksLikeLoginPage(_ html: String) -> Bool {
         let lower = html.lowercased()
-        if lower.contains("sign in to opencode") { return true }
-        if lower.contains("/sign-in") || lower.contains("auth/login") { return true }
-        if lower.contains("<title>sign in") { return true }
         let hasUsageMarker = lower.contains("rollingusage")
             || lower.contains("weeklyusage")
             || lower.contains("monthlyusage")
             || lower.contains("data-slot=\"usage-item\"")
-        if !hasUsageMarker, lower.contains("type=\"password\"") { return true }
+        guard !hasUsageMarker else { return false }
+        if lower.contains("sign in to opencode") { return true }
+        if lower.contains("<title>sign in") { return true }
+        if lower.contains("type=\"password\"") { return true }
         return false
     }
 
