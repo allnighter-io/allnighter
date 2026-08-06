@@ -800,7 +800,7 @@ final class RunServiceTests: XCTestCase {
         XCTAssertEqual(after.status, .failed)
         XCTAssertEqual(after.endReason, .failed)
         XCTAssertEqual(after.answers.first?.result.output, "settled output")
-        XCTAssertNotEqual(after.status, .running)
+        XCTAssertNotEqual(after.status, RunStatus.running)
     }
 }
 
