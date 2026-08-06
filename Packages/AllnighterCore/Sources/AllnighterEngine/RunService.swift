@@ -2507,7 +2507,7 @@ public actor RunService {
         _ answer: TeamAnswer,
         prior: TeamAnswer?
     ) -> TeamAnswer {
-        let incomingEmpty = answer.result.output?.isEmpty != false
+        let incomingEmpty = (answer.result.output ?? "").isEmpty
         guard incomingEmpty,
               let priorOut = prior?.result.output,
               !priorOut.isEmpty
