@@ -192,8 +192,22 @@ packet has; it is three data points, not a benchmark.
 | DeepSeek V4 Pro | 90 | Enrich `ScrapeDiagnostics` for the promotion gate | 225s | **Subtly wrong.** Followed the repo's CryptoKit convention correctly, but shipped a whole-body content hash where the stated purpose needed a structural fingerprint. Passed its own green suite |
 | Qwen 3.7 Plus | 65 | Replace that content hash with a structural fingerprint | 114s | **Correct.** Proved both required properties, and added a `<script nonce>` to the fixture unprompted to show nonces don't perturb it |
 
+Three further slices were then routed the same way, with briefs deliberately
+written to state the required **property** rather than the field to add:
+
+| Seat | Rank | Slice | Wall | Outcome |
+| --- | --- | --- | --- | --- |
+| DeepSeek V4 Flash | 55 | Four drift gates proving the Go seat can never enter the PTY path | 50s | **Correct.** Gates verified by mutation — adding the seat to `benchSourceOrder` turns 4 red |
+| Qwen 3.7 Max | 82 | Close the feature-OFF gate bypass | 212s | **Correct.** Put the decision in an Engine seam with no default parameter, forcing every call site to state it |
+| MiniMax M3 | 78 | Move parser HTML into fixtures with honest provenance | 219s | **Correct.** Held the honesty constraint exactly — labelled the fixtures synthetic rather than dressing them as captures |
+
+Six OpenCode slices, five correct on first pass, one subtly wrong. The single
+failure was the one brief that named a field instead of a property.
+
 **The uncomfortable finding: the economy seat succeeded where the strongest
-seat failed.** Rank did not predict outcome on these three slices.
+seat failed.** Rank did not predict outcome on any of these six slices. The
+cheapest seat on the bench (rank 55) produced the drift gates that now protect
+the promotion boundary, in 50 seconds.
 
 What separated them was **specification quality, not seat strength**. DeepSeek's
 brief named the field to add and let it choose the mechanism; the wrong
@@ -215,9 +229,12 @@ thing that makes route-down work at all. Both defects caught today — the
 partial-sample P0 and this content hash — passed green suites written by the
 seat that introduced them.
 
-Caveat this hard: n=3, one slice each, all in one subsystem, all specified by
-the same lead. It is enough to justify measuring in SAR-S03. It is not enough to
-route on.
+Caveat this hard: n=6, one slice each, all in one subsystem, all specified by
+the same lead, all reviewed by that same lead. Every "correct" verdict is the
+lead's own judgement of a brief the lead wrote — a real confound, and the exact
+reason SAR-S03 must measure hit rate against an independent gate rather than
+against the router's author. It is enough to justify measuring. It is not
+enough to route on.
 
 ## 6. Inference bans (draft)
 

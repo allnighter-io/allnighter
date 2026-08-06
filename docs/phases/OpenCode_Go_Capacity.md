@@ -202,6 +202,9 @@ independently of the implementing seat (23 tests green).
 | `fbb00960` | **P1** — `URLSessionTransport` used `URLSession.shared`, whose `timeoutIntervalForResource` defaults to 7 days, so the synchronous fetch had no ceiling. Now an ephemeral bounded session; also drops shared cookie storage and cache, which the cookie-bearing request wants anyway | GLM-5.2 |
 | `cc7dc31` | `ScrapeDiagnostics` gained `contentType`, `finalURLClass` (redacted), `missingFields`, `bodyFingerprint` so a drift entry can distinguish one rollout from two | DeepSeek V4 Pro |
 | `f40db6c9` | **Follow-up** — `bodyFingerprint` hashed the whole body, which changes every request on a live page and so could never answer the same-rollout question it was added for. Now hashes structural shape (`data-slot` values + SSR window keys) only | Qwen 3.7 Plus |
+| `c10b75f7` | The packet's required **negative proof** did not exist. Four drift gates now fail if `opencode_go` ever enters `benchSourceOrder` or the PTY source list. Verified by mutation: adding the seat to `benchSourceOrder` turns 4 tests red | DeepSeek V4 Flash |
+| `eb6b9595` | **Gate bypass** — the `--dogfood` branch returned before reading the capacity feature flag, so a switched-off feature still scraped the network and appended to the ledger. The decision moved into `CapacityFetch.dogfoodOpenCodeGoSnapshot(featureEnabled:)`, with no default, so every call site must state it | Qwen 3.7 Max |
+| `6be35297` | Parser HTML moved from inline literals into fixture files carrying an unmissable `ORIGIN: SYNTHETIC — hand-authored, NOT a captured page` header, plus a README documenting how a real capture is made when the founder makes one | MiniMax M3 |
 
 Both `d5c23bdb` and `f40db6c9` fixed defects that had passed a **green suite** —
 the first because the test asserted only that the bad window was unknown, the
@@ -210,11 +213,20 @@ second because a content hash trivially satisfies "records a hash." Both are the
 
 ### Still open on the spike
 
-| Item | Why it matters |
-| --- | --- |
-| `--dogfood` returns before the capacity feature-enabled check | CWB-S01b requires zero probes from every trigger when the feature is OFF |
-| No committed fixtures under `Tests/Fixtures/opencode-go/` | Tests use inline HTML literals, which prove the logic but carry no capture-date/strategy provenance and cannot detect real-page drift |
-| Qualification: **0 of 14 days, 0 of 100 refreshes, 0 of 20 browser comparisons** | Founder-only; the clock starts on the first live credentialed refresh |
+**Engineering work on OCG-S00–S03 is complete.** 30 tests green, verified by the
+lead independently of every implementing seat. What remains is not code:
+
+| Item | Owner | Why it is not buildable |
+| --- | --- | --- |
+| Qualification: **0 of 14 days, 0 of 100 refreshes, 0 of 20 browser comparisons, 2 observed rolling resets, 1 deliberate expired-cookie test** | Founder | Requires real credentials against the live dashboard. The clock starts on the first credentialed refresh and **resets to zero on any false numeric reading** |
+| Real captured fixtures | Founder | A capture is an explicit local action, reviewed and redacted by hand. The committed fixtures are labelled synthetic precisely so nobody mistakes them for this |
+| **OCG-S04 promotion** — `benchSourceOrder`, Mac strip, menu, encrypted store | Blocked | The SOL review's verdict is No-go until the gate above passes. Building it now would put unqualified scrape numbers into the normal bench, which is the single thing this packet exists to prevent |
+
+The spike found its own justification along the way: **two of the defects fixed
+today had passed a green suite** — the partial-sample P0 and the whole-body
+fingerprint. Both were plausible-looking wrong answers, which is failure mode #4
+in the ranked table above and the reason the qualification gate is measured in
+weeks of real comparisons rather than test count.
 
 ---
 
