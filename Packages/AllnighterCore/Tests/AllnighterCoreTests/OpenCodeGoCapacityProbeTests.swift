@@ -378,3 +378,38 @@ private enum OpenCodeGoFixture {
         return try String(contentsOf: url, encoding: .utf8)
     }
 }
+
+/// The decoy-AFTER case, which is the one that actually exercises the string
+/// tokenizer.
+///
+/// The existing decoy tests place the fake before the real fields, and the
+/// field map is last-write — so they pass even with string tracking disabled,
+/// which is passing for the wrong reason. Only a decoy positioned AFTER the
+/// real values can prove quotes are honoured: without string awareness the
+/// later fake overwrites the genuine number and the probe reports 1% headroom
+/// on a seat that actually has 50%.
+final class OpenCodeGoDecoyAfterTests: XCTestCase {
+
+    func testDecoyInStringAfterRealFieldsIsIgnored() throws {
+        let html = """
+        rollingUsage:$R[0]={usagePercent:50,resetInSec:100,note:"usagePercent:1,resetInSec:2"}
+        weeklyUsage:$R[1]={usagePercent:30,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:45,resetInSec:86400}
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 50, "a decoy AFTER the real field must not overwrite it")
+        XCTAssertEqual(sample.rolling.resetInSec, 100)
+    }
+
+    /// Same, one level deeper: a nested object after the real fields.
+    func testNestedObjectAfterRealFieldsIsIgnored() throws {
+        let html = """
+        rollingUsage:$R[0]={usagePercent:50,resetInSec:100,meta:{usagePercent:7,resetInSec:8}}
+        weeklyUsage:$R[1]={usagePercent:30,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:45,resetInSec:86400}
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 50, "a nested value AFTER the real field must not overwrite it")
+        XCTAssertEqual(sample.rolling.resetInSec, 100)
+    }
+}
