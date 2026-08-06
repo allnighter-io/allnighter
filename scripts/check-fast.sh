@@ -9,6 +9,29 @@ source "$ROOT/scripts/ensure-test-guard-path.sh"
 echo "==> check-fast: test guard liveness"
 bash "$ROOT/scripts/check-test-guard-liveness.sh"
 
+echo "==> check AGENTS.md size budget"
+# AGENTS.md is loaded into EVERY agent session via CLAUDE.md's @AGENTS.md.
+# Every byte is a per-session tax on every agent, forever. It is a ROUTER:
+# add paths, not prose, and remove a route when its packet is archived.
+# Raising this ceiling is not the fix for a failing build — pruning is.
+AGENTS_MD="$ROOT/AGENTS.md"
+AGENTS_BUDGET_BYTES=18500
+if [[ ! -f "$AGENTS_MD" ]]; then
+  echo "check: missing AGENTS.md" >&2
+  exit 1
+fi
+agents_bytes=$(wc -c < "$AGENTS_MD" | tr -d ' ')
+if (( agents_bytes > AGENTS_BUDGET_BYTES )); then
+  echo "check: AGENTS.md is ${agents_bytes} bytes, over the ${AGENTS_BUDGET_BYTES} budget." >&2
+  echo "  It is a router loaded into every session. Prune before adding:" >&2
+  echo "  - routes to archived packets belong in docs/archive/phases/README.md" >&2
+  echo "  - ops detail belongs in docs/operations/Execution-Playbook.md" >&2
+  echo "  - a law already enforced by code belongs in the code, not here" >&2
+  echo "  Raising AGENTS_BUDGET_BYTES is a founder decision, not a build fix." >&2
+  exit 1
+fi
+echo "    AGENTS.md ${agents_bytes}/${AGENTS_BUDGET_BYTES} bytes"
+
 echo "==> check Code Red architecture policy"
 bash "$ROOT/scripts/check_architecture_policy.sh"
 

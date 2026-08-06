@@ -184,6 +184,26 @@ anywhere else, that is a bug in the export, not a step you missed.
 When a phase reaches `Status: Complete`, archive it as part of the same
 closeout. `Docs/phases/` is for live phase work only.
 
+**Archiving is a PRUNE, not a promotion dump.** `AGENTS.md` is loaded into every
+agent session via `CLAUDE.md`, so every line added there is a permanent
+per-session tax on every agent in the repo. A closeout that only adds is how a
+router becomes a monster: by 2026-08-06 it had reached 259 lines against its own
+stated 150 target, with 21% of its routing table pointing at already-archived
+packets. `scripts/check-fast.sh` now enforces a byte budget — **raising that
+budget is a founder decision, never a build fix.**
+
+Before adding anything to `AGENTS.md` at closeout, apply this test:
+
+| Candidate | Where it goes |
+| --- | --- |
+| A route to the packet being archived | **Nowhere.** Archived packets are not routed from `AGENTS.md`; the archive index owns them. |
+| The packet's durable law | `AGENTS.md` § Project Laws — **only if** no code gate already enforces it. If code enforces it, the code is the SSOT and the law is a comment there. |
+| Ops detail, commands, test procedure | This playbook. |
+| "How did we get here" narrative | The archived packet. It is history, not routing. |
+
+Every closeout that adds a line must name a line it removed, or state why none
+was removable. Net-zero is the default; net-negative is better.
+
 Archive workflow:
 
 1. Confirm exit gates are checked or explicitly waived in the phase closeout.

@@ -12,58 +12,44 @@ experiments as more authoritative than the routed source docs.
 
 ## Mission
 
-Allnighter is the **all-day multi-CLI bench** for the coding agents the user
-already pays for (Claude Code, Codex, Grok, Gemini CLI, Aider, Cursor, Composer,
-local models). Hero use is attended and high-frequency on the Mac (CLI + app as
-one floor). Two co-equal loops:
+The **all-day multi-CLI bench** for coding agents the user already pays for
+(Claude Code, Codex, Grok, Cursor, Composer, OpenCode, local models). Hero use is
+attended and high-frequency on the Mac. Two co-equal loops:
 
-1. **Named Teams** (parallel judgment) — Spec Review, Bug Hunt, Growth,
-   Research, and other Teams. Not Spec Review–only.
-2. **Pilot / relay** (multi-round floor) — a strong lead (e.g. Opus in Claude)
-   steers and reviews; execution seats (e.g. Grok, Composer) do the mutating
-   work. Exactly one mutating worker per root.
-
-Detach / while-away is a supported mode, not the product story. The name
-Allnighter is brand and domain only. Run model code SSOT: `RunService.swift`
-(the one run owner).
+1. **Named Teams** — parallel judgment (Spec Review, Bug Hunt, Growth, Research).
+   Not Spec Review–only.
+2. **Loop** (`alln loop`) — a strong lead steers and reviews; execution seats do
+   the mutating work. Exactly one mutating worker per root.
 
 > You already pay for the team. Allnighter makes it show up to work.
 
-It is **not** a model provider, IDE, chat aggregator, cloud coding service, or
-terminal viewer. Dark-mode-only native macOS app; brand is "amber phosphor on
-midnight." Agents must preserve: parallel research from the selected Team in the
-canonical repository, exactly one mutating worker per root, option generation,
-quota harvesting, and preference compounding.
+**Not** a model provider, IDE, chat aggregator, cloud coding service, or terminal
+viewer. Dark-mode-only native macOS app; brand is "amber phosphor on midnight."
+Preserve: parallel research from the selected Team in the canonical repository,
+one mutating worker per root, option generation, quota harvesting, preference
+compounding.
 
-**Do not pitch overnight / "while you sleep" / wake-up-to-diffs as the default
-value prop.** Dogfood reality is all-day Teams + pilot/relay (strong lead →
-execution workers) — not sleep automation.
+**Do not pitch overnight / "while you sleep" / wake-up-to-diffs as the value
+prop.** Dogfood reality is all-day Teams + Loop, not sleep automation. The name
+is brand and domain only. Run model code SSOT: `RunService.swift`.
 
 ## Authoritative Sources
 
 Root docs are the source of truth. Read the relevant one before changing that area.
 
-- **Canonical product vocabulary (read first):** `docs/workflows/Product_Vocabulary.md` —
- Chat / Delegate ("Send to team") / Execute; **Team** is the noun; crafts are
- **Code · Design · Copy** (+ **Signal** scout); machine layer is one `team.run`
- primitive (posture + `mutating`). Retired: `Fan out`, `Build`-as-craft,
- `Execute`-as-mode, "Move Card", `lane`=single-run. Hard cutover, no aliases.
- Run semantics remain code SSOT (`RunService.swift`).
+- **Canonical product vocabulary (read first):** `docs/workflows/Product_Vocabulary.md`
+  — hard cutover, no aliases. Run semantics stay code SSOT (`RunService.swift`).
 - **Run model + execution safety (read before team/run changes):** a run =
   message + optional preset + worker, in the repo root. Research Teams are
-  parallel and observational; execution Teams are one worker (mutating) under
-  the per-root write lock. No mirror, clone, or blanket read-only layer. Code
-  SSOT: `RunService.swift` (the one run owner), `TeamPreset`/`TeamCatalog`,
-  `RunWriteLockRegistry`. Enforced by `config/architecture-policy.json` +
-  `scripts/check_architecture_policy.sh`.
-- **Built MVP foundation:** `docs/mvp/README.md` — historical team-run substrate
-  (originally called Council: one prompt → parallel CLIs → plan), plus
-  `docs/mvp/00_MVP_Architecture.md`.
+  parallel and observational; execution Teams are one mutating worker under the
+  per-root write lock. No mirror, clone, or blanket read-only layer. Code SSOT
+  `RunService.swift`, `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry`;
+  enforced by `scripts/check_architecture_policy.sh`.
+- **Built MVP foundation:** `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md`.
 - **Post-MVP phases:** `docs/phases/README.md` (active forward phase router).
 - **Active iOS work:** `docs/phases/ios/README.md` (future remote Project Manager).
 - **Visual design SSOT** (brand, voice, tokens, components, logo, icon):
-  `docs/design-system/readme.md` + binding app rules in
-  `docs/design-system/production.md`. Skill: `allnighter-design`.
+  `docs/design-system/readme.md` + binding rules in `production.md`.
 - **GUI engineering governance** (how to build UI surfaces — *not* visual design):
   `docs/gui/GUI_Workflow.md`.
 - **SwiftUI state rules** (Observation, no Combine-era view state):
@@ -85,7 +71,6 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | Code SSOT: `RunService.swift`, `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry` |
 | Run started — what is happening, is anything needed, where is the result | `alln show <id> --json` snapshot / `alln show <id> --stream` observe + deliver. Code SSOT: `RunService.swift`, `TeamRunJSONMapper` (`observation`), `RemoteRunEventJournal` (derived history) |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | Code SSOT: `KillSettlement.swift`, `RunClockEnforcer.swift`, `IdempotencyStore.swift`, `ProcessOwnership.swift` |
-| Codex/host sandbox blocks child CLIs, source processes missing from `alln ps` | The sandbox blocks the Keychain, not the repo — vendor CLIs then believe they are logged out. `alln run` hands off to the open Mac app; a per-session `codex --sandbox danger-full-access` also works. Never a global `sandbox_mode` change. Code SSOT: `SandboxHandoffSpool.swift`, `SandboxHandoffRunner.swift`, `HostSandboxAdvice.swift`. Closed record: `docs/archive/phases/Codex_Alln_Run_Hot_Fix.md` — no auto-launch by founder ruling 2026-08-02; app must be running or `alln run` refuses loudly. CAR-S01 (canonical install + version handshake) and CAR-S04 (request expiry / race-safe claim) remain OPEN. |
 | Capacity strip, `alln capacity`, warm pool, menu-bar resident | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) — Dock 30m silent schedule (Spec Review Min Ready); S00a scoped kill first; S02 `capacity.sock` fast/cold shipped (code SSOT `CapacitySocket.swift`); menu bar / warm PTY not v1 |
 | Plan-time quota routing, capacity in menu/bootstrap, loop session-cap wake | Open packet: `docs/phases/Quota_Aware_Bench_Continuity.md` — runtime park/sub only; menu capacity suspended per CWB; code SSOT `VendorBackoffReconciler`, `VendorSubstitutionPolicy`, `LoopCoordinator.dispatchDevTurn` |
 | OpenCode Go plan capacity (browser `/go` scrape, encrypted credentials) | Open packet: `docs/phases/OpenCode_Go_Capacity.md` — not PTY; v1 strip only; code SSOT TBD `OpenCodeGoCapacityProbe`, `OpenCodeGoCredentialStore` |
@@ -94,13 +79,6 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Wrong/invented capacity verdict; run parked for a limit that never happened; adding a new CLI's limit detection; a failed run's work missing from `alln show`/`export` | Open packet: `docs/phases/Vendor_Signal_Isolation.md` — a vendor parser must answer only for its own `sourceId`; declare capacity signals in the driver manifest, never a classifier branch. Code SSOT: AgentOS `CapacityClassifier.swift`, `DriverManifest.swift` |
 | `alln bootstrap` teaching block wrong or stale in a host file; retired vocabulary shipping from the front door; how to brief and verify a delegated seat | Open packet: `docs/phases/Agent_Teaching_Surface.md` (sequenced after Vendor Signal Isolation). Code SSOT: `TeachingSnippet.swift`, `HelpTopicRegistry.swift`, `RetiredVocabulary.swift` |
 | Composer `@` file references, Project file search, file chips | Open packet: `docs/phases/Composer_File_References.md` (not SSOT) |
-| One-off team seating / custom `*_` picker sprawl / “staff these models once” | archived `docs/archive/phases/Ephemeral_Teams.md` — runtime `--seat` on `alln run` (Option C); code SSOT `TeamExplicitSeats`, `RunInvocationResolver`; do not `teams duplicate` for one-offs |
-| Relay/pilot round lands or escalates with nobody notified (Mac app closed) | archived `docs/archive/phases/Unattended_Round_Notification.md` — Code Complete 2026-07-27; code SSOT `NotificationScheduler.swift`, `ServeAutoLaunch.swift`, `NotificationCandidateDetection.swift` |
-| `pair pilot status` fresh silenceAge while `alln ps` says no stream for Ns; hung child under worker (e.g. wrangler tail); pgid heartbeat lie | archived `docs/archive/phases/Pilot_Status_Liveness_Lie_Hotfix.md` + `Core_Loop_Improvements.md` — Complete 2026-07-28; code SSOT `StreamLiveness`, `PilotCLI.resolveLastProgressAt`, `ProcessOwnershipSurface` |
-| `alln ps` museum rows, manual reconcile before session, ghost `running` relays | archived `docs/archive/phases/Core_Loop_Improvements.md` — Complete 2026-07-28; code SSOT `ProcessOwnershipSurface.list` (reconcile-on-read, `--all` history), `StreamLiveness` |
-| `pair relay`/`relay-resume`/`relay adopt`/`alln run` die when the caller dies; relay dispatch race (no in-flight guard) | Archived `docs/archive/phases/Round_Survives_The_Caller.md` + Hot Fixes — Code Complete 2026-07-28; code SSOT `DetachedHandoff.swift`, `DetachedDispatch.swift`, `LoopCoordinator.swift` (`claimStart`/`persistClaim`), `RunCLI.swift` |
-| Model/skill/agent/team vocabulary | `docs/workflows/Product_Vocabulary.md` + code catalogs; historical cutover + optional hygiene backlog: `docs/archive/phases/Worker_To_Agent_Migration.md` |
-| Model catalog sprawl, effort variants, adding/removing default seats | archived `docs/archive/phases/Model_Catalog_Simplification.md` — Complete 2026-07-28; code SSOT AgentOS `CatalogLoader` + `catalog.json`, Allnighter `CatalogOverlayLoader` + `catalog_overlay.json`, `ModelCatalog.bundledRegistry()` |
 | GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
 | Spec Review hero loop | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope` |
@@ -117,7 +95,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
 | Shared Mac/iOS SwiftUI or `Packages/AllnighterUI` | `docs/gui/GUI_Workflow.md` §5 — default **no**; founder escalation required |
 | SwiftUI state, `@Observable`, replacing old view models | `docs/operations/SwiftUI_State_Rules.md` + `docs/gui/GUI_Workflow.md` |
-| **Visual** design, brand, styling, tokens, mocks, prototypes | `allnighter-design` skill → `docs/design-system/readme.md` + `docs/design-system/production.md` |
+| **Visual** design, brand, styling, tokens, mocks, prototypes | `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
 | Forward Mac app shell, Dock app, background scheduler | `alln serve` is a background SCHEDULER only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay). It owns no run semantics and `alln run` never needs it; adding an operation to it is a new feature packet. |
@@ -127,10 +105,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Team lab seat economics, roster ablation, named variants, necessity suite | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; built-in Teams ship as-is via `TeamCatalog`/`BuiltInTeams.swift` |
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
 | **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
-| PM↔dev unattended loop (mechanized copy-paste relay) | archived `docs/archive/phases/PM_Relay.md` + `Pilot_Relay.md` (code SSOT: `LoopCoordinator`, `PilotCLI`) |
-| Pilot/Relay long turn; harness reaped `pilot watch`; detached handoff binary/cwd; status vs watch | archived `docs/archive/phases/Pilot_Long_Turn_Survival.md` — code SSOT `PilotCLI.swift`, `LoopCoordinator.swift` |
 | GLM advisory review / serial hardening pass | `docs/operations/GLM_Worker_Best_Practices.md` + `docs/archive/phases/code_review/README.md` |
-| OpenCode smoke probe blocked (handoff) | archived `docs/archive/phases/OpenCode_Smoke_Probe_Blocker.md` (RESOLVED) |
 | Sprint closeout / committing work | `docs/operations/Execution-Playbook.md` § Commits |
 | Deslop pass (slice slop cleanup) | `docs/operations/Deslop.md` |
 | Code Audit (structural verdict at closeout) | `docs/operations/Code_Audit.md` |
@@ -144,27 +119,20 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | EULA, terms, acceptance gate, credential/compliance posture | `docs/legal/README.md` |
 | Strategy, control-loop thesis, A/B extension | `docs/strategy/` |
 
+| Anything already shipped and archived (closed hot fixes, completed migrations, retired machinery) | `docs/archive/phases/README.md` — the archive index. Closed packets are NOT routed from here; their durable truth is the code SSOT they name. |
+
 This table is first routing only. Narrower docs named by the target phase doc,
 GUI brief, or design-system page still apply.
 
 ## Commits
 
-The commit-queue/handoff watcher is **retired** (2026-06-18). Agents commit their
-own work directly with git — there is no queue, no `.wmd/commit-queue.jsonl`, and
-no `--wait` handoff. Codex has direct workspace git permissions.
+Agents commit their own work directly with git — no queue, no watcher, no
+`--wait` handoff. Stage **explicit paths**; never sweep unrelated dirty files
+into a commit; never `git reset --hard` or rewrite shared history on
+`feat/design-chain`. Finished work is not left uncommitted unless the waiver is
+explicit.
 
-At slice close, stage the explicit files you changed and commit with a clear
-message; finished work must not be left uncommitted (or the save is explicitly
-waived). Commit in small, regular increments rather than one large drop.
-
-```text
-git add <explicit-path> <explicit-path>
-git commit -m "<scope>: <what changed>"
-```
-
-Never `git reset --hard` or rewrite shared history on `feat/design-chain`; never
-sweep unrelated staged/dirty files into a commit (stage explicit paths). Full
-rules: `docs/operations/Execution-Playbook.md` § Commits.
+Full rules: `docs/operations/Execution-Playbook.md` § Commits.
 
 ## Project Laws
 
@@ -232,28 +200,18 @@ Ask before proceeding when the change could affect:
 
 ## Proof Wall (when code exists)
 
-Test infrastructure rules (TIU — standing in Execution Playbook § Green Wall;
-history: `docs/archive/phases/Test_Infrastructure_Upgrade.md`)
-
-1. Raw `swift test` / `xcodebuild test` do not work outside the wrapper (PATH shim).
-2. One test run per clone — second attempt fails fast with a lock message.
-3. Iteration proof = filtered only: `scripts/swift-test.sh --filter <TouchedTests>`
-4. `bash scripts/check.sh` = closeout only — never mid-slice, never in a fix→test loop.
-5. Do not run `swift test --list-tests` as routine (~8+ min cold).
-6. Lock failure or timeout is a stop signal — do not retry, poll, or wait-loop.
-7. Wedged Mac: `scripts/kill-stale-tests.sh`, then continue — do not stack full suites.
-8. Wall is admission-controlled (45m cooldown; CI exempt); genuine closeout: `ALLNIGHTER_WALL_REASON="<why>" bash scripts/check.sh`.
+Raw `swift test` / `xcodebuild test` are blocked by a PATH shim; the wrappers are
+the only working path, and they activate the shim themselves.
 
 ```text
-scripts/install-test-guard.sh   # optional: direnv for interactive shells (agents auto-activate via test scripts)
-scripts/swift-test.sh --filter LoopDispatch   # iteration proof
-bash scripts/check.sh           # closeout / founder-requested full wall (prints wall-clock at end)
-scripts/kill-stale-tests.sh     # emergency stale runner cleanup
+scripts/swift-test.sh --filter <TouchedTests>   # iteration proof
+bash scripts/check.sh                           # closeout ONLY, never mid-slice
+scripts/kill-stale-tests.sh                     # emergency stale-runner cleanup
 ```
 
-Test PATH shims auto-activate when any agent runs `check-fast.sh`, `swift-test.sh`,
-or `check.sh` (`scripts/ensure-test-guard-path.sh` prepends `scripts/bin` — no
-human `direnv allow` step required).
+A lock failure or timeout is a stop signal — do not retry, poll, or wait-loop.
+Binding rules (one run per clone, admission control, `ALLNIGHTER_WALL_REASON`):
+`docs/operations/Execution-Playbook.md` § Green Wall.
 
 Until Xcode targets exist, name the missing proof in closeout. Do not claim
 behavior is proven without a Works Test or explicit waiver.
