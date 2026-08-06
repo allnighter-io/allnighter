@@ -18,7 +18,7 @@ public extension ContractRegistry {
     // HY-S04: patch — retired pair pilot handoff summary drops false loop step --no-wait.
     // OCG-S09: minor — capacity six→seven seats; --dogfood no longer gates opencode_go;
     // register opencode-go configure + status commands; new help topic.
-    static let contractVersion = "9.4.0"
+    static let contractVersion = "9.5.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,

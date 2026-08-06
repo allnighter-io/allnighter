@@ -344,10 +344,22 @@ public enum TeamRunJSONMapper {
             ObservedUsagePresentation.singleSeatUsage(for: run)
         )
         let wallMs = observedWallMs(run)
+        let outcomeStatus = mapOutcomeStatus(run)
+        let changed = run.repoDelta?.changed == true
+        // Only meaningful for a mutating run that claims success: a read-only
+        // run producing no diff is correct, not a mismatch.
+        let completedWithoutChanges: Bool? = {
+            guard run.mutating else { return nil }
+            switch outcomeStatus {
+            case .completed, .partial: return !changed
+            case .failed, .timedOut: return nil
+            }
+        }()
         return TeamRunJSON.Outcome(
-            status: mapOutcomeStatus(run),
-            committed: run.repoDelta?.changed == true,
+            status: outcomeStatus,
+            committed: changed,
             headline: RunIdentity.outcomeHeadline(run, wallMs: wallMs),
+            completedWithoutChanges: completedWithoutChanges,
             commitMessageMatched: commitMatched,
             proof: proof,
             usage: usage,

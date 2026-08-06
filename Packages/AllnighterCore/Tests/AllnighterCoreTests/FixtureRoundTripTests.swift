@@ -148,7 +148,10 @@ final class FixtureRoundTripTests: XCTestCase {
         // three-key observation with null lastActivityAt; workerActivity.data.tool).
         // OCG-S09 bumps contract 9.3.0 → 9.4.0 (additive: `opencode-go configure`
         // and `opencode-go status` registered; capacity seat list now derived).
-        XCTAssertEqual(trj.contractVersion, "9.4.0")
+        // Claim-vs-reality bumps contract 9.4.0 → 9.5.0 (additive:
+        // outcome.completedWithoutChanges — a mutating run that reported
+        // success and changed nothing).
+        XCTAssertEqual(trj.contractVersion, "9.5.0")
         XCTAssertEqual(trj.artifact?.openCommand, "alln artifact show \(trj.teamRun.id)")
         XCTAssertNotNil(trj.artifact?.path)
         XCTAssertEqual(trj.teamRun.status, .done)   // public word is "done", not internal "complete"

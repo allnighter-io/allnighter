@@ -653,6 +653,20 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var status: Status
         public var committed: Bool
         public var headline: String
+        /// A **mutating** run that reported success and changed nothing.
+        ///
+        /// Absent for read-only runs, where producing no diff is correct. `true`
+        /// is not an error either — a work order can legitimately need no edit —
+        /// but it is the one claim-vs-reality mismatch that is mechanically
+        /// checkable without judging the work: the worker said done, the repo
+        /// says nothing happened. Reported separately from `status` because
+        /// `status: done` alone reads as success and hides it.
+        ///
+        /// This is deliberately NOT a quality signal. A green test proves the
+        /// test is green; a commit proves only that bytes changed. The single
+        /// thing this catches is a run that delivered literally nothing while
+        /// claiming otherwise.
+        public var completedWithoutChanges: Bool?
         /// Present when `--commit-message` was given — compares newest commit subject to the request.
         public var commitMessageMatched: Bool?
         /// Present when `--proof` was given — bounded subprocess result after worker settlement.
@@ -664,12 +678,14 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
 
         public init(
             status: Status, committed: Bool, headline: String,
+            completedWithoutChanges: Bool? = nil,
             commitMessageMatched: Bool? = nil, proof: Proof? = nil, usage: TokenUsage? = nil,
             timing: Timing? = nil
         ) {
             self.status = status
             self.committed = committed
             self.headline = headline
+            self.completedWithoutChanges = completedWithoutChanges
             self.commitMessageMatched = commitMessageMatched
             self.proof = proof
             self.usage = usage
