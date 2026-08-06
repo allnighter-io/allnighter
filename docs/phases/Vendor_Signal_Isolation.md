@@ -1,7 +1,11 @@
 # Vendor Signal Isolation
 
 Status: **Open — VSI-S01/S02 implementation-ready as one landing unit; VSI-S04
-and VSI-S05 implementation-ready; VSI-S03 requires the §10.1 founder ruling.**
+and VSI-S05 implementation-ready; VSI-S03 unblocked for its AgentOS half and
+label separation by the §10.2 ruling, with only the persisted-park disposition
+still gated on §10.1.**
+Rulings landed: **§10.2 (founder, 2026-08-06)** — delete the lie, keep the
+cadence, separate the labels.
 Priority: **Above `Agent_Teaching_Surface.md`.** That packet teaches agents to
 delegate; this one stops the bench lying about why delegation failed. Teaching a
 caller to trust a surface that misreports vendor state is worse than not teaching
@@ -476,7 +480,14 @@ AgentOS changes:
   - `makeObservation`
 - `Tests/AgentOSCLITests/CapacityClassifierTests.swift`
 
-Allnighter symbols that must be audited after §10.1 is answered:
+Per the §10.2 ruling, the AgentOS half is now unblocked: the classifier stops
+emitting unobserved numbers, and no scheduler behaviour changes. The Allnighter
+symbols below are audited for **label separation** — a locally computed boundary
+must never be stored or rendered as a vendor-stated reset — and the persisted
+disposition still waits on §10.1.
+
+Allnighter symbols audited for label separation (persisted disposition still
+gated on §10.1):
 
 - `Packages/AllnighterCore/Sources/AllnighterCore/VendorBackoffPolicy.swift`
   - `shouldPark`
@@ -502,6 +513,11 @@ Mutation gates:
 - restoring either default constant fails the nil test;
 - restoring `blocker.wakeAfter ?? unknownResetWakeAfter(...)` as displayed vendor
   truth fails the display test;
+- rendering a locally computed boundary in vendor-reset wording ("resumes
+  around …") fails the label-separation test (§10.2 rule 3);
+- **negative gate:** deleting or altering `unknownResetWakeAfter`'s scheduling
+  behaviour must also fail — §10.2 rule 2 keeps the cadence, and a slice that
+  quietly removes it has exceeded its mandate;
 - leaving the recorded Qwen fixture in `waitingForVendor` after the chosen
   migration fails the persisted-park test.
 
@@ -646,17 +662,47 @@ Founder ruling required before VSI-S03:
 Whichever ruling lands must be encoded in
 `testPersistedFabricatedQwenParkFollowsFounderDisposition`. No new CLI is needed.
 
-### 10.2 Local recheck cadence versus explicit-only retry
+### 10.2 Local recheck cadence — RULED (founder, 2026-08-06)
 
-`VendorBackoffPolicy.unknownResetWakeAfter` deliberately implements a local
-cadence for structured account limits without reset truth.
-`VendorBackoffWakePlanner.plan` and `RunStore.claimVendorWake` fall back to it.
+**Ruling: delete the lie, keep the cadence, separate the labels.** Local
+rechecks remain allowed. The reviewer was correct that the earlier draft's
+“next explicit request only” was a quota-spend and continuity policy change
+smuggled in as a mechanical consequence; it is rejected.
 
-The earlier draft recommended “next explicit request only.” That is a
-quota-spend and continuity policy change, not a mechanical consequence of
-removing fabricated observation fields. It must not be silently bundled into
-VSI-S03. The founder must confirm whether local rechecks remain allowed and, if
-so, how the UI distinguishes a local recheck from a vendor-stated reset.
+This resolves the question into three binding rules, and they are the whole of
+it:
+
+1. **The observation never carries an unobserved number.** When the vendor
+   supplies no reset, `observedResetAt`, `retryAfterSeconds`, and
+   observation-level `wakeAfter` are nil. This follows from
+   `CapacityObservation`'s own field contract — *"Present only when the CLI/API
+   provided a reset time or duration"* — and holds independently of this
+   incident. Zero samples are required to justify it.
+2. **The scheduler keeps its cadence.** `VendorBackoffPolicy.unknownResetWakeAfter`,
+   `VendorBackoffWakePlanner.plan`, and `RunStore.claimVendorWake` are retained
+   unchanged in behaviour. A local recheck boundary is legitimate scheduling and
+   is not evidence of anything about the vendor.
+3. **The two must never be presented as the same fact.** A locally computed
+   boundary is stored and displayed as local policy, never as vendor truth.
+   Surface wording distinguishes them: a vendor-stated reset may read
+   *"resumes around <time>"*; a local boundary must read *"recheck at <time>"*
+   or equivalent. `alln ps`, `alln show`, and the capacity strip all obey this.
+
+Anti-overfit guards, stated because this packet rests on one incident:
+
+- Do **not** retune `unknownResetWakeAfter` to a different constant on the
+  strength of one Qwen sample. The incident shows the *label* was wrong, not
+  that the interval was.
+- Do **not** add per-vendor windows from single observations. Populate
+  `capacity.windows` only where the vendor documents its window; absent beats
+  guessed.
+- The one Qwen fact this packet may rely on is the founder's statement that
+  Qwen has no hourly window, weekly only — and it is used to show the number was
+  fabricated, never to derive a replacement number.
+
+Gate: `testNilVendorResetDoesNotDisplayAsVendorWake` (already named in VSI-S03)
+now has a fixed expected outcome rather than a pending one, and a second gate
+asserts a locally computed boundary is not rendered in vendor-reset wording.
 
 ### 10.3 Fixture capture
 
