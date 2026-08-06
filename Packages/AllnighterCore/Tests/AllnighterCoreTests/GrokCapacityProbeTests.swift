@@ -133,4 +133,49 @@ final class GrokCapacityProbeTests: XCTestCase {
         let render = "Weekly limit: 54%"
         XCTAssertNil(GrokCapacityProbe.parse(renderText: render, observedAt: observedAt))
     }
+
+    func testCreditRemainingLineDoesNotOverwriteWeeklyLimitUsed() {
+        let render = """
+        Weekly limit: 100%
+        Credits: 100% remaining
+        Next reset: August 7, 11:11
+        """
+        let w = GrokCapacityProbe.parse(renderText: render, observedAt: observedAt)
+        XCTAssertNotNil(w)
+        XCTAssertEqual(w?.usedPercent, 100.0, "weekly limit is used-polarity; credit remaining must not clobber")
+        XCTAssertEqual(w?.asCapacityWindow().remainingPercent, 0.0)
+    }
+
+    func testWeeklyLimitZeroPercentIsEmptyNotExhausted() {
+        let render = """
+        Weekly limit: 0%
+        Next reset: August 7, 11:11
+        """
+        let w = GrokCapacityProbe.parse(renderText: render, observedAt: observedAt)
+        XCTAssertNotNil(w)
+        XCTAssertEqual(w?.usedPercent, 0.0)
+        XCTAssertEqual(w?.asCapacityWindow().remainingPercent, 100.0)
+    }
+
+    func testWeeklyLimitLeftAndUsedRowsPreferCanonicalUsed() {
+        let render = """
+        Weekly limit left: 0% · Session usage is unavailable until the session starts.
+        Weekly limit: 100%Next reset: August 7, 11:11
+        """
+        let w = GrokCapacityProbe.parse(renderText: render, observedAt: observedAt)
+        XCTAssertNotNil(w)
+        XCTAssertEqual(w?.usedPercent, 100.0)
+        XCTAssertEqual(w?.asCapacityWindow().remainingPercent, 0.0)
+    }
+
+    func testWeeklyLimitLeftAloneUsesRemainingPolarity() {
+        let render = """
+        Weekly limit left: 58%
+        Next reset: August 7, 11:11
+        """
+        let w = GrokCapacityProbe.parse(renderText: render, observedAt: observedAt)
+        XCTAssertNotNil(w)
+        XCTAssertEqual(w?.usedPercent, 42.0)
+        XCTAssertEqual(w?.asCapacityWindow().remainingPercent, 58.0)
+    }
 }

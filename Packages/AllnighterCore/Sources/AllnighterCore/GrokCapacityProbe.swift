@@ -73,19 +73,42 @@ public enum GrokCapacityProbe {
         var resetAt: Date? = nil
         var subscriptionTier: String? = nil
 
+        // Grok's /usage pane can print two weekly rows:
+        //   `Weekly limit: 42%`          — used-% (matches creditUsagePercent)
+        //   `Weekly limit left: 58%`     — remaining headroom
+        // Scan both; prefer the canonical used row when present.
+        var weeklyUsedCanonical: Double? = nil
+        var weeklyUsedFromRemaining: Double? = nil
         for line in lines {
             let stripped = stripBoxChars(line)
             let lower = stripped.lowercased()
+            guard lower.contains("weekly limit") else { continue }
+            if lower.contains("left") || lower.contains("remaining") {
+                if let pct = parsePercent(from: stripped, remainingPolarity: true) {
+                    weeklyUsedFromRemaining = pct
+                }
+            } else if let pct = parsePercent(from: stripped, remainingPolarity: false) {
+                weeklyUsedCanonical = pct
+            }
+        }
+        usedPercent = weeklyUsedCanonical ?? weeklyUsedFromRemaining
 
-            // "Weekly limit: 100%" — bare percent, used-polarity (Grok TUI format).
-            // Also handles "54% used", "54.0% of weekly limit used".
-            if lower.contains("weekly limit") || lower.contains("% used") || lower.contains("credit") {
-                // Grok TUI: "Weekly limit: X%" — the number is used-percent.
-                let isRemaining = lower.contains("% left") || lower.contains("% remaining")
-                if let pct = parsePercent(from: stripped, remainingPolarity: isRemaining) {
+        // Fallback when the weekly rows are missing from the capture.
+        if usedPercent == nil {
+            for line in lines {
+                let stripped = stripBoxChars(line)
+                let lower = stripped.lowercased()
+                guard lower.contains("% used") else { continue }
+                if let pct = parsePercent(from: stripped, remainingPolarity: false) {
                     usedPercent = pct
+                    break
                 }
             }
+        }
+
+        for line in lines {
+            let stripped = stripBoxChars(line)
+            let lower = stripped.lowercased()
 
             // "Next reset: July 31, 11:11" or "Resets in 6d 3h" or other reset forms.
             if lower.contains("next reset") || lower.contains("reset") {
