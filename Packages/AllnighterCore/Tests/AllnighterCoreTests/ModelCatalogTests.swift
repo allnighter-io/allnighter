@@ -43,7 +43,8 @@ final class ModelCatalogTests: XCTestCase {
         // GPT-5.6 Luna added default-on on Economy bench (17 → 18).
         // Muse Spark 1.2 seats added default-on 2026-08-05 (18 → 20).
         // OpenCode Go seats added default-on 2026-08-05 (20 → 27).
-        XCTAssertEqual(models.filter(\.enabled).count, 27)
+        // Qwen Code CLI seat added default-on 2026-08-06 (27 → 28).
+        XCTAssertEqual(models.filter(\.enabled).count, 28)
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
         XCTAssertEqual(models.first { $0.id == "model_agy_sonnet" }?.displayName, "Sonnet 4.6 (Antigravity)")
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.modelLabel, "Claude Opus 4.6 (Thinking)")

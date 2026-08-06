@@ -341,6 +341,10 @@ public enum MenuSelectionCopy {
             useWhen: "Qwen 3.8 Max, OpenCode Go",
             dontUseWhen: "OpenCode Go required"
         ),
+        "model_qwen_38_max": Pair(
+            useWhen: "Qwen 3.8 Max, Qwen Code CLI",
+            dontUseWhen: "Pin seat; model_qwen_38_max"
+        ),
         "model_opencode_deepseek_v4_pro": Pair(
             useWhen: "DeepSeek V4 Pro, OpenCode Go",
             dontUseWhen: "OpenCode Go required"

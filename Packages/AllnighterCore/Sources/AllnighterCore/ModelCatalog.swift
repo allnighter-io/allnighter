@@ -67,7 +67,8 @@ public enum ModelCatalog {
             return "gemini"
         case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
             return "cursor_native"
-        case "model_opencode_qwen_38_max", "model_opencode_qwen_37_max", "model_opencode_qwen_37_plus":
+        case "model_qwen_38_max",
+             "model_opencode_qwen_38_max", "model_opencode_qwen_37_max", "model_opencode_qwen_37_plus":
             return "qwen"
         case "model_opencode_deepseek_v4_pro", "model_opencode_deepseek_v4_flash":
             return "deepseek"
@@ -94,6 +95,7 @@ public enum ModelCatalog {
         case "grok": return "grok"
         case "kimi": return "kimi"
         case "muse": return "muse"
+        case "qwen": return "qwen"
         default:
             return "driver:\(driverId)"
         }

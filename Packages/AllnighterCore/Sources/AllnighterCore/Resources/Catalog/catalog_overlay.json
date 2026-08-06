@@ -524,6 +524,23 @@
       },
       "defaultOn": true
     },
+    "model_qwen_38_max": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 92
+      },
+      "defaultOn": true
+    },
     "model_opencode_deepseek_v4_pro": {
       "caliber": {
         "capabilityTags": [

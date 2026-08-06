@@ -12,7 +12,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.tierDefault(.frontier), "model_fable")
         // Frontier: Fable + Codex Sol + Kimi K3. Cursor Sol is never seeded.
         XCTAssertEqual(s.tiers.frontier, [
-            "model_fable", "model_gpt_sol", "model_kimi_k3",
+            "model_fable", "model_gpt_sol", "model_kimi_k3", "model_qwen_38_max",
             "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
         ])
         XCTAssertFalse(s.tiers.frontier.contains("model_cursor_gpt_sol"))
@@ -23,8 +23,8 @@ final class DefaultModelSettingsTests: XCTestCase {
             "model_opencode_qwen_37_max", "model_opencode_deepseek_v4_pro", "model_opencode_minimax_m3",
         ])
         XCTAssertEqual(s.tiers.economy, [
-            "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
-            "model_cursor_auto", "model_gemini",
+            "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_qwen_38_max",
+            "model_cursor_composer_25", "model_cursor_auto", "model_gemini",
             "model_opencode_minimax_m3", "model_opencode_deepseek_v4_flash",
             "model_opencode_qwen_37_plus",
         ])
@@ -121,6 +121,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.tiers.tiers(of: "model_gpt_luna"), [.economy])
         XCTAssertEqual(s.tiers.tiers(of: "model_agy_sonnet"), [.economy])
         XCTAssertEqual(s.tiers.tiers(of: "model_kimi_k27"), [.economy])
+        XCTAssertEqual(s.tiers.tiers(of: "model_qwen_38_max"), [.frontier, .economy])
         XCTAssertEqual(s.tierDefault(.economy), "model_gpt_luna")
         XCTAssertEqual(s.tiers.tiers(of: "model_agy_opus"), [.balanced])
         XCTAssertTrue(s.tiers.isUnassigned("model_grok_composer_25_fast"))
@@ -329,7 +330,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         let reset = try p.reset()
         XCTAssertEqual(reset.defaultTier, .frontier)
         XCTAssertEqual(reset.tiers.frontier, [
-            "model_fable", "model_gpt_sol", "model_kimi_k3",
+            "model_fable", "model_gpt_sol", "model_kimi_k3", "model_qwen_38_max",
             "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
         ])
     }

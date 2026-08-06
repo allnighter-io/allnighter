@@ -229,7 +229,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// Fresh-install seed: ordered membership per tier across multiple CLIs so
     /// substitution always has somewhere to go even when a user has only one or two
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
-    /// Frontier: Fable, Codex Sol, Kimi K3, OpenCode Go frontier seats. Balanced:
+    /// Frontier: Fable, Codex Sol, Kimi K3, Qwen 3.8 Max, OpenCode Go frontier seats. Balanced:
     /// everyday seats including Antigravity Opus 4.6 (separate Claude quota pool)
     /// and Composer 2.5 (not the vendor "Fast" SKUs) spans Balanced + Economy.
     /// Economy: Antigravity Sonnet 4.6, GPT-5.6 Luna, K2.7, Composer 2.5, Auto,
@@ -241,7 +241,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         allowHealthySubstitutions: true,
         tiers: TierMembership(
             frontier: [
-                "model_fable", "model_gpt_sol", "model_kimi_k3",
+                "model_fable", "model_gpt_sol", "model_kimi_k3", "model_qwen_38_max",
                 "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
             ],
             balanced: [
@@ -251,8 +251,8 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
                 "model_opencode_qwen_37_max", "model_opencode_deepseek_v4_pro", "model_opencode_minimax_m3",
             ],
             economy: [
-                "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
-                "model_cursor_auto", "model_gemini",
+                "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_qwen_38_max",
+                "model_cursor_composer_25", "model_cursor_auto", "model_gemini",
                 "model_opencode_minimax_m3", "model_opencode_deepseek_v4_flash",
                 "model_opencode_qwen_37_plus",
             ]))
