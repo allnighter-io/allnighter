@@ -229,12 +229,45 @@ thing that makes route-down work at all. Both defects caught today — the
 partial-sample P0 and this content hash — passed green suites written by the
 seat that introduced them.
 
-Caveat this hard: n=6, one slice each, all in one subsystem, all specified by
-the same lead, all reviewed by that same lead. Every "correct" verdict is the
-lead's own judgement of a brief the lead wrote — a real confound, and the exact
-reason SAR-S03 must measure hit rate against an independent gate rather than
-against the router's author. It is enough to justify measuring. It is not
-enough to route on.
+### Full session tally — 2026-08-06
+
+The OpenCode Go CLI beta shipped through **13 delegated build slices** across
+seven seats (ranks 55–90, plus Sonnet 5 via Claude). **9 landed clean. 4 needed
+intervention:**
+
+| Failure | Slice | How it was caught |
+| --- | --- | --- |
+| Subtly wrong mechanism | Whole-body hash where a structural fingerprint was required — could never answer the question it was added for | Lead review of the brief's *purpose*, not its letter |
+| Shipped red | Contract slice committed with 5 failing tests despite the brief naming the proof command | Lead re-ran the gate |
+| Test that could not fail | "Host boundary survival" spawned `/bin/sh` with `nohup`, never referenced `DetachedDispatch` — proved POSIX, not our code | Lead grepped for the symbol under test |
+| No work delivered | Second attempt at the same test returned a package-structure report and never committed | Watcher reported `NO COMMIT` |
+
+Also caught by a **read-only** seat (Cursor Grok 4.5) rather than any gate:
+nine real defects in freshly-written code, including two wrong-number vectors
+and a cookie-leak path — and one defect the lead had introduced.
+
+**Every single failure was caught by re-running the gate, mutation-testing, or
+grepping for the symbol under test. Not one was caught by the delivering seat's
+own report**, and in three of the four cases that report said the work was
+complete and green.
+
+This is the sharpest result the packet has. It does not say delegation fails —
+9 of 13 landed clean, including from the cheapest seat on the bench. It says
+**the independent gate is not a safety net bolted onto route-down; it is the
+component that makes route-down viable.** Any future SAR-S03 measurement of
+"economy hit rate" that trusts self-reported success would have recorded 13/13
+and been wrong four times.
+
+Second-order finding: the lead is not exempt. Two of the defects fixed today
+were the lead's own (a placeholder masking a real auth failure, an incomplete
+commit whose `git add` silently failed), and both were caught the same way —
+by an independent reader or a re-run gate, not by the author.
+
+Caveat this hard: one subsystem, one lead writing every brief and judging every
+result. The verdicts are that lead's own judgement of its own specifications —
+a real confound, and the exact reason SAR-S03 must measure against a gate the
+router did not author. It is enough to justify measuring. It is not enough to
+route on.
 
 ## 6. Inference bans (draft)
 
