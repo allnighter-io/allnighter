@@ -179,6 +179,46 @@ rulings 1, 2, and 3. Recorded here only so a future reader can see it was
 considered and why it is not the plan. Would require an explicit founder ruling
 reversing `Menu_Not_Router.md`.
 
+## 5a. First observed evidence — 2026-08-05
+
+Three OpenCode seats were given real slices of `OpenCode_Go_Capacity.md` on the
+same afternoon, each verified by the lead running the filtered suite itself
+rather than trusting the seat's report. This is the only measured data this
+packet has; it is three data points, not a benchmark.
+
+| Seat | Rank | Slice | Wall | Outcome |
+| --- | --- | --- | --- | --- |
+| GLM-5.2 | 88 | Bound the URLSession transport | 138s | **Correct.** Stayed in scope, and added unprompted hardening that was right — dropped shared cookie storage and cache for a cookie-bearing request |
+| DeepSeek V4 Pro | 90 | Enrich `ScrapeDiagnostics` for the promotion gate | 225s | **Subtly wrong.** Followed the repo's CryptoKit convention correctly, but shipped a whole-body content hash where the stated purpose needed a structural fingerprint. Passed its own green suite |
+| Qwen 3.7 Plus | 65 | Replace that content hash with a structural fingerprint | 114s | **Correct.** Proved both required properties, and added a `<script nonce>` to the fixture unprompted to show nonces don't perturb it |
+
+**The uncomfortable finding: the economy seat succeeded where the strongest
+seat failed.** Rank did not predict outcome on these three slices.
+
+What separated them was **specification quality, not seat strength**. DeepSeek's
+brief named the field to add and let it choose the mechanism; the wrong
+mechanism satisfied every word of the brief and every assertion of its test.
+Qwen's brief stated the required *property* — stable across value changes,
+sensitive to shape changes — so there was no wrong answer that passed.
+
+Provisional read, on far too little data to be a law:
+
+> Route-down risk tracks how much **design judgment** the slice leaves to the
+> seat, not how strong the seat is. A tightly-specified, property-gated slice is
+> cheap to route down. A slice where the seat must *choose the mechanism* is
+> where a strong seat earns its scarcity — and where a green suite is worth
+> least.
+
+This sharpens Layer 2 (§5) and directly answers open question 2 in a direction
+nobody expected: the gate is not a safety net bolted onto route-down, it is the
+thing that makes route-down work at all. Both defects caught today — the
+partial-sample P0 and this content hash — passed green suites written by the
+seat that introduced them.
+
+Caveat this hard: n=3, one slice each, all in one subsystem, all specified by
+the same lead. It is enough to justify measuring in SAR-S03. It is not enough to
+route on.
+
 ## 6. Inference bans (draft)
 
 | Junction | Possible bad inference | Ban |

@@ -188,6 +188,36 @@ reduces configuration and integration surface; it does not weaken truthfulness.
 
 ---
 
+## Implementation status — 2026-08-05
+
+Spike OCG-S00–S03 landed at `5147dc0b`, then four PM-review defects were fixed.
+All work verified by `scripts/swift-test.sh --filter OpenCodeGo` run by the lead
+independently of the implementing seat (23 tests green).
+
+| Commit | Change | Seat |
+| --- | --- | --- |
+| `5147dc0b` | Spike: gate, parser, client, executor, ledger, strip wiring | Cursor |
+| `d5c23bdb` | **P0** — per-window range checks emitted a partial sample (one bad value → unknown for that window, fresh percentages for its two siblings, including invented `0%`). Validation moved into `parseSample`; any invalid value now fails the whole sample closed as `.invalidValue`, a case that until then was declared but never emitted | lead |
+| `75a24e20` | **P1** — `looksLikeLoginPage` returned true on any page containing `/sign-in`, a substring a SolidJS route manifest inlines on the real dashboard, so a good page with parseable numbers would be reported as an auth failure. All HTML heuristics now require absence of usage markers | lead |
+| `fbb00960` | **P1** — `URLSessionTransport` used `URLSession.shared`, whose `timeoutIntervalForResource` defaults to 7 days, so the synchronous fetch had no ceiling. Now an ephemeral bounded session; also drops shared cookie storage and cache, which the cookie-bearing request wants anyway | GLM-5.2 |
+| `cc7dc31` | `ScrapeDiagnostics` gained `contentType`, `finalURLClass` (redacted), `missingFields`, `bodyFingerprint` so a drift entry can distinguish one rollout from two | DeepSeek V4 Pro |
+| `f40db6c9` | **Follow-up** — `bodyFingerprint` hashed the whole body, which changes every request on a live page and so could never answer the same-rollout question it was added for. Now hashes structural shape (`data-slot` values + SSR window keys) only | Qwen 3.7 Plus |
+
+Both `d5c23bdb` and `f40db6c9` fixed defects that had passed a **green suite** —
+the first because the test asserted only that the bad window was unknown, the
+second because a content hash trivially satisfies "records a hash." Both are the
+`Spec_Review.md` §3 measurement failure: a proof that could not fail.
+
+### Still open on the spike
+
+| Item | Why it matters |
+| --- | --- |
+| `--dogfood` returns before the capacity feature-enabled check | CWB-S01b requires zero probes from every trigger when the feature is OFF |
+| No committed fixtures under `Tests/Fixtures/opencode-go/` | Tests use inline HTML literals, which prove the logic but carry no capture-date/strategy provenance and cannot detect real-page drift |
+| Qualification: **0 of 14 days, 0 of 100 refreshes, 0 of 20 browser comparisons** | Founder-only; the clock starts on the first live credentialed refresh |
+
+---
+
 ## Dogfood CLI (spike only)
 
 First **developer-gated** capacity surface in ALLN (`--dogfood` on the existing
@@ -752,7 +782,10 @@ ledger to replace `/go` %.
 ## Done when (spike — OCG-S00–S03)
 
 - [x] `--dogfood` required for `opencode_go`; refused without it
-- [x] `OpenCodeGoCapacityProbe` parses fixtures → three windows with % + reset (atomic)
+- [~] `OpenCodeGoCapacityProbe` → three windows with % + reset, atomic on failure.
+  Parsing and atomicity are proven; **fixtures are not** — the tests use inline
+  HTML literals, so there is no captured-page provenance and nothing that can
+  detect real-page drift. Do not read this line as fixture coverage.
 - [x] Env-only credentials; both-or-neither; no Keychain; no encrypted file in spike
 - [x] `alln capacity --dogfood --refresh --source opencode_go` shows seventh row when configured
 - [x] `CapacityProbe` / PTY path unchanged (grep: no opencode_go / cookie / HTML scrape in PTY file)
