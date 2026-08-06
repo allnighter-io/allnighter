@@ -1,6 +1,8 @@
 # Vendor Signal Isolation
 
-Status: **Open — VSI-S01/S02 ready to implement. All 13 defects from the
+Status: **VSI-S01/S02 SHIPPED (AgentOS `6f66bdd`, 21/21 green, four mutations
+proven red). VSI-S03 next.**
+Previously: **Open — VSI-S01/S02 ready to implement. All 13 defects from the
 adversarial pass (Grok 4.5, read-only, 2026-08-06) are cleared; see §11.
 VSI-S03's persisted-park disposition still waits on the §10.1 founder ruling;
 the rest of S03, plus S04 and S05, are ready.**
@@ -475,7 +477,35 @@ assumed `answer != null` implies `status == done` need a regression test.
 
 ## 8. Slices and gates
 
-### VSI-S01/S02 — Source isolation hotfix
+### VSI-S01/S02 — Source isolation hotfix — **SHIPPED** (AgentOS `6f66bdd`)
+
+Landed 2026-08-06. 21/21 green; all 14 pre-existing tests unchanged. Each
+mutation applied, observed red, reverted: sequential dispatch → 2 red; raw-line
+matching → 1 red; bare status substring → 2 red; dropped source guard → 3 red.
+
+**Two findings the spec did not contain, both for later slices:**
+
+1. **The bare status string lived in TWO pattern lists**, not one —
+   `paymentPatterns` *and* `capacityPatterns`. Removing it from the first left
+   the false positives intact via the second. Three reviewers and two authors
+   named only one. Any future "remove a pattern" slice must grep for every list
+   holding the token, not the one the spec names.
+2. **A gate this packet specified could not fail.** The raw-line mutation turned
+   nothing red, because removing the bare digits already blocked that path. It
+   needed a discriminating test (benign resolved message, phrase only in the
+   surrounding raw JSON, exit 0 so the text fallback cannot interfere). Written
+   as `testGrokPaymentPhraseOutsideMessageDoesNotMatch`. **Fourth occurrence of
+   a decoration gate in this packet's history** — and the only reason it did not
+   ship is that the mutation was actually run rather than asserted.
+
+Also confirmed in passing: `makeObservation` already downgrades
+`.messageFallback` → `.localPolicy` when a reset was not sourced. That safety net
+existed; `classifyGrokJSON` defeated it by passing `.structured` literally, which
+is why a fabricated wake was presented as certainty. And the auth path in the
+same file was already scoped to stderr with a comment recording this exact
+failure mode — §3.6 again, next door.
+
+Original spec follows.
 
 Land these identifiers as one AgentOS change.
 
