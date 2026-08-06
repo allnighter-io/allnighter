@@ -526,3 +526,62 @@ final class OpenCodeGoCredentialPersistenceTests: XCTestCase {
         XCTAssertEqual(resolved.credentials, sample)
     }
 }
+
+/// The dashboard result must REPLACE the acquisition placeholder for the Go
+/// seat, never sit behind it. CapacityAcquisition emits a `neverSampled` row
+/// for every bench member including Go, and the projection takes the FIRST
+/// unknownReason per source — so appending let the placeholder win and painted
+/// a real auth failure as "never sampled". That invents the cause: the owner
+/// reads "not set up yet" while the actual problem is a dead cookie.
+final class OpenCodeGoPlaceholderMaskingTests: XCTestCase {
+
+    private let observedAt = Date(timeIntervalSince1970: 1_754_000_000)
+
+    private struct AuthFailingTransport: OpenCodeGoCapacityClient.Transport {
+        func data(for request: URLRequest) throws -> (Data, URLResponse) {
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 401, httpVersion: nil, headerFields: nil
+            )!
+            return (Data(), response)
+        }
+    }
+
+    private final class DiscardingSink: OpenCodeGoLedgerSink, @unchecked Sendable {
+        func append(_ entry: OpenCodeGoCapacityExecutor.ScrapeDiagnostics) {}
+    }
+
+    func testRealAuthFailureIsNotMaskedByTheAcquisitionPlaceholder() throws {
+        let outcome = OpenCodeGoCapacityExecutor.execute(
+            now: observedAt,
+            credentials: .init(workspaceId: "wrk_TESTONLY", authCookie: "testonly"),
+            transport: AuthFailingTransport(),
+            ledger: DiscardingSink()
+        )
+        // The executor itself must report the real cause.
+        XCTAssertTrue(outcome.windows.allSatisfy { $0.unknownReason == .authRequired(observedAt: observedAt) })
+
+        // And after merging with a full bench acquisition (which contributes a
+        // neverSampled placeholder for the same source), the real cause must
+        // still be what the projection reports.
+        let bench = CapacityAcquisition.windows(now: observedAt, refresh: false)
+        let merged = bench.filter { $0.source != CapacityAcquisition.dogfoodSourceId } + outcome.windows
+        let rows = CapacityBenchProjection.rows(from: merged, now: observedAt)
+        let go = try XCTUnwrap(rows.first { $0.source == CapacityAcquisition.dogfoodSourceId })
+        XCTAssertEqual(
+            go.unknownReason, .authRequired(observedAt: observedAt),
+            "a real auth failure must not be reported as neverSampled"
+        )
+
+        // Proof this test can fail: the OLD merge order (append, do not filter)
+        // really does mask the cause. Without this, the assertion above could
+        // be passing for reasons unrelated to the fix.
+        let maskedRows = CapacityBenchProjection.rows(
+            from: bench + outcome.windows, now: observedAt
+        )
+        let masked = try XCTUnwrap(maskedRows.first { $0.source == CapacityAcquisition.dogfoodSourceId })
+        XCTAssertEqual(
+            masked.unknownReason, .neverSampled,
+            "if this ever stops masking, the filter in CapacityFetch is no longer load-bearing and this test should be revisited"
+        )
+    }
+}

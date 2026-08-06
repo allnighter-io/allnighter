@@ -57,7 +57,16 @@ public enum CapacityFetch {
         let dashboardWindows = wantsDashboard
             ? OpenCodeGoCapacityExecutor.execute(now: now).windows
             : []
-        let allWindows = windows + dashboardWindows
+        // REPLACE the acquisition placeholder for the Go seat rather than
+        // appending after it. CapacityAcquisition emits a neverSampled row for
+        // every benchSourceOrder member, Go included, and the projection takes
+        // the FIRST unknownReason it sees for a source. Appending therefore let
+        // the placeholder win and painted a real authRequired or schemaDrift as
+        // "never sampled" — inventing the CAUSE, which reads as "not set up yet"
+        // and hides that the cookie is dead or the page shape moved.
+        let allWindows = dashboardWindows.isEmpty
+            ? windows
+            : windows.filter { $0.source != CapacityAcquisition.dogfoodSourceId } + dashboardWindows
         try? historyStore.record(allWindows, now: now)
         let rows = CapacityBenchProjection.rows(from: allWindows, now: now)
         return Snapshot(now: now, windows: allWindows, rows: rows)
@@ -104,7 +113,10 @@ public enum CapacityFetch {
         }
         let six = CapacityAcquisition.windows(now: now, refresh: false)
         let outcome = OpenCodeGoCapacityExecutor.execute(now: now)
-        let windows = six + outcome.windows
+        // Same placeholder-masking hazard as liveSnapshot above: drop the
+        // acquisition placeholder for the Go seat before appending the real
+        // dashboard result.
+        let windows = six.filter { $0.source != CapacityAcquisition.dogfoodSourceId } + outcome.windows
         let rows = CapacityBenchProjection.rows(from: windows, now: now)
         let snapshot = Snapshot(now: now, windows: windows, rows: rows)
         return (snapshot, outcome.diagnostics)
