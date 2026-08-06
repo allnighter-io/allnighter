@@ -18,7 +18,7 @@ enum OpenCodeGoCLI {
         default:
             AllnighterCLI.fail(
                 code: "CLI_USAGE_ERROR",
-                message: "usage: alln opencode-go configure [--workspace-id <wrk_…>] [--cookie <auth>] | alln opencode-go status [--json]"
+                message: "usage: echo '<cookie>' | alln opencode-go configure --workspace-id <wrk_…> | alln opencode-go status [--json]"
             )
         }
     }
@@ -27,22 +27,36 @@ enum OpenCodeGoCLI {
 
     private static func configure(_ args: [String]) {
         let opts = Options(args)
-        // Prompting is only legitimate at a terminal. Without this, an agent or
-        // script that runs `alln opencode-go configure` with no flags blocks on
-        // readLine forever with no output — it looks like a hung dispatch, not
-        // a usage error. That cost one real delegated run before it was caught.
         let interactive = isatty(STDIN_FILENO) == 1
-        if !interactive, opts.value("workspace-id") == nil || opts.value("cookie") == nil {
+
+        if !interactive, opts.value("workspace-id") == nil {
             AllnighterCLI.fail(
                 code: "CLI_USAGE_ERROR",
-                message: "non-interactive stdin: pass both --workspace-id and --cookie (configure only prompts at a terminal)",
-                suggestions: ["alln opencode-go configure --workspace-id <wrk_…> --cookie <auth>"]
+                message: "non-interactive stdin: pass --workspace-id",
+                suggestions: ["alln opencode-go configure --workspace-id <wrk_…>"]
             )
         }
         let workspaceId = (opts.value("workspace-id") ?? readLine(prompt: "Workspace ID (wrk_…): "))?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let cookie = (opts.value("cookie") ?? readSecret(prompt: "Auth cookie value: "))?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        let cookie: String
+        if let flagValue = opts.value("cookie") {
+            warn("WARNING: --cookie puts the session token in shell history and process listings. Pipe via stdin or set \(OpenCodeGoCredentialStore.authCookieEnv).")
+            cookie = flagValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else if interactive {
+            cookie = readSecret(prompt: "Auth cookie value: ")?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        } else if let line = Swift.readLine(strippingNewline: true) {
+            cookie = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "non-interactive stdin with no cookie: pipe value to stdin, pass --cookie, or set \(OpenCodeGoCredentialStore.authCookieEnv)",
+                suggestions: [
+                    "echo '<cookie>' | alln opencode-go configure --workspace-id <wrk_…>",
+                    "alln opencode-go configure --workspace-id <wrk_…> --cookie <auth>"
+                ]
+            )
+        }
 
         guard !workspaceId.isEmpty else {
             AllnighterCLI.fail(

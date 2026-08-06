@@ -219,6 +219,7 @@ public enum OpenCodeGoCapacityExecutor {
         case .responseTooLarge: return "response_too_large"
         case .unexpectedContentType: return "unexpected_content_type"
         case .finalURLMismatch: return "final_url_mismatch"
+        case .finalURLHostMismatch: return "final_url_host_mismatch"
         }
     }
 

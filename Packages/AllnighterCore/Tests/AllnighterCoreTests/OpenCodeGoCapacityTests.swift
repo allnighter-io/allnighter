@@ -585,3 +585,53 @@ final class OpenCodeGoPlaceholderMaskingTests: XCTestCase {
         )
     }
 }
+
+final class OpenCodeGoCookieLeakDefenseTests: XCTestCase {
+
+    private struct SameHostTransport: OpenCodeGoCapacityClient.Transport {
+        func data(for request: URLRequest) throws -> (Data, URLResponse) {
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "text/html; charset=utf-8"]
+            )!
+            return ("<html><body>ok</body></html>".data(using: .utf8)!, response)
+        }
+    }
+
+    private struct CrossHostTransport: OpenCodeGoCapacityClient.Transport {
+        func data(for request: URLRequest) throws -> (Data, URLResponse) {
+            let foreignURL = URL(string: "https://evil.example.com/go")!
+            let response = HTTPURLResponse(
+                url: foreignURL,
+                statusCode: 200,
+                httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "text/html; charset=utf-8"]
+            )!
+            return ("<html><body>stolen</body></html>".data(using: .utf8)!, response)
+        }
+    }
+
+    func testSameHostSuccessReturnsSuccess() {
+        let result = OpenCodeGoCapacityClient.fetch(
+            workspaceId: "wrk_test",
+            authCookie: "test-cookie-value",
+            transport: SameHostTransport()
+        )
+        guard case .success(let s) = result else {
+            return XCTFail("expected success, got \(result)")
+        }
+        XCTAssertEqual(s.statusCode, 200)
+        XCTAssertEqual(s.finalURL.host, OpenCodeGoCapacityClient.expectedHost)
+    }
+
+    func testCrossHostRedirectFailsClosed() {
+        let result = OpenCodeGoCapacityClient.fetch(
+            workspaceId: "wrk_test",
+            authCookie: "test-cookie-value",
+            transport: CrossHostTransport()
+        )
+        XCTAssertEqual(result, .failure(.finalURLHostMismatch))
+    }
+}

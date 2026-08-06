@@ -3,6 +3,7 @@ import Foundation
 /// HTTP fetch for the OpenCode Go `/go` dashboard (dogfood spike).
 public enum OpenCodeGoCapacityClient {
 
+    public static let expectedHost = "opencode.ai"
     public static let dashboardURLPrefix = "https://opencode.ai/workspace/"
     public static let dashboardURLSuffix = "/go"
     public static let userAgent =
@@ -18,6 +19,7 @@ public enum OpenCodeGoCapacityClient {
         case responseTooLarge
         case unexpectedContentType
         case finalURLMismatch
+        case finalURLHostMismatch
     }
 
     public struct FetchSuccess: Sendable, Equatable {
@@ -40,6 +42,32 @@ public enum OpenCodeGoCapacityClient {
         func data(for request: URLRequest) throws -> (Data, URLResponse)
     }
 
+    /// Refuses cross-host redirects so the auth cookie never leaves the
+    /// trust boundary. A manual `Cookie` header is re-sent on every
+    /// redirect regardless of cookie storage settings, so preventing the
+    /// redirect is the only reliable defence in the transport layer.
+    final class RedirectGuard: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+        let expectedHost: String
+
+        init(expectedHost: String) {
+            self.expectedHost = expectedHost
+        }
+
+        func urlSession(
+            _ session: URLSession,
+            task: URLSessionTask,
+            willPerformHTTPRedirection response: HTTPURLResponse,
+            newRequest request: URLRequest,
+            completionHandler: @escaping (URLRequest?) -> Void
+        ) {
+            if let host = request.url?.host, host != expectedHost {
+                completionHandler(nil)
+            } else {
+                completionHandler(request)
+            }
+        }
+    }
+
     public struct URLSessionTransport: Transport {
         /// Ephemeral configuration with bounded request + resource timeouts.
         /// `timeoutIntervalForResource` is the total-transfer ceiling that
@@ -57,9 +85,21 @@ public enum OpenCodeGoCapacityClient {
         }()
 
         private let session: URLSession
+        private let redirectGuard: RedirectGuard?
 
-        public init(session: URLSession = URLSession(configuration: URLSessionTransport.defaultConfiguration)) {
-            self.session = session
+        public init(session: URLSession? = nil) {
+            if let session {
+                self.session = session
+                self.redirectGuard = nil
+            } else {
+                let guard_ = RedirectGuard(expectedHost: OpenCodeGoCapacityClient.expectedHost)
+                self.redirectGuard = guard_
+                self.session = URLSession(
+                    configuration: Self.defaultConfiguration,
+                    delegate: guard_,
+                    delegateQueue: nil
+                )
+            }
         }
 
         public var configuration: URLSessionConfiguration { session.configuration }
@@ -113,6 +153,9 @@ public enum OpenCodeGoCapacityClient {
 
         guard let finalURL = http.url else {
             return .failure(.network("missing final URL"))
+        }
+        guard finalURL.host == Self.expectedHost else {
+            return .failure(.finalURLHostMismatch)
         }
         if isSignInURL(finalURL) {
             return .failure(.authRequired(statusCode: status))
