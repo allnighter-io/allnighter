@@ -1,6 +1,9 @@
 # Agent Teaching Surface
 
 Status: **Open — BS slices implementation-ready; DEL slices proposed.**
+Priority: **Sequenced below [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md).**
+That packet's VSI-S01/S02 land first: teaching a caller agent to delegate is
+worth less than nothing while the bench misreports why a delegation failed.
 Owner: unassigned (AllnighterCore `TeachingSnippet` + `HelpTopicRegistry`)
 Created: 2026-08-06
 Origin: Founder caught the lead using `pair relay` / `pair pilot` — vocabulary
@@ -325,6 +328,17 @@ search nextToolPlan) — assert it non-empty. Gate: `HelpService.get(topic:
 `HelpTopicRegistry.canonicalTopicId`; deleting the topic turns both red.
 **Not** `alln help search`: that path is `MenuCatalog.search` over menu cards
 (`HelpCLI.swift:28` → `HelpProjector.search`) and never sees help topics.
+
+An eighth rule, earned the expensive way while producing this packet's own v2:
+**never ask one seat to both verify and rewrite.** The v2 brief was correctly
+*shaped* — it stated acceptance properties, not fields — and still cost ~4% of
+a weekly quota, because it mandated reading ~4,300 lines across ten files
+(including `SkillCatalog.swift` at 1,561 lines, where one grep was needed).
+Verification is grep-shaped: N discrete claims, each a two-line match.
+Rewriting is context-shaped. Fused, the whole verification corpus enters the
+rewrite's context and is re-sent every turn. **Brief shape and brief context
+budget are independent axes**, and a well-shaped brief can still bankrupt a
+window. Split the jobs and both are small.
 
 **DEL-S02 — merged into BS-S02** (the one pointer line, same v9 bump). The
 number is kept only for traceability.
