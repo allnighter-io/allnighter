@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposal — Settings › Use from your CLI</title>
+<style>
+  /* ============================================================
+     Palette + type lifted from AllnighterTokens.swift (token-of-record).
+     ink ramp, amber phosphor, status hues, radii, type scale.
+     ============================================================ */
+  :root {
+    --void:    #0C0E14;
+    --base:    #13151E;
+    --subtle:  #15171F;
+    --surface: #181B25;
+    --raised:  #1B1E29;
+    --hover:   #1F2330;
+    --active:  #242833;
+
+    --border-subtle:  rgba(255,255,255,0.06);
+    --border-default: rgba(255,255,255,0.10);
+    --border-strong:  rgba(255,255,255,0.16);
+
+    --text-primary:   #CBD1E0;
+    --text-secondary: #AEB5C9;
+    --text-muted:     #7E869E;
+    --text-faint:     #555C74;
+    --text-on-amber:  #1A1203;
+
+    --amber:        #FFA630;
+    --amber-hover:  #FFC169;
+    --amber-press:  #F08D1C;
+    --amber-text:   #FFC169;
+    --amber-surface: rgba(255,166,48,0.12);
+    --amber-border:  rgba(255,166,48,0.32);
+
+    --green:  #3FD18B;
+    --red:    #F76B6B;
+    --blue:   #5B9DFF;
+    --yellow: #F5C84B;
+    --green-surface:  rgba(63,209,139,0.12);
+    --warning-surface: rgba(245,200,75,0.12);
+
+    --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-xl: 14px; --r-pill: 999px;
+
+    --sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { background: var(--void); }
+  body {
+    background: var(--void);
+    color: var(--text-primary);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    padding: 48px 24px 96px;
+  }
+
+  /* The detail pane frame — the sidebar already ate ~230px; this is what's left. */
+  .pane {
+    max-width: 1100px;
+    margin: 0 auto;
+    background: var(--base);
+    border: 1px solid var(--border-default);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 40px rgba(0,0,0,0.55);
+  }
+  .pane-inner {
+    padding: 56px 72px 64px;
+    max-width: 980px;
+  }
+
+  .breadcrumb {
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+  .breadcrumb b { color: var(--text-muted); font-weight: 500; }
+
+  /* ---------- Hero ---------- */
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--amber-text);
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.022em;
+    line-height: 1.14;
+    color: #E1E5F0;
+    max-width: 21ch;
+    margin-bottom: 18px;
+  }
+  .deck {
+    font-size: 15px;
+    color: var(--text-secondary);
+    max-width: 62ch;
+    margin-bottom: 8px;
+  }
+  .deck .k { color: #E1E5F0; font-weight: 500; }
+  .deck code, .prose code {
+    font-family: var(--mono);
+    font-size: 0.92em;
+    color: var(--amber-text);
+    background: var(--amber-surface);
+    border-radius: var(--r-xs);
+    padding: 1px 5px;
+  }
+
+  /* ---------- Sections ---------- */
+  section { margin-top: 56px; }
+  .sec-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+  h2 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.014em;
+    color: #E1E5F0;
+    margin-bottom: 10px;
+  }
+  .prose {
+    font-size: 13px;
+    color: var(--text-secondary);
+    max-width: 64ch;
+  }
+  .prose + .prose { margin-top: 10px; }
+
+  /* ---------- Reframe: the CLI chips ---------- */
+  .cli-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 18px 0 16px;
+  }
+  .chip {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-pill);
+    padding: 5px 12px;
+  }
+  .chip.lit {
+    color: #E1E5F0;
+    border-color: var(--border-strong);
+  }
+  .chip .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    margin-right: 7px;
+    vertical-align: 1px;
+  }
+  .chip.lit .dot { background: var(--green); }
+  .chip-note { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+
+  /* ---------- Setup card ---------- */
+  .setup-card {
+    margin-top: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-xl);
+    overflow: hidden;
+  }
+  .setup-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .setup-head .lead { font-size: 13px; color: var(--text-secondary); max-width: 52ch; }
+  .setup-head .lead b { color: #E1E5F0; font-weight: 600; }
+
+  .btn-primary {
+    flex-shrink: 0;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-on-amber);
+    background: var(--amber);
+    border: none;
+    border-radius: var(--r-sm);
+    height: 30px;
+    padding: 0 16px;
+    cursor: pointer;
+  }
+  .btn-primary:hover { background: var(--amber-hover); box-shadow: 0 0 12px rgba(255,166,48,0.35); }
+
+  .btn-ghost {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--r-sm);
+    height: 24px;
+    padding: 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn-ghost:hover { background: var(--hover); color: #E1E5F0; }
+  .btn-quiet {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--text-faint);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0 4px;
+  }
+  .btn-quiet:hover { color: var(--text-muted); }
+
+  .host-row {
+    display: grid;
+    grid-template-columns: 190px 1fr 130px auto;
+    align-items: center;
+    gap: 16px;
+    padding: 13px 22px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .host-row:last-child { border-bottom: none; }
+  .host-name { font-size: 13px; font-weight: 600; color: #E1E5F0; }
+  .host-sub { font-size: 11px; color: var(--text-faint); margin-top: 1px; font-weight: 400; }
+  .host-path {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .host-path.na { font-family: var(--sans); font-style: normal; color: var(--text-faint); }
+
+  .state {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    border-radius: var(--r-pill);
+    padding: 3px 10px;
+    white-space: nowrap;
+    justify-self: start;
+  }
+  .state .d { width: 6px; height: 6px; border-radius: 50%; }
+  .state.ok      { color: var(--green);      background: var(--green-surface); }
+  .state.ok .d   { background: var(--green); }
+  .state.stale   { color: var(--yellow);     background: var(--warning-surface); }
+  .state.stale .d{ background: var(--yellow); }
+  .state.off     { color: var(--text-muted); background: rgba(255,255,255,0.05); }
+  .state.off .d  { background: var(--text-faint); }
+  .state.na      { color: var(--text-faint); background: transparent; border: 1px dashed var(--border-default); }
+  .state.na .d   { display: none; }
+
+  .host-action { justify-self: end; display: flex; gap: 8px; align-items: center; }
+
+  .setup-foot {
+    padding: 12px 22px;
+    background: var(--subtle);
+    border-top: 1px solid var(--border-subtle);
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .setup-foot code {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-xs);
+    padding: 1px 6px;
+  }
+
+  /* ---------- Ask / happens pairs ---------- */
+  .ask-list { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
+  .ask {
+    display: grid;
+    grid-template-columns: minmax(240px, 340px) 1fr;
+    gap: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-lg);
+    padding: 16px 20px;
+    align-items: start;
+  }
+  .ask-said {
+    font-size: 14px;
+    color: #E1E5F0;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .ask-said::before { content: "“"; color: var(--amber-text); }
+  .ask-said::after  { content: "”"; color: var(--amber-text); }
+  .ask-happens { font-size: 12.5px; color: var(--text-secondary); }
+  .ask-cmd {
+    display: inline-block;
+    margin-top: 7px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--base);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-xs);
+    padding: 2px 8px;
+  }
+  .law-note {
+    margin-top: 14px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    max-width: 64ch;
+  }
+  .law-note b { color: var(--text-secondary); font-weight: 600; }
+
+  /* ---------- Capacity closer ---------- */
+  .cap-wrap {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 40px;
+    align-items: start;
+    margin-top: 6px;
+  }
+  .cap-strip {
+    background: var(--surface);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-lg);
+    padding: 16px 18px 12px;
+  }
+  .cap-strip-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+  .cap-row {
+    display: grid;
+    grid-template-columns: 86px 1fr;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .cap-name { font-size: 11.5px; color: var(--text-secondary); }
+  .cap-bar {
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: var(--active);
+    overflow: hidden;
+    position: relative;
+  }
+  .cap-bar i {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    border-radius: var(--r-pill);
+    background: var(--text-faint);
+  }
+  .cap-bar.roomy i { background: var(--green); }
+  .cap-bar.low i   { background: var(--yellow); }
+  .cap-cap {
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top: 6px;
+  }
+
+  /* ---------- Footer / reassurance + disclosure ---------- */
+  .quiet-close {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border-subtle);
+    font-size: 12.5px;
+    color: var(--text-muted);
+    max-width: 62ch;
+  }
+  details {
+    margin-top: 18px;
+    max-width: 64ch;
+  }
+  summary {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    cursor: pointer;
+    list-style: none;
+  }
+  summary::before { content: "▸ "; }
+  details[open] summary::before { content: "▾ "; }
+  summary:hover { color: var(--text-muted); }
+  .disclosure-body {
+    margin-top: 10px;
+    background: var(--subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-md);
+    padding: 12px 14px;
+    font-size: 11.5px;
+    color: var(--text-faint);
+  }
+
+  /* ---------- Proposal annotations (not part of the pane) ---------- */
+  .annotations {
+    max-width: 1100px;
+    margin: 40px auto 0;
+    color: var(--text-muted);
+  }
+  .annotations .ann-eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.9px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 10px;
+  }
+  .annotations h3 { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+  .annotations p { font-size: 12.5px; max-width: 78ch; margin-bottom: 8px; }
+  .annotations .rej { color: var(--text-secondary); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="pane">
+  <div class="pane-inner">
+
+    <div class="breadcrumb">Settings <span style="opacity:.5">›</span> <b>Use from your CLI</b></div>
+
+    <!-- 1 · THE HOOK -->
+    <div class="eyebrow">If you don't know</div>
+    <h1>Every AI subscription you pay for, from inside the one you're already in.</h1>
+    <p class="deck">
+      Teach your CLI one word, once. After that, <span class="k">Claude&nbsp;Code can call Codex</span>.
+      Cursor can call Gemini. Any of your CLIs can put the other 26 models to work — one at a
+      time or five in parallel — and Allnighter tells them which subscription still has
+      headroom this week, so they spend the quota that was going to expire anyway.
+    </p>
+
+    <!-- 2 · THE REFRAME -->
+    <section>
+      <h2>You already pay for most of this bench.</h2>
+      <div class="cli-row">
+        <span class="chip lit"><span class="dot"></span>Claude Code</span>
+        <span class="chip lit"><span class="dot"></span>Codex</span>
+        <span class="chip lit"><span class="dot"></span>Cursor</span>
+        <span class="chip lit"><span class="dot"></span>Antigravity</span>
+        <span class="chip"><span class="dot"></span>OpenCode</span>
+        <span class="chip"><span class="dot"></span>Grok</span>
+        <span class="chip"><span class="dot"></span>Kimi</span>
+        <span class="chip"><span class="dot"></span>Qwen</span>
+        <span class="chip"><span class="dot"></span>Muse</span>
+      </div>
+      <p class="chip-note">9 CLIs · 27 models · your logins, your subscriptions. No API keys, ever.</p>
+      <p class="prose" style="margin-top:14px">
+        Today those subscriptions don't know about each other. You work in one, and when you
+        want a second opinion you open another window, paste the context in by hand, and paste
+        the answer back. When one hits its limit, you stop — while the others sit idle with
+        room you've already paid for.
+      </p>
+      <p class="prose">
+        A well-known hack wires exactly one pair together: Codex inside Claude Code.
+        This page is the general case.
+      </p>
+    </section>
+
+    <!-- 3 · SETUP, ONCE -->
+    <section>
+      <div class="sec-eyebrow">Set up once</div>
+      <h2>Teach the CLIs you use.</h2>
+      <p class="prose">
+        One short block goes into each CLI's context file, so the agent inside it knows
+        <code>alln</code> exists and how to call the others. That's the entire setup.
+        You can read every line before it lands, and removing it is one click.
+      </p>
+
+      <div class="setup-card">
+        <div class="setup-head">
+          <div class="lead"><b>4 hosts found on this Mac.</b> One is out of date, one hasn't been taught yet.</div>
+          <button class="btn-primary">Teach all CLIs</button>
+        </div>
+
+        <!-- installed / up to date -->
+        <div class="host-row">
+          <div><div class="host-name">Claude Code</div><div class="host-sub">global context</div></div>
+          <div class="host-path">~/.claude/CLAUDE.md</div>
+          <span class="state ok"><span class="d"></span>Taught · up to date</span>
+          <div class="host-action"><button class="btn-quiet">Remove</button></div>
+        </div>
+
+        <!-- needs update -->
+        <div class="host-row">
+          <div><div class="host-name">Cursor</div><div class="host-sub">global rules</div></div>
+          <div class="host-path">~/.cursor/rules/allnighter.mdc</div>
+          <span class="state stale"><span class="d"></span>Out of date</span>
+          <div class="host-action"><button class="btn-ghost">Update</button></div>
+        </div>
+
+        <!-- not installed -->
+        <div class="host-row">
+          <div><div class="host-name">This project</div><div class="host-sub">any CLI opened here</div></div>
+          <div class="host-path">AGENTS.md · repo root</div>
+          <span class="state off"><span class="d"></span>Not taught</span>
+          <div class="host-action"><button class="btn-ghost">Teach</button></div>
+        </div>
+
+        <!-- unsupported / manual -->
+        <div class="host-row">
+          <div><div class="host-name">Codex</div><div class="host-sub">reads AGENTS.md per project</div></div>
+          <div class="host-path na">No global context file — paste the block into each project you work in.</div>
+          <span class="state na">Manual</span>
+          <div class="host-action"><button class="btn-ghost">Copy block</button></div>
+        </div>
+
+        <div class="setup-foot">
+          Prefer the terminal? <code>alln install-cli</code> puts alln on PATH ·
+          <code>alln bootstrap</code> prints this same block, paste-ready.
+        </div>
+      </div>
+    </section>
+
+    <!-- 4 · WHAT YOU SAY AFTERWARDS -->
+    <section>
+      <div class="sec-eyebrow">Then you just ask</div>
+      <h2>No new tool to learn. You talk to the CLI you already talk to.</h2>
+      <p class="prose">
+        Once taught, your agent knows when to reach for the bench. These are real asks and
+        exactly what happens — the command underneath is what your agent runs, not something
+        you have to type.
+      </p>
+
+      <div class="ask-list">
+        <div class="ask">
+          <div class="ask-said">Get a second opinion from GPT on this diff.</div>
+          <div class="ask-happens">
+            Your agent hands the diff to a Codex seat and brings the answer back into your session.
+            You never leave the window.
+            <br><span class="ask-cmd">alln run "…" --model model_gpt_sol</span>
+          </div>
+        </div>
+
+        <div class="ask">
+          <div class="ask-said">Have a team hunt this bug.</div>
+          <div class="ask-happens">
+            Bug Hunt: 5 models from different vendors read the repo in parallel and return one
+            packet with their findings side by side. Read-only.
+            <br><span class="ask-cmd">alln run "…" --team code_bug_hunt</span>
+          </div>
+        </div>
+
+        <div class="ask">
+          <div class="ask-said">Security-review this branch before I merge.</div>
+          <div class="ask-happens">
+            8 seats, 8 angles, one report. Nothing writes to your repo.
+            <br><span class="ask-cmd">alln run "…" --team code_security_review</span>
+          </div>
+        </div>
+
+        <div class="ask">
+          <div class="ask-said">You review — let another model do the typing.</div>
+          <div class="ask-happens">
+            Your CLI keeps the reviewer's seat; a different model builds. Exactly one worker may
+            edit files, under a per-repo write lock.
+            <br><span class="ask-cmd">alln loop start "…" --pm caller</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="law-note">
+        <b>The write rule:</b> research teams are parallel and read-only. Mutation is always a
+        single worker per repo, locked. Ten models can advise you at once; only one can ever
+        touch your files.
+      </p>
+    </section>
+
+    <!-- 5 · THE CAPACITY CLOSER -->
+    <section>
+      <div class="sec-eyebrow">The part a hand-rolled setup can't do</div>
+      <div class="cap-wrap">
+        <div>
+          <h2>It knows which subscription still has room.</h2>
+          <p class="prose">
+            <code>alln capacity</code> reads each vendor's real weekly and 5-hour headroom.
+            So when your agent reaches for another model, it doesn't reach blindly — it can
+            take the seat with quota to spare and leave alone the limit you're about to hit.
+          </p>
+          <p class="prose">
+            Every week, allowance you paid for expires unused on the subscriptions you didn't
+            open. This is how it gets spent.
+          </p>
+        </div>
+        <div class="cap-strip">
+          <div class="cap-strip-title">alln capacity</div>
+          <div class="cap-row"><span class="cap-name">Claude Code</span><div class="cap-bar low"><i style="width:18%"></i></div></div>
+          <div class="cap-row"><span class="cap-name">Codex</span><div class="cap-bar roomy"><i style="width:81%"></i></div></div>
+          <div class="cap-row"><span class="cap-name">Cursor</span><div class="cap-bar roomy"><i style="width:64%"></i></div></div>
+          <div class="cap-row"><span class="cap-name">Antigravity</span><div class="cap-bar"><i style="width:39%"></i></div></div>
+          <div class="cap-cap">Weekly headroom per CLI — illustrative rendering, live values from your own accounts.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Reassurance + single quiet disclosure -->
+    <div class="quiet-close">
+      <p>
+        After this page, the app is optional. Runs start, stream, and finish in your terminal;
+        this window is a place to watch them and tune teams, not a place you have to be.
+        If it stays closed for a month while <code style="font-family:var(--mono);font-size:11px">alln</code>
+        gets used every day, that is the product working.
+      </p>
+      <details>
+        <summary>What exactly gets written to the context files</summary>
+        <div class="disclosure-body">
+          The full teaching block is shown here verbatim before anything is written — the same
+          text <span style="font-family:var(--mono)">alln bootstrap</span> prints. It renders in
+          this disclosure only; it never appears on the page above.
+          <em>(Implementation: scrollable read-only text well, monospace, with a copy action.)</em>
+        </div>
+      </details>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= PROPOSAL ANNOTATIONS — not part of the pane ================= -->
+<div class="annotations">
+  <div class="ann-eyebrow">Proposal notes — below this line is not on the pane</div>
+  <h3>Alternates considered</h3>
+  <p><span class="rej">"The biggest cheat-code in your terminal."</span> — Borrows the viral post's
+     hype instead of its structure. In a settings pane it reads as marketing, and the voice is
+     breathless where the brand is instrument-panel. Rejected.</p>
+  <p><span class="rej">"Stop copy-pasting between your CLIs."</span> — Leads with a chore removed,
+     not a gain claimed. It undersells parallel teams entirely and says nothing about capacity,
+     which is the one argument no hand-rolled pairing can match. Rejected.</p>
+</div>
+
+</body>
+</html>
