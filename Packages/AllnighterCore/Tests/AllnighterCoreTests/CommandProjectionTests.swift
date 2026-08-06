@@ -123,11 +123,24 @@ final class CommandProjectionTests: XCTestCase {
         XCTAssertNotNil(noRefreshError, "--no-refresh must be rejected as an unknown flag")
     }
 
+    /// Budget raised 32 KiB -> 48 KiB (2026-08-06, founder ruling).
+    ///
+    /// This projection passes no `modelEntries`, so it falls back to EVERY
+    /// enabled model in the bundled catalog — a maximal bench, not a typical
+    /// install. Measured composition at the time of the raise: models 40%,
+    /// teams 25%, commands 22%. Only the models share scales as Allnighter adds
+    /// vendor support, and it is the share a real user does not pay in full.
+    ///
+    /// The ceiling still has teeth for what it is actually protecting: runaway
+    /// FIXED surface (commands, teams, actions). 48 KiB leaves ~35% headroom
+    /// over the maximal bench today. If this goes red again, check whether
+    /// commands/teams grew before raising it — raising the number is a founder
+    /// decision, not a build fix.
     func testMenuActionsStayShortAndBudgetHolds() throws {
         let menu = MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam })
         XCTAssertLessThanOrEqual(menu.actions.count, 8, "do not expand actions for coverage ratio")
         let data = try MenuCatalog.encodeCompact(menu)
-        XCTAssertLessThanOrEqual(data.count, 32768, "Tier-1 menu must stay ≤32 KiB")
+        XCTAssertLessThanOrEqual(data.count, 49152, "Tier-1 menu must stay ≤48 KiB (maximal bundled bench)")
     }
 
     func testHelpSearchResolvesStreamAndTemperature() {
