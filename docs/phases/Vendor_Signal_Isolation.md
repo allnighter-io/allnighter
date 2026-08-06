@@ -1,8 +1,9 @@
 # Vendor Signal Isolation
 
-Status: **Open — NOT implementation-ready. An adversarial pass (Grok 4.5,
-read-only, 2026-08-06) returned 13 defects, 3 blocking; the verified subset is
-recorded in §11 and must be cleared before any slice starts.**
+Status: **Open — VSI-S01/S02 ready to implement. All 13 defects from the
+adversarial pass (Grok 4.5, read-only, 2026-08-06) are cleared; see §11.
+VSI-S03's persisted-park disposition still waits on the §10.1 founder ruling;
+the rest of S03, plus S04 and S05, are ready.**
 Rulings landed: **§10.2 (founder, 2026-08-06)** — delete the lie, keep the
 cadence, separate the labels.
 Priority: **Above `Agent_Teaching_Surface.md`.** That packet teaches agents to
@@ -290,8 +291,11 @@ durations, schedules, or wake times.
 Populate only documented facts:
 
 - Qwen: `weekly`;
-- Claude: its documented five-hour window;
-- Codex and Grok: absent unless documented evidence exists.
+- **All four drivers: absent.** An earlier draft asserted "Claude: its
+  documented five-hour window" with no citation, which is this packet's own
+  absent-beats-guessed rule being broken by the packet. `windows` is populated
+  only when a slice cites the vendor's own documentation in its commit message;
+  until then every driver ships without it.
 
 A window without a matching signal still emits no observation. No Allnighter
 runtime consumes `windows` in VSI-S04.
@@ -453,7 +457,14 @@ Required behavior:
 - payment text examines resolved message fields only;
 - generic capacity/payment/overload fallback does not answer for undeclared
   sources;
-- auth `"401"` and capacity `"402"` are not bare numeric substrings.
+- capacity `"402"` is not a bare numeric substring.
+
+**Auth is explicitly OUT of S01/S02 scope.** `CapacityClassifier.authPatterns`
+(`:429`) contains no `"401"`; bare `"401"` exists only in `catalog.json`
+`loginFlow.authErrorPatterns`, which no symbol in this slice touches. An earlier
+draft named an auth-401 gate here that no S01/S02 edit could turn red. The
+numeric-substring hazard in `loginFlow` is real but is a separate change with a
+different owner — record it, do not gate it here.
 
 Gate symbols to add:
 
@@ -461,7 +472,6 @@ Gate symbols to add:
 - `testUnknownSourceHasNoCapacityFallback`
 - `testGrokNumeric402FieldMatches`
 - `testGrokDuration4021DoesNotMatch`
-- `testAuthNumericSubstringDoesNotMatch`
 
 Mutation gates:
 
@@ -505,6 +515,10 @@ gated on §10.1):
 
 Gate symbols:
 
+- Allnighter `testNilVendorResetStillSchedulesViaUnknownResetWakeAfter`
+  (**positive** cadence test — §10.2 rule 2; the negative mutation below points
+  at this symbol, without which "deleting the cadence must fail" is itself a
+  gate that cannot fail)
 - AgentOS `testStructuredLimitWithoutResetHasNilRetryAndWake`
 - AgentOS `testOverloadWithoutVendorRetryHasNilRetryAndWake`
 - Allnighter `testNilVendorResetDoesNotDisplayAsVendorWake`
@@ -527,7 +541,15 @@ Closeout gate:
 
 ```text
 scripts/swift-test.sh --filter VendorBackoffReconcilerTests
+scripts/swift-test.sh --filter VendorContinuityPresentationTests  # label wording
+scripts/swift-test.sh --filter RunServiceTests                    # park + cooling
+# AgentOS is a SEPARATE package — its nil-retry gates run in that repo:
+#   (in ../AgentOS) swift test --filter CapacityClassifierTests
 ```
+
+`VendorBackoffReconcilerTests` holds only four park/lease/handoff tests and
+cannot exercise the display, label, or AgentOS gates. Every named gate must
+appear above or in the AgentOS line.
 
 VSI-S03 must not close while `alln ps` still reports the known fabricated Qwen
 wake. It cannot implement the persisted-state transition until §10.1 is ruled.
@@ -573,7 +595,9 @@ Allnighter changes:
 
 - `Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift`
   - `RunService.runExecution`: each coalesced answer flush updates the durable
-    running `TeamAnswer.result.output`, not only the event journal;
+    running `TeamAnswer.result.output` in **`run.json`** — NOT the event
+    journal. `workerAnswerDelta` is deliberately excluded from
+    `RemoteRunEventJournal.isDurableSemanticEvent`; do not add it there;
 - `Packages/AllnighterCore/Sources/AllnighterEngine/RunStore.swift`
   - add one locked, terminal-safe partial-answer update boundary; it re-reads
     `run.json`, updates only the named worker's output/activity, and cannot
@@ -584,7 +608,12 @@ Allnighter changes:
     markdown;
 - `Packages/AllnighterCore/Sources/AllnighterCLI/AllnighterCLI.swift`
   - `humanAnswer` and `runExport`: return the durable partial and label markdown
-    output `Partial answer`;
+    output `Partial answer`. **`runExport` prints `bundle.md` when it exists and
+    only then falls back to `humanAnswer` (`AllnighterCLI.swift:2246`), and
+    `RunMarkdown.bundle` is prompt-first — that precedence is why the incident
+    export returned 2,657 prompt-only chars.** The slice must either regenerate
+    `bundle.md` to include the partial or bypass it on the partial path; a fix
+    to `humanAnswer` alone changes nothing;
 - `Packages/AllnighterCore/Sources/AllnighterCore/ArtifactProjector.swift`
   - `project`: render the hoisted partial without presenting a ready verdict;
 - corresponding `RunServiceTests`, `TeamRunJSONMapperTests`, CLI export tests,
@@ -613,7 +642,11 @@ Closeout gates:
 scripts/swift-test.sh --filter RunServiceTests
 scripts/swift-test.sh --filter TeamRunJSONMapperTests
 scripts/swift-test.sh --filter ArtifactProjectorTests
+scripts/swift-test.sh --filter AllnighterCLITests   # owns testExportLabelsAndReturnsPartialAnswer
 ```
+
+Every named gate above must appear in this list. A gate named but not run is a
+gate that cannot fail.
 
 Mutation gates:
 
@@ -757,8 +790,7 @@ completed real-driver fixture gate.
 
 Read-only Grok 4.5 pass returned 13 defects. Each below was **re-verified
 against source by the lead** before being recorded; the evidence column is the
-lead's check, not the reviewer's claim. **No slice starts until its blockers
-clear.**
+lead's check, not the reviewer's claim. **All 13 are now cleared.**
 
 | # | Sev | Defect | Verified evidence | Status |
 | --- | --- | --- | --- | --- |
@@ -768,13 +800,13 @@ clear.**
 | 7 | major | §1 and §10.1 still gated all of S03 on the founder ruling | Contradicted the landed §10.2 split | **Fixed** — both narrowed to the persisted-park disposition |
 | 11 | major | Park **notifications** carry the same vendor wording, outside the stated surface list | `VendorContinuityPresentation.parkNotification:49`, reached via `NotificationDeliveryFilter` | **Fixed** — added to binding surfaces |
 | 13 | minor | Capacity strip named as a binding surface but is a different path | Strip copy is pool-reset wording | **Fixed** — removed from binding surfaces |
-| 6 | major | S02's auth `"401"` claim names the wrong owner | `CapacityClassifier.authPatterns` contains no `"401"` (`:429`); bare `"401"` lives only in `catalog.json` `loginFlow.authErrorPatterns` | **OPEN** — S02 must either drop the auth-401 gate or name `catalog.json` and a mutation that touches it |
-| 3 | blocker | S05 cannot fix export as written | `runExport` prints `bundle.md` when present and only then falls back to `humanAnswer` (`AllnighterCLI.swift:2246`); `bundle` is prompt-first | **OPEN** — S05 must name `bundle.md` / `RunMarkdown.bundle` regeneration or bypass |
-| 4 | major | S03 closeout filter cannot exercise its own named gates | `VendorBackoffReconcilerTests` holds 4 park/lease/handoff tests only; display tests live elsewhere; AgentOS is a different package | **OPEN** — closeout must list every named gate's real target |
-| 5 | major | The §10.2 negative cadence gate has no test symbol | Gate list names only nil-retry, display, label, and disposition tests | **OPEN** — add a positive test that a nil vendor reset still schedules via `unknownResetWakeAfter`, and point the negative mutation at it |
-| 9 | major | S05's export test excluded from closeout filters | Closeout runs `RunServiceTests`, `TeamRunJSONMapperTests`, `ArtifactProjectorTests` only | **OPEN** |
-| 10 | major | "Claude: its documented five-hour window" asserted with no citation | Doc text only | **OPEN** — cite the vendor doc or leave `windows` absent, per the packet's own absent-beats-guessed rule |
-| 12 | minor | S05 "mid-stream journal update" points at the wrong journal | `workerAnswerDelta` is deliberately excluded from `RemoteRunEventJournal.isDurableSemanticEvent` | **OPEN** — say `run.json` / worker output explicitly |
+| 6 | major | S02's auth `"401"` claim names the wrong owner | `CapacityClassifier.authPatterns` contains no `"401"` (`:429`); bare `"401"` lives only in `catalog.json` `loginFlow.authErrorPatterns` | **Fixed** — auth removed from S01/S02 scope; `loginFlow` hazard recorded, not gated |
+| 3 | blocker | S05 cannot fix export as written | `runExport` prints `bundle.md` when present and only then falls back to `humanAnswer` (`AllnighterCLI.swift:2246`); `bundle` is prompt-first | **Fixed** — slice now names `bundle.md` / `RunMarkdown.bundle` precedence |
+| 4 | major | S03 closeout filter cannot exercise its own named gates | `VendorBackoffReconcilerTests` holds 4 park/lease/handoff tests only; display tests live elsewhere; AgentOS is a different package | **Fixed** — closeout lists presentation + RunService + the AgentOS package line |
+| 5 | major | The §10.2 negative cadence gate has no test symbol | Gate list names only nil-retry, display, label, and disposition tests | **Fixed** — added `testNilVendorResetStillSchedulesViaUnknownResetWakeAfter` |
+| 9 | major | S05's export test excluded from closeout filters | Closeout runs `RunServiceTests`, `TeamRunJSONMapperTests`, `ArtifactProjectorTests` only | **Fixed** — `AllnighterCLITests` added to closeout |
+| 10 | major | "Claude: its documented five-hour window" asserted with no citation | Doc text only | **Fixed** — `windows` now absent for all four drivers pending citation |
+| 12 | minor | S05 "mid-stream journal update" points at the wrong journal | `workerAnswerDelta` is deliberately excluded from `RemoteRunEventJournal.isDurableSemanticEvent` | **Fixed** — slice says `run.json`, and forbids adding the delta to the journal |
 
 Findings 1, 2, 3, 4, 6, 8 and 11 were re-verified directly against source by the
 lead. The remainder are recorded as reported and must be checked when addressed.
