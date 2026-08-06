@@ -16,7 +16,9 @@ public extension ContractRegistry {
     // CAP-PRINT: patch — capacity command trigger/summary/antiExample/example teach
     // verbatim human-table delivery; --json only on explicit machine request.
     // HY-S04: patch — retired pair pilot handoff summary drops false loop step --no-wait.
-    static let contractVersion = "9.3.3"
+    // OCG-S09: minor — capacity six→seven seats; --dogfood no longer gates opencode_go;
+    // register opencode-go configure + status commands; new help topic.
+    static let contractVersion = "9.4.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -107,7 +109,7 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "capacity",
-            summary: "Show the six-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or \"shown above\". Bare is live cold PTY (no disk/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON/machine request.",
+            summary: "Show the seven-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or \"shown above\". Bare is live cold PTY (no disk/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON/machine request.",
             milestone: .m1,
             trigger: "Use when the user asks to print, show, or display `alln capacity` / quota headroom — run bare `alln capacity` and include the complete human-readable stdout table verbatim in your final response.",
             example: "alln capacity",
@@ -115,10 +117,43 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("json", summary: "Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema."),
                 FlagSpec("refresh", summary: "Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts."),
-                FlagSpec("source", takesValue: true, summary: "Target one seat for the live probe (still returns the full six-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy. With --dogfood: opencode_go only."),
-                FlagSpec("dogfood", summary: "Developer-only OpenCode Go dashboard scrape. Requires --source opencode_go and OPENCODE_GO_* env credentials. Not in alln menu."),
+                FlagSpec("source", takesValue: true, summary: "Target one seat for the live probe (still returns the full seven-row strip). Valid: \(CapacityAcquisition.validRefreshSourceIds.joined(separator: ", "))."),
+                FlagSpec("dogfood", summary: "Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it."),
             ],
             outputSchema: .capacityStripJSON,
+            spendsQuota: false
+        ),
+        CommandSpec(
+            "opencode-go configure",
+            summary: "Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Writes a secret to the macOS Keychain — never prints it. The safe non-interactive form pipes the cookie via stdin with --workspace-id; --cookie also works but exposes the value in shell history.",
+            milestone: .m1,
+            trigger: "Use before first `alln capacity --source opencode_go` to configure the dashboard seat. The cookie comes from a logged-in browser: DevTools → Application → Cookies → copy the `auth` value.",
+            example: "echo '<cookie>' | alln opencode-go configure --workspace-id wrk_…",
+            antiExample: "Do NOT pass --cookie with the raw auth value — it lands in shell history and process listings. Pipe via stdin or let the interactive prompt read it with echo disabled.",
+            flags: [
+                FlagSpec("workspace-id", takesValue: true, valueType: "string", summary: "Workspace ID from the dashboard URL (wrk_…). Required in non-interactive stdin mode."),
+                FlagSpec("cookie", takesValue: true, valueType: "string", summary: "Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer piping via stdin)."),
+                FlagSpec("json", summary: "Emit structured output."),
+            ],
+            spendsQuota: false,
+            effects: EffectProfile(
+                workerStart: .never,
+                quotaSpend: .never,
+                repoWrite: .never,
+                destructive: .never,
+                humanInteraction: .dependsOnSelection
+            )
+        ),
+        CommandSpec(
+            "opencode-go status",
+            summary: "Check whether OpenCode Go dashboard credentials are configured and usable. Distinguishes not-configured from configured-but-unusable (different recovery paths).",
+            milestone: .m1,
+            trigger: "Use to diagnose why `alln capacity` shows opencode_go as neverSampled or authRequired — the status output names the exact recovery path.",
+            example: "alln opencode-go status",
+            antiExample: "Do NOT guess the status from the capacity strip alone — run status for the exact failure reason and recovery action.",
+            flags: [
+                FlagSpec("json", summary: "Emit structured status JSON (configured, workspaceId, credentialSource, error)."),
+            ],
             spendsQuota: false
         ),
         CommandSpec(

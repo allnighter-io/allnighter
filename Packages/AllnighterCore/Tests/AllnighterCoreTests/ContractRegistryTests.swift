@@ -10,7 +10,7 @@ final class ContractRegistryTests: XCTestCase {
     func testContractVersionMatchesTeamRunFixture() throws {
         let trj = try Fixtures.decode(TeamRunJSON.self, .teamRunJSON)
         XCTAssertEqual(reg.contractVersion, trj.contractVersion)
-        XCTAssertEqual(reg.contractVersion, "9.3.0")
+        XCTAssertEqual(reg.contractVersion, "9.4.0")
     }
 
     /// Team-run and Pending next-action kinds must match the registry catalog.
@@ -51,6 +51,7 @@ final class ContractRegistryTests: XCTestCase {
             "boost-window show", "boost-window set", "boost-window seed",
             "boost-window observations clear",
             "help search", "help get", "help topics",
+            "opencode-go configure", "opencode-go status",
         ]
         XCTAssertEqual(m1.sorted(), expected.sorted())
     }

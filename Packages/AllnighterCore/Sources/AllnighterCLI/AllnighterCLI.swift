@@ -350,17 +350,18 @@ struct AllnighterCLI {
     /// **Bare** (default): while the Dock app is open, reads the resident's
     /// gated in-memory snapshot over `capacity.sock` (CWB-S02 — read-only,
     /// never starts probes). Socket miss / hang / bad version → one cold live
-    /// PTY acquire for all six seats (measured budget). No disk, no history
-    /// hydrate-as-live. Always prints the full six-row table (TTY or piped).
+    /// acquire for all bench seats (measured budget). No disk, no history
+    /// hydrate-as-live. Always prints the full seven-row table (TTY or piped).
     ///
     /// **`--refresh`**: legacy no-op; bare is already live. Kept for scripts.
     ///
     /// **`--source <id>`**: live probe of one seat (explicit per-seat
-    /// diagnostics — bypasses the socket), still returning all six rows;
+    /// diagnostics — bypasses the socket), still returning all seven rows;
     /// unprobed siblings show `neverSampled`.
     ///
-    /// **`--dogfood --source opencode_go`**: developer-only OpenCode Go dashboard
-    /// scrape (env credentials). Adds a seventh row; does not touch PTY seats.
+    /// **`--dogfood --source opencode_go`**: developer-only direct dashboard
+    /// scrape (shows only the opencode_go row, not the full bench). Omit
+    /// `--dogfood` for normal use — opencode_go is a regular bench member.
     ///
     /// Unknown / disabled / expired are loud, never blocks (exit 0). Non-TTY
     /// path is plain ASCII, zero ANSI.

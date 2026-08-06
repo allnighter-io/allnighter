@@ -334,9 +334,9 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "capacity", title: "Capacity & Quota", audience: .both,
-            summary: "`alln capacity` is the six-row human table agents must paste verbatim when the user asks to print/show/display capacity; `--json` only on explicit JSON/machine request.",
+            summary: "`alln capacity` is the seven-row human table agents must paste verbatim when the user asks to print/show/display capacity; `--json` only on explicit JSON/machine request.",
             bodyMarkdown: """
-            `alln capacity` is a **trust-critical** six-row snapshot. Bare capacity is \
+            `alln capacity` is a **trust-critical** seven-row snapshot. Bare capacity is \
             instant and **spawns nothing**: Codex and Grok read structured disk/log truth; \
             Claude / Cursor / Kimi / Antigravity show last-known (with honest age) or \
             unknown. `alln capacity --refresh` live-acquires — disk re-read for Codex/Grok, \
@@ -372,6 +372,69 @@ public enum HelpTopicRegistry {
                 "print capacity", "show capacity", "display capacity",
             ],
             relatedCommandNames: ["capacity", "drivers", "doctor", "models"],
+            schemaRefs: ["capacityStripJSON"],
+            needsLiveCheck: true),
+
+        HelpTopic(
+            id: "opencode_go_capacity", title: "OpenCode Go Capacity", audience: .both,
+            summary: "The OpenCode Go dashboard seat meters remaining credits via a browser cookie. Configure first with `alln opencode-go configure`, then meter with `alln capacity --source opencode_go`.",
+            bodyMarkdown: """
+            The OpenCode Go plan is metered through a dashboard scrape: `alln capacity` \
+            fetches remaining credits for a workspace by sending your auth cookie to the \
+            dashboard. This is seat number seven on the capacity strip — a regular bench \
+            member, not gated by `--dogfood` (that flag is a developer-only direct path).
+
+            ## Credential setup
+
+            `alln opencode-go configure` saves an encrypted credential to the macOS Keychain. \
+            You need two pieces:
+
+            1. **Workspace ID** — from the dashboard URL: `opencode.ai/workspace/<wrk_…>/go`
+            2. **Auth cookie** — from a logged-in browser: DevTools → Application → Cookies → \
+               copy the `auth` value
+
+            **Safe (primary):** pipe the cookie via stdin so it never lands in shell history:
+            ```
+            echo '<cookie>' | alln opencode-go configure --workspace-id wrk_…
+            ```
+
+            **Interactive:** run `alln opencode-go configure` in a terminal — the auth value \
+            is read with echo disabled so it never appears on screen.
+
+            **Only when automated (less safe):** `--cookie <value>` works but the value WILL \
+            be visible in shell history and process listings (`ps`).
+
+            ## Checking status
+
+            ```
+            alln opencode-go status
+            alln opencode-go status --json
+            ```
+
+            Status distinguishes two states that need different recovery:
+
+            - `neverSampled` / `not configured` — nothing saved yet. Run `alln opencode-go configure`.
+            - `authRequired` / `decryptFailed` — a credential exists but is unusable (expired \
+              cookie, rotated machine key). Run `alln opencode-go status` to confirm the \
+              exact error, then re-run `alln opencode-go configure` with a fresh cookie. \
+              Never guess which recovery path — the status output names it.
+
+            ## Metering
+
+            Once configured, the seat appears on every `alln capacity` call:
+            ```
+            alln capacity
+            alln capacity --refresh --source opencode_go
+            ```
+
+            Capacity is read-only — `alln capacity` never writes or rotates your credential.
+            """,
+            aliases: [
+                "opencode go", "go plan", "go quota", "go capacity",
+                "opencode go limits", "opencode go dashboard",
+                "opencode go configure", "opencode-go", "opencode_go",
+            ],
+            relatedCommandNames: ["capacity", "opencode-go configure", "opencode-go status"],
             schemaRefs: ["capacityStripJSON"],
             needsLiveCheck: true),
 
