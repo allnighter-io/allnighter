@@ -254,6 +254,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
                 "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
                 "model_cursor_auto", "model_gemini",
                 "model_opencode_minimax_m3", "model_opencode_deepseek_v4_flash",
+                "model_opencode_qwen_37_plus",
             ]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.

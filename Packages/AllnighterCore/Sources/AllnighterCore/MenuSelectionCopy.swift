@@ -361,6 +361,10 @@ public enum MenuSelectionCopy {
             useWhen: "DeepSeek V4 Flash, OpenCode Go",
             dontUseWhen: "OpenCode Go required"
         ),
+        "model_opencode_qwen_37_plus": Pair(
+            useWhen: "Qwen 3.7 Plus, OpenCode Go",
+            dontUseWhen: "OpenCode Go required"
+        ),
         "model_grok_composer_25_fast": Pair(
             useWhen: "Grok Composer 2.5 Fast (Grok)",
             dontUseWhen: "Not Cursor; model_cursor_composer_25"

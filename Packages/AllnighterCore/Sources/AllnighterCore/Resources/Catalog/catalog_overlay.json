@@ -522,7 +522,7 @@
         ],
         "strengthRank": 92
       },
-      "defaultOn": false
+      "defaultOn": true
     },
     "model_opencode_deepseek_v4_pro": {
       "caliber": {
@@ -539,7 +539,7 @@
         ],
         "strengthRank": 90
       },
-      "defaultOn": false
+      "defaultOn": true
     },
     "model_opencode_glm_5_2": {
       "caliber": {
@@ -556,7 +556,7 @@
         ],
         "strengthRank": 88
       },
-      "defaultOn": false
+      "defaultOn": true
     },
     "model_opencode_qwen_37_max": {
       "caliber": {
@@ -573,7 +573,7 @@
         ],
         "strengthRank": 82
       },
-      "defaultOn": false
+      "defaultOn": true
     },
     "model_opencode_minimax_m3": {
       "caliber": {
@@ -590,7 +590,7 @@
         ],
         "strengthRank": 78
       },
-      "defaultOn": false
+      "defaultOn": true
     },
     "model_opencode_deepseek_v4_flash": {
       "caliber": {
@@ -605,7 +605,22 @@
         ],
         "strengthRank": 55
       },
-      "defaultOn": false
+      "defaultOn": true
+    },
+    "model_opencode_qwen_37_plus": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 65
+      },
+      "defaultOn": true
     }
   },
   "schemaVersion": 1

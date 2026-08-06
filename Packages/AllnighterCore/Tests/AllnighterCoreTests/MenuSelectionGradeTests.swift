@@ -212,13 +212,13 @@ final class MenuSelectionGradeTests: XCTestCase {
             )
         }
         let data = try MenuCatalog.encodeCompact(m)
-        // Measured 2026-08-05: built-in-only fixture compacts to 31,956 B after six
-        // OpenCode Go seats. Live bench (built-ins + real saved customs) compacts
-        // higher. The built-in fixture alone is not the surface QABC gates — see
-        // testPerRowBoundsAndRealisticCatalogWithinBudget below — but a tight
+        // Measured 2026-08-05: built-in-only fixture compacts to 34,644 B after seven
+        // default-on OpenCode Go seats. Live bench (built-ins + real saved customs)
+        // compacts higher. The built-in fixture alone is not the surface QABC gates —
+        // see testPerRowBoundsAndRealisticCatalogWithinBudget below — but a tight
         // ceiling here (~4% headroom over the measured value) still catches
         // built-in bloat (new team/model/recipe authored copy) early.
-        XCTAssertLessThanOrEqual(data.count, 32256, "built-in MenuJSON \(data.count) exceeds 31.5 KiB")
+        XCTAssertLessThanOrEqual(data.count, 36096, "built-in MenuJSON \(data.count) exceeds 35.25 KiB")
     }
 
     func testPerRowBoundsAndRealisticCatalogWithinBudget() throws {

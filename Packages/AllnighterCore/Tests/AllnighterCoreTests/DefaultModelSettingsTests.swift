@@ -26,6 +26,7 @@ final class DefaultModelSettingsTests: XCTestCase {
             "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_cursor_composer_25",
             "model_cursor_auto", "model_gemini",
             "model_opencode_minimax_m3", "model_opencode_deepseek_v4_flash",
+            "model_opencode_qwen_37_plus",
         ])
         for fastId in ["model_cursor_composer_25_fast", "model_grok_composer_25_fast"] {
             XCTAssertTrue(s.tiers.isUnassigned(fastId), "\(fastId) must stay unassigned in fresh seed")
