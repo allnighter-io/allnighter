@@ -156,7 +156,7 @@ public enum TypedRef {
             append(team.ref, kind: .team, consumers: [.menuShow], source: "menu.teams")
         }
         for model in projected.models {
-            append(model.ref, kind: .model, consumers: [.menuShow], source: "menu.models")
+            append("model:\(model.id)", kind: .model, consumers: [.menuShow], source: "menu.models")
         }
         for recipe in projected.recipes {
             append(recipe.ref, kind: .recipe, consumers: [.menuShow], source: "menu.recipes")

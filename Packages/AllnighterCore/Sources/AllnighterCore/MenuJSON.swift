@@ -13,6 +13,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     public var commands: [Command]
     public var teams: [Team]
     public var models: [Model]
+    /// Present only when Tier-1 filtered disabled seats out of `models`.
+    public var blocked: OmittedSeats?
     public var recipes: [Recipe]
     public var effectProfiles: [String: ContractRegistry.EffectProfile]
     public var defaults: Defaults
@@ -55,18 +57,33 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var validateTemplate: String
     }
 
+    /// A selectable seat. Tier-1 carries only what selection needs — identity,
+    /// which CLI owns it, and whether it can run now. `ref`, `useWhen` and
+    /// `dontUseWhen` are `--detailed` only: `ref` is `"model:" + id` (derivable,
+    /// so it is not information), and the prose is advisory, never required to
+    /// construct a call. `runTemplate`/`validateTemplate` stay in Tier-1 on
+    /// purpose — the surface teaches by example, and the example must be in
+    /// front of the caller, not assembled from elsewhere.
     public struct Model: Codable, Sendable, Equatable {
-        public var ref: String
+        public var ref: String?
         public var id: String
         public var displayName: String
         public var driverId: String
         public var enabled: Bool
         public var ready: Bool
         public var blockedReason: String?
-        public var useWhen: String
-        public var dontUseWhen: String
+        public var useWhen: String?
+        public var dontUseWhen: String?
         public var runTemplate: String
         public var validateTemplate: String
+    }
+
+    /// Seats omitted from a Tier-1 menu because they are off the bench, plus how
+    /// to see them. Without this an agent told to use an off-bench id finds
+    /// nothing in the menu and either invents an id or reports the tool broken.
+    public struct OmittedSeats: Codable, Sendable, Equatable {
+        public var count: Int
+        public var see: String
     }
 
     public struct Recipe: Codable, Sendable, Equatable {
@@ -107,6 +124,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         commands: [Command],
         teams: [Team],
         models: [Model],
+        blocked: OmittedSeats? = nil,
         recipes: [Recipe],
         effectProfiles: [String: ContractRegistry.EffectProfile],
         defaults: Defaults,
@@ -124,6 +142,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         self.commands = commands
         self.teams = teams
         self.models = models
+        self.blocked = blocked
         self.recipes = recipes
         self.effectProfiles = effectProfiles
         self.defaults = defaults
@@ -134,7 +153,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, contractHash, catalogRevision, truncated,
-            detailTemplate, actions, commands, teams, models, recipes, effectProfiles,
+            detailTemplate, actions, commands, teams, models, blocked, recipes, effectProfiles,
             defaults, completeness, capacity, update
     }
 
@@ -154,6 +173,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         try container.encode(commands, forKey: .commands)
         try container.encode(teams, forKey: .teams)
         try container.encode(models, forKey: .models)
+        try container.encodeIfPresent(blocked, forKey: .blocked)
         try container.encode(recipes, forKey: .recipes)
         try container.encode(effectProfiles, forKey: .effectProfiles)
         try container.encode(defaults, forKey: .defaults)

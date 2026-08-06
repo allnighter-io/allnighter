@@ -5,10 +5,15 @@ import AllnighterEngine
 /// `alln menu` / `alln menu show` — live agent front door (MR-S01).
 enum MenuCLI {
     static func run(_ args: [String], runtime: ToolRuntime) {
-        _ = Options(args) // accept --json like peers; always emit machine JSON
+        let opts = Options(args) // --json accepted like peers; always machine JSON
+        // Tier-1 is the hot path: teaching rule 1 sends EVERY agent here before
+        // first spend, so the default carries only what selection needs.
+        // `--detailed` restores per-seat ref/prose and off-bench rows.
+        let detailed = opts.flag("detailed")
         let menu = MenuCatalog.project(
             teams: runtime.teams.filter { !$0.isLabTeam },
             modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models,
+            detailed: detailed,
             capacity: AllnighterCLI.menuCapacity(now: Date()),
             update: AllnighterCLI.menuUpdate(now: Date())
         )

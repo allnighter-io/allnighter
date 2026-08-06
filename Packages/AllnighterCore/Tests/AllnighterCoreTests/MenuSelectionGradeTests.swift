@@ -3,8 +3,10 @@ import XCTest
 
 /// MR-S03 — selection-grade menu rows (authored useWhen/dontUseWhen + templates).
 final class MenuSelectionGradeTests: XCTestCase {
+    /// Selection PROSE lives in `--detailed` after the stage-1 menu slimming, so
+    /// every grading test below must project that tier to see it.
     private var menu: MenuJSON {
-        MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam })
+        MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam }, detailed: true)
     }
 
     func testEveryActionTeamModelRecipeHasAuthoredSelectionCopy() {
@@ -25,11 +27,11 @@ final class MenuSelectionGradeTests: XCTestCase {
             XCTAssertFalse(MenuSelectionCopy.isBannedStub(team.dontUseWhen), team.dontUseWhen)
         }
         for model in m.models {
-            XCTAssertFalse(model.useWhen.isEmpty, model.id)
-            XCTAssertFalse(model.dontUseWhen.isEmpty, model.id)
-            XCTAssertNotEqual(model.useWhen, model.displayName, "model \(model.id) useWhen is displayName-only")
-            XCTAssertFalse(MenuSelectionCopy.isBannedStub(model.useWhen), model.useWhen)
-            XCTAssertFalse(MenuSelectionCopy.isBannedStub(model.dontUseWhen), model.dontUseWhen)
+            XCTAssertFalse((model.useWhen ?? "").isEmpty, model.id)
+            XCTAssertFalse((model.dontUseWhen ?? "").isEmpty, model.id)
+            XCTAssertNotEqual(model.useWhen ?? "", model.displayName, "model \(model.id) useWhen is displayName-only")
+            XCTAssertFalse(MenuSelectionCopy.isBannedStub(model.useWhen ?? ""), model.useWhen ?? "")
+            XCTAssertFalse(MenuSelectionCopy.isBannedStub(model.dontUseWhen ?? ""), model.dontUseWhen ?? "")
         }
         for recipe in m.recipes {
             XCTAssertFalse(recipe.useWhen.isEmpty, recipe.id)
@@ -158,7 +160,7 @@ final class MenuSelectionGradeTests: XCTestCase {
     /// A realistic projection: built-ins plus a representative slice of `custom_`
     /// overlay teams and models (id-prefixed, full useWhen/dontWhen/templates —
     /// the shape a real bench with saved customs actually sends over the wire).
-    private func realisticMenu() -> MenuJSON {
+    private func realisticMenu(detailed: Bool = false) -> MenuJSON {
         let builtInTeams = BuiltInTeams.all.filter { !$0.isLabTeam }
         let builtInModels = ModelCatalog.list()
         let teams = builtInTeams + customTeams(from: builtInTeams, count: 6)
@@ -178,7 +180,7 @@ final class MenuSelectionGradeTests: XCTestCase {
                 capabilities: ModelCatalog.capabilities(def.id)
             )
         }.filter(\.enabled) + customModelEntries(from: builtInModels, count: 6)
-        return MenuCatalog.project(teams: teams, modelEntries: modelEntries)
+        return MenuCatalog.project(teams: teams, modelEntries: modelEntries, detailed: detailed)
     }
 
     func testPerRowBoundsAndBuiltInFixtureStillWithin30KiB() throws {
@@ -199,7 +201,7 @@ final class MenuSelectionGradeTests: XCTestCase {
         }
         for model in m.models {
             try MenuSelectionCopy.validateBounds(
-                .init(useWhen: model.useWhen, dontUseWhen: model.dontUseWhen),
+                .init(useWhen: model.useWhen ?? "", dontUseWhen: model.dontUseWhen ?? ""),
                 kind: "model",
                 id: model.id
             )
@@ -211,18 +213,26 @@ final class MenuSelectionGradeTests: XCTestCase {
                 id: recipe.id
             )
         }
-        let data = try MenuCatalog.encodeCompact(m)
+        let data = try MenuCatalog.encodeCompact(
+            MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam }))
         // Measured 2026-08-05: built-in-only fixture compacts to 34,644 B after seven
         // default-on OpenCode Go seats. Live bench (built-ins + real saved customs)
         // compacts higher. The built-in fixture alone is not the surface QABC gates —
         // see testPerRowBoundsAndRealisticCatalogWithinBudget below — but a tight
         // ceiling here (~4% headroom over the measured value) still catches
         // built-in bloat (new team/model/recipe authored copy) early.
-        XCTAssertLessThanOrEqual(data.count, 36096, "built-in MenuJSON \(data.count) exceeds 35.25 KiB")
+        // Tier-1 built-in fixture measures 32,168 B after the stage-1 slimming
+        // (was 36,934 B when this gated the pre-slim payload). Tightened rather
+        // than left slack: a budget above what ships stops gating growth.
+        XCTAssertLessThanOrEqual(data.count, 33792, "built-in Tier-1 MenuJSON \(data.count) exceeds 33 KiB")
     }
 
     func testPerRowBoundsAndRealisticCatalogWithinBudget() throws {
-        let m = realisticMenu()
+        // Two concerns, two tiers. Per-row PROSE bounds can only be checked where
+        // the prose exists (`--detailed`); the size BUDGET must gate what agents
+        // actually receive (Tier-1). Measuring the budget on `--detailed` would
+        // gate a payload nobody is served by default.
+        let m = realisticMenu(detailed: true)
         for team in m.teams {
             try MenuSelectionCopy.validateBounds(
                 .init(useWhen: team.useWhen, dontUseWhen: team.dontUseWhen),
@@ -232,12 +242,12 @@ final class MenuSelectionGradeTests: XCTestCase {
         }
         for model in m.models {
             try MenuSelectionCopy.validateBounds(
-                .init(useWhen: model.useWhen, dontUseWhen: model.dontUseWhen),
+                .init(useWhen: model.useWhen ?? "", dontUseWhen: model.dontUseWhen ?? ""),
                 kind: "model",
                 id: model.id
             )
         }
-        let data = try MenuCatalog.encodeCompact(m)
+        let data = try MenuCatalog.encodeCompact(realisticMenu())
         // Budget derivation (QABC-S00a, 2026-07-31): the built-in-only fixture
         // that `testPerRowBoundsAndBuiltInFixtureStillWithin30KiB` gates does
         // NOT protect the real agent-facing surface — live `alln menu --json`
@@ -249,7 +259,7 @@ final class MenuSelectionGradeTests: XCTestCase {
         // covers the measured 35,027 B live bench plus the S00b capacity row
         // plus headroom for a realistic number of saved custom teams/models,
         // without being so loose it stops gating growth.
-        XCTAssertLessThanOrEqual(data.count, 40960, "realistic MenuJSON \(data.count) exceeds 40 KiB budget")
+        XCTAssertLessThanOrEqual(data.count, 38912, "realistic Tier-1 MenuJSON \(data.count) exceeds 38 KiB budget")
     }
 
     func testAuthoredBoundsRejectOversizedCustomRecord() {

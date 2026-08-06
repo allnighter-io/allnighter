@@ -68,7 +68,7 @@ final class MenuCapacityInjectionCLITests: XCTestCase {
         let menu = MenuCatalog.project(capacity: capacity)
         let claudeModel = try XCTUnwrap(menu.models.first(where: { $0.driverId == "claude_code" }))
 
-        let detail = try MenuCatalog.show(ref: claudeModel.ref, capacity: capacity)
+        let detail = try MenuCatalog.show(ref: "model:\(claudeModel.id)", capacity: capacity)
         let model = try XCTUnwrap(detail.model)
         let rows = try XCTUnwrap(model.capacity?.rows)
         XCTAssertEqual(rows.count, 1)
@@ -94,7 +94,7 @@ final class MenuCapacityInjectionCLITests: XCTestCase {
         let menu = MenuCatalog.project(capacity: capacity)
         let claudeModel = try XCTUnwrap(menu.models.first(where: { $0.driverId == "claude_code" }))
 
-        let detail = try MenuCatalog.show(ref: claudeModel.ref, capacity: capacity)
+        let detail = try MenuCatalog.show(ref: "model:\(claudeModel.id)", capacity: capacity)
         let model = try XCTUnwrap(detail.model)
         XCTAssertNil(model.capacity)
     }

@@ -24,7 +24,7 @@ final class MenuCatalogTests: XCTestCase {
         let refs =
             menu.commands.map(\.ref)
             + menu.teams.map(\.ref)
-            + menu.models.map(\.ref)
+            + menu.models.map { "model:\($0.id)" }   // Tier-1 omits ref; it is derivable
             + menu.recipes.map(\.ref)
         XCTAssertEqual(refs.count, Set(refs).count, "duplicate menu refs")
     }
@@ -156,4 +156,74 @@ final class MenuCatalogTests: XCTestCase {
         let c = MenuCatalog.project(teams: teams)
         XCTAssertNotEqual(a.catalogRevision, c.catalogRevision)
     }
+
+    // MARK: - Tier-1 vs --detailed (menu slimming, stage 1)
+
+    private func seat(_ id: String, enabled: Bool) -> ModelListJSON.Entry {
+        ModelListJSON.Entry(
+            id: id, displayName: id, modelLabel: id,
+            driverId: "claude_code", driverName: "claude_code",
+            role: "answer", origin: "custom",
+            enabled: enabled, ready: true,
+            status: "ready", state: enabled ? "onBench" : "offBench",
+            capabilities: ModelCapabilities()
+        )
+    }
+
+    /// Tier-1 is the hot path — teaching rule 1 sends every agent here before
+    /// first spend. It carries what SELECTION needs and nothing else.
+    func testTierOneOmitsDerivableRefAndAdvisoryProse() throws {
+        let menu = MenuCatalog.project(
+            teams: BuiltInTeams.all.filter { !$0.isLabTeam },
+            modelEntries: [seat("model_a", enabled: true)]
+        )
+        let m = try XCTUnwrap(menu.models.first)
+        XCTAssertNil(m.ref, "ref is \"model:\" + id — derivable, so not information")
+        XCTAssertNil(m.useWhen)
+        XCTAssertNil(m.dontUseWhen)
+        // The worked example must stay in front of the caller: this surface
+        // teaches by example, and that is not what stage 1 trades away.
+        XCTAssertFalse(m.runTemplate.isEmpty)
+        XCTAssertFalse(m.validateTemplate.isEmpty)
+        XCTAssertTrue(m.runTemplate.contains("model_a"))
+    }
+
+    /// An off-bench seat is not selectable, so Tier-1 summarises it — but never
+    /// silently. Without the breadcrumb an agent told to use an off-bench id
+    /// finds nothing and either invents an id or reports the tool broken.
+    func testTierOneOmitsOffBenchSeatsButSaysSo() throws {
+        let menu = MenuCatalog.project(
+            teams: BuiltInTeams.all.filter { !$0.isLabTeam },
+            modelEntries: [seat("model_on", enabled: true), seat("model_off", enabled: false)]
+        )
+        XCTAssertEqual(menu.models.map(\.id), ["model_on"])
+        let blocked = try XCTUnwrap(menu.blocked, "omitted seats must be announced")
+        XCTAssertEqual(blocked.count, 1)
+        XCTAssertEqual(blocked.see, "alln models")
+    }
+
+    func testDetailedRestoresRefProseAndOffBenchSeats() throws {
+        let menu = MenuCatalog.project(
+            teams: BuiltInTeams.all.filter { !$0.isLabTeam },
+            modelEntries: [seat("model_on", enabled: true), seat("model_off", enabled: false)],
+            detailed: true
+        )
+        XCTAssertEqual(menu.models.count, 2, "--detailed lists off-bench seats too")
+        XCTAssertNil(menu.blocked, "nothing was omitted, so nothing to announce")
+        let m = try XCTUnwrap(menu.models.first)
+        XCTAssertEqual(m.ref, "model:\(m.id)")
+        XCTAssertNotNil(m.useWhen)
+        XCTAssertNotNil(m.dontUseWhen)
+    }
+
+    func testTierOneIsSmallerThanDetailed() throws {
+        let seats = (0..<12).map { seat("model_\($0)", enabled: true) }
+        let teams = BuiltInTeams.all.filter { !$0.isLabTeam }
+        let tier1 = try MenuCatalog.encodeCompact(
+            MenuCatalog.project(teams: teams, modelEntries: seats)).count
+        let full = try MenuCatalog.encodeCompact(
+            MenuCatalog.project(teams: teams, modelEntries: seats, detailed: true)).count
+        XCTAssertLessThan(tier1, full, "Tier-1 must actually be the cheaper payload")
+    }
+
 }

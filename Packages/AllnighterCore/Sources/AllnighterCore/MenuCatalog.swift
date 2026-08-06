@@ -15,6 +15,7 @@ public enum MenuCatalog {
         teams: [TeamPreset]? = nil,
         modelEntries: [ModelListJSON.Entry]? = nil,
         recipes: [RecipeCatalog.Recipe]? = nil,
+        detailed: Bool = false,
         defaultModelId: String? = nil,
         capacity: MenuJSON.Capacity? = nil,
         update: ReleaseUpdateInfo? = nil
@@ -116,19 +117,28 @@ public enum MenuCatalog {
                 id: entry.id
             )
             return MenuJSON.Model(
-                ref: "model:\(entry.id)",
+                ref: detailed ? "model:\(entry.id)" : nil,
                 id: entry.id,
                 displayName: entry.displayName,
                 driverId: entry.driverId,
                 enabled: entry.enabled,
                 ready: entry.ready,
                 blockedReason: modelBlockedReason(entry),
-                useWhen: copy.useWhen,
-                dontUseWhen: copy.dontUseWhen,
+                useWhen: detailed ? copy.useWhen : nil,
+                dontUseWhen: detailed ? copy.dontUseWhen : nil,
                 runTemplate: "alln run \"{message}\" --model \(entry.id) --json",
                 validateTemplate: "alln run \"{message}\" --model \(entry.id) --dry-run"
             )
         }
+
+        // Tier-1 lists what can be SELECTED right now. An off-bench seat is not
+        // selectable, so it is summarised rather than described in full — but it
+        // is never silently absent: `blocked` says how many and where to look.
+        let selectableRows = detailed ? modelRows : modelRows.filter(\.enabled)
+        let omittedCount = modelRows.count - selectableRows.count
+        let omitted: MenuJSON.OmittedSeats? = omittedCount > 0
+            ? .init(count: omittedCount, see: "alln models")
+            : nil
 
         let recipeRows: [MenuJSON.Recipe] = recipeList.map { recipe in
             let copy = enforceSelectionBounds(
@@ -179,7 +189,8 @@ public enum MenuCatalog {
             actions: actions,
             commands: commandRows,
             teams: teamRows,
-            models: modelRows,
+            models: selectableRows,
+            blocked: omitted,
             recipes: recipeRows,
             effectProfiles: effectProfiles,
             defaults: MenuJSON.Defaults(
@@ -310,7 +321,7 @@ public enum MenuCatalog {
             scored.append((
                 MenuSearchHit(
                     kind: "model",
-                    ref: model.ref,
+                    ref: "model:\(model.id)",
                     id: model.id,
                     title: model.displayName,
                     useWhen: model.useWhen,
@@ -436,7 +447,7 @@ public enum MenuCatalog {
                 suggestions: [
                     "command:run",
                     menu.teams.first.map(\.ref) ?? "team:default_chat",
-                    menu.models.first.map(\.ref) ?? "model:model_sonnet",
+                    menu.models.first.map { "model:\($0.id)" } ?? "model:model_sonnet",
                     menu.recipes.first.map(\.ref) ?? "recipe:ask-several-models-and-compare",
                 ]
             )
@@ -644,12 +655,12 @@ public enum MenuCatalog {
     ) throws -> MenuShowJSON {
         let entries = (modelEntries ?? builtInModelEntries()).sorted { $0.id < $1.id }
         guard let entry = entries.first(where: { $0.id == id }) else {
-            let suggestions = menu.models.map(\.ref).filter { $0.contains(id.prefix(6)) }
+            let suggestions = menu.models.map { "model:\($0.id)" }.filter { $0.contains(id.prefix(6)) }
             throw MenuRefError(
                 ref: ref,
                 kind: "model",
                 message: "Unknown model ref \(ref)",
-                suggestions: Array((suggestions.isEmpty ? menu.models.prefix(5).map(\.ref) : suggestions).prefix(8))
+                suggestions: Array((suggestions.isEmpty ? menu.models.prefix(5).map { "model:\($0.id)" } : suggestions).prefix(8))
             )
         }
         let modelCapacity: MenuJSON.Capacity? = capacity.flatMap { cap in

@@ -55,15 +55,18 @@ final class MenuSelectionCopyAuthoredBoundsTests: XCTestCase {
 
     /// Calling `project()` must not crash the front door (the Luna typo used to).
     func testMenuCatalogProjectCompletesForBuiltInCatalog() {
-        let menu = MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam })
+        // Selection prose is `--detailed` only after the stage-1 menu slimming,
+        // so a bounds check on that prose must project the tier that carries it.
+        let menu = MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam }, detailed: true)
         XCTAssertFalse(menu.models.isEmpty)
         XCTAssertFalse(menu.teams.isEmpty)
         XCTAssertFalse(menu.actions.isEmpty)
         XCTAssertFalse(menu.recipes.isEmpty)
         // Luna must be present and within bound after projection.
         if let luna = menu.models.first(where: { $0.id == "model_gpt_luna" }) {
-            XCTAssertLessThanOrEqual(luna.useWhen.count, MenuSelectionCopy.useWhenMax, luna.useWhen)
-            XCTAssertFalse(luna.useWhen.isEmpty)
+            let useWhen = luna.useWhen ?? ""
+            XCTAssertLessThanOrEqual(useWhen.count, MenuSelectionCopy.useWhenMax, useWhen)
+            XCTAssertFalse(useWhen.isEmpty)
         }
     }
 
