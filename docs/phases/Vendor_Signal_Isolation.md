@@ -86,11 +86,51 @@ bare substring matching. Its `paymentPatterns` are:
 A token count, duration, byte offset, line number, or identifier containing
 `402` can therefore become a billing failure.
 
-The exact trigger in this incident — integer status 402 versus a `402`
-substring — cannot now be established. Raw stdout and stderr exist transiently
-inside `CommandResult`, but `WorkerRunResult` retains only normalized output,
-failure facts, diagnostics, and `CapacityObservation`. The journal retained the
-classification, not the deciding bytes.
+### 2.1 Second reproduction — and the trigger, now PROVEN
+
+On 2026-08-06 the VSI-S01/S02 implementation brief was routed to Cursor Grok 4.5
+in the AgentOS root (run `44ED40D9`). It failed in 142s with a byte-identical
+fingerprint on a **different vendor**:
+
+```json
+{ "kind": "accountRateLimit", "source": "cursor_agent",
+  "rawSnippet": "turn.failed", "retryAfterSeconds": 3600,
+  "sourceConfidence": "structured" }
+```
+
+`qwen` and `cursor_agent`. Neither is Grok. Same snippet default, same invented
+3,600. The cross-vendor claim is now reproduced, not inferred.
+
+**The trigger is established.** The raw worker stream was captured this time and
+contains **five occurrences of `402`** — every one from the brief text, which
+described this very defect. The mechanism:
+
+- `classifyStructured` iterates **every line of accumulated stdout**, not just
+  terminal events;
+- `classifyGrokJSON` has **no type guard** — it evaluates every JSON line;
+- the stream-json `user` event echoes the prompt; its `message` is an object, not
+  a string, so `codexMessage` returns its `"turn.failed"` default — which is
+  exactly the recorded `rawSnippet`;
+- `paymentPatterns` is matched against `message + " " + line`, and the line
+  contained `402`.
+
+**The bug report triggered the bug.**
+
+### 2.2 Consequence: this defect cannot be repaired through the bench
+
+Any delegated seat working this slice must either be briefed about `402` or read
+`CapacityClassifier.swift`, which contains it. Either puts the trigger in the
+worker's stdout, and the run is classified as a billing failure before it can
+commit. Two runs, two vendors, zero commits.
+
+**VSI-S01/S02 and the AgentOS half of VSI-S03 must therefore be implemented
+directly, not delegated**, until the substring match is gone. After that the
+constraint lifts. VSI-S05 is Allnighter-side, does not touch this string, and
+remains delegable.
+
+This is also the strongest available argument for §3.3's fail-closed rule: a
+false positive here did not merely mislabel a run, it made the defect
+self-protecting.
 
 The second failure:
 
