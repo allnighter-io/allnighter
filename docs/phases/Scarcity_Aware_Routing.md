@@ -258,6 +258,30 @@ component that makes route-down viable.** Any future SAR-S03 measurement of
 "economy hit rate" that trusts self-reported success would have recorded 13/13
 and been wrong four times.
 
+### The pattern in the failures — repair vs. net-new
+
+Sorting all 14 slices by what the brief asked for separates them almost cleanly:
+
+| Brief shape | Result |
+| --- | --- |
+| **Fix this named defect, here is the property it must satisfy** — bounded timeout, structural fingerprint, drift gates, feature-OFF gate, fixture move, four wrong-number defects, cookie-leak pair, SSR tokenizer | **9 / 9 clean**, including from rank 55 and rank 65 seats |
+| **Build this new capability** — enrich a diagnostics type, register new commands, write a novel test, productize a new CLI flag | **1 / 5 clean.** One subtly wrong, one shipped red, one test that could not fail, two returned reconnaissance and never committed |
+
+The same seat (rank 90) sits on both sides of that line. It fixed the parser
+wrong-number cluster and the cookie-leak pair cleanly, then returned a file
+inventory twice when asked to build something that did not exist yet.
+
+Provisional read: **route-down is strong for bounded repair and weak for
+net-new capability.** A defect brief carries its own acceptance test — the
+defect either reproduces or it does not — so the seat cannot mistake exploring
+for finishing. A build brief has no such anchor, and the failure mode is not a
+wrong answer but no answer: reconnaissance that reads like progress.
+
+This is more actionable than the rank ordering. It says what to delegate, not
+just to whom. It also suggests the fix for build briefs is to supply the
+missing anchor — name the failing state that must become passing before any
+code is written.
+
 Second-order finding: the lead is not exempt. Two of the defects fixed today
 were the lead's own (a placeholder masking a real auth failure, an incomplete
 commit whose `git add` silently failed), and both were caught the same way —
