@@ -17,9 +17,15 @@ import Foundation
 /// return `unknown` with a reason — never throw, never invent 0%.
 public enum CapacityAcquisition {
 
-    /// Fixed product display order (source ids). Not-ready/parked seats are
-    /// reordered by the strip renderer, not here.
-    public static let benchSourceOrder: [String] = [
+    /// Seats metered by driving a local TUI over a PTY.
+    ///
+    /// This is authored explicitly and is NOT derived from `benchSourceOrder`.
+    /// It used to be an alias, which made "add a seat to the bench" silently
+    /// mean "and PTY-probe it" — fine while every seat was a TUI, actively
+    /// dangerous once a seat is acquired some other way. A dashboard seat sent
+    /// through the PTY executor would spawn a terminal probe for a CLI that
+    /// cannot answer and fail closed with nonsense.
+    public static let ptySourceOrder: [String] = [
         "codex",
         "claude_code",
         "cursor_agent",
@@ -28,21 +34,28 @@ public enum CapacityAcquisition {
         "agy",
     ]
 
-    /// Dogfood-only dashboard seat — not in `benchSourceOrder` until promotion (OCG-S04).
+    /// Seats metered by scraping a browser dashboard over HTTP (OCG-S08).
+    public static let dashboardSourceOrder: [String] = [dogfoodSourceId]
+
+    /// Fixed product display order (source ids). Not-ready/parked seats are
+    /// reordered by the strip renderer, not here.
+    public static let benchSourceOrder: [String] = ptySourceOrder + dashboardSourceOrder
+
+    /// The OpenCode Go dashboard seat.
     public static let dogfoodSourceId = "opencode_go"
 
     /// Retired — disk is not a capacity display path (CWB-S00). Kept empty so
     /// stale call sites fail compile or tests rather than silently routing to disk.
     public static let diskOnlySources: [String] = []
 
-    /// All bench seats are PTY-probed on refresh.
-    public static let ptyOnlySources: [String] = benchSourceOrder
+    /// PTY-acquired seats only. Never the dashboard seat.
+    public static let ptyOnlySources: [String] = ptySourceOrder
 
     /// Full bench roster. Prefer `benchSourceOrder` for display order.
     public static let tier3DisklessSources: [String] = benchSourceOrder
 
-    /// PTY seats driven on refresh — all six.
-    public static let tier3ProbeableSources: [String] = benchSourceOrder
+    /// PTY seats driven on refresh.
+    public static let tier3ProbeableSources: [String] = ptySourceOrder
 
     /// Valid bench source ids for targeted refresh.
     public static var validRefreshSourceIds: [String] { benchSourceOrder }
@@ -55,12 +68,7 @@ public enum CapacityAcquisition {
 
     /// `nil` when `id` is a known bench source; otherwise the usage error message.
     public static func validateRefreshSourceId(_ id: String, dogfood: Bool = false) -> String? {
-        if id == dogfoodSourceId {
-            guard dogfood else {
-                return unknownRefreshSourceMessage(id)
-            }
-            return nil
-        }
+        _ = dogfood // promoted (OCG-S08): the Go seat no longer needs the gate
         guard validRefreshSourceIds.contains(id) else {
             return unknownRefreshSourceMessage(id)
         }
@@ -74,9 +82,11 @@ public enum CapacityAcquisition {
     ) -> [String] {
         guard refresh else { return [] }
         if let refreshSource {
-            return benchSourceOrder.contains(refreshSource) ? [refreshSource] : []
+            // Deliberately ptySourceOrder, not benchSourceOrder: a targeted
+            // refresh of the dashboard seat must probe NO PTY seat at all.
+            return ptySourceOrder.contains(refreshSource) ? [refreshSource] : []
         }
-        return benchSourceOrder
+        return ptySourceOrder
     }
 
     /// Acquire capacity windows for the fixed bench under `homeRoot`.

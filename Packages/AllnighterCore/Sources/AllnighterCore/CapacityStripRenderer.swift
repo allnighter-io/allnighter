@@ -134,14 +134,10 @@ public enum CapacityStripUnknownKind: String, Sendable, Equatable, Codable {
 public enum CapacityStripRenderer {
 
     /// Locked product order by source id.
-    public static let displayOrder: [String] = [
-        "codex",
-        "claude_code",
-        "cursor_agent",
-        "grok",
-        "kimi",
-        "agy",
-    ]
+    /// Derived, not a second hand-maintained list. It used to be an
+    /// independent copy of the bench roster, which meant promoting a seat in
+    /// one place silently dropped it from the strip in the other.
+    public static let displayOrder: [String] = CapacityAcquisition.benchSourceOrder
 
     public static let defaultWidth = 80
 
