@@ -368,8 +368,13 @@
         },
         {
           "name" : "source",
-          "summary" : "Target one seat for the live probe (still returns the full six-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.",
+          "summary" : "Target one seat for the live probe (still returns the full seven-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy, opencode_go.",
           "takesValue" : true
+        },
+        {
+          "name" : "dogfood",
+          "summary" : "Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it.",
+          "takesValue" : false
         }
       ],
       "menuAction" : false,
@@ -380,8 +385,96 @@
       "name" : "capacity",
       "outputSchema" : "capacityStripJSON",
       "spendsQuota" : false,
-      "summary" : "Show the six-row vendor capacity\/quota table. When the user asks to print\/show\/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or \"shown above\". Bare is live cold PTY (no disk\/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON\/machine request.",
+      "summary" : "Show the seven-row vendor capacity\/quota table. When the user asks to print\/show\/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or \"shown above\". Bare is live cold PTY (no disk\/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON\/machine request.",
       "trigger" : "Use when the user asks to print, show, or display `alln capacity` \/ quota headroom — run bare `alln capacity` and include the complete human-readable stdout table verbatim in your final response.",
+      "visibility" : "public"
+    },
+    {
+      "antiExample" : "Do NOT pass --cookie with the raw auth value — it lands in shell history and process listings. Pipe via stdin or let the interactive prompt read it with echo disabled.",
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "dependsOnSelection",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "echo '<cookie>' | alln opencode-go configure --workspace-id wrk_…",
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "workspace-id",
+          "summary" : "Workspace ID from the dashboard URL (wrk_…). Required in non-interactive stdin mode.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "cookie",
+          "summary" : "Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer piping via stdin).",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit structured output.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "opencode-go configure",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Writes a secret to the macOS Keychain — never prints it. The safe non-interactive form pipes the cookie via stdin with --workspace-id; --cookie also works but exposes the value in shell history.",
+      "trigger" : "Use before first `alln capacity --source opencode_go` to configure the dashboard seat. The cookie comes from a logged-in browser: DevTools → Application → Cookies → copy the `auth` value.",
+      "visibility" : "public"
+    },
+    {
+      "antiExample" : "Do NOT guess the status from the capacity strip alone — run status for the exact failure reason and recovery action.",
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln opencode-go status",
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit structured status JSON (configured, workspaceId, credentialSource, error).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "opencode-go status",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Check whether OpenCode Go dashboard credentials are configured and usable. Distinguishes not-configured from configured-but-unusable (different recovery paths).",
+      "trigger" : "Use to diagnose why `alln capacity` shows opencode_go as neverSampled or authRequired — the status output names the exact recovery path.",
       "visibility" : "public"
     },
     {
@@ -5948,7 +6041,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.3.3",
+  "contractVersion" : "9.4.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -6832,7 +6925,7 @@
       "agentAction" : "Run `alln loop status <id> --json` with a valid loop id, or start a new loop with `alln loop start \"<what you want done>\"`.",
       "code" : "RELAY_NOT_FOUND",
       "exitClass" : "operational",
-      "explain" : "No PM Relay matches the given id.",
+      "explain" : "No Loop matches the given id.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "relay.not_found"

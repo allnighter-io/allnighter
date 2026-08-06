@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.3.3, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.4.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -97,14 +97,31 @@ Headless first-run CLI detection — probes sources, assembles the Bench/default
 
 ### `alln capacity`
 
-Show the six-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or "shown above". Bare is live cold PTY (no disk/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON/machine request.
+Show the seven-row vendor capacity/quota table. When the user asks to print/show/display capacity, run bare `alln capacity` and paste the COMPLETE human stdout table verbatim in the final response — never a summary, highlights, JSON, or "shown above". Bare is live cold PTY (no disk/history hydrate-as-live); --refresh is a legacy no-op; --json only on explicit JSON/machine request.
 
 Flags:
 - `--json` — Emit JSON instead of the human-readable strip. Use only when the user explicitly requests JSON/machine-readable output or a program needs the schema.
 - `--refresh` — Legacy no-op; bare `alln capacity` is already a live cold PTY acquire. Kept for existing scripts.
-- `--source <value>` — Target one seat for the live probe (still returns the full six-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy.
+- `--source <value>` — Target one seat for the live probe (still returns the full seven-row strip). Valid: codex, claude_code, cursor_agent, grok, kimi, agy, opencode_go.
+- `--dogfood` — Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it.
 
 Output schema: `capacityStripJSON`.
+
+### `alln opencode-go configure`
+
+Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Writes a secret to the macOS Keychain — never prints it. The safe non-interactive form pipes the cookie via stdin with --workspace-id; --cookie also works but exposes the value in shell history.
+
+Flags:
+- `--workspace-id <string>` — Workspace ID from the dashboard URL (wrk_…). Required in non-interactive stdin mode.
+- `--cookie <string>` — Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer piping via stdin).
+- `--json` — Emit structured output.
+
+### `alln opencode-go status`
+
+Check whether OpenCode Go dashboard credentials are configured and usable. Distinguishes not-configured from configured-but-unusable (different recovery paths).
+
+Flags:
+- `--json` — Emit structured status JSON (configured, workspaceId, credentialSource, error).
 
 ### `alln bootstrap`
 

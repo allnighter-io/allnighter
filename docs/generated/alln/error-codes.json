@@ -795,7 +795,7 @@
     "agentAction" : "Run `alln loop status <id> --json` with a valid loop id, or start a new loop with `alln loop start \"<what you want done>\"`.",
     "code" : "RELAY_NOT_FOUND",
     "exitClass" : "operational",
-    "explain" : "No PM Relay matches the given id.",
+    "explain" : "No Loop matches the given id.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "relay.not_found"
