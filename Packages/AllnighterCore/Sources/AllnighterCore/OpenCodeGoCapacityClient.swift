@@ -33,14 +33,37 @@ public enum OpenCodeGoCapacityClient {
         case failure(FetchFailure)
     }
 
-    /// Injectable transport for tests — production uses `URLSession.shared`.
+    /// Injectable transport for tests — production uses a bounded ephemeral
+    /// session (the `/go` request carries a session cookie and must not
+    /// populate a shared cache).
     public protocol Transport: Sendable {
         func data(for request: URLRequest) throws -> (Data, URLResponse)
     }
 
     public struct URLSessionTransport: Transport {
+        /// Ephemeral configuration with bounded request + resource timeouts.
+        /// `timeoutIntervalForResource` is the total-transfer ceiling that
+        /// `URLRequest.timeoutInterval` (inactivity only) does not provide;
+        /// `URLSession.shared` leaves it at its 7-day default, which can hang
+        /// the synchronous capacity path forever on a slow-drip response.
+        public static let defaultConfiguration: URLSessionConfiguration = {
+            let config = URLSessionConfiguration.ephemeral
+            config.timeoutIntervalForRequest = OpenCodeGoCapacityClient.defaultTimeout
+            config.timeoutIntervalForResource = OpenCodeGoCapacityClient.defaultTimeout * 2
+            config.httpCookieStorage = nil
+            config.httpCookieAcceptPolicy = .never
+            config.urlCache = nil
+            return config
+        }()
+
         private let session: URLSession
-        public init(session: URLSession = .shared) { self.session = session }
+
+        public init(session: URLSession = URLSession(configuration: URLSessionTransport.defaultConfiguration)) {
+            self.session = session
+        }
+
+        public var configuration: URLSessionConfiguration { session.configuration }
+
         public func data(for request: URLRequest) throws -> (Data, URLResponse) {
             try session.syncData(for: request)
         }

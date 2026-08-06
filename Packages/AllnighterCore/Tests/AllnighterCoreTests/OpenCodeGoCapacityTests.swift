@@ -94,6 +94,33 @@ final class OpenCodeGoCapacityExecutorTests: XCTestCase {
     }
 }
 
+final class OpenCodeGoCapacityTransportTests: XCTestCase {
+
+    func testDefaultTransportHasBoundedResourceTimeout() {
+        let transport = OpenCodeGoCapacityClient.URLSessionTransport()
+        let config = transport.configuration
+
+        XCTAssertEqual(
+            config.timeoutIntervalForRequest,
+            OpenCodeGoCapacityClient.defaultTimeout,
+            "request timeout should match the configured default"
+        )
+
+        let sevenDays: TimeInterval = 7 * 24 * 60 * 60
+        XCTAssertLessThan(
+            config.timeoutIntervalForResource,
+            sevenDays,
+            "resource timeout must be far below the 7-day URLSession.shared default"
+        )
+
+        XCTAssertEqual(
+            config.timeoutIntervalForResource,
+            OpenCodeGoCapacityClient.defaultTimeout * 2,
+            "resource ceiling should be a small fixed multiple of the request timeout"
+        )
+    }
+}
+
 final class OpenCodeGoDogfoodGateTests: XCTestCase {
 
     func testOpenCodeGoRejectedWithoutDogfoodFlag() {
