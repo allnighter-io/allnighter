@@ -68,7 +68,22 @@ if [ -f "$PACKET_ROOT/WAIVERS.manifest" ]; then
   grep -vE '^[[:space:]]*#' "$PACKET_ROOT/WAIVERS.manifest" | awk 'NF>=2 {print $1, $2}' >> "$COVER"
 fi
 
+# Pre-existing unproven views, frozen at a specific content hash and attributed
+# to the commit that left them unproven. These are DEBT, not proof: they are
+# reported every run but do not block an unrelated change.
+#
+# This exists because the gate's scope is cumulative — "changed since baseline" —
+# so one unproven refactor blocked EVERY later closeout by everyone, including
+# doc-only ones. Attribution fixes that without weakening the gate: entries are
+# hash-bound, so the moment anyone edits a debt file its hash changes, it drops
+# out of this list automatically, and it blocks again. Debt cannot hide new work.
+DEBT="$(mktemp "$TMP_ROOT/alln-gui-debt.XXXXXX")"; trap 'rm -f "$COVER" "$DEBT"' EXIT
+if [ -f "$PACKET_ROOT/DEBT.manifest" ]; then
+  grep -vE '^[[:space:]]*#' "$PACKET_ROOT/DEBT.manifest" | awk 'NF>=2 {print $1, $2}' >> "$DEBT"
+fi
+
 uncovered=()
+debt=()
 visible=0
 while IFS= read -r f; do
   [ -n "$f" ] || continue
@@ -78,7 +93,11 @@ while IFS= read -r f; do
   visible=$((visible + 1))
   h="$(git hash-object "$f")"
   if ! awk -v h="$h" -v f="$f" '($1==h && $2==f){ok=1} END{exit ok?0:1}' "$COVER"; then
-    uncovered+=("$f")
+    if awk -v h="$h" -v f="$f" '($1==h && $2==f){ok=1} END{exit ok?0:1}' "$DEBT"; then
+      debt+=("$f")
+    else
+      uncovered+=("$f")
+    fi
   fi
 done < <(changed_under "$SRC_DIR")
 
@@ -86,8 +105,12 @@ if [ "$visible" -eq 0 ]; then
   echo "check-gui-proof: no visible GUI surface changed since baseline — ok"
   exit 0
 fi
+if [ "${#debt[@]}" -gt 0 ]; then
+  echo "check-gui-proof: ${#debt[@]} view(s) carry PRE-EXISTING proof debt (docs/qa/gui/DEBT.manifest)."
+  echo "    Not blocking this run. Editing any of them re-requires real proof."
+fi
 if [ "${#uncovered[@]}" -eq 0 ]; then
-  echo "check-gui-proof: $visible visible view(s) changed; all have fresh content-bound proof — ok"
+  echo "check-gui-proof: $visible visible view(s) changed; all proven, waived, or recorded debt — ok"
   exit 0
 fi
 

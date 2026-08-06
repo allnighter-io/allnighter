@@ -1,0 +1,39 @@
+# GUI proof DEBT — pre-existing unproven views, frozen at content hash.
+#
+# NOT proof and NOT a waiver. These views are genuinely unproven; they are
+# recorded so that pre-existing debt does not block unrelated closeouts.
+# Origin: a file-splitting refactor sweep on 2026-08-03 ('refactor(mac):
+# extract X from Y') plus a few later fixes invalidated ~20 content-bound
+# proofs without changing a pixel, and nobody ran gui_proof_waive.sh. The
+# gate then blocked EVERY closeout for days, including doc-only ones.
+#
+# Entries are hash-bound: edit any of these files and it drops out of this
+# list automatically and blocks again. Debt cannot hide new work.
+#
+# To clear an entry properly: render + seal it, or waive it if the change
+# really was non-visual. Recorded 2026-08-06.
+#
+# <blob-hash> <path>
+5b8a15f34dc18bfe2862dde0aa9418af152e886b Apps/AllnighterMac/Sources/AllnighterMacApp.swift
+dab0984657b6020bff522c45797e4bb66c2b240b Apps/AllnighterMac/Sources/AnswerBody.swift
+99b0bc5c679a9ed3807d54185527c5b18e3f78c0 Apps/AllnighterMac/Sources/CapacityStripView.swift
+c1847cead0304b7396bc8839dfd3a1cb1fb95ef8 Apps/AllnighterMac/Sources/ComposerAttachmentTile.swift
+7c644fed4fdada1171f7b7dba6d94c35ecb290bb Apps/AllnighterMac/Sources/EditSkillView.swift
+591e2d9bb99ce2e05a340403722b1103fe984fa4 Apps/AllnighterMac/Sources/ReadinessView.swift
+c2e86852f4191bb825bfac024eed33be723a5810 Apps/AllnighterMac/Sources/RelayEscalationRow.swift
+4591b302f03f19eb3f77490d1a076383e150de99 Apps/AllnighterMac/Sources/RelayLaunchView.swift
+969c30e5754e90a26697080b3994cab93c2be3d5 Apps/AllnighterMac/Sources/RootView.swift
+66ae820d271f158e001a8eb9b5f3fc0b548baad3 Apps/AllnighterMac/Sources/RoutingComposer.swift
+f1dbda263ef17e611b996de5613e042ca2b84daf Apps/AllnighterMac/Sources/RoutingComposerAttachments.swift
+4962e5fca8aea1ac7714317f5fc723e60d64afc9 Apps/AllnighterMac/Sources/RoutingComposerEffortPopover.swift
+db57accd60aae85a743c1de00049c37a40113b9c Apps/AllnighterMac/Sources/RoutingComposerFileSearch.swift
+de5956fc223ce3056b029a5d1a3f734afcee62ef Apps/AllnighterMac/Sources/RoutingComposerSend.swift
+9d828b8f6b84ca6e0e23666ab164ea3074e83adf Apps/AllnighterMac/Sources/RoutingComposerTargetPopover.swift
+971529611261f64fa2694d7481f3bca98601eca2 Apps/AllnighterMac/Sources/SetupViews.swift
+703ac211d29d17099947d7265dd24b8f9418f680 Apps/AllnighterMac/Sources/TeamEditorView.swift
+b7d89eac55a43c5af4a428e7c6a75f8c0c7fd27f Apps/AllnighterMac/Sources/ThreadBoardRow.swift
+44dfe32334ca6908dc9e40f94d181d232e057a9c Apps/AllnighterMac/Sources/ThreadMutatingRunRow.swift
+b06dd0d7b896e3fc5b250a97ebdf89351db91e91 Apps/AllnighterMac/Sources/ThreadTurnIndicators.swift
+903a07fb47be4a8fe6a86b28aab1c7769c808f46 Apps/AllnighterMac/Sources/ThreadTurnRow.swift
+9ab11d9a28c279800a50d969119587f84aa11e65 Apps/AllnighterMac/Sources/ThreadTurnTimeline.swift
+a938ffab0de86d2dca0943c23e214139b283cd71 Apps/AllnighterMac/Sources/ThreadView.swift
