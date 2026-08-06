@@ -1,9 +1,8 @@
 # Vendor Signal Isolation
 
-Status: **Open — VSI-S01/S02 implementation-ready as one landing unit; VSI-S04
-and VSI-S05 implementation-ready; VSI-S03 unblocked for its AgentOS half and
-label separation by the §10.2 ruling, with only the persisted-park disposition
-still gated on §10.1.**
+Status: **Open — NOT implementation-ready. An adversarial pass (Grok 4.5,
+read-only, 2026-08-06) returned 13 defects, 3 blocking; the verified subset is
+recorded in §11 and must be cleared before any slice starts.**
 Rulings landed: **§10.2 (founder, 2026-08-06)** — delete the lie, keep the
 cadence, separate the labels.
 Priority: **Above `Agent_Teaching_Surface.md`.** That packet teaches agents to
@@ -48,8 +47,9 @@ Intake per `docs/workflows/SSOT_Founder_Input_Workflow.md`.
   `RunService.runExecution`, and `TeamRunJSONMapper`.
 - **CLI surface.** No new commands. `alln show` and `alln export` gain truthful
   partial content in VSI-S05. `alln doctor explain` retains its existing codes.
-- **Risk class.** Capacity routing touches quota-spend and vendor selection, so
-  VSI-S03 requires the High-Risk Stop recorded in §10.1.
+- **Risk class.** Capacity routing touches quota-spend and vendor selection. The
+  §10.2 cadence question is ruled; the **persisted-park disposition** remains the
+  High-Risk Stop recorded in §10.1.
 - **Next slice.** VSI-S01/S02.
 
 ## 2. Incident
@@ -129,7 +129,9 @@ violates both statements:
 - generic capacity/payment fallbacks receive invented delay values.
 
 Nil is already representable. Missing vendor reset evidence must leave
-`observedResetAt`, `retryAfterSeconds`, and vendor-derived `wakeAfter` nil.
+`observedResetAt` and `retryAfterSeconds` nil. **`wakeAfter` is excluded** — the
+type designates it a local boundary (§10.2 rule 1); the fix for it is
+presentation wording, not nilling.
 
 ### 3.3 False positives are more expensive
 
@@ -650,7 +652,8 @@ A blanket rewrite would silently alter persisted run history. Leaving it alone
 ships a known lie. This packet cannot choose the terminal state on the founder's
 behalf.
 
-Founder ruling required before VSI-S03:
+Founder ruling required before VSI-S03's **persisted-park disposition** (the
+rest of S03 is unblocked by §10.2):
 
 1. repair only the known incident signature/run and preserve all other history;
    or
@@ -672,21 +675,49 @@ smuggled in as a mechanical consequence; it is rejected.
 This resolves the question into three binding rules, and they are the whole of
 it:
 
-1. **The observation never carries an unobserved number.** When the vendor
-   supplies no reset, `observedResetAt`, `retryAfterSeconds`, and
-   observation-level `wakeAfter` are nil. This follows from
-   `CapacityObservation`'s own field contract — *"Present only when the CLI/API
-   provided a reset time or duration"* — and holds independently of this
+1. **The observation never carries an unobserved *vendor* number.** When the
+   vendor supplies no reset, `observedResetAt` and `retryAfterSeconds` are nil.
+   That is `CapacityObservation`'s own field contract — *"Present only when the
+   CLI/API provided a reset time or duration"* — and holds independently of this
    incident. Zero samples are required to justify it.
+
+   **`wakeAfter` is explicitly excluded and must NOT be nilled.** An earlier
+   draft of this rule said otherwise and was wrong. The type documents
+   `wakeAfter` as *"Conservative local retry boundary; may equal
+   `observedResetAt` when sourced"* (`CapacityObservation.swift:31`), and
+   `RunBlocker.wakeAfter` as *"Conservative local wake boundary"*
+   (`TeamRun.swift:49`). **The data model already separates vendor truth from
+   local boundary.** Nilling `wakeAfter` would delete the field designed to hold
+   the local value and break the cooling ledger, which reads
+   `wakeAfter ?? observedResetAt`.
 2. **The scheduler keeps its cadence.** `VendorBackoffPolicy.unknownResetWakeAfter`,
    `VendorBackoffWakePlanner.plan`, and `RunStore.claimVendorWake` are retained
    unchanged in behaviour. A local recheck boundary is legitimate scheduling and
    is not evidence of anything about the vendor.
-3. **The two must never be presented as the same fact.** A locally computed
-   boundary is stored and displayed as local policy, never as vendor truth.
-   Surface wording distinguishes them: a vendor-stated reset may read
-   *"resumes around <time>"*; a local boundary must read *"recheck at <time>"*
-   or equivalent. `alln ps`, `alln show`, and the capacity strip all obey this.
+3. **The two must never be presented as the same fact — and this is a
+   PRESENTATION fix, not a storage fix.** Storage already distinguishes them
+   (rule 1). The defect is that the presentation layer renders a local boundary
+   in vendor wording:
+
+   ```swift
+   // VendorContinuityPresentation.swift:46
+   return "Waiting for \(vendorDisplayName) — resumes around \(time)"
+   ```
+
+   That string is emitted for **any** non-nil `wakeAfter`, local or vendor-sourced.
+   It is what displayed the fabricated Qwen resume time. The engine one layer
+   down already gets this right — `RunService.swift:530` injects the local
+   cadence into a parked copy under the comment *"Unknown-reset parks use their
+   bounded local cadence without claiming vendor reset truth."*
+
+   Required: `VendorContinuityPresentation` must select wording from whether the
+   boundary is vendor-sourced (`observedResetAt` present) or local. Vendor-stated
+   may read *"resumes around <time>"*; a local boundary must read *"recheck at
+   <time>"* or equivalent. **Binding surfaces:** `waitStatus` (used by `alln ps`
+   / `alln show`) **and `parkNotification`** (`VendorContinuityPresentation.swift:49`,
+   reached via `NotificationDeliveryFilter`) — notification copy carries the same
+   lie and was missed in the first draft. The capacity strip is **not** a binding
+   surface here: its copy is pool-reset wording on a different path.
 
 Anti-overfit guards, stated because this packet rests on one incident:
 
@@ -721,6 +752,36 @@ Therefore:
 
 This limitation must be stated in closeout; it must not be disguised as a
 completed real-driver fixture gate.
+
+## 11. Pre-implementation corrections (adversarial pass, 2026-08-06)
+
+Read-only Grok 4.5 pass returned 13 defects. Each below was **re-verified
+against source by the lead** before being recorded; the evidence column is the
+lead's check, not the reviewer's claim. **No slice starts until its blockers
+clear.**
+
+| # | Sev | Defect | Verified evidence | Status |
+| --- | --- | --- | --- | --- |
+| 1 | blocker | Label separation had no named owner or storage discriminator | `VendorContinuityPresentation.swift:46` emits `"resumes around"` for ANY non-nil `wakeAfter`; it was absent from S03's symbol list | **Fixed** — §10.2 rule 3 rewritten as a presentation fix and names the owner |
+| 2 | blocker | Nilling observation `wakeAfter` breaks the cooling ledger | `RunService.swift:530` sets `parked.wakeAfter = blocker.wakeAfter ?? unknownResetWakeAfter(...)`; ledger filters on `wakeAfter ?? observedResetAt` | **Fixed** — §10.2 rule 1 now excludes `wakeAfter` |
+| 8 | major | §10.2 rule 1 overclaimed the type contract | The *"Present only when the CLI/API provided…"* comment sits above `observedResetAt`/`retryAfterSeconds`; `wakeAfter` is separately documented *"Conservative local retry boundary"* (`CapacityObservation.swift:31`), and `RunBlocker.wakeAfter` likewise (`TeamRun.swift:49`) | **Fixed** — see rule 1 |
+| 7 | major | §1 and §10.1 still gated all of S03 on the founder ruling | Contradicted the landed §10.2 split | **Fixed** — both narrowed to the persisted-park disposition |
+| 11 | major | Park **notifications** carry the same vendor wording, outside the stated surface list | `VendorContinuityPresentation.parkNotification:49`, reached via `NotificationDeliveryFilter` | **Fixed** — added to binding surfaces |
+| 13 | minor | Capacity strip named as a binding surface but is a different path | Strip copy is pool-reset wording | **Fixed** — removed from binding surfaces |
+| 6 | major | S02's auth `"401"` claim names the wrong owner | `CapacityClassifier.authPatterns` contains no `"401"` (`:429`); bare `"401"` lives only in `catalog.json` `loginFlow.authErrorPatterns` | **OPEN** — S02 must either drop the auth-401 gate or name `catalog.json` and a mutation that touches it |
+| 3 | blocker | S05 cannot fix export as written | `runExport` prints `bundle.md` when present and only then falls back to `humanAnswer` (`AllnighterCLI.swift:2246`); `bundle` is prompt-first | **OPEN** — S05 must name `bundle.md` / `RunMarkdown.bundle` regeneration or bypass |
+| 4 | major | S03 closeout filter cannot exercise its own named gates | `VendorBackoffReconcilerTests` holds 4 park/lease/handoff tests only; display tests live elsewhere; AgentOS is a different package | **OPEN** — closeout must list every named gate's real target |
+| 5 | major | The §10.2 negative cadence gate has no test symbol | Gate list names only nil-retry, display, label, and disposition tests | **OPEN** — add a positive test that a nil vendor reset still schedules via `unknownResetWakeAfter`, and point the negative mutation at it |
+| 9 | major | S05's export test excluded from closeout filters | Closeout runs `RunServiceTests`, `TeamRunJSONMapperTests`, `ArtifactProjectorTests` only | **OPEN** |
+| 10 | major | "Claude: its documented five-hour window" asserted with no citation | Doc text only | **OPEN** — cite the vendor doc or leave `windows` absent, per the packet's own absent-beats-guessed rule |
+| 12 | minor | S05 "mid-stream journal update" points at the wrong journal | `workerAnswerDelta` is deliberately excluded from `RemoteRunEventJournal.isDurableSemanticEvent` | **OPEN** — say `run.json` / worker output explicitly |
+
+Findings 1, 2, 3, 4, 6, 8 and 11 were re-verified directly against source by the
+lead. The remainder are recorded as reported and must be checked when addressed.
+
+**Note on #10 and #6:** both are the packet's own laws being broken by the packet
+— asserting an undocumented vendor window, and naming a gate whose mutation
+cannot fire. That is the third occurrence of the §3.6 pattern in this work.
 
 ## AGENTS.md routing
 
