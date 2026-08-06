@@ -257,12 +257,12 @@ final class OpenCodeGoCapacityTransportTests: XCTestCase {
 
 final class OpenCodeGoDogfoodGateTests: XCTestCase {
 
-    func testOpenCodeGoRejectedWithoutDogfoodFlag() {
-        XCTAssertNotNil(CapacityAcquisition.validateRefreshSourceId("opencode_go", dogfood: false))
-    }
-
-    func testOpenCodeGoAcceptedWithDogfoodFlag() {
+    /// Promoted (OCG-S08): a normal `--source`, accepted with or without the
+    /// retired --dogfood gate. A typo is still refused.
+    func testOpenCodeGoAcceptedAsNormalSource() {
+        XCTAssertNil(CapacityAcquisition.validateRefreshSourceId("opencode_go", dogfood: false))
         XCTAssertNil(CapacityAcquisition.validateRefreshSourceId("opencode_go", dogfood: true))
+        XCTAssertNotNil(CapacityAcquisition.validateRefreshSourceId("opencode_goo", dogfood: false))
     }
 
     func testFullRefreshPTYSourcesExcludeDogfoodSource() {
@@ -286,24 +286,32 @@ final class OpenCodeGoDogfoodGateTests: XCTestCase {
 
     func testBenchSourceOrderKeepsDogfoodSourceExcludedAtSix() {
         XCTAssertFalse(
+            CapacityAcquisition.ptySourceOrder.contains(CapacityAcquisition.dogfoodSourceId),
+            "the Go seat is a browser scrape and must never appear in the PTY roster"
+        )
+        XCTAssertTrue(
             CapacityAcquisition.benchSourceOrder.contains(CapacityAcquisition.dogfoodSourceId),
-            "opencode_go must not join benchSourceOrder until OCG-S04 qualification passes"
+            "promoted (OCG-S08): the Go seat is a normal bench seat"
         )
         XCTAssertEqual(
-            CapacityAcquisition.benchSourceOrder.count,
-            6,
-            "The bench must stay at six seats until the Go promotion gate passes"
+            CapacityAcquisition.ptySourceOrder.count, 6,
+            "promotion must not have added a seat to the PTY roster"
+        )
+        XCTAssertEqual(
+            CapacityStripRenderer.displayOrder,
+            CapacityAcquisition.benchSourceOrder,
+            "strip order must not drift from the bench roster"
         )
     }
 
     func testValidateRefreshSourceIdDogfoodConstant() {
-        XCTAssertNotNil(
-            CapacityAcquisition.validateRefreshSourceId(CapacityAcquisition.dogfoodSourceId, dogfood: false),
-            "The dogfood source must be refused without the --dogfood gate"
+        // Promoted (OCG-S08): accepted either way. The --dogfood gate is gone,
+        // but the PTY exclusion above is NOT — that one still has to hold.
+        XCTAssertNil(
+            CapacityAcquisition.validateRefreshSourceId(CapacityAcquisition.dogfoodSourceId, dogfood: false)
         )
         XCTAssertNil(
-            CapacityAcquisition.validateRefreshSourceId(CapacityAcquisition.dogfoodSourceId, dogfood: true),
-            "The dogfood source must be accepted with the --dogfood gate"
+            CapacityAcquisition.validateRefreshSourceId(CapacityAcquisition.dogfoodSourceId, dogfood: true)
         )
     }
 }
@@ -351,8 +359,8 @@ final class OpenCodeGoDogfoodFeatureGateTests: XCTestCase {
             featureEnabled: true
         )
         XCTAssertTrue(
-            result.snapshot.rows.count > CapacityAcquisition.benchSourceOrder.count,
-            "Feature ON must include the dogfood seat rows beyond the six bench rows"
+            result.snapshot.rows.contains { $0.source == CapacityAcquisition.dogfoodSourceId },
+            "Feature ON must include the Go seat row"
         )
         XCTAssertFalse(
             result.diagnostics.attempted,

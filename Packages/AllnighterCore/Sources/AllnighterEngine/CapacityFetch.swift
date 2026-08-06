@@ -48,9 +48,19 @@ public enum CapacityFetch {
             probeTimeout: probeTimeout,
             probeScope: probeScope
         )
-        try? historyStore.record(windows, now: now)
-        let rows = CapacityBenchProjection.rows(from: windows, now: now)
-        return Snapshot(now: now, windows: windows, rows: rows)
+        // Dashboard wave. Runs whenever the bench as a whole is refreshed, or
+        // when the Go seat is the explicit target — but never when some other
+        // single seat was targeted, so `--source grok` does not quietly make a
+        // network request to opencode.ai.
+        let wantsDashboard = refreshSource == nil
+            || refreshSource == CapacityAcquisition.dogfoodSourceId
+        let dashboardWindows = wantsDashboard
+            ? OpenCodeGoCapacityExecutor.execute(now: now).windows
+            : []
+        let allWindows = windows + dashboardWindows
+        try? historyStore.record(allWindows, now: now)
+        let rows = CapacityBenchProjection.rows(from: allWindows, now: now)
+        return Snapshot(now: now, windows: allWindows, rows: rows)
     }
 
     /// Mac launch: six never-sampled placeholders. Fresh truth lives in the

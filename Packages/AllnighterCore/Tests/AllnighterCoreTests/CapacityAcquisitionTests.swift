@@ -795,8 +795,10 @@ final class CapacityAcquisitionTests: XCTestCase {
             probeExecutor: executor
         )
 
-        // All six seats fail closed — no percentages, no zeros, no disk fallback.
-        for source in CapacityAcquisition.benchSourceOrder {
+        // Every PTY seat fails closed — no percentages, no zeros, no disk
+        // fallback. Scoped to the PTY roster: the dashboard seat is not probed
+        // by this path, so it is legitimately neverSampled here.
+        for source in CapacityAcquisition.ptySourceOrder {
             let row = windows.first { $0.source == source }
             XCTAssertEqual(row?.unknownReason, .parserFailed(observedAt: now), source)
             XCTAssertNil(row?.usedPercent, source)
