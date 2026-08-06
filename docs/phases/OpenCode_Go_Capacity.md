@@ -1,11 +1,10 @@
 # OpenCode Go Capacity
 
-Status: **Ready for Implementation** (v1 strip — not started)
-Owner: AllnighterCore (per-source modules + acquisition branch) +
-AllnighterCLI (`opencode-go` configure/status; capacity injection stays CLI)
+Status: **Draft — reliability qualification required before bench integration**
+Owner: AllnighterCore (targeted dashboard acquisition + parser diagnostics) +
+AllnighterCLI (existing `capacity` surface only during qualification)
 Created: 2026-08-05
-Revised: 2026-08-05 (SSOT founder-input + feature-workflow finalize; baseline
-`adc582cd`)
+Revised: 2026-08-05 (SOL reliability review; baseline `adc582cd`)
 Origin: Founder dogfood — OpenCode Go plan limits exist only on the browser
 `/go` dashboard, not in the `opencode` TUI. ALLN meters six local CLI seats via
 PTY; Go is the seventh seat with the **same per-source module shape**, but
@@ -26,11 +25,169 @@ Baseline brainstorm (pre-review): `adc582cd`.
 
 ---
 
+## SOL review (2026-08-05)
+
+### Verdict: ship a smaller dogfood qualification slice, not v1 as specced
+
+The full packet is **not Ready for Implementation**. A session-cookie HTML
+scraper is an unstable adapter over an undocumented page, and the current proof
+plan is too weak to justify putting its numbers in the normal capacity bench.
+The official Go usage API request and PR remain open; the PR has not been
+verified against the production backend. Waiting indefinitely is not warranted,
+but neither is presenting a community regex port as product truth.
+
+Evidence reviewed: `@slkiser/opencode-quota` 4.5.1 from the local npm cache,
+especially `dist/lib/opencode-go.js` and `dist/providers/opencode-go.js`. It:
+
+- regexes SolidJS `$R[...]` hydration internals and falls back to `data-slot`
+  markup only when **none** of the SSR windows matched;
+- treats any non-empty subset of rolling/weekly/monthly as success by default;
+- does not reject duplicates or require two matching strategies to agree;
+- clamps negative percentage/reset input instead of rejecting the sample;
+- reports HTTP failures but has no positive classification for a followed
+  redirect or HTTP 200 login page.
+
+That is useful proof that the page can be scraped today. It is not proof that
+the scrape is sufficiently stable or honest for Allnighter. The upstream
+[official API issue](https://github.com/anomalyco/opencode/issues/16017) and
+[unverified PR](https://github.com/anomalyco/opencode/pull/16513) were both open
+at review time.
+
+Build only a targeted, explicitly dogfood acquisition path first. It may be
+promoted to the normal bench only after the reliability gate below passes. If it
+does not pass, delete the spike and wait for the official API.
+
+This review is binding where it conflicts with the candidate design below.
+Before implementation, revise the rest of this packet to match it; do not treat
+the older three-slice plan as an allowlist.
+
+### Smallest reliable slice
+
+```text
+OPENCODE_GO_WORKSPACE_ID + OPENCODE_GO_AUTH_COOKIE
+  -> alln capacity --refresh --source opencode_go
+  -> either all three dashboard windows, atomically validated,
+     or one typed unknown result with scrape diagnostics
+```
+
+Cut from the qualification slice:
+
+- encrypted file storage, `machine.key`, and crypto reuse;
+- `alln opencode-go configure` and `alln opencode-go status`;
+- interactive/hidden credential prompts and a new status JSON contract;
+- default seven-seat refresh and unconditional normal-strip inclusion;
+- Mac presentation, background refresh, menu, park/substitution, `/usage`, and
+  any monitoring of the upstream community scraper.
+
+Use the two named environment variables only, both-or-neither. This is a
+deliberate dogfood constraint, not the final credential UX. Document a safe
+launch-scoped export and warn against putting the cookie in shell history. If
+the scrape earns promotion, make a separate decision about persistent storage;
+do not prepay a bespoke AES-GCM credential subsystem for a parser that may be
+deleted.
+
+Do not add separate configure/status commands. The existing targeted
+`alln capacity` command is the capability and its `--json` output is its status
+surface. Add scrape-health fields to that existing observation/row contract if
+the current unknown-reason shape cannot carry them. One command should answer:
+was a fetch attempted, what was observed, which parser strategy matched, and
+why no numeric value was emitted.
+
+Keep all three windows in the parser. Cutting weekly/monthly saves almost no
+acquisition complexity because the same response contains all three; requiring
+the exact set is also a valuable page-integrity check. **Partial success is
+failure.** If rolling, weekly, or monthly is missing, duplicated, ambiguous, or
+invalid, emit no Go percentages. This is stricter and safer than the upstream
+plugin, which accepts any subset it happens to parse.
+
+### Ranked practical failure modes
+
+| Rank | Failure | Why it matters | Required response |
+| --- | --- | --- | --- |
+| 1 | SolidJS hydration or `data-slot` markup changes | Deploys can rename fields, change serialization, reorder/nest markup, or move data to a client API | No numeric output; `schemaDrift`/typed parse health with strategy id |
+| 2 | Expired/invalid cookie returns redirect or HTTP 200 login HTML | A status-only 401/403 check misses the common browser-auth shape | Detect 401/403, sign-in redirect/final URL, and positive login-page markers as `authRequired` |
+| 3 | SSR stops carrying quota and the browser fetches it after load | Raw HTTP sees a valid dashboard shell with no numbers | Distinguish authenticated dashboard shell from login and from known data; fail closed |
+| 4 | Partial or ambiguous parse | The most dangerous outcome is a plausible wrong number, not an obvious failure | Require exactly one valid value for each of three windows; reject duplicate/conflicting strategies |
+| 5 | A/B, locale, plan state, workspace mismatch, or no-usage state | Labels and empty states may legitimately differ by account | Fixtures for every observed state; unknown until each state has a proven semantic mapping |
+| 6 | WAF/bot challenge, rate limit, timeout, or transient 5xx | Browser-like User-Agent is not a stability contract | Typed fetch failure; bounded timeout; no retry storm and no stale value presented as fresh |
+| 7 | Provider changes limit semantics or reset units | Values can remain parseable while meaning changes | Bounds plus browser comparison; official docs are metadata, dashboard remains v1 authority |
+
+Do not classify every unparseable page as `authRequired`. That would assert an
+unobserved cause. Authentication is automatic only for positive evidence:
+401/403, a redirect/final URL to sign-in, or a stable login-page signature.
+Otherwise report schema drift / unrecognized content.
+
+### Parser acceptance and privacy guardrails
+
+One live response is accepted only when all of these hold:
+
+- HTTP 200, expected HTML content type, bounded response size, and final URL is
+  the requested workspace `/go` page;
+- the response positively identifies the Go dashboard, not merely any OpenCode
+  page;
+- exactly one rolling, weekly, and monthly record is present;
+- each percentage is finite and inside `0...100`; never clamp bad input;
+- reset seconds are finite, non-negative, and credible for the window (5h,
+  7d, and calendar-month upper bounds with a small clock tolerance);
+- when two strategies both match, their normalized values agree exactly or the
+  entire sample fails closed;
+- the parser strategy has a stable diagnostic id such as `solid_ssr_v1` or
+  `data_slot_v1`; fixture provenance records capture date and strategy.
+
+Raw authenticated HTML must **not** be written to the normal debug directory.
+It can contain account/session data. Persist only a redacted diagnostic
+fingerprint (HTTP status, content type, final-host/path class, response size,
+parser id, matched/missing field names, and a hash). A raw capture for fixture
+renewal must be an explicit local developer action, stored outside the repo,
+reviewed/redacted manually, and never produced automatically.
+
+### Proof and promotion gate
+
+Fixture tests are necessary but cannot prove an undocumented live page. Do not
+add a credentialed network test to CI, and do not call an unauthenticated live
+request a drift test; neither exercises the claimed boundary.
+
+Before normal bench inclusion, dogfood must record:
+
+- at least 14 days and 100 targeted authenticated refreshes;
+- at least two observed rolling resets and one deliberate expired-cookie test;
+- at least 20 side-by-side browser comparisons across non-zero values;
+- **zero false numeric readings**; every mismatch or ambiguous response emits
+  unknown, never a partial or last-known value labeled fresh;
+- at least 99% successful matches when the browser dashboard itself loads;
+- percentage equality with the browser and reset time within 90 seconds;
+- verified classification for 401, 403, login redirect/200 login page, timeout,
+  5xx, partial-window HTML, duplicate values, out-of-range values, and unknown
+  markup.
+
+Fixture drift checks run on every parser change. Live-vs-fixture comparison is a
+local, credentialed dogfood gate with a small redacted result ledger, not flaky
+CI. Any false numeric reading resets the qualification clock. Two schema-drift
+incidents in the 14-day window are a no-go unless both are caused by the same
+known rollout and the parser is requalified from zero.
+
+### Go / no-go decision
+
+- **No-go:** the full configure/store/status/default-bench v1 below.
+- **Go:** one env-only, targeted, three-window-atomic dogfood slice with honest
+  scrape health.
+- **Promotion:** only after the gate above. Then decide whether encrypted local
+  persistence earns its maintenance cost.
+- **Wait for official API:** immediately if the spike produces any plausible
+  false value, needs a headless browser, requires additional session cookies,
+  or fails qualification. Prefer the official endpoint whenever it ships.
+
+The product claim remains three windows matching the browser. The smaller slice
+reduces configuration and integration surface; it does not weaken truthfulness.
+
+---
+
 ## One claim
 
 ```text
-Configure Go once. `alln capacity --refresh --source opencode_go` shows the
-same rolling / weekly / monthly % the browser /go page shows.
+With Go credentials supplied, `alln capacity --refresh --source opencode_go`
+shows the same rolling / weekly / monthly values as the browser `/go` page, or
+a typed unknown result. It never emits a partial or plausibly stale Go sample.
 ```
 
 ---
@@ -40,7 +197,7 @@ same rolling / weekly / monthly % the browser /go page shows.
 ```text
 Allnighter Feature Packet
 
-Status: Ready for Implementation
+Status: Draft — blocked on SOL reliability qualification
 
 Founder Intent
 - Raw request: Meter OpenCode Go in ALLN like Claude/Codex/Grok, but scrape
@@ -170,10 +327,14 @@ Proof scenario:
   Fixtures + one live dogfood refresh.
 
 Blocking questions:
-  None for v1 strip. Phase 2 park/sub needs founder dogfood on real wall-cross.
+  Can the authenticated page pass the SOL reliability qualification without a
+  browser runtime or extra session state? Persistent credential UX is deferred
+  until that answer is yes. Phase 2 park/sub needs founder dogfood on a real
+  wall-cross.
 
 Next slice:
-  OCG-S01 — parser + fixtures (no wiring).
+  OCG-S00 — env-only targeted dogfood spike + redacted evidence ledger. Do not
+  add default-bench wiring, persistent credentials, or new opencode-go commands.
 ```
 
 ---
@@ -289,7 +450,7 @@ Map dashboard windows → `CapacityWindowScope`: rolling → `fiveHour`, weekly 
 | Not configured | `neverSampled` |
 | Bad / expired cookie / HTTP 401–403 | `authRequired` |
 | HTTP other non-200 / transport error | typed fetch failure → unknown (`parserFailed` or dedicated fetch mapping — never invent %) |
-| HTML unparseable | `parserFailed` + debug dump |
+| HTML unparseable | typed schema drift + redacted diagnostic fingerprint; no automatic raw HTML dump |
 | Never invent 0% | Banned |
 
 ---
@@ -312,8 +473,8 @@ Packages/AllnighterCore/Tests/AllnighterCoreTests/
   OpenCodeGoCapacityExecutorTests.swift
 
 Packages/AllnighterCore/Tests/Fixtures/opencode-go/
-  go-dashboard-ssr.html              # Saved /go page (SolidJS hydration)
-  go-dashboard-dataslot.html         # data-slot fallback format
+  go-dashboard-ssr.html              # Manually captured, reviewed, redacted
+  go-dashboard-dataslot.html         # Manually captured, reviewed, redacted
 
 Packages/AllnighterCore/Sources/AllnighterCLI/
   OpenCodeGoCLI.swift                # configure + status subcommands only
@@ -438,11 +599,16 @@ fallback.
 
 ## Slice plan
 
+The original S01–S03 plan below is deferred and must be rewritten after OCG-S00
+evidence. It is retained only to show the previously considered integration
+surface.
+
 | Slice | Goal | Allowlist | Works Test |
 | --- | --- | --- | --- |
-| **OCG-S01** | Pure parser + fixtures | `OpenCodeGoCapacityProbe.swift`, tests, fixtures | `swift-test.sh --filter OpenCodeGoCapacityProbe` |
-| **OCG-S02** | Client + encrypted store + CLI | `OpenCodeGoCapacityClient.swift`, `OpenCodeGoCredentialStore.swift`, `OpenCodeGoCLI.swift`, `authRequired` enum/copy if first emit, tests | `swift-test.sh --filter OpenCodeGo` |
-| **OCG-S03** | Acquisition + strip + help | `OpenCodeGoCapacityExecutor.swift`, `CapacityAcquisition.swift` (PTY/dashboard split), `CapacityAcquisitionTier`, `CapacityBenchProjection`, `CapacityStripRenderer`, help/contract | `swift-test.sh --filter OpenCodeGoCapacityExecutor` + `CapacityAcquisition` + help/contract checks |
+| **OCG-S00** | Env-only targeted dogfood + redacted evidence ledger; no default bench | Rewrite packet allowlist before starting | Atomic three-window fixtures + live qualification protocol |
+| **OCG-S01 (deferred)** | Pure parser + fixtures | `OpenCodeGoCapacityProbe.swift`, tests, fixtures | `swift-test.sh --filter OpenCodeGoCapacityProbe` |
+| **OCG-S02 (deferred)** | Client + encrypted store + CLI | `OpenCodeGoCapacityClient.swift`, `OpenCodeGoCredentialStore.swift`, `OpenCodeGoCLI.swift`, `authRequired` enum/copy if first emit, tests | `swift-test.sh --filter OpenCodeGo` |
+| **OCG-S03 (deferred)** | Acquisition + strip + help | `OpenCodeGoCapacityExecutor.swift`, `CapacityAcquisition.swift` (PTY/dashboard split), `CapacityAcquisitionTier`, `CapacityBenchProjection`, `CapacityStripRenderer`, help/contract | `swift-test.sh --filter OpenCodeGoCapacityExecutor` + `CapacityAcquisition` + help/contract checks |
 
 Estimate: **2–3 focused days** / three sprint work orders.
 
@@ -468,7 +634,7 @@ ledger to replace `/go` %.
 
 | Risk | Mitigation |
 | --- | --- |
-| HTML markup changes | Dual parse strategies; debug dump; monitor upstream scraper |
+| HTML markup changes | Atomic validation; stable strategy ids; redacted diagnostics; qualification clock resets on false values |
 | Cookie = full web session | Encrypt at rest; never log; document rotation |
 | Scraper ≠ API | Document best-effort; [opencode#16513](https://github.com/anomalyco/opencode/pull/16513) pending |
 | PTY code pollution | Hard rule + grep: no HTTP/cookie/HTML in `CapacityProbe.swift` |
