@@ -76,7 +76,7 @@
         },
         {
           "name" : "detailed",
-          "summary" : "Add per-model ref and useWhen\/dontUseWhen prose, and list off-bench seats. Tier-1 omits these; run templates are always present.",
+          "summary" : "Add per-model ref, capability tags, and invocation templates, and list off-bench seats. Tier-1 omits these.",
           "takesValue" : false
         }
       ],
@@ -6059,7 +6059,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.7.0",
+  "contractVersion" : "9.8.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

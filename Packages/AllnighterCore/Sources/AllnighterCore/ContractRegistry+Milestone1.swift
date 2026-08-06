@@ -20,7 +20,7 @@ public extension ContractRegistry {
     // register opencode-go configure + status commands; new help topic.
     // CWB-S01c: minor — register capacity --enable and --disable flags with
     // mutually-exclusive constraint; repoWrite effect. saveEnabled throws.
-    static let contractVersion = "9.7.0"
+    static let contractVersion = "9.8.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -55,7 +55,7 @@ public extension ContractRegistry {
             antiExample: "Do NOT use this to start work — choose a command/team/model from the menu, then validate with its template.",
             flags: [
                 FlagSpec("json", summary: "Emit MenuJSON (default; always machine JSON)."),
-                FlagSpec("detailed", summary: "Add per-model ref and useWhen/dontUseWhen prose, and list off-bench seats. Tier-1 omits these; run templates are always present."),
+                FlagSpec("detailed", summary: "Add per-model ref, capability tags, and invocation templates, and list off-bench seats. Tier-1 omits these."),
             ],
             outputSchema: .menuJSON,
             spendsQuota: false,

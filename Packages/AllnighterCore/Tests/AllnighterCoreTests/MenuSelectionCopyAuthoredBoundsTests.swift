@@ -62,12 +62,9 @@ final class MenuSelectionCopyAuthoredBoundsTests: XCTestCase {
         XCTAssertFalse(menu.teams.isEmpty)
         XCTAssertFalse(menu.actions.isEmpty)
         XCTAssertFalse(menu.recipes.isEmpty)
-        // Luna must be present and within bound after projection.
-        if let luna = menu.models.first(where: { $0.id == "model_gpt_luna" }) {
-            let useWhen = luna.useWhen ?? ""
-            XCTAssertLessThanOrEqual(useWhen.count, MenuSelectionCopy.useWhenMax, useWhen)
-            XCTAssertFalse(useWhen.isEmpty)
-        }
+        // Stage 3: models carry no authored selection prose, so there is no
+        // per-model bound left to grade here. Team and recipe copy is still
+        // graded by the assertions above.
     }
 
     func testProjectedBoundsOverLongAuthoredCopyWithoutThrowing() {

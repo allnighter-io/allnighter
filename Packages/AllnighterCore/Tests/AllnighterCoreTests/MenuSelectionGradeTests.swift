@@ -26,12 +26,12 @@ final class MenuSelectionGradeTests: XCTestCase {
             XCTAssertFalse(MenuSelectionCopy.isBannedStub(team.useWhen), team.useWhen)
             XCTAssertFalse(MenuSelectionCopy.isBannedStub(team.dontUseWhen), team.dontUseWhen)
         }
+        // Stage 3: models carry no authored selection prose. What a seat is
+        // FOR is a catalog fact, so that is what gets graded now. Team and
+        // recipe copy is still authored and still graded, above and below.
         for model in m.models {
-            XCTAssertFalse((model.useWhen ?? "").isEmpty, model.id)
-            XCTAssertFalse((model.dontUseWhen ?? "").isEmpty, model.id)
-            XCTAssertNotEqual(model.useWhen ?? "", model.displayName, "model \(model.id) useWhen is displayName-only")
-            XCTAssertFalse(MenuSelectionCopy.isBannedStub(model.useWhen ?? ""), model.useWhen ?? "")
-            XCTAssertFalse(MenuSelectionCopy.isBannedStub(model.dontUseWhen ?? ""), model.dontUseWhen ?? "")
+            XCTAssertFalse(model.id.isEmpty)
+            XCTAssertFalse(model.driverId.isEmpty, "every seat names its owning CLI")
         }
         for recipe in m.recipes {
             XCTAssertFalse(recipe.useWhen.isEmpty, recipe.id)
@@ -199,13 +199,7 @@ final class MenuSelectionGradeTests: XCTestCase {
                 id: team.id
             )
         }
-        for model in m.models {
-            try MenuSelectionCopy.validateBounds(
-                .init(useWhen: model.useWhen ?? "", dontUseWhen: model.dontUseWhen ?? ""),
-                kind: "model",
-                id: model.id
-            )
-        }
+        // No authored model copy left to bound-check (stage 3).
         for recipe in m.recipes {
             try MenuSelectionCopy.validateBounds(
                 .init(useWhen: recipe.useWhen, dontUseWhen: recipe.dontUseWhen),
@@ -240,13 +234,7 @@ final class MenuSelectionGradeTests: XCTestCase {
                 id: team.id
             )
         }
-        for model in m.models {
-            try MenuSelectionCopy.validateBounds(
-                .init(useWhen: model.useWhen ?? "", dontUseWhen: model.dontUseWhen ?? ""),
-                kind: "model",
-                id: model.id
-            )
-        }
+        // No authored model copy left to bound-check (stage 3).
         let data = try MenuCatalog.encodeCompact(realisticMenu())
         // Budget derivation (QABC-S00a, 2026-07-31): the built-in-only fixture
         // that `testPerRowBoundsAndBuiltInFixtureStillWithin30KiB` gates does

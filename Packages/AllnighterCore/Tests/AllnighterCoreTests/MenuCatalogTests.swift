@@ -179,8 +179,7 @@ final class MenuCatalogTests: XCTestCase {
         )
         let m = try XCTUnwrap(menu.models.first)
         XCTAssertNil(m.ref, "ref is \"model:\" + id — derivable, so not information")
-        XCTAssertNil(m.useWhen)
-        XCTAssertNil(m.dontUseWhen)
+        XCTAssertNil(m.capabilityTags, "capability facts are --detailed only")
         // Stage 2: per-row templates are normalised into `modelInvocation`.
         // Teaching by example survives — a complete, runnable command with a
         // real id is still in the payload, just once instead of per seat.
@@ -217,8 +216,9 @@ final class MenuCatalogTests: XCTestCase {
         XCTAssertNil(menu.blocked, "nothing was omitted, so nothing to announce")
         let m = try XCTUnwrap(menu.models.first)
         XCTAssertEqual(m.ref, "model:\(m.id)")
-        XCTAssertNotNil(m.useWhen)
-        XCTAssertNotNil(m.dontUseWhen)
+        // Stage 3: advisory prose is gone entirely. --detailed now carries
+        // FACTS (what the seat is configured for), not authored claims.
+        XCTAssertNotNil(m.capabilityTags)
     }
 
     func testTierOneIsSmallerThanDetailed() throws {

@@ -107,15 +107,6 @@ public enum MenuCatalog {
         }
 
         let modelRows: [MenuJSON.Model] = models.map { entry in
-            let copy = enforceSelectionBounds(
-                MenuSelectionCopy.model(
-                    id: entry.id,
-                    displayName: entry.displayName,
-                    driverId: entry.driverId
-                ),
-                kind: "model",
-                id: entry.id
-            )
             return MenuJSON.Model(
                 ref: detailed ? "model:\(entry.id)" : nil,
                 id: entry.id,
@@ -124,8 +115,8 @@ public enum MenuCatalog {
                 enabled: entry.enabled,
                 ready: entry.ready,
                 blockedReason: modelBlockedReason(entry),
-                useWhen: detailed ? copy.useWhen : nil,
-                dontUseWhen: detailed ? copy.dontUseWhen : nil,
+                status: entry.ready ? nil : entry.status,
+                capabilityTags: detailed ? entry.capabilities.capabilityTags.map(\.rawValue) : nil,
                 runTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --json" : nil,
                 validateTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --dry-run" : nil
             )
@@ -322,9 +313,10 @@ public enum MenuCatalog {
                 tokens: tokens,
                 id: model.id,
                 title: model.displayName,
-                useWhen: model.useWhen,
-                dontUseWhen: model.dontUseWhen,
-                extras: [model.driverId, model.runTemplate, model.validateTemplate].compactMap { $0 }
+                useWhen: "",
+                dontUseWhen: "",
+                extras: ([model.driverId, model.runTemplate, model.validateTemplate].compactMap { $0 })
+                    + (model.capabilityTags ?? [])
             )
             guard raw >= minimumHitScore else { continue }
             scored.append((
@@ -333,8 +325,10 @@ public enum MenuCatalog {
                     ref: "model:\(model.id)",
                     id: model.id,
                     title: model.displayName,
-                    useWhen: model.useWhen,
-                    dontUseWhen: model.dontUseWhen,
+                    // Models no longer carry authored selection prose; a hit
+                    // shows what it IS (id, owning CLI) and how to invoke it.
+                    useWhen: (model.capabilityTags ?? []).joined(separator: ", "),
+                    dontUseWhen: "",
                     runTemplate: model.runTemplate,
                     validateTemplate: model.validateTemplate,
                     blockedReason: model.blockedReason,

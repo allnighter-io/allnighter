@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.7.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.8.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -27,7 +27,7 @@ Live compact agent menu: public commands, teams, models, recipes, effects, and d
 
 Flags:
 - `--json` — Emit MenuJSON (default; always machine JSON).
-- `--detailed` — Add per-model ref and useWhen/dontUseWhen prose, and list off-bench seats. Tier-1 omits these; run templates are always present.
+- `--detailed` — Add per-model ref, capability tags, and invocation templates, and list off-bench seats. Tier-1 omits these.
 
 Output schema: `menuJSON`.
 

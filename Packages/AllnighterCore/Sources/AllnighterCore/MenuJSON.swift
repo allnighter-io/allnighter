@@ -74,8 +74,17 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var enabled: Bool
         public var ready: Bool
         public var blockedReason: String?
-        public var useWhen: String?
-        public var dontUseWhen: String?
+        /// Present only when `ready` is false, where it separates `parked` from
+        /// `notReady` — a distinction that changes what a caller should do.
+        /// Omitted when ready, because there it only restates `ready`.
+        public var status: String?
+        /// `--detailed`: what this seat is configured FOR. Facts from the
+        /// catalog, not a quality claim — `strengthRank` is deliberately not
+        /// surfaced here (see `Scarcity_Aware_Routing.md`: rank did not predict
+        /// outcome, and publishing it invites exactly that inference).
+        /// `alln menu show model:<id>` carries the full record for anyone who
+        /// genuinely wants it.
+        public var capabilityTags: [String]?
         public var runTemplate: String?
         public var validateTemplate: String?
     }
