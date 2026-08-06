@@ -360,3 +360,58 @@ final class OpenCodeGoDogfoodFeatureGateTests: XCTestCase {
         )
     }
 }
+
+/// OCG-S05 — the qualification ledger is the founder's promotion evidence. It
+/// had no test isolation, so 45 fabricated `ok:true` rows (all stamped with the
+/// hardcoded test date) were written into the real file. Two independent
+/// guards now prevent that.
+final class OpenCodeGoLedgerIsolationTests: XCTestCase {
+
+    private final class RecordingSink: OpenCodeGoLedgerSink, @unchecked Sendable {
+        private(set) var entries: [OpenCodeGoCapacityExecutor.ScrapeDiagnostics] = []
+        func append(_ entry: OpenCodeGoCapacityExecutor.ScrapeDiagnostics) {
+            entries.append(entry)
+        }
+    }
+
+    /// Guard 1: execute() routes diagnostics to the injected sink.
+    func testExecuteRecordsToInjectedSink() {
+        let sink = RecordingSink()
+        let outcome = OpenCodeGoCapacityExecutor.execute(
+            now: Date(timeIntervalSince1970: 1_754_000_000),
+            credentials: nil,
+            ledger: sink
+        )
+        XCTAssertEqual(sink.entries.count, 1)
+        XCTAssertEqual(sink.entries.first, outcome.diagnostics)
+    }
+
+    /// Guard 2, the backstop: the file sink writes nothing under the test
+    /// runner even when it is handed a path it owns. This is what protects the
+    /// real ledger from a future test that forgets to inject.
+    func testFileSinkWritesNothingUnderTestRunner() throws {
+        let dir = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("ocg-ledger-\(UUID().uuidString)", isDirectory: true)
+        let url = dir.appendingPathComponent("qualification.jsonl")
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        XCTAssertTrue(
+            OpenCodeGoQualificationLedger.isRunningUnderTestRunner,
+            "this test is meaningless if the runner is not detected"
+        )
+        OpenCodeGoQualificationLedger.FileSink(url: url).append(
+            OpenCodeGoCapacityExecutor.ScrapeDiagnostics(
+                attempted: true, ok: true, observedAt: Date(timeIntervalSince1970: 1_754_000_000)
+            )
+        )
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: url.path),
+            "the file sink must not write while under a test runner"
+        )
+    }
+
+    /// The default stays the file sink, so production behavior is unchanged.
+    func testDefaultSinkIsFileSink() {
+        XCTAssertTrue(OpenCodeGoQualificationLedger.fileSink is OpenCodeGoQualificationLedger.FileSink)
+    }
+}

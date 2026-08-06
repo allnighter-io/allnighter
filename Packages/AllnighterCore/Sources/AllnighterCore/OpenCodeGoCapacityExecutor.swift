@@ -56,8 +56,13 @@ public enum OpenCodeGoCapacityExecutor {
     public static func execute(
         now: Date,
         credentials: OpenCodeGoCredentialStore.Credentials? = nil,
-        transport: (any OpenCodeGoCapacityClient.Transport)? = nil
+        transport: (any OpenCodeGoCapacityClient.Transport)? = nil,
+        ledger: (any OpenCodeGoLedgerSink)? = nil
     ) -> Outcome {
+        // Resolved here rather than as a default argument: the production sink is
+        // internal, and widening it to public just to satisfy a default would
+        // export the ledger as API for no reason.
+        let ledger = ledger ?? OpenCodeGoQualificationLedger.fileSink
         let credsResult = credentials.map { Result.success($0) }
             ?? OpenCodeGoCredentialStore.loadFromEnvironment()
         guard case .success(let creds) = credsResult else {
@@ -69,7 +74,7 @@ public enum OpenCodeGoCapacityExecutor {
                 failureKind: failure,
                 observedAt: now
             )
-            OpenCodeGoQualificationLedger.append(diagnostics)
+            ledger.append(diagnostics)
             return Outcome(windows: windows, diagnostics: diagnostics)
         }
 
@@ -90,7 +95,7 @@ public enum OpenCodeGoCapacityExecutor {
                 failureKind: describe(failure),
                 observedAt: now
             )
-            OpenCodeGoQualificationLedger.append(diagnostics)
+            ledger.append(diagnostics)
             return Outcome(windows: windows, diagnostics: diagnostics)
 
         case .success(let success):
@@ -111,7 +116,7 @@ public enum OpenCodeGoCapacityExecutor {
                 bodyFingerprint: bodyFingerprint(from: success.html),
                 observedAt: now
             )
-            OpenCodeGoQualificationLedger.append(diagnostics)
+            ledger.append(diagnostics)
             return Outcome(windows: windows, diagnostics: diagnostics)
         }
     }
@@ -262,10 +267,57 @@ private extension Result where Success == OpenCodeGoCapacityProbe.ParsedSample, 
     }
 }
 
+/// Where a scrape outcome is recorded. Injectable so tests never write to the
+/// founder's real qualification evidence.
+public protocol OpenCodeGoLedgerSink: Sendable {
+    func append(_ entry: OpenCodeGoCapacityExecutor.ScrapeDiagnostics)
+}
+
 /// Redacted dogfood qualification ledger (no HTML, no cookies).
 enum OpenCodeGoQualificationLedger {
+
+    /// Production sink — the real file under Application Support.
+    struct FileSink: OpenCodeGoLedgerSink {
+        let url: URL
+
+        init(url: URL = OpenCodeGoQualificationLedger.ledgerURL()) {
+            self.url = url
+        }
+
+        func append(_ entry: OpenCodeGoCapacityExecutor.ScrapeDiagnostics) {
+            // Backstop, deliberately redundant with sink injection. Injection only
+            // protects tests that remember to inject; one that forgets would
+            // silently resume writing fabricated rows into the founder's real
+            // qualification evidence — which is exactly how 45 fake `ok:true`
+            // entries got there. Do not delete this as redundant.
+            guard !OpenCodeGoQualificationLedger.isRunningUnderTestRunner else { return }
+            OpenCodeGoQualificationLedger.write(entry, to: url)
+        }
+    }
+
+    /// Several signals, because no single one covers every runner: Xcode sets
+    /// `XCTestConfigurationFilePath`, but a plain `swift test` on macOS sets
+    /// neither of the XCTest env vars and is only identifiable by the `.xctest`
+    /// bundle it executes from. Checked the narrow way round — any positive
+    /// signal means "test", so a new runner degrades to writing, not to a
+    /// silently skipped production write.
+    static var isRunningUnderTestRunner: Bool {
+        let env = ProcessInfo.processInfo.environment
+        if env["XCTestConfigurationFilePath"] != nil { return true }
+        if env["XCTestSessionIdentifier"] != nil { return true }
+        if env["SWIFT_TESTING_ENABLED"] != nil { return true }
+        if Bundle.main.bundlePath.contains(".xctest") { return true }
+        if ProcessInfo.processInfo.arguments.first?.contains(".xctest") == true { return true }
+        return false
+    }
+
+    static let fileSink: any OpenCodeGoLedgerSink = FileSink()
+
     static func append(_ entry: OpenCodeGoCapacityExecutor.ScrapeDiagnostics) {
-        let url = ledgerURL()
+        fileSink.append(entry)
+    }
+
+    static func write(_ entry: OpenCodeGoCapacityExecutor.ScrapeDiagnostics, to url: URL) {
         do {
             try FileManager.default.createDirectory(
                 at: url.deletingLastPathComponent(),
@@ -288,7 +340,7 @@ enum OpenCodeGoQualificationLedger {
         }
     }
 
-    private static func ledgerURL() -> URL {
+    static func ledgerURL() -> URL {
         AllnighterSupportRoot.support
             .appendingPathComponent("Capacity", isDirectory: true)
             .appendingPathComponent("opencode-go-qualification.jsonl")
