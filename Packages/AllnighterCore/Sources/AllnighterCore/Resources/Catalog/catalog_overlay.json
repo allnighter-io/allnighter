@@ -506,6 +506,106 @@
         "strengthRank": 84
       },
       "defaultOn": true
+    },
+    "model_opencode_qwen_38_max": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 92
+      },
+      "defaultOn": false
+    },
+    "model_opencode_deepseek_v4_pro": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 90
+      },
+      "defaultOn": false
+    },
+    "model_opencode_glm_5_2": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 88
+      },
+      "defaultOn": false
+    },
+    "model_opencode_qwen_37_max": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 82
+      },
+      "defaultOn": false
+    },
+    "model_opencode_minimax_m3": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 78
+      },
+      "defaultOn": false
+    },
+    "model_opencode_deepseek_v4_flash": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 55
+      },
+      "defaultOn": false
     }
   },
   "schemaVersion": 1

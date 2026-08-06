@@ -337,6 +337,30 @@ public enum MenuSelectionCopy {
             useWhen: "Muse Spark 1.2 Contributor, lower-cost Meta seat",
             dontUseWhen: "Pin seat; model_muse_spark_12_contributor"
         ),
+        "model_opencode_qwen_38_max": Pair(
+            useWhen: "Qwen 3.8 Max, OpenCode Go",
+            dontUseWhen: "OpenCode Go required"
+        ),
+        "model_opencode_deepseek_v4_pro": Pair(
+            useWhen: "DeepSeek V4 Pro, OpenCode Go",
+            dontUseWhen: "OpenCode Go required"
+        ),
+        "model_opencode_glm_5_2": Pair(
+            useWhen: "GLM-5.2, OpenCode Go",
+            dontUseWhen: "OpenCode Go required"
+        ),
+        "model_opencode_qwen_37_max": Pair(
+            useWhen: "Qwen 3.7 Max, OpenCode Go",
+            dontUseWhen: "OpenCode Go required"
+        ),
+        "model_opencode_minimax_m3": Pair(
+            useWhen: "MiniMax M3, OpenCode Go",
+            dontUseWhen: "OpenCode Go required"
+        ),
+        "model_opencode_deepseek_v4_flash": Pair(
+            useWhen: "DeepSeek V4 Flash, OpenCode Go",
+            dontUseWhen: "OpenCode Go required"
+        ),
         "model_grok_composer_25_fast": Pair(
             useWhen: "Grok Composer 2.5 Fast (Grok)",
             dontUseWhen: "Not Cursor; model_cursor_composer_25"

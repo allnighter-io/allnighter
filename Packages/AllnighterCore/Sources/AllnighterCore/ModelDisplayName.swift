@@ -26,6 +26,7 @@ public enum ModelDisplayName {
         case "antigravity": return "Antigravity"
         case "kimi": return "Kimi"
         case "muse": return "Muse"
+        case "opencode": return "OpenCode"
         default:
             return driverId.replacingOccurrences(of: "_", with: " ").capitalized
         }

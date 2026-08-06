@@ -67,6 +67,14 @@ public enum ModelCatalog {
             return "gemini"
         case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
             return "cursor_native"
+        case "model_opencode_qwen_38_max", "model_opencode_qwen_37_max":
+            return "qwen"
+        case "model_opencode_deepseek_v4_pro", "model_opencode_deepseek_v4_flash":
+            return "deepseek"
+        case "model_opencode_glm_5_2":
+            return "glm"
+        case "model_opencode_minimax_m3":
+            return "minimax"
         default:
             if let def = get(modelId) {
                 return hostFamily(driverId: def.driverId)
