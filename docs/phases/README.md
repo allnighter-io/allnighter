@@ -49,7 +49,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 | Doc | Status | Notes |
 | --- | --- | --- |
-| [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **OPEN — not started** | Browser `/go` dashboard scrape for Go plan limits; encrypted credential file (no Keychain). v1: capacity strip only. |
+| [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | Draft — needs re-base | Core routing built; GUI browse unbuilt. |
