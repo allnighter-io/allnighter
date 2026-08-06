@@ -178,6 +178,120 @@ final class OpenCodeGoCapacityProbeTests: XCTestCase {
         XCTAssertEqual(sample.weekly.usedPercent, 5)
         XCTAssertEqual(sample.monthly.usedPercent, 2)
     }
+
+    // MARK: - Defect regression tests
+
+    /// Defect #1: Greedy `[^}]*` in solidRegex backtracks to decoy values inside
+    /// quoted strings. A `resetInSec` inside a note field must never supply the
+    /// captured number.
+    func testSolidSSRCapturesFirstOccurrenceNotDecoyInString() throws {
+        let html = """
+        rollingUsage:$R[0]={usagePercent:50,resetInSec:18000,x:"usagePercent:1,resetInSec:2"}
+        weeklyUsage:$R[1]={usagePercent:30,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:45,resetInSec:86400}
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 50)
+        XCTAssertEqual(sample.rolling.resetInSec, 18000, "Decoy resetInSec:2 in string must not win")
+    }
+
+    /// Defect #1 variant: `resetInSec` in a note field at the end of the object.
+    func testSolidSSRCapturesFirstNotNoteReset() throws {
+        let html = """
+        rollingUsage:$R[0]={usagePercent:10,resetInSec:300,note:"resetInSec:99999"}
+        weeklyUsage:$R[1]={usagePercent:20,resetInSec:3600}
+        monthlyUsage:$R[2]={usagePercent:30,resetInSec:86400}
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 10)
+        XCTAssertEqual(sample.rolling.resetInSec, 300, "Decoy resetInSec:99999 in note must not win")
+    }
+
+    /// Defect #2: data-slot usage-value captures first digit run, not the
+    /// percentage. "1,234 tokens (42%)" must yield 42, not 1.
+    func testDataSlotCapturesPercentageNotFirstDigit() throws {
+        let html = """
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Rolling Usage</span>
+          <span data-slot="usage-value">1,234 tokens (42%)</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Weekly Usage</span>
+          <span data-slot="usage-value">20%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Monthly Usage</span>
+          <span data-slot="usage-value">30%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        """
+        let sample = try XCTUnwrap(OpenCodeGoCapacityProbe.parseSample(html: html).success)
+        XCTAssertEqual(sample.rolling.usedPercent, 42, "Must capture 42% not first digit 1")
+    }
+
+    /// Defect #3: data-slot silently last-writes duplicate windows with different
+    /// values. Two usage-item blocks mapping to the same window with different
+    /// values must fail with `.duplicateWindow`.
+    func testDataSlotDuplicateWindowWithDifferentValuesFails() {
+        let html = """
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Rolling Usage</span>
+          <span data-slot="usage-value">10%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Rolling Usage</span>
+          <span data-slot="usage-value">90%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Weekly Usage</span>
+          <span data-slot="usage-value">20%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Monthly Usage</span>
+          <span data-slot="usage-value">30%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        """
+        XCTAssertEqual(
+            OpenCodeGoCapacityProbe.parseSample(html: html).failure,
+            .duplicateWindow("rolling")
+        )
+    }
+
+    /// Defect #4: Substring-based label classification is order-dependent.
+    /// "Weekly Rolling Usage" contains both "rolling" and "weekly" — the parser
+    /// must not silently assign it to "rolling" (first check wins).
+    func testLabelAmbiguitySkipsBlockLeadingToMissingWindow() {
+        let html = """
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Weekly Rolling Usage</span>
+          <span data-slot="usage-value">10%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Weekly Usage</span>
+          <span data-slot="usage-value">20%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        <div data-slot="usage-item">
+          <span data-slot="usage-label">Monthly Usage</span>
+          <span data-slot="usage-value">30%</span>
+          <span data-slot="reset-now"></span>
+        </div>
+        """
+        // Ambiguous label (matches both rolling + weekly) → skipped.
+        // Unambiguous "Weekly Usage" → weekly=20. "Monthly Usage" → monthly=30.
+        // Missing rolling → schemaDrift. Must not silently assign to rolling.
+        XCTAssertEqual(
+            OpenCodeGoCapacityProbe.parseSample(html: html).failure,
+            .schemaDrift(strategy: "data_slot_v1", missing: ["rolling"])
+        )
+    }
 }
 
 private extension Result where Success == OpenCodeGoCapacityProbe.ParsedSample, Failure == OpenCodeGoCapacityProbe.ParseFailure {

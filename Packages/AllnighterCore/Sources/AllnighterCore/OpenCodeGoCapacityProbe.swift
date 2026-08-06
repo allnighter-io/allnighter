@@ -103,6 +103,19 @@ public enum OpenCodeGoCapacityProbe {
         case (.failure, .success(let d)):
             candidate = d
         case (.failure, .failure):
+            if case .failure(let slotErr) = slot, case .failure(let solidErr) = solid {
+                switch slotErr {
+                case .duplicateWindow, .invalidValue:
+                    return slot
+                case .schemaDrift(_, let slotMissing):
+                    if case .schemaDrift(_, let solidMissing) = solidErr,
+                       solidMissing.count == 3, slotMissing.count < 3 {
+                        return slot
+                    }
+                default:
+                    break
+                }
+            }
             let missing = missingWindows(solid: solid, slot: slot)
             return .failure(.schemaDrift(strategy: nil, missing: missing))
         }
@@ -286,9 +299,9 @@ public enum OpenCodeGoCapacityProbe {
     private static func solidRegex(window: String, pctFirst: Bool) -> NSRegularExpression {
         let pattern: String
         if pctFirst {
-            pattern = #"\#(window):\$R\[\d+\]=\{[^}]*usagePercent:\#(number)[^}]*resetInSec:\#(number)[^}]*\}"#
+            pattern = #"\#(window):\$R\[\d+\]=\{[^}]*?usagePercent:\#(number)[^}]*?resetInSec:\#(number)[^}]*?\}"#
         } else {
-            pattern = #"\#(window):\$R\[\d+\]=\{[^}]*resetInSec:\#(number)[^}]*usagePercent:\#(number)[^}]*\}"#
+            pattern = #"\#(window):\$R\[\d+\]=\{[^}]*?resetInSec:\#(number)[^}]*?usagePercent:\#(number)[^}]*?\}"#
         }
         return try! NSRegularExpression(pattern: pattern)
     }
@@ -296,7 +309,11 @@ public enum OpenCodeGoCapacityProbe {
     // MARK: - data-slot HTML
 
     private static func parseDataSlotBundle(html: String) -> Result<ParsedSample, ParseFailure> {
-        let map = parseDataSlotFormat(html: html)
+        let map: [String: WindowSample]
+        switch parseDataSlotFormat(html: html) {
+        case .success(let parsed): map = parsed
+        case .failure(let err): return .failure(err)
+        }
         guard let rolling = map["rolling"],
               let weekly = map["weekly"],
               let monthly = map["monthly"]
@@ -314,13 +331,13 @@ public enum OpenCodeGoCapacityProbe {
         )
     }
 
-    private static func parseDataSlotFormat(html: String) -> [String: WindowSample] {
+    private static func parseDataSlotFormat(html: String) -> Result<[String: WindowSample], ParseFailure> {
         var result: [String: WindowSample] = [:]
         let parts = html.components(separatedBy: "data-slot=\"usage-item\"")
-        guard parts.count > 1 else { return result }
+        guard parts.count > 1 else { return .success(result) }
         for part in parts.dropFirst() {
             guard let label = firstMatch(in: part, pattern: #"data-slot="usage-label">([^<]+)<"#),
-                  let usageRaw = firstMatch(in: part, pattern: #"data-slot="usage-value">[^0-9]*(\d+(?:\.\d+)?)"#),
+                  let usageRaw = firstMatch(in: part, pattern: #"data-slot="usage-value">[^<]*?(\d+(?:\.\d+)?)\s*%"#),
                   let usage = Double(usageRaw)
             else { continue }
 
@@ -345,16 +362,20 @@ public enum OpenCodeGoCapacityProbe {
             guard let resetInSec, resetInSec.isFinite else { continue }
 
             let labelLower = label.lowercased()
-            let key: String?
-            if labelLower.contains("rolling") { key = "rolling" }
-            else if labelLower.contains("weekly") { key = "weekly" }
-            else if labelLower.contains("monthly") { key = "monthly" }
-            else { key = nil }
+            var matchKeys: [String] = []
+            if labelLower.contains("rolling") { matchKeys.append("rolling") }
+            if labelLower.contains("weekly") { matchKeys.append("weekly") }
+            if labelLower.contains("monthly") { matchKeys.append("monthly") }
+            let key: String? = matchKeys.count == 1 ? matchKeys[0] : nil
             if let key {
-                result[key] = WindowSample(usedPercent: usage, resetInSec: resetInSec)
+                let sample = WindowSample(usedPercent: usage, resetInSec: resetInSec)
+                if let existing = result[key], existing != sample {
+                    return .failure(.duplicateWindow(key))
+                }
+                result[key] = sample
             }
         }
-        return result
+        return .success(result)
     }
 
     // MARK: - Helpers
