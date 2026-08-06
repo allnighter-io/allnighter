@@ -31,6 +31,16 @@ public enum RecipeCatalog {
     /// Bundle subdirectory that holds the shipped `.md` cards.
     public static let bundleSubdirectory = "Recipes"
 
+    /// Placeholder a source card writes where the teaching block belongs.
+    ///
+    /// The block itself is never stored in a `.md` file. It used to be
+    /// hand-copied into all seven, kept honest only by a test that compared the
+    /// copies to `TeachingSnippet` — seven duplicates with a linter, not a
+    /// source of truth. Now `compose` substitutes the live block at load, so a
+    /// card physically cannot ship a stale one and editing `TeachingSnippet` is
+    /// a one-line change instead of eight.
+    public static let teachingPlaceholder = "<!-- ALLNIGHTER:TEACHING:INSERT -->"
+
     /// Directory URL for the bundled Recipes folder (nil if resources missing).
     public static var bundledDirectoryURL: URL? {
         if let url = Bundle.module.resourceURL?.appendingPathComponent(bundleSubdirectory, isDirectory: true),
@@ -42,13 +52,29 @@ public enum RecipeCatalog {
     }
 
     /// All shipped recipes, sorted by id (stable for agents / UI).
+    ///
+    /// Markdown is **composed**, not read verbatim: the teaching placeholder is
+    /// replaced with the live `TeachingSnippet` block. Every consumer — CLI
+    /// help, bootstrap, the Mac app, the Application Support mirror — reads
+    /// through here, so they all see the same current block.
     public static func list() -> [Recipe] {
         listURLs().compactMap { url -> Recipe? in
             let id = url.deletingPathExtension().lastPathComponent
-            guard let markdown = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+            guard let source = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+            let markdown = compose(source)
             let title = parseTitle(from: markdown) ?? id
             return Recipe(id: id, title: title, markdown: markdown)
         }
+    }
+
+    /// Substitute the live teaching block for the placeholder. A card with no
+    /// placeholder is returned unchanged — composition never invents a block.
+    public static func compose(_ source: String) -> String {
+        guard source.contains(teachingPlaceholder) else { return source }
+        return source.replacingOccurrences(
+            of: teachingPlaceholder,
+            with: TeachingSnippet.wrap()
+        )
     }
 
     /// Bounded listing for bootstrap JSON (id + title only).

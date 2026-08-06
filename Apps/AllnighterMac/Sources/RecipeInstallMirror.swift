@@ -6,6 +6,10 @@ import AllnighterEngine
 /// Finder and agents can open them on disk. Core `RecipeCatalog` stays the read
 /// SSOT; this folder is overwrite-refreshed from the bundle (shipped content,
 /// not user data).
+///
+/// Writes `RecipeCatalog`'s **composed** markdown rather than copying the bundle
+/// bytes. The source cards carry a teaching placeholder, so a byte copy would
+/// put an unsubstituted marker on disk — exactly where agents read it.
 enum RecipeInstallMirror {
     /// Canonical install path: `~/Library/Application Support/Allnighter/Recipes/`.
     static var directoryURL: URL { AllnighterPaths.recipes }
@@ -20,20 +24,21 @@ enum RecipeInstallMirror {
         to destination: URL? = nil,
         fileManager: FileManager = .default
     ) -> URL? {
-        guard let source = RecipeCatalog.bundledDirectoryURL else { return nil }
+        guard RecipeCatalog.bundledDirectoryURL != nil else { return nil }
         let dest = destination ?? directoryURL
         do {
             try fileManager.createDirectory(at: dest, withIntermediateDirectories: true)
-            let mdURLs = try fileManager.contentsOfDirectory(
-                at: source,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles]
-            ).filter { $0.pathExtension.lowercased() == "md" }
-            guard !mdURLs.isEmpty else { return nil }
+            let recipes = RecipeCatalog.list()
+            guard !recipes.isEmpty else { return nil }
 
-            let shippedNames = Set(mdURLs.map(\.lastPathComponent))
-            for url in mdURLs {
-                try replaceFile(from: url, into: dest, fileManager: fileManager)
+            let shippedNames = Set(recipes.map { "\($0.id).md" })
+            for recipe in recipes {
+                try writeFile(
+                    markdown: recipe.markdown,
+                    named: "\(recipe.id).md",
+                    into: dest,
+                    fileManager: fileManager
+                )
             }
 
             // Drop retired cards so the mirror matches the shipped catalog.
@@ -51,18 +56,18 @@ enum RecipeInstallMirror {
         }
     }
 
-    /// Copy via a sibling temp file, then replace — never delete the live
+    /// Write via a sibling temp file, then replace — never delete the live
     /// target before the new bytes are safely on disk.
-    private static func replaceFile(
-        from source: URL,
+    private static func writeFile(
+        markdown: String,
+        named name: String,
         into destDir: URL,
         fileManager: FileManager
     ) throws {
-        let target = destDir.appendingPathComponent(source.lastPathComponent)
-        let temp = destDir.appendingPathComponent(
-            ".\(source.lastPathComponent).tmp-\(UUID().uuidString)")
+        let target = destDir.appendingPathComponent(name)
+        let temp = destDir.appendingPathComponent(".\(name).tmp-\(UUID().uuidString)")
         defer { try? fileManager.removeItem(at: temp) }
-        try fileManager.copyItem(at: source, to: temp)
+        try markdown.write(to: temp, atomically: false, encoding: .utf8)
         if fileManager.fileExists(atPath: target.path) {
             _ = try fileManager.replaceItemAt(target, withItemAt: temp)
         } else {

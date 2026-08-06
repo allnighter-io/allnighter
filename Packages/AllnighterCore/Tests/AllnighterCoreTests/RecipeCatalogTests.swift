@@ -11,23 +11,58 @@ final class RecipeCatalogTests: XCTestCase {
 
     func testEveryRecipeEmbedsCurrentTeachingSnippet() {
         let wrap = TeachingSnippet.wrap()
-        let body = TeachingSnippet.body
         let hashMarker = "hash=\(TeachingSnippet.contentHash)"
         for recipe in RecipeCatalog.list() {
-            let md = recipe.markdown
-            let hasWrap = md.contains(wrap)
-            let hasBodyAndMarkers =
-                md.contains(body)
-                && md.contains(TeachingSnippet.openMarkerPrefix)
-                && md.contains(TeachingSnippet.closeMarker)
-                && md.contains(hashMarker)
             XCTAssertTrue(
-                hasWrap || hasBodyAndMarkers,
-                "recipe \(recipe.id) must embed TeachingSnippet.wrap()/body (contentHash=\(TeachingSnippet.contentHash.prefix(12))…)"
+                recipe.markdown.contains(wrap),
+                "recipe \(recipe.id) must carry the composed TeachingSnippet.wrap() block"
             )
-            // Marker hash must match current SSOT even if wrap() whitespace differs slightly.
-            XCTAssertTrue(md.contains(hashMarker), "recipe \(recipe.id) teaching hash drifted")
+            XCTAssertTrue(
+                recipe.markdown.contains(hashMarker),
+                "recipe \(recipe.id) teaching hash drifted"
+            )
+            XCTAssertFalse(
+                recipe.markdown.contains(RecipeCatalog.teachingPlaceholder),
+                "recipe \(recipe.id) shipped an unsubstituted teaching placeholder"
+            )
         }
+    }
+
+    /// The anti-drift gate. A source card that stores its own copy of the block
+    /// can go stale; a card that stores a placeholder cannot. Composition is
+    /// what makes `TeachingSnippet` the single definition, so forbid the
+    /// literal at the only layer that could reintroduce it.
+    func testSourceCardsStoreAPlaceholderNotACopyOfTheBlock() throws {
+        let dir = try XCTUnwrap(RecipeCatalog.bundledDirectoryURL)
+        let urls = try FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ).filter { $0.pathExtension.lowercased() == "md" }
+        XCTAssertGreaterThanOrEqual(urls.count, 6)
+
+        for url in urls {
+            let source = try String(contentsOf: url, encoding: .utf8)
+            let name = url.lastPathComponent
+            XCTAssertFalse(
+                source.contains(TeachingSnippet.openMarkerPrefix),
+                "\(name) hand-copies the teaching block — use \(RecipeCatalog.teachingPlaceholder) instead"
+            )
+            XCTAssertFalse(
+                source.contains(TeachingSnippet.closeMarker),
+                "\(name) hand-copies the teaching block — use \(RecipeCatalog.teachingPlaceholder) instead"
+            )
+            XCTAssertTrue(
+                source.contains(RecipeCatalog.teachingPlaceholder),
+                "\(name) is missing the teaching placeholder"
+            )
+        }
+    }
+
+    /// Composition must be inert on a card that never asked for a block.
+    func testComposeLeavesCardsWithoutAPlaceholderUntouched() {
+        let plain = "# Title\n\nNo teaching here.\n"
+        XCTAssertEqual(RecipeCatalog.compose(plain), plain)
     }
 
     func testTitlesAreIntentShaped() {
