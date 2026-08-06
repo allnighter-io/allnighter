@@ -185,6 +185,15 @@ rules: `docs/operations/Execution-Playbook.md` § Commits.
 - Prefer deterministic checks over recurring agent judgment.
 - A failed worker is shown failed, never faked. Hide the plumbing (legacy panel /
   council / master-plan words, worktree, subprocess).
+- A derived signal is attributed to the source that produced it. One vendor's
+  parser, matcher, or heuristic never answers for another vendor's output —
+  scope it by source id, not by whichever pattern happens to match first.
+- Absence of a declared signal yields no observation, never an inferred one. A
+  false positive here is silent and expensive; a missed signal fails loudly and
+  is cheap. Fail closed.
+- A locally computed value is never presented as a vendor-stated fact. Local
+  boundaries and vendor-sourced truth may both exist, but the storage, the
+  confidence, and the user-visible wording must keep them distinct.
 - CLI, GUI, and iOS must share the same team-run contract; do not invent
   parallel JSON around `TeamRunJSON`.
 - Mac and iOS do not share SwiftUI views or app-target GUI code; share

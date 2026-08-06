@@ -1,7 +1,21 @@
 # Vendor Signal Isolation
 
-Status: **VSI-S01/S02 SHIPPED (AgentOS `6f66bdd`, 21/21 green, four mutations
-proven red). VSI-S03 next.**
+Status: **Live — 3 of 5 slices shipped. NOT ready to archive (§12).**
+
+| Slice | State | Commit |
+| --- | --- | --- |
+| VSI-S01/S02 source isolation | **Shipped**, verified | AgentOS `6f66bdd` (+ deslop `29e66bf`) |
+| VSI-S03 AgentOS half | **Shipped**, verified | AgentOS `1d0f64f` |
+| VSI-S03 label separation | Open | — |
+| VSI-S03 persisted parks | **Blocked** on the §10.1 founder ruling | — |
+| VSI-S04 manifest signals | Open | — |
+| VSI-S05 partial durability | **Shipped**, verified | Allnighter `bc2311ea` + `b644e216` |
+| VSI-S06 AGY scoping (new) | Open — see §12.1 | — |
+
+Every shipped slice was verified by the lead re-running its gates and applying
+its mutations, never by the delivering seat's report. VSI-S05 was committed RED
+by its seat (the test target did not compile) and caught that way.
+
 Previously: **Open — VSI-S01/S02 ready to implement. All 13 defects from the
 adversarial pass (Grok 4.5, read-only, 2026-08-06) are cleared; see §11.
 VSI-S03's persisted-park disposition still waits on the §10.1 founder ruling;
@@ -78,7 +92,9 @@ using that constant. These values belong to Grok's payment branch even though
 `sourceId` was Qwen. Grok's parser answered for Qwen.
 
 The branch combines a resolved message with the entire JSON event and performs
-bare substring matching. Its `paymentPatterns` are:
+bare substring matching. Its `paymentPatterns` were, **before VSI-S01/S02
+removed the bare status string** (this whole section is the pre-fix incident
+record, not current code):
 
 ```text
 "402", "payment required", "payment_required", "balance exhausted",
@@ -163,8 +179,9 @@ substrings rather than moving auth into this packet.
 ### 3.2 Confidence and reset fields overclaim
 
 `CapacityObservation` says confidence describes derivation, not provider truth,
-and that retry fields exist only when the CLI/API supplied them. Current code
-violates both statements:
+and that retry fields exist only when the CLI/API supplied them. **All four
+violations below were FIXED by VSI-S03's AgentOS half (`1d0f64f`); both
+constants no longer exist.** Retained as the diagnosis, not as current state:
 
 - whole-line substring matches can return `structured`;
 - Grok payment matches receive an invented 3,600 seconds;
@@ -172,7 +189,7 @@ violates both statements:
 - generic capacity/payment fallbacks receive invented delay values.
 
 Nil is already representable. Missing vendor reset evidence must leave
-`observedResetAt` and `retryAfterSeconds` nil. **`wakeAfter` is excluded** — the
+`observedResetAt` and `retryAfterSeconds` nil — **now enforced in AgentOS.** **`wakeAfter` is excluded** — the
 type designates it a local boundary (§10.2 rule 1); the fix for it is
 presentation wording, not nilling.
 
@@ -540,8 +557,10 @@ Gate symbols to add:
 
 - `testQwenCannotUseGrokStructuredParser`
 - `testUnknownSourceHasNoCapacityFallback`
-- `testGrokNumeric402FieldMatches`
-- `testGrokDuration4021DoesNotMatch`
+- `testGrokNumericPaymentStatusFieldMatches`
+- `testGrokBenignDurationSubstringDoesNotMatch`
+- `testGrokPaymentPhraseOutsideMessageDoesNotMatch`
+- `testCursorAgentCannotUseGrokStructuredParser`
 
 Mutation gates:
 
@@ -550,6 +569,13 @@ Mutation gates:
 - restoring global capacity fallback makes the unknown-source test fail.
 
 ### VSI-S03 — No invented backoff and persisted-park disposition
+
+> **AgentOS half SHIPPED** (`1d0f64f`, 24/24 green). Both constants deleted;
+> vendor-absent retry/reset are nil; the Grok branch was split so a declared
+> HTTP status stays `.structured` while text-only phrasing becomes
+> `.messageFallback`. Mutations verified by the lead: restoring the 60s overload
+> default → 1 red; restoring 3600 in the Grok payment branch → 1 red.
+> **Label separation and the persisted-park disposition remain open.**
 
 AgentOS changes:
 
@@ -585,12 +611,14 @@ gated on §10.1):
 
 Gate symbols:
 
+- AgentOS `testVendorSuppliedRetryIsStillHonoured` (regression guard: the slice
+  removed inventions, not vendor facts)
 - Allnighter `testNilVendorResetStillSchedulesViaUnknownResetWakeAfter`
   (**positive** cadence test — §10.2 rule 2; the negative mutation below points
   at this symbol, without which "deleting the cadence must fail" is itself a
   gate that cannot fail)
-- AgentOS `testStructuredLimitWithoutResetHasNilRetryAndWake`
-- AgentOS `testOverloadWithoutVendorRetryHasNilRetryAndWake`
+- AgentOS `testStructuredLimitWithoutResetHasNilRetry`
+- AgentOS `testOverloadWithoutVendorRetryHasNilRetry`
 - Allnighter `testNilVendorResetDoesNotDisplayAsVendorWake`
 - Allnighter `testPersistedFabricatedQwenParkFollowsFounderDisposition`
 
@@ -660,6 +688,14 @@ or changing order makes a fixture test fail. Adding fallback inheritance makes
 the Qwen test fail.
 
 ### VSI-S05 — Partial-answer durability
+
+> **SHIPPED** (`bc2311ea` + `b644e216`). Gates: `RunServiceTests` 16/16,
+> `TeamRunJSONMapperTests` 22/22, `ArtifactProjectorTests` 31/31 + 4/4,
+> `AllnighterCLITests` 1/1. Mutation verified: restoring `bundle.md` precedence
+> in `exportMarkdown` turns the export gate red on its named assertion.
+> **Shipped red by its seat** — `RunServiceTests.swift:802` used a bare
+> `.running` that broke the whole test target; caught by the lead re-running the
+> gates, fixed in `b644e216`.
 
 Allnighter changes:
 
@@ -884,6 +920,60 @@ lead. The remainder are recorded as reported and must be checked when addressed.
 **Note on #10 and #6:** both are the packet's own laws being broken by the packet
 — asserting an undocumented vendor window, and naming a gate whose mutation
 cannot fire. That is the third occurrence of the §3.6 pattern in this work.
+
+## 12. Closeout state (2026-08-06)
+
+### 12.1 VSI-S06 — the same defect, one instance left
+
+Found by the closeout audit, not by any slice. `CapacityClassifier.classify`
+calls `classifyAGYCooldown(combined, input: input)` **before any `sourceId`
+check**, on stdout+stderr, for every driver, and even on a clean exit 0. It is
+the one vendor-shaped matcher VSI-S01/S02 did not scope.
+
+Collision probability is far lower than the payment case — it needs an ISO8601
+cooldown timestamp, not three digits — but it is structurally the identical
+defect that killed the Qwen and Cursor runs, and it means the doc comment added
+in S01/S02 (*"Everything else fails closed"*) overclaims: that promise holds for
+the structured-JSON and text-fallback paths, not for this one.
+
+Slice: scope `classifyAGYCooldown` to its own source, gate it behind
+`failedOrUnknownExit` like the other fallbacks, and correct the comment.
+Gate: an AGY-shaped cooldown string on a non-AGY source classifies as nothing;
+mutation is removing the source check.
+
+### 12.2 Why this packet is NOT archived
+
+`docs/operations/Execution-Playbook.md` §Phase Archive requires
+`Status: Complete` and exit gates checked or explicitly waived. Neither holds:
+label separation, VSI-S04, the persisted-park disposition, and VSI-S06 are open,
+and the persisted-park work is gated on a founder ruling nothing has answered.
+Archiving now would bury open work behind a "complete" label. The packet stays
+live in `docs/phases/`; durable law was promoted anyway (§12.3) so the code and
+the routed docs carry it regardless of when this packet closes.
+
+### 12.3 Durable law promoted out of this packet
+
+Promoted to `AGENTS.md` § Project Laws — these outlive the packet:
+
+- A derived signal is attributed to the source that produced it; a vendor's
+  parser never answers for another vendor's output.
+- Absence of a declared signal yields no observation, never an inferred one.
+- A locally computed value is never presented as a vendor-stated fact.
+
+Kept here (incident narrative, not law): §2 and its reproduction, §6's
+expressiveness audit, §11's findings table.
+
+### 12.4 Standing lesson for delegated work
+
+Six delegated turns this session. Read-only review: 3 of 3 clean and
+high-value. Mutating build slices: 1 clean first pass, 1 shipped red, 1
+undeliverable because the defect poisoned its own brief (§2.2).
+
+**Every defect in a delegated slice was caught by re-running the gate,
+mutation-testing, or grepping for the symbol under test. Not one was caught by
+the delivering seat's report** — and in each case that report claimed success.
+The independent gate is not a safety net bolted onto delegation; it is the
+component that makes delegation usable.
 
 ## AGENTS.md routing
 
