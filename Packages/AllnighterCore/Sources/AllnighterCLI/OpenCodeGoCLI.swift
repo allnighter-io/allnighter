@@ -27,6 +27,18 @@ enum OpenCodeGoCLI {
 
     private static func configure(_ args: [String]) {
         let opts = Options(args)
+        // Prompting is only legitimate at a terminal. Without this, an agent or
+        // script that runs `alln opencode-go configure` with no flags blocks on
+        // readLine forever with no output — it looks like a hung dispatch, not
+        // a usage error. That cost one real delegated run before it was caught.
+        let interactive = isatty(STDIN_FILENO) == 1
+        if !interactive, opts.value("workspace-id") == nil || opts.value("cookie") == nil {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "non-interactive stdin: pass both --workspace-id and --cookie (configure only prompts at a terminal)",
+                suggestions: ["alln opencode-go configure --workspace-id <wrk_…> --cookie <auth>"]
+            )
+        }
         let workspaceId = (opts.value("workspace-id") ?? readLine(prompt: "Workspace ID (wrk_…): "))?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let cookie = (opts.value("cookie") ?? readSecret(prompt: "Auth cookie value: "))?
