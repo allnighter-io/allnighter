@@ -242,6 +242,33 @@ public actor CapacityResidentService {
         snapshot
     }
 
+    /// Whether the strip may say "checked Nm ago", and how long ago.
+    ///
+    /// Data age alone cannot answer this. A silent bench means either "the loop
+    /// is waiting out a legitimately long deadline" or "nothing is checking any
+    /// more" — the same absence of numbers, two different sentences. Only the
+    /// resident knows which, so it says so instead of letting the UI infer it
+    /// from a clock.
+    public struct Freshness: Sendable, Equatable {
+        /// The deadline loop is wired and the feature is ON.
+        public let armed: Bool
+        /// Wall time of the last settle, nil when nothing has settled yet.
+        public let lastSettledAt: Date?
+
+        public init(armed: Bool, lastSettledAt: Date?) {
+            self.armed = armed
+            self.lastSettledAt = lastSettledAt
+        }
+    }
+
+    /// Read-only scheduler health. Never starts an acquire.
+    public func currentFreshness() -> Freshness {
+        Freshness(
+            armed: enabled && scheduler != nil,
+            lastSettledAt: snapshot?.settledAt
+        )
+    }
+
     // MARK: S02 socket publisher
 
     /// S02 socket publisher — the Dock app wires this to `capacity.sock`.
@@ -568,5 +595,44 @@ public enum CapacityPaintGate {
             }
         }
         return windows
+    }
+
+    /// Margin over `gateInterval` before a **still-open** strip repaints a seat
+    /// as expired.
+    ///
+    /// The schedule fires at exactly `gateInterval`, so data crosses the tight
+    /// gate at the same instant the next acquire starts. A launch paint never
+    /// sees that overlap — nothing is in flight — but a window that repaints on
+    /// a timer does, and with no margin it would blank a perfectly healthy bench
+    /// for the length of every single acquire. The margin is what makes
+    /// "expired" mean *nothing is checking any more* instead of *a check is
+    /// happening right now*.
+    public static let liveExpiryInterval: TimeInterval = 45 * 60
+
+    /// Repaint for a strip that stays open, ageing each window against its own
+    /// `observedAt` rather than one shared settle time.
+    ///
+    /// Per-window is the honest axis here: a single-seat refresh replaces one
+    /// seat and leaves the rest at their original sample times, so a shared
+    /// `settledAt` would silently grant every stale sibling another full window.
+    public static func repaintedForOpenWindow(
+        _ windows: [CapacityWindow],
+        now: Date
+    ) -> [CapacityWindow] {
+        windows.map { window in
+            guard window.unknownReason == nil else { return window }
+            guard now.timeIntervalSince(window.observedAt) >= liveExpiryInterval else {
+                return window
+            }
+            return CapacityWindow.unknown(
+                reason: .expired(observedAt: window.observedAt),
+                source: window.source,
+                scope: window.scope,
+                observedAt: window.observedAt,
+                sourceTier: window.sourceTier,
+                poolLabel: window.poolLabel,
+                planTier: window.planTier
+            )
+        }
     }
 }

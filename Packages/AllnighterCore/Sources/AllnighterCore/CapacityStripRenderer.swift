@@ -579,9 +579,18 @@ public enum CapacityStripRenderer {
         return "\(max(1, minutes))m"
     }
 
-    /// Age of the newest observation on the row: `2m`, `1h`, `3d`.
+    /// Age of the newest observation on the row: `2m ago`, `1h ago`, `3d ago`.
     public static func ageLabel(for row: CapacityBenchRow, now: Date) -> String {
         guard let observed = observedAt(for: row) else { return "-" }
+        return elapsedLabel(from: observed, to: now)
+    }
+
+    /// How long ago something happened, in the strip's one age vocabulary.
+    ///
+    /// Row age chips and the header's freshness line are the same claim at two
+    /// scopes; they must never disagree about what "4m ago" means, so they read
+    /// the same formatter.
+    public static func elapsedLabel(from observed: Date, to now: Date) -> String {
         let seconds = max(0, now.timeIntervalSince(observed))
         let totalMinutes = Int(seconds / 60)
         if totalMinutes < 1 { return "now" }

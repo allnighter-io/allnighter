@@ -240,6 +240,73 @@ final class CapacityStripModelTests: XCTestCase {
         XCTAssertEqual(bench.now, clock)
     }
 
+    // MARK: - Header band: on-bench count, parked footer, freshness line
+
+    func testParkedSeatsLeaveTheTableAndAreNamedInstead() {
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.mixedWindows(),
+            now: CapacityStripFixtures.now,
+            notReadyOrParked: ["grok"]
+        )
+        XCTAssertFalse(
+            model.benchRows.contains { $0.source == "grok" },
+            "a parked seat cannot take work — it must not hold a table row"
+        )
+        XCTAssertEqual(model.onBenchCount, model.rows.count - 1)
+        XCTAssertEqual(
+            model.parkedDisplayNames,
+            [CapacityStripRenderer.displayName(for: "grok")],
+            "the footer names who is parked; a bare count sends the reader hunting"
+        )
+    }
+
+    func testFreshnessLineSaysStoppedWhenNothingIsScheduling() {
+        let model = CapacityStripModel()
+        model.seedFixture(windows: [], now: CapacityStripFixtures.now)
+        model.disableFeature()
+        // Freshness must come from the resident's armed flag, never from data
+        // age — a long legitimate deadline wait looks identical to a dead loop.
+        XCTAssertEqual(
+            CapacityStripModel.freshnessLine(
+                freshness: .init(armed: false, lastSettledAt: CapacityStripFixtures.now),
+                isRefreshingAll: false,
+                now: CapacityStripFixtures.now
+            ),
+            "auto-checks stopped"
+        )
+    }
+
+    func testFreshnessLineReportsAgeWhileArmed() {
+        let settled = CapacityStripFixtures.now
+        XCTAssertEqual(
+            CapacityStripModel.freshnessLine(
+                freshness: .init(armed: true, lastSettledAt: settled),
+                isRefreshingAll: false,
+                now: settled.addingTimeInterval(4 * 60)
+            ),
+            "checked 4m ago"
+        )
+        XCTAssertEqual(
+            CapacityStripModel.freshnessLine(
+                freshness: .init(armed: true, lastSettledAt: nil),
+                isRefreshingAll: false,
+                now: settled
+            ),
+            "checking…",
+            "armed with nothing settled yet is warming, not stale"
+        )
+        XCTAssertEqual(
+            CapacityStripModel.freshnessLine(
+                freshness: .init(armed: false, lastSettledAt: settled),
+                isRefreshingAll: true,
+                now: settled
+            ),
+            "checking…",
+            "an in-flight manual refresh outranks a stopped scheduler"
+        )
+    }
+
     // MARK: - CWB-S01a: strip runs through the resident funnel
 
     /// Resident single-flight: a second full refresh coalesces on the in-flight

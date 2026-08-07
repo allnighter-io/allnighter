@@ -501,6 +501,35 @@ final class CapacityPaintGateTests: XCTestCase {
         )
     }
 
+    func testLiveExpiryClearsTheScheduleCadence() {
+        XCTAssertGreaterThan(
+            CapacityPaintGate.liveExpiryInterval,
+            CapacityPaintGate.gateInterval,
+            "an open strip repaints on a timer; with no margin over the schedule "
+            + "cadence a healthy bench blanks for the length of every acquire"
+        )
+    }
+
+    func testOpenWindowRepaintAgesEachSeatOnItsOwnObservation() {
+        let fresh = knownWindow(source: "grok", used: 42, at: t0.addingTimeInterval(50 * 60))
+        let stale = knownWindow(source: "codex", used: 17, at: t0)
+        let painted = CapacityPaintGate.repaintedForOpenWindow(
+            [fresh, stale], now: t0.addingTimeInterval(50 * 60)
+        )
+        XCTAssertEqual(painted[0].usedPercent, 42, "seat sampled just now stays known")
+        XCTAssertNil(painted[1].usedPercent, "a sibling's refresh must not revive a stale seat")
+        XCTAssertEqual(painted[1].unknownReason, .expired(observedAt: t0))
+        XCTAssertEqual(painted[1].observedAt, t0, "age labels stay honest after expiry")
+    }
+
+    func testOpenWindowRepaintKeepsSeatsInsideTheExpiry() {
+        let windows = [knownWindow(source: "grok", used: 42, at: t0)]
+        let painted = CapacityPaintGate.repaintedForOpenWindow(
+            windows, now: t0.addingTimeInterval(CapacityPaintGate.liveExpiryInterval - 1)
+        )
+        XCTAssertEqual(painted, windows)
+    }
+
     func testFailedAttemptSeatStaysUnknownWithinGate() {
         let windows = [
             knownWindow(source: "grok", used: 42, at: t0),

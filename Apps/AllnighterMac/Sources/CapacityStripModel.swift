@@ -25,6 +25,8 @@ final class CapacityStripModel {
     private(set) var notReadyOrParked: Set<String> = []
     /// When set, the model is fixture-seeded and live acquire is skipped on appear.
     private(set) var isFixtureSeeded = false
+    /// Scheduler health as the resident reports it — never inferred from age.
+    private(set) var freshness = CapacityResidentService.Freshness(armed: false, lastSettledAt: nil)
     /// CWB-S01b feature ON/OFF. OFF: the strip renders the Enable CTA instead
     /// of rows, and no acquire ever starts (resident enforces zero probes).
     private(set) var featureEnabled = true
@@ -37,6 +39,16 @@ final class CapacityStripModel {
     private var refreshSourceGenerations: [String: Int] = [:]
     private var refreshAllTask: Task<Void, Never>?
     private var refreshAllGeneration = 0
+    private var clockTask: Task<Void, Never>?
+
+    /// How often the open strip re-reads the wall clock.
+    ///
+    /// Everything the strip says about time — age chips, reset countdowns, the
+    /// header's freshness line — is derived from `now`. Without this the whole
+    /// surface freezes at the last settle, and a scheduler that has stopped
+    /// renders as a bench that was checked seconds ago. One minute is the
+    /// smallest unit any of those labels can show.
+    private static let clockInterval: Duration = .seconds(60)
 
     init(resident: CapacityResidentService = .shared) {
         self.resident = resident
@@ -61,6 +73,78 @@ final class CapacityStripModel {
         refreshingSources.contains(source) || isRefreshingAll
     }
 
+    /// Seats the table renders — those that can actually take work.
+    ///
+    /// A parked seat used to occupy a full dimmed row saying "not ready — probe
+    /// failed" in every column. That is a whole row of table to carry one bit,
+    /// so the bit moved to the footer and the row left.
+    var benchRows: [CapacityBenchRow] {
+        rows.filter { !notReadyOrParked.contains($0.source) }
+    }
+
+    /// Seats that can actually take work — the header's one number.
+    var onBenchCount: Int { benchRows.count }
+
+    /// Parked / not-ready seats by display name, for the footer note.
+    ///
+    /// Named, not counted: a count sends the reader hunting the table for who
+    /// is missing, which is the busyness the header was supposed to remove.
+    var parkedDisplayNames: [String] {
+        rows.filter { notReadyOrParked.contains($0.source) }
+            .map { CapacityStripRenderer.displayName(for: $0.source) }
+    }
+
+    /// The header's freshness line — three mutually exclusive sentences.
+    ///
+    /// Deliberately words, not colour. Amber in this strip means *capacity is
+    /// expiring*; spending it on "our scheduler stopped" would tell the user
+    /// they are running out when the truth is that we stopped looking.
+    var freshnessLine: String {
+        Self.freshnessLine(freshness: freshness, isRefreshingAll: isRefreshingAll, now: now)
+    }
+
+    /// Pure so the three sentences can be proven without a live resident.
+    static func freshnessLine(
+        freshness: CapacityResidentService.Freshness,
+        isRefreshingAll: Bool,
+        now: Date
+    ) -> String {
+        if isRefreshingAll { return "checking…" }
+        guard freshness.armed else { return "auto-checks stopped" }
+        guard let settled = freshness.lastSettledAt else { return "checking…" }
+        return "checked \(CapacityStripRenderer.elapsedLabel(from: settled, to: now))"
+    }
+
+    // MARK: - Clock
+
+    /// Start the one-minute tick. Idempotent; fixtures never tick (pinned clock).
+    func startClock() {
+        guard !isFixtureSeeded, clockTask == nil else { return }
+        clockTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: Self.clockInterval)
+                guard !Task.isCancelled else { return }
+                self?.tick()
+            }
+        }
+    }
+
+    func stopClock() {
+        clockTask?.cancel()
+        clockTask = nil
+    }
+
+    /// Advance the clock and let the expiry gate act on the result.
+    ///
+    /// Re-applying the gate here is the whole point: it is what makes a dead
+    /// scheduler visible. Seats decay to `expired` unknowns on their own instead
+    /// of holding confident percentages nobody has verified in hours.
+    private func tick() {
+        guard featureEnabled, !isFixtureSeeded else { return }
+        now = Date()
+        windows = CapacityPaintGate.repaintedForOpenWindow(windows, now: now)
+    }
+
     // MARK: - Load
 
     func updateNotReadyOrParked(_ ids: Set<String>) {
@@ -78,9 +162,13 @@ final class CapacityStripModel {
             isRefreshingAll = false
             windows = []
             needsLiveRefresh = false
+            freshness = .init(armed: false, lastSettledAt: nil)
+            stopClock()
             return
         }
         isRefreshingAll = false
+        freshness = await resident.currentFreshness()
+        startClock()
         if let settled = await resident.currentSnapshot() {
             let paintedNow = Date()
             now = paintedNow
@@ -121,6 +209,8 @@ final class CapacityStripModel {
             self.refreshingSources = []
             self.isRefreshingAll = false
             self.needsLiveRefresh = false
+            self.freshness = .init(armed: false, lastSettledAt: nil)
+            self.stopClock()
         }
     }
 
@@ -138,6 +228,7 @@ final class CapacityStripModel {
         refreshingSources = refreshingSource.map { [$0] } ?? []
         isRefreshingAll = false
         needsLiveRefresh = false
+        freshness = .init(armed: true, lastSettledAt: now)
     }
 
     // MARK: - Refresh
@@ -165,6 +256,7 @@ final class CapacityStripModel {
             self.now = bench.now
             self.windows = bench.windows
             self.needsLiveRefresh = false
+            self.freshness = await self.resident.currentFreshness()
         }
     }
 
@@ -195,6 +287,7 @@ final class CapacityStripModel {
             self.now = bench.now
             self.windows = Self.merge(prior: self.windows, acquired: bench.windows, refreshedSource: source)
             self.needsLiveRefresh = false
+            self.freshness = await self.resident.currentFreshness()
         }
     }
 

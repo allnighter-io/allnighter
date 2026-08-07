@@ -52,17 +52,17 @@ struct CapacityStripView: View {
                 columnHeaders
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(model.rows, id: \.source) { row in
+                        ForEach(model.benchRows, id: \.source) { row in
                             CapacityStripRowView(
                                 row: row,
                                 now: model.now,
                                 isRefreshing: model.isRefreshing(row.source),
-                                isDimmed: model.notReadyOrParked.contains(row.source),
                                 isExpanded: expandedSources.contains(row.source),
                                 onToggleExpand: { toggleExpand(row.source) },
                                 onRefresh: { model.refreshSource(row.source) }
                             )
                         }
+                        parkedFooter
                     }
                 }
                 .frame(maxHeight: .infinity)
@@ -105,43 +105,40 @@ struct CapacityStripView: View {
         .padding(24)
     }
 
-    // MARK: - Hero (fixed height — layout never shifts)
+    // MARK: - Hero (live state only)
 
+    /// The tall hero exists for exactly one state: a seat is about to lose
+    /// capacity and there is a run to start on it.
+    ///
+    /// The calm and warming variants used to occupy the same 112pt to say
+    /// "everything has room" in three type sizes — a header-shaped object with
+    /// no fact and no action, sitting above a second header that had both. Those
+    /// states now live as one word in the bench band, and the hero appears only
+    /// when it has something to sell.
+    @ViewBuilder
     private var heroZone: some View {
-        Group {
-            if let hero = model.hero {
-                liveHero(hero)
-            } else if model.isRefreshingAll {
-                refreshingHero
-            } else {
-                calmHero
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 112, alignment: .center)
-        .padding(.horizontal, 24)
-        .padding(.vertical, 18)
-        .background(heroBackground)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+        if let hero = model.hero {
+            liveHero(hero)
+                .frame(maxWidth: .infinity, minHeight: 112, alignment: .center)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 18)
+                .background(heroBackground)
+                .overlay(alignment: .bottom) {
+                    Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                }
         }
     }
 
     private var heroBackground: some View {
-        Group {
-            if model.hero != nil {
-                LinearGradient(
-                    colors: [
-                        ALColor.accent.opacity(0.10),
-                        ALColor.accent.opacity(0.02),
-                        ALColor.base,
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            } else {
-                ALColor.base
-            }
-        }
+        LinearGradient(
+            colors: [
+                ALColor.accent.opacity(0.10),
+                ALColor.accent.opacity(0.02),
+                ALColor.base,
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 
     private func liveHero(_ hero: CapacityHeroPresentation) -> some View {
@@ -206,53 +203,6 @@ struct CapacityStripView: View {
         }
     }
 
-    private var refreshingHero: some View {
-        HStack(alignment: .top, spacing: 14) {
-            ProgressView()
-                .controlSize(.small)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Checking your bench")
-                    .font(ALFont.sans(10, .semibold))
-                    .tracking(0.8)
-                    .textCase(.uppercase)
-                    .foregroundStyle(ALColor.textFaint)
-                Text("Refreshing capacity…")
-                    .font(ALFont.sans(20, .semibold))
-                    .foregroundStyle(ALColor.textSecondary)
-                Text("Same path as alln capacity — live acquire in flight")
-                    .font(ALFont.mono(11))
-                    .foregroundStyle(ALColor.textMuted)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private var calmHero: some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: model.needsLiveRefresh ? "arrow.clockwise.circle" : "checkmark")
-                .font(.system(size: model.needsLiveRefresh ? 18 : 16, weight: .semibold))
-                .foregroundStyle(model.needsLiveRefresh ? ALColor.accentText : ALColor.textFaint)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 6) {
-                Text(model.needsLiveRefresh ? "Tap Refresh for live capacity" : "Nothing expiring")
-                    .font(ALFont.sans(10, .semibold))
-                    .tracking(0.8)
-                    .textCase(.uppercase)
-                    .foregroundStyle(model.needsLiveRefresh ? ALColor.accentText : ALColor.textFaint)
-                Text(model.needsLiveRefresh ? "Numbers appear after a live probe" : "Everything has room")
-                    .font(ALFont.sans(20, .semibold))
-                    .foregroundStyle(ALColor.textSecondary)
-                Text(model.needsLiveRefresh
-                     ? "Same path as alln capacity — live PTY, no stale history"
-                     : "No seat drops below the 48h mark with headroom left")
-                    .font(ALFont.mono(11))
-                    .foregroundStyle(ALColor.textMuted)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
     private func clockText(_ resetAt: Date?) -> String {
         guard let resetAt else { return "—" }
         return CapacityStripRenderer.relativeClock(from: model.now, to: resetAt)
@@ -260,15 +210,22 @@ struct CapacityStripView: View {
 
     // MARK: - Strip chrome
 
+    /// The strip's one chrome band: what you have, when we last looked, and the
+    /// only control that changes either.
     private var stripHeader: some View {
-        HStack(alignment: .center) {
+        HStack(alignment: .center, spacing: 10) {
             Text("Your bench")
                 .font(ALFont.sans(11, .semibold))
                 .tracking(0.8)
                 .textCase(.uppercase)
                 .foregroundStyle(ALColor.textFaint)
+            Text("· \(model.onBenchCount) on bench")
+                .font(ALFont.sans(11))
+                .foregroundStyle(ALColor.textFaint)
             Spacer()
-            Text(summaryLine)
+            // Freshness sits beside the button, never inside it — a label that
+            // reflows every minute would make the control jump under the cursor.
+            Text(model.freshnessLine)
                 .font(ALFont.sans(11))
                 .foregroundStyle(ALColor.textFaint)
             Button {
@@ -298,27 +255,41 @@ struct CapacityStripView: View {
             .buttonStyle(.plain)
             .disabled(model.isRefreshingAll)
             .help("Refresh every seat so the strip stays comparable")
-            Button {
-                model.disableFeature()
+            // Turning capacity off is a setting, not a reading-path action; it
+            // does not deserve a permanent tab stop next to Refresh.
+            Menu {
+                Button("Turn off capacity checks") { model.disableFeature() }
             } label: {
-                Text("Turn off")
-                    .font(ALFont.sans(11, .medium))
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(ALColor.textFaint)
             }
-            .buttonStyle(.plain)
-            .help("Stop all capacity checks — no probes until you enable it again")
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .frame(width: 18)
+            .help("Capacity settings")
         }
         .padding(.horizontal, 24)
         .padding(.top, 16)
         .padding(.bottom, 10)
     }
 
-    private var summaryLine: String {
-        let total = model.rows.count
-        let unknown = model.rows.filter { $0.unknownReason != nil }.count
-        let down = model.notReadyOrParked.count
-        let sampled = total - unknown - down
-        return "\(total) CLIs · \(max(0, sampled)) sampled · \(unknown) unknown"
+    /// Parked / not-ready seats, named once under the table.
+    ///
+    /// They are absent from the bench count above precisely because they cannot
+    /// take work; naming them here is what keeps that count from reading as a
+    /// seat that quietly vanished.
+    @ViewBuilder
+    private var parkedFooter: some View {
+        let parked = model.parkedDisplayNames
+        if !parked.isEmpty {
+            Text("\(parked.count) parked — \(parked.joined(separator: ", ")) · not sampled")
+                .font(ALFont.sans(11))
+                .foregroundStyle(ALColor.textFaint)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, CapacityStripLayout.rowInset)
+                .padding(.vertical, 12)
+        }
     }
 
     private var columnHeaders: some View {
@@ -358,7 +329,6 @@ private struct CapacityStripRowView: View {
     let row: CapacityBenchRow
     let now: Date
     let isRefreshing: Bool
-    let isDimmed: Bool
     let isExpanded: Bool
     let onToggleExpand: () -> Void
     let onRefresh: () -> Void
@@ -381,7 +351,6 @@ private struct CapacityStripRowView: View {
             }
             .padding(.horizontal, CapacityStripLayout.rowInset)
             .padding(.vertical, 12)
-            .opacity(isDimmed ? 0.42 : 1)
 
             if isExpanded {
                 detailDisclosure
@@ -413,7 +382,7 @@ private struct CapacityStripRowView: View {
                 boxSize: 20,
                 iconSize: 11,
                 cornerRadius: 5,
-                muted: isDimmed
+                muted: false
             )
 
             VStack(alignment: .leading, spacing: 2) {
@@ -466,8 +435,15 @@ private struct CapacityStripRowView: View {
         }
     }
 
+    /// A pool's label, or empty when the row has nothing to disambiguate.
+    ///
+    /// "Total" on a single-pool row labels the only thing there is — eight rows
+    /// of a word that never varies. The *column* stays (its fixed width is what
+    /// keeps every bar on one left edge); only the text goes.
     private func poolLineLabel(_ pool: CapacityBenchPoolMetrics) -> String {
-        guard let label = pool.poolLabel, !label.isEmpty else { return "Total" }
+        guard let label = pool.poolLabel, !label.isEmpty else {
+            return row.pools.count > 1 ? "Total" : ""
+        }
         return compressPoolLabel(label)
     }
 
@@ -475,11 +451,7 @@ private struct CapacityStripRowView: View {
 
     @ViewBuilder
     private var weeklyColumn: some View {
-        if isDimmed, row.unknownReason != nil || row.pools.isEmpty {
-            Text("not ready — probe failed")
-                .font(ALFont.sans(12))
-                .foregroundStyle(ALColor.textFaint)
-        } else if let reason = row.unknownReason {
+        if let reason = row.unknownReason {
             Text(CapacityStripRenderer.unknownCopy(reason))
                 .font(ALFont.sans(12))
                 .foregroundStyle(ALColor.textFaint)
@@ -548,9 +520,7 @@ private struct CapacityStripRowView: View {
 
     @ViewBuilder
     private var shortColumn: some View {
-        if isDimmed, row.unknownReason != nil || row.pools.isEmpty {
-            EmptyView()
-        } else if row.unknownReason != nil {
+        if row.unknownReason != nil {
             Text("—")
                 .font(ALFont.mono(13))
                 .foregroundStyle(ALColor.textFaint)

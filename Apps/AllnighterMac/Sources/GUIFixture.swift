@@ -159,10 +159,13 @@ enum GUIFixture {
         }
     }
 
-    /// CAP-S10: dimmed not-ready seats for the mixed fixture.
+    /// Parked / not-ready seats for the mixed fixture.
+    ///
+    /// One seat is parked on purpose: parked seats leave the table and are named
+    /// in the footer instead, and a proof that never has one cannot show whether
+    /// that footer renders.
     static var capacityNotReadyOrParked: Set<String> {
-        // Mixed fixture has no extra not-ready seat among the six product sources.
-        []
+        ["kimi"]
     }
 
     /// CAP-S10: keep no thread selected so the capacity strip (HomeNewRunPane) is the main pane.

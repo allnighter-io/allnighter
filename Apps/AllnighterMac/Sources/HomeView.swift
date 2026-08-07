@@ -800,6 +800,11 @@ private struct HomeNewRunPane: View {
                 capacity.updateNotReadyOrParked(notReadyOrParked.union(GUIFixture.capacityNotReadyOrParked))
             }
         }
+        .onDisappear {
+            // Nothing is reading the labels once the pane is gone; a tick that
+            // outlives it is a timer no one can see.
+            capacity.stopClock()
+        }
         .onChange(of: appModel.toolStatuses.count) { _, _ in
             capacity.updateNotReadyOrParked(notReadyOrParked)
         }
