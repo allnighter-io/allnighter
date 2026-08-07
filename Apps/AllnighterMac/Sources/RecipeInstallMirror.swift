@@ -56,6 +56,29 @@ enum RecipeInstallMirror {
         }
     }
 
+    /// First prose paragraph after the H1 — short subtitle for recipe listings.
+    static func blurb(from markdown: String) -> String? {
+        var pastTitle = false
+        var lines: [String] = []
+        for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if !pastTitle {
+                if trimmed.hasPrefix("#") { pastTitle = true }
+                continue
+            }
+            if trimmed.isEmpty {
+                if !lines.isEmpty { break }
+                continue
+            }
+            if trimmed.hasPrefix("#") { break }
+            if trimmed.hasPrefix("<!--") { continue }
+            lines.append(trimmed)
+            if lines.joined(separator: " ").count > 120 { break }
+        }
+        let text = lines.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        return text.isEmpty ? nil : text
+    }
+
     /// Write via a sibling temp file, then replace — never delete the live
     /// target before the new bytes are safely on disk.
     private static func writeFile(

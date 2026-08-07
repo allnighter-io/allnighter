@@ -113,7 +113,6 @@ enum GUIFixture {
         let name = active ?? ""
         return name.hasPrefix("studio")
             || name == "settings-use-from-cli"
-            || name == "settings-teach-your-clis"
             || name == "settings-about-updates"
     }
 
@@ -126,7 +125,6 @@ enum GUIFixture {
         case "studio-default-model": return .defaultModel
         case "studio-boost-window": return .boostWindow
         case "settings-use-from-cli", "studio-use-from-cli": return .useFromCLI
-        case "settings-teach-your-clis", "studio-teach-your-clis": return .teachYourCLIs
         case "settings-about-updates", "studio-about-updates": return .about
         default: return .clis
         }
@@ -375,8 +373,7 @@ enum GUIFixture {
         ("thread-design-board-fanout", "Thread — design board mockup tile strip"),
         ("thread-mutating-run", "Thread — mutating run"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
-        ("settings-use-from-cli", "Settings — Use from your CLI (recipe cards)"),
-        ("settings-teach-your-clis", "Settings — Teach your CLIs (global snippet install)"),
+        ("settings-use-from-cli", "Settings — Use from your CLI (hook + teaching table + capacity closer)"),
         ("studio-default-model", "Team Studio — Default model (Auto tiers)"),
         ("studio-boost-window", "Team Studio — Boost window"),
         ("studio-teams-code", "Team Studio — Code teams (detail)"),

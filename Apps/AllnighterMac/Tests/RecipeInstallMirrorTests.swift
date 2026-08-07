@@ -74,7 +74,7 @@ final class RecipeInstallMirrorTests: XCTestCase {
         ## Example utterances
         """
         XCTAssertEqual(
-            UseFromCLIView.blurb(from: md),
+            RecipeInstallMirror.blurb(from: md),
             "You hold the PM seat; Allnighter runs the crew."
         )
     }
