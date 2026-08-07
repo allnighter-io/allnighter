@@ -19,24 +19,55 @@ public enum OpenCodeOutcomeAuthority: Sendable {
         idleReason.rawValue
     }
 
+    /// CT-04: client already emitted a human-action / session / prompt terminal.
+    /// Do not let a stale non-local `idleReason` on the signal rewrite it to
+    /// `stream_drop` / `emptyOutput`.
+    static func shouldPreserveExistingFailure(
+        errorKind: WorkerAnswerErrorKind?,
+        errorReason: String?
+    ) -> Bool {
+        if errorKind == .permissionRequired { return true }
+        guard let errorReason, !errorReason.isEmpty else { return false }
+        if errorReason == "blockedOn: permission" { return true }
+        if errorReason.hasPrefix("opencode session error:") { return true }
+        if errorReason.hasPrefix("opencode prompt_async:") { return true }
+        return false
+    }
+
     /// Apply the D3 outcome table. Returns nil when there is no OpenCode signal
     /// (non-OpenCode seats) — caller keeps the worker's terminal as-is.
+    /// Also returns nil when the worker already carries a classified failure
+    /// that must survive rewrite (CT-04).
     public static func resolve(
         signal: OpenCodeTurnSignal?,
         repoDelta: RepoDelta?,
-        workerOutput: String?
+        workerOutput: String?,
+        existingErrorKind: WorkerAnswerErrorKind? = nil,
+        existingErrorReason: String? = nil
     ) -> Verdict? {
         guard let signal else { return nil }
 
-        // answerOnly: client already decided; re-check promptEcho / foreign idle.
-        if signal.intent == .answerOnly {
-            if signal.promptEcho { return .failed(reason: "incomplete_no_final_message") }
+        if shouldPreserveExistingFailure(
+            errorKind: existingErrorKind, errorReason: existingErrorReason
+        ) {
+            return nil
+        }
+
+        // CT-13: match AgentOS `emitTerminal` precedence — non-local idleReason
+        // before promptEcho — so both layers agree on the classified reason.
+        func failNonLocalIdle() -> Verdict? {
             switch signal.idleReason {
             case .foreignIdle, .streamDrop, .timeout, .stalledNoProgress:
                 return .failed(reason: classifiedFailure(for: signal.idleReason))
             case .localIdle:
-                break
+                return nil
             }
+        }
+
+        // answerOnly: client already decided; re-check foreign idle / echo.
+        if signal.intent == .answerOnly {
+            if let failed = failNonLocalIdle() { return failed }
+            if signal.promptEcho { return .failed(reason: "incomplete_no_final_message") }
             if let text = signal.assistantText, !text.isEmpty {
                 return .done(output: text)
             }
@@ -44,14 +75,9 @@ public enum OpenCodeOutcomeAuthority: Sendable {
         }
 
         // mutating — sole authority here.
+        if let failed = failNonLocalIdle() { return failed }
         if signal.promptEcho {
             return .failed(reason: "incomplete_no_final_message")
-        }
-        switch signal.idleReason {
-        case .foreignIdle, .streamDrop, .timeout, .stalledNoProgress:
-            return .failed(reason: classifiedFailure(for: signal.idleReason))
-        case .localIdle:
-            break
         }
 
         if let text = signal.assistantText, !text.isEmpty {

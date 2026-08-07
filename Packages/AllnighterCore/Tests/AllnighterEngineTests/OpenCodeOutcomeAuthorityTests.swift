@@ -41,6 +41,50 @@ final class OpenCodeOutcomeAuthorityTests: XCTestCase {
         XCTAssertEqual(v, .failed(reason: "incomplete_no_final_message"))
     }
 
+    /// CT-13: non-local idleReason wins over promptEcho (matches AgentOS emitTerminal).
+    func testNonLocalIdleReasonBeatsPromptEcho() {
+        let v = OpenCodeOutcomeAuthority.resolve(
+            signal: signal(idleReason: .streamDrop, promptEcho: true),
+            repoDelta: nil,
+            workerOutput: nil
+        )
+        XCTAssertEqual(v, .failed(reason: "stream_drop"))
+    }
+
+    /// CT-04: permission terminal + stale stream_drop signal must not rewrite.
+    func testPreservesPermissionFailureDespiteStreamDropSignal() {
+        var outcome = WorkerRunOutcome(
+            status: .failed,
+            errorKind: .permissionRequired,
+            errorReason: "blockedOn: permission",
+            openCodeTurnSignal: signal(idleReason: .streamDrop)
+        )
+        let verdict = OpenCodeOutcomeAuthority.resolve(
+            signal: outcome.openCodeTurnSignal,
+            repoDelta: nil,
+            workerOutput: nil,
+            existingErrorKind: outcome.errorKind,
+            existingErrorReason: outcome.errorReason
+        )
+        XCTAssertNil(verdict, "authority must leave permission terminal alone")
+        if let verdict {
+            OpenCodeOutcomeAuthority.apply(verdict, to: &outcome)
+        }
+        XCTAssertEqual(outcome.errorKind, .permissionRequired)
+        XCTAssertEqual(outcome.errorReason, "blockedOn: permission")
+    }
+
+    func testPreservesSessionErrorDespiteStreamDropSignal() {
+        let verdict = OpenCodeOutcomeAuthority.resolve(
+            signal: signal(idleReason: .streamDrop),
+            repoDelta: nil,
+            workerOutput: nil,
+            existingErrorKind: .nonzeroExit,
+            existingErrorReason: "opencode session error: boom"
+        )
+        XCTAssertNil(verdict)
+    }
+
     func testForeignIdleFailsEvenWithCommits() {
         let v = OpenCodeOutcomeAuthority.resolve(
             signal: signal(

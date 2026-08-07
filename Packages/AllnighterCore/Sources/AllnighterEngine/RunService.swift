@@ -2130,7 +2130,9 @@ public actor RunService {
            let verdict = OpenCodeOutcomeAuthority.resolve(
             signal: rewritten.openCodeTurnSignal,
             repoDelta: run.repoDelta,
-            workerOutput: rewritten.output
+            workerOutput: rewritten.output,
+            existingErrorKind: rewritten.errorKind,
+            existingErrorReason: rewritten.errorReason
            ) {
             OpenCodeOutcomeAuthority.apply(verdict, to: &rewritten)
             run.answers[0].result = rewritten
