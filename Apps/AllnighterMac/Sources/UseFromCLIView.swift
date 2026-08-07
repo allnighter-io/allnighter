@@ -172,11 +172,16 @@ struct UseFromCLIView: View {
         return .needsAttention
     }
 
+    /// Chips use the manifest's `shortName` — nine precise `displayName`s
+    /// ("Codex / ChatGPT", "Grok Build CLI") wrap the row onto two lines, and the
+    /// "CLI"/"Code"/"Agent" suffixes carry nothing once the reader can see they
+    /// are all CLIs. The short name is a manifest field (AgentOS SSOT), not a
+    /// suffix stripped here: a view must never invent product naming.
     private var benchChips: [(id: String, name: String, state: ChipState)] {
         appModel.registry.all
             .filter { $0.kind == .headlessCLI }
-            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
-            .map { ($0.id, $0.displayName, chipState(forDriver: $0.id)) }
+            .sorted { $0.shortName.localizedCaseInsensitiveCompare($1.shortName) == .orderedAscending }
+            .map { ($0.id, $0.shortName, chipState(forDriver: $0.id)) }
     }
 
     private var benchCLICount: Int {

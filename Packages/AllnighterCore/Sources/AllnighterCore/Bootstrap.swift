@@ -53,6 +53,53 @@ public enum Bootstrap {
             }
         }
 
+        /// The host's own bench driver id, when the host IS a bench vendor.
+        /// `generic` is nil because we do not know who is reading; hermes and
+        /// openclaw are not bench drivers.
+        public var ownDriverId: String? {
+            switch self {
+            case .claude: return "claude_code"
+            case .cursor: return "cursor_agent"
+            case .codex: return "codex"
+            case .generic, .hermes, .openclaw: return nil
+            }
+        }
+
+        /// Stops an agent routing same-vendor work through `alln` by reflex.
+        ///
+        /// Frontier models keep making this call: a Claude session dispatching a
+        /// single Claude run via `alln run --model model_sonnet`, which adds a
+        /// subprocess and loses mid-run steering to reach a sibling it could
+        /// have subagented directly. `alln`'s value is CROSSING vendors — using
+        /// it to reach your own buys nothing.
+        ///
+        /// Not "never", though: for a loop you start and walk away from, `alln`
+        /// is right regardless of vendor, because detached and tracked is
+        /// exactly what it adds (founder, 2026-08-06). So the rule is never
+        /// *default*, not never.
+        ///
+        /// Host-gated, and it names the actual driver — which is only possible
+        /// because `bootstrap` knows its host. That is also why this is a
+        /// preamble line and not a `TeachingSnippet` rule: the shared body is
+        /// host-blind, so it could only say something vague, and it is capped at
+        /// invariants anyway.
+        public var sameVendorNote: String? {
+            guard let driver = ownDriverId else { return nil }
+            let name = pasteTargetHostName ?? rawValue
+            return "- You are \(name). For a single `\(driver)` run, use your own subagents. "
+                + "`alln` is for the CLIs you cannot reach — and for loops you start and leave."
+        }
+
+        /// Human name for this host, used only by `sameVendorNote`.
+        var pasteTargetHostName: String? {
+            switch self {
+            case .claude: return "Claude Code"
+            case .cursor: return "Cursor"
+            case .codex: return "Codex"
+            case .generic, .hermes, .openclaw: return nil
+            }
+        }
+
         /// Compact host-specific advice ahead of the shared snippet (render only).
         /// Cold hosts only — checkout hosts already live in a repo context.
         public var coldStartPreamble: String? {
@@ -82,6 +129,9 @@ public enum Bootstrap {
         }
         if host.includesCheckoutRebuild {
             lines.append("- From the Allnighter checkout, rebuild/refresh with `bash scripts/rebuild_cli.sh`; do not hand-run a multi-step CLI refresh.")
+        }
+        if let sameVendor = host.sameVendorNote {
+            lines.append(sameVendor)
         }
         lines.append(TeachingSnippet.wrap())
         return lines.joined(separator: "\n")

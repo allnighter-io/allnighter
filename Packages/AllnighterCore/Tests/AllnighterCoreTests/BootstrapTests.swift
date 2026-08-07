@@ -99,6 +99,41 @@ final class BootstrapTests: XCTestCase {
         XCTAssertFalse(s.contains("dontUseWhen"), "body must not name a menu field")
     }
 
+    /// A host that is itself a bench vendor must be told not to route
+    /// same-vendor work through `alln` by reflex — the mistake frontier models
+    /// keep making (founder, 2026-08-06). It names the host's own driver, which
+    /// only `bootstrap` can do because only `bootstrap` knows the host.
+    func testBenchVendorHostsAreToldNotToRouteSameVendorWorkThroughAlln() {
+        let cases: [(Bootstrap.Host, String, String)] = [
+            (.claude, "Claude Code", "claude_code"),
+            (.cursor, "Cursor", "cursor_agent"),
+            (.codex, "Codex", "codex"),
+        ]
+        for (host, name, driver) in cases {
+            let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true, host: host)
+            XCTAssertTrue(s.contains("You are \(name)."), "\(host.rawValue) must name itself")
+            XCTAssertTrue(s.contains("`\(driver)`"), "\(host.rawValue) must name its own driver id")
+            XCTAssertTrue(s.contains("your own subagents"), "\(host.rawValue) must point at the native path")
+            // Never "never": a loop you start and leave is still alln's job,
+            // same vendor or not.
+            XCTAssertTrue(
+                s.contains("loops you start and leave"),
+                "\(host.rawValue) must keep the detached-loop exception"
+            )
+        }
+    }
+
+    /// We do not know who is reading a `generic` paste, and a cold host is not a
+    /// bench driver — so neither may claim one.
+    func testHostsWeCannotIdentifyGetNoSameVendorNote() {
+        for host in [Bootstrap.Host.generic, .hermes, .openclaw] {
+            let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true, host: host)
+            XCTAssertFalse(s.contains("You are "), "\(host.rawValue) must not guess its identity")
+            XCTAssertNil(host.sameVendorNote)
+            XCTAssertNil(host.ownDriverId)
+        }
+    }
+
     func testSnippetDoesNotIncludePanelRecipe() {
         let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
         XCTAssertFalse(s.contains("panel start"), "bootstrap must not re-teach panel cockpit")
@@ -119,16 +154,17 @@ final class BootstrapTests: XCTestCase {
     /// This ceiling used to be raised to match whatever the body had grown to
     /// (15/16 at eleven rules), which makes it a record of the growth rather
     /// than a limit on it. v10 sets it to the real size — 4 preamble lines +
-    /// open marker + 3 rules + close marker = 9 on-path, 10 off-path — so
+    /// open marker + 3 rules + close marker = 9, +1 same-vendor line on a
+    /// bench-vendor host = 10 on-path, 11 off-path — so
     /// adding a rule fails here and has to be argued for.
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(onPathLines.count, 9, "on-path snippet grew past ≤9 budget")
+        XCTAssertLessThanOrEqual(onPathLines.count, 10, "on-path snippet grew past ≤10 budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(offPathLines.count, 10, "off-path snippet grew past ≤10 budget")
+        XCTAssertLessThanOrEqual(offPathLines.count, 11, "off-path snippet grew past ≤11 budget")
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {
@@ -140,7 +176,9 @@ final class BootstrapTests: XCTestCase {
     func testRenderIncludesPasteTargetAndSnippetVerbatim() {
         let out = Bootstrap.render(host: .claude, binaryPath: sampleBinary, onPath: true)
         XCTAssertTrue(out.contains(Bootstrap.Host.claude.pasteTarget))
-        XCTAssertTrue(out.contains(Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)))
+        // Host-specific: the snippet must be compared against the SAME host now
+        // that each bench-vendor host carries its own same-vendor routing note.
+        XCTAssertTrue(out.contains(Bootstrap.snippet(binaryPath: sampleBinary, onPath: true, host: .claude)))
     }
 
     // MARK: - JSON envelope shape (agent-first: an agent can install itself)
@@ -168,17 +206,21 @@ final class BootstrapTests: XCTestCase {
         let all = Bootstrap.Host.allCases.map { Bootstrap.json(host: $0, binaryPath: sampleBinary, onPath: true) }
         XCTAssertEqual(Set(all.map(\.host)).count, Bootstrap.Host.allCases.count)
         XCTAssertTrue(all.allSatisfy { $0.binaryPath == sampleBinary })
-        // Checkout hosts share the rebuild-bearing snippet; cold hosts share the
-        // rebuild-free variant — two families, not six unique bodies.
-        let checkoutSnippets = Set(
-            all.filter { Bootstrap.Host(rawValue: $0.host)?.includesCheckoutRebuild == true }.map(\.snippet)
-        )
+        // Cold hosts still share one rebuild-free body.
         let coldSnippets = Set(
             all.filter { Bootstrap.Host(rawValue: $0.host)?.includesCheckoutRebuild == false }.map(\.snippet)
         )
-        XCTAssertEqual(checkoutSnippets.count, 1)
         XCTAssertEqual(coldSnippets.count, 1)
-        XCTAssertNotEqual(checkoutSnippets.first, coldSnippets.first)
+
+        // Checkout hosts no longer share ONE body: each host that is itself a
+        // bench vendor carries a same-vendor routing note naming its own driver,
+        // which is only possible because bootstrap knows its host. `generic`
+        // carries none — we do not know who is reading, so we do not guess.
+        let checkoutSnippets = Set(
+            all.filter { Bootstrap.Host(rawValue: $0.host)?.includesCheckoutRebuild == true }.map(\.snippet)
+        )
+        XCTAssertEqual(checkoutSnippets.count, 4, "claude / cursor / codex diverge; generic is the fourth")
+        XCTAssertFalse(coldSnippets.contains(where: checkoutSnippets.contains))
         XCTAssertTrue(all.contains { $0.host == "hermes" })
         XCTAssertTrue(all.contains { $0.host == "openclaw" })
     }
