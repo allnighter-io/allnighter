@@ -76,8 +76,7 @@ public enum NotificationCopy {
         switch candidate.event {
         case .vendorParked:
             return VendorContinuityPresentation.parkNotification(
-                vendorDisplayName: candidate.vendorDisplayName ?? workerDisplayName ?? "Vendor",
-                wakeAfter: candidate.wakeAfter
+                vendorDisplayName: candidate.vendorDisplayName ?? workerDisplayName ?? "Vendor"
             )
         case .vendorResumed:
             return VendorContinuityPresentation.recoveryNotification(

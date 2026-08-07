@@ -133,8 +133,7 @@ public struct ProcessOwnershipSurface: Sendable {
             if p.phase == RunPhase.waitingForVendor.rawValue,
                let vendor = p.vendorDisplayName {
                 lines.append("  " + VendorContinuityPresentation.waitStatus(
-                    vendorDisplayName: vendor,
-                    wakeAfter: p.wakeAfter
+                    vendorDisplayName: vendor
                 ))
             }
         }

@@ -4,20 +4,9 @@ import XCTest
 final class VendorContinuityPresentationTests: XCTestCase {
     func testWaitStatusNeverInventClock() {
         XCTAssertEqual(
-            VendorContinuityPresentation.waitStatus(vendorDisplayName: "Claude", wakeAfter: nil),
-            "Waiting for Claude — will retry soon"
+            VendorContinuityPresentation.waitStatus(vendorDisplayName: "Claude"),
+            "Waiting for Claude"
         )
-        let wake = Date(timeIntervalSince1970: 1_720_000_000)
-        let locale = Locale(identifier: "en_US_POSIX")
-        let tz = TimeZone(secondsFromGMT: 0)!
-        let text = VendorContinuityPresentation.waitStatus(
-            vendorDisplayName: "Claude",
-            wakeAfter: wake,
-            locale: locale,
-            timeZone: tz
-        )
-        XCTAssertTrue(text.hasPrefix("Waiting for Claude — resumes around "))
-        XCTAssertFalse(text.contains("will retry soon"))
     }
 
     func testMorningReceiptCountsAutomaticResumesOnly() {

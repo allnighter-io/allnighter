@@ -89,8 +89,7 @@ struct ThreadMutatingRunRow: View {
             let source = blocker.capacityObservation?.source ?? blocker.quotaScope ?? "vendor"
             let vendor = VendorContinuityPresentation.vendorDisplayName(sourceId: source)
             let status = VendorContinuityPresentation.waitStatus(
-                vendorDisplayName: vendor,
-                wakeAfter: blocker.wakeAfter
+                vendorDisplayName: vendor
             )
             VStack(alignment: .leading, spacing: 8) {
                 Text(status)

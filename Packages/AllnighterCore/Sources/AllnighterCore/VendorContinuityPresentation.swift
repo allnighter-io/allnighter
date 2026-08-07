@@ -34,29 +34,15 @@ public enum VendorContinuityPresentation {
     }
 
     public static func waitStatus(
-        vendorDisplayName: String,
-        wakeAfter: Date?,
-        locale: Locale = .current,
-        timeZone: TimeZone = .current
+        vendorDisplayName: String
     ) -> String {
-        guard let wakeAfter else {
-            return "Waiting for \(vendorDisplayName) — will retry soon"
-        }
-        let time = localTime(wakeAfter, locale: locale, timeZone: timeZone)
-        return "Waiting for \(vendorDisplayName) — resumes around \(time)"
+        return "Waiting for \(vendorDisplayName)"
     }
 
     public static func parkNotification(
-        vendorDisplayName: String,
-        wakeAfter: Date?,
-        locale: Locale = .current,
-        timeZone: TimeZone = .current
+        vendorDisplayName: String
     ) -> String {
-        guard let wakeAfter else {
-            return "\(vendorDisplayName) paused. Allnighter will retry soon."
-        }
-        let time = localTime(wakeAfter, locale: locale, timeZone: timeZone)
-        return "\(vendorDisplayName) paused until ~\(time). No action needed."
+        return "\(vendorDisplayName) paused. No action needed."
     }
 
     public static func recoveryNotification(

@@ -578,8 +578,7 @@ enum RunCLI {
                       let blocker = run.blocker,
                       let source = blocker.capacityObservation?.source ?? blocker.quotaScope {
                 print(VendorContinuityPresentation.waitStatus(
-                    vendorDisplayName: VendorContinuityPresentation.vendorDisplayName(sourceId: source),
-                    wakeAfter: blocker.wakeAfter
+                    vendorDisplayName: VendorContinuityPresentation.vendorDisplayName(sourceId: source)
                 ))
                 FileHandle.standardError.write(Data("\n[\(RunIdentity.cliFooter(run))]\n".utf8))
             } else {
