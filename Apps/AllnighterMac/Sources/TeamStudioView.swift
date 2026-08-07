@@ -15,7 +15,6 @@ import AllnighterCore
 enum StudioRoute: Hashable {
     case clis
     case useFromCLI
-    case teachYourCLIs
     case defaultModel
     case boostWindow
     case iphoneRemote
@@ -66,8 +65,6 @@ struct TeamStudioView: View {
             TeamReadinessView(focusDriverId: cliFocusDriverId, onClose: onDone, onAddSource: {})
         case .useFromCLI:
             UseFromCLIView()
-        case .teachYourCLIs:
-            TeachYourCLIsView()
         case .defaultModel:
             DefaultModelView()
         case .boostWindow:
@@ -104,11 +101,9 @@ private struct StudioNav: View {
 
             // CLIs — lane-agnostic foundation; sources feed every lane.
             item("CLIs", icon: "terminal", target: .clis)
-            // Recipe cards for agents running outside the app (ONB-S02b).
+            // One page: dynamic hook + host teaching table (absorbs the former
+            // "Teach your CLIs" row) + the reframe + worked asks + capacity closer.
             item("Use from your CLI", icon: "doc.on.clipboard", target: .useFromCLI)
-            // GLOBAL teaching snippet install (ONB-S03). First-run auto-open is
-            // still disabled (RootView hotfix) — Settings entry is enough for V1.
-            item("Teach your CLIs", icon: "graduationcap", target: .teachYourCLIs)
             // Default model (Auto) — lane-agnostic; the model that answers when no team
             // or model is picked, drawn from the substitution tiers.
             item("Default model", icon: "infinity", target: .defaultModel)
