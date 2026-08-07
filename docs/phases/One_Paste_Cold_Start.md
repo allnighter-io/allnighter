@@ -37,7 +37,7 @@ Paste one command. Your agent runs on the subscriptions you already pay for.
 ```
 
 ```bash
-curl -fsSL https://get.allnighter.app | sh
+curl -fsSL https://get.allnighter.io | sh
 ```
 
 One public install/upgrade string. Help, README, marketing, menu `update.command`,
@@ -133,9 +133,9 @@ fails a stale checksum, or worse (BUG-1).
 **One mutable object, everything else immutable:**
 
 ```text
-https://get.allnighter.app/latest.json                    # ONLY mutable object; edge TTL <= 60s
-https://get.allnighter.app/v0.12.0/alln-macos-universal   # immutable, never rewritten; long TTL
-https://get.allnighter.app/v0.12.0/Allnighter.dmg         # immutable
+https://get.allnighter.io/latest.json                    # ONLY mutable object; edge TTL <= 60s
+https://get.allnighter.io/v0.12.0/alln-macos-universal   # immutable, never rewritten; long TTL
+https://get.allnighter.io/v0.12.0/Allnighter.dmg         # immutable
 ```
 
 `latest.json` names the exact versioned URL **and** its sha256, so binary and
@@ -309,7 +309,7 @@ Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
 
 | ID | Decision (packet default) | Blocks |
 | --- | --- | --- |
-| **BQ-1** | Canonical URL: `https://get.allnighter.app` (static assets; no GH API) | Public cutover only |
+| **BQ-1** | Canonical URL: `https://get.allnighter.io` (static assets; no GH API) | Public cutover only |
 | **BQ-2** | Public = Developer ID signed + SHA256. Dogfood free without public DNS. Notarize before big launch. | Public cutover only |
 | **BQ-3** | **Defer npm/npx** | Nothing in V1 |
 | **BQ-4** | Soft update only in V1 (announce + command). Hard `minSupportedBinaryVersion` fail closed = later packet if protocol breaks. | Not V1 |
@@ -321,7 +321,7 @@ Non-goals: MCP; npm in V1; fake $ savings; auto-edit host/shell configs;
 
 | Date | ID | Decision |
 | --- | --- | --- |
-| 2026-07-31 | BQ-1 | Provisional lock: `get.allnighter.app` + static paths (founder can rename before public) |
+| 2026-07-31 | BQ-1 | Provisional lock: `get.allnighter.io` + static paths (founder can rename before public) |
 | 2026-07-31 | BQ-2 | Public floor = Developer ID + SHA256; dogfood unsigned/private OK |
 | 2026-07-31 | BQ-3 | Defer npm |
 | 2026-07-31 | BQ-4 | Soft announce only; no force-upgrade gate in this packet |
@@ -349,7 +349,7 @@ Same entitlement. App not required for Hermes. npm later only.
 ```text
 main() {
   1. Darwin only; else exit 1.  POSIX sh; set -eu; umask 022; trap cleanup
-  2. BASE=${ALLN_INSTALL_BASE_URL:-https://get.allnighter.app}
+  2. BASE=${ALLN_INSTALL_BASE_URL:-https://get.allnighter.io}
   3. curl -fsSL "$BASE/latest.json" </dev/null    → cliVersion, cli.url, cli.sha256
   4. curl -fsSL "$CLI_URL" </dev/null → temp; shasum -a 256 must equal cli.sha256
      (fail closed, print both hashes)
@@ -391,13 +391,13 @@ Published only on **release**, not on every merge. The only mutable object.
   "appVersion": "0.12.0",
   "releasedAt": "2026-07-31T00:00:00Z",
   "notes": "human-only; never projected to agents",
-  "installCommand": "curl -fsSL https://get.allnighter.app | sh",
+  "installCommand": "curl -fsSL https://get.allnighter.io | sh",
   "cli": {
-    "url": "https://get.allnighter.app/v0.12.0/alln-macos-universal",
+    "url": "https://get.allnighter.io/v0.12.0/alln-macos-universal",
     "sha256": "…"
   },
   "app": {
-    "url": "https://get.allnighter.app/v0.12.0/Allnighter.dmg",
+    "url": "https://get.allnighter.io/v0.12.0/Allnighter.dmg",
     "sha256": "…"
   }
 }
@@ -430,7 +430,7 @@ Inject into **`alln menu --json`** (primary — agents already open it):
   "current": "0.11.1",
   "latest": "0.12.0",
   "binaryPath": "/Users/me/.local/share/allnighter/bin/alln",
-  "command": "curl -fsSL https://get.allnighter.app | sh"
+  "command": "curl -fsSL https://get.allnighter.io | sh"
 }
 ```
 
@@ -604,7 +604,7 @@ hashed and sent, in `doctor` and in the privacy line, before it ships.
 | **OPC-S00** | Universal build + versioned asset layout + publish recipe | **Shipped 2026-07-31 (`3699d2fb`).** `scripts/build-universal.sh` + `scripts/publish-release.sh`; immutable paths locked; local/dogfood URL proven — dual-arch SPM fails on this toolchain (BuildInfoPlugin), two `--arch` builds + `lipo -create` used instead |
 | **OPC-S01** | `scripts/get-alln.sh` + fixture proof | **Shipped 2026-07-31 (`e9e45fbf`).** Laws 1–2 green on temp HOME **through a pipe**; BUG-0/1/3/6/7 gated; `scripts/test-get-alln.sh` proof |
 | **OPC-S06** | Shared release channel: `latest.json` + `ReleaseChannel` + `menu.update` + `version --json` + doctor + Mac reads same feed | **Shipped 2026-07-31 core (`bba67abe`, `b9a43085`) + 2026-08-01 Mac/publish.** Contract 7.4.0, binary 0.11.4. Mac Settings › About & updates + quiet title-bar badge; `publish-release.sh` writes `latest.json` last |
-| **OPC-S05** | Public cutover | **Blocked on founder** — needs real DNS control (`get.allnighter.app`), an Apple Developer ID signing certificate, and notarization credentials; none of these can be provisioned by an agent |
+| **OPC-S05** | Public cutover | **In progress** — Cloudflare R2 bucket `allnighter-releases` + Worker `get-allnighter` deployed (`https://get-allnighter.emailmike.workers.dev`). Install script seeded in R2. **Founder:** Porkbun CNAME `get` → Cloudflare custom domain (see §OPC-S05 cutover); Developer ID sign + notarize first public binary; `publish-release.sh` + `upload-release-to-r2.sh` |
 | **OPC-S04** | npm (optional) | Only if founder reopens BQ-3 |
 
 Order: **S02 → S03 → S00 → S01 → S06 → S05**.  
@@ -646,6 +646,42 @@ keyboard (DNS + Apple Developer account access).
       `run`; `run` performs no update network call at all — confirmed by
       grepping `RunService`/`RunCLI`/`LoopDispatch`/`LoopEngineCLI` for any
       `ReleaseChannel` reference (none)
+
+### OPC-S05 cutover checklist (get.allnighter.io only)
+
+Main site `allnighter.io` is out of scope (Ikiro). This slice is **only** the
+install faucet subdomain.
+
+**Shipped (agent):**
+
+- [x] R2 bucket `allnighter-releases`
+- [x] Worker `get-allnighter` (`infra/get-faucet/`) — serves R2 at URL paths
+- [x] Worker deployed: `https://get-allnighter.emailmike.workers.dev`
+- [x] `install/get-alln.sh` uploaded to R2 (root `/` serves it)
+- [x] `scripts/upload-release-to-r2.sh` — publish dir → R2 (assets first,
+      `latest.json` last)
+- [x] Canonical URLs in code/docs updated `.app` → `.io`
+
+**Founder (Porkbun DNS — `allnighter.io` stays on Porkbun; Ikiro owns apex/www):**
+
+1. Cloudflare dashboard → **Workers & Pages** → **get-allnighter** →
+   **Settings** → **Domains & Routes** → **Add** → **Custom Domain** →
+   `get.allnighter.io`
+2. Copy the CNAME target Cloudflare shows.
+3. Porkbun → `allnighter.io` DNS → add **CNAME** `get` → that target (DNS only;
+   do not move apex/www).
+4. Wait for SSL active (usually minutes).
+
+**Founder (first public release):**
+
+1. Build + **Developer ID** sign universal CLI (`scripts/build-universal.sh`).
+2. `scripts/publish-release.sh <version>` (writes `dist/releases/`).
+3. `scripts/upload-release-to-r2.sh dist/releases`
+4. Verify:
+   `curl -fsSL https://get.allnighter.io/latest.json`
+   `curl -fsSL https://get.allnighter.io | head`
+
+Dogfood before DNS: `ALLN_INSTALL_BASE_URL=https://get-allnighter.emailmike.workers.dev`
 
 ---
 
