@@ -131,7 +131,7 @@ public enum NotificationCopy {
         case .relayStreamStalled:
             return "Agent output has been silent — inspect with `alln loop status` or `alln ps`."
         case .loopParked:
-            return "Capacity park — the loop will retry when the vendor is ready."
+            return "Capacity park — waiting on the vendor."
         case .loopResumed:
             return "The loop is working again."
         }

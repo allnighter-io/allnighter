@@ -823,7 +823,7 @@ struct CLIStatusRow: View {
                 .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(ALColor.textFaint)
         case .rateLimited:
-            Text("Rate limited — out of capacity, will retry when quota resets")
+            Text("Rate limited — out of capacity")
                 .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(ALColor.textFaint)
         }
@@ -845,7 +845,7 @@ struct CLIStatusRow: View {
         case .needsPath: return "Installed but not on PATH — locate it to use its models."
         case .notInstalled: return "Not installed."
         case .probeFailed: return "Health check failed — re-check or fix."
-        case .rateLimited: return card.probeReason ?? "Vendor quota wall — will retry when the limit resets."
+        case .rateLimited: return card.probeReason ?? "Out of capacity — nothing to fix, it clears when the vendor resets."
         case .notChecked: return "Not checked yet — run a scan to detect this CLI."
         case .installedNotProbed: return "Installed but not checked yet — run a scan."
         case .detecting, .reprobing: return "Re-checking this CLI…"
