@@ -51,7 +51,26 @@ final class OpenCodeOutcomeAuthorityTests: XCTestCase {
             repoDelta: RepoDelta(changed: true, commits: [.init(sha: "a", subject: "x")]),
             workerOutput: nil
         )
-        XCTAssertEqual(v, .failed(reason: "incomplete_no_final_message"))
+        XCTAssertEqual(v, .failed(reason: "foreign_idle"))
+    }
+
+    /// F8: stall / stream-drop / timeout keep distinct errorReason strings.
+    func testClassifiedIdleReasonsSurviveOutcomeAuthority() {
+        XCTAssertEqual(
+            OpenCodeOutcomeAuthority.resolve(
+                signal: signal(idleReason: .stalledNoProgress),
+                repoDelta: nil, workerOutput: nil),
+            .failed(reason: "stalled_no_progress"))
+        XCTAssertEqual(
+            OpenCodeOutcomeAuthority.resolve(
+                signal: signal(idleReason: .streamDrop),
+                repoDelta: nil, workerOutput: nil),
+            .failed(reason: "stream_drop"))
+        XCTAssertEqual(
+            OpenCodeOutcomeAuthority.resolve(
+                signal: signal(idleReason: .timeout),
+                repoDelta: nil, workerOutput: nil),
+            .failed(reason: "timeout"))
     }
 
     /// 226CB771-shaped: tool-only + commit → done.

@@ -11,6 +11,14 @@ public enum OpenCodeOutcomeAuthority: Sendable {
         case failed(reason: String)
     }
 
+    /// Map a non-local idle end to a classified `errorReason` (F8).
+    /// Keeps `stalled_no_progress` / `stream_drop` / `foreign_idle` / `timeout`
+    /// visible in `alln show` instead of collapsing them all to
+    /// `incomplete_no_final_message`.
+    private static func classifiedFailure(for idleReason: OpenCodeIdleReason) -> String {
+        idleReason.rawValue
+    }
+
     /// Apply the D3 outcome table. Returns nil when there is no OpenCode signal
     /// (non-OpenCode seats) — caller keeps the worker's terminal as-is.
     public static func resolve(
@@ -25,7 +33,7 @@ public enum OpenCodeOutcomeAuthority: Sendable {
             if signal.promptEcho { return .failed(reason: "incomplete_no_final_message") }
             switch signal.idleReason {
             case .foreignIdle, .streamDrop, .timeout, .stalledNoProgress:
-                return .failed(reason: "incomplete_no_final_message")
+                return .failed(reason: classifiedFailure(for: signal.idleReason))
             case .localIdle:
                 break
             }
@@ -41,7 +49,7 @@ public enum OpenCodeOutcomeAuthority: Sendable {
         }
         switch signal.idleReason {
         case .foreignIdle, .streamDrop, .timeout, .stalledNoProgress:
-            return .failed(reason: "incomplete_no_final_message")
+            return .failed(reason: classifiedFailure(for: signal.idleReason))
         case .localIdle:
             break
         }
