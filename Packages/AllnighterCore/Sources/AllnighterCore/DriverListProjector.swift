@@ -7,6 +7,7 @@ public enum DriverListProjector {
         probeRecords: [ToolProbeRecord],
         models: [Model],
         parkedDriverIds: Set<String>,
+        vendorResetsBySource: [String: Date] = [:],
         contractVersion: String = ContractRegistry.contractVersion
     ) -> DriverListJSON {
         let recordsByDriver = Dictionary(uniqueKeysWithValues: probeRecords.map { ($0.driverId, $0) })
@@ -29,7 +30,7 @@ public enum DriverListProjector {
                         detail = nil
                     } else {
                         status = "notReady"
-                        detail = shortProbeDetail(record.status)
+                        detail = shortProbeDetail(record.status, vendorReset: vendorResetsBySource[manifest.id])
                     }
                 } else {
                     status = "notChecked"
@@ -56,7 +57,7 @@ public enum DriverListProjector {
         return DriverListJSON(contractVersion: contractVersion, drivers: entries)
     }
 
-    private static func shortProbeDetail(_ status: ModelSetupStatus) -> String? {
+    private static func shortProbeDetail(_ status: ModelSetupStatus, vendorReset: Date?) -> String? {
         switch status {
         case .installedNotSignedIn: return "Needs sign-in"
         case .shimmedNeedsConfirm: return "Needs a path"
@@ -64,7 +65,7 @@ public enum DriverListProjector {
         case .notInstalled: return "Not installed"
         case .installedNotProbed: return "Installed, not checked"
         case .rateLimited(let observation):
-            return DoctorReport.rateLimitedDetail(observation: observation)
+            return DoctorReport.rateLimitedDetail(observation: observation, vendorReset: vendorReset)
         case .ready: return nil
         }
     }
