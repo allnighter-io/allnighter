@@ -1243,6 +1243,7 @@ public actor RunService {
                 conversationId: conversationId,
                 messageId: messageId,
                 agent: agent,
+                explicitSeatModelIds: request.explicitSeatModelIds,
                 readOnly: request.readOnly
             )
         )

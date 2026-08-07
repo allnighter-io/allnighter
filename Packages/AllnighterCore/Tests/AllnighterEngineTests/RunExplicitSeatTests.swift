@@ -55,8 +55,58 @@ final class RunExplicitSeatTests: XCTestCase {
         XCTAssertEqual(crew.map(\.modelId), [
             "model_gpt_sol", "model_grok", "model_cursor_composer_25"
         ])
+        XCTAssertTrue(crew.allSatisfy { $0.reason == TeamExplicitSeats.explicitSeatingReason })
         XCTAssertTrue(invocation.teachingCommand.contains("--seat"))
         XCTAssertTrue(invocation.teachingCommand.contains("model_gpt_sol"))
+    }
+
+    /// Regression: `RunService.dryRun` must forward `--seat` into the shared resolver
+    /// (resolver-only coverage previously green while the CLI dry-run path dropped seats).
+    func testRunServiceDryRunForwardsExplicitSeats() async {
+        let models = bench()
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("alln-rso-dry-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        try? FileManager.default.createDirectory(at: tmp, withIntermediateDirectories: true)
+        let service = RunService(
+            models: models,
+            registry: DriverRegistry([
+                TestSupport.headlessManifest(id: "codex", command: "codex"),
+                TestSupport.headlessManifest(id: "grok", command: "grok"),
+                TestSupport.headlessManifest(id: "cursor", command: "cursor"),
+            ]),
+            runStore: RunStore(rootDirectory: tmp.appendingPathComponent("runs")),
+            commandRunner: MockCommandRunner(scripts: [:]),
+            writeLock: RunWriteLockRegistry(),
+            defaultSettings: {
+                DefaultModelSettings(
+                    defaultTier: .frontier,
+                    allowHealthySubstitutions: true,
+                    tiers: TierMembership(frontier: models.map(\.id))
+                )
+            },
+            probeRecords: {
+                models.map {
+                    ToolProbeRecord(driverId: $0.driverId, status: .ready(version: "1"), lastProbeAt: .distantPast)
+                }
+            }
+        )
+        let seatIds = ["model_gpt_sol", "model_grok", "model_cursor_composer_25"]
+        let dry = await service.dryRun(
+            RunRequest(
+                message: "Review docs/phases/Ephemeral_Teams.md",
+                repoRoot: tmp.path,
+                presetId: "code_spec_review_min",
+                lane: .code,
+                explicitSeatModelIds: seatIds
+            ),
+            readyModels: models
+        )
+        XCTAssertTrue(dry.canStart)
+        let crew = dry.seats?.filter { $0.stage == AgentStage.answer.rawValue } ?? []
+        XCTAssertEqual(crew.map(\.modelId), seatIds)
+        XCTAssertTrue(crew.allSatisfy { $0.reason == TeamExplicitSeats.explicitSeatingReason })
+        XCTAssertTrue(dry.nextAction.command.contains("--seat"))
     }
 
     func testSeatRequiresTeam() {
