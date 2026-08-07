@@ -1,14 +1,18 @@
 import Foundation
 
-/// Capacity acquisition boundary — **PTY only, all six bench seats** (CWB-S00).
+/// Capacity acquisition boundary — **6 PTY + 2 dashboard-scrape bench seats**
+/// (CWB-S00 / OCG-S08).
 ///
-/// Every seat uses one cold PTY probe adapter on refresh. There is no disk/log
-/// path for capacity display — live probe or `neverSampled` / unknown.
+/// PTY seats use one cold probe adapter on refresh. Dashboard-scrape seats
+/// (`opencode_go`, `bailian_token_plan`) are acquired outside this type.
+/// There is no disk/log path for capacity display — live probe or
+/// `neverSampled` / unknown.
 ///
 /// **Bare call** (`refresh: false`) — every seat is `neverSampled`. No probes.
 ///
-/// **Refresh** (`refresh: true`) — run PTY adapters for all seats (or one with
-/// `refreshSource`). Never idle-backgrounded; only explicit refresh starts probes.
+/// **Refresh** (`refresh: true`) — run PTY adapters for the probed sources
+/// (or one with `refreshSource`). Never idle-backgrounded; only explicit
+/// refresh starts probes.
 ///
 /// Injectable `homeRoot` / `probeExecutor` keep tests off the real home and off
 /// real vendor CLIs.
@@ -60,12 +64,6 @@ public enum CapacityAcquisition {
     /// PTY-acquired seats only. Never the dashboard seat.
     public static let ptyOnlySources: [String] = ptySourceOrder
 
-    /// Full bench roster. Prefer `benchSourceOrder` for display order.
-    public static let tier3DisklessSources: [String] = benchSourceOrder
-
-    /// PTY seats driven on refresh.
-    public static let tier3ProbeableSources: [String] = ptySourceOrder
-
     /// Valid bench source ids for targeted refresh.
     public static var validRefreshSourceIds: [String] { benchSourceOrder }
 
@@ -80,7 +78,6 @@ public enum CapacityAcquisition {
         if gatedDashboardSourceIds.contains(id), !dogfood {
             return "--dogfood required for \(id)"
         }
-        _ = dogfood // promoted (OCG-S08): the Go seat no longer needs the gate
         guard validRefreshSourceIds.contains(id) || gatedDashboardSourceIds.contains(id) else {
             return unknownRefreshSourceMessage(id)
         }
@@ -99,6 +96,19 @@ public enum CapacityAcquisition {
             return ptySourceOrder.contains(refreshSource) ? [refreshSource] : []
         }
         return ptySourceOrder
+    }
+
+    private static func resolveProbeTimeout(
+        for source: String,
+        override: TimeInterval
+    ) -> TimeInterval {
+        return override == CapacityProbe.defaultTimeout
+            ? CapacityProbe.timeout(for: source)
+            : override
+    }
+
+    private static func sourceTier(for source: String) -> CapacityAcquisitionTier {
+        return dashboardSourceOrder.contains(source) ? .dashboardScrape : .tuiProbe
     }
 
     /// Acquire capacity windows for the fixed bench under `homeRoot`.
@@ -121,49 +131,17 @@ public enum CapacityAcquisition {
         let sourcesToProbe = Set(sourcesProbed(refresh: refresh, refreshSource: refreshSource))
 
         if sourcesToProbe.isEmpty {
-            return orderedBenchWindows(
-                Dictionary(
-                    uniqueKeysWithValues: benchSourceOrder.map { source in
-                        (
-                            source,
-                            [
-                                CapacityWindow.unknown(
-                                    reason: .neverSampled,
-                                    source: source,
-                                    scope: .weekly,
-                                    observedAt: now,
-                                    sourceTier: .tuiProbe
-                                ),
-                            ]
-                        )
-                    }
-                ),
-                now: now
-            )
+            return orderedBenchWindows([:], now: now)
         }
 
         let executor = probeExecutor ?? LiveCapacityProbeExecutor()
         // One scope per acquisition wave — its probes, its kill set (CWB-S00a).
         let scope = probeScope ?? CapacityProbeScope()
         let group = DispatchGroup()
-        final class ProbeResults: @unchecked Sendable {
-            private let lock = NSLock()
-            private var map: [String: [CapacityWindow]] = [:]
-            func set(_ source: String, _ windows: [CapacityWindow]) {
-                lock.lock(); map[source] = windows; lock.unlock()
-            }
-            func snapshot() -> [String: [CapacityWindow]] {
-                lock.lock(); defer { lock.unlock() }
-                return map
-            }
-        }
         let probeResults = ProbeResults()
 
         let effectiveTimeouts = sourcesToProbe.map { source -> TimeInterval in
-            if probeTimeout == CapacityProbe.defaultTimeout {
-                return CapacityProbe.timeout(for: source)
-            }
-            return probeTimeout
+            resolveProbeTimeout(for: source, override: probeTimeout)
         }
         let maxProbeTimeout = effectiveTimeouts.max() ?? probeTimeout
 
@@ -171,9 +149,7 @@ public enum CapacityAcquisition {
             group.enter()
             DispatchQueue.global(qos: .userInitiated).async {
                 defer { group.leave() }
-                let seatTimeout = probeTimeout == CapacityProbe.defaultTimeout
-                    ? CapacityProbe.timeout(for: source)
-                    : probeTimeout
+                let seatTimeout = resolveProbeTimeout(for: source, override: probeTimeout)
                 let windows = executor.execute(
                     CapacityProbeRequest(source: source, now: now, timeout: seatTimeout, scope: scope)
                 )
@@ -235,7 +211,7 @@ public enum CapacityAcquisition {
                         source: source,
                         scope: .weekly,
                         observedAt: now,
-                        sourceTier: .tuiProbe
+                        sourceTier: sourceTier(for: source)
                     ),
                 ]
             }
@@ -258,11 +234,23 @@ public enum CapacityAcquisition {
                         source: source,
                         scope: .weekly,
                         observedAt: now,
-                        sourceTier: .tuiProbe
+                        sourceTier: sourceTier(for: source)
                     )
                 )
             }
         }
         return result
+    }
+}
+
+private final class ProbeResults: @unchecked Sendable {
+    private let lock = NSLock()
+    private var map: [String: [CapacityWindow]] = [:]
+    func set(_ source: String, _ windows: [CapacityWindow]) {
+        lock.lock(); map[source] = windows; lock.unlock()
+    }
+    func snapshot() -> [String: [CapacityWindow]] {
+        lock.lock(); defer { lock.unlock() }
+        return map
     }
 }
