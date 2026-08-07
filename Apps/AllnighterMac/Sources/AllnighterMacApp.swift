@@ -21,6 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// app runs (ON or OFF — OFF answers `disabled`); unlinked on quit.
     private var capacitySocketServer: CapacitySocketServer?
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        // XCTest host + GUI proof sessions must quit without a modal.
+        guard !Self.isTesting else { return .terminateNow }
+        #if DEBUG
+        if GUIFixture.isActive { return .terminateNow }
+        #endif
+        return presentQuitBackgroundReminderIfNeeded()
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         guard !Self.isTesting else { return }
         // CWB-S00a: reap any leftover capacity probe PGIDs on graceful quit.
@@ -29,6 +38,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // goes cold once, instead of hitting a refused stale endpoint.
         capacitySocketServer?.stop()
         capacitySocketServer = nil
+    }
+
+    /// Capacity / Boost quit teaching. Logic SSOT: `QuitBackgroundReminder`.
+    private func presentQuitBackgroundReminderIfNeeded() -> NSApplication.TerminateReply {
+        let capacityEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
+        let boost = BoostWindowSettingsPersistence().load()
+        let suppressStore = QuitBackgroundReminderPersistence()
+        guard let reminder = QuitBackgroundReminder.evaluate(
+            capacityEnabled: capacityEnabled,
+            boostEnabled: boost.enabled,
+            boostWindowStart: boost.windowStart,
+            suppressed: suppressStore.loadSuppressed()
+        ) else {
+            return .terminateNow
+        }
+
+        let alert = NSAlert()
+        alert.messageText = "Quit Allnighter?"
+        alert.informativeText = reminder.informativeText
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Keep Open")
+        alert.addButton(withTitle: "Quit Anyway")
+
+        let checkbox = NSButton(
+            checkboxWithTitle: "Don't show again",
+            target: nil,
+            action: nil
+        )
+        checkbox.state = .off
+        alert.accessoryView = checkbox
+
+        let response = alert.runModal()
+        if checkbox.state == .on {
+            try? suppressStore.saveSuppressed(true)
+        }
+        // First button = Keep Open → cancel terminate.
+        return response == .alertFirstButtonReturn ? .terminateCancel : .terminateNow
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
