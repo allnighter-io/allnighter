@@ -1,13 +1,11 @@
 # Phase 122 — OpenCode Headless Completion & Session Scoping
 
-Status: **SPEC — founder-directed 2026-08-07. Not built.**
+Status: **IN PROGRESS — S122.0 shipped (AgentOS). Remaining: S122.1–S122.5.**
 Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`,
 `OpenCodeRoutingWorkerRunner`, `OpenCodeServeCoordinator`) + Allnighter
 (`RunService` outcome gates, `repoDelta`, permission / `blockedOn` surface)
 Created: 2026-08-07
-Updated: 2026-08-07 (v2 — implementation-ready: pinned session-matching rule,
-split client/outcome authority, pinned permission default, reordered slices
-for parallel tracks)
+Updated: 2026-08-07 (S122.0 landed — session-scoped SSE filter + idle parse)
 
 **This phase lives in Allnighter `docs/phases/`.** Build work spans
 **AgentOS** (OpenCode HTTP/SSE driver) and **Allnighter** (run completion

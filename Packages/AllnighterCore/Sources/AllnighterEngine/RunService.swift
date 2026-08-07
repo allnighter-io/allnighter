@@ -2116,6 +2116,12 @@ public actor RunService {
         if noCommit, run.repoDelta?.changed != true {
             run.uncommittedFileCount = gitObserver.dirtyFiles(rootPath: repoRoot).count
         }
+        // S122.3: dirty tree + zero commits is not clean success (unless --no-commit).
+        if run.mutating, noCommit != true,
+           let delta = run.repoDelta, delta.worktreeDirty, delta.commits.isEmpty,
+           run.status == .complete || run.status == .done || run.status == .partial {
+            Self.applyIncompleteUncommitted(&run)
+        }
         // WL-PWR-S01 / WT-L3: capture repo truth above, then release RunService's
         // mutating depth before settlement/proof. Nested relay/pilot depth remains.
         // Harness proof re-acquires as harnessProof (same pattern as LoopCoordinator).
@@ -2515,6 +2521,19 @@ public actor RunService {
         var merged = answer
         merged.result.output = priorOut
         return merged
+    }
+
+    /// S122.3 — mutating seat left a dirty tree with no commits: not clean success.
+    private static func applyIncompleteUncommitted(_ run: inout TeamRun) {
+        run.status = .failed
+        run.endReason = .failed
+        run.phase = nil
+        for i in run.answers.indices {
+            guard run.answers[i].result.status == .done else { continue }
+            run.answers[i].result.status = .failed
+            run.answers[i].result.errorKind = .emptyOutput
+            run.answers[i].result.errorReason = "incomplete_uncommitted"
+        }
     }
 
     private static func settleLatestAttempt(

@@ -190,7 +190,8 @@ public enum ContractSchema {
                 "changed": bool, "baseline": nullable("string"), "head": nullable("string"),
                 "commits": arr(ref("RepoDeltaCommit")),
                 "filesChanged": int, "files": arr(str), "truncated": bool,
-            ], required: ["changed", "commits", "filesChanged", "files", "truncated"]),
+                "worktreeDirty": bool,
+            ], required: ["changed", "commits", "filesChanged", "files", "truncated", "worktreeDirty"]),
             "RepoDeltaCommit": obj([
                 "sha": str, "subject": str,
             ], required: ["sha", "subject"]),

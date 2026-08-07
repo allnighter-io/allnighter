@@ -125,14 +125,53 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
         guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
         let delta = try XCTUnwrap(run.repoDelta)
         XCTAssertFalse(delta.changed)
+        XCTAssertFalse(delta.worktreeDirty)
         XCTAssertEqual(delta.commits, [])
         XCTAssertEqual(delta.filesChanged, 0)
 
         let encoded = try CoreJSON.encode(delta)
         let roundTripped = try CoreJSON.decode(RepoDelta.self, from: encoded)
         XCTAssertFalse(roundTripped.changed)
+        XCTAssertFalse(roundTripped.worktreeDirty)
 
         XCTAssertEqual(RunIdentity.repoDeltaSummary(delta), "no repo change")
+    }
+
+    /// C1FBDB46-shaped: worker edits the tree but never commits — not clean success.
+    func testMutatingRunDirtyTreeWithoutCommitIsIncompleteUncommitted() async throws {
+        let repo = try makeGitRepo()
+        let service = makeMutatingService(
+            repo: repo, commandRunner: DirtyingCommandRunner(repoRoot: repo))
+
+        let result = await service.run(
+            RunRequest(message: "Edit a file", repoRoot: repo.path, pinnedModelId: "model_grok"),
+            origin: .cli, runId: "repo-delta-dirty")
+
+        guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
+        let delta = try XCTUnwrap(run.repoDelta)
+        XCTAssertTrue(delta.worktreeDirty, "must assert real git porcelain dirty, not a stub")
+        XCTAssertFalse(delta.changed)
+        XCTAssertTrue(delta.commits.isEmpty)
+        XCTAssertEqual(run.status, .failed)
+        XCTAssertEqual(
+            run.answers.first?.result.errorReason, "incomplete_uncommitted")
+        XCTAssertEqual(RunIdentity.repoDeltaSummary(delta), "uncommitted changes")
+
+        // Prove against real porcelain output, not a mocked flag.
+        let porcelain = GitObserver().dirtyFiles(rootPath: repo.path)
+        XCTAssertFalse(porcelain.isEmpty)
+    }
+
+    func testGitObserverRepoDeltaReportsWorktreeDirtyOnRealPorcelain() throws {
+        let repo = try makeGitRepo()
+        let baseline = try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head)
+        try "dirty".write(
+            to: repo.appendingPathComponent("dirty.txt"), atomically: true, encoding: .utf8)
+        let delta = GitObserver().repoDelta(
+            rootPath: repo.path, baseline: baseline, head: baseline)
+        XCTAssertTrue(delta.worktreeDirty)
+        XCTAssertFalse(delta.changed)
+        XCTAssertTrue(delta.commitsChanged == delta.changed)
     }
 
     func testNonMutatingRunOmitsRepoDeltaFromProjection() {
@@ -156,6 +195,24 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
         guard case .success(let run) = result else { return XCTFail("relay-path run failed") }
         XCTAssertTrue(try XCTUnwrap(run.repoDelta).changed,
                       "relay/pilot dev turns dispatch through RunService — no relay-specific repoDelta code")
+    }
+}
+
+/// Fake mutating worker that dirties the tree without committing (S122.3 / C1FBDB46).
+final class DirtyingCommandRunner: CommandRunner, @unchecked Sendable {
+    private let repoRoot: URL
+
+    init(repoRoot: URL) {
+        self.repoRoot = repoRoot
+    }
+
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        let file = repoRoot.appendingPathComponent("uncommitted-edit.txt")
+        try? "uncommitted".write(to: file, atomically: true, encoding: .utf8)
+        return CommandResult(stdout: "edited", stderr: "", exitCode: 0)
     }
 }
 

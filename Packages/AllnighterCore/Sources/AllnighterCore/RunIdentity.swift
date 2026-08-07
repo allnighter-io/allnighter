@@ -124,9 +124,15 @@ public enum RunIdentity {
     /// Human summary for a mutating run's observed repo delta.
     public static func repoDeltaSummary(_ delta: RepoDelta?) -> String? {
         guard let delta else { return nil }
-        guard delta.changed else { return "no repo change" }
-        let shortSha = delta.head.map { String($0.prefix(7)) } ?? "?"
-        let fileWord = delta.filesChanged == 1 ? "file" : "files"
-        return "committed \(shortSha): \(delta.filesChanged) \(fileWord)"
+        if delta.changed {
+            let shortSha = delta.head.map { String($0.prefix(7)) } ?? "?"
+            let fileWord = delta.filesChanged == 1 ? "file" : "files"
+            let base = "committed \(shortSha): \(delta.filesChanged) \(fileWord)"
+            return delta.worktreeDirty ? "\(base) · dirty tree" : base
+        }
+        if delta.worktreeDirty {
+            return "uncommitted changes"
+        }
+        return "no repo change"
     }
 }

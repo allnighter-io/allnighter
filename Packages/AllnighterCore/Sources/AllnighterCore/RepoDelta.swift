@@ -2,7 +2,10 @@ import Foundation
 
 /// Observed git delta for a mutating run — HEAD before/after, commits in range, and a
 /// changed-files summary (Field_Reports_1.md §FR3). Allnighter reads only; workers own git.
-public struct RepoDelta: Codable, Equatable, Sendable {
+///
+/// `changed` is **commit-range** truth (baseline ≠ head). `worktreeDirty` is independent
+/// porcelain truth (S122.3) — a mutator can leave a dirty tree with zero commits.
+public struct RepoDelta: Equatable, Sendable {
     public struct CommitInfo: Codable, Equatable, Sendable {
         public var sha: String
         public var subject: String
@@ -13,6 +16,8 @@ public struct RepoDelta: Codable, Equatable, Sendable {
         }
     }
 
+    /// True when commits landed in the run window (`baseline != head`). Alias vocabulary:
+    /// "commitsChanged" in phase docs — same field.
     public var changed: Bool
     public var baseline: String?
     public var head: String?
@@ -21,6 +26,11 @@ public struct RepoDelta: Codable, Equatable, Sendable {
     public var files: [String]
     /// `true` when `filesChanged` exceeds the surfaced `files` cap.
     public var truncated: Bool
+    /// True when `git status --porcelain` reports any dirty/untracked path (S122.3).
+    public var worktreeDirty: Bool
+
+    /// Phase vocabulary alias for `changed` (commit-range).
+    public var commitsChanged: Bool { changed }
 
     public init(
         changed: Bool,
@@ -29,7 +39,8 @@ public struct RepoDelta: Codable, Equatable, Sendable {
         commits: [CommitInfo] = [],
         filesChanged: Int = 0,
         files: [String] = [],
-        truncated: Bool = false
+        truncated: Bool = false,
+        worktreeDirty: Bool = false
     ) {
         self.changed = changed
         self.baseline = baseline
@@ -38,6 +49,38 @@ public struct RepoDelta: Codable, Equatable, Sendable {
         self.filesChanged = filesChanged
         self.files = files
         self.truncated = truncated
+        self.worktreeDirty = worktreeDirty
+    }
+}
+
+extension RepoDelta: Codable {
+    enum CodingKeys: String, CodingKey {
+        case changed, baseline, head, commits, filesChanged, files, truncated, worktreeDirty
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        changed = try c.decode(Bool.self, forKey: .changed)
+        baseline = try c.decodeIfPresent(String.self, forKey: .baseline)
+        head = try c.decodeIfPresent(String.self, forKey: .head)
+        commits = try c.decodeIfPresent([CommitInfo].self, forKey: .commits) ?? []
+        filesChanged = try c.decodeIfPresent(Int.self, forKey: .filesChanged) ?? 0
+        files = try c.decodeIfPresent([String].self, forKey: .files) ?? []
+        truncated = try c.decodeIfPresent(Bool.self, forKey: .truncated) ?? false
+        // Legacy run.json predates S122.3 — missing key means unknown/false.
+        worktreeDirty = try c.decodeIfPresent(Bool.self, forKey: .worktreeDirty) ?? false
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(changed, forKey: .changed)
+        try c.encodeIfPresent(baseline, forKey: .baseline)
+        try c.encodeIfPresent(head, forKey: .head)
+        try c.encode(commits, forKey: .commits)
+        try c.encode(filesChanged, forKey: .filesChanged)
+        try c.encode(files, forKey: .files)
+        try c.encode(truncated, forKey: .truncated)
+        try c.encode(worktreeDirty, forKey: .worktreeDirty)
     }
 }
 

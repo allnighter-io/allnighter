@@ -105,17 +105,21 @@ public struct GitObserver: Sendable {
         return out.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
     }
 
-    /// Observed repo delta for a mutating run window. When `baseline` and `head` are equal
-    /// or either is missing, `changed` is `false` and commit/file lists are empty.
+    /// Observed repo delta for a mutating run window. `changed` reflects commit-range
+    /// movement only. `worktreeDirty` is always measured from real
+    /// `git status --porcelain` (S122.3) — never inferred from commits alone.
     public func repoDelta(
         rootPath: String, baseline: String?, head: String?, fileCap: Int = 50
     ) -> RepoDelta {
         let cap = max(1, fileCap)
+        let worktreeDirty = !dirtyFiles(rootPath: rootPath).isEmpty
         guard let baseline, let head else {
-            return RepoDelta(changed: false, baseline: baseline, head: head)
+            return RepoDelta(
+                changed: false, baseline: baseline, head: head, worktreeDirty: worktreeDirty)
         }
         guard baseline != head else {
-            return RepoDelta(changed: false, baseline: baseline, head: head)
+            return RepoDelta(
+                changed: false, baseline: baseline, head: head, worktreeDirty: worktreeDirty)
         }
         let commits = commitsInRange(rootPath: rootPath, baseline: baseline, head: head)
         let allFiles = changedFilesInRange(rootPath: rootPath, baseline: baseline, head: head)
@@ -127,7 +131,8 @@ public struct GitObserver: Sendable {
             commits: commits,
             filesChanged: allFiles.count,
             files: Array(allFiles.prefix(cap)),
-            truncated: truncated
+            truncated: truncated,
+            worktreeDirty: worktreeDirty
         )
     }
 
