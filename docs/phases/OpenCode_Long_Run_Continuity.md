@@ -1,11 +1,11 @@
 # Phase 123 — OpenCode Long-Run & Concurrent Continuity
 
-Status: **OPEN — fix known gaps before more dogfood**
+Status: **OPEN — F1–F7 code landed in AgentOS; dogfood next**
 Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`, `OpenCodeRoutingWorkerRunner`,
-`OpenCodeServeCoordinator`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
+`OpenCodeServeCoordinator`, `OpenCodeSpawnLock`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
 `observation`, outcome gates)
 Created: 2026-08-07
-Updated: 2026-08-07 (Pro code review + post-S123.1/2 dogfood)
+Updated: 2026-08-07 (Pro findings integrated; F1–F7 implemented — dogfood pending)
 
 **Successor to archived**
 [`OpenCode_Headless_Completion_And_Session_Scoping.md`](../archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md)
@@ -116,13 +116,16 @@ by implementer.
 
 | ID | Sev | Finding | Maps to | Status |
 | --- | --- | --- | --- | --- |
-| **F1** | HIGH | `listActiveDelegationSessions` ignores OpenCode `parentID`; uses directory + `created >= turnStartedAt` heuristic only | Bug C / S123.2 | **OPEN — fix now** |
-| **F2** | HIGH | Child poll gated on `parser.toolNames` containing `task`; if SSE drops before tool events, children never tracked and poll loops until deadline | Bug C / S123.2 | **OPEN — fix now** |
-| **F3** | MED | `promptAsync` non-cancel error → `group.next` → `cancelAll` kills live SSE consumer mid-turn | Resilience | **OPEN — fix now** |
-| **F4** | HIGH | No stall watchdog (S123.4 unbuilt); quiet TCP + empty answer hangs forever | Bug C / S123.4 | **OPEN — fix now** |
-| **F5** | HIGH | `DriverConcurrencyGate.shared` is **process-local**; `alln run --no-wait` = separate process → two OpenCode seats hit one serve | Bug B / S123.0 | **OPEN — design + fix** |
-| **F6** | MED | Flat 100ms SSE reconnect backoff → up to 10 reconnects/sec under sustained drop | S123.1 polish | **OPEN — fix now** |
-| **F7** | MED | Zero isolated tests for `pollSessionProgress` / `listActiveDelegationSessions`; one E2E reconnect fixture only | Proof | **OPEN — fix with F1–F4** |
+| **F1** | HIGH | `listActiveDelegationSessions` ignores OpenCode `parentID` | Bug C / S123.2 | **FIXED** — `activeDelegationSessionIDs` prefers `parentID` when serve exposes it |
+| **F2** | HIGH | Child poll gated on SSE `task` tool name | Bug C / S123.2 | **FIXED** — always poll children; wait on running tools from HTTP |
+| **F3** | MED | `promptAsync` error cancels live SSE via `cancelAll` | Resilience | **FIXED** — `idleGate.signalPromptFailed`; no group throw |
+| **F4** | HIGH | No stall watchdog | Bug C / S123.4 | **FIXED** — 120s quiet → `stalled_no_progress` |
+| **F5** | HIGH | Process-local concurrency gate | Bug B / S123.0 | **FIXED** — `OpenCodeSpawnLock` flock across processes |
+| **F6** | MED | Flat 100ms SSE reconnect | S123.1 polish | **FIXED** — exponential backoff capped at 5s |
+| **F7** | MED | Zero isolated tests for poll/parent paths | Proof | **FIXED** — parentID + stall + spawn-lock unit tests |
+
+AgentOS commits: `335d778` (reconnect/poll), then S123.2b–S123.4 / F1–F7 follow-up.
+**Still required:** owner-visible Works Test (long solo + concurrent) before archive.
 
 ### F1 detail — `parentID` ignored
 

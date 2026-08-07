@@ -24,7 +24,7 @@ public enum OpenCodeOutcomeAuthority: Sendable {
         if signal.intent == .answerOnly {
             if signal.promptEcho { return .failed(reason: "incomplete_no_final_message") }
             switch signal.idleReason {
-            case .foreignIdle, .streamDrop, .timeout:
+            case .foreignIdle, .streamDrop, .timeout, .stalledNoProgress:
                 return .failed(reason: "incomplete_no_final_message")
             case .localIdle:
                 break
@@ -40,7 +40,7 @@ public enum OpenCodeOutcomeAuthority: Sendable {
             return .failed(reason: "incomplete_no_final_message")
         }
         switch signal.idleReason {
-        case .foreignIdle, .streamDrop, .timeout:
+        case .foreignIdle, .streamDrop, .timeout, .stalledNoProgress:
             return .failed(reason: "incomplete_no_final_message")
         case .localIdle:
             break
