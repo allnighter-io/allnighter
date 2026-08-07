@@ -2,13 +2,13 @@
 # OPC-S01 — One-paste cold install / CLI upgrade faucet.
 #
 # Public shape (canonical; do not invent cousins):
-#   curl -fsSL https://get.allnighter.app | sh
+#   curl -fsSL https://get.allnighter.io | sh
 #
 # Contract: docs/phases/One_Paste_Cold_Start.md
 #   "Install script contract (scripts/get-alln.sh)" — 11-step main().
 #
 # Env:
-#   ALLN_INSTALL_BASE_URL   default https://get.allnighter.app (fixture/dogfood override)
+#   ALLN_INSTALL_BASE_URL   default https://get.allnighter.io (fixture/dogfood override)
 #   ALLN_BOOTSTRAP_HOST     default hermes
 #   ALLN_INSTALL_DIR        optional force symlink directory
 #
@@ -60,7 +60,7 @@ main() {
   require_cmd head
 
   # --- 2. base URL ---------------------------------------------------------
-  BASE="${ALLN_INSTALL_BASE_URL:-https://get.allnighter.app}"
+  BASE="${ALLN_INSTALL_BASE_URL:-https://get.allnighter.io}"
   # Strip trailing slash so "$BASE/latest.json" is stable.
   case "$BASE" in
     */) BASE="${BASE%/}" ;;

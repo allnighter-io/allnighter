@@ -1425,7 +1425,7 @@
       "type" : "object"
     }
   },
-  "$id" : "https:\/\/allnighter.app\/schemas\/team-run.schema.json",
+  "$id" : "https:\/\/allnighter.io\/schemas\/team-run.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {

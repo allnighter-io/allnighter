@@ -23,7 +23,7 @@
       "type" : "object"
     }
   },
-  "$id" : "https:\/\/allnighter.app\/schemas\/spec-result.schema.json",
+  "$id" : "https:\/\/allnighter.io\/schemas\/spec-result.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {

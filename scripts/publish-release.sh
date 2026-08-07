@@ -13,7 +13,7 @@
 # (relative paths are resolved from the repo root).
 #
 # Public asset URLs inside latest.json use:
-#   ${ALLN_PUBLIC_BASE_URL:-https://get.allnighter.app}
+#   ${ALLN_PUBLIC_BASE_URL:-https://get.allnighter.io}
 # so a local layout can still name the canonical fetch URLs.
 #
 # Does NOT upload, sign with Developer ID, or touch DNS (OPC-S05).
@@ -112,13 +112,13 @@ ABS_BASE="$(cd "$BASE" && pwd)"
 # pointer. Never rewrite a versioned path; only latest.json moves forward.
 LATEST_PATH=""
 if [[ "${ALLN_SKIP_LATEST_JSON:-}" != "1" ]]; then
-  PUBLIC_BASE="${ALLN_PUBLIC_BASE_URL:-https://get.allnighter.app}"
+  PUBLIC_BASE="${ALLN_PUBLIC_BASE_URL:-https://get.allnighter.io}"
   PUBLIC_BASE="${PUBLIC_BASE%/}"
   APP_VERSION="${ALLN_APP_VERSION:-$VERSION}"
   NOTES="${ALLN_RELEASE_NOTES:-}"
   # installCommand is informational in the manifest only (law 9); always the
   # canonical public one-liner, never a dogfood-base cousin.
-  INSTALL_CMD="curl -fsSL https://get.allnighter.app | sh"
+  INSTALL_CMD="curl -fsSL https://get.allnighter.io | sh"
   CLI_URL="$PUBLIC_BASE/v$VERSION/$ASSET_NAME"
   RELEASED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 

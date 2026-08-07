@@ -1,5 +1,5 @@
 {
-  "$id" : "https:\/\/allnighter.app\/schemas\/thread-status.schema.json",
+  "$id" : "https:\/\/allnighter.io\/schemas\/thread-status.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {

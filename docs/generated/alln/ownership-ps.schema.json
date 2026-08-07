@@ -275,7 +275,7 @@
       "type" : "object"
     }
   },
-  "$id" : "https:\/\/allnighter.app\/schemas\/ownership-ps.schema.json",
+  "$id" : "https:\/\/allnighter.io\/schemas\/ownership-ps.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {

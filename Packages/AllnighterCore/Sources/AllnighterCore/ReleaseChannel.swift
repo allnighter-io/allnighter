@@ -253,12 +253,12 @@ public struct ReleaseCheckRecord: Codable, Sendable, Equatable {
 /// human-only on the Mac app (plain text) — never agent JSON (law 9 / BUG-4).
 public enum ReleaseChannel {
     /// Public install and upgrade command. Never invent cousins; cite this string.
-    public static let installCommand = "curl -fsSL https://get.allnighter.app | sh"
+    public static let installCommand = "curl -fsSL https://get.allnighter.io | sh"
 
     /// Highest `latest.json` schemaVersion this binary understands.
     public static let knownManifestSchemaVersion = 1
 
-    public static let defaultBaseURL = "https://get.allnighter.app"
+    public static let defaultBaseURL = "https://get.allnighter.io"
     public static let cacheTTL: TimeInterval = 24 * 60 * 60
     public static let fetchTimeout: TimeInterval = 2
     public static let failureBackoff: TimeInterval = 60 * 60

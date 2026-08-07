@@ -40,7 +40,7 @@
       "type" : "object"
     }
   },
-  "$id" : "https:\/\/allnighter.app\/schemas\/ownership-gc.schema.json",
+  "$id" : "https:\/\/allnighter.io\/schemas\/ownership-gc.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {

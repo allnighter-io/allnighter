@@ -25,7 +25,7 @@
       "type" : "object"
     }
   },
-  "$id" : "https:\/\/allnighter.app\/schemas\/history.schema.json",
+  "$id" : "https:\/\/allnighter.io\/schemas\/history.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {

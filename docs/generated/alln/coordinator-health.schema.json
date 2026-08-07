@@ -43,7 +43,7 @@
       "type" : "object"
     }
   },
-  "$id" : "https:\/\/allnighter.app\/schemas\/coordinator-health.schema.json",
+  "$id" : "https:\/\/allnighter.io\/schemas\/coordinator-health.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {

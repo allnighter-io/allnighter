@@ -37,7 +37,7 @@ BASE="$SCRATCH/releases"
 VERSION="0.0.0-test"
 export ALLN_PUBLISH_BASE_DIR="$BASE"
 export ALLN_UNIVERSAL_BINARY="$BINARY"
-export ALLN_PUBLIC_BASE_URL="https://fixture.get.allnighter.app"
+export ALLN_PUBLIC_BASE_URL="https://fixture.get.allnighter.io"
 export ALLN_RELEASE_NOTES="human notes only"
 export ALLN_APP_VERSION="0.0.0-test"
 
@@ -61,13 +61,13 @@ SHA256="$(awk '{print $1}' "$SHA_FILE")"
 grep -q "$SHA256" "$LATEST" || fail "latest.json missing sha256 $SHA256"
 grep -q "\"cliVersion\": \"$VERSION\"" "$LATEST" || fail "cliVersion mismatch"
 grep -q "\"appVersion\": \"$VERSION\"" "$LATEST" || fail "appVersion mismatch"
-grep -q "https://fixture.get.allnighter.app/v$VERSION/alln-macos-universal" "$LATEST" \
+grep -q "https://fixture.get.allnighter.io/v$VERSION/alln-macos-universal" "$LATEST" \
   || fail "cli.url wrong base"
-grep -q "curl -fsSL https://get.allnighter.app | sh" "$LATEST" \
+grep -q "curl -fsSL https://get.allnighter.io | sh" "$LATEST" \
   || fail "installCommand must be canonical public one-liner"
 grep -q "human notes only" "$LATEST" || fail "notes not written"
 # Must not invent a second install string from the fixture base.
-if grep -q "fixture.get.allnighter.app | sh" "$LATEST"; then
+if grep -q "fixture.get.allnighter.io | sh" "$LATEST"; then
   fail "installCommand must not use dogfood base"
 fi
 pass "latest.json fields"

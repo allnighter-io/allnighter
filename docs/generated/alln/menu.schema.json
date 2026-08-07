@@ -440,7 +440,7 @@
       "type" : "object"
     }
   },
-  "$id" : "https:\/\/allnighter.app\/schemas\/menu.schema.json",
+  "$id" : "https:\/\/allnighter.io\/schemas\/menu.schema.json",
   "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
   "additionalProperties" : false,
   "properties" : {

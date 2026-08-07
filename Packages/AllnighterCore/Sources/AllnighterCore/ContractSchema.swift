@@ -41,7 +41,7 @@ public enum ContractSchema {
     public static func teamRunSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/team-run.schema.json",
+            "$id": "https://allnighter.io/schemas/team-run.schema.json",
             "title": "TeamRunJSON",
         ]
         let top = obj([
@@ -237,7 +237,7 @@ public enum ContractSchema {
         let docStatus = enumStr(["ok", "degraded", "critical"])
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/doctor-result.schema.json",
+            "$id": "https://allnighter.io/schemas/doctor-result.schema.json",
             "title": "DoctorResult",
         ]
         let top = obj([
@@ -297,7 +297,7 @@ public enum ContractSchema {
     public static func coordinatorHealthSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/coordinator-health.schema.json",
+            "$id": "https://allnighter.io/schemas/coordinator-health.schema.json",
             "title": "CoordinatorHealth",
         ]
         let top = obj([
@@ -333,7 +333,7 @@ public enum ContractSchema {
     public static func pendingItemSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/pending-item.schema.json",
+            "$id": "https://allnighter.io/schemas/pending-item.schema.json",
             "title": "PendingItemJSON",
         ]
         let top = obj([
@@ -409,7 +409,7 @@ public enum ContractSchema {
     public static func modelListSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/model-list.schema.json",
+            "$id": "https://allnighter.io/schemas/model-list.schema.json",
             "title": "ModelListJSON",
         ]
         let top = obj([
@@ -454,7 +454,7 @@ public enum ContractSchema {
     public static func versionSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/version.schema.json",
+            "$id": "https://allnighter.io/schemas/version.schema.json",
             "title": "VersionJSON",
         ]
         let top = obj([
@@ -478,7 +478,7 @@ public enum ContractSchema {
     public static func floorRunSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/floor-run.schema.json",
+            "$id": "https://allnighter.io/schemas/floor-run.schema.json",
             "title": "FloorRun",
         ]
         let top = obj([
@@ -572,7 +572,7 @@ public enum ContractSchema {
     public static func specResultSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/spec-result.schema.json",
+            "$id": "https://allnighter.io/schemas/spec-result.schema.json",
             "title": "SpecResult",
         ]
         let top = obj([
@@ -595,7 +595,7 @@ public enum ContractSchema {
     public static func teamCatalogSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/team-catalog.schema.json",
+            "$id": "https://allnighter.io/schemas/team-catalog.schema.json",
             "title": "TeamCatalogJSON",
         ]
         let top = obj([
@@ -619,7 +619,7 @@ public enum ContractSchema {
     public static func skillCatalogSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/skill-catalog.schema.json",
+            "$id": "https://allnighter.io/schemas/skill-catalog.schema.json",
             "title": "SkillCatalogJSON",
         ]
         let top = obj([
@@ -641,7 +641,7 @@ public enum ContractSchema {
     public static func historySchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/history.schema.json",
+            "$id": "https://allnighter.io/schemas/history.schema.json",
             "title": "HistoryJSON",
         ]
         let top = obj([
@@ -660,7 +660,7 @@ public enum ContractSchema {
     public static func threadStatusSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/thread-status.schema.json",
+            "$id": "https://allnighter.io/schemas/thread-status.schema.json",
             "title": "ThreadStatusResponse",
         ]
         let top = obj([
@@ -673,7 +673,7 @@ public enum ContractSchema {
     public static func threadGetSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/thread-get.schema.json",
+            "$id": "https://allnighter.io/schemas/thread-get.schema.json",
             "title": "ThreadGetResponse",
         ]
         let top = obj([
@@ -700,7 +700,7 @@ public enum ContractSchema {
     public static func threadAttachmentSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/thread-attachment.schema.json",
+            "$id": "https://allnighter.io/schemas/thread-attachment.schema.json",
             "title": "ThreadAttachmentGetResponse",
         ]
         let top = obj([
@@ -716,7 +716,7 @@ public enum ContractSchema {
     public static func ownershipPsSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/ownership-ps.schema.json",
+            "$id": "https://allnighter.io/schemas/ownership-ps.schema.json",
             "title": "OwnershipPsJSON",
         ]
         let top = obj([
@@ -780,7 +780,7 @@ public enum ContractSchema {
     public static func ownershipKillSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/ownership-kill.schema.json",
+            "$id": "https://allnighter.io/schemas/ownership-kill.schema.json",
             "title": "OwnershipKillJSON",
         ]
         let top = obj([
@@ -810,7 +810,7 @@ public enum ContractSchema {
     public static func ownershipGarbageCollectionSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/ownership-gc.schema.json",
+            "$id": "https://allnighter.io/schemas/ownership-gc.schema.json",
             "title": "OwnershipGarbageCollectionJSON",
         ]
         let rows = arr(ref("GarbageCollectionRecord"))
@@ -850,7 +850,7 @@ public enum ContractSchema {
     public static func menuSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/menu.schema.json",
+            "$id": "https://allnighter.io/schemas/menu.schema.json",
             "title": "MenuJSON",
         ]
         let effectLevel = enumStr(["never", "always", "dependsOnFlags", "dependsOnSelection"])
@@ -947,7 +947,7 @@ public enum ContractSchema {
     public static func menuShowSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "$id": "https://allnighter.app/schemas/menu-show.schema.json",
+            "$id": "https://allnighter.io/schemas/menu-show.schema.json",
             "title": "MenuShowJSON",
         ]
         let effectLevel = enumStr(["never", "always", "dependsOnFlags", "dependsOnSelection"])

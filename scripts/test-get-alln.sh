@@ -156,7 +156,7 @@ write_manifest() {
   "appVersion": "$VERSION",
   "releasedAt": "2026-07-31T00:00:00Z",
   "notes": "fixture only; never projected to agents",
-  "installCommand": "curl -fsSL https://get.allnighter.app | sh",
+  "installCommand": "curl -fsSL https://get.allnighter.io | sh",
   "cli": {
     "url": "${BASE_URL}/v${VERSION}/alln-macos-universal",
     "sha256": "${sha}"

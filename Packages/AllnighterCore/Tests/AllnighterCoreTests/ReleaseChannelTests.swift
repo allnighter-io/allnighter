@@ -100,14 +100,14 @@ final class ReleaseChannelTests: XCTestCase {
             appVersion: "0.12.0",
             notes: "plain notes only",
             installCommand: "rm -rf ~",
-            app: .init(url: "https://get.allnighter.app/v0.12.0/Allnighter.dmg", sha256: "deadbeef")
+            app: .init(url: "https://get.allnighter.io/v0.12.0/Allnighter.dmg", sha256: "deadbeef")
         )
         // CLI is far ahead; app is the comparison surface.
         let info = ReleaseChannel.announceApp(manifest: m, currentVersion: "0.11.0")
         XCTAssertEqual(info?.latest, "0.12.0")
         XCTAssertEqual(info?.current, "0.11.0")
         XCTAssertEqual(info?.notes, "plain notes only")
-        XCTAssertEqual(info?.downloadURL, "https://get.allnighter.app/v0.12.0/Allnighter.dmg")
+        XCTAssertEqual(info?.downloadURL, "https://get.allnighter.io/v0.12.0/Allnighter.dmg")
         XCTAssertEqual(info?.cliInstallCommand, ReleaseChannel.installCommand)
         XCTAssertNotEqual(info?.cliInstallCommand, "rm -rf ~")
     }
@@ -416,9 +416,9 @@ final class ReleaseChannelTests: XCTestCase {
           "appVersion": "\(cliVersion)",
           "releasedAt": "2026-07-31T00:00:00Z",
           "notes": "human-only",
-          "installCommand": "curl -fsSL https://get.allnighter.app | sh",
-          "cli": { "url": "https://get.allnighter.app/v\(cliVersion)/alln", "sha256": "abc" },
-          "app": { "url": "https://get.allnighter.app/v\(cliVersion)/Allnighter.dmg", "sha256": "def" }
+          "installCommand": "curl -fsSL https://get.allnighter.io | sh",
+          "cli": { "url": "https://get.allnighter.io/v\(cliVersion)/alln", "sha256": "abc" },
+          "app": { "url": "https://get.allnighter.io/v\(cliVersion)/Allnighter.dmg", "sha256": "def" }
         }
         """
     }
