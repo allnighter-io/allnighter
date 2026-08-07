@@ -376,6 +376,39 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
+            id: "opencode_headless_completion", title: "OpenCode Headless Completion", audience: .both,
+            summary: "OpenCode alln runs complete only when this session finishes — shared serve is session-scoped; prompt echo and foreign idle are not success.",
+            bodyMarkdown: """
+            OpenCode seats use `opencode serve` + HTTP/SSE (not cold `opencode run`). \
+            Completion is **session-scoped**: a foreign `session.idle` on the shared \
+            event bus cannot mark your turn done.
+
+            ## What counts as done
+
+            - **Answer / `--read-only`:** real assistant text that is not a prompt echo.
+            - **Mutating:** assistant text, **or** tool work with commits / an honest \
+              `repoDelta` (dirty tree + zero commits is `incomplete_uncommitted`, not green).
+
+            ## What fails closed
+
+            - Prompt echoed as the answer
+            - Foreign idle / stream drop / timeout mid-turn
+            - Read-only tool loop with no answer text
+            - Uncovered `external_directory` permission ask → `blockedOn: permission` \
+              (AgentOS/Allnighter sibling roots are allow-listed; arbitrary paths are not)
+
+            Do **not** demote DeepSeek V4 Pro or treat Flash as the fix — the bug was \
+            completion honesty, not the model.
+            """,
+            aliases: [
+                "opencode", "opencode serve", "session.idle", "headless opencode",
+                "opencode completion", "prompt echo", "external_directory",
+                "incomplete_uncommitted", "deepseek v4 pro",
+            ],
+            relatedCommandNames: ["run", "show", "drivers"],
+            needsLiveCheck: false),
+
+        HelpTopic(
             id: "opencode_go_capacity", title: "OpenCode Go Capacity", audience: .both,
             summary: "The OpenCode Go dashboard seat meters remaining credits via a browser cookie. Configure first with `alln opencode-go configure`, then meter with `alln capacity --source opencode_go`.",
             bodyMarkdown: """

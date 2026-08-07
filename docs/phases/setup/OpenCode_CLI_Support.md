@@ -344,6 +344,16 @@ Commit fixture to
 - Parser fixtures tied to OpenCode **1.17.11**.
 - No `streaming` block on manifest (Antigravity parity).
 
+## Completion honesty (shipped 2026-08-07)
+
+Headless completion bugs (unscoped `session.idle`, prompt-as-answer, permission
+hang, commit-only `repoDelta`) were fixed in AgentOS + Allnighter. Durable
+proof: AgentOS `OpenCodeSSEParserTests` / `OpenCodeServeClientTests` /
+`OpenCodePermissionPolicyTests`; Allnighter `OpenCodeOutcomeAuthorityTests` /
+`RunRepoDeltaTests`. Teaching: `alln help get opencode_headless_completion`.
+Historical packet: archived
+`docs/archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md`.
+
 ## Open Questions
 
 - Setup glyph (neutral terminal chip per design system).
@@ -355,6 +365,7 @@ Commit fixture to
 | Work | Read |
 | --- | --- |
 | Driver implementation | This doc → `antigravity.json` → `docs/archive/phases/CLI_Implementation_Contract.md` |
+| Completion honesty | Archived `OpenCode_Headless_Completion_And_Session_Scoping.md` → code SSOT above |
 | Streaming posture | `threads/03_Mac_Streaming.md` (OpenCode = final-output V1) |
 | Background coordinator | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Setup/detect | `01_CLI_Detection_Auth_And_Bench.md` |

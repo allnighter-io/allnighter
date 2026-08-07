@@ -2181,7 +2181,7 @@ struct AllnighterCLI {
             switch blocker.resource {
             case .vendorBackoff:
                 return .vendorWait
-            case .repoWriteLock, .teamGovernor, .driverCapacity:
+            case .repoWriteLock, .teamGovernor, .driverCapacity, .permission:
                 return .sourcedBlocker
             }
         }
