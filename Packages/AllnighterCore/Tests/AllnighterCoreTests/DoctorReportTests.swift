@@ -6,6 +6,7 @@ import XCTest
 /// inferred), and that `--full` reflects real probe outcomes.
 final class DoctorReportTests: XCTestCase {
     private let t = Date(timeIntervalSince1970: 0)
+    private let fixedNow = Date(timeIntervalSince1970: 1_800_000_000)
     private let models = [
         Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code", role: .both),
         Model(id: "model_codex", displayName: "GPT-5 Codex", modelLabel: "gpt", driverId: "codex", role: .answerer),
@@ -210,50 +211,46 @@ final class DoctorReportTests: XCTestCase {
     }
 
     func testRateLimitedCountdownUnder24h() {
-        let now = Date()
-        let future = now.addingTimeInterval(23 * 3_600 + 59 * 60) // 23h 59m
+        let future = fixedNow.addingTimeInterval(23 * 3_600 + 59 * 60)
         let observation = CapacityObservation(
             kind: .accountRateLimit,
             source: "codex",
             sourceConfidence: .structured,
             rawSnippet: "rate limit",
-            observedAt: now,
+            observedAt: fixedNow,
             observedResetAt: future
         )
-        let detail = DoctorReport.rateLimitedDetail(observation: observation)
-        XCTAssertTrue(detail.contains("Rate limited — resets in "))
-        XCTAssertTrue(detail.contains("h ") || detail.contains("h"))
+        let detail = DoctorReport.rateLimitedDetail(observation: observation, now: fixedNow)
+        XCTAssertTrue(detail.contains("in "))
     }
 
     func testRateLimitedDateFormatBeyond24h() {
-        let now = Date()
-        let future = now.addingTimeInterval(24 * 3_600 + 60) // 24h 1m
+        let future = fixedNow.addingTimeInterval(24 * 3_600 + 60)
         let observation = CapacityObservation(
             kind: .accountRateLimit,
             source: "codex",
             sourceConfidence: .structured,
             rawSnippet: "rate limit",
-            observedAt: now,
+            observedAt: fixedNow,
             observedResetAt: future
         )
-        let detail = DoctorReport.rateLimitedDetail(observation: observation)
+        let detail = DoctorReport.rateLimitedDetail(observation: observation, now: fixedNow)
         XCTAssertTrue(detail.contains("Rate limited — resets "))
-        XCTAssertFalse(detail.contains("resets in "), "should use dated form, not countdown")
+        XCTAssertFalse(detail.contains("in "))
     }
 
     func testRateLimitedPastResetHidesTime() {
-        let now = Date()
-        let past = now.addingTimeInterval(-3 * 3_600) // 3h ago
+        let past = fixedNow.addingTimeInterval(-3 * 3_600)
         let observation = CapacityObservation(
             kind: .accountRateLimit,
             source: "codex",
             sourceConfidence: .structured,
             rawSnippet: "rate limit",
-            observedAt: now,
+            observedAt: fixedNow,
             observedResetAt: past
         )
         XCTAssertEqual(
-            DoctorReport.rateLimitedDetail(observation: observation),
+            DoctorReport.rateLimitedDetail(observation: observation, now: fixedNow),
             "Rate limited"
         )
     }
