@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.9.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.10.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1062,7 +1062,7 @@ Output schema: `relayJSON`.
 
 ### `alln show`
 
-Show one run. Snapshot (`--json`) or reattachable stream (`--stream`): immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.
+Show one run. Snapshot (`--json`), reattachable stream (`--stream`), or the answer text alone (`--answer`). Stream: immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.
 
 Arguments:
 - `run-id|latest` (required) — A run id or `latest`.
@@ -1071,8 +1071,15 @@ Flags:
 - `--json` — Emit the run as TeamRunJSON.
 - `--full` — Include resolved worker prompt snapshots (audit). Mutually exclusive with --stream.
 - `--stream` — Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Shared framing: immediate snapshot first, bounded replay, live follow of new events, exactly one terminal frame. Ends at terminal or attention-required boundary; terminal exit class propagates unconditionally (no opt-in). Mutually exclusive with conflicting mode flags.
+- `--answer` — Print only the run's answer text and exit — the recovery path for in-flight, killed, or failed runs whose work is in the record (durable partial included). A partial is labeled on stderr; stdout stays clean for redirection. Fails loud with RUN_NO_ANSWER when the run holds no answer text. Mutually exclusive with --json, --full, and --stream.
 
 Mutually exclusive: `--full`, `--stream`.
+
+Mutually exclusive: `--answer`, `--json`.
+
+Mutually exclusive: `--answer`, `--full`.
+
+Mutually exclusive: `--answer`, `--stream`.
 
 Output schema: `teamRunJSON`.
 
@@ -1695,6 +1702,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `HANDOFF_CLAIMED_BUT_SILENT` | yes | yes | `operational` | Restart the Allnighter app so its hand-off host recovers, then re-run the same command. Do not just open it — something already claimed the ping. |
 | `HANDOFF_MAILBOX_UNWRITABLE` | yes | yes | `operational` | Make the hand-off mailbox directory named in the message writable, then re-run the same command. |
 | `RUN_NOT_FOUND` | yes | no | `operational` | Run `alln history --json`. |
+| `RUN_NO_ANSWER` | yes | yes | `operational` | Check liveness with `alln show <run-id> --json` (observation.ownerState, answers). If the run is still working, reattach with `alln show <run-id> --stream` or wait, then retry `--answer`. |
 | `VENDOR_WAKE_NOT_CLAIMED` | yes | yes | `operational` | Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`. |
 | `RUN_JOURNAL_UNAVAILABLE` | yes | yes | `operational` | Check the support dir is writable (disk space / permissions), then retry the run. |
 | `JOURNAL_CORRUPT` | yes | no | `operational` | Do not retry the same run id; confirm via `alln show <id> --json` (typed error), then start a new run if the work still matters. Never inspect private journal paths by hand — a corrupt journal is never silently treated as not-found or coerced to an invented status. |
@@ -1852,6 +1860,7 @@ the selected CLI.
 - `showRun` — Show the full run.
 - `export` — Export the result bundle.
 - `showHistory` — List recent runs.
+- `showAnswer` — Print the run's answer text (durable partial included) — retrieval for in-flight, killed, or failed runs whose work is in the record.
 - `inspectBlocker` — Inspect a sourced blocker, vendor wait, or attention-required stream exit; not a stream reattach.
 - `submitPending` — Submit a Draft item to Pending.
 - `runPending` — Run a Pending item now.

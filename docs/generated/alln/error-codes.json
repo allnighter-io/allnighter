@@ -351,6 +351,15 @@
     "ruleId" : "run.not_found"
   },
   {
+    "agentAction" : "Check liveness with `alln show <run-id> --json` (observation.ownerState, answers). If the run is still working, reattach with `alln show <run-id> --stream` or wait, then retry `--answer`.",
+    "code" : "RUN_NO_ANSWER",
+    "exitClass" : "operational",
+    "explain" : "`--answer` found no answer text in the run record — either nothing has been produced yet or every seat ended without output. The record stays the source of truth: `alln show <run-id> --json`. Nothing was deleted; a run that later produces text answers `--answer` normally.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "run.no_answer"
+  },
+  {
     "agentAction" : "Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`.",
     "code" : "VENDOR_WAKE_NOT_CLAIMED",
     "exitClass" : "operational",

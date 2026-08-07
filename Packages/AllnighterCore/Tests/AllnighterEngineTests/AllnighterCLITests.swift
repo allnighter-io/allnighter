@@ -67,4 +67,70 @@ final class AllnighterCLITests: XCTestCase {
             XCTAssertLessThan(partialIdx, promptIdx)
         }
     }
+
+    /// QDR-S01 (Qwen driver bug report): a killed run's complete work sat in
+    /// `answers[0].markdown` while `artifact` stayed null. `show --answer`
+    /// retrieval must return that text — raw on stdout, partial labeled by the
+    /// stderr note — for any run state that holds text.
+    func testAnswerRetrievalReturnsKilledRunPartial() throws {
+        let body = String(repeating: "QDR_S01_REVISED_DOC ", count: 400)
+        let worker = Agent(id: "model_qwen_38_max#0", modelId: "model_qwen_38_max", instanceIndex: 0)
+        let run = TeamRun(
+            id: "QDR-KILLED",
+            prompt: "Edit the file Docs/foo.md in place.",
+            status: .cancelled,
+            workers: [worker],
+            answers: [TeamAnswer(
+                memberId: worker.id, modelId: worker.modelId, role: "answer",
+                result: WorkerRunResult(status: .cancelled, output: body))],
+            createdAt: Date(),
+            endReason: .killed
+        )
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init())
+        XCTAssertEqual(trj.answer?.status, .cancelled, "VSI-S05 hoist precondition")
+
+        let retrieval = try XCTUnwrap(AllnighterCLI.answerRetrieval(from: trj))
+        XCTAssertEqual(retrieval.text, body, "stdout must be the raw answer text (redirect-clean)")
+        let note = try XCTUnwrap(retrieval.note)
+        XCTAssertTrue(note.contains("partial answer"), note)
+        XCTAssertFalse(retrieval.text.contains("Partial answer"), "no label inside the body")
+    }
+
+    /// QDR-S01: a completed run retrieves without a partial note.
+    func testAnswerRetrievalDoneRunHasNoNote() throws {
+        let worker = Agent(id: "model_qwen_38_max#0", modelId: "model_qwen_38_max", instanceIndex: 0)
+        let run = TeamRun(
+            id: "QDR-DONE",
+            prompt: "p",
+            status: .complete,
+            workers: [worker],
+            answers: [TeamAnswer(
+                memberId: worker.id, modelId: worker.modelId, role: "answer",
+                result: WorkerRunResult(status: .done, output: "FINISHED_BODY"))],
+            createdAt: Date()
+        )
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init())
+        let retrieval = try XCTUnwrap(AllnighterCLI.answerRetrieval(from: trj))
+        XCTAssertEqual(retrieval.text, "FINISHED_BODY")
+        XCTAssertNil(retrieval.note)
+    }
+
+    /// QDR-S01: a run with no answer text retrieves nothing — the caller fails
+    /// loud with RUN_NO_ANSWER instead of printing silence.
+    func testAnswerRetrievalEmptyRunIsNil() throws {
+        let worker = Agent(id: "model_qwen_38_max#0", modelId: "model_qwen_38_max", instanceIndex: 0)
+        let run = TeamRun(
+            id: "QDR-EMPTY",
+            prompt: "p",
+            status: .failed,
+            workers: [worker],
+            answers: [TeamAnswer(
+                memberId: worker.id, modelId: worker.modelId, role: "answer",
+                result: WorkerRunResult(status: .failed))],
+            createdAt: Date()
+        )
+        let trj = TeamRunJSONMapper.map(run, models: [], manifests: [], context: .init())
+        XCTAssertNil(AllnighterCLI.answerRetrieval(from: trj))
+        XCTAssertNotNil(ContractRegistry.milestone1.errorSpec(for: "RUN_NO_ANSWER"))
+    }
 }

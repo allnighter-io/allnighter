@@ -72,6 +72,33 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertTrue(root["artifact"] is NSNull)
     }
 
+    /// QDR-S01 (Qwen driver bug report): an in-flight run whose seats already
+    /// hold answer text projects `artifact: null` — the polished HTML exists
+    /// only once terminal. Its nextActions must lead with the documented
+    /// retrieval command so work already in the record is never written off.
+    func testInflightRunWithAnswerContentLeadsWithShowAnswerAction() throws {
+        var run = try Fixtures.run(.runComplete)
+        run.status = .running
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertNil(trj.artifact)
+        let hasContent = trj.answer?.markdown?.isEmpty == false
+            || trj.answers.contains { ($0.markdown ?? "").isEmpty == false }
+        XCTAssertTrue(hasContent, "fixture precondition: answer text in the record")
+        XCTAssertEqual(trj.nextActions.first?.kind, .showAnswer)
+        XCTAssertEqual(trj.nextActions.first?.command, "alln show \(run.id) --answer")
+    }
+
+    /// QDR-S01: an in-flight run with NO answer text gets no showAnswer action
+    /// — nothing to retrieve; the action must not be decoration.
+    func testInflightRunWithoutAnswerContentHasNoShowAnswerAction() throws {
+        var run = try Fixtures.run(.runInflight)
+        run.answers = []
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertNil(trj.artifact)
+        XCTAssertFalse(trj.nextActions.contains { $0.kind == .showAnswer })
+        XCTAssertEqual(trj.nextActions.map(\.kind), [.showRun, .export])
+    }
+
     func testOneWorkerMovesMarkdownToAnswer() throws {
         let run = terminalRun(
             status: .complete,

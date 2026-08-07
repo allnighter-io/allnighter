@@ -4016,6 +4016,11 @@
           "name" : "stream",
           "summary" : "Emit NDJSON events (one JSON object per stdout line; ends with teamRunCompleted, teamRunFailed, or error). Shared framing: immediate snapshot first, bounded replay, live follow of new events, exactly one terminal frame. Ends at terminal or attention-required boundary; terminal exit class propagates unconditionally (no opt-in). Mutually exclusive with conflicting mode flags.",
           "takesValue" : false
+        },
+        {
+          "name" : "answer",
+          "summary" : "Print only the run's answer text and exit — the recovery path for in-flight, killed, or failed runs whose work is in the record (durable partial included). A partial is labeled on stderr; stdout stays clean for redirection. Fails loud with RUN_NO_ANSWER when the run holds no answer text. Mutually exclusive with --json, --full, and --stream.",
+          "takesValue" : false
         }
       ],
       "menuAction" : false,
@@ -4024,12 +4029,24 @@
         [
           "full",
           "stream"
+        ],
+        [
+          "answer",
+          "json"
+        ],
+        [
+          "answer",
+          "full"
+        ],
+        [
+          "answer",
+          "stream"
         ]
       ],
       "name" : "show",
       "outputSchema" : "teamRunJSON",
       "spendsQuota" : false,
-      "summary" : "Show one run. Snapshot (`--json`) or reattachable stream (`--stream`): immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.",
+      "summary" : "Show one run. Snapshot (`--json`), reattachable stream (`--stream`), or the answer text alone (`--answer`). Stream: immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.",
       "visibility" : "public"
     },
     {
@@ -6059,7 +6076,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.9.0",
+  "contractVersion" : "9.10.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -6497,6 +6514,15 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "run.not_found"
+    },
+    {
+      "agentAction" : "Check liveness with `alln show <run-id> --json` (observation.ownerState, answers). If the run is still working, reattach with `alln show <run-id> --stream` or wait, then retry `--answer`.",
+      "code" : "RUN_NO_ANSWER",
+      "exitClass" : "operational",
+      "explain" : "`--answer` found no answer text in the run record — either nothing has been produced yet or every seat ended without output. The record stays the source of truth: `alln show <run-id> --json`. Nothing was deleted; a run that later produces text answers `--answer` normally.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "run.no_answer"
     },
     {
       "agentAction" : "Confirm the run is parked (`waitingForVendor`) via `alln show <runId> --json`, then retry `alln run resume <runId>`.",
@@ -7626,6 +7652,10 @@
     {
       "kind" : "showHistory",
       "summary" : "List recent runs."
+    },
+    {
+      "kind" : "showAnswer",
+      "summary" : "Print the run's answer text (durable partial included) — retrieval for in-flight, killed, or failed runs whose work is in the record."
     },
     {
       "kind" : "inspectBlocker",

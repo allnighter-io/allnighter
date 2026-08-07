@@ -236,7 +236,11 @@ public enum TeamRunJSONMapper {
             outcome: run.status.isTerminal ? mapOutcome(run) : nil,
             stages: stages, plan: plan, usage: usage,
             warnings: runWarnings, errors: [],
-            nextActions: terminalArtifactNextActions(for: run),
+            nextActions: terminalArtifactNextActions(
+                for: run,
+                answerContent: !(answer?.markdown ?? "").isEmpty
+                    || projectedAnswers.contains { !($0.markdown ?? "").isEmpty }
+            ),
             artifact: artifactRef(for: run, path: context.artifactPath),
             audit: .init(traceId: "trace_\(run.id)"),
             observation: observation
@@ -551,13 +555,25 @@ public enum TeamRunJSONMapper {
 
     /// Terminal runs lead with Open artifact — that is the polished finish, not
     /// `show` / markdown export. Prefer top-level `artifact` for agents.
-    static func terminalArtifactNextActions(for run: TeamRun) -> [TeamRunJSON.NextAction] {
+    /// In-flight runs with answer text lead with `showAnswer` instead — the
+    /// artifact does not exist yet, and work already in the record must stay
+    /// retrievable by a documented command, never written off as lost.
+    static func terminalArtifactNextActions(
+        for run: TeamRun,
+        answerContent: Bool = false
+    ) -> [TeamRunJSON.NextAction] {
         var actions: [TeamRunJSON.NextAction] = []
         if run.status.isTerminal {
             actions.append(.init(
                 kind: .showArtifact,
                 command: "alln artifact show \(run.id)",
                 label: "Open team artifact"
+            ))
+        } else if answerContent {
+            actions.append(.init(
+                kind: .showAnswer,
+                command: "alln show \(run.id) --answer",
+                label: "Read the answer text"
             ))
         }
         actions.append(.init(kind: .showRun, command: "alln show \(run.id)", label: "Show run"))

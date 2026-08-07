@@ -31,6 +31,16 @@ final class ContractSchemaTests: XCTestCase {
         let answer = try XCTUnwrap(trj.answer)
         XCTAssertEqual(try properties(def(schema, "Answer")), labels(answer), "Answer schema drifted")
         XCTAssertEqual(try properties(def(schema, "AnswerSource")), labels(answer.source), "AnswerSource schema drifted")
+        // Closed-enum parity: the hand-maintained NextAction.kind enum must
+        // match the Swift enum exactly (QDR-S01 drifted showAnswer out of it).
+        let nextAction = try def(schema, "NextAction")
+        let kindProps = try XCTUnwrap(nextAction["properties"] as? [String: Any])
+        let kind = try XCTUnwrap(kindProps["kind"] as? [String: Any])
+        XCTAssertEqual(
+            kind["enum"] as? [String],
+            TeamRunJSON.NextAction.Kind.allCases.map(\.rawValue),
+            "NextAction.kind schema enum drifted from the closed Swift enum"
+        )
         // ModelInfo remains a nested type for DoctorResult; keep $defs parity via a constructed value.
         let model = TeamRunJSON.ModelInfo(id: "m", displayName: "M", sourceId: "s", status: .ready)
         XCTAssertEqual(try properties(def(schema, "ModelInfo")), labels(model), "ModelInfo schema drifted")

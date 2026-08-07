@@ -20,7 +20,9 @@ public extension ContractRegistry {
     // register opencode-go configure + status commands; new help topic.
     // CWB-S01c: minor — register capacity --enable and --disable flags with
     // mutually-exclusive constraint; repoWrite effect. saveEnabled throws.
-    static let contractVersion = "9.9.0"
+    // QDR-S01: minor — show gains --answer (durable answer retrieval for
+    // in-flight/killed/failed runs), showAnswer nextAction kind, RUN_NO_ANSWER.
+    static let contractVersion = "9.10.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -874,12 +876,13 @@ public extension ContractRegistry {
             outputSchema: .relayJSON
         ),
         CommandSpec(
-            "show", summary: "Show one run. Snapshot (`--json`) or reattachable stream (`--stream`): immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.", milestone: .m1,
+            "show", summary: "Show one run. Snapshot (`--json`), reattachable stream (`--stream`), or the answer text alone (`--answer`). Stream: immediate snapshot, bounded replay, live follow, exactly one terminal; terminal exit class propagates unconditionally.", milestone: .m1,
             args: [ArgSpec("run-id|latest", required: true, summary: "A run id or `latest`.")],
             flags: [FlagSpec("json", summary: "Emit the run as TeamRunJSON."),
                     FlagSpec("full", summary: "Include resolved worker prompt snapshots (audit). Mutually exclusive with --stream."),
-                    FlagSpec("stream", summary: CommandProjection.streamFlagSummary)],
-            mutuallyExclusiveFlags: [["full", "stream"]],
+                    FlagSpec("stream", summary: CommandProjection.streamFlagSummary),
+                    FlagSpec("answer", summary: "Print only the run's answer text and exit — the recovery path for in-flight, killed, or failed runs whose work is in the record (durable partial included). A partial is labeled on stderr; stdout stays clean for redirection. Fails loud with RUN_NO_ANSWER when the run holds no answer text. Mutually exclusive with --json, --full, and --stream.")],
+            mutuallyExclusiveFlags: [["full", "stream"], ["answer", "json"], ["answer", "full"], ["answer", "stream"]],
             outputSchema: .teamRunJSON, exampleIds: ["show_latest_json"],
             spendsQuota: false,
             effects: EffectProfile()
@@ -1313,6 +1316,7 @@ public extension ContractRegistry {
         ErrorSpec("HANDOFF_CLAIMED_BUT_SILENT", ruleId: "handoff.host.claimed_but_silent", agentAction: "Restart the Allnighter app so its hand-off host recovers, then re-run the same command. Do not just open it — something already claimed the ping.", requiresManual: true, retryable: true, explain: "A host claimed the hand-off readiness ping and never answered it: something is watching the mailbox without completing work. Nothing was queued; the stuck host named in the message must be restarted. (CAR-S03a)"),
         ErrorSpec("HANDOFF_MAILBOX_UNWRITABLE", ruleId: "handoff.mailbox.unwritable", agentAction: "Make the hand-off mailbox directory named in the message writable, then re-run the same command.", requiresManual: true, retryable: true, explain: "The readiness ping could not even be written to the hand-off mailbox at the named path, so no hand-off is possible from this terminal regardless of what the app is doing. Nothing was queued. (CAR-S03a)"),
         ErrorSpec("RUN_NOT_FOUND", ruleId: "run.not_found", agentAction: "Run `alln history --json`.", requiresManual: true, retryable: false, explain: "No run matches the given id. List history and pick a valid run id or `latest`."),
+        ErrorSpec("RUN_NO_ANSWER", ruleId: "run.no_answer", agentAction: "Check liveness with `alln show <run-id> --json` (observation.ownerState, answers). If the run is still working, reattach with `alln show <run-id> --stream` or wait, then retry `--answer`.", requiresManual: true, retryable: true, explain: "`--answer` found no answer text in the run record — either nothing has been produced yet or every seat ended without output. The record stays the source of truth: `alln show <run-id> --json`. Nothing was deleted; a run that later produces text answers `--answer` normally."),
         ErrorSpec(
             "VENDOR_WAKE_NOT_CLAIMED",
             ruleId: "run.vendor_wake.not_claimed",
@@ -1519,6 +1523,7 @@ public extension ContractRegistry {
         NextActionKindSpec("showRun", summary: "Show the full run."),
         NextActionKindSpec("export", summary: "Export the result bundle."),
         NextActionKindSpec("showHistory", summary: "List recent runs."),
+        NextActionKindSpec("showAnswer", summary: "Print the run's answer text (durable partial included) — retrieval for in-flight, killed, or failed runs whose work is in the record."),
         /// ORS: attention-required recovery after a stream budget/vendor/blocker exit.
         /// Must never be `showRun` (self-referential poll loop).
         NextActionKindSpec("inspectBlocker", summary: "Inspect a sourced blocker, vendor wait, or attention-required stream exit; not a stream reattach."),

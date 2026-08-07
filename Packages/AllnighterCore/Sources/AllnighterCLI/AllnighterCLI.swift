@@ -1703,11 +1703,11 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln show <run-id|latest> [--json | --stream] [--full]` — show one run.
+    /// `alln show <run-id|latest> [--json | --stream | --answer] [--full]` — show one run.
     static func runShow(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let ref = opts.positional.first else {
-            FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json | --stream] [--full]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln show <run-id|latest> [--json | --stream | --answer] [--full]\n".utf8)); exit(2)
         }
         guard let resolved = resolveRun(ref) else {
             failRunNotFound(ref == "latest" ? nil : ref, "no run matches \(ref)")
@@ -1725,6 +1725,22 @@ struct AllnighterCLI {
             run, models: runtime.models, manifests: runtime.registry.all,
             context: context
         )
+        if opts.flag("answer") {
+            // QDR-S01 recovery path: the durable answer text alone, stdout clean
+            // enough to redirect into a file. Partials are labeled on stderr, and
+            // a run with no text fails loud instead of printing silence.
+            guard let retrieval = answerRetrieval(from: trj) else {
+                fail(
+                    code: "RUN_NO_ANSWER",
+                    message: "run \(run.id) has no answer text (status \(run.status.rawValue))"
+                )
+            }
+            if let note = retrieval.note {
+                FileHandle.standardError.write(Data("\(note)\n".utf8))
+            }
+            print(retrieval.text)
+            return
+        }
         if opts.flag("stream") {
             // ORS-S02b2: reattach READ surface — snapshot + bounded replay + live
             // follow + one terminal or attention-required boundary. Disposable observer.
@@ -2497,6 +2513,23 @@ struct AllnighterCLI {
         return trj.answers.lazy
             .compactMap(\.markdown)
             .first { !$0.isEmpty }
+    }
+
+    /// QDR-S01: `--answer` retrieval body from a mapped run. The stdout text is
+    /// raw (redirect-clean); `note` carries the stderr label when the text is a
+    /// durable partial or a seat fallback rather than a canonical done answer.
+    /// Nil when the record holds no answer text at all — the caller fails loud.
+    static func answerRetrieval(from trj: TeamRunJSON) -> (text: String, note: String?)? {
+        if let answer = trj.answer, let md = answer.markdown, !md.isEmpty {
+            if answer.status != .done {
+                return (md, "note: partial answer — run status \(answer.status.rawValue)")
+            }
+            return (md, nil)
+        }
+        if let first = trj.answers.lazy.compactMap(\.markdown).first(where: { !$0.isEmpty }) {
+            return (first, "note: no canonical answer — printing the first seat's text")
+        }
+        return nil
     }
 
     /// One compact, single-line JSON object — the house law for any `--json` command that

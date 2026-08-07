@@ -64,6 +64,38 @@ final class OneRunSurfaceContractTests: XCTestCase {
         )
     }
 
+    /// QDR-S01 (Qwen driver bug report): `--answer` is the documented retrieval
+    /// path for work already in the record of an in-flight, killed, or failed
+    /// run. It is an output mode, so it excludes every other output mode.
+    func testShowDeclaresAnswerFlagExclusiveWithOtherModes() throws {
+        let show = try XCTUnwrap(command("show"), "QDR-S01: `show` must declare the answer retrieval flag")
+        let flags = flagNames(of: show)
+        XCTAssertTrue(flags.contains("answer"), "QDR-S01: `show` must declare `--answer`")
+        let groups = show.mutuallyExclusiveFlags
+        for peer in ["json", "full", "stream"] {
+            XCTAssertTrue(
+                groups.contains { Set($0).isSuperset(of: ["answer", peer]) },
+                "QDR-S01: `--answer` and `--\(peer)` must be mutually exclusive on `show` (got \(groups))"
+            )
+        }
+    }
+
+    /// QDR-S01: the exclusions are enforced at the registry gate (exit-2 shape),
+    /// and `--answer` alone clears it.
+    func testShowAnswerModePairsRejectedAtTheGate() {
+        for peer in ["json", "full", "stream"] {
+            let err = CLIUsage.validateFlagConstraints(
+                args: ["run_x", "--answer", "--\(peer)"],
+                commandName: "show", registry: reg
+            )
+            XCTAssertNotNil(err, "--answer + --\(peer) should be rejected")
+            XCTAssertTrue(err?.message.contains("mutually exclusive") == true)
+        }
+        XCTAssertNil(CLIUsage.validateFlagConstraints(
+            args: ["run_x", "--answer"], commandName: "show", registry: reg
+        ))
+    }
+
     func testShowEffectsAreNonSpendingNonWriting() throws {
         let show = try XCTUnwrap(command("show"), "ORS cutover: canonical single-run read command `show` must be registered")
         let effects = show.effects

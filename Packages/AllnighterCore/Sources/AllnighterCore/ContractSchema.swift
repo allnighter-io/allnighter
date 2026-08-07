@@ -219,7 +219,7 @@ public enum ContractSchema {
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),
             "NextAction": obj([
-                "kind": enumStr(["showArtifact", "showRun", "export", "showHistory", "inspectBlocker"]), "command": str, "label": nullable("string"),
+                "kind": enumStr(["showArtifact", "showRun", "export", "showHistory", "showAnswer", "inspectBlocker"]), "command": str, "label": nullable("string"),
             ], required: ["kind", "command"]),
             "Artifact": obj([
                 "path": nullable("string"),
