@@ -1,10 +1,11 @@
 # Phase 123 — OpenCode Long-Run & Concurrent Continuity
 
-Status: **OPEN — dogfood gaps after S122; investigation authorized**
+Status: **OPEN — fix known gaps before more dogfood**
 Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`, `OpenCodeRoutingWorkerRunner`,
-`OpenCodeServeCoordinator`) + Allnighter (`RunService`, `observation`, outcome gates)
+`OpenCodeServeCoordinator`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
+`observation`, outcome gates)
 Created: 2026-08-07
-Updated: 2026-08-07 (post-S122 live dogfood)
+Updated: 2026-08-07 (Pro code review + post-S123.1/2 dogfood)
 
 **Successor to archived**
 [`OpenCode_Headless_Completion_And_Session_Scoping.md`](../archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md)
@@ -15,7 +16,7 @@ seats on one `opencode serve` actually finish.
 **Related:**
 
 - [`setup/OpenCode_CLI_Support.md`](setup/OpenCode_CLI_Support.md) — serve driver baseline
-- [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) — cold `opencode serve` bootstrap (gap called out below)
+- [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) — cold `opencode serve` bootstrap
 - Code SSOT: AgentOS `OpenCodeServeClient.swift`, `OpenCodeSSEParser.swift`;
   Allnighter `OpenCodeOutcomeAuthority.swift`, `RunService.swift`
 
@@ -27,16 +28,16 @@ or restrict OpenCode to “shallow reads only.”
 
 ## If you only read one thing
 
-S122 made failures **honest**. Dogfood on 2026-08-07 shows two **remaining**
-failure modes that block real work:
+S122 made failures **honest**. Continuity is still broken for real work:
 
-1. **Concurrent seats** — starting a second OpenCode run can **kill the first turn**
-   via `stream_drop` (not the old prompt-echo bug).
-2. **Long solo turns** — Pro investigative audits that spawn `@explore` / `task`
-   subagents can **stall open indefinitely** while child sessions still run.
+1. **Concurrent seats** across separate `alln` processes hit one `:4096` serve and
+   can kill / stall the first turn (`stream_drop` or silent hang).
+2. **Long solo turns** with `@explore` / `task` subagents can stall indefinitely —
+   child detection ignores OpenCode’s real `parentID`, and there is no stall watchdog.
 
-Short constrained reads **do** complete (`local_idle`, real answer). That is not an
-acceptable product ceiling.
+Partial S123.1/S123.2 landed in AgentOS (`335d778`: SSE reconnect + HTTP poll) but a
+DeepSeek V4 Pro code review found **seven** remaining defects. **Fix those first;
+then dogfood.** Do not declare OpenCode “rock solid” from short constrained reads.
 
 ---
 
@@ -56,7 +57,7 @@ Never: silent hang, fake success, or “works only if you forbid subagents.”
 ## Non-Goals
 
 - Demoting DeepSeek V4 Pro or routing audits to Flash.
-- Banning `task` / subagent tools on read-only runs (that is a workaround, not a fix).
+- Banning `task` / subagent tools on read-only runs (workaround, not a fix).
 - Replacing HTTP `serve` with cold `opencode run`.
 - Generic cross-vendor job queue (S122.5 scope stays OpenCode-only).
 - Live token streaming in the Mac GUI (still out of scope per OpenCode CLI Support).
@@ -67,8 +68,6 @@ Never: silent hang, fake success, or “works only if you forbid subagents.”
 
 Tagged **BUILT** from `alln show <id> --json`, run artifacts under
 `~/Library/Application Support/Allnighter/Runs/`, and OpenCode `GET /session`.
-Binary: `/tmp/alln-dogfood/alln` built from Allnighter `2847480` + AgentOS S122
-(`a0f7f55`…`810ce40`). Serve: `opencode serve --port 4096` healthy.
 
 ### A — S122 wins (baseline)
 
@@ -76,84 +75,167 @@ Binary: `/tmp/alln-dogfood/alln` built from Allnighter `2847480` + AgentOS S122
 | --- | --- | --- | --- |
 | `4C84AD7C` | Short read-only audit (5 bullets, no subagents) | **completed** 16s | `local_idle`, real markdown, `toolNames: ["read"]` |
 | `45AD5853` | One-line concurrent probe | **completed** 5s | `local_idle`, `OPENCODE_CONCURRENT_PROBE_OK …` |
+| `5A09B582` | Solo read of this packet (post-S123.1 binary) | **completed** ~20s | real 3 bullets |
 
-Honest failure replaces fake success: no prompt echo observed on any run.
+Honest failure replaces fake success on short constrained turns.
 
-### B — Concurrent seat kills first turn (`stream_drop`)
+### B — Concurrent seat kills / stalls first turn
 
-| Run | Project | Started | Outcome | Signal |
+| Run | Project | Started | Outcome | Signal / notes |
 | --- | --- | --- | --- | --- |
-| `2E522011` | Allnighter — long audit | first | **failed** 13s | `idleReason: stream_drop`, `foreignIdleDetected: false`, `toolNames: ["read"]` (9× read) |
+| `2E522011` | Allnighter — long audit | first | **failed** 13s | `idleReason: stream_drop`, 9× `read`, `foreignIdleDetected: false` |
 | `45AD5853` | AgentOS — short probe | +2s while A running | **completed** | `local_idle` |
+| `F0E196A7` | Allnighter — long (post-reconnect) | first | **stalled** 150s | 0 tools, 0 answer; killed at stall bound |
+| `19D4A421` | AgentOS — short | concurrent | **completed** | `CONCURRENT_RETEST_OK` |
+| `C96E2AD9` | Allnighter — earlier retest | first | **stalled** 5+ min | 0 tools after dispatch |
 
-**BUILT:** Run A failed `incomplete_no_final_message` when B started — **not**
-prompt echo. Error class is **`stream_drop`**, not `foreign_idle`. S122.0 scoped
-foreign idle correctly; the SSE consumer still **lost the turn** when a second
-session opened on the same serve.
+**BUILT:** Concurrent failure is **not** only foreign-idle. After S123.1 reconnect,
+some long seats never emit tools when a second process is in flight — consistent with
+Finding 5 (process-local gate) + SSE churn.
 
-**Hypothesis (investigate first):** shared `GET /event` byte stream ends or the
-task-group consumer exits without `session.idle` for the scoped session when another
-client/session starts — distinct from the pre-S122 “foreign idle = done” bug.
+### C — Long solo turn stalls on subagents
 
-### C — Long solo turn stalls on subagents (open hang)
-
-| Run | Prompt class | Duration observed | Outcome |
+| Run | Prompt class | Duration | Outcome |
 | --- | --- | --- | --- |
-| `18B2E77D` | Full 3-file audit (no subagent ban) | **9+ min** then killed | **failed** after kill; was `running` / `ownerState: alive` |
+| `18B2E77D` | Full 3-file audit (no subagent ban) | **9+ min** then killed | hung `alive`; `task` → explore children |
 
-**BUILT timeline:**
-
-- `16:23:49`–`16:26:06Z` — parent session `ses_022f65e62…` (“Post-S122 OpenCode
-  headless audit”): 9× `read`, then 7× `task`.
-- `alln` `lastActivityAt` froze at `16:26:06Z`; answer stuck at 49 chars
-  (“Let me verify the actual code against these docs.”).
-- OpenCode spawned child sessions on same repo:
-  - `ses_022f6155…` “Check test files for OpenCode (@explore subagent)”
-  - `ses_022f61bf…` “Find OpenCode source files (@explore subagent)”
-- Child sessions showed **later** `time.updated` than parent; parent session
-  **stopped updating** ~8+ minutes before kill.
-- `alln show --stream` reattach ran 3+ minutes with **no terminal frame**; process
-  killed manually.
-
-**Hypothesis (investigate second):** parent session idles or stops emitting scoped
-SSE while `task` children run; our waiter treats “no scoped idle + no answer” as
-indefinite liveness. We may need **child-session rollup** on the shared bus, a
-**stall watchdog**, or an OpenCode API to await parent turn completion including
-delegated work.
+**BUILT:** Parent `ses_022f65e62…` froze; children kept updating. Explained by Findings
+1–2 + 4 below.
 
 ### D — Counter-evidence (capability is there)
 
-`4C84AD7C` produced five concrete audit bullets naming real symbols
-(`OpenCodeServeCoordinator`, `OpenCodeRoutingWorkerRunner`, S122.5, permission
-symptom class C drift). Pro is not the bottleneck when the turn completes.
+Short Pro audits produce concrete, useful bullets when the turn completes. Pro is not
+the bottleneck — continuity is.
+
+---
+
+## Code review findings (DeepSeek V4 Pro / OpenCode terminal, 2026-08-07)
+
+Reviewed against AgentOS HEAD after `335d778`. Severity from the reviewer; disposition
+by implementer.
+
+| ID | Sev | Finding | Maps to | Status |
+| --- | --- | --- | --- | --- |
+| **F1** | HIGH | `listActiveDelegationSessions` ignores OpenCode `parentID`; uses directory + `created >= turnStartedAt` heuristic only | Bug C / S123.2 | **OPEN — fix now** |
+| **F2** | HIGH | Child poll gated on `parser.toolNames` containing `task`; if SSE drops before tool events, children never tracked and poll loops until deadline | Bug C / S123.2 | **OPEN — fix now** |
+| **F3** | MED | `promptAsync` non-cancel error → `group.next` → `cancelAll` kills live SSE consumer mid-turn | Resilience | **OPEN — fix now** |
+| **F4** | HIGH | No stall watchdog (S123.4 unbuilt); quiet TCP + empty answer hangs forever | Bug C / S123.4 | **OPEN — fix now** |
+| **F5** | HIGH | `DriverConcurrencyGate.shared` is **process-local**; `alln run --no-wait` = separate process → two OpenCode seats hit one serve | Bug B / S123.0 | **OPEN — design + fix** |
+| **F6** | MED | Flat 100ms SSE reconnect backoff → up to 10 reconnects/sec under sustained drop | S123.1 polish | **OPEN — fix now** |
+| **F7** | MED | Zero isolated tests for `pollSessionProgress` / `listActiveDelegationSessions`; one E2E reconnect fixture only | Proof | **OPEN — fix with F1–F4** |
+
+### F1 detail — `parentID` ignored
+
+`OpenCodeServeClient.listActiveDelegationSessions` takes `parentID` but only uses it
+to exclude self (`id != parentID`). Children are inferred by matching `directory` +
+`created >= turnStartedAt` + recent `updated`.
+
+**BUILT (Pro curl):** OpenCode `GET /session` returns `parentID` on subagent sessions
+(e.g. child `"parentID": "ses_0236027e4ffe…"`). Using it is the truth owner; the
+heuristic is a false-negative/false-positive source.
+
+### F2 detail — task-gated poll cascade
+
+`pollSessionProgress` only calls `listActiveDelegationSessions` when
+`parser.toolNames` contains `"task"`. `toolNames` is SSE-derived. If `/event` drops
+before the `task` part arrives:
+
+1. Child branch never runs.
+2. Parent messages may show `task` **completed** (dispatch ok) while children still run.
+3. `accumulatedAnswer` empty → poll never signals clean idle → hang until deadline.
+
+**Fix direction:** Always query children by `parentID`. Also detect `task` from
+polled parent messages (HTTP), not only SSE.
+
+### F3 detail — task group cancel on prompt failure
+
+```text
+group.addTask { consumeSSEBus }
+group.addTask {
+  try await promptAsync(...)   // non-CancellationError escapes
+  await pollSessionProgress(...)
+} catch is CancellationError {}  // only CancellationError swallowed
+try await group.next() → cancelAll()  // kills SSE even if model started
+```
+
+**Fix direction:** Catch prompt failures, emit failed terminal without cancelling a
+healthy SSE consumer that already saw work — or structure so prompt failure is a
+controlled `idleGate` signal, not an unstructured group throw.
+
+### F4 detail — missing stall watchdog
+
+`consumeSSEBus` blocks on `for try await chunk in byteStream` with no activity timer.
+`pollSessionProgress` only completes when answer non-empty + tools idle. The hung
+`18B2E77D` class (frozen `lastActivityAt`, owner alive) has no terminal path.
+
+**Fix direction:** Track last SSE/poll activity; after N quiet seconds emit
+`stalled_no_progress` (distinct from wall `timeout`).
+
+### F5 detail — process-local concurrency gate
+
+`catalog.json` sets OpenCode `maxConcurrentSpawns: 1`. Gate is
+`DriverConcurrencyGate.shared` **per process**. Two `--no-wait` CLIs (or two
+terminals) each see an empty gate and both call `streamRun` against one serve —
+exactly the dogfood concurrent scenario.
+
+**Fix direction (pick one, founder default A):**
+
+| Option | Approach |
+| --- | --- |
+| **A (preferred)** | File lock under OpenCode serve coordinator state (or `~/Library/.../opencode.spawn.lock`) shared across processes for driver `opencode` |
+| B | Document “one OpenCode seat at a time” and queue in Allnighter store (heavier) |
+| C | Rely only on SSE reconnect (insufficient — F0E196A7 still stalled) |
+
+### F6 / F7
+
+Exponential backoff on reconnect (cap ~2–5s). Extract testable helpers for
+`listActiveDelegationSessions(parentID:)`, stall timer, and poll completion
+predicates; fixture-cover F1/F2/F4 without live serve.
+
+---
+
+## Additional implementer notes (post-S123.1 dogfood)
+
+- Short concurrent probe often completes; **long** seat is the one that dies or never
+  starts tools — measure both.
+- Dogfood scripts must **not** block on `alln show --stream` for the full
+  `--idle-timeout`. Poll `show --json` every ~10s; kill if no event progress for 120s.
+- Expected healthy timings: short probe 5–15s; constrained short audit 15–30s;
+  long audit 2–10+ min when healthy; stall kill at 120s quiet.
+- Solo constrained audit works after reconnect (`5A09B582`) — proves S123.1 helps
+  the happy path, not concurrency/subagent.
 
 ---
 
 ## Symptom → truth owner map
 
-| Symptom | Likely lie layer | Truth owner (code) |
-| --- | --- | --- |
-| First run `stream_drop` when second starts | SSE consumer lifecycle | `OpenCodeServeClient.streamRun` task group + `subscribeToEvents` |
-| `foreignIdleDetected: false` but turn still dies | Stream end misclassified | `OpenCodeSSEParser` + `IdleGate.sawCleanIdle` |
-| Hang with `task` tools, frozen `lastActivityAt` | Subagent lifecycle not wired to parent turn | `OpenCodeServeClient` + Allnighter `observation` |
-| Owner shows `alive` for 6+ min with no events | Missing stall terminal | `RunService` wall / progress enforcer |
-| Child session updates invisible to `alln` | Observation only tracks parent worker tools | `RemoteRunEventJournal` / worker activity mapper |
+| Symptom | Likely lie layer | Truth owner | Finding |
+| --- | --- | --- | --- |
+| First run `stream_drop` / stall when second `--no-wait` starts | Cross-process spawn + SSE | `DriverConcurrencyGate` + `OpenCodeServeClient` | F5, F6 |
+| Hang with `task` / explore children | Child detection | `listActiveDelegationSessions` + poll | F1, F2 |
+| `alive` + frozen `lastActivityAt` for minutes | Missing stall terminal | `consumeSSEBus` / poll watchdog | F4 |
+| Prompt network fail cancels mid-flight SSE | Task group structure | `streamRun` task group | F3 |
+| Child progress invisible on `alln show` | Observation | Allnighter journal mapper | S123.3 |
 
 ---
 
-## Proposed slices (founder defaults — implement unless rejected)
+## Proposed slices (revised)
+
+**Order: fix F1–F4 + F6 + F7 tests, then F5, then dogfood. No more open-ended live
+waits until unit fixtures are green.**
 
 | Slice | Scope | Exit |
 | --- | --- | --- |
-| **S123.0** | Repro fixture: two concurrent OpenCode sessions on one serve; first is mid-`read` | Integration test fails today; passes when first run completes or fails `foreign_idle`/`stream_drop` only after honest timeout |
-| **S123.1** | Trace why SSE byte stream ends on concurrent session create (tcp close? parser flush? task group cancel?) | Root cause doc in test comment + fix or explicit reconnect loop |
-| **S123.2** | Subagent / child-session awareness: map `task` → child `sessionID`s; extend turn until parent idle **and** no active children | Long audit fixture completes or `stalled_no_progress` within wall |
-| **S123.3** | Allnighter `observation.lastActivityAt` includes child-session SSE activity | `alln show` reflects subagent progress during long turns |
-| **S123.4** | Stall watchdog: no journal/SSE progress for N seconds ⇒ terminal `stalled_no_progress` (distinct from `timeout`) | Hung `18B2E77D` class fails ≤ wall instead of infinite `alive` |
-| **S123.5** | Promote Works Test from archived S122 + this packet; update help topic | Owner-visible dogfood script in phase closeout |
+| **S123.1b** | Exponential SSE reconnect backoff (F6); keep reconnect loop | Fixture: many drops don’t spin at 10 Hz; still reaches local idle |
+| **S123.2b** | Match children by `parentID` (F1); always poll children (F2); detect `task` from HTTP messages too | Unit tests with canned session list + messages; hang class fails closed or completes |
+| **S123.4** | Stall watchdog: no SSE/poll progress for N seconds → `stalled_no_progress` (F4) | Fixture: quiet bus → failed with that reason before wall |
+| **S123.1c** | `promptAsync` failure must not `cancelAll` a productive SSE consumer (F3) | Fixture: prompt error after tools seen → controlled failure signal |
+| **S123.0** | Cross-process OpenCode spawn lock (F5 option A) | Two `--no-wait` processes: second waits or refuses loudly; first completes |
+| **S123.3** | `observation.lastActivityAt` includes child-session activity | `alln show` advances during explore |
+| **S123.5** | Works Test + help topic | Owner dogfood script with 120s stall kill |
 
-**Optional spike (S123.x-s):** does OpenCode expose per-session event subscription
-instead of global `/event`? If yes, prefer that over bus filtering alone.
+**Optional spike:** per-session event subscription if OpenCode exposes it (prefer over
+global `/event` filter alone).
 
 ---
 
@@ -161,45 +243,44 @@ instead of global `/event`? If yes, prefer that over bus filtering alone.
 
 ```text
 Prereq: opencode serve on :4096; alln menu --json once.
+Policy: poll show --json; never block on --stream for full idle-timeout.
+Stall kill: no new events for 120s → kill and record failed.
 
-1. LONG SOLO
-   alln run --model model_opencode_deepseek_v4_pro --read-only --idle-timeout 600 \
+1. LONG SOLO (may use task/subagents)
+   alln run --model model_opencode_deepseek_v4_pro --read-only --no-wait \
+     --idle-timeout 600 \
      "Read docs/archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md
       and AGENTS.md OpenCode rows; write 5 numbered hard bullets."
-   → Must complete with real bullets OR fail ≤600s with classified reason.
-   → Must NOT stay ownerState:alive with frozen lastActivityAt >120s.
+   → Complete with real bullets OR fail ≤600s with classified reason
+     (incl. stalled_no_progress). Never silent alive >120s quiet.
 
-2. CONCURRENT
-   Start (1) with --no-wait; within 5s start a second short read-only Pro run
-   on another project.
-   → First run must NOT fail stream_drop at 13s with only reads complete.
-   → Second run may complete.
+2. CONCURRENT (two processes)
+   Start (1); wait until ≥1 worker.tool; start short Pro --no-wait on other project.
+   → First must NOT die at ~13s with only reads / stream_drop.
+   → Second may complete.
+   → After F5: second should queue or refuse, not corrupt first.
 
-3. alln show <id> --json on both → never prompt echo; errors empty only if answer real.
+3. alln show <id> --json → never prompt echo; errors empty only if answer real.
 ```
 
-Mutator companion (from S122, still required at closeout): one-line create+commit;
-dirty-no-commit ⇒ `incomplete_uncommitted`.
+Mutator companion (from S122): one-line create+commit; dirty-no-commit ⇒
+`incomplete_uncommitted`.
 
 ---
 
-## Open questions (resolve during S123.0–S123.1)
+## Open questions
 
-1. Does the global `/event` connection multiplex all sessions, and does OpenCode
-   close it when a new session spikes load?
-2. Are child `@explore` sessions separate `sessionID`s on the same bus, and does
-   parent completion require waiting for them?
-3. Should `maxConcurrentSpawns: 1` queue the second **CLI dispatch** but still
-   allow overlapping OpenCode **sessions** inside one dispatch? (Today both can be
-   active.)
-4. Is `stream_drop` on concurrent start a regression from S122 task-group
-   refactor, or pre-existing?
+1. Preferred F5 mechanism: file lock next to serve coordinator, or Allnighter store?
+   **Default A:** file lock in AgentOS OpenCode coordinator.
+2. Stall threshold default: 120s quiet? (Must be < typical idle-timeout.)
+3. Does OpenCode expose per-session `/event`? Spike after F1–F4 land.
 
 ---
 
 ## Closeout
 
-- [ ] S123.0–S123.4 green in AgentOS + Allnighter tests
-- [ ] Owner-visible Works Test passes on founder machine (Pro, concurrent + long)
-- [ ] Help topic amended: long runs and concurrency expectations
+- [ ] F1–F4, F6, F7 green in AgentOS tests
+- [ ] F5 cross-process gate (or explicit refuse) shipped
+- [ ] Owner-visible Works Test passes (Pro, concurrent + long) with stall kill
+- [ ] Help topic amended
 - [ ] Archive this packet; link from `OpenCode_CLI_Support.md`
