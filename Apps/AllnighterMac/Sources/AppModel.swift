@@ -530,12 +530,10 @@ final class AppModel {
     func capacityReason(forSource driverId: String, now: Date = Date()) -> String? {
         guard let cd = cachedCooldowns.first(where: { $0.source == driverId && $0.coolingUntil > now })
         else { return nil }
-        return "At capacity · resets \(Self.capacityTimeFormatter.string(from: cd.coolingUntil))"
+        guard let displayTime = VendorContinuityPresentation.resetDisplayTime(cd.coolingUntil, now: now)
+        else { return "At capacity" }
+        return "At capacity · resets \(displayTime)"
     }
-
-    private static let capacityTimeFormatter: DateFormatter = {
-        let f = DateFormatter(); f.timeStyle = .short; f.dateStyle = .none; return f
-    }()
 
     // MARK: - Compose routing data (CR3)
 

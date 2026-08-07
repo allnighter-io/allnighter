@@ -143,7 +143,7 @@ final class DoctorReportTests: XCTestCase {
     /// Rate-limited = healthy install, temporary quota wall — degraded auth copy
     /// with a reset time when known, not the same bucket as a broken CLI.
     func testFullSurfacesRateLimitedAsDegradedWithReset() {
-        let reset = Date(timeIntervalSince1970: 3_600)
+        let reset = Date().addingTimeInterval(9_900)
         let observation = CapacityObservation(
             kind: .accountRateLimit,
             source: "codex",
@@ -206,6 +206,55 @@ final class DoctorReportTests: XCTestCase {
         XCTAssertEqual(
             DoctorReport.rateLimitedDetail(observation: observation),
             "Rate limited — reset time unknown"
+        )
+    }
+
+    func testRateLimitedCountdownUnder24h() {
+        let now = Date()
+        let future = now.addingTimeInterval(23 * 3_600 + 59 * 60) // 23h 59m
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .structured,
+            rawSnippet: "rate limit",
+            observedAt: now,
+            observedResetAt: future
+        )
+        let detail = DoctorReport.rateLimitedDetail(observation: observation)
+        XCTAssertTrue(detail.contains("Rate limited — resets in "))
+        XCTAssertTrue(detail.contains("h ") || detail.contains("h"))
+    }
+
+    func testRateLimitedDateFormatBeyond24h() {
+        let now = Date()
+        let future = now.addingTimeInterval(24 * 3_600 + 60) // 24h 1m
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .structured,
+            rawSnippet: "rate limit",
+            observedAt: now,
+            observedResetAt: future
+        )
+        let detail = DoctorReport.rateLimitedDetail(observation: observation)
+        XCTAssertTrue(detail.contains("Rate limited — resets "))
+        XCTAssertFalse(detail.contains("resets in "), "should use dated form, not countdown")
+    }
+
+    func testRateLimitedPastResetHidesTime() {
+        let now = Date()
+        let past = now.addingTimeInterval(-3 * 3_600) // 3h ago
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .structured,
+            rawSnippet: "rate limit",
+            observedAt: now,
+            observedResetAt: past
+        )
+        XCTAssertEqual(
+            DoctorReport.rateLimitedDetail(observation: observation),
+            "Rate limited"
         )
     }
 }

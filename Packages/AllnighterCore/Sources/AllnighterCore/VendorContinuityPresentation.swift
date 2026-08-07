@@ -67,6 +67,37 @@ public enum VendorContinuityPresentation {
         formatter.timeStyle = .short
         return formatter.string(from: date)
     }
+
+    /// Readable reset time for vendor capacity displays. Returns `nil` when
+    /// `reset` is in the past — a stale time is worse than none.
+    /// - Under 24h: countdown like "in 2h 14m" (largest two units).
+    /// - 24h or more: dated absolute form including the date, never a bare time.
+    public static func resetDisplayTime(
+        _ reset: Date,
+        now: Date,
+        locale: Locale = .current,
+        timeZone: TimeZone = .current
+    ) -> String? {
+        guard reset > now else { return nil }
+        let totalSeconds = Int(reset.timeIntervalSince(now))
+        if totalSeconds < 86_400 {
+            let hours = totalSeconds / 3_600
+            let minutes = (totalSeconds % 3_600) / 60
+            if hours > 0 && minutes > 0 {
+                return "in \(hours)h \(minutes)m"
+            } else if hours > 0 {
+                return "in \(hours)h"
+            } else {
+                return "in \(minutes)m"
+            }
+        }
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: reset)
+    }
 }
 
 /// Local receipt derived only from persisted attempt timestamps and resume origin.

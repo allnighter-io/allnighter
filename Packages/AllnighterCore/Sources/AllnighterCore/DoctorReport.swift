@@ -318,7 +318,10 @@ public enum DoctorReport {
         guard let reset = observation.observedResetAt,
               observation.sourceConfidence == .structured || observation.sourceConfidence == .messageFallback
         else { return "Rate limited — reset time unknown" }
-        return "Rate limited — resets \(VendorContinuityPresentation.localTime(reset))"
+        let now = Date()
+        guard let displayTime = VendorContinuityPresentation.resetDisplayTime(reset, now: now)
+        else { return "Rate limited" }
+        return "Rate limited — resets \(displayTime)"
     }
 
     private static func headlessTrustCheck(_ driverId: String, trust: HeadlessTrustPolicy) -> DoctorResult.Check {

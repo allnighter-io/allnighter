@@ -50,4 +50,27 @@ final class VendorContinuityPresentationTests: XCTestCase {
         XCTAssertTrue(receipt.humanSummary.contains("1h 0m"))
         XCTAssertTrue(receipt.humanSummary.contains("without intervention"))
     }
+
+    func testResetCountdownUnder24h() {
+        let now = Date()
+        let future = now.addingTimeInterval(23 * 3_600 + 59 * 60) // 23h 59m
+        let result = VendorContinuityPresentation.resetDisplayTime(future, now: now)
+        XCTAssertNotNil(result)
+        XCTAssertTrue(result!.hasPrefix("in "))
+        XCTAssertTrue(result!.contains("h"))
+    }
+
+    func testResetDateFormatBeyond24h() {
+        let now = Date()
+        let future = now.addingTimeInterval(24 * 3_600 + 60) // 24h 1m
+        let result = VendorContinuityPresentation.resetDisplayTime(future, now: now)
+        XCTAssertNotNil(result)
+        XCTAssertFalse(result!.hasPrefix("in "), "should use dated form, not countdown")
+    }
+
+    func testResetPastReturnsNil() {
+        let now = Date()
+        let past = now.addingTimeInterval(-3 * 3_600) // 3h ago
+        XCTAssertNil(VendorContinuityPresentation.resetDisplayTime(past, now: now))
+    }
 }

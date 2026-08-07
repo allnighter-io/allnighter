@@ -96,10 +96,12 @@ public enum SourceCapacityLedger {
         }
     }
 
-    /// When the source frees up — the conservative local boundary, else the sourced reset.
+    /// When the source frees up — vendor-stated reset first, then the local fallback.
+    /// observedResetAt is vendor-sourced truth; wakeAfter may be a local backoff guess.
+    /// This value reaches the user, so vendor truth must win.
     /// Nil when neither is known (we never bench a source on an open-ended guess).
     static func coolingUntil(of obs: CapacityObservation) -> Date? {
-        obs.wakeAfter ?? obs.observedResetAt
+        obs.observedResetAt ?? obs.wakeAfter
     }
 }
 
