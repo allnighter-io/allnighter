@@ -151,6 +151,10 @@ enum GUIFixture {
         return name.hasPrefix("capacity-")
     }
 
+    /// Nothing near a reset — proves the hero still has something to say when
+    /// no seat is expiring, which is the bench's normal condition.
+    static var capacityCalmBench: Bool { active == "capacity-strip-calm" }
+
     /// CAP-S10: which seat shows a mid-refresh spinner (only that row).
     static var capacityRefreshingSource: String? {
         switch active {
@@ -403,6 +407,7 @@ enum GUIFixture {
         ("relay-thread-stopped", "Relay thread — founder stopped, no resume (ATL-S04)"),
         ("capacity-strip", "Capacity — mixed strip (unknown + Antigravity pools)"),
         ("capacity-strip-refreshing", "Capacity — one row mid-refresh (Grok spinning)"),
+        ("capacity-strip-calm", "Capacity — nothing expiring (most-room hero)"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
@@ -802,6 +807,7 @@ enum GUIFixture {
     static var composeLoopTab: Bool { false }
     static var suppressUnreadAutoScroll: Bool { false }
     static var seedsCapacityStrip: Bool { false }
+    static var capacityCalmBench: Bool { false }
     static var capacityRefreshingSource: String? { nil }
     static var capacityNotReadyOrParked: Set<String> { [] }
     static var forcesCapacityStripPane: Bool { false }

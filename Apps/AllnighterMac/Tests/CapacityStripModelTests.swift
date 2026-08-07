@@ -269,6 +269,94 @@ final class CapacityStripModelTests: XCTestCase {
         )
     }
 
+    // MARK: - Hero: the slot is never empty
+
+    func testCalmBenchStillGetsAHero() {
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.calmWindows(),
+            now: CapacityStripFixtures.now
+        )
+        XCTAssertEqual(
+            model.hero?.mood, .mostRoom,
+            "nothing expiring must still name a seat — an empty slot leaves the "
+            + "launch surface opening on a bare table"
+        )
+    }
+
+    func testExpiringSeatOutranksMostRoom() {
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.mixedWindows(),
+            now: CapacityStripFixtures.now
+        )
+        XCTAssertEqual(model.hero?.mood, .expiring)
+    }
+
+    func testMostRoomIsBoundByASeatsScarcestPool() {
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.calmWindows(),
+            now: CapacityStripFixtures.now
+        )
+        // Antigravity's Gemini pool is the highest single number on the bench,
+        // but its Claude/GPT pool is lower than Cursor's — a seat is only as
+        // free as its scarcest bucket, so it must not win on the flattering one.
+        XCTAssertNotEqual(model.hero?.source, "agy")
+    }
+
+    // MARK: - Age chips: silence must mean verified, never unchecked
+
+    func testRowWithNoDeterminableAgeShowsItsOwnChip() {
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.mixedWindows(),
+            now: CapacityStripFixtures.now
+        )
+        // A row the header cannot vouch for must print, so an absent chip can
+        // only ever mean "sampled with the rest of the bench".
+        let stale = model.benchRows.first { CapacityStripRenderer.observedAt(for: $0) == nil }
+        if let stale {
+            XCTAssertTrue(model.showsOwnAge(stale))
+        }
+        XCTAssertNotNil(model.benchObservedAt, "a sampled bench has a wave time")
+    }
+
+    func testStragglerDoesNotForceEveryRowToPrint() {
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.mixedWindows(),
+            now: CapacityStripFixtures.now
+        )
+        let printing = model.benchRows.filter { model.showsOwnAge($0) }
+        XCTAssertLessThan(
+            printing.count, model.benchRows.count,
+            "one stale seat must not push a timestamp back onto every row — that "
+            + "is the duplication the header replaced"
+        )
+    }
+
+    func testBareAgeLabelDropsTheAgoSuffix() {
+        XCTAssertEqual(
+            CapacityStripRenderer.elapsedLabel(
+                from: CapacityStripFixtures.now,
+                to: CapacityStripFixtures.now.addingTimeInterval(14 * 60)
+            ),
+            "14m ago"
+        )
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.mixedWindows(),
+            now: CapacityStripFixtures.now.addingTimeInterval(14 * 60)
+        )
+        for row in model.benchRows {
+            XCTAssertFalse(
+                CapacityStripRenderer.bareAgeLabel(for: row, now: model.now).contains("ago"),
+                "a column of eight \"ago\"s is a stutter; the header says it once"
+            )
+        }
+    }
+
     func testFreshnessLineSaysStoppedWhenNothingIsScheduling() {
         let model = CapacityStripModel()
         model.seedFixture(windows: [], now: CapacityStripFixtures.now)
@@ -279,9 +367,10 @@ final class CapacityStripModelTests: XCTestCase {
             CapacityStripModel.freshnessLine(
                 freshness: .init(armed: false, lastSettledAt: CapacityStripFixtures.now),
                 isRefreshingAll: false,
+                benchObservedAt: nil,
                 now: CapacityStripFixtures.now
             ),
-            "auto-checks stopped"
+            "Auto-checks stopped"
         )
     }
 
@@ -291,26 +380,29 @@ final class CapacityStripModelTests: XCTestCase {
             CapacityStripModel.freshnessLine(
                 freshness: .init(armed: true, lastSettledAt: settled),
                 isRefreshingAll: false,
+                benchObservedAt: nil,
                 now: settled.addingTimeInterval(4 * 60)
             ),
-            "checked 4m ago"
+            "Checked 4m ago"
         )
         XCTAssertEqual(
             CapacityStripModel.freshnessLine(
                 freshness: .init(armed: true, lastSettledAt: nil),
                 isRefreshingAll: false,
+                benchObservedAt: nil,
                 now: settled
             ),
-            "checking…",
+            "Checking…",
             "armed with nothing settled yet is warming, not stale"
         )
         XCTAssertEqual(
             CapacityStripModel.freshnessLine(
                 freshness: .init(armed: false, lastSettledAt: settled),
                 isRefreshingAll: true,
+                benchObservedAt: nil,
                 now: settled
             ),
-            "checking…",
+            "Checking…",
             "an in-flight manual refresh outranks a stopped scheduler"
         )
     }

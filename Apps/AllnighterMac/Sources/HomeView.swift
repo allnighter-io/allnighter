@@ -816,7 +816,9 @@ private struct HomeNewRunPane: View {
         #if DEBUG
         if GUIFixture.seedsCapacityStrip {
             model.seedFixture(
-                windows: CapacityStripFixtures.mixedWindows(),
+                windows: GUIFixture.capacityCalmBench
+                    ? CapacityStripFixtures.calmWindows()
+                    : CapacityStripFixtures.mixedWindows(),
                 now: CapacityStripFixtures.now,
                 notReadyOrParked: GUIFixture.capacityNotReadyOrParked,
                 refreshingSource: GUIFixture.capacityRefreshingSource

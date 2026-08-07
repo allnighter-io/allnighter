@@ -62,7 +62,45 @@ final class CapacityStripModel {
     }
 
     var hero: CapacityHeroPresentation? {
-        CapacityHeroPresentation.select(from: rows, now: now)
+        CapacityHeroPresentation.select(from: rows, now: now, restingNames: restingDisplayNames)
+    }
+
+    /// Seats on the bench that are spent — nothing left, but they come back.
+    ///
+    /// Distinct from parked: parked means go fix something, resting means wait.
+    var restingDisplayNames: [String] {
+        benchRows.filter { row in
+            let remaining = row.pools.compactMap(\.dashboardRemainingPercent)
+            return !remaining.isEmpty && (remaining.min() ?? 1) <= 0
+        }
+        .map { CapacityStripRenderer.displayName(for: $0.source) }
+    }
+
+    /// Tolerance for calling two seats "sampled together". The bench is probed
+    /// in one wave, so members land seconds apart, not minutes.
+    private static let sameWaveTolerance: TimeInterval = 90
+
+    /// When the last probe wave ran — the newest sample on the bench.
+    ///
+    /// This is what the header quotes. Deliberately the newest rather than a
+    /// consensus: one straggler must not void the shared time and push a
+    /// timestamp back onto all eight rows, which is the noise this replaced.
+    /// The straggler marks itself instead.
+    var benchObservedAt: Date? {
+        benchRows.compactMap { CapacityStripRenderer.observedAt(for: $0) }.max()
+    }
+
+    /// Whether this row must show its own age chip.
+    ///
+    /// Fails loud on purpose. A row is silent only when we can prove it matches
+    /// the bench; an undeterminable age, or a bench with no shared time, shows
+    /// the chip. Absence of a badge means "verified same as the header", never
+    /// "we did not check" — that inversion is exactly how a stale seat starts
+    /// looking current.
+    func showsOwnAge(_ row: CapacityBenchRow) -> Bool {
+        guard let shared = benchObservedAt else { return true }
+        guard let rowAge = CapacityStripRenderer.observedAt(for: row) else { return true }
+        return abs(rowAge.timeIntervalSince(shared)) > Self.sameWaveTolerance
     }
 
     var expiringCount: Int {
@@ -100,19 +138,30 @@ final class CapacityStripModel {
     /// expiring*; spending it on "our scheduler stopped" would tell the user
     /// they are running out when the truth is that we stopped looking.
     var freshnessLine: String {
-        Self.freshnessLine(freshness: freshness, isRefreshingAll: isRefreshingAll, now: now)
+        Self.freshnessLine(
+            freshness: freshness,
+            isRefreshingAll: isRefreshingAll,
+            benchObservedAt: benchObservedAt,
+            now: now
+        )
     }
 
-    /// Pure so the three sentences can be proven without a live resident.
+    /// Pure so the sentences can be proven without a live resident.
+    ///
+    /// `benchObservedAt` is preferred over the scheduler's settle time: the
+    /// header now speaks for every row, so it must quote what the rows actually
+    /// say. A settle can succeed while a seat's sample is older, and the header
+    /// would then vouch for freshness the table does not have.
     static func freshnessLine(
         freshness: CapacityResidentService.Freshness,
         isRefreshingAll: Bool,
+        benchObservedAt: Date?,
         now: Date
     ) -> String {
-        if isRefreshingAll { return "checking…" }
-        guard freshness.armed else { return "auto-checks stopped" }
-        guard let settled = freshness.lastSettledAt else { return "checking…" }
-        return "checked \(CapacityStripRenderer.elapsedLabel(from: settled, to: now))"
+        if isRefreshingAll { return "Checking…" }
+        guard freshness.armed else { return "Auto-checks stopped" }
+        guard let sampled = benchObservedAt ?? freshness.lastSettledAt else { return "Checking…" }
+        return "Checked \(CapacityStripRenderer.elapsedLabel(from: sampled, to: now))"
     }
 
     // MARK: - Clock
@@ -308,6 +357,23 @@ final class CapacityStripModel {
 
 /// Fixed-height hero presentation derived from Core eligibility — no parallel store.
 struct CapacityHeroPresentation: Equatable {
+
+    /// Which question the hero is answering. Both answer "which seat now?" —
+    /// one from scarcity, one from abundance.
+    ///
+    /// There is deliberately no empty case. A slot that vanishes when nothing is
+    /// urgent means the top third of the first screen a user sees comes and goes
+    /// with a vendor's clock, and on an ordinary day the page opens on a bare
+    /// table. A calm bench is not a reason to say nothing — it is a reason to
+    /// say something else.
+    enum Mood: Equatable {
+        /// A seat is near its reset with unspent headroom — spend it or lose it.
+        case expiring
+        /// Nothing is expiring; name the seat with the most room left.
+        case mostRoom
+    }
+
+    let mood: Mood
     let source: String
     let displayName: String
     let planTier: String?
@@ -315,8 +381,19 @@ struct CapacityHeroPresentation: Equatable {
     let resetAt: Date?
     let alsoLine: String?
 
+    /// The expiring seat when one qualifies, else the roomiest. Nil only when no
+    /// seat has a usable number at all.
+    static func select(
+        from rows: [CapacityBenchRow],
+        now: Date,
+        restingNames: [String] = []
+    ) -> CapacityHeroPresentation? {
+        selectExpiring(from: rows, now: now)
+            ?? selectMostRoom(from: rows, now: now, restingNames: restingNames)
+    }
+
     /// Gate then rank: eligibility from Core; dollars-at-risk approximated by plan-tier ordinal.
-    static func select(from rows: [CapacityBenchRow], now: Date) -> CapacityHeroPresentation? {
+    static func selectExpiring(from rows: [CapacityBenchRow], now: Date) -> CapacityHeroPresentation? {
         struct Candidate {
             let row: CapacityBenchRow
             let remaining: Double
@@ -349,6 +426,62 @@ struct CapacityHeroPresentation: Equatable {
             also = nil
         }
         return CapacityHeroPresentation(
+            mood: .expiring,
+            source: top.row.source,
+            displayName: CapacityStripRenderer.displayName(for: top.row.source),
+            planTier: top.row.planTier,
+            remainingPercent: top.remaining,
+            resetAt: top.resetAt,
+            alsoLine: also
+        )
+    }
+
+    /// The calm hero: the seat with the most unspent allowance.
+    ///
+    /// Same shape as the expiring hero on purpose — one seat, one number, one
+    /// button — so the eye learns a single place to look. The old calm state
+    /// said "Everything has room" in three type sizes and gave the reader
+    /// nothing to do with it.
+    ///
+    /// This is a fact plus a shortcut, never routing advice. Most-room is not
+    /// the same as best-fit, and this codebase deliberately has no intent
+    /// router.
+    static func selectMostRoom(
+        from rows: [CapacityBenchRow],
+        now: Date,
+        restingNames: [String] = []
+    ) -> CapacityHeroPresentation? {
+        struct Candidate {
+            let row: CapacityBenchRow
+            let remaining: Double
+            let resetAt: Date?
+        }
+        var candidates: [Candidate] = []
+        for row in rows {
+            // Tightest pool binds — a seat is only as free as its scarcest bucket.
+            let pools = row.pools.compactMap { pool -> (Double, Date?)? in
+                guard let remaining = pool.dashboardRemainingPercent else { return nil }
+                return (remaining, pool.dashboardResetAt)
+            }
+            guard let tightest = pools.min(by: { $0.0 < $1.0 }) else { continue }
+            guard tightest.0 > 0 else { continue }   // a spent seat is not a recommendation
+            candidates.append(Candidate(row: row, remaining: tightest.0, resetAt: tightest.1))
+        }
+        guard !candidates.isEmpty else { return nil }
+        candidates.sort { $0.remaining > $1.remaining }
+        let top = candidates[0]
+
+        // Resting seats are the one thing the roomiest seat does not already
+        // say, and the reason the bench is smaller than it looks.
+        let also: String?
+        switch restingNames.count {
+        case 0: also = nil
+        case 1: also = "\(restingNames[0]) is resting"
+        default: also = restingNames.prefix(2).joined(separator: " and ") + " are resting"
+        }
+
+        return CapacityHeroPresentation(
+            mood: .mostRoom,
             source: top.row.source,
             displayName: CapacityStripRenderer.displayName(for: top.row.source),
             planTier: top.row.planTier,
@@ -374,6 +507,31 @@ struct CapacityHeroPresentation: Equatable {
 enum CapacityStripFixtures {
     static let now = Date(timeIntervalSince1970: 1_753_833_600)
 
+    /// An ordinary day: nothing near its reset, so the hero has no scarcity to
+    /// sell and must earn the slot some other way.
+    ///
+    /// This is the state the launch surface is in most of the time, and the one
+    /// that used to render as a bare table with a hole above it.
+    static func calmWindows(now: Date = now) -> [CapacityWindow] {
+        mixedWindows(now: now).map { window in
+            // Push every reset well past the 48h hero gate; keep the numbers.
+            guard let reset = window.resetAt, let used = window.usedPercent,
+                  reset.timeIntervalSince(now) < CapacityBenchProjection.heroNearDeadline
+            else { return window }
+            return CapacityWindow(
+                used: used,
+                source: window.source,
+                scope: window.scope,
+                resetAt: now.addingTimeInterval(5 * 86400),
+                resetPrecision: window.resetPrecision,
+                observedAt: window.observedAt,
+                sourceTier: window.sourceTier,
+                poolLabel: window.poolLabel,
+                planTier: window.planTier
+            )
+        }
+    }
+
     static func mixedWindows(now: Date = now) -> [CapacityWindow] {
         [
             CapacityWindow(
@@ -382,7 +540,7 @@ enum CapacityStripFixtures {
                 scope: .weekly,
                 resetAt: now.addingTimeInterval(6 * 86400 + 3 * 3600),
                 resetPrecision: .exact,
-                observedAt: now.addingTimeInterval(-120),
+                observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe,
                 planTier: "Plus"
             ),
@@ -400,7 +558,7 @@ enum CapacityStripFixtures {
                 scope: .monthly,
                 resetAt: now.addingTimeInterval(26 * 86400),
                 resetPrecision: .day,
-                observedAt: now.addingTimeInterval(-300),
+                observedAt: now.addingTimeInterval(-1_800),
                 sourceTier: .tuiProbe,
                 planTier: "Ultra"
             ),
@@ -410,7 +568,7 @@ enum CapacityStripFixtures {
                 scope: .weekly,
                 resetAt: now.addingTimeInterval(41 * 3600),
                 resetPrecision: .exact,
-                observedAt: now.addingTimeInterval(-90),
+                observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe,
                 planTier: "X Premium+"
             ),
@@ -420,7 +578,7 @@ enum CapacityStripFixtures {
                 scope: .weekly,
                 resetAt: now.addingTimeInterval(1.5 * 86400),
                 resetPrecision: .minute,
-                observedAt: now.addingTimeInterval(-180),
+                observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe,
                 planTier: "Kimi Code"
             ),
@@ -430,7 +588,7 @@ enum CapacityStripFixtures {
                 scope: .fiveHour,
                 resetAt: now.addingTimeInterval(3_780),
                 resetPrecision: .minute,
-                observedAt: now.addingTimeInterval(-180),
+                observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe
             ),
             CapacityWindow(
@@ -439,7 +597,7 @@ enum CapacityStripFixtures {
                 scope: .weekly,
                 resetAt: now.addingTimeInterval(6 * 86400 + 20 * 3600),
                 resetPrecision: .minute,
-                observedAt: now.addingTimeInterval(-60),
+                observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe,
                 poolLabel: "GEMINI MODELS",
                 planTier: "Pro"
@@ -450,7 +608,7 @@ enum CapacityStripFixtures {
                 scope: .fiveHour,
                 resetAt: now.addingTimeInterval(3 * 3600 + 21 * 60),
                 resetPrecision: .minute,
-                observedAt: now.addingTimeInterval(-60),
+                observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe,
                 poolLabel: "GEMINI MODELS"
             ),
@@ -460,7 +618,7 @@ enum CapacityStripFixtures {
                 scope: .weekly,
                 resetAt: now.addingTimeInterval(2 * 86400 + 3 * 3600),
                 resetPrecision: .minute,
-                observedAt: now.addingTimeInterval(-60),
+                observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe,
                 poolLabel: "CLAUDE AND GPT MODELS"
             ),
@@ -468,7 +626,7 @@ enum CapacityStripFixtures {
                 reason: .neverSampled,
                 source: "agy",
                 scope: .fiveHour,
-                observedAt: now.addingTimeInterval(-60),
+                observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe,
                 poolLabel: "CLAUDE AND GPT MODELS"
             ),

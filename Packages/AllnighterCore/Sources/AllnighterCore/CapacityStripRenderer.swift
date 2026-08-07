@@ -585,6 +585,16 @@ public enum CapacityStripRenderer {
         return elapsedLabel(from: observed, to: now)
     }
 
+    /// Row age with no "ago" — `2m`, `1h`, `3d`.
+    ///
+    /// The suffix is a sentence ending, and a column of eight of them is a
+    /// stutter. The header says "ago" once, in prose, where it reads.
+    public static func bareAgeLabel(for row: CapacityBenchRow, now: Date) -> String {
+        let label = ageLabel(for: row, now: now)
+        guard label.hasSuffix(" ago") else { return label }
+        return String(label.dropLast(4))
+    }
+
     /// How long ago something happened, in the strip's one age vocabulary.
     ///
     /// Row age chips and the header's freshness line are the same claim at two
@@ -681,7 +691,12 @@ public enum CapacityStripRenderer {
         return String(label.prefix(10))
     }
 
-    private static func observedAt(for row: CapacityBenchRow) -> Date? {
+    /// Newest observation on the row, or nil when nothing on it was sampled.
+    ///
+    /// Public because a surface that hides per-row ages needs to prove they all
+    /// agree before hiding them — a row whose age cannot be determined must be
+    /// able to say so rather than inherit the bench's timestamp by silence.
+    public static func observedAt(for row: CapacityBenchRow) -> Date? {
         if let raw = row.rawWindows.map(\.observedAt).max() {
             return raw
         }

@@ -57,6 +57,7 @@ struct CapacityStripView: View {
                                 row: row,
                                 now: model.now,
                                 isRefreshing: model.isRefreshing(row.source),
+                                showsOwnAge: model.showsOwnAge(row),
                                 isExpanded: expandedSources.contains(row.source),
                                 onToggleExpand: { toggleExpand(row.source) },
                                 onRefresh: { model.refreshSource(row.source) }
@@ -105,16 +106,13 @@ struct CapacityStripView: View {
         .padding(24)
     }
 
-    // MARK: - Hero (live state only)
+    // MARK: - Hero
 
-    /// The tall hero exists for exactly one state: a seat is about to lose
-    /// capacity and there is a run to start on it.
+    /// The launch surface's answer to "which seat should I use right now?"
     ///
-    /// The calm and warming variants used to occupy the same 112pt to say
-    /// "everything has room" in three type sizes — a header-shaped object with
-    /// no fact and no action, sitting above a second header that had both. Those
-    /// states now live as one word in the bench band, and the hero appears only
-    /// when it has something to sell.
+    /// Present whenever the bench has a usable number, in one of two moods. An
+    /// earlier version rendered only for an expiring seat, which left the page
+    /// opening on a bare table on any ordinary day.
     @ViewBuilder
     private var heroZone: some View {
         if let hero = model.hero {
@@ -122,52 +120,43 @@ struct CapacityStripView: View {
                 .frame(maxWidth: .infinity, minHeight: 112, alignment: .center)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 18)
-                .background(heroBackground)
+                .background(heroBackground(hero.mood))
                 .overlay(alignment: .bottom) {
                     Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
                 }
         }
     }
 
-    private var heroBackground: some View {
-        LinearGradient(
-            colors: [
-                ALColor.accent.opacity(0.10),
-                ALColor.accent.opacity(0.02),
-                ALColor.base,
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+    /// Amber wash for the seat you are about to lose; a quiet one when nothing
+    /// is at stake.
+    ///
+    /// Amber has to keep meaning "money is about to evaporate". Spending it on a
+    /// calm day is how a colour stops being read.
+    private func heroBackground(_ mood: CapacityHeroPresentation.Mood) -> some View {
+        let wash: [Color] = mood == .expiring
+            ? [ALColor.accent.opacity(0.10), ALColor.accent.opacity(0.02), ALColor.base]
+            : [ALColor.raised.opacity(0.5), ALColor.raised.opacity(0.12), ALColor.base]
+        return LinearGradient(colors: wash, startPoint: .top, endPoint: .bottom)
     }
 
     private func liveHero(_ hero: CapacityHeroPresentation) -> some View {
         HStack(alignment: .center, spacing: 20) {
             HStack(alignment: .top, spacing: 14) {
-                Image(systemName: "bolt.fill")
+                Image(systemName: hero.mood == .expiring ? "bolt.fill" : "sparkles")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(ALColor.accent)
+                    .foregroundStyle(hero.mood == .expiring ? ALColor.accent : ALColor.textSecondary)
                     .frame(width: 24)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Use it before you lose it")
+                    Text(hero.mood == .expiring ? "Use it before you lose it" : "Most room on your bench")
                         .font(ALFont.sans(10, .semibold))
                         .tracking(0.8)
                         .textCase(.uppercase)
-                        .foregroundStyle(ALColor.accentText)
-                    (
-                        Text("\(hero.displayName) — ")
-                            .foregroundStyle(ALColor.textPrimary)
-                        + Text(CapacityStripRenderer.formatPercent(hero.remainingPercent))
-                            .foregroundStyle(ALPalette.amber400)
-                        + Text(" of your week expires in ")
-                            .foregroundStyle(ALColor.textPrimary)
-                        + Text(clockText(hero.resetAt))
-                            .foregroundStyle(ALPalette.amber400)
-                    )
-                    .font(ALFont.sans(22, .bold))
-                    .tracking(-0.3)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
+                        .foregroundStyle(hero.mood == .expiring ? ALColor.accentText : ALColor.textFaint)
+                    heroHeadline(hero)
+                        .font(ALFont.sans(22, .bold))
+                        .tracking(-0.3)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
                     HStack(spacing: 6) {
                         if let plan = hero.planTier {
                             Text(plan).foregroundStyle(ALColor.textMuted)
@@ -203,6 +192,23 @@ struct CapacityStripView: View {
         }
     }
 
+    /// The one big line. Amber marks the number only when it is at risk —
+    /// on a calm bench the same colour would be crying wolf.
+    private func heroHeadline(_ hero: CapacityHeroPresentation) -> Text {
+        let name = Text("\(hero.displayName) — ").foregroundStyle(ALColor.textPrimary)
+        let percent = Text(CapacityStripRenderer.formatPercent(hero.remainingPercent))
+            .foregroundStyle(hero.mood == .expiring ? ALPalette.amber400 : ALColor.textPrimary)
+        switch hero.mood {
+        case .expiring:
+            return name + percent
+                + Text(" of your week expires in ").foregroundStyle(ALColor.textPrimary)
+                + Text(clockText(hero.resetAt)).foregroundStyle(ALPalette.amber400)
+        case .mostRoom:
+            return name + percent
+                + Text(" of your week still unspent").foregroundStyle(ALColor.textPrimary)
+        }
+    }
+
     private func clockText(_ resetAt: Date?) -> String {
         guard let resetAt else { return "—" }
         return CapacityStripRenderer.relativeClock(from: model.now, to: resetAt)
@@ -219,10 +225,16 @@ struct CapacityStripView: View {
                 .tracking(0.8)
                 .textCase(.uppercase)
                 .foregroundStyle(ALColor.textFaint)
-            Text("· \(model.onBenchCount) on bench")
+            // "on bench" under a heading that already says YOUR BENCH said the
+            // word twice in five.
+            Text("· \(model.onBenchCount) seats")
                 .font(ALFont.sans(11))
                 .foregroundStyle(ALColor.textFaint)
             Spacer()
+            // One clock for the whole table. The rows are probed in one wave, so
+            // a per-row timestamp was the same fact copied eight times; it lives
+            // here now and only a divergent row prints its own.
+            //
             // Freshness sits beside the button, never inside it — a label that
             // reflows every minute would make the control jump under the cursor.
             Text(model.freshnessLine)
@@ -296,9 +308,11 @@ struct CapacityStripView: View {
         HStack(spacing: CapacityStripLayout.columnGap) {
             Text("CLI")
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("Weekly headroom")
+            // "Headroom" and "window" are our vocabulary, not the reader's. The
+            // percentages underneath explain themselves.
+            Text("This week")
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Text("5h window")
+            Text("Last 5h")
                 .frame(width: CapacityStripLayout.shortWidth, alignment: .leading)
             Text("")
                 .frame(width: CapacityStripLayout.ageWidth, alignment: .trailing)
@@ -329,9 +343,14 @@ private struct CapacityStripRowView: View {
     let row: CapacityBenchRow
     let now: Date
     let isRefreshing: Bool
+    /// True only when this row's sample time cannot be vouched for by the
+    /// header — a seat refreshed alone, or one whose age we cannot determine.
+    let showsOwnAge: Bool
     let isExpanded: Bool
     let onToggleExpand: () -> Void
     let onRefresh: () -> Void
+
+    @State private var hovering = false
 
     private var color: CapacityStripColor {
         CapacityStripRenderer.color(for: row, now: now)
@@ -346,7 +365,9 @@ private struct CapacityStripRowView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 shortColumn
                     .frame(width: CapacityStripLayout.shortWidth, alignment: .leading)
-                ageChip
+                // The column keeps its width whether or not a chip prints, so
+                // the metric columns above never shift when one seat diverges.
+                trailingColumn
                     .frame(width: CapacityStripLayout.ageWidth, alignment: .trailing)
             }
             .padding(.horizontal, CapacityStripLayout.rowInset)
@@ -358,9 +379,27 @@ private struct CapacityStripRowView: View {
                     .padding(.bottom, 12)
             }
         }
-        .background(isExpanded ? ALColor.subtle : Color.clear)
+        .background(isExpanded ? ALColor.subtle : (hovering ? ALColor.subtle.opacity(0.5) : Color.clear))
         .overlay(alignment: .bottom) {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+        }
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+        .onTapGesture { onToggleExpand() }
+    }
+
+    /// Age chip, refresh button, or nothing.
+    ///
+    /// Silence here means "this row was sampled with the rest of the bench, and
+    /// the header already said when." It must never mean "we could not tell" —
+    /// `showsOwnAge` is computed to fail loud, so an undeterminable age prints
+    /// rather than hides.
+    @ViewBuilder
+    private var trailingColumn: some View {
+        if isRefreshing || showsOwnAge {
+            ageChip
+        } else if hovering {
+            refreshOnlyChip
         }
     }
 
@@ -368,14 +407,13 @@ private struct CapacityStripRowView: View {
 
     private var cliColumn: some View {
         HStack(alignment: .center, spacing: 8) {
-            Button(action: onToggleExpand) {
-                Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(ALColor.textFaint)
-                    .frame(width: 12)
-            }
-            .buttonStyle(.plain)
-            .help("Show provenance")
+            // Eight resting chevrons advertise a disclosure almost nobody opens.
+            // The affordance appears on approach; the whole row stays clickable.
+            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(ALColor.textFaint)
+                .frame(width: 12)
+                .opacity(isExpanded || hovering ? 1 : 0)
 
             DriverBrandGlyph(
                 driverId: glyphDriverId(row.source),
@@ -389,23 +427,16 @@ private struct CapacityStripRowView: View {
                 Text(CapacityStripRenderer.displayName(for: row.source))
                     .font(ALFont.sans(13, .medium))
                     .foregroundStyle(ALColor.textPrimary)
+                // Plan tier only. The old fallback listed this row's pool names
+                // here — the same names already sitting beside their own numbers
+                // one column over, so the row said "Gemini, Claude/GPT" twice.
                 if let plan = row.planTier, !plan.isEmpty {
                     Text(plan)
-                        .font(ALFont.sans(10))
-                        .foregroundStyle(ALColor.textFaint)
-                } else if row.pools.count > 1 {
-                    Text(poolSummary)
                         .font(ALFont.sans(10))
                         .foregroundStyle(ALColor.textFaint)
                 }
             }
         }
-    }
-
-    private var poolSummary: String {
-        let labels = poolLines.map(\.label)
-        if labels.isEmpty { return "\(row.pools.count) pools" }
-        return "\(row.pools.count) pools · " + labels.joined(separator: ", ")
     }
 
     // MARK: Pool lines — the one shape both metric columns render
@@ -452,10 +483,14 @@ private struct CapacityStripRowView: View {
     @ViewBuilder
     private var weeklyColumn: some View {
         if let reason = row.unknownReason {
-            Text(CapacityStripRenderer.unknownCopy(reason))
-                .font(ALFont.sans(12))
+            // "unknown — parser failed 08-07" is a stack trace wearing a
+            // sentence: the reader cannot fix a parser and does not know they
+            // have one. The dash says the same thing the other unknown cells
+            // say; the reason waits in the expanded row for whoever asks.
+            Text("—")
+                .font(ALFont.mono(13))
                 .foregroundStyle(ALColor.textFaint)
-                .lineLimit(2)
+                .help(CapacityStripRenderer.unknownCopy(reason))
         } else if poolLines.isEmpty {
             Text("—")
                 .font(ALFont.mono(13))
@@ -583,6 +618,22 @@ private struct CapacityStripRowView: View {
 
     // MARK: Age chip = per-row refresh
 
+    /// Refresh with no timestamp — for a row that agrees with the header and so
+    /// has no age worth printing, but still deserves its own button on hover.
+    private var refreshOnlyChip: some View {
+        Button(action: onRefresh) {
+            Image(systemName: "arrow.clockwise")
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(ALColor.textFaint)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Refresh this seat only")
+        .accessibilityLabel("Refresh \(CapacityStripRenderer.displayName(for: row.source))")
+    }
+
     private var ageChip: some View {
         Button(action: onRefresh) {
             HStack(spacing: 4) {
@@ -591,7 +642,9 @@ private struct CapacityStripRowView: View {
                         .controlSize(.mini)
                         .frame(width: 10, height: 10)
                 } else {
-                    Text(CapacityStripRenderer.ageLabel(for: row, now: now))
+                    // Bare duration — "ago" once in the header reads as English;
+                    // eight of them down a column is a stutter.
+                    Text(CapacityStripRenderer.bareAgeLabel(for: row, now: now))
                         .font(ALFont.mono(11))
                         .foregroundStyle(ALColor.textFaint)
                     Image(systemName: "arrow.clockwise")

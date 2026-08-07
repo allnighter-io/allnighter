@@ -75,7 +75,7 @@ struct ThreadsFixtureSeeder {
             seedFixtureRelayRunning()
         case "relay-thread-stopped":
             seedFixtureRelayFounderStopped()
-        case "capacity-strip", "capacity-strip-refreshing":
+        case "capacity-strip", "capacity-strip-refreshing", "capacity-strip-calm":
             // CAP-S10: seed a few threads so the main pane is HomeNewRunPane
             // (capacity strip + composer), with no selection.
             seedFixtureThreads()
