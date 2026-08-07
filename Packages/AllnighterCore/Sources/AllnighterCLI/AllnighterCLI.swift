@@ -2522,7 +2522,7 @@ struct AllnighterCLI {
     static func answerRetrieval(from trj: TeamRunJSON) -> (text: String, note: String?)? {
         if let answer = trj.answer, let md = answer.markdown, !md.isEmpty {
             if answer.status != .done {
-                return (md, "note: partial answer — run status \(answer.status.rawValue)")
+                return (md, "note: partial answer — answer status \(answer.status.rawValue)")
             }
             return (md, nil)
         }

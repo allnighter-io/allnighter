@@ -558,6 +558,9 @@ public enum TeamRunJSONMapper {
     /// In-flight runs with answer text lead with `showAnswer` instead — the
     /// artifact does not exist yet, and work already in the record must stay
     /// retrievable by a documented command, never written off as lost.
+    /// Non-success terminals (killed / failed / timed out) keep the artifact
+    /// lead but also surface `showAnswer` when the record holds text — the
+    /// polished path is often null and the durable body is the recovery.
     static func terminalArtifactNextActions(
         for run: TeamRun,
         answerContent: Bool = false
@@ -569,6 +572,13 @@ public enum TeamRunJSONMapper {
                 command: "alln artifact show \(run.id)",
                 label: "Open team artifact"
             ))
+            if answerContent && run.status.needsAnswerRecoveryHint {
+                actions.append(.init(
+                    kind: .showAnswer,
+                    command: "alln show \(run.id) --answer",
+                    label: "Read the answer text"
+                ))
+            }
         } else if answerContent {
             actions.append(.init(
                 kind: .showAnswer,

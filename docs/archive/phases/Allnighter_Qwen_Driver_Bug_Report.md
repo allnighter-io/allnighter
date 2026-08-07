@@ -1,5 +1,10 @@
 # Bug report for the Allnighter team — Qwen driver
 
+> **CLOSED 2026-08-07 — QDR-S01.** Intake only; durable truth is code.
+> AgentOS `d50f3c1` (+ audit follow-up: kimi `--yolo` twin): headless write grant.
+> Allnighter `ab9c1d53` (+ audit): `showAnswer` nextAction, `alln show --answer`,
+> contract 9.10.0, `RUN_NO_ANSWER`. Do not resume as a live phase packet.
+
 **Standalone. Written to be handed to the Allnighter team as-is; not Ikiro
 policy. Move or delete freely.**
 

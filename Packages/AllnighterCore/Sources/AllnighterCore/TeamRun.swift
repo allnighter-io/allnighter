@@ -327,6 +327,18 @@ public extension RunStatus {
         }
     }
 
+    /// QDR-S01: non-success terminals still hold recoverable answer text while
+    /// `artifact.path` is often null — nextActions should advertise `--answer`.
+    var needsAnswerRecoveryHint: Bool {
+        switch self {
+        case .cancelled, .failed, .timedOut, .interrupted:
+            return true
+        case .done, .complete, .partial,
+             .queued, .running, .draft, .fanningOut, .answersIn, .planning, .reviewing, .finalizing:
+            return false
+        }
+    }
+
     /// Legal next states. `queued → running` is the one-worker path; `running`
     /// still advances into the multi-stage machine (`answers_in → planning → …`)
     /// so a single-worker team run synthesizes normally. `planning` spans the

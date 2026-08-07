@@ -88,6 +88,21 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(trj.nextActions.first?.command, "alln show \(run.id) --answer")
     }
 
+    /// QDR-S01: a killed/cancelled terminal with answer text still leads with
+    /// the artifact action, but must also advertise `--answer` — path is often
+    /// null and the durable body is the recovery.
+    func testCancelledTerminalWithAnswerContentSurfacesShowAnswerAction() throws {
+        var run = try Fixtures.run(.runComplete)
+        run.status = .cancelled
+        run.endReason = .killed
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertEqual(trj.nextActions.first?.kind, .showArtifact)
+        XCTAssertTrue(
+            trj.nextActions.contains { $0.kind == .showAnswer && $0.command == "alln show \(run.id) --answer" },
+            "killed/cancelled recovery must name `show --answer` when the record holds text"
+        )
+    }
+
     /// QDR-S01: an in-flight run with NO answer text gets no showAnswer action
     /// — nothing to retrieve; the action must not be decoration.
     func testInflightRunWithoutAnswerContentHasNoShowAnswerAction() throws {
