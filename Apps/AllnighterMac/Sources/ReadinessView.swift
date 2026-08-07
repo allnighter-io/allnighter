@@ -41,7 +41,7 @@ struct TeamReadinessView: View {
     private func seedSelection() {
         if let focus = focusDriverId, cards.contains(where: { $0.driverId == focus }) {
             selectedId = focus
-        } else if let first = (attentionCards.first ?? readyCards.first ?? dormantCards.first ?? parkedCards.first ?? cards.first)?.driverId {
+        } else if let first = (attentionCards.first ?? rateLimitedCards.first ?? readyCards.first ?? dormantCards.first ?? parkedCards.first ?? cards.first)?.driverId {
             selectedId = first
         }
     }
@@ -125,11 +125,15 @@ struct TeamReadinessView: View {
     private var parkedCards: [SetupCardModel] {
         CLISetupGrouping.parkedCards(from: cards)
     }
+    private var rateLimitedCards: [SetupCardModel] {
+        CLISetupGrouping.rateLimitedCards(from: cards)
+    }
 
     private var bodyColumns: some View {
         HStack(alignment: .top, spacing: 24) {
             VStack(alignment: .leading, spacing: 9) {
                 cliGroup("Needs attention", attentionCards, .attention)
+                cliGroup("Rate limited", rateLimitedCards, .rateLimited)
                 cliGroup("Ready", readyCards, .ready)
                 cliGroup("Dormant", dormantCards, .dormant)
                 cliGroup("Parked", parkedCards, .parked)

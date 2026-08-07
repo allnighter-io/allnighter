@@ -600,6 +600,9 @@ struct BenchHealthPopover: View {
     private var parkedCards: [SetupCardModel] {
         CLISetupGrouping.parkedCards(from: cards)
     }
+    private var rateLimitedCards: [SetupCardModel] {
+        CLISetupGrouping.rateLimitedCards(from: cards)
+    }
 
     private func onModelNames(for driverId: String) -> [String] {
         model.models
@@ -613,6 +616,7 @@ struct BenchHealthPopover: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     group("Needs attention", cards: attentionCards, kind: .attention)
+                    group("Rate limited", cards: rateLimitedCards, kind: .rateLimited)
                     group("Ready", cards: readyCards, kind: .ready)
                     group("Dormant", cards: dormantCards, kind: .dormant)
                     group("Parked", cards: parkedCards, kind: .parked)
@@ -631,7 +635,7 @@ struct BenchHealthPopover: View {
 
     private var bodyHeight: CGFloat {
         var h: CGFloat = 16
-        for count in [attentionCards.count, readyCards.count, dormantCards.count, parkedCards.count] where count > 0 {
+        for count in [attentionCards.count, rateLimitedCards.count, readyCards.count, dormantCards.count, parkedCards.count] where count > 0 {
             h += 26 + CGFloat(count) * 70
         }
         return min(max(h, 80), maxBodyHeight)
@@ -666,9 +670,15 @@ struct BenchHealthPopover: View {
 
     private var summaryLine: some View {
         let attention = attentionCards.count
+        let rateLimited = rateLimitedCards.count
         return HStack(spacing: 0) {
             if attention > 0 {
                 Text("\(attention) needs attention")
+                    .foregroundStyle(ALColor.accentText).fontWeight(.semibold)
+                Text(" · ").foregroundStyle(ALColor.textFaint)
+            }
+            if rateLimited > 0 {
+                Text("\(rateLimited) rate limited")
                     .foregroundStyle(ALColor.accentText).fontWeight(.semibold)
                 Text(" · ").foregroundStyle(ALColor.textFaint)
             }
@@ -725,21 +735,25 @@ enum CLISetupGrouping {
     static func parkedCards(from cards: [SetupCardModel]) -> [SetupCardModel] {
         cards.filter { $0.state == .parked }
     }
+
+    static func rateLimitedCards(from cards: [SetupCardModel]) -> [SetupCardModel] {
+        cards.filter { $0.state == .rateLimited }
+    }
 }
 
 /// Which redesign group a CLI row belongs to — drives the status dot, content, and
 /// dormant dimming. Shared by the CLI dropdown (non-interactive) and the CLI setup
 /// page (selectable).
 enum CLIStatusGroup {
-    case attention, ready, dormant, parked
+    case attention, rateLimited, ready, dormant, parked
 
     /// Needs a setup step or in-progress check (vs. dormant = ready with 0 models on).
     static func isAttention(_ state: SetupCardState) -> Bool {
         switch state {
-        case .needsLogin, .needsPath, .notInstalled, .probeFailed, .rateLimited, .waiting,
+        case .needsLogin, .needsPath, .notInstalled, .probeFailed, .waiting,
              .notChecked, .installedNotProbed, .detecting, .reprobing, .queued:
             return true
-        case .ready, .parked:
+        case .ready, .parked, .rateLimited:
             return false
         }
     }
@@ -808,6 +822,10 @@ struct CLIStatusRow: View {
             Text("Parked — ignored until on bench")
                 .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(ALColor.textFaint)
+        case .rateLimited:
+            Text("Rate limited — out of capacity, will retry when quota resets")
+                .font(.system(size: 11.5, weight: .medium, design: .monospaced))
+                .foregroundStyle(ALColor.textFaint)
         }
     }
 
@@ -815,6 +833,7 @@ struct CLIStatusRow: View {
         switch kind {
         case .ready: StatusDot(color: ALPalette.green500, halo: ALPalette.green500.opacity(0.15))
         case .dormant, .parked: StatusDot(color: ALPalette.ink450, halo: nil)
+        case .rateLimited: StatusDot(color: ALPalette.amber500, halo: ALPalette.amber500.opacity(0.18))
         case .attention: StatusDot(color: ALPalette.amber500, halo: ALPalette.amber500.opacity(0.18))
         }
     }
