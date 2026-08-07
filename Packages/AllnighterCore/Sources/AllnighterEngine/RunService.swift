@@ -1691,7 +1691,8 @@ public actor RunService {
                         model: model, manifest: manifest, prompt: assembled, effort: effort,
                         workingDirectory: repoRoot, timeout: timeoutOverride,
                         sessionPlan: sessionPlan,
-                        spawnConcurrencyLimit: spawnConcurrencyLimit
+                        spawnConcurrencyLimit: spawnConcurrencyLimit,
+                        openCodeIntent: .mutating
                     ))
                 }
             }
@@ -1748,7 +1749,8 @@ public actor RunService {
                     runner.invoke(WorkerInvocation(
                         model: model, manifest: manifest, prompt: assembled, effort: effort,
                         workingDirectory: repoRoot, timeout: timeoutOverride, sessionPlan: sessionPlan,
-                        spawnConcurrencyLimit: spawnConcurrencyLimit
+                        spawnConcurrencyLimit: spawnConcurrencyLimit,
+                        openCodeIntent: .mutating
                     ))
                 }
                 for try await streamEvent in invocationStream {
@@ -1809,7 +1811,8 @@ public actor RunService {
                     workingDirectory: repoRoot,
                     timeout: timeoutOverride,
                     sessionPlan: freshPlan,
-                    spawnConcurrencyLimit: spawnConcurrencyLimit
+                    spawnConcurrencyLimit: spawnConcurrencyLimit,
+                    openCodeIntent: .mutating
                 ))
             }
         }
@@ -2115,6 +2118,21 @@ public actor RunService {
         run.noCommitOrdered = noCommit ? true : nil
         if noCommit, run.repoDelta?.changed != true {
             run.uncommittedFileCount = gitObserver.dirtyFiles(rootPath: repoRoot).count
+        }
+        // S122.2-outcome: Allnighter decides OpenCode mutating terminals from signal + delta.
+        if var rewritten = run.answers.first?.result,
+           let verdict = OpenCodeOutcomeAuthority.resolve(
+            signal: rewritten.openCodeTurnSignal,
+            repoDelta: run.repoDelta,
+            workerOutput: rewritten.output
+           ) {
+            OpenCodeOutcomeAuthority.apply(verdict, to: &rewritten)
+            run.answers[0].result = rewritten
+            if rewritten.status != .timedOut {
+                run.status = rewritten.status == .done ? .complete : .failed
+                run.endReason = rewritten.status == .done ? .completed : .failed
+                run.phase = nil
+            }
         }
         // S122.3: dirty tree + zero commits is not clean success (unless --no-commit).
         if run.mutating, noCommit != true,
