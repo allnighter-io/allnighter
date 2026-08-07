@@ -315,10 +315,10 @@ public enum DoctorReport {
 
     /// Honest temporary-unavailability copy for a probe `.rateLimited` observation.
     public static func rateLimitedDetail(observation: CapacityObservation) -> String {
-        if let reset = observation.wakeAfter ?? observation.observedResetAt {
-            return "Rate limited — resets \(VendorContinuityPresentation.localTime(reset))"
-        }
-        return "Rate limited — will retry soon"
+        guard let reset = observation.observedResetAt,
+              observation.sourceConfidence == .structured || observation.sourceConfidence == .messageFallback
+        else { return "Rate limited — reset time unknown" }
+        return "Rate limited — resets \(VendorContinuityPresentation.localTime(reset))"
     }
 
     private static func headlessTrustCheck(_ driverId: String, trust: HeadlessTrustPolicy) -> DoctorResult.Check {

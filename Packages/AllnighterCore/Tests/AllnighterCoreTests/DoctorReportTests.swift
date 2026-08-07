@@ -189,7 +189,23 @@ final class DoctorReportTests: XCTestCase {
         )
         XCTAssertEqual(
             DoctorReport.rateLimitedDetail(observation: observation),
-            "Rate limited — will retry soon"
+            "Rate limited — reset time unknown"
+        )
+    }
+
+    func testLocalPolicyWithoutResetSaysUnknown() {
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .localPolicy,
+            rawSnippet: "rate limit",
+            observedAt: t,
+            retryAfterSeconds: 3600,
+            wakeAfter: t.addingTimeInterval(3600)
+        )
+        XCTAssertEqual(
+            DoctorReport.rateLimitedDetail(observation: observation),
+            "Rate limited — reset time unknown"
         )
     }
 }
