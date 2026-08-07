@@ -1692,7 +1692,9 @@ public actor RunService {
                         workingDirectory: repoRoot, timeout: timeoutOverride,
                         sessionPlan: sessionPlan,
                         spawnConcurrencyLimit: spawnConcurrencyLimit,
-                        openCodeIntent: mutating ? .mutating : .answerOnly
+                        openCodeIntent: mutating ? .mutating : .answerOnly,
+                        heldWriteLockRoots: OpenCodeHeldWriteLockRoots.forInvoke(
+                            repoRoot: repoRoot, mutating: mutating)
                     ))
                 }
             }
@@ -1750,7 +1752,9 @@ public actor RunService {
                         model: model, manifest: manifest, prompt: assembled, effort: effort,
                         workingDirectory: repoRoot, timeout: timeoutOverride, sessionPlan: sessionPlan,
                         spawnConcurrencyLimit: spawnConcurrencyLimit,
-                        openCodeIntent: mutating ? .mutating : .answerOnly
+                        openCodeIntent: mutating ? .mutating : .answerOnly,
+                        heldWriteLockRoots: OpenCodeHeldWriteLockRoots.forInvoke(
+                            repoRoot: repoRoot, mutating: mutating)
                     ))
                 }
                 for try await streamEvent in invocationStream {
@@ -1812,7 +1816,9 @@ public actor RunService {
                     timeout: timeoutOverride,
                     sessionPlan: freshPlan,
                     spawnConcurrencyLimit: spawnConcurrencyLimit,
-                    openCodeIntent: mutating ? .mutating : .answerOnly
+                    openCodeIntent: mutating ? .mutating : .answerOnly,
+                    heldWriteLockRoots: OpenCodeHeldWriteLockRoots.forInvoke(
+                        repoRoot: repoRoot, mutating: mutating)
                 ))
             }
         }

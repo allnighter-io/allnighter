@@ -395,7 +395,12 @@ public enum HelpTopicRegistry {
             - Foreign idle / stream drop / timeout mid-turn
             - Read-only tool loop with no answer text
             - Uncovered `external_directory` permission ask → `blockedOn: permission` \
-              (AgentOS/Allnighter sibling roots are allow-listed; arbitrary paths are not)
+              (arbitrary paths are not allow-listed)
+            - Sibling-repo `external_directory` auto-approve only when this run holds \
+              that root's write lock (run root always allowed for its own tree)
+
+            **Dogfood prereq:** port `4096` must be free — let `alln` spawn \
+            `opencode serve`. A manual orphan serve fails with `portOwnedByForeignProcess`.
 
             Do **not** demote DeepSeek V4 Pro or treat Flash as the fix — the bug was \
             completion honesty, not the model.
