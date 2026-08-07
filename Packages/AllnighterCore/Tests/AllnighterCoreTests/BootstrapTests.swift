@@ -79,13 +79,11 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains("`alln` CLI"), "must name the CLI surface")
         XCTAssertTrue(s.contains("fallback: `\(sampleBinary)`"), "must carry binary fallback")
         XCTAssertTrue(s.contains("alln menu --json"), "must teach live menu")
-        XCTAssertTrue(s.contains("useWhen"), "must teach useWhen")
-        XCTAssertTrue(s.contains("dontUseWhen"), "must teach dontUseWhen")
         XCTAssertTrue(s.contains("canonical ids"), "must teach exact-id dispatch")
         XCTAssertTrue(s.contains("validation template"), "must teach validation twin")
         XCTAssertTrue(s.contains("never trust a pasted catalog"), "must teach session re-read")
         XCTAssertTrue(s.contains("nextAction.command"), "must teach detached nextAction delivery")
-        XCTAssertTrue(s.contains("alln show <id> --stream"), "must teach show --stream reattach")
+        XCTAssertTrue(s.contains("One mutating worker"), "must teach the write invariant")
         XCTAssertFalse(s.contains("team hello"))
         XCTAssertFalse(s.contains("route --for"))
         XCTAssertFalse(s.contains("resolve --for"))
@@ -93,14 +91,14 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains(TeachingSnippet.openMarkerPrefix), "must wrap teaching in markers")
         XCTAssertTrue(s.contains(TeachingSnippet.closeMarker), "must close teaching markers")
         XCTAssertTrue(s.contains("hash=\(TeachingSnippet.contentHash)"), "marker must carry content hash")
-        XCTAssertTrue(
-            s.contains("COMPLETE human-readable stdout table verbatim"),
-            "bootstrap must teach capacity verbatim print contract"
-        )
-        XCTAssertTrue(
-            s.contains("Use `--json` only when the user explicitly requests"),
-            "bootstrap must teach JSON only on explicit request"
-        )
+
+        // v9: the body must not name a menu FIELD. `useWhen`/`dontUseWhen` were
+        // dropped from `models` and survive only on teams/actions/recipes, so a
+        // rule naming them pointed at a field that no longer exists for the
+        // thing it was most used to pick — and it cannot be corrected in a file
+        // we do not own. Say what to do; let the live menu describe its shape.
+        XCTAssertFalse(s.contains("useWhen"), "body must not name a menu field")
+        XCTAssertFalse(s.contains("dontUseWhen"), "body must not name a menu field")
     }
 
     func testSnippetDoesNotIncludePanelRecipe() {
@@ -118,17 +116,21 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains("plain `alln` works everywhere"))
     }
 
-    /// 11-rule body + markers stays compact (AVQ-S03 mutator/progress law).
-    /// `TeachingSnippet.reflexLines` is now 11 rules, so the ceiling moves with it
-    /// (15 on-path, 16 off-path) — no slack beyond the real line count.
+    /// The whole paste, not just the rules, is what lands in the user's file.
+    ///
+    /// This ceiling used to be raised to match whatever the body had grown to
+    /// (15/16 at eleven rules), which makes it a record of the growth rather
+    /// than a limit on it. v9 sets it to the real size — 4 preamble lines +
+    /// open marker + 4 rules + close marker = 10 on-path, 11 off-path — so
+    /// adding a rule fails here and has to be argued for.
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(onPathLines.count, 15, "on-path snippet grew past ≤15 budget")
+        XCTAssertLessThanOrEqual(onPathLines.count, 10, "on-path snippet grew past ≤10 budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(offPathLines.count, 16, "off-path snippet grew past ≤16 budget")
+        XCTAssertLessThanOrEqual(offPathLines.count, 11, "off-path snippet grew past ≤11 budget")
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {

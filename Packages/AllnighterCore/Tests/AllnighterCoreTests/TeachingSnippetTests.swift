@@ -11,58 +11,66 @@ final class TeachingSnippetTests: XCTestCase {
     }
 
     func testBodyTeachesLiveMenuReflexAndDetachedDelivery() {
-        XCTAssertEqual(TeachingSnippet.schemaVersion, 8)
-        XCTAssertEqual(TeachingSnippet.reflexLines.count, 11)
-        XCTAssertTrue(
-            TeachingSnippet.reflexLines.contains { $0.contains("pmTurn.report") },
-            "agents must learn where the pilot dev report lives"
-        )
-        XCTAssertTrue(
-            TeachingSnippet.reflexLines.contains { $0.contains("artifact.path") },
-            "agents must surface the team artifact after a terminal run"
-        )
+        XCTAssertEqual(TeachingSnippet.schemaVersion, 9)
+        XCTAssertEqual(TeachingSnippet.reflexLines.count, 4)
         XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
+        // 1 — the front door, and the reflex to re-read it.
         XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
-        XCTAssertTrue(TeachingSnippet.body.contains("useWhen"))
-        XCTAssertTrue(TeachingSnippet.body.contains("dontUseWhen"))
-        XCTAssertTrue(TeachingSnippet.body.contains("validation template"))
         XCTAssertTrue(TeachingSnippet.body.contains("never trust a pasted catalog"))
-        XCTAssertTrue(TeachingSnippet.body.contains("nextAction.command"))
-        XCTAssertTrue(TeachingSnippet.body.contains("alln show <id> --stream"))
-        XCTAssertTrue(TeachingSnippet.body.contains("never poll or resume"))
-        // CD-S03: relay aggregate ≠ dev leg.
-        XCTAssertTrue(TeachingSnippet.body.contains("devRunId"))
-        XCTAssertTrue(TeachingSnippet.body.contains("Relay running"))
-        // AVQ-S04: parallel feedback lock policy.
-        XCTAssertTrue(TeachingSnippet.body.contains("--read-only"))
-        XCTAssertTrue(TeachingSnippet.body.contains("--no-commit"))
-        // AVQ-S03: one mutator + running ≠ progress; observation block replaces progressStale.
-        XCTAssertTrue(TeachingSnippet.body.contains("One mutator"))
+        // 2 — canonical ids + validate before spending.
+        XCTAssertTrue(TeachingSnippet.body.contains("canonical ids"))
+        XCTAssertTrue(TeachingSnippet.body.contains("validation template"))
+        // 3 — the write invariant.
+        XCTAssertTrue(TeachingSnippet.body.contains("One mutating worker"))
         XCTAssertTrue(TeachingSnippet.body.contains("observation"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln show <id> --json"))
-        // Capacity print contract: user-visible verbatim table, not shell-tool summary.
-        XCTAssertTrue(
-            TeachingSnippet.body.contains("alln capacity"),
-            "agents must know bare alln capacity is the print path"
-        )
-        XCTAssertTrue(
-            TeachingSnippet.body.contains("COMPLETE human-readable stdout table verbatim"),
-            "agents must paste the full capacity table in the final response"
-        )
-        XCTAssertTrue(
-            TeachingSnippet.body.contains("shown above"),
-            "agents must be told never to say shown above instead of pasting the table"
-        )
-        XCTAssertTrue(
-            TeachingSnippet.body.contains("Use `--json` only when the user explicitly requests"),
-            "JSON is opt-in on explicit request only"
-        )
+        // 4 — detached delivery.
+        XCTAssertTrue(TeachingSnippet.body.contains("nextAction.command"))
+        XCTAssertTrue(TeachingSnippet.body.contains("never poll or resume"))
         XCTAssertFalse(TeachingSnippet.body.contains("progressStale"))
         XCTAssertFalse(TeachingSnippet.body.contains("delivery command"))
         XCTAssertFalse(TeachingSnippet.body.contains("team hello"))
         XCTAssertFalse(TeachingSnippet.body.contains("route --for"))
         XCTAssertFalse(TeachingSnippet.body.contains("resolve --for"))
         XCTAssertFalse(TeachingSnippet.body.contains("panel start"))
+    }
+
+    /// The seam that let retired vocabulary ship for months.
+    ///
+    /// `RetiredVocabulary` denies *command* spellings (`pair relay`, `pair
+    /// pilot`), but the v8 rules used the bare prose nouns — "Relay running",
+    /// "Pilot/relay dev report" — so no gate could see them, and a test
+    /// requiring `pmTurn.report` pinned one of them in place. Deny the nouns in
+    /// the one body that gets pasted into every host on earth.
+    func testBodyIsFreeOfRetiredVocabulary() {
+        let lowered = TeachingSnippet.body.lowercased()
+        for noun in ["relay", "pilot", "devrunid", "pmturn", "devleg", "panel", "council"] {
+            XCTAssertFalse(
+                lowered.contains(noun),
+                "teaching body ships retired vocabulary '\(noun)' — the loop grammar replaced it"
+            )
+        }
+        for term in RetiredVocabulary.denyTerms {
+            XCTAssertFalse(
+                lowered.contains(term.lowercased()),
+                "teaching body ships denied term '\(term)'"
+            )
+        }
+    }
+
+    /// The block is pasted permanently into files the user owns and guards. Size
+    /// is a product constraint, not a style note: the v8 body was 95% of the
+    /// founder's entire global CLAUDE.md, which is how a block gets deleted
+    /// wholesale. Founder ruling: "a few lines that matter is all it takes."
+    func testBodyStaysSmallEnoughToSurviveInSomeoneElsesFile() {
+        XCTAssertLessThanOrEqual(
+            TeachingSnippet.reflexLines.count, 5,
+            "teaching body is growing back — every added rule must beat 'put it in the live menu'"
+        )
+        XCTAssertLessThanOrEqual(
+            TeachingSnippet.body.count, 600,
+            "teaching body is \(TeachingSnippet.body.count) chars; it competes with the user's own instructions"
+        )
         // No embedded catalog rows.
         XCTAssertFalse(TeachingSnippet.body.contains("model_sonnet"))
         XCTAssertFalse(TeachingSnippet.body.contains("code_growth"))

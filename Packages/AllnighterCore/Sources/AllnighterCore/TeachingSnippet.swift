@@ -13,28 +13,64 @@ import Foundation
 /// No filesystem writes — the CLI prints; the Mac app (ONB-S03) owns clicks.
 public enum TeachingSnippet {
     /// Marker schema version. Bump when the marker grammar or body contract changes.
-    public static let schemaVersion = 8
+    ///
+    /// v9 narrowed the body from eleven rules to four. A body change alone would
+    /// make every installed block parse as `.modified` — "the user hand-edited
+    /// this" — which is a lie about who changed it. Bumping the version makes
+    /// them parse as `.stale` instead, which is true and which the installer
+    /// knows how to repair.
+    public static let schemaVersion = 9
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
     /// Close marker (exact).
     public static let closeMarker = "<!-- ALLNIGHTER:TEACHING:END -->"
 
-    /// Live-menu reflex plus the universal detached-delivery discipline.
+    /// The live-menu reflex and the two invariants an agent cannot discover.
+    ///
+    /// **This block is the most widely distributed string Allnighter ships** —
+    /// pasted permanently into every host's global context file. It is also the
+    /// most easily deleted: it competes for space with the user's own standing
+    /// instructions, and a block that dominates the file gets removed wholesale,
+    /// taking the product's front door with it. Measured before the v9 cut, the
+    /// eleven-rule body was 1,064 characters — 95% of the founder's entire
+    /// `~/.claude/CLAUDE.md`. Founder ruling: "a few lines that matter is all it
+    /// takes."
+    ///
+    /// So the admission test is narrow: **a rule earns a line here only if the
+    /// agent must know it *before* it can discover anything.** Everything
+    /// discoverable belongs in the discoverable surface — that is what rule 1
+    /// exists to reach. Command spellings, flag choices, output-formatting
+    /// preferences and per-surface reporting habits all live in `alln menu`,
+    /// `alln help`, and the recipes, where they are read at the moment they
+    /// matter and can never go stale in someone else's file.
+    ///
     /// Protocol only — never embed models, teams, recipes, or command rows.
-    /// Surface-specific commands remain in their acknowledgement and recipe.
+    ///
+    /// **Never name a menu field here.** The v8 body told agents to choose from
+    /// `useWhen` / `dontUseWhen`; those fields were then dropped from `models`
+    /// and survive only on teams, actions and recipes, so the rule was pointing
+    /// at a field that no longer exists for the thing it was most often used to
+    /// pick. A schema detail cannot be corrected in a file we do not own — say
+    /// what the agent must do, and let the live menu describe its own shape.
+    ///
+    /// Removed in v9, and why:
+    /// - relay/pilot `devRunId` + `pmTurn.report` rules — the vocabulary was
+    ///   retired in favour of `alln loop`. They shipped dead for months because
+    ///   `RetiredVocabulary` denies the *command* spellings (`pair relay`) while
+    ///   these rules used the bare prose nouns, so the gate could not see them.
+    ///   `testBodyIsFreeOfRetiredVocabulary` now closes that seam.
+    /// - `--read-only` vs `--no-commit`, and surfacing `artifact.path` — real,
+    ///   but discoverable; they belong to the menu and the recipes.
+    /// - The `alln capacity` verbatim-table rule — 500 characters, half the
+    ///   block, to prevent an occasional summary. The table is now compact and
+    ///   self-contained, so agents relay it without being told (founder,
+    ///   2026-08-06). Cheap to restore if it regresses.
     public static let reflexLines = [
-        "1. Before first Allnighter use in a session, read `alln menu --json`.",
-        "2. Choose from `useWhen` / `dontUseWhen`; pass canonical ids only.",
-        "3. Before an unfamiliar agent-starting action, run its validation template.",
-        "4. Re-read the live menu in a new session; never trust a pasted catalog.",
-        "5. After `--no-wait`, run the returned `nextAction.command` once (`alln show <id> --stream`); never poll or resume — re-run reattaches, kill never kills the run.",
-        "6. Relay running ≠ dev running — check devRunId.",
-        "7. Parallel feedback: `alln run --read-only --model …` — not `--no-commit` (that still queues).",
-        "8. One mutator per repo root; `running` is not progress — inspect queue ticket and `observation` on `alln show <id> --json`.",
-        "9. Pilot/relay dev report is `pmTurn.report` (not `devLeg` — that is settle/liveness only).",
-        "10. After a terminal team run, surface `artifact.path` / `artifact.openCommand` to the user — not only the lead answer.",
-        "11. When the user asks to print/show/display `alln capacity`, run bare `alln capacity` and include the COMPLETE human-readable stdout table verbatim in your final response — never a summary, selected highlights, JSON, or \"shown above\"; a summary may follow only after the full table. Use `--json` only when the user explicitly requests JSON/machine-readable output or a program needs the schema.",
+        "1. Before first Allnighter use in a session, read `alln menu --json` — and re-read it in a new session; never trust a pasted catalog.",
+        "2. Select from the menu's own entries and pass canonical ids verbatim — never a display name, never an invented id. Run the validation template before an unfamiliar agent-starting action.",
+        "3. One mutating worker per repo root. `running` is not progress — read `observation` on `alln show <id> --json`.",
+        "4. After `--no-wait`, run the returned `nextAction.command` once; never poll or resume — re-running reattaches, and kill never kills the run.",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.
