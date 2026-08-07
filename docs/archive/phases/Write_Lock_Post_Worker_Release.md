@@ -1,6 +1,6 @@
 # Worker Turn Termination and Lane Release
 
-Status: **S02 COMPLETE — dogfood next (founder ceiling 2026-08-04)**
+Status: **CLOSED — S02 shipped; dogfood waived (founder 2026-08-07)**
 Owner: AllnighterEngine (`RunService`, `ExecutionLane`, kill path)
 Created: 2026-08-04
 Finalized: 2026-08-04 (scope narrowed by founder)

@@ -39,11 +39,10 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then Dock scheduler** | Spec Review Min Ready: one 30m freshness clock; scoped kill before timer; Dock-only. |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete; one dogfood proof remains** | Wall-crossing resume half blocked on Codex real reset (2026-08-04). Code SSOT: `CapacityDisplayAcquisition`, `MenuCatalog`, `LoopCoordinator`, `VendorBackoffReconciler`. |
-| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 founder-blocked** | DNS (`get.allnighter.io`) + Developer ID + notarization. S00–S03/S06 shipped. |
+| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
-| [`Write_Lock_Post_Worker_Release.md`](Write_Lock_Post_Worker_Release.md) | **S02 COMPLETE — dogfood** | Kill/cancel frees repo lane. Founder ceiling: dogfood before any further lifecycle work. |
 
 ### Forward feature packets
 

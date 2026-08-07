@@ -297,7 +297,7 @@ Works Test A — host running (the working path):
 ```text
 Precondition: Allnighter app IS running; hand-off inbox empty.
 Origin: a normal default Codex session.
-Action: alln run "Review docs/phases/fixtures/Codex_Handoff_Smoke.md and follow
+Action: alln run "Review docs/archive/phases/fixtures/Codex_Handoff_Smoke.md and follow
         its instructions." --team code_doc_review --project . --json
 Expected: the run completes and the answer returns in the originating terminal.
 Result: PASS
