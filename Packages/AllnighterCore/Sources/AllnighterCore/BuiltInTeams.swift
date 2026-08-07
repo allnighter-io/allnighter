@@ -9,7 +9,7 @@ public enum BuiltInTeams {
     public static let all: [TeamPreset] = [
         buildCore, buildBugHuntMin, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview,
         buildSpecReviewMin, buildDocReview, buildSpecReview, buildSpecReviewMax, buildReleaseProof,
-        buildGrowthMin, buildGrowth, buildGrowthMax,
+        buildGrowthMin, buildGrowth, buildGrowthMax, buildFusion,
         defaultChat, executionPlaybook,
         designMin, designCore, designMax, designPremiumPolish, designUsabilityTriage,
         copyCore, copyLandingPage,
@@ -38,6 +38,10 @@ public enum BuiltInTeams {
     private static let cursorAuto = "model_cursor_auto"
     /// External / X / web research scout (also high/mid value in rotations).
     private static let grok = "model_grok"
+    /// OpenRouter Fusion budget panel (DRACO 64.7%): local catalog ids for
+    /// Gemini 3 Flash + Kimi K2.6 + DeepSeek V4 Pro.
+    private static let fusionDeepseek = "model_opencode_deepseek_v4_pro"
+    private static let fusionPanelPreference = [gemini, "model_kimi_k27", fusionDeepseek]
 
     // MARK: - Builders
 
@@ -309,6 +313,31 @@ public enum BuiltInTeams {
         starters: [
             "Growth Max: scout what is spreading in the category on X now, then find the wedge that makes builders LOVE this and the shareable viral loop — kept simple and on-core."]
     )
+
+    /// Fusion — OpenRouter's published control configuration: the same prompt on a
+    /// fixed three-model panel, one Lead merges the answers. Not the recommended
+    /// default — the baseline you can re-run beside differentiated teams like
+    /// Spec Review. OpenRouter scored this panel at 64.7% on DRACO deep research
+    /// (Gemini 3 Flash + Kimi K2.6 + DeepSeek V4 Pro, synthesized by Opus 4.8).
+    static let buildFusion = make(
+        id: "fusion", name: "Fusion", lane: .code,
+        output: .plan, defaultEffort: .high,
+        description: "OpenRouter Fusion control: Gemini 3 Flash + Kimi K2.6 + DeepSeek V4 Pro on the same prompt, synthesized by Opus 4.8 — 64.7% on DRACO deep research (openrouter.ai/blog/announcements/fusion-beats-frontier/). Baseline control, not the recommended default.",
+        rows: [
+            TeamAgentSpec(id: "fusion_seats", skillId: "fusion_panelist", purpose: .answer,
+                           count: 3, triangulate: true,
+                           triangulatePreferenceIds: fusionPanelPreference)
+        ],
+        writer: "fusion_writer",
+        lead: TeamLeadSpec(
+            skillId: "fusion_writer",
+            preferredModelId: opus,
+            fallbackModelIds: [gptSol, leadFlagship, kimi, cursorGrok, grok, composer, sonnet, gemini, cursorAuto],
+            fallbackPolicy: .strongestReady,
+            dissentPolicy: .preserveDissent),
+        typeTags: ["fusion", "control", "deep-research"],
+        starters: [
+            "Answer this question thoroughly — factual accuracy, breadth, citations where external facts matter. Same prompt OpenRouter sent to its Fusion budget panel (64.7% on DRACO)."])
 
     /// Spec Review Min — the smallest useful cross-CLI panel. Rows express NEED
     /// (capability), not identity, so it stays useful without Claude or ChatGPT —

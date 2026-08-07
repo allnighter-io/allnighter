@@ -218,6 +218,10 @@ public enum MenuSelectionCopy {
             useWhen: "Deep growth + live trend signal",
             dontUseWhen: "Judgment, not code"
         ),
+        "fusion": Pair(
+            useWhen: "OpenRouter Fusion control: same prompt, fixed panel, merge",
+            dontUseWhen: "Differentiated seats; use code_spec_review"
+        ),
         "code_spec_review_min": Pair(
             useWhen: "Lean spec check before you build",
             dontUseWhen: "Review only, no edits"

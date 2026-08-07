@@ -17,7 +17,7 @@ final class BuiltInTeamsTests: XCTestCase {
         let required = [
             "code_plan", "code_bug_hunt_min", "code_bug_hunt", "code_bug_hunt_max", "code_gui_bug_hunt", "code_security_review",
             "code_spec_review_min", "code_doc_review", "code_spec_review", "code_spec_review_max", "code_release_proof",
-            "code_growth_min", "code_growth", "code_growth_max",
+            "code_growth_min", "code_growth", "code_growth_max", "fusion",
             "default_chat", "build_slice",
             "design_design_min", "design_design", "design_design_max", "design_polish",
             "design_usability_review",
@@ -29,6 +29,41 @@ final class BuiltInTeamsTests: XCTestCase {
             XCTAssertTrue(BuiltInTeams.team(id)?.builtIn ?? false)
         }
         XCTAssertEqual(BuiltInTeams.all.count, required.count)
+    }
+
+    func testFusionCarriesOpenRouterPanelAndOpusLead() {
+        let team = BuiltInTeams.team("fusion")!
+        XCTAssertEqual(team.displayName, "Fusion")
+        XCTAssertEqual(team.outputKind, .plan)
+        XCTAssertFalse(team.isDefaultForLane)
+        XCTAssertEqual(team.agentSpecs.count, 1)
+        XCTAssertEqual(team.agentSpecs[0].skillId, "fusion_panelist")
+        XCTAssertEqual(team.agentSpecs[0].count, 3)
+        XCTAssertTrue(team.agentSpecs[0].triangulate)
+        XCTAssertEqual(team.agentSpecs[0].triangulatePreferenceIds, [
+            "model_gemini", "model_kimi_k27", "model_opencode_deepseek_v4_pro"
+        ])
+        XCTAssertEqual(team.lead.skillId, "fusion_writer")
+        XCTAssertEqual(team.lead.preferredModelId, "model_opus")
+
+        let gemini = Model(id: "model_gemini", displayName: "Gemini", modelLabel: "gemini",
+                           driverId: "antigravity", role: .answerer)
+        let kimi = Model(id: "model_kimi_k27", displayName: "Kimi K2.7", modelLabel: "kimi-k2.7",
+                         driverId: "kimi", role: .answerer)
+        let deepseek = Model(id: "model_opencode_deepseek_v4_pro", displayName: "DeepSeek V4 Pro",
+                             modelLabel: "deepseek-v4-pro", driverId: "opencode", role: .answerer)
+        let opus = opus()
+        let ready = [gemini, kimi, deepseek, opus]
+        let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: ready)
+
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.count, 3)
+        XCTAssertEqual(Set(r.answerWorkers.map(\.modelId)), [
+            "model_gemini", "model_kimi_k27", "model_opencode_deepseek_v4_pro"
+        ])
+        XCTAssertEqual(r.planWriter?.modelId, "model_opus")
+        XCTAssertEqual(r.planWriter?.skillId, "fusion_writer")
+        XCTAssertTrue(r.answerWorkers.allSatisfy { $0.skillId == "fusion_panelist" })
     }
 
     func testDocReviewIsSingleWorkerReadOnly() {
@@ -252,7 +287,7 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testEverySynthesisTeamReservesFableForLead() {
-        let passthrough: Set<String> = ["default_chat", "build_slice", "code_doc_review"]
+        let passthrough: Set<String> = ["default_chat", "build_slice", "code_doc_review", "fusion"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
             XCTAssertEqual(team.lead.preferredModelId, "model_fable", "\(team.id) lead should prefer Fable")
         }
@@ -267,7 +302,7 @@ final class BuiltInTeamsTests: XCTestCase {
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
             "model_cursor_auto"
         ]
-        let passthrough: Set<String> = ["default_chat", "build_slice", "code_doc_review"]
+        let passthrough: Set<String> = ["default_chat", "build_slice", "code_doc_review", "fusion"]
         for team in BuiltInTeams.all where !passthrough.contains(team.id) {
             XCTAssertEqual(team.lead.fallbackModelIds, expected, team.id)
         }
@@ -368,7 +403,7 @@ final class BuiltInTeamsTests: XCTestCase {
     }
 
     func testEveryTeamLaneMatchesIdPrefixAndSkillLane() {
-        let globalRunTeams: Set<String> = ["default_chat", "build_slice"]
+        let globalRunTeams: Set<String> = ["default_chat", "build_slice", "fusion"]
         for team in BuiltInTeams.all {
             if !globalRunTeams.contains(team.id) {
                 XCTAssertTrue(team.id.hasPrefix(team.lane.rawValue), "\(team.id) prefix != lane")
