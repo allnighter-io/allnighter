@@ -7,7 +7,9 @@
 <style>
   /* ============================================================
      Palette + type lifted from AllnighterTokens.swift (token-of-record).
-     ink ramp, amber phosphor, status hues, radii, type scale.
+     ink ramp, amber phosphor, red status hue, radii, type scale.
+     Page law: three colours only — neutral, amber, red. No green,
+     no yellow, no blue anywhere on this pane.
      ============================================================ */
   :root {
     --void:    #0C0E14;
@@ -35,12 +37,8 @@
     --amber-surface: rgba(255,166,48,0.12);
     --amber-border:  rgba(255,166,48,0.32);
 
-    --green:  #3FD18B;
-    --red:    #F76B6B;
-    --blue:   #5B9DFF;
-    --yellow: #F5C84B;
-    --green-surface:  rgba(63,209,139,0.12);
-    --warning-surface: rgba(245,200,75,0.12);
+    --red:         #F76B6B;
+    --red-surface: rgba(247,107,107,0.12);
 
     --r-xs: 4px; --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-xl: 14px; --r-pill: 999px;
 
@@ -58,7 +56,7 @@
     font-size: 13px;
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
-    padding: 48px 24px 96px;
+    padding: 32px 24px 96px;
   }
 
   /* The detail pane frame — the sidebar already ate ~230px; this is what's left. */
@@ -71,9 +69,10 @@
     overflow: hidden;
     box-shadow: 0 24px 40px rgba(0,0,0,0.55);
   }
+  /* One column, full width, top to bottom — the hero shares the same
+     measure as the tables below it instead of floating in a half-empty band. */
   .pane-inner {
-    padding: 56px 72px 64px;
-    max-width: 980px;
+    padding: 36px 56px 64px;
   }
 
   .breadcrumb {
@@ -81,33 +80,28 @@
     color: var(--text-faint);
     letter-spacing: 0.9px;
     text-transform: uppercase;
-    margin-bottom: 40px;
+    margin-bottom: 26px;
   }
   .breadcrumb b { color: var(--text-muted); font-weight: 500; }
 
-  /* ---------- Hero ---------- */
-  .eyebrow {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.9px;
-    text-transform: uppercase;
-    color: var(--amber-text);
-    margin-bottom: 14px;
-  }
+  /* ---------- Hero (everything above the fold lives here) ---------- */
   h1 {
-    font-size: 40px;
+    font-size: 36px;
     font-weight: 700;
     letter-spacing: -0.022em;
     line-height: 1.14;
     color: #E1E5F0;
-    max-width: 21ch;
-    margin-bottom: 18px;
+    margin-bottom: 8px;
+  }
+  .h1-sub {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
   }
   .deck {
     font-size: 15px;
     color: var(--text-secondary);
-    max-width: 62ch;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
   .deck .k { color: #E1E5F0; font-weight: 500; }
   .deck code, .prose code {
@@ -120,7 +114,7 @@
   }
 
   /* ---------- Sections ---------- */
-  section { margin-top: 56px; }
+  section { margin-top: 52px; }
   .sec-eyebrow {
     font-size: 11px;
     font-weight: 600;
@@ -139,16 +133,16 @@
   .prose {
     font-size: 13px;
     color: var(--text-secondary);
-    max-width: 64ch;
+    max-width: 70ch;
   }
   .prose + .prose { margin-top: 10px; }
 
-  /* ---------- Reframe: the CLI chips ---------- */
+  /* ---------- CLI chips ---------- */
   .cli-row {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin: 18px 0 16px;
+    margin: 14px 0 6px;
   }
   .chip {
     font-size: 12px;
@@ -171,12 +165,12 @@
     margin-right: 7px;
     vertical-align: 1px;
   }
-  .chip.lit .dot { background: var(--green); }
-  .chip-note { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .chip.lit .dot { background: var(--amber); }
+  .chip-note { font-size: 11px; color: var(--text-faint); }
 
-  /* ---------- Setup card ---------- */
+  /* ---------- Setup card (holds the page's only amber primary) ---------- */
   .setup-card {
-    margin-top: 20px;
+    margin-top: 18px;
     background: var(--surface);
     border: 1px solid var(--border-default);
     border-radius: var(--r-xl);
@@ -187,11 +181,23 @@
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    padding: 18px 22px;
+    padding: 16px 22px;
     border-bottom: 1px solid var(--border-subtle);
   }
-  .setup-head .lead { font-size: 13px; color: var(--text-secondary); max-width: 52ch; }
+  .setup-head .lead { font-size: 13px; color: var(--text-secondary); max-width: 46ch; }
   .setup-head .lead b { color: #E1E5F0; font-weight: 600; }
+  .setup-cta { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .brevity {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-align: right;
+    line-height: 1.5;
+  }
+  .brevity .slot {
+    color: var(--text-muted);
+    border-bottom: 1px dashed var(--border-strong);
+    cursor: default;
+  }
 
   .btn-primary {
     flex-shrink: 0;
@@ -235,7 +241,7 @@
 
   .host-row {
     display: grid;
-    grid-template-columns: 190px 1fr 130px auto;
+    grid-template-columns: 170px 1fr 130px auto;
     align-items: center;
     gap: 16px;
     padding: 13px 22px;
@@ -252,8 +258,10 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .host-path.na { font-family: var(--sans); font-style: normal; color: var(--text-faint); }
+  .host-path.na { font-family: var(--sans); font-style: normal; color: var(--text-faint); white-space: normal; }
 
+  /* Status pills — neutral / amber / red only. "Fine" is quiet; only
+     needs-attention states get colour. */
   .state {
     display: inline-flex;
     align-items: center;
@@ -266,10 +274,10 @@
     justify-self: start;
   }
   .state .d { width: 6px; height: 6px; border-radius: 50%; }
-  .state.ok      { color: var(--green);      background: var(--green-surface); }
-  .state.ok .d   { background: var(--green); }
-  .state.stale   { color: var(--yellow);     background: var(--warning-surface); }
-  .state.stale .d{ background: var(--yellow); }
+  .state.ok      { color: var(--text-secondary); background: rgba(255,255,255,0.05); }
+  .state.ok .d   { background: var(--text-muted); }
+  .state.stale   { color: var(--amber-text); background: var(--amber-surface); }
+  .state.stale .d{ background: var(--amber); }
   .state.off     { color: var(--text-muted); background: rgba(255,255,255,0.05); }
   .state.off .d  { background: var(--text-faint); }
   .state.na      { color: var(--text-faint); background: transparent; border: 1px dashed var(--border-default); }
@@ -298,7 +306,7 @@
   .ask-list { margin-top: 20px; display: flex; flex-direction: column; gap: 10px; }
   .ask {
     display: grid;
-    grid-template-columns: minmax(240px, 340px) 1fr;
+    grid-template-columns: minmax(260px, 380px) 1fr;
     gap: 24px;
     background: var(--surface);
     border: 1px solid var(--border-subtle);
@@ -330,7 +338,7 @@
     margin-top: 14px;
     font-size: 11.5px;
     color: var(--text-muted);
-    max-width: 64ch;
+    max-width: 70ch;
   }
   .law-note b { color: var(--text-secondary); font-weight: 600; }
 
@@ -369,13 +377,14 @@
     overflow: hidden;
     position: relative;
   }
+  /* Neutral fill = headroom as plain fact; amber marks only the
+     subscription about to hit its limit. No green "healthy" state. */
   .cap-bar i {
     position: absolute; left: 0; top: 0; bottom: 0;
     border-radius: var(--r-pill);
-    background: var(--text-faint);
+    background: var(--text-muted);
   }
-  .cap-bar.roomy i { background: var(--green); }
-  .cap-bar.low i   { background: var(--yellow); }
+  .cap-bar.low i { background: var(--amber); }
   .cap-cap {
     font-size: 10px;
     color: var(--text-faint);
@@ -384,16 +393,16 @@
 
   /* ---------- Footer / reassurance + disclosure ---------- */
   .quiet-close {
-    margin-top: 56px;
+    margin-top: 52px;
     padding-top: 24px;
     border-top: 1px solid var(--border-subtle);
     font-size: 12.5px;
     color: var(--text-muted);
-    max-width: 62ch;
+    max-width: 68ch;
   }
   details {
     margin-top: 18px;
-    max-width: 64ch;
+    max-width: 70ch;
   }
   summary {
     font-size: 11.5px;
@@ -427,9 +436,35 @@
     color: var(--text-faint);
     margin-bottom: 10px;
   }
-  .annotations h3 { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+  .annotations h3 { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-top: 24px; margin-bottom: 8px; }
+  .annotations h3:first-of-type { margin-top: 0; }
   .annotations p { font-size: 12.5px; max-width: 78ch; margin-bottom: 8px; }
   .annotations .rej { color: var(--text-secondary); font-weight: 600; }
+
+  .variant-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0 4px; }
+  .variant {
+    flex: 1 1 300px;
+    max-width: 360px;
+    background: var(--base);
+    border: 1px solid var(--border-default);
+    border-radius: var(--r-lg);
+    padding: 14px 16px;
+  }
+  .variant .v-label {
+    font-size: 10px;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+  }
+  .variant .v-h1 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    line-height: 1.2;
+    color: #E1E5F0;
+  }
+  .variant .v-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -439,32 +474,84 @@
 
     <div class="breadcrumb">Settings <span style="opacity:.5">›</span> <b>Use from your CLI</b></div>
 
-    <!-- 1 · THE HOOK -->
-    <div class="eyebrow">If you don't know</div>
-    <h1>Every AI subscription you pay for, from inside the one you're already in.</h1>
+    <!-- 1 · THE HOOK — dynamic: names the CLIs detected on THIS Mac.
+         Template + fallback ladder; variants shown in the proposal notes below.
+         Never names a CLI that wasn't detected. -->
+    <h1>Access every Codex model from inside Claude&nbsp;Code.</h1>
+    <p class="h1-sub">It runs both ways — and Cursor is on the bench too.</p>
+
     <p class="deck">
-      Teach your CLI one word, once. After that, <span class="k">Claude&nbsp;Code can call Codex</span>.
-      Cursor can call Gemini. Any of your CLIs can put the other 26 models to work — one at a
-      time or five in parallel — and Allnighter tells them which subscription still has
-      headroom this week, so they spend the quota that was going to expire anyway.
+      One short block, taught once, and <span class="k">your CLIs can put each other to work</span>.
     </p>
 
-    <!-- 2 · THE REFRAME -->
+    <!-- 2 · CHIPS + THE ONLY AMBER PRIMARY — above the fold, always -->
+    <div class="cli-row">
+      <span class="chip lit"><span class="dot"></span>Claude Code</span>
+      <span class="chip lit"><span class="dot"></span>Codex</span>
+      <span class="chip lit"><span class="dot"></span>Cursor</span>
+      <span class="chip lit"><span class="dot"></span>Antigravity</span>
+      <span class="chip"><span class="dot"></span>OpenCode</span>
+      <span class="chip"><span class="dot"></span>Grok</span>
+      <span class="chip"><span class="dot"></span>Kimi</span>
+      <span class="chip"><span class="dot"></span>Qwen</span>
+      <span class="chip"><span class="dot"></span>Muse</span>
+    </div>
+    <p class="chip-note">9 CLIs · 27 models · your logins, your subscriptions. No API keys, ever.</p>
+
+    <div class="setup-card">
+      <div class="setup-head">
+        <div class="lead"><b>4 hosts found on this Mac.</b> One is out of date, one hasn't been taught yet.</div>
+        <div class="setup-cta">
+          <div class="brevity">
+            <span class="slot">4 lines</span> per file, fenced by markers<br>
+            read them first · remove in one click
+          </div>
+          <button class="btn-primary">Teach all CLIs</button>
+        </div>
+      </div>
+
+      <!-- installed / up to date — fine is quiet, no colour -->
+      <div class="host-row">
+        <div><div class="host-name">Claude Code</div><div class="host-sub">global context</div></div>
+        <div class="host-path">~/.claude/CLAUDE.md</div>
+        <span class="state ok"><span class="d"></span>Taught · up to date</span>
+        <div class="host-action"><button class="btn-quiet">Remove</button></div>
+      </div>
+
+      <!-- needs update — amber, the needs-attention colour -->
+      <div class="host-row">
+        <div><div class="host-name">Cursor</div><div class="host-sub">global rules</div></div>
+        <div class="host-path">~/.cursor/rules/allnighter.mdc</div>
+        <span class="state stale"><span class="d"></span>Out of date</span>
+        <div class="host-action"><button class="btn-ghost">Update</button></div>
+      </div>
+
+      <!-- not installed -->
+      <div class="host-row">
+        <div><div class="host-name">This project</div><div class="host-sub">any CLI opened here</div></div>
+        <div class="host-path">AGENTS.md · repo root</div>
+        <span class="state off"><span class="d"></span>Not taught</span>
+        <div class="host-action"><button class="btn-ghost">Teach</button></div>
+      </div>
+
+      <!-- unsupported / manual — honest, and no longer truncated -->
+      <div class="host-row">
+        <div><div class="host-name">Codex</div><div class="host-sub">reads AGENTS.md per project</div></div>
+        <div class="host-path na">No global file — paste the block into each project.</div>
+        <span class="state na">Manual</span>
+        <div class="host-action"><button class="btn-ghost">Copy block</button></div>
+      </div>
+
+      <div class="setup-foot">
+        Prefer the terminal? <code>alln install-cli</code> puts alln on PATH ·
+        <code>alln bootstrap</code> prints this same block, paste-ready.
+      </div>
+    </div>
+
+    <!-- 3 · THE REFRAME — moved below the fold; the argument, at reading pace -->
     <section>
       <h2>You already pay for most of this bench.</h2>
-      <div class="cli-row">
-        <span class="chip lit"><span class="dot"></span>Claude Code</span>
-        <span class="chip lit"><span class="dot"></span>Codex</span>
-        <span class="chip lit"><span class="dot"></span>Cursor</span>
-        <span class="chip lit"><span class="dot"></span>Antigravity</span>
-        <span class="chip"><span class="dot"></span>OpenCode</span>
-        <span class="chip"><span class="dot"></span>Grok</span>
-        <span class="chip"><span class="dot"></span>Kimi</span>
-        <span class="chip"><span class="dot"></span>Qwen</span>
-        <span class="chip"><span class="dot"></span>Muse</span>
-      </div>
-      <p class="chip-note">9 CLIs · 27 models · your logins, your subscriptions. No API keys, ever.</p>
-      <p class="prose" style="margin-top:14px">
+      <p class="prose">
         Today those subscriptions don't know about each other. You work in one, and when you
         want a second opinion you open another window, paste the context in by hand, and paste
         the answer back. When one hits its limit, you stop — while the others sit idle with
@@ -472,63 +559,9 @@
       </p>
       <p class="prose">
         A well-known hack wires exactly one pair together: Codex inside Claude Code.
-        This page is the general case.
+        This page is the general case — any of your CLIs can call any of the others, one at a
+        time or five in parallel.
       </p>
-    </section>
-
-    <!-- 3 · SETUP, ONCE -->
-    <section>
-      <div class="sec-eyebrow">Set up once</div>
-      <h2>Teach the CLIs you use.</h2>
-      <p class="prose">
-        One short block goes into each CLI's context file, so the agent inside it knows
-        <code>alln</code> exists and how to call the others. That's the entire setup.
-        You can read every line before it lands, and removing it is one click.
-      </p>
-
-      <div class="setup-card">
-        <div class="setup-head">
-          <div class="lead"><b>4 hosts found on this Mac.</b> One is out of date, one hasn't been taught yet.</div>
-          <button class="btn-primary">Teach all CLIs</button>
-        </div>
-
-        <!-- installed / up to date -->
-        <div class="host-row">
-          <div><div class="host-name">Claude Code</div><div class="host-sub">global context</div></div>
-          <div class="host-path">~/.claude/CLAUDE.md</div>
-          <span class="state ok"><span class="d"></span>Taught · up to date</span>
-          <div class="host-action"><button class="btn-quiet">Remove</button></div>
-        </div>
-
-        <!-- needs update -->
-        <div class="host-row">
-          <div><div class="host-name">Cursor</div><div class="host-sub">global rules</div></div>
-          <div class="host-path">~/.cursor/rules/allnighter.mdc</div>
-          <span class="state stale"><span class="d"></span>Out of date</span>
-          <div class="host-action"><button class="btn-ghost">Update</button></div>
-        </div>
-
-        <!-- not installed -->
-        <div class="host-row">
-          <div><div class="host-name">This project</div><div class="host-sub">any CLI opened here</div></div>
-          <div class="host-path">AGENTS.md · repo root</div>
-          <span class="state off"><span class="d"></span>Not taught</span>
-          <div class="host-action"><button class="btn-ghost">Teach</button></div>
-        </div>
-
-        <!-- unsupported / manual -->
-        <div class="host-row">
-          <div><div class="host-name">Codex</div><div class="host-sub">reads AGENTS.md per project</div></div>
-          <div class="host-path na">No global context file — paste the block into each project you work in.</div>
-          <span class="state na">Manual</span>
-          <div class="host-action"><button class="btn-ghost">Copy block</button></div>
-        </div>
-
-        <div class="setup-foot">
-          Prefer the terminal? <code>alln install-cli</code> puts alln on PATH ·
-          <code>alln bootstrap</code> prints this same block, paste-ready.
-        </div>
-      </div>
     </section>
 
     <!-- 4 · WHAT YOU SAY AFTERWARDS -->
@@ -543,37 +576,38 @@
 
       <div class="ask-list">
         <div class="ask">
-          <div class="ask-said">Get a second opinion from GPT on this diff.</div>
+          <div class="ask-said">Ask GPT Sol to review this doc.</div>
           <div class="ask-happens">
-            Your agent hands the diff to a Codex seat and brings the answer back into your session.
-            You never leave the window.
+            Your agent hands the doc to a GPT Sol seat and brings the review back into your
+            session. You never leave the window.
             <br><span class="ask-cmd">alln run "…" --model model_gpt_sol</span>
           </div>
         </div>
 
         <div class="ask">
-          <div class="ask-said">Have a team hunt this bug.</div>
+          <div class="ask-said">Do a full spec review on this doc and get it implementation ready.</div>
           <div class="ask-happens">
-            Bug Hunt: 5 models from different vendors read the repo in parallel and return one
-            packet with their findings side by side. Read-only.
-            <br><span class="ask-cmd">alln run "…" --team code_bug_hunt</span>
+            Spec Review: 6 seats from different vendors pressure-test the doc in parallel and
+            return one hardened packet. Read-only.
+            <br><span class="ask-cmd">alln run "…" --team code_spec_review</span>
           </div>
         </div>
 
         <div class="ask">
-          <div class="ask-said">Security-review this branch before I merge.</div>
+          <div class="ask-said">Have DeepSeek V4 Pro implement this doc. Commit after every slice — I'll PM.</div>
           <div class="ask-happens">
-            8 seats, 8 angles, one report. Nothing writes to your repo.
-            <br><span class="ask-cmd">alln run "…" --team code_security_review</span>
-          </div>
-        </div>
-
-        <div class="ask">
-          <div class="ask-said">You review — let another model do the typing.</div>
-          <div class="ask-happens">
-            Your CLI keeps the reviewer's seat; a different model builds. Exactly one worker may
-            edit files, under a per-repo write lock.
+            DeepSeek takes the dev seat and builds, committing after every slice; you stay in
+            your own CLI as the PM, reviewing as the commits land.
             <br><span class="ask-cmd">alln loop start "…" --pm caller</span>
+          </div>
+        </div>
+
+        <div class="ask">
+          <div class="ask-said">Which of my subscriptions still has room this week?</div>
+          <div class="ask-happens">
+            One answer across every CLI you're signed into — real weekly and 5-hour headroom,
+            read from your own accounts.
+            <br><span class="ask-cmd">alln capacity</span>
           </div>
         </div>
       </div>
@@ -604,8 +638,8 @@
         <div class="cap-strip">
           <div class="cap-strip-title">alln capacity</div>
           <div class="cap-row"><span class="cap-name">Claude Code</span><div class="cap-bar low"><i style="width:18%"></i></div></div>
-          <div class="cap-row"><span class="cap-name">Codex</span><div class="cap-bar roomy"><i style="width:81%"></i></div></div>
-          <div class="cap-row"><span class="cap-name">Cursor</span><div class="cap-bar roomy"><i style="width:64%"></i></div></div>
+          <div class="cap-row"><span class="cap-name">Codex</span><div class="cap-bar"><i style="width:81%"></i></div></div>
+          <div class="cap-row"><span class="cap-name">Cursor</span><div class="cap-bar"><i style="width:64%"></i></div></div>
           <div class="cap-row"><span class="cap-name">Antigravity</span><div class="cap-bar"><i style="width:39%"></i></div></div>
           <div class="cap-cap">Weekly headroom per CLI — illustrative rendering, live values from your own accounts.</div>
         </div>
@@ -637,13 +671,69 @@
 <!-- ================= PROPOSAL ANNOTATIONS — not part of the pane ================= -->
 <div class="annotations">
   <div class="ann-eyebrow">Proposal notes — below this line is not on the pane</div>
+
+  <h3>Dynamic headline — template + fallback ladder</h3>
+  <p>The headline is rendered from what <span style="font-family:var(--mono)">GlobalTeachingInstaller.Preview</span>
+     actually detected on this Mac (v1 detects Claude Code, Cursor, Codex). Rules: never name a
+     CLI that wasn't detected; never imply a subscription the user doesn't have; if detection is
+     unavailable, fall back — never guess. The live pane above shows state 1.</p>
+  <div class="variant-row">
+    <div class="variant">
+      <div class="v-label">1 · Two+ hosts detected (common case — shown live above)</div>
+      <div class="v-h1">Access every Codex model from inside Claude&nbsp;Code.</div>
+      <div class="v-sub">Most interesting pair first. The sub-line carries "both directions" and
+        names any further detected hosts, so the headline never becomes a list.</div>
+    </div>
+    <div class="variant">
+      <div class="v-label">2 · One host detected</div>
+      <div class="v-h1">Access every model you pay for from inside Claude&nbsp;Code.</div>
+      <div class="v-sub">Names the one detected host; claims only "models you pay for", never a
+        second CLI we didn't find.</div>
+    </div>
+    <div class="variant">
+      <div class="v-label">3 · None detected / first run</div>
+      <div class="v-h1">Access any model, from any CLI you already pay for.</div>
+      <div class="v-sub">The generic fallback — no names, no implied subscriptions.</div>
+    </div>
+  </div>
+
+  <h3>The fold</h3>
+  <p>Assumed fold: ~700px tall at ~1150px wide. Above it: headline (one line, 8 words),
+     one 13-word deck line, the CLI chips row, and <b>Teach all CLIs</b> — the page's only
+     amber primary, in the setup card header immediately under the chips. Everything else
+     (the reframe prose, examples, capacity) moved below. The round-1 deck's parallel-teams
+     clause moved into the reframe; the capacity clause was already owned by the closer.</p>
+
+  <h3>The "4 lines" slot is runtime data, not copy</h3>
+  <p>The dash-underlined count beside the Teach button is populated at render time from the
+     real teaching block the installer would write — line count read from the block, never
+     hard-coded. <b>Honesty note:</b> measured today, the shipped block is 12 lines /
+     1,064 characters — 95% of a 16-line <span style="font-family:var(--mono)">~/.claude/CLAUDE.md</span> —
+     and stamped v7 against a v8 SSOT. That is exactly the dump a protective user deletes.
+     The shipped block must shrink to a few lines that matter before this pane ships;
+     until it does, the slot will truthfully display the larger number, which is itself
+     the argument for shrinking it.</p>
+
+  <h3>Colour</h3>
+  <p>Three colours only — neutral ink, amber, red — per product law. Round 1's green status
+     dots and green/yellow capacity fills are gone: "fine" states are quiet neutral, amber
+     marks only needs-attention (out-of-date host, the subscription about to hit its limit),
+     red is reserved for failure and appears nowhere on this pane today.</p>
+
   <h3>Alternates considered</h3>
+  <p><span class="rej">"Every AI subscription you pay for, from inside the one you're already in."</span>
+     — Round 1's headline. Emotionally empty: it says nothing concrete in the first six words and
+     starts a long sentence. The viral post front-loads the shock — X inside Y, two products the
+     reader already pays for. Replaced by the dynamic template above.</p>
   <p><span class="rej">"The biggest cheat-code in your terminal."</span> — Borrows the viral post's
      hype instead of its structure. In a settings pane it reads as marketing, and the voice is
      breathless where the brand is instrument-panel. Rejected.</p>
   <p><span class="rej">"Stop copy-pasting between your CLIs."</span> — Leads with a chore removed,
      not a gain claimed. It undersells parallel teams entirely and says nothing about capacity,
      which is the one argument no hand-rolled pairing can match. Rejected.</p>
+  <p><span class="rej">Eyebrow "IF YOU DON'T KNOW".</span> — Worked inside the tweet it came from;
+     standing alone above a settings pane it is confusing and faintly condescending. Dropped in
+     round 2, no replacement.</p>
 </div>
 
 </body>
