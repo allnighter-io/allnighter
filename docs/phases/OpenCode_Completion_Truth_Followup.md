@@ -1,18 +1,21 @@
 # OpenCode Completion-Truth Follow-up
 
-Status: **OPEN — verified defect table only; not authorized to implement**
+Status: **CODE COMPLETE for verified CT-01…07,09,11–13 + CT-08 path harden — dogfood + founder CT-08 lock ruling remain**
 Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`, `OpenCodeServeCoordinator`,
 `OpenCodePermissionPolicy`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
 `OpenCodeOutcomeAuthority`)
 Created: 2026-08-07
-Updated: 2026-08-07
+Updated: 2026-08-07 (end-to-end slice execution)
 Parent: [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) (S123)
 Origin audit: `alln` run `7E8E0930-FA7E-4345-8760-A2D386798B95`
 (DeepSeek V4 Pro via `--team code_plan --model model_opencode_deepseek_v4_pro`)
 
-**This packet does not implement fixes.** It records which audit claims survive a
-second, line-level verification pass, and names a proposed fix direction for each
-verified defect. Implementation requires a later founder/slice authorization.
+**Shipped AgentOS commits (this flight):** `ab96e7c` → `d4a5d01` (completion-truth,
+smoke refuse, spawn recover, mediums, path harden, CT-14 note).
+**Shipped Allnighter commits:** `4950d63f` (outcome rewrite), `43e1b8a9` (`answerOnly`).
+
+**Still open:** CT-08 sibling write-lock product ruling; CT-10 poll-permission gap;
+CT-14 two-PID Works Test; live subagent-heavy / concurrent dogfood before archive.
 
 Phases are ephemeral. At closeout: promote durable law into code + help; archive.
 
@@ -20,53 +23,28 @@ Phases are ephemeral. At closeout: promote durable law into code + help; archive
 
 ## If you only read one thing
 
-S123’s “F1–F10 FIXED” banner overstates the tree. Three completion-truth defects
-are still live in AgentOS/Allnighter source, and they reinforce each other:
+The completion-truth trio (CT-01…03) and the high lifecycle/authority defects
+are **coded** with unit proofs. Do **not** archive S123 until live dogfood covers
+subagent-heavy long Pro + concurrent seats, and until CT-08’s write-lock ruling
+lands (path `..` harden already shipped).
 
-1. HTTP poll can declare **clean success mid-turn**.
-2. The stall watchdog **resets itself** on every successful poll fetch.
-3. Foreign sessions on the shared `:4096` bus can **reset the watchdog** and
-   **abort a healthy reconnect** as `foreign_idle`.
-
-Do not dogfood long or concurrent OpenCode runs as “fixed” until this packet’s
-verified blockers/highs are sliced and proven.
-
----
-
-## Verification method
-
-| Item | Detail |
-| --- | --- |
-| Audit | DeepSeek V4 Pro Plan run `7E8E0930` (static read; no live serve) |
-| Re-verify | Human/agent code read 2026-08-07 against **current working trees** |
-| Trees | AgentOS `/Users/mike/Documents/GitHub/AgentOS` (ahead of origin; dirty OpenCode files) and Allnighter `feat/design-chain` (dirty `OpenCodeOutcomeAuthority`) |
-| Rule | **Ship into this packet only what the re-verify can prove from source.** Speculative, live-serve-only, or “might be intended” claims stay in § Rejected / needs live evidence. |
-| Not done | No live `opencode serve` probe, no test suite run, no code edits. |
-
----
-
-## Disposition summary
-
-| ID | Sev | Claim (audit) | Re-verify | Implement? |
+| ID | Sev | Claim (audit) | Re-verify | Status |
 | --- | --- | --- | --- | --- |
-| **CT-01** | Blocker | Poll declares clean success mid-turn | **Verified** | Later slice |
-| **CT-02** | High | Stall watchdog defeated by poll `touch()` | **Verified** | Later slice (with CT-01) |
-| **CT-03** | High | Foreign SSE events defeat scoping twice | **Verified** | Later slice (with CT-01/02) |
-| **CT-04** | High | Outcome rewrite destroys permission/session reasons | **Verified** | Later slice |
-| **CT-05** | High | Doctor/smoke can SIGTERM a live foreign serve | **Verified** | Later slice |
-| **CT-06** | High | One spawn failure poisons coordinator forever | **Verified** | Later slice |
-| **CT-07** | High | `answerOnly` / read-only intent never reaches production | **Verified** | Later slice (product decision) |
-| **CT-08** | High | Sibling-repo allow bypasses claimed-root write lock + dirty gate | **Verified** (policy gap) | Needs founder ruling |
-| **CT-09** | Med | Empty `sessionID` on permission ask fails open | **Verified** | Later slice |
-| **CT-10** | Med | Poll never observes pending permissions | **Verified** | Later slice |
-| **CT-11** | Med | `parentID` capability probe is data-presence, not schema | **Verified** (F1 incomplete) | Later slice |
-| **CT-12** | Med | `DriverConcurrencyGate` timeout/handoff permit leak | **Verified** (race shape) | Later slice |
-| **CT-13** | Med | Client vs authority disagree on reason precedence | **Verified** | Fold into CT-04 |
-| **CT-14** | Med | Spawn-lock test is in-process only | **Verified** (proof gap) | Proof slice |
-| **CT-15** | Low | S123 doc FIXED column / uncommitted F8–F10 polish | **Verified** (doc hygiene) | Doc + commit hygiene |
-| — | — | Wildcard `permission: "*"` silently covers all `external_directory` | **Unverified** (needs live serve) | Do not implement from this packet |
-| — | — | Prompt-echo exact-match is a bug | **Rejected** as defect (in-spec; note only) | No |
-| — | — | `ProjectRootScope` OpenCode bug | **Rejected** (unrelated) | No |
+| **CT-01** | Blocker | Poll declares clean success mid-turn | **Verified** | **Coded** AgentOS `ab96e7c` |
+| **CT-02** | High | Stall watchdog defeated by poll `touch()` | **Verified** | **Coded** `ab96e7c` |
+| **CT-03** | High | Foreign SSE events defeat scoping twice | **Verified** | **Coded** `ab96e7c` |
+| **CT-04** | High | Outcome rewrite destroys permission/session reasons | **Verified** | **Coded** Allnighter `4950d63f` |
+| **CT-05** | High | Doctor/smoke can SIGTERM a live foreign serve | **Verified** | **Coded** `9ebbec2` |
+| **CT-06** | High | One spawn failure poisons coordinator forever | **Verified** | **Coded** `2b21b13` |
+| **CT-07** | High | `answerOnly` never reaches production | **Verified** | **Coded** Allnighter `43e1b8a9` (option A) |
+| **CT-08** | High | Sibling-repo allow bypasses write lock + dirty gate | **Verified** (policy) | **Partial** — `..` fail-closed `e4268b4`; lock ruling open |
+| **CT-09** | Med | Empty `sessionID` on permission ask fails open | **Verified** | **Coded** `06ef131` |
+| **CT-10** | Med | Poll never observes pending permissions | **Verified** | **Open** (deferred) |
+| **CT-11** | Med | `parentID` capability probe is data-presence | **Verified** | **Coded** sticky probe `06ef131` |
+| **CT-12** | Med | `DriverConcurrencyGate` timeout/handoff permit leak | **Verified** | **Coded** `06ef131` |
+| **CT-13** | Med | Client vs authority disagree on reason precedence | **Verified** | **Coded** `4950d63f` |
+| **CT-14** | Med | Spawn-lock test is in-process only | **Verified** | **Noted** `d4a5d01` — two-PID Works Test open |
+| **CT-15** | Low | S123 FIXED column / uncommitted polish | **Verified** | **This closeout** |
 
 ---
 

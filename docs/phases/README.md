@@ -50,8 +50,8 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | --- | --- | --- |
 | [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) | **Live — 3 of 5 slices shipped** | Capacity signals must be owned per source. S01/S02 + S03-AgentOS shipped (AgentOS `6f66bdd`, `1d0f64f`); S05 shipped (`bc2311ea`). Open: label separation, S04 manifest signals, S06 AGY scoping. S03 persisted parks blocked on a founder ruling (§10.1). |
 | [`Agent_Teaching_Surface.md`](Agent_Teaching_Surface.md) | Open — sequenced after Vendor Signal Isolation | `alln bootstrap` teaching block ships retired vocabulary; narrow the paste, gate the block, add a delegation help topic. |
-| [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **OPEN — F1–F10 partial; do not close** | Continuity coded, but see follow-up: poll fake-success + dead stall watchdog + foreign SSE still verified live. |
-| [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **OPEN — verified defect table; not authorized to implement** | Re-verify of DeepSeek V4 Pro audit `7E8E0930`. CT-01…15 verified; implement only via later slices. |
+| [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **OPEN — CT coded; dogfood next** | Completion-truth follow-up implemented; archive after live long/concurrent proof. |
+| [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **CODE COMPLETE — dogfood + CT-08 ruling remain** | CT-01…07/09/11–13 shipped; CT-08 path harden only; CT-10/14 open. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |

@@ -44,6 +44,7 @@ Each sprint file must fit on **one to two screens** and include:
 
 | Topic | Location | Notes |
 | --- | --- | --- |
+| OpenCode CT-S01–S03 | [`archive/phases/sprint/opencode/`](../../archive/phases/sprint/opencode/) | Completion-truth follow-up — **done** (unit-proven; dogfood remains on parent packet) |
 | Hygiene HY-S13 | [`archive/phases/sprint/hygiene/`](../../archive/phases/sprint/hygiene/) | CapacityAcquisition hygiene — **done** (DeepSeek V4 Pro, 2026-08-07) |
 | Code-maintainer structure CM-S06–S23 | [`archive/phases/sprint/structure/`](../../archive/phases/sprint/structure/) | All **done** (Gemini delegates, 2026-08) |
 | Hygiene HY-S01–S12 | [`archive/phases/sprint/hygiene/`](../../archive/phases/sprint/hygiene/) | All **done** (doc/help truth, 2026-08) |

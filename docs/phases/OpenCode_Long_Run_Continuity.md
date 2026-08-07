@@ -1,16 +1,16 @@
 # Phase 123 — OpenCode Long-Run & Concurrent Continuity
 
-Status: **OPEN — F1–F10 partial; completion-truth follow-up open — do not archive**
+Status: **OPEN — completion-truth follow-up coded; dogfood + CT-08 ruling before archive**
 Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`, `OpenCodeRoutingWorkerRunner`,
 `OpenCodeServeCoordinator`, `OpenCodeSpawnLock`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
 `observation`, outcome gates)
 Created: 2026-08-07
-Updated: 2026-08-07 (follow-up audit verified CT-01…03 still defeat F2/F4/reconnect)
+Updated: 2026-08-07 (CT follow-up executed end-to-end)
 
-**Follow-up (verified defects, not yet authorized to implement):**
+**Follow-up (implementation status):**
 [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md)
-— DeepSeek V4 Pro audit `7E8E0930` re-checked against source. Treat F2/F4/F1 as
-**partial** until that packet’s CT-01…03 land.
+— CT-01…07,09,11–13 coded with unit proofs. Remaining: live dogfood, CT-08
+sibling write-lock ruling, CT-10, CT-14 two-PID lock proof.
 
 **Successor to archived**
 [`OpenCode_Headless_Completion_And_Session_Scoping.md`](../archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md)
