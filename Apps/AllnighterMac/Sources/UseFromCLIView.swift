@@ -20,6 +20,8 @@ struct UseFromCLIView: View {
     @State private var bulkBusy = false
     @State private var showDisclosure = false
     @State private var copiedDisclosure = false
+    @State private var copiedBlock = false
+    @State private var copiedStarter = false
     @State private var contentWidth: CGFloat = 900
     @State private var capacityModel = CapacityStripModel()
 
@@ -36,6 +38,7 @@ struct UseFromCLIView: View {
                 hero
                 cliChips
                 setupCard
+                pasteCard
                 reframeSection
                 askSection
                 capacitySection
@@ -149,15 +152,31 @@ struct UseFromCLIView: View {
 
     // MARK: - CLI chips (real bench — the 9 headless-CLI drivers Allnighter loads)
 
-    private var benchChips: [(id: String, name: String, lit: Bool)] {
+    /// Readiness as the CLIs panel states it — green ready, amber needs
+    /// attention, grey absent.
+    ///
+    /// The strip's "three colours only, no green" law is written on
+    /// `CapacityStripView` and scoped to the capacity strip, where green would
+    /// imply a healthy *quota*. It is not an app-wide ban: `ALColor.statusDone`
+    /// is the token for "done / healthy" and the CLIs panel already uses it for
+    /// ready drivers. Two surfaces describing the same driver must not disagree
+    /// about its colour.
+    private enum ChipState {
+        case ready, needsAttention, absent
+    }
+
+    private func chipState(forDriver driverId: String) -> ChipState {
+        guard let status = appModel.toolStatus(for: driverId)?.status else { return .absent }
+        if status.isSmokeReady { return .ready }
+        if case .notInstalled = status { return .absent }
+        return .needsAttention
+    }
+
+    private var benchChips: [(id: String, name: String, state: ChipState)] {
         appModel.registry.all
             .filter { $0.kind == .headlessCLI }
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
-            .map { manifest in
-                let status = appModel.toolStatus(for: manifest.id)?.status
-                let lit = status != nil && status != .notInstalled
-                return (manifest.id, manifest.displayName, lit)
-            }
+            .map { ($0.id, $0.displayName, chipState(forDriver: $0.id)) }
     }
 
     private var benchCLICount: Int {
@@ -178,11 +197,11 @@ struct UseFromCLIView: View {
         VStack(alignment: .leading, spacing: 6) {
             FlowLayout(spacing: 8) {
                 ForEach(benchChips, id: \.id) { chip in
-                    chipView(chip.name, lit: chip.lit)
+                    chipView(chip.name, state: chip.state)
                 }
             }
             if benchCLICount > 0, benchModelCount > 0 {
-                Text("\(benchCLICount) CLIs · \(benchModelCount) models · your logins, your subscriptions. No API keys, ever.")
+                Text(benchLadderLine)
                     .font(.system(size: 11))
                     .foregroundStyle(ALColor.textFaint)
             }
@@ -190,33 +209,73 @@ struct UseFromCLIView: View {
         .padding(.bottom, 18)
     }
 
-    private func chipView(_ name: String, lit: Bool) -> some View {
-        HStack(spacing: 7) {
+    private func chipView(_ name: String, state: ChipState) -> some View {
+        let dot: Color = {
+            switch state {
+            case .ready: return ALColor.statusDone
+            case .needsAttention: return ALColor.accent
+            case .absent: return ALColor.textFaint
+            }
+        }()
+        let present = state != .absent
+        return HStack(spacing: 7) {
             Circle()
-                .fill(lit ? ALColor.accent : ALColor.textFaint)
+                .fill(dot)
                 .frame(width: 6, height: 6)
             Text(name)
                 .font(.system(size: 12, weight: .medium))
         }
-        .foregroundStyle(lit ? ALColor.textPrimary : ALColor.textSecondary)
+        .foregroundStyle(present ? ALColor.textPrimary : ALColor.textSecondary)
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .background(ALColor.surface, in: Capsule())
         .overlay {
-            Capsule().strokeBorder(lit ? ALColor.borderStrong : ALColor.borderDefault, lineWidth: 1)
+            Capsule().strokeBorder(present ? ALColor.borderStrong : ALColor.borderDefault, lineWidth: 1)
         }
+    }
+
+    /// States the ladder outright, so the gap between "9 CLIs" and the smaller
+    /// number of one-click hosts explains itself instead of reading as a
+    /// shortfall. The old line ("N CLIs · N models") sat directly above
+    /// "3 hosts found on this Mac" and made the product look like it supported 3.
+    private var benchLadderLine: String {
+        let oneClick = oneClickHosts.count
+        let rest = max(0, benchCLICount - oneClick)
+        var parts = ["\(benchCLICount) CLIs · \(benchModelCount) models"]
+        if oneClick > 0 {
+            parts.append("\(oneClick) teach in one click, the other \(rest) take one paste")
+        }
+        parts.append("your logins, your subscriptions. No API keys, ever.")
+        return parts.joined(separator: " · ")
     }
 
     // MARK: - Setup card (host table + the page's one amber primary)
 
     private var hosts: [GlobalTeachingInstaller.HostPreview] { preview?.hosts ?? [] }
 
+    /// Rung 1 — hosts we can write a global context file for, in one click.
+    private var oneClickHosts: [GlobalTeachingInstaller.HostPreview] {
+        hosts.filter { !$0.unsupported }
+    }
+
+    /// Rung 2 — everything else on the bench. A host with no global file (Codex)
+    /// is not a special case here; it is the first row of the normal path.
+    ///
+    /// The page used to show only the three hosts the installer knows and lead
+    /// with "3 hosts found on this Mac" directly under a chip row listing nine
+    /// CLIs — which reads as "Allnighter supports 3 of your 9". It works from
+    /// all of them; two of them merely accept a button.
+    private var pasteDriverIds: [String] {
+        let oneClick: Set<String> = ["claude_code", "cursor_agent"]
+        return benchChips.map(\.id).filter { !oneClick.contains($0) }
+    }
+
     private var setupCard: some View {
         VStack(alignment: .leading, spacing: 0) {
             setupHead
-            ForEach(hosts) { host in
+            ForEach(oneClickHosts) { host in
                 hostRow(host)
-                if host.id != hosts.last?.id {
+                if host.id != oneClickHosts.last?.id {
                     Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
                 }
             }
@@ -261,14 +320,15 @@ struct UseFromCLIView: View {
 
     /// Two-clause lead, built only from real counts — never the mock's fixed prose.
     private var setupLead: String {
-        let total = hosts.count
-        guard total > 0 else { return "No teaching hosts known in this build." }
-        let stale = hosts.filter { $0.installAction == .repair }.count
-        let notTaught = hosts.filter { $0.installAction == .append }.count
-        let base = "\(total) host\(total == 1 ? "" : "s") found on this Mac."
+        let all = oneClickHosts
+        let total = all.count
+        guard total > 0 else { return "No one-click hosts on this Mac." }
+        let stale = all.filter { $0.installAction == .repair }.count
+        let notTaught = all.filter { $0.installAction == .append }.count
+        let base = "\(total) CLI\(total == 1 ? "" : "s") here teach in one click."
         switch (stale, notTaught) {
         case (0, 0):
-            return base + " Everything supported is taught and current."
+            return base + " All current."
         case let (s, 0) where s > 0:
             return base + " \(s) \(s == 1 ? "is" : "are") out of date."
         case let (0, n) where n > 0:
@@ -346,7 +406,12 @@ struct UseFromCLIView: View {
             }
             switch host.installAction {
             case .noOp:
-                return ("Taught · up to date", ALColor.textSecondary, ALColor.textPrimary.opacity(0.05), ALColor.textMuted)
+                // "Ready", not "Taught · up to date": one word so the pill stops
+                // wrapping to two lines (which was breaking the row rhythm and
+                // the pill column's vertical edge), green because grey read as
+                // disabled, and the same word the CLIs panel already uses for
+                // this state.
+                return ("Ready", ALColor.statusDone, ALColor.statusDone.opacity(0.12), ALColor.statusDone)
             case .repair:
                 return ("Out of date", ALColor.accentText, ALColor.accentSurface, ALColor.accent)
             case .append:
@@ -423,20 +488,108 @@ struct UseFromCLIView: View {
         .font(.system(size: 12, weight: .semibold))
     }
 
+    /// `alln install-cli` is only worth mentioning when `alln` is NOT yet on
+    /// PATH. On a machine that already has it — which is every machine that got
+    /// this far — leading with it makes the most prominent instruction the one
+    /// thing the user does not need. `Bootstrap.snippet(onPath:)` has taken this
+    /// flag all along; nobody had wired the detection.
+    private var alreadyOnPath: Bool {
+        InstallCLI.resolveOnPath(
+            pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
+        ) != nil
+    }
+
+    @ViewBuilder
     private var setupFoot: some View {
         (
-            Text("Prefer the terminal? ")
-                .foregroundStyle(ALColor.textFaint)
-            + Text("alln install-cli").foregroundStyle(ALColor.textMuted)
-            + Text(" puts alln on PATH · ").foregroundStyle(ALColor.textFaint)
-            + Text("alln bootstrap").foregroundStyle(ALColor.textMuted)
-            + Text(" prints this same block, paste-ready.").foregroundStyle(ALColor.textFaint)
+            alreadyOnPath
+            ? Text("Prefer the terminal? ").foregroundStyle(ALColor.textFaint)
+                + Text("alln bootstrap").foregroundStyle(ALColor.textMuted)
+                + Text(" prints this same block, paste-ready.").foregroundStyle(ALColor.textFaint)
+            : Text("alln isn't on your PATH yet — ").foregroundStyle(ALColor.textFaint)
+                + Text("alln install-cli").foregroundStyle(ALColor.textMuted)
+                + Text(" fixes that, then ").foregroundStyle(ALColor.textFaint)
+                + Text("alln bootstrap").foregroundStyle(ALColor.textMuted)
+                + Text(" prints this block.").foregroundStyle(ALColor.textFaint)
         )
         .font(.system(size: 11, design: .monospaced))
         .padding(.horizontal, 22)
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ALColor.subtle)
+    }
+
+    // MARK: - Rung 2 + 3: every other CLI (the majority path, not a footnote)
+
+    private var pasteCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 24) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Every other CLI takes one paste.")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(ALColor.textPrimary)
+                    Text(pasteLead)
+                        .font(.system(size: 12))
+                        .foregroundStyle(ALColor.textMuted)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+                HStack(spacing: 8) {
+                    Button { copyBootstrap(host: nil) } label: {
+                        Text(copiedBlock ? "Copied" : "Copy the block")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .buttonStyle(.alSecondary(small: false))
+                    Button { copyStarter() } label: {
+                        Text(copiedStarter ? "Copied" : "Copy a starter prompt")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .buttonStyle(.alGhost)
+                }
+            }
+
+            if !pasteDriverIds.isEmpty {
+                FlowLayout(spacing: 6) {
+                    ForEach(benchChips.filter { pasteDriverIds.contains($0.id) }, id: \.id) { chip in
+                        Text(chip.name)
+                            .font(.system(size: 11))
+                            .foregroundStyle(ALColor.textFaint)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(ALColor.base, in: Capsule())
+                    }
+                }
+            }
+
+            Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+
+            // Rung 3 — the zero-setup answer. True in any agent, right now.
+            (
+                Text("Or don't paste anything: tell any agent ")
+                    .foregroundStyle(ALColor.textMuted)
+                + Text("read `alln menu --json`")
+                    .foregroundStyle(ALColor.textPrimary)
+                    .fontWeight(.medium)
+                + Text(" and it will find the bench on its own.")
+                    .foregroundStyle(ALColor.textMuted)
+            )
+            .font(.system(size: 12))
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.xl))
+        .overlay {
+            RoundedRectangle(cornerRadius: ALRadius.xl).strokeBorder(ALColor.borderDefault, lineWidth: 1)
+        }
+        .padding(.bottom, 8)
+    }
+
+    private var pasteLead: String {
+        let n = pasteDriverIds.count
+        guard n > 0 else {
+            return "Same block, pasted into that CLI's context file. It works from anywhere `alln` is on PATH."
+        }
+        return "\(n) of the CLIs on your bench have no global file we can write for you — including Codex. Same block, you paste it once into that CLI's own context file."
     }
 
     private func displayPath(_ path: String?) -> String {
@@ -557,6 +710,20 @@ struct UseFromCLIView: View {
         Array(capacityModel.rows.prefix(4))
     }
 
+    /// States the age instead of asserting "live".
+    ///
+    /// The old caption said "live values from your own accounts" over whatever
+    /// `loadLive()` returned — but that reads `resident.currentSnapshot()`, a
+    /// STORED snapshot, and the model ships `needsLiveRefresh = true` precisely
+    /// to say "these are placeholders". Naming the age is both honest and the
+    /// stronger claim: "read from your accounts 4m ago" is specific, where
+    /// "live" is a boast that dies the moment the number is stale.
+    private var capacityCaption: String {
+        guard let first = capacityRows.first else { return "Weekly headroom per CLI." }
+        let age = CapacityStripRenderer.ageLabel(for: first, now: capacityModel.now)
+        return "Weekly headroom per CLI — read from your accounts \(age)."
+    }
+
     private var hasCapacityData: Bool {
         capacityModel.featureEnabled
             && capacityRows.contains { row in row.pools.contains { $0.dashboardRemainingPercent != nil } }
@@ -592,18 +759,57 @@ struct UseFromCLIView: View {
             Text("alln capacity")
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(ALColor.textMuted)
-            if hasCapacityData {
+            if !capacityModel.featureEnabled {
+                Text("Capacity checks are off. Turn them on and this shows real weekly headroom for every CLI you're signed into.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(ALColor.textMuted)
+                Button { capacityModel.enableFeature() } label: {
+                    Text("Enable capacity").font(.system(size: 12, weight: .semibold))
+                }
+                .buttonStyle(.alSecondary(small: true))
+            } else if capacityModel.needsLiveRefresh || !hasCapacityData {
+                // The model itself flags this state: "Launch showed placeholders
+                // — user should tap Refresh for live numbers." Never caption a
+                // stored snapshot as live; ask for the probe instead.
+                Text("We haven't read your accounts yet.")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(ALColor.textSecondary)
+                Text("One check reads the real weekly and 5-hour headroom from every CLI you're signed into.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(ALColor.textMuted)
+                Button { capacityModel.refreshAll() } label: {
+                    HStack(spacing: 6) {
+                        if capacityModel.isRefreshingAll {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .semibold))
+                        }
+                        Text(capacityModel.isRefreshingAll ? "Checking…" : "Check my capacity")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                }
+                .buttonStyle(.alSecondary(small: false))
+                .disabled(capacityModel.isRefreshingAll)
+                .padding(.top, 2)
+            } else {
                 ForEach(capacityRows, id: \.source) { row in
                     capacityLine(row)
                 }
-                Text("Weekly headroom per CLI — live values from your own accounts.")
-                    .font(.system(size: 10))
-                    .foregroundStyle(ALColor.textFaint)
-                    .padding(.top, 2)
-            } else {
-                Text("Capacity checks are off or nothing has been sampled yet. Enable Capacity to see live weekly headroom here.")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(ALColor.textMuted)
+                HStack(spacing: 6) {
+                    Text(capacityCaption)
+                        .font(.system(size: 10))
+                        .foregroundStyle(ALColor.textFaint)
+                    Spacer(minLength: 0)
+                    Button { capacityModel.refreshAll() } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(ALColor.textFaint)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(capacityModel.isRefreshingAll)
+                    .help("Re-read capacity from your accounts")
+                }
+                .padding(.top, 2)
             }
         }
         .padding(16)
@@ -774,15 +980,30 @@ struct UseFromCLIView: View {
         reload()
     }
 
-    private func copyBootstrap(host: String) {
+    /// `host: nil` = the generic block for any CLI (rung 2's Copy button).
+    private func copyBootstrap(host: String?) {
         let ctx = Bootstrap.liveContext()
+        let target = host.flatMap { Bootstrap.Host(argument: $0) } ?? .generic
         let text = Bootstrap.render(
-            host: Bootstrap.Host(argument: host) ?? .codex,
+            host: target,
             binaryPath: ctx.binaryPath,
             onPath: ctx.onPath
         )
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
+        if host == nil {
+            copiedBlock = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { copiedBlock = false }
+        }
+    }
+
+    /// The one-time prompt — a different artifact from the block, on purpose.
+    /// See `Bootstrap.starterPrompt`.
+    private func copyStarter() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(Bootstrap.starterPrompt, forType: .string)
+        copiedStarter = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { copiedStarter = false }
     }
 
     private func copyDisclosure() {

@@ -87,6 +87,32 @@ public enum Bootstrap {
         return lines.joined(separator: "\n")
     }
 
+    /// A **one-time** prompt to paste into a live session — not a context file.
+    ///
+    /// Deliberately separate from `TeachingSnippet`, and the distinction is the
+    /// whole point. The teaching block is a *standing* instruction: it is read
+    /// every session forever, so it pays its cost every session and may only
+    /// carry invariants (which is why it is three lines). Asking an agent to
+    /// introduce itself has one-time value and a permanent price — put it in the
+    /// block and the user gets the same lecture at the start of every session
+    /// until they delete the block (founder, 2026-08-06: "then you get annoyed
+    /// with every new session").
+    ///
+    /// So it lives here instead: pasted once, into whichever CLI the user is
+    /// trying out, where a little chattiness is exactly what is wanted. It is
+    /// also the honest answer to "how do I use this in a CLI you have no
+    /// installer for" — every agent can read the live menu, no file required.
+    public static let starterPrompt = """
+    Allnighter is on this machine as the `alln` CLI. It can dispatch work to the \
+    other coding CLIs I already pay for — in parallel, or as a team.
+
+    Read `alln menu --json`, then tell me three specific things you could do for \
+    me in this project that you could not do a minute ago. Name the actual teams \
+    or models you would use, and what each one is good for. Keep it short.
+
+    Don't run anything that spends quota until I ask.
+    """
+
     /// Bounded recipe listing for agents (full markdown via `recipesHelp`).
     public struct RecipeRef: Codable, Sendable, Equatable {
         public var id: String
