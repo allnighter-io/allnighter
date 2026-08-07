@@ -1692,7 +1692,7 @@ public actor RunService {
                         workingDirectory: repoRoot, timeout: timeoutOverride,
                         sessionPlan: sessionPlan,
                         spawnConcurrencyLimit: spawnConcurrencyLimit,
-                        openCodeIntent: .mutating
+                        openCodeIntent: mutating ? .mutating : .answerOnly
                     ))
                 }
             }
@@ -1750,7 +1750,7 @@ public actor RunService {
                         model: model, manifest: manifest, prompt: assembled, effort: effort,
                         workingDirectory: repoRoot, timeout: timeoutOverride, sessionPlan: sessionPlan,
                         spawnConcurrencyLimit: spawnConcurrencyLimit,
-                        openCodeIntent: .mutating
+                        openCodeIntent: mutating ? .mutating : .answerOnly
                     ))
                 }
                 for try await streamEvent in invocationStream {
@@ -1812,7 +1812,7 @@ public actor RunService {
                     timeout: timeoutOverride,
                     sessionPlan: freshPlan,
                     spawnConcurrencyLimit: spawnConcurrencyLimit,
-                    openCodeIntent: .mutating
+                    openCodeIntent: mutating ? .mutating : .answerOnly
                 ))
             }
         }
