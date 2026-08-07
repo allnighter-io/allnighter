@@ -503,7 +503,7 @@
         <div class="lead"><b>4 hosts found on this Mac.</b> One is out of date, one hasn't been taught yet.</div>
         <div class="setup-cta">
           <div class="brevity">
-            <span class="slot">4 lines</span> per file, fenced by markers<br>
+            <span class="slot">3 rules</span> per file, fenced by markers<br>
             read them first · remove in one click
           </div>
           <button class="btn-primary">Teach all CLIs</button>
@@ -704,15 +704,18 @@
      (the reframe prose, examples, capacity) moved below. The round-1 deck's parallel-teams
      clause moved into the reframe; the capacity clause was already owned by the closer.</p>
 
-  <h3>The "4 lines" slot is runtime data, not copy</h3>
+  <h3>The "3 rules" slot is runtime data, not copy</h3>
   <p>The dash-underlined count beside the Teach button is populated at render time from the
-     real teaching block the installer would write — line count read from the block, never
-     hard-coded. <b>Honesty note:</b> measured today, the shipped block is 12 lines /
-     1,064 characters — 95% of a 16-line <span style="font-family:var(--mono)">~/.claude/CLAUDE.md</span> —
-     and stamped v7 against a v8 SSOT. That is exactly the dump a protective user deletes.
-     The shipped block must shrink to a few lines that matter before this pane ships;
-     until it does, the slot will truthfully display the larger number, which is itself
-     the argument for shrinking it.</p>
+     real teaching block the installer would write — read from
+     <span style="font-family:var(--mono)">TeachingSnippet.reflexLines</span>, never hard-coded.
+     <b>Resolved:</b> round 2 flagged that this promise was not yet honest — the shipped block
+     was 12 lines / 1,064 characters, 95% of a 16-line
+     <span style="font-family:var(--mono)">~/.claude/CLAUDE.md</span>, stale at v7. The block
+     was then cut to <b>3 rules / 5 lines / 390 characters</b> (v10, commit
+     <span style="font-family:var(--mono)">dfe23ad1</span>) by subtracting everything
+     <span style="font-family:var(--mono)">alln menu --json</span> already carries. The pane
+     now states a number it can keep. A Core gate caps the body at 4 rules / 320 characters,
+     so the slot cannot quietly grow back.</p>
 
   <h3>Colour</h3>
   <p>Three colours only — neutral ink, amber, red — per product law. Round 1's green status
