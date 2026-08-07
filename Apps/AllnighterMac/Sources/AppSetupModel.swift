@@ -19,9 +19,12 @@ enum AppSetupModel {
         models: [Model],
         parkedDriverIds: Set<String> = [],
         isDetecting: Bool = false,
-        probingDriverId: String? = nil
+        probingDriverId: String? = nil,
+        now: Date = Date()
     ) -> [SetupCardModel] {
-        registry.all
+        // Read once for the whole list, never per card — one disk read, not N.
+        let vendorResets = CapacityResetLookup.bySource(now: now)
+        return registry.all
             .filter { $0.kind == .headlessCLI }
             // List CLIs A→Z by display name (founder) — stable order in the doctor hover
             // and the CLI setup page; consumers partition READY/not-ready but keep order.
@@ -45,7 +48,13 @@ enum AppSetupModel {
             case .installedNotSignedIn?: state = .needsLogin
             case .shimmedNeedsConfirm(let r)?: state = .needsPath; shim = r.rawCommandV
             case .probeFailed(let r)?: state = .probeFailed; reason = r
-            case .rateLimited(let observation)?: state = .rateLimited; reason = DoctorReport.rateLimitedDetail(observation: observation)
+            case .rateLimited(let observation)?:
+                state = .rateLimited
+                reason = DoctorReport.rateLimitedDetail(
+                    observation: observation,
+                    vendorReset: vendorResets[manifest.id],
+                    now: now
+                )
             case .notInstalled?: state = .notInstalled
             case .installedNotProbed?: state = .installedNotProbed
             case nil: state = .notChecked

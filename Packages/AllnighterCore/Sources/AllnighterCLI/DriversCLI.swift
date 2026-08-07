@@ -76,34 +76,8 @@ enum DriversCLI {
             probeRecords: state.records,
             models: models,
             parkedDriverIds: state.parkedSet,
-            vendorResetsBySource: vendorResets(now: now)
+            vendorResetsBySource: CapacityResetLookup.bySource(now: now)
         )
-    }
-
-    /// Vendor-stated reset per source, read from the capacity crawler's history.
-    ///
-    /// A rate-limited badge is built from a *failed run's error text*, which
-    /// structurally never carries a reset time — that is why the badge used to
-    /// print a locally invented one. The crawler is the sensor that actually
-    /// reads each CLI's own usage screen, so its reset is the only honest one.
-    ///
-    /// `lastKnownWindows` reads recorded history and nothing else: no probe, no
-    /// spawn, no quota. Rendering a list must never cost the user a vendor call.
-    static func vendorResets(now: Date) -> [String: Date] {
-        var out: [String: Date] = [:]
-        for window in CapacityHistoryStore().lastKnownWindows(now: now) {
-            guard let reset = window.resetAt, reset > now else { continue }
-            // The long allowance is what gates a seat for hours; a 5h bucket
-            // clearing sooner does not mean the CLI is usable. When a source
-            // reports several, the later boundary is the honest "wait until".
-            let preferLong = window.scope == .weekly || window.scope == .monthly
-            if let existing = out[window.source] {
-                if preferLong || reset > existing { out[window.source] = max(existing, reset) }
-            } else {
-                out[window.source] = reset
-            }
-        }
-        return out
     }
 
     static func printHuman(_ list: DriverListJSON) {
