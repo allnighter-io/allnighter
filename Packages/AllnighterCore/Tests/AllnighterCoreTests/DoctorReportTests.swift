@@ -239,6 +239,34 @@ final class DoctorReportTests: XCTestCase {
         XCTAssertFalse(detail.contains("in "))
     }
 
+    func testVendorResetSuppliesCountdownWhenObservationHasNoUsableReset() {
+        let vendorReset = fixedNow.addingTimeInterval(2 * 3_600)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .localPolicy,
+            rawSnippet: "rate limit",
+            observedAt: fixedNow,
+            observedResetAt: nil
+        )
+        let detail = DoctorReport.rateLimitedDetail(observation: observation, vendorReset: vendorReset, now: fixedNow)
+        XCTAssertTrue(detail.contains("in "), "should show countdown, got: \(detail)")
+        XCTAssertFalse(detail.contains("reset time unknown"))
+    }
+
+    func testVendorResetNilPreservesCurrentBehavior() {
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .localPolicy,
+            rawSnippet: "rate limit",
+            observedAt: fixedNow,
+            observedResetAt: nil
+        )
+        let detail = DoctorReport.rateLimitedDetail(observation: observation, vendorReset: nil, now: fixedNow)
+        XCTAssertEqual(detail, "Rate limited — reset time unknown")
+    }
+
     func testRateLimitedPastResetHidesTime() {
         let past = fixedNow.addingTimeInterval(-3 * 3_600)
         let observation = CapacityObservation(

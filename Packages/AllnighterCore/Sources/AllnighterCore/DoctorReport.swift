@@ -314,10 +314,12 @@ public enum DoctorReport {
     }
 
     /// Honest temporary-unavailability copy for a probe `.rateLimited` observation.
-    public static func rateLimitedDetail(observation: CapacityObservation, now: Date = Date()) -> String {
-        guard let reset = observation.observedResetAt,
-              observation.sourceConfidence == .structured || observation.sourceConfidence == .messageFallback
-        else { return "Rate limited — reset time unknown" }
+    public static func rateLimitedDetail(observation: CapacityObservation, vendorReset: Date? = nil, now: Date = Date()) -> String {
+        let effectiveReset: Date? = vendorReset ?? {
+            guard observation.sourceConfidence == .structured || observation.sourceConfidence == .messageFallback else { return nil }
+            return observation.observedResetAt
+        }()
+        guard let reset = effectiveReset else { return "Rate limited — reset time unknown" }
         guard let displayTime = VendorContinuityPresentation.resetDisplayTime(reset, now: now)
         else { return "Rate limited" }
         return "Rate limited — resets \(displayTime)"
