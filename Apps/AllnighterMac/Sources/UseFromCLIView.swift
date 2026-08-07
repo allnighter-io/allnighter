@@ -164,7 +164,15 @@ struct UseFromCLIView: View {
         appModel.registry.all.filter { $0.kind == .headlessCLI }.count
     }
 
-    private var benchModelCount: Int { appModel.models.count }
+    /// Enabled models only — the same set `alln models` reports.
+    ///
+    /// `appModel.models` is the raw catalog and includes disabled entries, so
+    /// counting it advertised 40 on a machine where the CLI answers 27. Two
+    /// surfaces describing one bench must not disagree, and the larger number is
+    /// the dishonest one: it counts models the user cannot dispatch to.
+    /// `models.filter(\.enabled)` is the codebase's definition of the bench
+    /// (`RunService.readyModels`, `TeamService.readyModels`, `TeamAssembler`).
+    private var benchModelCount: Int { appModel.models.filter(\.enabled).count }
 
     private var cliChips: some View {
         VStack(alignment: .leading, spacing: 6) {
