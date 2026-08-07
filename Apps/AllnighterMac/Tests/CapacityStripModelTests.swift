@@ -42,8 +42,9 @@ final class CapacityStripModelTests: XCTestCase {
         }
     }
 
-    /// Resident backed by a probe executor — no real PTYs, no floor sleep,
-    /// history recorded into a temp store.
+    /// Resident backed by a probe executor — no real PTYs, no 2-minute acquire
+    /// floor (acquireFloor: 0 — the injected no-op sleep would otherwise spin
+    /// the floor forever), history recorded into a temp store.
     private func makeResident(
         historyStore: CapacityHistoryStore,
         probeExecutor: (any CapacityProbeExecuting)?,
@@ -57,6 +58,7 @@ final class CapacityStripModelTests: XCTestCase {
                 }
                 return CapacityProbeScope()
             },
+            acquireFloor: 0,
             fetch: { source, scope in
                 CapacityFetch.liveSnapshot(
                     refreshSource: source,
@@ -127,8 +129,14 @@ final class CapacityStripModelTests: XCTestCase {
         let model = makeModel(historyStore: store, probeExecutor: executor)
         await model.loadLive()
         XCTAssertEqual(executor.callCount, 0)
+        for _ in 0..<400 where model.isRefreshingAll {
+            try await Task.sleep(nanoseconds: 25_000_000)
+        }
         XCTAssertFalse(model.isRefreshingAll)
-        XCTAssertTrue(model.needsLiveRefresh)
+        // The silent launch acquire settles before the polling loop above
+        // exits, and a settled acquire paints live truth — needsLiveRefresh
+        // stays true only while placeholders are still on screen.
+        XCTAssertFalse(model.needsLiveRefresh)
     }
 
     func testLoadLivePaintsResidentSnapshotWhenPresent() async throws {
@@ -337,7 +345,10 @@ final class CapacityStripModelTests: XCTestCase {
         }
         XCTAssertFalse(model.isRefreshingAll, "coalesced refresh must settle")
         XCTAssertEqual(
-            blocker.executionCount, CapacityAcquisition.benchSourceOrder.count,
+            // The injected executor is the PTY executor — CapacityFetch routes
+            // the dashboard wave (opencode_go, bailian_token_plan) through
+            // OpenCodeGoCapacityExecutor directly, so only PTY seats reach it.
+            blocker.executionCount, CapacityAcquisition.ptySourceOrder.count,
             "exactly one probe wave — no second acquire behind the first"
         )
     }
