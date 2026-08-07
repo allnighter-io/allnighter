@@ -11,22 +11,24 @@ final class TeachingSnippetTests: XCTestCase {
     }
 
     func testBodyTeachesLiveMenuReflexAndDetachedDelivery() {
-        XCTAssertEqual(TeachingSnippet.schemaVersion, 9)
-        XCTAssertEqual(TeachingSnippet.reflexLines.count, 4)
+        XCTAssertEqual(TeachingSnippet.schemaVersion, 10)
+        XCTAssertEqual(TeachingSnippet.reflexLines.count, 3)
         XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
         // 1 — the front door, and the reflex to re-read it.
         XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
-        XCTAssertTrue(TeachingSnippet.body.contains("never trust a pasted catalog"))
-        // 2 — canonical ids + validate before spending.
-        XCTAssertTrue(TeachingSnippet.body.contains("canonical ids"))
-        XCTAssertTrue(TeachingSnippet.body.contains("validation template"))
-        // 3 — the write invariant.
-        XCTAssertTrue(TeachingSnippet.body.contains("One mutating worker"))
+        XCTAssertTrue(TeachingSnippet.body.contains("Never a pasted catalog"))
+        // 2 — the status field reads as progress; contradict it.
         XCTAssertTrue(TeachingSnippet.body.contains("observation"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln show <id> --json"))
-        // 4 — detached delivery.
+        // 3 — detached delivery: run the waiter once, do not poll.
         XCTAssertTrue(TeachingSnippet.body.contains("nextAction.command"))
-        XCTAssertTrue(TeachingSnippet.body.contains("never poll or resume"))
+        XCTAssertTrue(TeachingSnippet.body.contains("Never poll"))
+
+        // v10 subtractions — anything the menu already carries must stay out.
+        XCTAssertFalse(TeachingSnippet.body.contains("canonical id"), "menu ships every id verbatim")
+        XCTAssertFalse(TeachingSnippet.body.contains("validation template"), "menu ships validateExample")
+        XCTAssertFalse(TeachingSnippet.body.lowercased().contains("invent"), "anti-hallucination folklore")
+        XCTAssertFalse(TeachingSnippet.body.contains("mutating worker"), "teams[].mutating + the write lock say it")
         XCTAssertFalse(TeachingSnippet.body.contains("progressStale"))
         XCTAssertFalse(TeachingSnippet.body.contains("delivery command"))
         XCTAssertFalse(TeachingSnippet.body.contains("team hello"))
@@ -64,11 +66,11 @@ final class TeachingSnippetTests: XCTestCase {
     /// wholesale. Founder ruling: "a few lines that matter is all it takes."
     func testBodyStaysSmallEnoughToSurviveInSomeoneElsesFile() {
         XCTAssertLessThanOrEqual(
-            TeachingSnippet.reflexLines.count, 5,
+            TeachingSnippet.reflexLines.count, 4,
             "teaching body is growing back — every added rule must beat 'put it in the live menu'"
         )
         XCTAssertLessThanOrEqual(
-            TeachingSnippet.body.count, 600,
+            TeachingSnippet.body.count, 320,
             "teaching body is \(TeachingSnippet.body.count) chars; it competes with the user's own instructions"
         )
         // No embedded catalog rows.

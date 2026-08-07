@@ -1,7 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// `alln bootstrap` — activation surface (MR-S05 four-rule live-menu reflex).
+/// `alln bootstrap` — activation surface (live-menu reflex; v10 three-rule body).
 final class BootstrapTests: XCTestCase {
     private let sampleBinary = "/tmp/allnighter-build/alln"
 
@@ -72,18 +72,16 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(claude.hasPrefix("Paste into"), "claude render starts at paste target")
     }
 
-    // MARK: - MR-S05 four-rule reflex
+    // MARK: - Live-menu reflex (v10 body)
 
-    func testSnippetTeachesFourRuleLiveMenuReflex() {
+    func testSnippetTeachesLiveMenuReflex() {
         let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
         XCTAssertTrue(s.contains("`alln` CLI"), "must name the CLI surface")
         XCTAssertTrue(s.contains("fallback: `\(sampleBinary)`"), "must carry binary fallback")
         XCTAssertTrue(s.contains("alln menu --json"), "must teach live menu")
-        XCTAssertTrue(s.contains("canonical ids"), "must teach exact-id dispatch")
-        XCTAssertTrue(s.contains("validation template"), "must teach validation twin")
-        XCTAssertTrue(s.contains("never trust a pasted catalog"), "must teach session re-read")
+        XCTAssertTrue(s.contains("Never a pasted catalog"), "must teach session re-read")
         XCTAssertTrue(s.contains("nextAction.command"), "must teach detached nextAction delivery")
-        XCTAssertTrue(s.contains("One mutating worker"), "must teach the write invariant")
+        XCTAssertTrue(s.contains("`running` ≠ progress"), "must contradict the misleading status field")
         XCTAssertFalse(s.contains("team hello"))
         XCTAssertFalse(s.contains("route --for"))
         XCTAssertFalse(s.contains("resolve --for"))
@@ -92,7 +90,7 @@ final class BootstrapTests: XCTestCase {
         XCTAssertTrue(s.contains(TeachingSnippet.closeMarker), "must close teaching markers")
         XCTAssertTrue(s.contains("hash=\(TeachingSnippet.contentHash)"), "marker must carry content hash")
 
-        // v9: the body must not name a menu FIELD. `useWhen`/`dontUseWhen` were
+        // v10: the body must not name a menu FIELD. `useWhen`/`dontUseWhen` were
         // dropped from `models` and survive only on teams/actions/recipes, so a
         // rule naming them pointed at a field that no longer exists for the
         // thing it was most used to pick — and it cannot be corrected in a file
@@ -120,17 +118,17 @@ final class BootstrapTests: XCTestCase {
     ///
     /// This ceiling used to be raised to match whatever the body had grown to
     /// (15/16 at eleven rules), which makes it a record of the growth rather
-    /// than a limit on it. v9 sets it to the real size — 4 preamble lines +
-    /// open marker + 4 rules + close marker = 10 on-path, 11 off-path — so
+    /// than a limit on it. v10 sets it to the real size — 4 preamble lines +
+    /// open marker + 3 rules + close marker = 9 on-path, 10 off-path — so
     /// adding a rule fails here and has to be argued for.
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(onPathLines.count, 10, "on-path snippet grew past ≤10 budget")
+        XCTAssertLessThanOrEqual(onPathLines.count, 9, "on-path snippet grew past ≤9 budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(offPathLines.count, 11, "off-path snippet grew past ≤11 budget")
+        XCTAssertLessThanOrEqual(offPathLines.count, 10, "off-path snippet grew past ≤10 budget")
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {

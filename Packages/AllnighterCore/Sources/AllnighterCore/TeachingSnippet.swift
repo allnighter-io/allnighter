@@ -14,12 +14,12 @@ import Foundation
 public enum TeachingSnippet {
     /// Marker schema version. Bump when the marker grammar or body contract changes.
     ///
-    /// v9 narrowed the body from eleven rules to four. A body change alone would
-    /// make every installed block parse as `.modified` — "the user hand-edited
-    /// this" — which is a lie about who changed it. Bumping the version makes
-    /// them parse as `.stale` instead, which is true and which the installer
-    /// knows how to repair.
-    public static let schemaVersion = 9
+    /// v9 narrowed the body from eleven rules to four; v10 to three. A body
+    /// change alone would make every installed block parse as `.modified` —
+    /// "the user hand-edited this" — which is a lie about who changed it.
+    /// Bumping the version makes them parse as `.stale` instead, which is true
+    /// and which the installer knows how to repair.
+    public static let schemaVersion = 10
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
@@ -28,49 +28,63 @@ public enum TeachingSnippet {
 
     /// The live-menu reflex and the two invariants an agent cannot discover.
     ///
-    /// **This block is the most widely distributed string Allnighter ships** —
-    /// pasted permanently into every host's global context file. It is also the
-    /// most easily deleted: it competes for space with the user's own standing
-    /// instructions, and a block that dominates the file gets removed wholesale,
-    /// taking the product's front door with it. Measured before the v9 cut, the
-    /// eleven-rule body was 1,064 characters — 95% of the founder's entire
-    /// `~/.claude/CLAUDE.md`. Founder ruling: "a few lines that matter is all it
-    /// takes."
+    /// **Only agents read this.** Write it in their register: imperative, no
+    /// persuasion, no prose written to be pleasant. It is also the most widely
+    /// distributed string Allnighter ships — pasted permanently into files the
+    /// user owns and guards — so a block that dominates the file gets deleted
+    /// wholesale, taking the product's front door with it. At eleven rules it
+    /// was 1,064 characters: 95% of the founder's entire `~/.claude/CLAUDE.md`.
     ///
-    /// So the admission test is narrow: **a rule earns a line here only if the
-    /// agent must know it *before* it can discover anything.** Everything
-    /// discoverable belongs in the discoverable surface — that is what rule 1
-    /// exists to reach. Command spellings, flag choices, output-formatting
-    /// preferences and per-surface reporting habits all live in `alln menu`,
-    /// `alln help`, and the recipes, where they are read at the moment they
-    /// matter and can never go stale in someone else's file.
+    /// **The admission test: read `alln menu --json`, then subtract.** A rule
+    /// earns a line only if no surface can tell the agent at the moment it
+    /// matters. The menu already carries every id verbatim, a `validateExample`
+    /// per action, `modelInvocation.validate` / `teamInvocation.validate`, plus
+    /// `mutating` and `effectProfiles.repoWrite`. Anything the menu, the run
+    /// output, or a loud refusal already states does not go here — it goes
+    /// stale here, in a file we cannot correct.
+    ///
+    /// What survives is only what the surfaces structurally cannot say:
+    /// 1. Read the menu — a catalog cannot announce itself to an agent that
+    ///    never opens it.
+    /// 2. `running` ≠ progress — the status field actively reads as progress,
+    ///    so the output misleads unless contradicted.
+    /// 3. Run the waiter once — an agent that fears re-dispatch polls instead,
+    ///    and nothing in the response says re-running is safe.
     ///
     /// Protocol only — never embed models, teams, recipes, or command rows.
     ///
-    /// **Never name a menu field here.** The v8 body told agents to choose from
-    /// `useWhen` / `dontUseWhen`; those fields were then dropped from `models`
-    /// and survive only on teams, actions and recipes, so the rule was pointing
-    /// at a field that no longer exists for the thing it was most often used to
-    /// pick. A schema detail cannot be corrected in a file we do not own — say
-    /// what the agent must do, and let the live menu describe its own shape.
+    /// **Never name a menu field.** v8 taught `useWhen` / `dontUseWhen`; both
+    /// were later dropped from `models` and survive only on teams, actions and
+    /// recipes — so the rule pointed at a field that no longer existed for the
+    /// thing it was most used to pick, inside files we cannot reach.
     ///
-    /// Removed in v9, and why:
-    /// - relay/pilot `devRunId` + `pmTurn.report` rules — the vocabulary was
-    ///   retired in favour of `alln loop`. They shipped dead for months because
-    ///   `RetiredVocabulary` denies the *command* spellings (`pair relay`) while
-    ///   these rules used the bare prose nouns, so the gate could not see them.
-    ///   `testBodyIsFreeOfRetiredVocabulary` now closes that seam.
-    /// - `--read-only` vs `--no-commit`, and surfacing `artifact.path` — real,
-    ///   but discoverable; they belong to the menu and the recipes.
-    /// - The `alln capacity` verbatim-table rule — 500 characters, half the
-    ///   block, to prevent an occasional summary. The table is now compact and
-    ///   self-contained, so agents relay it without being told (founder,
+    /// Cut and why:
+    /// - Canonical-ids / never-invent-an-id (v10) — anti-hallucination folklore.
+    ///   The menu hands the agent every id; an agent holding the catalog does
+    ///   not invent one. Pure "what not to do" where the menu already says what
+    ///   to do (founder, 2026-08-06).
+    /// - Validation templates (v10) — the menu ships `validateExample` and both
+    ///   `*.validate` twins. Teaching their existence duplicates them.
+    /// - One-mutating-worker (v10) — `teams[].mutating` and
+    ///   `effectProfiles.repoWrite` declare it, and the per-root write lock
+    ///   refuses loudly. A loud refusal is the surface doing the teaching.
+    /// - relay/pilot `devRunId` + `pmTurn.report` (v9) — vocabulary retired for
+    ///   `alln loop`. They shipped dead for months because `RetiredVocabulary`
+    ///   denies the *command* spellings (`pair relay`) while these rules used
+    ///   the bare prose nouns, so no gate could see them.
+    ///   `testBodyIsFreeOfRetiredVocabulary` closes that seam.
+    /// - `--read-only` vs `--no-commit`, `artifact.path` (v9) — discoverable;
+    ///   they belong to the menu and the recipes.
+    /// - The `alln capacity` verbatim-table rule (v9) — 500 characters, half the
+    ///   block, to prevent an occasional summary. The table is compact and
+    ///   self-contained now, so agents relay it unprompted (founder,
     ///   2026-08-06). Cheap to restore if it regresses.
+    /// - "kill never kills the run" (v10) — confusing as written; if `kill` does
+    ///   not kill, that is `kill`'s own output to explain, not this block's.
     public static let reflexLines = [
-        "1. Before first Allnighter use in a session, read `alln menu --json` — and re-read it in a new session; never trust a pasted catalog.",
-        "2. Select from the menu's own entries and pass canonical ids verbatim — never a display name, never an invented id. Run the validation template before an unfamiliar agent-starting action.",
-        "3. One mutating worker per repo root. `running` is not progress — read `observation` on `alln show <id> --json`.",
-        "4. After `--no-wait`, run the returned `nextAction.command` once; never poll or resume — re-running reattaches, and kill never kills the run.",
+        "1. `alln menu --json` first, and again each new session. Never a pasted catalog.",
+        "2. `running` ≠ progress. Read `observation` on `alln show <id> --json`.",
+        "3. After `--no-wait`, run the returned `nextAction.command` once. Never poll — re-running reattaches.",
     ]
 
     /// Canonical inner teaching body (hash input). No trailing newline.
