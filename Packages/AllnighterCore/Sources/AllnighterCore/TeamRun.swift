@@ -28,6 +28,8 @@ public struct RunLink: Codable, Sendable, Equatable {
 public struct RunBlocker: Codable, Sendable, Equatable {
     public enum Resource: String, Codable, Sendable, CaseIterable {
         case repoWriteLock, teamGovernor, driverCapacity, vendorBackoff
+        /// OpenCode (or similar) headless seat blocked on a permission ask (S122.4).
+        case permission
     }
     public var resource: Resource
     /// Canonical (symlink + case normalized) repo root for write-lock waits.

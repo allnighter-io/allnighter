@@ -90,7 +90,7 @@ public enum ContractSchema {
                 "attempts": arr(ref("RunAttempt")),
             ], required: ["id", "status", "origin", "prompt", "promptSource", "createdAt", "attempts"]),
             "BlockerJSON": obj([
-                "resource": enumStr(["repoWriteLock", "teamGovernor", "driverCapacity", "vendorBackoff"]),
+                "resource": enumStr(["repoWriteLock", "teamGovernor", "driverCapacity", "vendorBackoff", "permission"]),
                 "scopeRoot": nullable("string"), "holderId": nullable("string"), "holderKind": nullable("string"),
                 "ticketPosition": nullable("integer"), "holderAcquiredAt": nullable("string"),
                 "heldSinceSeconds": nullable("number"), "holderDeadlineAt": nullable("string"),

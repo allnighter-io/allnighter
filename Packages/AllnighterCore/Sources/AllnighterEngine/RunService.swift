@@ -2111,6 +2111,12 @@ public actor RunService {
             } else if run.status == .failed {
                 run.endReason = .failed
             }
+            // S122.4 — permission ask terminal: surface blocker so `alln show` is not
+            // forever-alive with no progress. Lock release happens below.
+            if answer.result.errorKind == .permissionRequired
+                || answer.result.errorReason == "blockedOn: permission" {
+                run.blocker = RunBlocker(resource: .permission, scopeRoot: repoRoot)
+            }
         }
         run.repoDelta = gitObserver.repoDelta(
             rootPath: repoRoot, baseline: baselineHead, head: gitObserver.observe(rootPath: repoRoot).head)
