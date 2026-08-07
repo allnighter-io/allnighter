@@ -1,221 +1,843 @@
 import AppKit
 import SwiftUI
 import AllnighterCore
+import AllnighterEngine
 
-/// Settings › **Use from your CLI** — intent-titled recipe cards from
-/// `RecipeCatalog`, with copy-to-pasteboard and an Application Support mirror
-/// for Finder / agent discovery (ONB-S02b).
+/// Settings › **Use from your CLI** — ONE page (founder ruling): the dynamic
+/// hook, the host teaching table (absorbs the former "Teach your CLIs" row),
+/// the reframe, worked asks, and the capacity closer.
+///
+/// Approved design: `docs/design-system/explorations/use-from-your-cli/proposal.html`.
+/// Copy in the reframe / ask / closer sections is founder-approved verbatim;
+/// only the headline, host rows, rule count, chip list and capacity bars are
+/// computed from real state (`docs/design-system/explorations/use-from-your-cli/proposal.html` §Proposal notes).
 struct UseFromCLIView: View {
-    @State private var recipes: [RecipeCatalog.Recipe] = []
-    @State private var selectedId: String?
-    @State private var copiedId: String?
-    @State private var mirrorPath: String?
+    @Environment(AppModel.self) private var appModel
 
-    private var selected: RecipeCatalog.Recipe? {
-        recipes.first { $0.id == selectedId } ?? recipes.first
-    }
+    @State private var preview: GlobalTeachingInstaller.Preview?
+    @State private var results: [String: GlobalTeachingInstaller.ApplyResult] = [:]
+    @State private var busyHostId: String?
+    @State private var bulkBusy = false
+    @State private var showDisclosure = false
+    @State private var copiedDisclosure = false
+    @State private var contentWidth: CGFloat = 900
+    @State private var capacityModel = CapacityStripModel()
+
+    /// Below this content width the host row's path column has nowhere to sit —
+    /// reflow the row instead of truncating (known defect this pane fixes).
+    private static let narrowBreakpoint: CGFloat = 660
+
+    private var narrow: Bool { contentWidth < Self.narrowBreakpoint }
 
     var body: some View {
-        HStack(spacing: 0) {
-            masterList
-                .frame(width: 320)
-            Rectangle().fill(ALColor.borderSubtle).frame(width: 1)
-            detailPane
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                breadcrumb
+                hero
+                cliChips
+                setupCard
+                reframeSection
+                askSection
+                capacitySection
+                quietClose
+            }
+            .padding(.horizontal, 40)
+            .padding(.top, 30)
+            .padding(.bottom, 56)
+            .background(WidthReader(width: $contentWidth))
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(ALColor.base)
         .onAppear { reload() }
+        .task { await capacityModel.loadLive() }
     }
 
-    // MARK: - Master
+    // MARK: - Breadcrumb
 
-    private var masterList: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Use from your CLI")
-                    .font(.system(size: 20, weight: .bold)).tracking(-0.3)
-                    .foregroundStyle(ALColor.textPrimary)
-                Text("Paste-ready prompt cards for agents. Copy one into a CLI session.")
-                    .font(.system(size: 12))
+    private var breadcrumb: some View {
+        HStack(spacing: 4) {
+            Text("Settings").foregroundStyle(ALColor.textFaint)
+            Text("›").foregroundStyle(ALColor.textFaint).opacity(0.5)
+            Text("Use from your CLI").foregroundStyle(ALColor.textMuted).fontWeight(.medium)
+        }
+        .font(.system(size: 11, weight: .semibold))
+        .tracking(0.6)
+        .textCase(.uppercase)
+        .padding(.bottom, 22)
+    }
+
+    // MARK: - Hero (headline + deck; above-the-fold budget)
+
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(headline.title)
+                .font(.system(size: 32, weight: .bold))
+                .tracking(-0.4)
+                .foregroundStyle(ALColor.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let sub = headline.subline {
+                Text(sub)
+                    .font(.system(size: 14))
                     .foregroundStyle(ALColor.textMuted)
             }
-            .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 8)
+            (
+                Text("One short block, taught once, and ")
+                    .foregroundStyle(ALColor.textSecondary)
+                + Text("your CLIs can put each other to work")
+                    .foregroundStyle(ALColor.textPrimary)
+                    .fontWeight(.medium)
+                + Text(".")
+                    .foregroundStyle(ALColor.textSecondary)
+            )
+            .font(.system(size: 14))
+            .padding(.top, 8)
+        }
+        .padding(.bottom, 18)
+    }
 
-            ScrollView {
-                VStack(spacing: 3) {
-                    ForEach(recipes) { recipe in
-                        recipeRow(recipe)
-                    }
-                    if recipes.isEmpty {
-                        Text("No recipes shipped in this build.")
-                            .font(.system(size: 11.5)).foregroundStyle(ALColor.textFaint)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 10).padding(.top, 6)
-                    }
-                }
-                .padding(.horizontal, 12).padding(.bottom, 8)
-            }
+    // MARK: - Dynamic headline (fallback ladder — never names an undetected CLI)
 
-            footer
+    private struct Headline {
+        var title: String
+        var subline: String?
+    }
+
+    /// Detection source: the three GLOBAL teaching hosts, "detected" meaning the
+    /// CLI is actually installed on this Mac (real driver probe state) — not
+    /// merely a host the installer knows how to write.
+    private var detectedTaughtHosts: [(hostId: String, displayName: String)] {
+        let driverIdByHost: [String: String] = [
+            "claude": "claude_code",
+            "cursor": "cursor_agent",
+            "codex": "codex",
+        ]
+        return TeachingInstalledCheck.hostMatrix.compactMap { target in
+            let hostId = target.id
+            guard let driverId = driverIdByHost[hostId] else { return nil }
+            guard let status = appModel.toolStatus(for: driverId)?.status,
+                  status != .notInstalled else { return nil }
+            return (hostId, GlobalTeachingInstaller.displayName(for: hostId))
         }
     }
 
-    private var footer: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private var headline: Headline {
+        let hosts = detectedTaughtHosts
+        switch hosts.count {
+        case 0:
+            return Headline(
+                title: "Access any model, from any CLI you already pay for.",
+                subline: nil
+            )
+        case 1:
+            return Headline(
+                title: "Access every model you pay for from inside \(hosts[0].displayName).",
+                subline: nil
+            )
+        default:
+            let home = hosts[0].displayName
+            let other = hosts[1].displayName
+            let rest = hosts.dropFirst(2).map(\.displayName)
+            let sub = rest.isEmpty
+                ? "It runs both ways."
+                : "It runs both ways — and \(rest.joined(separator: ", ")) \(rest.count == 1 ? "is" : "are") on the bench too."
+            return Headline(
+                title: "Access every \(other) model from inside \(home).",
+                subline: sub
+            )
+        }
+    }
+
+    // MARK: - CLI chips (real bench — the 9 headless-CLI drivers Allnighter loads)
+
+    private var benchChips: [(id: String, name: String, lit: Bool)] {
+        appModel.registry.all
+            .filter { $0.kind == .headlessCLI }
+            .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+            .map { manifest in
+                let status = appModel.toolStatus(for: manifest.id)?.status
+                let lit = status != nil && status != .notInstalled
+                return (manifest.id, manifest.displayName, lit)
+            }
+    }
+
+    private var benchCLICount: Int {
+        appModel.registry.all.filter { $0.kind == .headlessCLI }.count
+    }
+
+    private var benchModelCount: Int { appModel.models.count }
+
+    private var cliChips: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            FlowLayout(spacing: 8) {
+                ForEach(benchChips, id: \.id) { chip in
+                    chipView(chip.name, lit: chip.lit)
+                }
+            }
+            if benchCLICount > 0, benchModelCount > 0 {
+                Text("\(benchCLICount) CLIs · \(benchModelCount) models · your logins, your subscriptions. No API keys, ever.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(ALColor.textFaint)
+            }
+        }
+        .padding(.bottom, 18)
+    }
+
+    private func chipView(_ name: String, lit: Bool) -> some View {
+        HStack(spacing: 7) {
+            Circle()
+                .fill(lit ? ALColor.accent : ALColor.textFaint)
+                .frame(width: 6, height: 6)
+            Text(name)
+                .font(.system(size: 12, weight: .medium))
+        }
+        .foregroundStyle(lit ? ALColor.textPrimary : ALColor.textSecondary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 5)
+        .background(ALColor.surface, in: Capsule())
+        .overlay {
+            Capsule().strokeBorder(lit ? ALColor.borderStrong : ALColor.borderDefault, lineWidth: 1)
+        }
+    }
+
+    // MARK: - Setup card (host table + the page's one amber primary)
+
+    private var hosts: [GlobalTeachingInstaller.HostPreview] { preview?.hosts ?? [] }
+
+    private var setupCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            setupHead
+            ForEach(hosts) { host in
+                hostRow(host)
+                if host.id != hosts.last?.id {
+                    Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                }
+            }
+            setupFoot
+        }
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.xl))
+        .overlay {
+            RoundedRectangle(cornerRadius: ALRadius.xl).strokeBorder(ALColor.borderDefault, lineWidth: 1)
+        }
+        .padding(.bottom, 8)
+    }
+
+    private var setupHead: some View {
+        HStack(alignment: .center, spacing: 24) {
+            Text(setupLead)
+                .font(.system(size: 13))
+                .foregroundStyle(ALColor.textSecondary)
+                .frame(maxWidth: 420, alignment: .leading)
+            Spacer(minLength: 0)
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(TeachingSnippet.reflexLines.count) rules per file, fenced by markers")
+                Text("read them first · remove in one click")
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(ALColor.textFaint)
+            .multilineTextAlignment(.trailing)
+            Button {
+                installAll()
+            } label: {
+                Text(bulkBusy ? "Teaching…" : "Teach all CLIs")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .buttonStyle(.alPrimary(small: false))
+            .disabled(bulkBusy || busyHostId != nil || (preview?.installable.isEmpty ?? true))
+        }
+        .padding(.horizontal, 22)
+        .padding(.vertical, 16)
+        .overlay(alignment: .bottom) {
             Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
-            Text("On disk (refreshed when the app updates)")
-                .font(.system(size: 10, weight: .semibold)).tracking(0.4)
-                .foregroundStyle(ALColor.textFaint)
-            Text(mirrorPath ?? "~/Library/Application Support/Allnighter/Recipes/")
-                .font(.system(size: 10.5, design: .monospaced))
-                .foregroundStyle(ALColor.textMuted)
-                .lineLimit(2)
-                .textSelection(.enabled)
-            if mirrorPath != nil {
-                Button {
-                    RecipeInstallMirror.sync()
-                    NSWorkspace.shared.activateFileViewerSelecting([RecipeInstallMirror.directoryURL])
-                } label: {
-                    Label("Reveal in Finder", systemImage: "folder")
-                        .font(.system(size: 11.5, weight: .semibold))
-                }
-                .buttonStyle(.alGhost)
-            }
         }
-        .padding(.horizontal, 16).padding(.vertical, 12)
     }
 
-    private func recipeRow(_ recipe: RecipeCatalog.Recipe) -> some View {
-        let on = selected?.id == recipe.id
-        return HStack(spacing: 6) {
-            Button {
-                selectedId = recipe.id
-            } label: {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(recipe.title)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(ALColor.textPrimary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    if let blurb = Self.blurb(from: recipe.markdown) {
-                        Text(blurb)
-                            .font(.system(size: 10.5))
-                            .foregroundStyle(ALColor.textFaint)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            Button {
-                copyMarkdown(recipe)
-            } label: {
-                Text(copiedId == recipe.id ? "Copied" : "Copy")
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            .buttonStyle(.alSecondary(small: true))
-            .help("Copy full recipe markdown")
+    /// Two-clause lead, built only from real counts — never the mock's fixed prose.
+    private var setupLead: String {
+        let total = hosts.count
+        guard total > 0 else { return "No teaching hosts known in this build." }
+        let stale = hosts.filter { $0.installAction == .repair }.count
+        let notTaught = hosts.filter { $0.installAction == .append }.count
+        let base = "\(total) host\(total == 1 ? "" : "s") found on this Mac."
+        switch (stale, notTaught) {
+        case (0, 0):
+            return base + " Everything supported is taught and current."
+        case let (s, 0) where s > 0:
+            return base + " \(s) \(s == 1 ? "is" : "are") out of date."
+        case let (0, n) where n > 0:
+            return base + " \(n) \(n == 1 ? "hasn't" : "haven't") been taught yet."
+        default:
+            return base + " \(stale) \(stale == 1 ? "is" : "are") out of date, \(notTaught) \(notTaught == 1 ? "hasn't" : "haven't") been taught yet."
         }
-        .padding(.horizontal, 10).padding(.vertical, 8)
-        .background(on ? ALColor.active : .clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
     }
-
-    // MARK: - Detail
 
     @ViewBuilder
-    private var detailPane: some View {
-        if let recipe = selected {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(recipe.title)
-                                .font(.system(size: 18, weight: .bold)).tracking(-0.3)
-                                .foregroundStyle(ALColor.textPrimary)
-                            Text(recipe.id)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(ALColor.textFaint)
-                        }
-                        Spacer(minLength: 0)
-                        Button {
-                            copyMarkdown(recipe)
-                        } label: {
-                            Label(copiedId == recipe.id ? "Copied" : "Copy markdown", systemImage: "doc.on.doc")
-                                .font(.system(size: 12, weight: .semibold))
-                        }
-                        .buttonStyle(.alPrimary(small: true))
-                    }
-
-                    Text(recipe.markdown)
-                        .font(.system(size: 12.5, design: .monospaced))
-                        .foregroundStyle(ALColor.textSecondary)
-                        .lineSpacing(3)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(14)
-                        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: ALRadius.lg)
-                                .strokeBorder(ALColor.borderSubtle, lineWidth: 1)
-                        }
+    private func hostRow(_ host: GlobalTeachingInstaller.HostPreview) -> some View {
+        if narrow {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    hostNameBlock(host)
+                    Spacer(minLength: 8)
+                    statePill(host)
                 }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                hostPathText(host)
+                HStack {
+                    Spacer(minLength: 0)
+                    hostActions(host)
+                }
             }
-            .background(ALColor.base)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 13)
         } else {
-            VStack(spacing: 10) {
-                Image(systemName: "doc.text").font(.system(size: 28)).foregroundStyle(ALColor.textFaint)
-                Text("No recipe selected.").font(.system(size: 13)).foregroundStyle(ALColor.textMuted)
+            HStack(spacing: 16) {
+                hostNameBlock(host).frame(width: 170, alignment: .leading)
+                hostPathText(host).frame(maxWidth: .infinity, alignment: .leading)
+                statePill(host).frame(width: 130, alignment: .leading)
+                hostActions(host)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(ALColor.base)
+            .padding(.horizontal, 22)
+            .padding(.vertical, 13)
         }
+    }
+
+    private func hostNameBlock(_ host: GlobalTeachingInstaller.HostPreview) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(GlobalTeachingInstaller.displayName(for: host.hostId))
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(ALColor.textPrimary)
+            Text(hostSubtitle(host))
+                .font(.system(size: 11))
+                .foregroundStyle(ALColor.textFaint)
+        }
+    }
+
+    private func hostSubtitle(_ host: GlobalTeachingInstaller.HostPreview) -> String {
+        host.unsupported ? "reads AGENTS.md per project" : "global context"
+    }
+
+    private func hostPathText(_ host: GlobalTeachingInstaller.HostPreview) -> some View {
+        Group {
+            if host.unsupported {
+                Text(host.unsupportedReason ?? host.detail)
+                    .font(.system(size: 11))
+                    .foregroundStyle(ALColor.textFaint)
+            } else {
+                Text(displayPath(host.path))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(ALColor.textMuted)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+            }
+        }
+    }
+
+    private func statePill(_ host: GlobalTeachingInstaller.HostPreview) -> some View {
+        let (label, fg, bg, dot): (String, Color, Color, Color?) = {
+            if host.unsupported {
+                return ("Manual", ALColor.textFaint, .clear, nil)
+            }
+            switch host.installAction {
+            case .noOp:
+                return ("Taught · up to date", ALColor.textSecondary, ALColor.textPrimary.opacity(0.05), ALColor.textMuted)
+            case .repair:
+                return ("Out of date", ALColor.accentText, ALColor.accentSurface, ALColor.accent)
+            case .append:
+                return ("Not taught", ALColor.textMuted, ALColor.textPrimary.opacity(0.05), ALColor.textFaint)
+            case .requiresManual:
+                return ("Needs a manual fix", ALPalette.red400, ALColor.dangerSurface, ALPalette.red500)
+            case .unsupported, .remove:
+                return ("Manual", ALColor.textFaint, .clear, nil)
+            }
+        }()
+        return HStack(spacing: 6) {
+            if let dot {
+                Circle().fill(dot).frame(width: 6, height: 6)
+            }
+            Text(label)
+        }
+        .font(.system(size: 11, weight: .medium))
+        .foregroundStyle(fg)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 3)
+        .background(bg, in: Capsule())
+        .overlay {
+            if host.unsupported {
+                Capsule().strokeBorder(ALColor.borderDefault, style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func hostActions(_ host: GlobalTeachingInstaller.HostPreview) -> some View {
+        HStack(spacing: 8) {
+            if let result = results[host.hostId], !result.success {
+                Text("Failed: \(result.detail)")
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(ALPalette.red400)
+                    .lineLimit(1)
+            }
+            if host.unsupported {
+                Button {
+                    copyBootstrap(host: host.hostId)
+                } label: {
+                    Text("Copy block")
+                }
+                .buttonStyle(.alGhost)
+            } else {
+                switch host.installAction {
+                case .append:
+                    Button { runInstall(host) } label: {
+                        Text(busyHostId == host.hostId ? "Teaching…" : "Teach")
+                    }
+                    .buttonStyle(.alGhost)
+                    .disabled(busyHostId != nil || bulkBusy)
+                case .repair:
+                    Button { runInstall(host) } label: {
+                        Text(busyHostId == host.hostId ? "Updating…" : "Update")
+                    }
+                    .buttonStyle(.alGhost)
+                    .disabled(busyHostId != nil || bulkBusy)
+                case .noOp:
+                    if host.canRemove {
+                        Button { runRemove(host) } label: {
+                            Text(busyHostId == host.hostId ? "Removing…" : "Remove")
+                        }
+                        .buttonStyle(.alGhost)
+                        .disabled(busyHostId != nil || bulkBusy)
+                    }
+                case .requiresManual:
+                    Text("See detail").font(.system(size: 11)).foregroundStyle(ALColor.textFaint)
+                case .unsupported, .remove:
+                    EmptyView()
+                }
+            }
+        }
+        .font(.system(size: 12, weight: .semibold))
+    }
+
+    private var setupFoot: some View {
+        (
+            Text("Prefer the terminal? ")
+                .foregroundStyle(ALColor.textFaint)
+            + Text("alln install-cli").foregroundStyle(ALColor.textMuted)
+            + Text(" puts alln on PATH · ").foregroundStyle(ALColor.textFaint)
+            + Text("alln bootstrap").foregroundStyle(ALColor.textMuted)
+            + Text(" prints this same block, paste-ready.").foregroundStyle(ALColor.textFaint)
+        )
+        .font(.system(size: 11, design: .monospaced))
+        .padding(.horizontal, 22)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ALColor.subtle)
+    }
+
+    private func displayPath(_ path: String?) -> String {
+        guard let path else { return "(no path)" }
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        if path.hasPrefix(home) { return "~" + path.dropFirst(home.count) }
+        return path
+    }
+
+    // MARK: - The reframe (static, approved copy — below the fold)
+
+    private var reframeSection: some View {
+        sectionBlock {
+            Text("You already pay for most of this bench.")
+                .font(.system(size: 21, weight: .semibold))
+                .tracking(-0.2)
+                .foregroundStyle(ALColor.textPrimary)
+            prose("Today those subscriptions don't know about each other. You work in one, and when you want a second opinion you open another window, paste the context in by hand, and paste the answer back. When one hits its limit, you stop — while the others sit idle with room you've already paid for.")
+            prose("A well-known hack wires exactly one pair together: Codex inside Claude Code. This page is the general case — any of your CLIs can call any of the others, one at a time or five in parallel.")
+        }
+    }
+
+    // MARK: - "Then you just ask" (static, approved copy)
+
+    private struct Ask {
+        var said: String
+        var happens: String
+        var command: String
+    }
+
+    private static let asks: [Ask] = [
+        Ask(
+            said: "Ask GPT Sol to review this doc.",
+            happens: "Your agent hands the doc to a GPT Sol seat and brings the review back into your session. You never leave the window.",
+            command: "alln run \"…\" --model model_gpt_sol"
+        ),
+        Ask(
+            said: "Do a full spec review on this doc and get it implementation ready.",
+            happens: "Spec Review: 6 seats from different vendors pressure-test the doc in parallel and return one hardened packet. Read-only.",
+            command: "alln run \"…\" --team code_spec_review"
+        ),
+        Ask(
+            said: "Have DeepSeek V4 Pro implement this doc. Commit after every slice — I'll PM.",
+            happens: "DeepSeek takes the dev seat and builds, committing after every slice; you stay in your own CLI as the PM, reviewing as the commits land.",
+            command: "alln loop start \"…\" --pm caller"
+        ),
+        Ask(
+            said: "Which of my subscriptions still has room this week?",
+            happens: "One answer across every CLI you're signed into — real weekly and 5-hour headroom, read from your own accounts.",
+            command: "alln capacity"
+        ),
+    ]
+
+    private var askSection: some View {
+        sectionBlock {
+            Text("THEN YOU JUST ASK")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.9)
+                .foregroundStyle(ALColor.textFaint)
+            Text("No new tool to learn. You talk to the CLI you already talk to.")
+                .font(.system(size: 21, weight: .semibold))
+                .tracking(-0.2)
+                .foregroundStyle(ALColor.textPrimary)
+                .padding(.top, 4)
+            prose("Once taught, your agent knows when to reach for the bench. These are real asks and exactly what happens — the command underneath is what your agent runs, not something you have to type.")
+
+            VStack(spacing: 10) {
+                ForEach(Self.asks, id: \.said) { ask in
+                    askCard(ask)
+                }
+            }
+            .padding(.top, 16)
+
+            (
+                Text("The write rule: ").foregroundStyle(ALColor.textSecondary).fontWeight(.semibold)
+                + Text("research teams are parallel and read-only. Mutation is always a single worker per repo, locked. Ten models can advise you at once; only one can ever touch your files.")
+                    .foregroundStyle(ALColor.textMuted)
+            )
+            .font(.system(size: 11.5))
+            .padding(.top, 14)
+        }
+    }
+
+    private func askCard(_ ask: Ask) -> some View {
+        HStack(alignment: .top, spacing: 20) {
+            Text("“\(ask.said)”")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(ALColor.textPrimary)
+                .frame(width: 300, alignment: .leading)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(ask.happens)
+                    .font(.system(size: 12.5))
+                    .foregroundStyle(ALColor.textSecondary)
+                Text(ask.command)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(ALColor.textMuted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(ALColor.base, in: RoundedRectangle(cornerRadius: ALRadius.xs))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: ALRadius.xs).strokeBorder(ALColor.borderSubtle, lineWidth: 1)
+                    }
+                    .textSelection(.enabled)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderSubtle, lineWidth: 1)
+        }
+    }
+
+    // MARK: - Capacity closer (real CapacityStripModel — copy-only if unsampled)
+
+    private var capacityRows: [CapacityBenchRow] {
+        Array(capacityModel.rows.prefix(4))
+    }
+
+    private var hasCapacityData: Bool {
+        capacityModel.featureEnabled
+            && capacityRows.contains { row in row.pools.contains { $0.dashboardRemainingPercent != nil } }
+    }
+
+    private var capacitySection: some View {
+        sectionBlock {
+            Text("THE PART A HAND-ROLLED SETUP CAN'T DO")
+                .font(.system(size: 11, weight: .semibold))
+                .tracking(0.9)
+                .foregroundStyle(ALColor.textFaint)
+
+            HStack(alignment: .top, spacing: 40) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("It knows which subscription still has room.")
+                        .font(.system(size: 21, weight: .semibold))
+                        .tracking(-0.2)
+                        .foregroundStyle(ALColor.textPrimary)
+                        .padding(.top, 4)
+                    prose("`alln capacity` reads each vendor's real weekly and 5-hour headroom. So when your agent reaches for another model, it doesn't reach blindly — it can take the seat with quota to spare and leave alone the limit you're about to hit.")
+                    prose("Every week, allowance you paid for expires unused on the subscriptions you didn't open. This is how it gets spent.")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                capacityCard
+                    .frame(width: 300)
+            }
+        }
+    }
+
+    private var capacityCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("alln capacity")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(ALColor.textMuted)
+            if hasCapacityData {
+                ForEach(capacityRows, id: \.source) { row in
+                    capacityLine(row)
+                }
+                Text("Weekly headroom per CLI — live values from your own accounts.")
+                    .font(.system(size: 10))
+                    .foregroundStyle(ALColor.textFaint)
+                    .padding(.top, 2)
+            } else {
+                Text("Capacity checks are off or nothing has been sampled yet. Enable Capacity to see live weekly headroom here.")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(ALColor.textMuted)
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(ALColor.surface, in: RoundedRectangle(cornerRadius: ALRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: ALRadius.lg).strokeBorder(ALColor.borderDefault, lineWidth: 1)
+        }
+    }
+
+    private func capacityLine(_ row: CapacityBenchRow) -> some View {
+        let remaining = row.pools.first { $0.dashboardRemainingPercent != nil }?.dashboardRemainingPercent
+        let color = CapacityStripRenderer.color(for: row, now: capacityModel.now)
+        return HStack(spacing: 12) {
+            Text(CapacityStripRenderer.displayName(for: row.source))
+                .font(.system(size: 11.5))
+                .foregroundStyle(ALColor.textSecondary)
+                .frame(width: 86, alignment: .leading)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(ALColor.active)
+                    if let remaining {
+                        Capsule()
+                            .fill(color == .amber ? ALColor.accent : ALColor.textMuted)
+                            .frame(width: max(2, geo.size.width * CGFloat(min(100, max(0, remaining)) / 100)))
+                    }
+                }
+            }
+            .frame(height: 6)
+        }
+        .padding(.bottom, 4)
+    }
+
+    // MARK: - Quiet close + the one disclosure
+
+    private var quietClose: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Rectangle().fill(ALColor.borderSubtle).frame(height: 1)
+                .padding(.top, 36)
+            prose("After this page, the app is optional. Runs start, stream, and finish in your terminal; this window is a place to watch them and tune teams, not a place you have to be. If it stays closed for a month while alln gets used every day, that is the product working.")
+                .padding(.top, 18)
+
+            DisclosureGroup(isExpanded: $showDisclosure) {
+                disclosureBody
+            } label: {
+                Text("What exactly gets written to the context files")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(ALColor.textFaint)
+            }
+            .tint(ALColor.textFaint)
+        }
+    }
+
+    private var disclosureBody: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("The full teaching block, shown here verbatim before anything is written — the same text `alln bootstrap` prints. It never appears on the page above.")
+                .font(.system(size: 11.5))
+                .foregroundStyle(ALColor.textFaint)
+
+            ScrollView {
+                Text(TeachingSnippet.wrap())
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(ALColor.textSecondary)
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(12)
+            }
+            .frame(maxHeight: 220)
+            .background(ALColor.subtle, in: RoundedRectangle(cornerRadius: ALRadius.md))
+            .overlay {
+                RoundedRectangle(cornerRadius: ALRadius.md).strokeBorder(ALColor.borderSubtle, lineWidth: 1)
+            }
+
+            Button {
+                copyDisclosure()
+            } label: {
+                Text(copiedDisclosure ? "Copied" : "Copy")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .buttonStyle(.alGhost)
+        }
+        .padding(.top, 10)
+    }
+
+    // MARK: - Shared prose helpers
+
+    private func sectionBlock<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            content()
+        }
+        .padding(.top, 44)
+    }
+
+    private func prose(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13))
+            .foregroundStyle(ALColor.textSecondary)
+            .frame(maxWidth: 620, alignment: .leading)
+            .padding(.top, 6)
     }
 
     // MARK: - Actions
 
     private func reload() {
-        recipes = RecipeCatalog.list()
-        if selectedId == nil { selectedId = recipes.first?.id }
-        if let dest = RecipeInstallMirror.sync() {
-            mirrorPath = dest.path
+        if let scratchHome = Self.fixtureScratchHome() {
+            preview = GlobalTeachingInstaller.preview(homeDirectory: scratchHome)
+        } else {
+            preview = GlobalTeachingInstaller.preview()
         }
     }
 
-    private func copyMarkdown(_ recipe: RecipeCatalog.Recipe) {
+    /// GUI Visual Proof Gate: a deterministic mix of host states (taught /
+    /// out-of-date / unsupported — Codex has no v1 global write regardless) so
+    /// the layout-watcher sees every pill shape, independent of this machine's
+    /// real `~/.claude` / `~/.cursor`. DEBUG only; `GUIFixture.active` is always
+    /// nil in Release, so this never touches disk outside a proof run.
+    private static func fixtureScratchHome() -> URL? {
+        guard GUIFixture.active == "settings-use-from-cli" else { return nil }
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("alln-fixture-use-from-cli", isDirectory: true)
+        try? fm.removeItem(at: root)
+        let claudeDir = root.appendingPathComponent(".claude", isDirectory: true)
+        let cursorDir = root.appendingPathComponent(".cursor/rules", isDirectory: true)
+        try? fm.createDirectory(at: claudeDir, withIntermediateDirectories: true)
+        try? fm.createDirectory(at: cursorDir, withIntermediateDirectories: true)
+
+        // Claude: stale — an older schema version, so the row renders "Out of date".
+        let staleBlock = TeachingSnippet.wrap(version: TeachingSnippet.schemaVersion - 1)
+        try? staleBlock.write(to: claudeDir.appendingPathComponent("CLAUDE.md"), atomically: true, encoding: .utf8)
+
+        // Cursor: current — the row renders "Taught · up to date".
+        try? TeachingSnippet.wrap().write(
+            to: cursorDir.appendingPathComponent("allnighter.mdc"), atomically: true, encoding: .utf8
+        )
+
+        // Codex: always unsupported in v1 — the row renders "Manual" regardless of disk state.
+        return root
+    }
+
+    private func runInstall(_ host: GlobalTeachingInstaller.HostPreview) {
+        busyHostId = host.hostId
+        let result = GlobalTeachingInstaller.applyInstall(
+            hostId: host.hostId,
+            expectedContentHash: host.contentHash
+        )
+        results[host.hostId] = result
+        busyHostId = nil
+        reload()
+    }
+
+    private func runRemove(_ host: GlobalTeachingInstaller.HostPreview) {
+        busyHostId = host.hostId
+        let result = GlobalTeachingInstaller.applyRemove(
+            hostId: host.hostId,
+            expectedContentHash: host.contentHash
+        )
+        results[host.hostId] = result
+        busyHostId = nil
+        reload()
+    }
+
+    private func installAll() {
+        guard let snapshot = preview else { return }
+        bulkBusy = true
+        let applied = GlobalTeachingInstaller.installAllSupported(preview: snapshot)
+        for r in applied { results[r.hostId] = r }
+        bulkBusy = false
+        reload()
+    }
+
+    private func copyBootstrap(host: String) {
+        let ctx = Bootstrap.liveContext()
+        let text = Bootstrap.render(
+            host: Bootstrap.Host(argument: host) ?? .codex,
+            binaryPath: ctx.binaryPath,
+            onPath: ctx.onPath
+        )
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(recipe.markdown, forType: .string)
-        copiedId = recipe.id
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            if copiedId == recipe.id { copiedId = nil }
-        }
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
-    /// First prose paragraph after the H1 — short subtitle for the list.
-    static func blurb(from markdown: String) -> String? {
-        var pastTitle = false
-        var lines: [String] = []
-        for line in markdown.split(separator: "\n", omittingEmptySubsequences: false) {
-            let trimmed = line.trimmingCharacters(in: .whitespaces)
-            if !pastTitle {
-                if trimmed.hasPrefix("#") { pastTitle = true }
-                continue
-            }
-            if trimmed.isEmpty {
-                if !lines.isEmpty { break }
-                continue
-            }
-            if trimmed.hasPrefix("#") { break }
-            if trimmed.hasPrefix("<!--") { continue }
-            lines.append(trimmed)
-            if lines.joined(separator: " ").count > 120 { break }
+    private func copyDisclosure() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(TeachingSnippet.wrap(), forType: .string)
+        copiedDisclosure = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+            copiedDisclosure = false
         }
-        let text = lines.joined(separator: " ").trimmingCharacters(in: .whitespacesAndNewlines)
-        return text.isEmpty ? nil : text
+    }
+}
+
+// MARK: - Width probe (narrow-width reflow)
+
+private struct WidthReader: View {
+    @Binding var width: CGFloat
+    var body: some View {
+        GeometryReader { geo in
+            Color.clear
+                .onAppear { width = geo.size.width }
+                .onChange(of: geo.size.width) { _, new in width = new }
+        }
+    }
+}
+
+// MARK: - Flow layout (CLI chip wrap)
+
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var rowWidth: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if rowWidth + size.width > maxWidth, rowWidth > 0 {
+                totalHeight += rowHeight + spacing
+                rowWidth = 0
+                rowHeight = 0
+            }
+            rowWidth += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        totalHeight += rowHeight
+        return CGSize(width: maxWidth.isFinite ? maxWidth : rowWidth, height: totalHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX, x > bounds.minX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
