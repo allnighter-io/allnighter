@@ -6,8 +6,11 @@ import AllnighterCore
 final class BoostWindowViewModel {
     private(set) var projection: BoostWindowSettingsJSON =
         BoostWindowProjector.build(settings: .fresh, providers: [], contractVersion: ContractRegistry.contractVersion)
+    private(set) var latestReceipt: BoostSeedReceipt?
+    private(set) var scheduleHistory: [BoostSeedHistoryEntry] = []
 
     private let persistence = BoostWindowSettingsPersistence()
+    private let seedLedger = UtilizationSeedLedger()
     private var driverCatalog: [(id: String, name: String)] = []
     private var readyDrivers: Set<String> = []
     private var probeByDriver: [String: ModelSetupStatus.Kind] = [:]
@@ -79,6 +82,23 @@ final class BoostWindowViewModel {
             settings: settings,
             providers: providers,
             contractVersion: ContractRegistry.contractVersion
+        )
+        let displayNames = Dictionary(uniqueKeysWithValues: driverCatalog.map { ($0.id, $0.name) })
+        let events = seedLedger.load()
+        let seedMinutes = BoostWindowTiming.seedFiresAt(settings.windowStart)
+        latestReceipt = BoostSeedScheduleProjector.latestReceipt(
+            events: events,
+            enabled: settings.enabled,
+            appliesTo: settings.appliesTo,
+            seedMinutes: seedMinutes,
+            displayNames: displayNames
+        )
+        scheduleHistory = BoostSeedScheduleProjector.history(
+            events: events,
+            enabled: settings.enabled,
+            appliesTo: settings.appliesTo,
+            seedMinutes: seedMinutes,
+            displayNames: displayNames
         )
     }
 }

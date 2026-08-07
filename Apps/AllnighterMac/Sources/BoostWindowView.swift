@@ -14,6 +14,7 @@ struct BoostWindowView: View {
                 heroCard
                 appliesToSection
                 honestyFootnote
+                scheduleHistorySection
             }
             .padding(28)
             .frame(maxWidth: 920, alignment: .leading)
@@ -92,6 +93,9 @@ struct BoostWindowView: View {
             }
             minimapStrip
             softNote
+            if let receipt = vm.latestReceipt {
+                seedReceiptRow(receipt)
+            }
         }
         .padding(20)
         .background(RoundedRectangle(cornerRadius: 14).fill(ALColor.raised))
@@ -197,6 +201,31 @@ struct BoostWindowView: View {
         .background(RoundedRectangle(cornerRadius: 8).fill((overnight ? ALColor.blue500 : ALPalette.yellow500).opacity(0.12)))
     }
 
+    /// Outcome receipt under the plan soft-note (setting above, what happened below).
+    private func seedReceiptRow(_ receipt: BoostSeedReceipt) -> some View {
+        let color = receiptToneColor(receipt.tone)
+        return HStack(alignment: .top, spacing: 8) {
+            Image(systemName: receiptToneIcon(receipt.tone))
+                .font(.system(size: 12))
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(receipt.headline)
+                    .font(ALFont.sans(12, .semibold))
+                if let detail = receipt.detail, !detail.isEmpty {
+                    Text(detail)
+                        .font(ALFont.sans(11))
+                        .opacity(0.9)
+                }
+            }
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(color.opacity(0.12)))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(receipt.headline + (receipt.detail.map { ". \($0)" } ?? ""))
+    }
+
     // MARK: - Applies to
 
     private var appliesToSection: some View {
@@ -235,6 +264,70 @@ struct BoostWindowView: View {
             Image(systemName: "shield.lefthalf.filled").font(.system(size: 12)).foregroundStyle(ALColor.textFaint)
             Text("Real resets only — never quota, tokens, or cost. Needs downtime before your window, or there's nothing to seed. Off by default.")
                 .font(ALFont.sans(11)).foregroundStyle(ALColor.textFaint)
+        }
+    }
+
+    // MARK: - Schedule history
+
+    @ViewBuilder
+    private var scheduleHistorySection: some View {
+        if !vm.scheduleHistory.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Schedule history")
+                    .font(ALFont.sans(13, .semibold))
+                    .foregroundStyle(ALColor.textSecondary)
+                Text("A blank morning usually means the Mac slept through seed time, or alln serve wasn't running — we only mark what we observed.")
+                    .font(ALFont.sans(11))
+                    .foregroundStyle(ALColor.textFaint)
+                    .fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: 6) {
+                    ForEach(vm.scheduleHistory) { entry in
+                        historyRow(entry)
+                    }
+                }
+            }
+        }
+    }
+
+    private func historyRow(_ entry: BoostSeedHistoryEntry) -> some View {
+        let color = receiptToneColor(entry.tone)
+        return HStack(alignment: .top, spacing: 8) {
+            Circle()
+                .fill(color)
+                .frame(width: 6, height: 6)
+                .padding(.top, 5)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(entry.title)
+                    .font(ALFont.sans(12, .semibold))
+                    .foregroundStyle(color)
+                Text(entry.detail)
+                    .font(ALFont.sans(11))
+                    .foregroundStyle(ALColor.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(ALColor.raised))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(ALColor.borderSubtle, lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(entry.title). \(entry.detail)")
+    }
+
+    private func receiptToneColor(_ tone: BoostSeedReceiptTone) -> Color {
+        switch tone {
+        case .success: return ALColor.statusDone
+        case .failure: return ALColor.statusFailed
+        case .neutral: return ALColor.textMuted
+        }
+    }
+
+    private func receiptToneIcon(_ tone: BoostSeedReceiptTone) -> String {
+        switch tone {
+        case .success: return "checkmark.circle.fill"
+        case .failure: return "xmark.circle.fill"
+        case .neutral: return "circle.dashed"
         }
     }
 
