@@ -1,10 +1,9 @@
 # Allnighter — End User Licence Agreement
 
-**Version 1.0 (draft) · Effective [EFFECTIVE_DATE]**
+**Version 1.0 · Effective August 7, 2026**
 
-Draft, not yet lawyer-reviewed. See [`README.md`](README.md).
-
-This Agreement is between you and **[ENTITY]** ("we", "us"), and governs your use
+This Agreement is between you and **Happy Moose Apps Inc.** ("we", "us"), a
+company incorporated in British Columbia, Canada, and governs your use
 of the Allnighter software — the `alln` command-line tool, the Allnighter Mac
 application, and the Allnighter iOS companion (together, the "Software").
 
@@ -106,7 +105,7 @@ tell you when a new version materially changes your rights.
 ## 8. Privacy
 
 The Software runs locally. What it collects and sends — and what it deliberately
-does not — is described in the [Terms of Service](Terms_of_Service.md) §Privacy.
+does not — is described in the [Privacy Policy](Privacy_Policy.md).
 We do not collect your prompts, your code, or your provider credentials.
 
 ## 9. Disclaimer of Warranty
@@ -149,7 +148,10 @@ described in the Terms of Service remains available to you.
 
 ## 12. General
 
-**Governing law:** [JURISDICTION], excluding its conflict-of-laws rules.
+**Governing law:** the laws of the Province of British Columbia and the federal
+laws of Canada applicable therein, excluding conflict-of-laws rules. The courts
+of Vancouver, British Columbia have jurisdiction, and nothing here removes a
+consumer-protection right you hold where you live.
 
 **Changes:** we may revise this Agreement. Material changes will be announced,
 and continued use after the effective date is acceptance. Revisions do not apply
@@ -160,4 +162,6 @@ retroactively to a dispute that already arose.
 **Entire agreement:** this Agreement and the Terms of Service are the entire
 agreement between us about the Software.
 
-**Contact:** [CONTACT_EMAIL]
+**Contact:** support@allnighter.io
+
+Happy Moose Apps Inc., British Columbia, Canada.

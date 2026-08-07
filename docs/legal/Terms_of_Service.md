@@ -1,16 +1,15 @@
 # Allnighter — Terms of Service
 
-**Version 1.0 (draft) · Effective [EFFECTIVE_DATE]**
-
-Draft, not yet lawyer-reviewed. See [`README.md`](README.md).
+**Version 1.0 · Effective August 7, 2026**
 
 These Terms cover your account, trial, subscription, and payments with
-**[ENTITY]** ("we", "us"). Your use of the software itself is governed by the
+**Happy Moose Apps Inc.** ("we", "us"), a company incorporated in British
+Columbia, Canada. Your use of the software itself is governed by the
 [End User Licence Agreement](EULA.md), which these Terms form part of.
 
-Current prices and tier contents are published at our pricing page and in
-`docs/marketing/Pricing_Recommendation.md`. Where a specific number below and the
-published price page disagree, the **published price page governs**.
+Current prices and tier contents are published at
+[allnighter.io](https://allnighter.io/#pricing). Where a specific number below
+and the published price page disagree, the **published price page governs**.
 
 ---
 
@@ -64,19 +63,24 @@ produced, and no feature becomes unavailable to you.
 
 ## 3. Fees, Billing, Cancellation
 
-- Prices are in US dollars and exclude any taxes you may owe.
+- Prices are in **US dollars (USD)** and exclude any taxes you may owe. Canadian
+  customers may be charged GST/HST where applicable.
 - Subscriptions renew automatically until cancelled. Cancel any time; you keep
   paid access through the end of the period you have paid for, then return to
   Free.
 - **Price changes apply to new customers only.** If you are subscribed, your
   price does not change for as long as your subscription stays active. We will
   tell you in advance of any change, including when it does not affect you.
-- Payment is processed by a third-party payment provider. We do not receive or
-  store your full card details. Their terms and privacy policy apply to the
-  payment itself.
+- Payment is processed by **Stripe**, a PCI-DSS Level 1 certified payment
+  provider. Your card details are entered on Stripe's systems and sent directly
+  to Stripe over an encrypted connection. **We never receive, see, or store your
+  full card number.** Stripe's own [terms](https://stripe.com/legal/ssa) and
+  [privacy policy](https://stripe.com/privacy) apply to the payment itself.
 - **Refunds:** if the software does not work for you, email
-  [CONTACT_EMAIL] within 30 days of purchase and we will refund you. We would
-  rather refund you than argue. Statutory refund rights are unaffected.
+  support@allnighter.io within 30 days of purchase and we will refund you in
+  full. We would rather refund you than argue. Statutory refund rights,
+  including those under British Columbia consumer protection law, are
+  unaffected.
 
 ## 4. Accounts
 
@@ -147,8 +151,8 @@ We do not sell data, do not run advertising, and do not use your content to trai
 anything. Cloud sync between your Mac and your own iPhone, if you enable it,
 carries your data between your own devices at your instruction.
 
-A full privacy policy will be published before public launch; where it and this
-section differ, the published policy governs.
+This section is a summary. The full [Privacy Policy](Privacy_Policy.md) governs,
+and covers retention, deletion, your access rights, and the processors we use.
 
 ## 8. Availability and Changes
 
@@ -176,10 +180,15 @@ tier; sections that by their nature survive, survive.
 
 ## 11. General
 
-**Governing law:** [JURISDICTION], excluding conflict-of-laws rules.
+**Governing law:** the laws of the Province of British Columbia and the federal
+laws of Canada applicable therein, excluding conflict-of-laws rules. The courts
+of Vancouver, British Columbia have jurisdiction, and nothing here removes a
+consumer-protection right you hold where you live.
 
 **Changes:** we may revise these Terms. Material changes are announced before
 they take effect, and continued use afterwards is acceptance. Fee changes follow
 §3 — existing subscribers are grandfathered.
 
-**Contact:** [CONTACT_EMAIL]
+**Contact:** support@allnighter.io
+
+Happy Moose Apps Inc., British Columbia, Canada.

@@ -1,47 +1,75 @@
 # Allnighter — Legal
 
-Status: **Draft v1 — not yet reviewed by a lawyer, not yet accepted by any user**  
-Owner: Founder  
-Created: 2026-07-31
+Status: **Published v1.0 — effective August 7, 2026**  
+Entity: Happy Moose Apps Inc. (British Columbia, Canada)  
+Contact: support@allnighter.io  
+Created: 2026-07-31 · Published: 2026-08-07
 
-Public-facing legal surfaces for Allnighter. These are **drafts written by an
-engineer, not legal advice.** Have a technology lawyer review both documents
-before charging money (roughly one hour of their time; this is the cheapest
-insurance available on the whole launch).
+Public-facing legal surfaces for Allnighter. These four documents are the source
+of truth; the pages on allnighter.io are rendered from them and must be
+regenerated whenever a document here changes.
 
-| Doc | Covers |
+| Doc | Covers | Public URL |
+| --- | --- | --- |
+| [`Terms_of_Service.md`](Terms_of_Service.md) | Fees, trial, free tier, third-party providers, termination | `/terms` |
+| [`EULA.md`](EULA.md) | Licence to use the software, restrictions, warranty, liability | `/terms#eula` |
+| [`Privacy_Policy.md`](Privacy_Policy.md) | What we collect, processors, retention, your rights | `/privacy` |
+| [`Refund_and_Cancellation_Policy.md`](Refund_and_Cancellation_Policy.md) | Refunds, cancellation, renewal, trial terms | `/refunds` |
+
+All `[BRACKETED]` placeholders are filled. If you add a document, check it for
+`[ENTITY]`, `[JURISDICTION]`, `[CONTACT_EMAIL]`, and `[EFFECTIVE_DATE]` before
+it goes public.
+
+## Keeping the site in sync
+
+The website lives in a separate repo (`Ikiro/allnighter`) and holds a rendered
+HTML copy of each document. There is no automated pipeline — editing a Markdown
+file here does **not** update the site. After any change:
+
+1. Edit the Markdown here.
+2. Bump the version and effective date at the top of the changed document.
+3. Mirror the change into the matching `content/*.html` page in the site repo.
+4. Commit both, and push the site repo to publish.
+
+## Stripe requirements
+
+Stripe reviews merchant websites against its
+[website checklist](https://docs.stripe.com/get-started/checklist/website).
+What that checklist asks for, and where it now lives:
+
+| Requirement | Where |
 | --- | --- |
-| [`EULA.md`](EULA.md) | Licence to use the software itself, restrictions, warranty, liability |
-| [`Terms_of_Service.md`](Terms_of_Service.md) | Fees, trial, free core, third-party providers, privacy, termination |
+| Description of what you're selling | Homepage |
+| Purchase currency, explicitly | Homepage pricing, ToS §3, refund policy |
+| Customer service contact | Footer of every page, all four documents |
+| Refund policy | `/refunds`, ToS §3 |
+| Cancellation policy | `/refunds`, ToS §3 |
+| Trial / promotion terms | Homepage, `/refunds`, ToS §2 |
+| Privacy policy | `/privacy` |
+| Payment security and PCI | ToS §3, Privacy §5 and §9, homepage pricing note |
+| Shipping and returns | N/A — downloadable software, no fulfillment process |
+| Business address | Not published. Given to Stripe privately for KYC. |
 
-## Fill these in before publishing
+Set the **Terms of service URL** (`/terms`) and **Privacy policy URL**
+(`/privacy`) in Stripe's business public details, and enable Checkout's legal
+policies consent so acceptance is recorded at purchase.
 
-Every `[BRACKETED]` token below is a placeholder that must be replaced in both
-documents before they go public.
+## Acceptance gate — PARTIALLY BUILT
 
-| Token | Meaning |
-| --- | --- |
-| `[ENTITY]` | Legal entity name (sole proprietor name, LLC, etc.) |
-| `[JURISDICTION]` | Governing law and venue |
-| `[CONTACT_EMAIL]` | Support / legal contact |
-| `[EFFECTIVE_DATE]` | Date first published |
+Terms are now published at stable public URLs, which is the prerequisite. What
+remains is recording that a specific user accepted a specific version:
 
-## Acceptance gate — NOT BUILT
-
-There is currently **no first-run acceptance flow** in the Mac app or CLI. No
-user has agreed to anything. Unaccepted terms are close to worthless.
-
-Required before charging:
-
+- [x] Terms published at stable public URLs, versioned, with an effective date
+- [ ] Checkout re-affirms acceptance at purchase (the legally strongest moment)
+      — Stripe Checkout consent collection does this; enable it when payments go
+      live
 - [ ] First-run acceptance in the Mac app: show the terms, record acceptance
       (version + timestamp) locally, block use until accepted
 - [ ] CLI acceptance: `alln bootstrap` / first dispatch prints the terms URL and
       records acceptance; **must not** block discovery commands (menu, help,
       doctor, version, capacity) — same law as entitlement
-- [ ] Checkout re-affirms acceptance at purchase (the legally strongest moment)
 - [ ] Acceptance record carries the **document version**, so a future revision
       can be re-accepted rather than silently substituted
-- [ ] Terms published at a stable public URL, versioned, with a change history
 
 Build it in the entitlement sibling packet (`docs/phases/One_Paste_Cold_Start.md`
 §Trial → `Trial_And_Entitlement.md`); it lands naturally alongside the first
