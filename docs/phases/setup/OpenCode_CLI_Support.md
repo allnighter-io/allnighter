@@ -354,6 +354,10 @@ proof: AgentOS `OpenCodeSSEParserTests` / `OpenCodeServeClientTests` /
 Historical packet: archived
 `docs/archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md`.
 
+**Forward:** long-run / concurrent continuity gaps found in post-S122 dogfood —
+see [`OpenCode_Long_Run_Continuity.md`](../OpenCode_Long_Run_Continuity.md)
+(`stream_drop` on concurrent seats, `task`/subagent hang).
+
 ## Open Questions
 
 - Setup glyph (neutral terminal chip per design system).
@@ -366,6 +370,7 @@ Historical packet: archived
 | --- | --- |
 | Driver implementation | This doc → `antigravity.json` → `docs/archive/phases/CLI_Implementation_Contract.md` |
 | Completion honesty | Archived `OpenCode_Headless_Completion_And_Session_Scoping.md` → code SSOT above |
+| Long runs / concurrency / subagent hang | [`OpenCode_Long_Run_Continuity.md`](../OpenCode_Long_Run_Continuity.md) |
 | Streaming posture | `threads/03_Mac_Streaming.md` (OpenCode = final-output V1) |
 | Background coordinator | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Setup/detect | `01_CLI_Detection_Auth_And_Bench.md` |
