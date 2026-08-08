@@ -1900,7 +1900,7 @@ the selected CLI.
 - `pending_add_json` — Create a Draft Pending item: `alln pending add --model model_opus --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`
 - `boost_window_show_json` — Show Boost window settings: `alln boost-window show --json`
-- `boost_window_set_json` — Enable Boost window for Claude and Codex: `alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json`
+- `boost_window_set_json` — Enable Boost window for eligible CLIs: `alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex,kimi,opencode --json`
 
 ## Run dry-run write policy
 

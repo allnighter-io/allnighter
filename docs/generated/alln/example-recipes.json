@@ -155,8 +155,8 @@
     "title" : "Show Boost window settings"
   },
   {
-    "command" : "alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json",
+    "command" : "alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex,kimi,opencode --json",
     "id" : "boost_window_set_json",
-    "title" : "Enable Boost window for Claude and Codex"
+    "title" : "Enable Boost window for eligible CLIs"
   }
 ]

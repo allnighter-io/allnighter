@@ -239,7 +239,8 @@
             "repoWriteLock",
             "teamGovernor",
             "driverCapacity",
-            "vendorBackoff"
+            "vendorBackoff",
+            "permission"
           ],
           "type" : "string"
         },
@@ -962,6 +963,9 @@
         },
         "truncated" : {
           "type" : "boolean"
+        },
+        "worktreeDirty" : {
+          "type" : "boolean"
         }
       },
       "required" : [
@@ -969,7 +973,8 @@
         "commits",
         "filesChanged",
         "files",
-        "truncated"
+        "truncated",
+        "worktreeDirty"
       ],
       "type" : "object"
     },
