@@ -54,6 +54,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **OPEN — CT coded; dogfood next** | Completion-truth follow-up implemented; archive after live long/concurrent proof. |
 | [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **CODE COMPLETE — dogfood + CT-08 ruling remain** | CT-01…07/09/11–13 shipped; CT-08 path harden only; CT-10/14 open. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
+| [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) | **Ready for Implementation — not started** | Healthy leftover `opencode serve` on :4096 must be attached, not refused as busy. All OpenCode seats. |
 | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **OCL-S00 pipe PASS on Air — code unauthorized** | qwen2.5:0.5b via OpenCode/`alln run` on M4 Air 32GB. Outcome honesty gap. Readiness Idle/Busy; Studio=ICP. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |
@@ -160,6 +161,7 @@ Open questions:
 | `alln run` fails from Codex, handoff host missing, stale handoff work | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) |
 | Plan-time quota routing, loop park-yield, cross-vendor arbitrage | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) |
 | OpenCode local / Ollama seats (pipe on mini, sell to Studio; Idle/Busy readiness) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — founder rulings locked; Spec Review next; ignore Ollama Cloud |
+| OpenCode serve busy / leftover :4096 after `alln run` | [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) — attach healthy serve; do not tear down per run |
 | Core execution broken, team research/execution lies | Code SSOT: `RunService.swift`, `TeamCatalog`, `RunWriteLockRegistry` |
 | Cold start — no `alln` on PATH | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) |
 | Composer `@` file references | [`Composer_File_References.md`](Composer_File_References.md) |
