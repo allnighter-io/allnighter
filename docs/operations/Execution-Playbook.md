@@ -174,6 +174,23 @@ already banned — but the regeneration step is easy to forget and
 `ContractExportTests` only catches it at test time. It caught three separate
 slices on 2026-08-06 alone.
 
+### Known intermittent: LoopCoordinatorTests wedge (2026-08-08)
+
+`check.sh` has wedged twice in `LoopCoordinatorTests` around
+`testPreflightStartDirectScanShapes`, killed by the guard at ~90s of no CPU
+progress (exit 99). It is **not** a real failure and not worth a blind retry
+loop:
+
+- the suite passes 37/37 in isolation, in ~8s, repeatedly;
+- it was clean on 3 of 5 full-wall runs the same day;
+- the helper writes a fake pid rather than spawning anything, so nothing in the
+  named test obviously blocks — and the wedge line is the last test *printed*,
+  which is not necessarily the one hanging.
+
+If you hit it: `scripts/kill-stale-tests.sh`, then re-run once. If it wedges
+twice in a row at the same test, stop and diagnose — that is a different
+signal from this flake.
+
 ### Rebuild the CLI at every packet closeout (founder 2026-08-08)
 
 While alln is improving itself, **closeout is not done until the rebuilt binary
