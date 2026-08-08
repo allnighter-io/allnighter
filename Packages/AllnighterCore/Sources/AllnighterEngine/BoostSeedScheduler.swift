@@ -72,7 +72,9 @@ public struct BoostSeedScheduler: Sendable {
             now: now,
             calendar: calendar
         )
-        for sourceId in settings.appliesTo where settings.appliesToSet.contains(sourceId) {
+        let eligible = BoostEligibilityProbe.eligibleSeedDriverIds()
+        for sourceId in settings.appliesTo
+        where settings.appliesToSet.contains(sourceId) && eligible.contains(sourceId) {
             _ = await executor.execute(sourceId: sourceId, settings: settings, scheduledAt: scheduledAt)
         }
     }

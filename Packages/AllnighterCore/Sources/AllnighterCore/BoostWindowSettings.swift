@@ -13,7 +13,7 @@ public struct BoostWindowSettings: Codable, Sendable, Equatable {
     public var enabled: Bool
     /// Minutes from midnight, snapped to 15.
     public var windowStart: Int
-    /// Driver ids (e.g. `claude_code`, `codex`) the window covers.
+    /// Seed driver ids the window covers (see `BoostSeatCatalog`).
     public var appliesTo: [String]
     public var updatedAt: Date?
 
@@ -21,7 +21,7 @@ public struct BoostWindowSettings: Codable, Sendable, Equatable {
         schemaVersion: Int = BoostWindowSettings.currentSchemaVersion,
         enabled: Bool = false,
         windowStart: Int = BoostWindowSettings.defaultWindowStart,
-        appliesTo: [String] = ["claude_code", "codex"],
+        appliesTo: [String] = BoostSeatCatalog.seedDriverIds,
         updatedAt: Date? = nil
     ) {
         self.schemaVersion = schemaVersion
@@ -37,7 +37,8 @@ public struct BoostWindowSettings: Codable, Sendable, Equatable {
 
     public mutating func normalize() {
         windowStart = BoostWindowTiming.snap15(windowStart)
-        appliesTo = Array(Set(appliesTo)).sorted()
+        // Keep only catalog seed drivers — drop typos / retired ids.
+        appliesTo = Array(Set(appliesTo).filter(BoostSeatCatalog.knowsSeedDriver)).sorted()
     }
 }
 

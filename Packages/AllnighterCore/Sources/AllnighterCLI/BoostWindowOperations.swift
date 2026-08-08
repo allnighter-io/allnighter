@@ -27,9 +27,17 @@ enum BoostWindowOperations {
         if let on = enabled { s.enabled = on }
         if let raw = rawWindow { s.windowStart = try parseWindowStart(raw) }
         if let raw = rawApplies {
-            s.appliesTo = raw.split(separator: ",")
+            let requested = raw.split(separator: ",")
                 .map { String($0).trimmingCharacters(in: .whitespaces) }
                 .filter { !$0.isEmpty }
+            let unknown = requested.filter { !BoostSeatCatalog.knowsSeedDriver($0) }
+            if let first = unknown.first {
+                throw Failure.envelope(utilizationError(
+                    "UTILIZATION_SOURCE_NOT_FOUND",
+                    "unknown boost seat: \(first) (known: \(BoostSeatCatalog.seedDriverIds.joined(separator: ", ")))"
+                ))
+            }
+            s.appliesTo = requested
         }
         try save(s)
         return projection(runtime: runtime, settings: s)
@@ -43,6 +51,12 @@ enum BoostWindowOperations {
         guard settings.appliesToSet.contains(sourceId) else {
             throw Failure.envelope(utilizationError(
                 "UTILIZATION_SOURCE_UNCONFIGURED", "\(sourceId) is not in appliesTo"
+            ))
+        }
+        guard BoostEligibilityProbe.eligibleSeedDriverIds().contains(sourceId) else {
+            throw Failure.envelope(utilizationError(
+                "UTILIZATION_SOURCE_UNCONFIGURED",
+                "\(sourceId) has no capacity short window yet — refresh Capacity first"
             ))
         }
         let event = await UtilizationSeedExecutor(
@@ -93,6 +107,7 @@ enum BoostWindowOperations {
         let records = SetupStore().load().records
         let resets = UtilizationCapacityReader.lastObservedResetPerSource()
         let outcomes = UtilizationCapacityReader.recentSeedOutcomes()
+        let eligible = BoostEligibilityProbe.eligibleSeedDriverIds()
         return BoostWindowProviderBuilder.providerStates(
             settings: settings,
             manifests: runtime.registry.all,
@@ -100,7 +115,8 @@ enum BoostWindowOperations {
             readyDriverIds: ready,
             probeRecords: records,
             observedResets: resets,
-            recentSeedOutcomes: outcomes
+            recentSeedOutcomes: outcomes,
+            eligibleSeedDriverIds: eligible
         )
     }
 

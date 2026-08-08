@@ -26,9 +26,18 @@ struct BoostWindowView: View {
     }
 
     private func reload() {
+        let eligible = BoostEligibilityProbe.eligibleSeedDriverIds()
         let boostDrivers = appModel.registry.all
-            .filter { BoostWindowProviderBuilder.boostSourceIds.contains($0.id) }
+            .filter { eligible.contains($0.id) }
             .map { ($0.id, $0.displayName) }
+        // Catalog order when registry omits a seat we still want labeled.
+        let ordered: [(id: String, name: String)] = BoostSeatCatalog.seats.compactMap { seat in
+            guard eligible.contains(seat.seedDriverId) else { return nil }
+            if let hit = boostDrivers.first(where: { $0.0 == seat.seedDriverId }) {
+                return (hit.0, hit.1)
+            }
+            return (seat.seedDriverId, seat.seedDriverId)
+        }
         let parked = appModel.parkedDriverIds
         let ready = Set(
             appModel.toolStatuses
@@ -39,11 +48,12 @@ struct BoostWindowView: View {
         let resets = UtilizationCapacityReader.lastObservedResetPerSource()
         let outcomes = UtilizationCapacityReader.recentSeedOutcomes()
         vm.load(
-            drivers: boostDrivers,
+            drivers: ordered,
             readyDrivers: ready,
             probeKinds: kinds,
             observedResets: resets,
-            recentSeedOutcomes: outcomes
+            recentSeedOutcomes: outcomes,
+            eligibleSeedDriverIds: eligible
         )
     }
 
@@ -231,13 +241,20 @@ struct BoostWindowView: View {
     private var appliesToSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Applies to").font(ALFont.sans(13, .semibold)).foregroundStyle(ALColor.textSecondary)
-            HStack(spacing: 10) {
-                ForEach(vm.projection.providers.filter { $0.connected || $0.included }, id: \.sourceId) { p in
-                    providerChip(p)
+            if vm.projection.providers.isEmpty {
+                Text("No CLIs yet — Capacity must record a 5h (or Claude session) window before a seat can boost. Turn Capacity on and refresh.")
+                    .font(ALFont.sans(12))
+                    .foregroundStyle(ALColor.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                HStack(spacing: 10) {
+                    ForEach(vm.projection.providers, id: \.sourceId) { p in
+                        providerChip(p)
+                    }
                 }
+                Text("One window, every CLI you switch on — seats appear when Capacity sees a short rolling window.")
+                    .font(ALFont.sans(12)).foregroundStyle(ALColor.textFaint)
             }
-            Text("One window, every CLI you switch on.")
-                .font(ALFont.sans(12)).foregroundStyle(ALColor.textFaint)
         }
     }
 

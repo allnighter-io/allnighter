@@ -103,9 +103,9 @@ public enum BoostWindowProjector {
 }
 
 /// Shared provider-row builder for Settings, CLI, and MCP.
+///
+/// Chips = capacity-eligible seats from `BoostSeatCatalog` (not a hard id list).
 public enum BoostWindowProviderBuilder {
-    public static let boostSourceIds = ["claude_code", "codex"]
-
     public static func providerStates(
         settings: BoostWindowSettings,
         manifests: [DriverManifest],
@@ -113,28 +113,29 @@ public enum BoostWindowProviderBuilder {
         readyDriverIds: Set<String>,
         probeRecords: [ToolProbeRecord],
         observedResets: [String: Date] = [:],
-        recentSeedOutcomes: [String: UtilizationSeedOutcome] = [:]
+        recentSeedOutcomes: [String: UtilizationSeedOutcome] = [:],
+        eligibleSeedDriverIds: Set<String>
     ) -> [ProviderBoostState] {
-        manifests
-            .filter { boostSourceIds.contains($0.id) }
-            .map { manifest in
-                let rec = probeRecords.first { $0.driverId == manifest.id }
-                let signedIn = rec?.status.isSmokeReady == true
-                let needsAttention: Bool = {
-                    if case .installedNotSignedIn = rec?.status { return true }
-                    if let outcome = recentSeedOutcomes[manifest.id],
-                       outcome == .authRequired || outcome == .billingPrompt { return true }
-                    return false
-                }()
-                return ProviderBoostState(
-                    id: manifest.id,
-                    displayName: manifest.displayName,
-                    connected: readyDriverIds.contains(manifest.id) || rec != nil,
-                    signedIn: signedIn,
-                    included: settings.appliesToSet.contains(manifest.id),
-                    lastObservedReset: observedResets[manifest.id],
-                    needsAttention: needsAttention
-                )
-            }
+        let byId = Dictionary(uniqueKeysWithValues: manifests.map { ($0.id, $0) })
+        return BoostSeatCatalog.seats.compactMap { seat in
+            guard eligibleSeedDriverIds.contains(seat.seedDriverId) else { return nil }
+            let manifest = byId[seat.seedDriverId]
+            let rec = probeRecords.first { $0.driverId == seat.seedDriverId }
+            let needsAttention: Bool = {
+                if case .installedNotSignedIn = rec?.status { return true }
+                if let outcome = recentSeedOutcomes[seat.seedDriverId],
+                   outcome == .authRequired || outcome == .billingPrompt { return true }
+                return false
+            }()
+            return ProviderBoostState(
+                id: seat.seedDriverId,
+                displayName: manifest?.displayName ?? seat.seedDriverId,
+                connected: readyDriverIds.contains(seat.seedDriverId) || rec != nil || manifest != nil,
+                signedIn: readyDriverIds.contains(seat.seedDriverId),
+                included: settings.appliesToSet.contains(seat.seedDriverId),
+                lastObservedReset: observedResets[seat.seedDriverId],
+                needsAttention: needsAttention
+            )
+        }
     }
 }

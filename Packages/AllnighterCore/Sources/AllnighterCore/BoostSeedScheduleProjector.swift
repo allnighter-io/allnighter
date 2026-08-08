@@ -332,6 +332,9 @@ public enum BoostSeedScheduleProjector {
         switch sourceId {
         case "claude_code": return "Claude Code"
         case "codex": return "Codex"
+        case "kimi": return "Kimi"
+        case "opencode": return "OpenCode"
+        case "antigravity": return "Antigravity"
         default: return sourceId
         }
     }

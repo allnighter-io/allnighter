@@ -1,5 +1,6 @@
 import SwiftUI
 import AllnighterCore
+import AllnighterEngine
 
 @Observable
 @MainActor
@@ -16,19 +17,22 @@ final class BoostWindowViewModel {
     private var probeByDriver: [String: ModelSetupStatus.Kind] = [:]
     private var observedResets: [String: Date] = [:]
     private var recentSeedOutcomes: [String: UtilizationSeedOutcome] = [:]
+    private var eligibleSeedDriverIds: Set<String> = []
 
     func load(
         drivers: [(id: String, name: String)],
         readyDrivers: Set<String>,
         probeKinds: [String: ModelSetupStatus.Kind],
         observedResets: [String: Date] = [:],
-        recentSeedOutcomes: [String: UtilizationSeedOutcome] = [:]
+        recentSeedOutcomes: [String: UtilizationSeedOutcome] = [:],
+        eligibleSeedDriverIds: Set<String> = []
     ) {
         self.driverCatalog = drivers
         self.readyDrivers = readyDrivers
         self.probeByDriver = probeKinds
         self.observedResets = observedResets
         self.recentSeedOutcomes = recentSeedOutcomes
+        self.eligibleSeedDriverIds = eligibleSeedDriverIds
         reproject()
     }
 
@@ -60,21 +64,26 @@ final class BoostWindowViewModel {
     private func reproject() { project(from: persistence.load()) }
 
     private func project(from settings: BoostWindowSettings) {
-        let providers = driverCatalog.map { entry in
-            let kind = probeByDriver[entry.id]
+        let eligible = eligibleSeedDriverIds.isEmpty
+            ? Set(driverCatalog.map(\.id))
+            : eligibleSeedDriverIds
+        let nameById = Dictionary(uniqueKeysWithValues: driverCatalog.map { ($0.id, $0.name) })
+        let providers: [ProviderBoostState] = BoostSeatCatalog.seats.compactMap { seat in
+            guard eligible.contains(seat.seedDriverId) else { return nil }
+            let kind = probeByDriver[seat.seedDriverId]
             let needsAttention: Bool = {
                 if kind == .installedNotSignedIn { return true }
-                if let outcome = recentSeedOutcomes[entry.id],
+                if let outcome = recentSeedOutcomes[seat.seedDriverId],
                    outcome == .authRequired || outcome == .billingPrompt { return true }
                 return false
             }()
             return ProviderBoostState(
-                id: entry.id,
-                displayName: entry.name,
-                connected: readyDrivers.contains(entry.id) || kind != nil,
-                signedIn: readyDrivers.contains(entry.id),
-                included: settings.appliesToSet.contains(entry.id),
-                lastObservedReset: observedResets[entry.id],
+                id: seat.seedDriverId,
+                displayName: nameById[seat.seedDriverId] ?? seat.seedDriverId,
+                connected: readyDrivers.contains(seat.seedDriverId) || kind != nil,
+                signedIn: readyDrivers.contains(seat.seedDriverId),
+                included: settings.appliesToSet.contains(seat.seedDriverId),
+                lastObservedReset: observedResets[seat.seedDriverId],
                 needsAttention: needsAttention
             )
         }
@@ -83,20 +92,21 @@ final class BoostWindowViewModel {
             providers: providers,
             contractVersion: ContractRegistry.contractVersion
         )
-        let displayNames = Dictionary(uniqueKeysWithValues: driverCatalog.map { ($0.id, $0.name) })
+        let displayNames = Dictionary(uniqueKeysWithValues: providers.map { ($0.id, $0.displayName) })
+        let activeApplies = settings.appliesTo.filter { eligible.contains($0) }
         let events = seedLedger.load()
         let seedMinutes = BoostWindowTiming.seedFiresAt(settings.windowStart)
         latestReceipt = BoostSeedScheduleProjector.latestReceipt(
             events: events,
             enabled: settings.enabled,
-            appliesTo: settings.appliesTo,
+            appliesTo: activeApplies,
             seedMinutes: seedMinutes,
             displayNames: displayNames
         )
         scheduleHistory = BoostSeedScheduleProjector.history(
             events: events,
             enabled: settings.enabled,
-            appliesTo: settings.appliesTo,
+            appliesTo: activeApplies,
             seedMinutes: seedMinutes,
             displayNames: displayNames
         )

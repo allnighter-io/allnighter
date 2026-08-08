@@ -1567,6 +1567,6 @@ public extension ContractRegistry {
         ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --model model_opus --when ready --json \"Review this patch when Claude is available.\""),
         ExampleRecipe("pending_list_json", title: "List Pending items", command: "alln pending list --json"),
         ExampleRecipe("boost_window_show_json", title: "Show Boost window settings", command: "alln boost-window show --json"),
-        ExampleRecipe("boost_window_set_json", title: "Enable Boost window for Claude and Codex", command: "alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex --json"),
+        ExampleRecipe("boost_window_set_json", title: "Enable Boost window for eligible CLIs", command: "alln boost-window set --enabled true --window-start 08:00 --applies-to claude_code,codex,kimi,opencode --json"),
     ]
 }
