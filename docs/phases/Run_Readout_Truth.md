@@ -1,11 +1,11 @@
 # Run Readout Truth — one screen, one status, no plumbing
 
-Status: **v2 — NOT READY. Grok 4.5 review `411F2E17` returned Not ready; its
-edits are applied below. Re-review pending (DeepSeek `AC2E53DC` in flight).
-No slice authorized.**
+Status: **v3 — Ready for named slices (RRT-S01 + RRT-S04). Two reviews
+adjudicated (§0). Grok 4.5 `411F2E17` Not ready; DeepSeek V4 Pro `AC2E53DC`
+Ready. They disagreed head-on; both were right about different things.**
 Owner: AllnighterCore (`TeamRunJSONMapper`, `LeadCallParser`, `TeachingSnippet`,
 `RunService` settle path, CLI `show`)
-Created: 2026-08-08 · Revised: 2026-08-08 (v2 — Grok review applied)
+Created: 2026-08-08 · Revised: 2026-08-08 (v3 — Grok + DeepSeek reviews adjudicated)
 Origin: PM incident 2026-08-08 — a completed Spec Review with a **Ready** verdict
 was read as a crashed run. Founder: *"why were you just sitting there and doing
 nothing… I have tried to improve alln 10 times and this still happens."*
@@ -22,6 +22,52 @@ co-defendant here), [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md)
 
 Phases are ephemeral. At closeout: promote product law into help / vocabulary /
 operations; code remains SSOT; archive this packet.
+
+---
+
+## 0. Review record — two reviews, one disagreement
+
+| | Grok 4.5 `411F2E17` | DeepSeek V4 Pro `AC2E53DC` |
+| --- | --- | --- |
+| Verdict | **Not ready** | **Ready for Implementation** |
+| Can `observation.ownerState` be removed? | **No** — breaks shipped ORS law | **Yes** — "consumed only in tests" |
+| Can `outcome.status` be removed? | No — loses multi-seat honesty | Yes — public projection has no production consumer |
+| Biggest find | Teaching (`TeachingSnippet:86`) co-owns the incident | **`errors: []` is a hardcoded literal** |
+
+### 0.1 Adjudication (lead-verified, not vote-counted)
+
+**`ownerState` — Grok is right.** `ContractSchema.swift:73–76` declares
+`required: ["ownerState", "activityMode", "lastActivityAt"]`, with a comment
+citing One Run Surface / ORS-P2-NULL. DeepSeek's "consumed only in tests" is
+true of *value readers* and wrong about *contract obligation*: those tests
+encode a shipped law, and the schema mandates the key. **Demote, do not remove**
+(RRT-S02, unchanged from v2).
+
+**`outcome.status` — DeepSeek is right on the facts, and it does not matter.**
+Confirmed: iOS has **zero** `TeamRunJSON` references; the Mac app reads
+`teamRun.status` via `TeamRunJSONPresenter`; the public `Outcome.Status`
+projection has no production consumer. But it stays anyway, for the independent
+reason in §1.2 — it was telling the truth.
+
+**DeepSeek's finding (i) — confirmed, and it is the largest defect in the
+packet.** `TeamRunJSONMapper.swift:238` passes `errors: []` as a **hardcoded
+empty literal**. Not conditionally empty — never populated, for any run, ever.
+`alln show --json` is structurally incapable of reporting a failure reason at
+top level. Promoted from a sub-item to its own first-class slice (RRT-S04).
+
+**Cold-agent gate — DeepSeek's amendment accepted.** The gate must name the
+derivation chain, or a cargo-culted `status: "done"` passes it while lying
+(§3).
+
+**AgentOS `errorKind` — confirmed and routed away.**
+`AgentOS/Sources/AgentOSCLI/OpenCodeRoutingWorkerRunner.swift:93–94` maps
+`.portOwnedByForeignProcess` → `.timedOut`. Real, and **not this packet's** —
+it is a classification stamped during the run, which is
+[`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md)'s charter. Follow-up (c).
+
+**Net verdict: Ready for named slices — RRT-S01 and RRT-S04.** Grok's blocking
+edits landed in v2; DeepSeek's landed in v3. RRT-S02 (teaching) and RRT-S03
+(headline) follow; neither is red-today in the way S01/S04 are.
 
 ---
 
@@ -112,6 +158,11 @@ outcome.headline  "model model_opencode_deepseek_v4_pro · lane code · readOnly
 errors            []                      ← the field named errors
 ```
 
+**`errors` is a hardcoded empty literal.** `TeamRunJSONMapper.swift:238` passes
+`errors: []` into every payload it builds. It is not conditionally empty and not
+a mapping miss — the field has never been wired. `alln show --json` cannot
+report a failure reason at top level for *any* run, and never could.
+
 No `errorReason` key. No `errorKind` key. The actual reason —
 `"opencode serve busy: port owned by pid 96665"` — was present **four times**:
 
@@ -201,9 +252,14 @@ recipes, mapper tests, stream terminal frames, Mac `TeamRunJSONPresenter`, iOS.
 ### The cold-agent gate
 
 > Can a cold agent answer *"did it work, and what did it say"* from the first
-> screen of `alln show --json`, in one call?
+> screen of `alln show --json`, in one call — **where the elected lifecycle
+> answer derives from `teamRun.endReason`, which is already correct?**
 
-Grok's ruling accepted: **as stated this is gameable** — mint a top-level
+The derivation clause is load-bearing (DeepSeek): without it the gate tests only
+whether a field *exists*, so a cargo-culted `status: "done"` computed from the
+wrong source passes while lying.
+
+Grok's ruling also accepted: **as stated this is gameable** — mint a top-level
 `status`, leave `ownerState: dead` and an identity `headline`, and a cold agent
 following `TeachingSnippet.swift:86` still reports a crash. The gate therefore
 requires all three:
@@ -278,11 +334,26 @@ Given: a run kind with no lead-call block
 Then:  headline still states an outcome, never an identity string
 ```
 
-### RRT-S04 — Failure reason where the reason belongs, and forward `nextAction`s
+### RRT-S04 — Wire `errors` (authorized alongside S01)
 
-New in v2, from §1.3. `errors` is populated whenever a reason exists in
-`answers[].error.message` / `teamRun.attempts[].reason`. Net-neutral: it fills an
-existing empty array rather than adding a key.
+**Promoted in v3 to a first-class slice** — `TeamRunJSONMapper.swift:238` passes
+`errors: []` as a hardcoded literal, so no run has ever reported a reason at top
+level (§0.1, §1.3). Populate it from `answers[].error` /
+`teamRun.attempts[].reason` whenever a reason exists anywhere in the payload.
+
+**Net-negative by construction:** it fills an existing empty array. Zero new
+fields, zero new commands.
+
+Also in scope: drop the circular terminal `showRun` entry and
+`pmTurn.nextCommands: ["alln show <id> --json"]`. Do **not** invent a new answer
+command — `alln artifact show` and export already exist and already lead via
+`terminalArtifactNextActions` (`TeamRunJSONMapper.swift:564`).
+
+**Not in scope:** correcting `errorKind` itself. A serve-busy refusal stamped
+`timed_out` is an AgentOS classification bug
+(`OpenCodeRoutingWorkerRunner.swift:93–94`) owned by
+[`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md). This slice requires
+only that whatever kind is chosen *reaches* `errors`.
 
 Also: drop the circular terminal `showRun` entry and
 `pmTurn.nextCommands: ["alln show <id> --json"]`. Do **not** invent a new answer
@@ -332,6 +403,7 @@ And:   no nextAction repeats the command just run
 | Parsing a prose fence is brittle | `LeadCallParser` already exists and is already trusted by `ArtifactProjector`. Reuse, don't re-invent. Writer-structured emit stays a follow-up. |
 | Field removal breaks agents holding stale instructions | `RetiredVocabulary` exists for exactly this; register anything removed. |
 | Teaching and payload drift apart | Law 8 + S02 bundles them. |
+| `answer.status` is a sixth voice | The canonical `Answer` struct carries its own `status`, which can disagree with the elected lifecycle on a partial hoist (VSI-S05). Verify agreement before RRT-S01 closes, or fold it in — OQ6. |
 | Packet becomes a general run-surface refactor | §3 is the fence: no new commands/flags, no net field growth. |
 
 ---
@@ -344,6 +416,7 @@ And:   no nextAction repeats the command just run
 | (b) | **`warnings` attribution.** `FCF51DB2` emitted *"research-write violation… changed the repository's Git state"* with `changedPaths: []` — HEAD moved because a **different process** committed mid-run. Signal attributed to a source that did not produce it. | Same family as `Probe_Freshness.md` / `Vendor_Signal_Isolation.md`. Founder's call whether to packet or fold. |
 | (c) | **`errorKind: timed_out` on a 0 ms refusal.** A serve-busy refusal is not a timeout. | May belong to `Vendor_Signal_Isolation.md` rather than here — OQ4. |
 | (d) | **Writer emits Lead Call structured**, ending the prose round-trip. | Larger; RRT-S03 reuses the existing parser instead. |
+| (e) | **`ErrorEnvelope.code` derives from `WorkerAnswerStatus`, not `WorkerAnswerErrorKind`.** When AgentOS stamps `status: .failed` + `errorKind: .timedOut`, the public surface reports `AGENT_FAILED` and the misclassification is silently lost in translation (`TeamRunJSONMapper` `errorEnvelope`). | Downstream of the VSI AgentOS `errorKind` fix — fixing it here would encode the upstream bug. |
 
 ---
 
@@ -359,6 +432,13 @@ And:   no nextAction repeats the command just run
    `Vendor_Signal_Isolation.md`? Lean: VSI owns classification; this packet only
    requires that whatever kind is chosen reaches `errors`.
 5. Which named ORS amendment, if any, does the teaching demotion require?
+6. Must `answer.status` agree with the elected lifecycle answer, or is the
+   VSI-S05 partial hoist an intentional disagreement? Settle before RRT-S01
+   ships.
+7. `pmTurn.lifecycleStatus` / `pmTurn.reason`: drop, or keep as explicitly
+   subordinate? "Subordinate or drop" is not implementable (DeepSeek edit 4).
+   Lean: **drop** — they are redundant with the elected answer and dropping
+   them is what makes S01's delete math work.
 
 ---
 
