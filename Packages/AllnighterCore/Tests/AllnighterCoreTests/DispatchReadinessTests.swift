@@ -168,8 +168,29 @@ final class DispatchReadinessTests: XCTestCase {
         )
         XCTAssertEqual(empty.drivers.first?.status, "notChecked")
 
-        // Negative smoke → notReady (informs; does not pretend ready).
+        // A CURRENT negative smoke → notReady (informs; does not pretend ready).
+        // The timestamp is load-bearing: this fixture used `.distantPast`, which
+        // PF-S00 now correctly treats as a verdict that outlived its evidence, so
+        // it was really asserting expiry behavior while claiming to assert smoke
+        // behavior.
         let negative = DriverListProjector.build(
+            registry: registry,
+            probeRecords: [
+                ToolProbeRecord(
+                    driverId: "grok",
+                    status: .probeFailed(reason: "auth dead"),
+                    lastProbeAt: Date()
+                ),
+            ],
+            models: models,
+            parkedDriverIds: []
+        )
+        XCTAssertEqual(negative.drivers.first?.status, "notReady")
+
+        // And the expiry case it was accidentally covering, now on purpose: an
+        // ancient negative stops being asserted (PF-S00) — but it still never
+        // becomes ready, which is this test's actual law.
+        let stale = DriverListProjector.build(
             registry: registry,
             probeRecords: [
                 ToolProbeRecord(
@@ -181,7 +202,8 @@ final class DispatchReadinessTests: XCTestCase {
             models: models,
             parkedDriverIds: []
         )
-        XCTAssertEqual(negative.drivers.first?.status, "notReady")
+        XCTAssertEqual(stale.drivers.first?.status, "notChecked")
+        XCTAssertNotEqual(stale.drivers.first?.status, "ready")
 
         // Cached notInstalled still informs as notReady — never coerced to ready.
         let notInstalled = DriverListProjector.build(
