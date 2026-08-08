@@ -1,7 +1,9 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **v3 — PF-S00 and PF-S02 SHIPPED. PF-S01 ready. PF-S03 BLOCKED on a
-  missing evidence-contract decision (§0.3).**
+Status: **v4 — PF-S00 and PF-S02 SHIPPED. PF-S01 ready and now load-bearing.
+  PF-S03 BLOCKED on a missing evidence-contract decision (§0.3). The
+  "capacity is a table, not a status" redesign is REFUTED (§0.4) — read it
+  before proposing it again.**
   Spec Review Min `FCF51DB2` Ready (§0.1). PF-S03 carries the 2026-08-08
   founder ruling that supersedes the Capacity Warm Bench Dock-only lock (§0.2),
   and the 2026-08-08 design review that found its scope named the wrong
@@ -10,7 +12,7 @@ Owner: AllnighterEngine (`SourceProbeService`, `CensusIngest`) +
 AllnighterCore (`DriverListProjector`, `ModelListProjector`, `MenuCatalog`,
 `BenchReadiness`, `TeamAssembler`, `DoctorReport`, `DispatchReadiness`);
 `alln serve` for PF-S03
-Created: 2026-08-08 · Revised: 2026-08-08 (v3 — S00/S02 shipped, S03 blocked)
+Created: 2026-08-08 · Revised: 2026-08-08 (v4 — table redesign refuted)
 Origin: Founder dogfood 2026-08-08 — `alln menu --json` reported Grok and Kimi
 as `notReady` / "Rate limited — resets Aug 14" while both CLIs answered a live
 prompt in the same minute. Founder: *"why on launch alln menu is LYING."*
@@ -102,6 +104,57 @@ shipped first.
 **Process note.** The review run itself came back `status: failed` /
 `incomplete_uncommitted` while delivering a complete answer, because the lead
 edited files in the same repo while it was in flight. See Follow-up (e).
+
+### 0.4 Rejected: "capacity is a table, not a status" (2026-08-08) — REFUTED
+
+Founder proposal, from first principles: *"capacity as reading from a table —
+you pulled data X minutes ago and either it worked and you have data, or it did
+not and you don't know the capacity. Is that not 10x simpler?"* The lead
+developed it into: retire `ModelSetupStatus.rateLimited` as a capacity signal
+and promote `CapacityHistoryStore` to the SSOT.
+
+Two independent read-only reviews were commissioned before any code was written
+— K3 (architecture, run `4E5071FD`) and GPT Sol (adversarial/refutation, run
+`F07E88A6`). **The proposal was REFUTED.** Do not rebuild it without reading
+this section.
+
+**The lead's headline evidence was wrong.** It cited `alln capacity` reporting
+kimi at 68% remaining while the probe record called kimi rate limited, and
+called that two SSOTs drifting. `alln capacity` does not read the history table
+at all — it reads the resident snapshot over `capacity.sock`, else performs a
+cold live acquire (`AllnighterCLI.swift:431-441`). The live path knew; the table
+being promoted was never the source of that number.
+
+| Claim | Verdict | Evidence |
+| --- | --- | --- |
+| The history table is a better source | **Refuted** | `lastKnownWindows` treats a record as current for the entire reset window with no observation-age limit (`CapacityHistoryStore.swift:115-128`), and the monotone merge pairs the highest historical peak with the newest timestamp — an 80% sample then a real 50% sample reads as "80% used, observed just now". `CapacityHistoryStoreTests.testMonotonicityLowerUsedDoesNotLowerPeak` locks that in. Valid peak accounting, invalid *current* accounting. |
+| The table is fresh with the app closed | **Refuted** | Rows are a side effect of live acquisition (`CapacityFetch.swift:70`), whose only automatic producer is the Dock-app resident (`CapacityResidentService`). App closed, table as stale as everything else. This was the named kill-condition; it failed. |
+| The two signals are one fact, drifting | **Refuted — the decisive finding** | They assert different facts. The meter says *the account allowance showed 68% remaining*. `.rateLimited` says *a concrete smoke invocation received a declared vendor capacity refusal*. A model-specific pool, concurrency cap, cooldown or endpoint restriction makes both true at once. **The meter cannot disprove the invocation result.** |
+| Retiring the case is a clean deletion | **Refuted** | `TeamAssembler.readyDriverIds` admits `.rateLimited` *deliberately* (`TeamAssembler.swift:71`) so dispatch can attempt and park via QABC rather than die `AGENT_NOT_AVAILABLE`. A vendor-limited smoke would fall to `.probeFailed`, which that predicate excludes — **every vendor-limited seat lost**. Same trap as PF-S00's v1 lean (§0.1), approached from the other side. |
+
+K3 additionally found three under-specifications that would each have shipped a
+defect: `probeFailed`'s fate is unnamed and it is already the bucket
+*unrecognized* vendor limits fall into (`CLIDetector.swift:406,419`); the
+proposed observation→row writer does not exist and cannot, because
+`CapacityWindowRecord` identity requires both `usedPercent` and `resetAt`
+(`CapacityHistoryStore.swift:255-260`) while smoke observations routinely carry
+only `retryAfterSeconds`; and `ModelSetupStatus.Kind` is a persisted Codable
+enum (`DriverProbeTypes.swift:84`), so removing the case throws on decode of
+every existing `cli_setup.json`.
+
+**What survives, and it is the founder's actual point.** The disease is real: a
+verdict stored as a *status* has no age and no provenance, so a reader cannot
+tell how old it is or what produced it. The cure is not to delete the signal but
+to keep each fact with its own timestamp and scope, and to **surface the
+disagreement rather than resolve it silently** — Sol's closing words. PF-S00 and
+PF-S02 already do this at read time, which both reviews cite as the correct
+layer. PF-S01 becomes *more* valuable, not less: showing two facts with their
+ages is exactly what "retain both and surface their disagreement" requires.
+
+**Bonus finding, promoted:** `CapacityResidentService` is the **only** automatic
+producer of capacity data anywhere. With the Mac app closed there is no capacity
+refresh at all. That makes PF-S03 more load-bearing than a convenience —
+it is the reason the founder's priority ordering was right.
 
 ---
 
