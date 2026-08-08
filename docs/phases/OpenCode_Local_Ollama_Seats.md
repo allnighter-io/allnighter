@@ -1,33 +1,42 @@
-# OpenCode Local (Ollama) Seats
+# Ollama Local Seats (OpenCode + Claude Code)
 
 Status: **OCL-S00 pipe PASS (partial honesty) — code slices still unauthorized.**
-  Founder rulings locked (§0.1). Spec Review Min: Ready for OCL-S00 only
-  (`FE9F2530…`). Live dogfood recorded §0.3.
-Revised: 2026-08-07 (v4.2 — serve leftover repro; never kill alln serve)
-Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS only if
-local turn timing needs to change in the OpenCode driver)
+  Founder rulings locked (§0.1), including **both agent bodies** (2026-08-08).
+  Spec Review Min: Ready for OCL-S00 only (`FE9F2530…`); OpenCode-only lean
+  **superseded** by §0.1.7. Live dogfood §0.3; bakeoff §0.4.
+Revised: 2026-08-08 (v5 — Claude Code + OpenCode agnostic; bakeoff; G0–G3 gates)
+Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS for
+OpenCode serve attach / local turn timing / Claude-local env isolation as scoped)
 Created: 2026-08-07
-Origin: Founder dogfood — Ollama 0.32.x ships `ollama launch opencode` and
-documents OpenCode → `http://localhost:11434/v1` (OpenAI-compatible). Local
-models are becoming real implementation labor. ALLN seats them through the
-**same `opencode` driver** as Go, with local provenance and local honesty.
+Origin: Founder dogfood — Ollama 0.32.x ships `ollama launch opencode` **and**
+`ollama launch claude`, and documents both against local inference
+([OpenCode](https://docs.ollama.com/integrations/opencode) → OpenAI-compat
+`11434/v1`; [Claude Code](https://docs.ollama.com/integrations/claude-code) →
+Anthropic-compat `11434`). Local models are becoming real implementation labor.
+ALLN seats them with **local provenance** under existing agent drivers — not a
+raw `ollama` mutator, and not a single crowned body.
 **Dogfood split:** prove the pipe on a Mac mini / Air (any Apple Silicon); sell
 the upside to Mac Studio users. Same software.
 
 Companion packets:
-[`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) (same driver, different
-seat economics — binding structural analogy),
+[`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) (OpenCode driver, different
+seat economics — binding structural analogy for Go vs local labels),
+[`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) (leftover `:4096` attach —
+blocks all OpenCode seats including local),
 [`Scarcity_Aware_Routing.md`](Scarcity_Aware_Routing.md) (abundant vs scarce;
 read its §3 rejected list before proposing any auto-routing),
 [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) (a signal answers
 only for the source that produced it),
 [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) /
 [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md)
-(OpenCode completion honesty — local models stress it harder, see §12).
+(OpenCode completion honesty — local models stress it harder, see §12),
+[`Ambient_Dirty_Run_Outcome.md`](Ambient_Dirty_Run_Outcome.md) (`--no-commit` /
+dirty-tree outcome honesty — shared ship blocker).
 
 Upstream docs (external, not SSOT):
 [Ollama](https://docs.ollama.com/),
 [OpenCode integration](https://docs.ollama.com/integrations/opencode),
+[Claude Code integration](https://docs.ollama.com/integrations/claude-code),
 [OpenAI compatibility](https://docs.ollama.com/api/openai-compatibility),
 [Context length](https://docs.ollama.com/context-length),
 [Tool calling](https://docs.ollama.com/capabilities/tool-calling).
@@ -40,10 +49,13 @@ operations; code remains SSOT; archive this packet.
 ## 0. Review verdict
 
 **Pipe proven on Air. Not Ready for Implementation slices** until Spec Review
-fixes land and a coding-class gated repair passes (§11 B optional; honesty gaps
-below are mandatory for S01+).
+packet fixes land, serve-attach / Claude-isolation honesty gaps close, and a
+coding-class gated repair passes (§11 B optional; honesty gaps below are
+mandatory for S01+).
 
-### 0.1 Founder rulings (2026-08-07) — binding
+### 0.1 Founder rulings — binding
+
+**2026-08-07**
 
 1. **Readiness, not capacity strip.** Local availability is **not**
    `benchSourceOrder` / subscription capacity. `Product_Vocabulary.md` capacity
@@ -61,6 +73,27 @@ below are mandatory for S01+).
 5. **OCL-S00 on current hardware** — done (§0.3).
 6. **Ollama Cloud stays out.** Remote `OLLAMA_HOST` / LAN Studio farm stay out.
 
+**2026-08-08 (agent-body + bakeoff)**
+
+7. **Agnostic agent bodies — both.** End state is **not** “pick OpenCode or
+   Claude Code forever.” Ollama is inference; the agent body is a seat attribute
+   the same way Allnighter already refuses to crown a single paid CLI.
+   - **Claude Code body** — ICP wedge: developers who already live in Claude
+     stay in the tool they trust; local labor without leaving that harness.
+   - **OpenCode body** — ICP wedge: local / open-source-leaning users who
+     already run OpenCode (and Go seats) keep one mental model; OCL-S00 pipe
+     already exists.
+   Both are in-scope. Crowning one forever is out.
+8. **Sequence ≠ architecture.** Shared Ollama detect / readiness /
+   `ollama_local` provenance ships once. Body adapters (OpenCode provider wiring
+   vs Claude per-run Anthropic-compat env) serialize. Do not build two full
+   discovery ladders in parallel before one honest Works Test per body.
+9. **Model gates before alln blame.** Different models show different bugs;
+   that does **not** mean the Air “fails.” Gate ladder §0.4.2 (G0→G3) is
+   binding for dogfood and for what we offer as a Code seat.
+10. **Dev builds only until fully ready** (founder) — no CLI dev-build gate
+    exists yet; that mechanism precedes productizing OCL-S01/S02/S04.
+
 ### 0.2 Spec Review Min (2026-08-07) — `FE9F2530-7E96-4E16-AC0F-296F4CA26D86`
 
 Verdict: **Ready for OCL-S00 only.** Leans locked for implementers:
@@ -69,7 +102,9 @@ Verdict: **Ready for OCL-S00 only.** Leans locked for implementers:
   `--model` (unblocks served-context deadlock).
 - Discovery: list all / enable none; build S03 only after one real gated local
   repair.
-- No raw `ollama` driver — OpenCode only for this packet’s lifetime.
+- ~~No raw `ollama` driver — OpenCode only for this packet’s lifetime.~~
+  **Superseded by §0.1.7:** still **no raw `ollama` mutator**; agent bodies are
+  **OpenCode and Claude Code**, not OpenCode-only.
 
 ### 0.3 OCL-S00 live result (2026-08-07, MacBook Air M4 32GB)
 
@@ -132,97 +167,195 @@ stopping `alln serve` is not.
 either (a) tear down the OpenCode serve this worker started, or (b) **attach**
 to an already-healthy `:4096` instead of reporting busy. Today’s behavior makes
 second local runs flake unless a human clears the port — model-independent.
+Owned with [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md).
 
-`alln serve` 43273 stayed up through all of the above.
+`alln serve` stayed up through all of the above.
+
+### 0.4 Bakeoff (2026-08-08) — OpenCode vs Claude Code on Air
+
+Host unchanged: `Mac16,13` · 32 GB · ollama 0.32.6 · opencode 1.18.15 ·
+Claude Code 2.1.225. Fixtures under `docs/qa/ollama-bakeoff/` (spike only).
+
+#### 0.4.1 What was wrong with the first pass
+
+First bakeoff used **`qwen2.5-coder:3b` / `1.5b`**. Those often **print fake
+tool JSON as text** (no structured `tool_calls`). That is a **model / tool-API
+failure**, not proof that the Air cannot run local seats and not a fair
+Claude-vs-OpenCode verdict. Founder catch: retest on the tiny canary
+`qwen2.5:0.5b` and gate models before blaming harnesses.
+
+#### 0.4.2 Binding model gate ladder (G0→G3)
+
+```text
+G0  ollama run <tag> "<fixed JSON extract>"
+      → inference loads and answers
+
+G1  native /api/chat (or /v1) with one write tool
+      → structured tool_calls (not text faking tools)
+
+G2  agent body mutate TARGET.md (Claude Code and/or OpenCode)
+      → harness + model together
+
+G3  alln run --model <seat> same mutate
+      → bench path (serve attach, outcome honesty, provenance)
+```
+
+**G0 is necessary and cheap. G1 is the missing filter** that would have saved
+the first bakeoff. A model that only passes G0 must not be sold as a Code seat.
+Do not jump G0 → G3 and call alln red when G1 was never green.
+
+Air canary for plumbing: **`qwen2.5:0.5b`**. Next mid-tier candidate to pull
+when capability matters: **`qwen2.5-coder:7b`** (still Air-feasible). Studio /
+≥64k served context remains the capability/ICP proof (§11 B), not the pipe gate.
+
+#### 0.4.3 Results (condensed)
+
+| Probe | Result | Owner |
+| --- | --- | --- |
+| Ollama OpenAI `/v1` + Anthropic `/v1/messages` smoke | Both return `PONG` | Ollama pipe OK |
+| G0: `ollama run qwen2.5:0.5b` name/role JSON extract | **PASS** (~2s) — correct JSON | Model OK for judgment |
+| G1: native tools on `0.5b` | Structured `tool_calls` (args often messy) | Model weak, not dead |
+| G1: native / OpenAI / Anthropic tools on `3b` | Often text-JSON, no structured calls | **Model** — not Air failure |
+| G2: Claude Code + `0.5b` mutate TARGET | **PASS** — file became `STATUS: AFTER`, `DONE` | Body + model OK for pipe |
+| G2: OpenCode + `0.5b` mutate TARGET | Real `write` tool fired; **content wrong** (garbage + still `BEFORE`) | Weak model / body follow-through |
+| G2: both bodies + `3b` mutate | Exit 0, TARGET unchanged, fake tool JSON as text | Model tool-structure fail |
+| G2 judgment `17*19` both bodies + `3b` | Both returned 323 | Judgment OK when no tools |
+| G3: `alln` + OpenCode local while leftover `:4096` | **FAIL** `opencode serve busy: port owned by pid …` | **Allnighter ↔ OpenCode serve** |
+| Claude `--bare` + Ollama env; wrong model `sonnet` | Local **404**, no Anthropic bleed | Isolation workable |
+| Claude local success shape | Claims `contextWindow: 200000`, `costUSD`, `provider: firstParty` on 4096 local turn | **Lie-prone** — strip for local provenance |
+| Concurrent alln rebuild / other commits mid-spike | Outcome / `repoDelta` easy to misread | Dogfood hygiene — attribute carefully |
+
+**Bakeoff verdict:** Air does **not** fail. Tool bugs vary by **model**. On the
+fair canary (`0.5b`), **Claude Code won the correct mutate**; OpenCode proved
+tools can fire but content honesty was weak. Product law remains **both
+bodies** (§0.1.7). OpenCode keep reasons: open-source / local affinity + Go
+parity + OCL-S00. Claude keep reasons: stay-in-tool ICP + stronger dogfood
+agent when the model cooperates.
+
+#### 0.4.4 Architecture after bakeoff
+
+```text
+Ollama         = inference (11434). Signal source: ollama_local.
+Agent body     = Claude Code  OR  OpenCode  (seat attribute; both in-scope).
+Allnighter     = detect · seat · provenance · honesty · write lock.
+```
+
+| Body | Inference wire (external) | ALLN driver today | Local seat shape (target) |
+| --- | --- | --- | --- |
+| OpenCode | OpenAI-compat `http://localhost:11434/v1` | `opencode` | label `ollama/<tag>` under driver `opencode` (OCL-S00) |
+| Claude Code | Anthropic-compat `ANTHROPIC_BASE_URL=http://localhost:11434` + token `ollama` + empty API key | `claude_code` (paid Anthropic today) | same driver family, **local provenance**, per-run env isolation — must never poison paid Claude capacity / backoff |
+
+Interactive `ollama launch claude|opencode` remains **human onboarding**, not
+the Allnighter run path.
 
 
 | Question | Answer |
 | --- | --- |
 | Cleared for **OCL-S00** (pipe)? | **Yes — done.** |
-| Cleared for **full implementation** (S01–S05 as product)? | **No.** Spec fixes + honesty/serve iron-outs first. |
-| Do we know the architecture? | **Yes:** Ollama = `11434/v1` provider under driver `opencode`; seat via `models add` + label `ollama/<tag>`; readiness Idle/Busy outside capacity strip. |
-| Do we know the ship blockers? | **Yes:** (1) `--no-commit` outcome honesty, (2) serve attach/busy, (3) Spec Review context-gate deadlock fix in the packet, (4) coding-class gated repair still missing. |
+| Cleared for **full implementation** (S01+ as product)? | **No.** Honesty / serve-attach / Claude isolation / Spec Review packet fixes first. |
+| Do we know the architecture? | **Yes:** Ollama = inference; bodies = Claude Code **and** OpenCode; readiness Idle/Busy outside capacity strip; signal `ollama_local`. |
+| Do we know the ship blockers? | **Yes:** (1) `--no-commit` outcome honesty, (2) OpenCode serve attach/busy, (3) Spec Review context-gate packet fix, (4) Claude-local env + meter isolation design, (5) coding-class gated repair (G1+G2 on mid-tier, not only 0.5b). |
 
 **Recommended next (unauthorized until founder says go):**
 
-1. **Doc/spec v5** — absorb Spec Review leans (§0.2) into binding law (separate commit OK).
-2. **Small honesty slice** — for mutating `--no-commit`, `completedWithoutChanges` must not be true when `worktreeDirty` (or rename the flag’s meaning in the contract). Prove with the existing TARGET fixture.
-3. **Serve ownership** — verify/run must attach or reclaim `:4096` without flaking on a live foreign serve.
-4. **Only then** S01/S02 readiness + setup verb.
+1. **Doc/spec v5** — this revision (absorb Spec Review leans + both bodies + bakeoff).
+2. **Small honesty slice** — mutating `--no-commit` must not claim
+   `completedWithoutChanges` when `worktreeDirty` (see Ambient Dirty packet).
+3. **Serve ownership** — [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md).
+4. **Claude-local spike design** — per-run env isolation + strip Anthropic-shaped
+   meters for `ollama_local` seats (no product surface until designed).
+5. **Model ladder dogfood** — G0→G1 on pulled tags; pull `qwen2.5-coder:7b` when
+   ready for mid-tier G1/G2; only then treat G3 alln failures as bench bugs.
+6. **Only then** shared S01 readiness + body setup verbs.
 
 ### 0.5 Still blocking Ready-for-Implementation
 
-1. Spec Review packet fixes (context gate, Busy=resident, discovery lean, drop raw-ollama maybe)
+1. Spec Review packet fixes (context gate, Busy=resident, discovery lean; body
+   lean updated to both)
 2. `--no-commit` + dirty ⇒ false `completedWithoutChanges` (**bug**)
 3. OpenCode serve leftover / foreign `:4096` ⇒ next run `serve busy` (**bug**,
-   reproducible same-night; reclaim or attach)
+   reproducible; reclaim or attach)
 4. Never treat terminal-run `identityAlive` pid as killable without `ps` —
    may be `alln serve`
 5. OpenCode CT unfinished — local amplifies false-done prose
-6. No coding-class gated repair yet (0.5b is pipe-only)
+6. Claude-local isolation + meter honesty not designed in code
+7. No coding-class gated repair yet (0.5b is pipe-only; 3b failed G1 often)
+8. Dev-build gate mechanism (founder) before productizing discovery/setup
 
-What v4/v4.1 changed: §0.3 live Air dogfood; §0.3.1 bug-vs-model split; proceed gate clarified.
+What v5 changed: both bodies as law; bakeoff §0.4; G0–G3 gates; Claude keep /
+OpenCode keep; Spec Review OpenCode-only lean superseded.
 
 ---
 
 ## 1. One claim
 
 With Ollama running and one tool-capable local model pulled, the user can put
-that model on the bench as an **OpenCode** seat and pin it with `--model`, the
-same way they pin a Go seat — no new agent harness, no new driver, and no claim
-that Allnighter runs models.
+that model on the bench as a **local seat** behind an agent body they already
+use — **Claude Code and/or OpenCode** — and pin it with `--model`, the same way
+they pin any other seat. No new inference stack, no claim that Allnighter runs
+models, no crowning of a single local harness.
 
 Trusted workflow slice (target):
 
 ```text
-ollama serve + tool-capable model pulled
+ollama serve + tool-capable model pulled (passes G0; Code seats also G1)
   → Allnighter detects Ollama and lists local models (tools? context?)
-  → the model appears on the bench as an opencode seat, provenance: local
+  → user enables a local seat on a chosen body (claude_code | opencode)
+  → provenance: local (ollama_local); readiness: Unavailable | Idle | Busy
   → alln run "…" --model <local_model_id> --json
-  → OpenCode agent body (tools / FS / shell) + Ollama inference
-  → honest completion or honest failure; readiness is Unavailable | Idle | Busy,
-    never a subscription meter
+  → agent body (tools / FS / shell) + Ollama inference
+  → honest completion or honest failure; never a subscription meter
 ```
 
 ### Dogfood vs sell (founder)
 
 ```text
-Mac mini (or any AS)  → prove the pipe (integration Works Test)
-Mac Studio owners     → who feel the upside (larger local models, abundant labor)
+Mac mini / Air (any AS)  → prove the pipe (integration Works Test; 0.5b canary)
+Mac Studio owners        → who feel the upside (larger local models, abundant labor)
 ```
 
 Same binary. Different wallet and model class. Integration dogfood must not
 depend on Studio RAM.
 
+### Why both bodies (ICP)
+
+| Body | Who it wins | Why Allnighter keeps it |
+| --- | --- | --- |
+| Claude Code | Developers who already live in Claude | Stay-in-tool; strongest paid dogfood agent; Ollama documents Anthropic-compat officially |
+| OpenCode | Local / open-source-leaning users; Go seat users | Same driver family as Go; OCL-S00 pipe; open tools affinity matches “run weights on my Mac” |
+
+Allnighter already supports many CLIs without picking a winner. Local inference
+is the same shape: **one abundant runtime × multiple bodies**.
+
 ---
 
 ## 2. The bridge — why this is Allnighter's job
 
-### 2.1 Three planes, three owners
+### 2.1 Three planes, pluggable body
 
 ```text
-Ollama      = inference. Weights, VRAM, context, load/unload. Nothing else.
-OpenCode    = the agent body. Tools, filesystem, shell, session, completion.
-Allnighter  = the bench. Detect · seat · provenance · honesty · write lock.
+Ollama       = inference. Weights, VRAM, context, load/unload. Nothing else.
+Agent body   = Claude Code  OR  OpenCode. Tools, filesystem, shell, session.
+Allnighter   = the bench. Detect · seat · provenance · honesty · write lock.
 ```
 
-Neither of the other two layers wants Allnighter's job. Ollama's own posture is
-to *launch and configure existing agents*
-([integrations](https://docs.ollama.com/integrations/index.md)) — it points at
-OpenCode rather than becoming it. OpenCode runs one agent well and has no
-opinion about the six other CLIs the user pays for. The gap between "I can run a
-model" and "this model showed up to work alongside Claude, Codex, and Grok under
-one write lock, with one run contract and one honest failure story" is the
-product.
+Neither inference nor a single agent body wants Allnighter's job. Ollama's own
+posture is to *launch and configure existing agents*
+([integrations](https://docs.ollama.com/integrations/index.md)) — Claude Code
+and OpenCode both appear in `ollama launch`. Each body runs one agent well and
+has no opinion about the rest of the bench. The gap between "I can run a model"
+and "this model showed up to work alongside Claude, Codex, and Grok under one
+write lock, with one run contract and one honest failure story" is the product.
 
 What Allnighter adds that neither layer does:
 
 | Layer | Contribution |
 | --- | --- |
-| Detect | Ollama present, reachable, which models, which are tool-capable |
+| Detect | Ollama present, reachable, which models, which pass G0/G1 |
 | Seat | One `model_id` on the bench next to paid seats, same `--model` pin |
-| Provenance | This answer came from *your machine*, not a vendor |
-| Honesty | Local scarcity is hardware, and is never dressed as a quota |
+| Body | Claude Code **and** OpenCode adapters; user chooses; no crown |
+| Provenance | This answer came from *your machine*, not a vendor (`ollama_local`) |
+| Honesty | Local scarcity is hardware, never dressed as a quota; body meters stripped when local |
 | Safety | One mutating worker per root; the local seat is not exempt |
 | Contract | Same `TeamRunJSON`, same `alln show`, same artifacts |
 
@@ -231,28 +364,28 @@ What Allnighter adds that neither layer does:
 The ICP is a Mac with large unified memory (128 GB and up) whose owner already
 pays for two to four coding CLIs. Today that machine's local models are a second
 workflow: a different terminal, a different mental model, a different place to
-look for the result. The wedge is that they stop being a second workflow.
+look for the result. The wedge is that they stop being a second workflow —
+**including staying inside Claude Code when that is their home**, and staying
+inside OpenCode when that is theirs.
 
 "Real implementation" means the local seat does bounded mutating work — the
-repair-shaped slices `Scarcity_Aware_Routing.md` §5a found delegate best (9/9
-clean, including from the two weakest seats on the bench) — not just
-summarization and review. The historical local-worker note
+repair-shaped slices `Scarcity_Aware_Routing.md` §5a found delegate best — not
+just summarization and review. The historical local-worker note
 (`docs/archive/2026-06-13-allnighter-pivot/strategy/Allnighter-Local-AI-Worker-Opportunity.md`)
-argued for starting read-only and earning trust; it was written before the
-OpenCode agent body existed and before six delegated build slices landed. Its
-durable half is the market read — *the local runtime market is crowded, the
-"local model as scheduled worker" market is not* — and that half still holds.
-Its "night shift" framing does not: dogfood reality is all-day Teams and Loop.
+argued for starting read-only and earning trust; it was written before these
+agent bodies existed. Its durable half is the market read — *the local runtime
+market is crowded, the "local model as scheduled worker" market is not* — and
+that half still holds. Its "night shift" framing does not: dogfood reality is
+all-day Teams and Loop.
 
 The economics are the point. Claude hours are scarce and walled; a local seat is
-**abundant** — no per-token cost, no reset clock, no vendor to ask. That is the
-same asymmetry `Scarcity_Aware_Routing.md` §1 is built on, with the abundant side
-made stronger: an abundant seat that is also private and offline-capable. Note
-what that packet forbids, though — abundance is a **disclosure**, never a
-standing "prefer local" rule and never a sensor that overrides a named seat.
+**abundant** — no per-token cost, no reset clock, no vendor to ask. Abundance is
+a **disclosure**, never a standing "prefer local" rule
+(`Scarcity_Aware_Routing.md` §3).
 
 Mission fit: *you already pay for the team* extends cleanly to hardware you
-already bought. The Studio is a paid seat that never shows up to work.
+already bought **and** to the CLI you already live in. The Studio is a paid
+seat that never shows up to work.
 
 ### 2.3 What this is not
 
@@ -260,20 +393,23 @@ already bought. The Studio is a paid seat that never shows up to work.
 | --- | --- |
 | An Ollama UI / model manager | LM Studio and Open WebUI own that. ALLN never pulls, quantizes, or tunes. |
 | A LAN Studio farm | [`Mac_Studio_LAN_Bench.md`](../archive/phases/Mac_Studio_LAN_Bench.md) is shelved. One Mac, local inference. No multi-host mutators. |
-| A raw `ollama run` driver | A completion CLI is not an agent body. See §3. |
+| A raw `ollama run` driver | A completion CLI is not an agent body. G0-only. See §3. |
 | A local model provider | ALLN does not host, serve, or bill inference. Ollama does. |
 | An overnight pitch | All-day Teams + Loop. The name is brand only. |
+| A forever-OpenCode-only local path | Superseded §0.1.7 — both bodies. |
 
 ---
 
-## 3. Why OpenCode and not a new driver
+## 3. Why agent bodies (not a new ollama driver)
 
 | Path | Verdict |
 | --- | --- |
-| New `DriverManifest` for `ollama run` | **Wrong for mutating Code / Loop.** A completion CLI with no tools, no FS, no session. Judgment-only fallback at most, and not proposed. |
-| Allnighter-owned tool loop over Ollama HTTP | **Out of scope.** Reinvents OpenCode, and inherits every completion-truth defect CT-01…CT-14 already paid for. |
-| OpenCode provider → `http://localhost:11434/v1` | **v1 path.** Same driver `opencode`; local model ids as seats. |
-| Runs driven via interactive `ollama launch opencode` | **Non-goal.** Human onboarding UX. Product runs stay under `RunService` + the write lock with config-backed provider wiring. |
+| New `DriverManifest` for `ollama run` | **Wrong for mutating Code / Loop.** Completion CLI; G0 only. Judgment-only fallback not proposed. |
+| Allnighter-owned tool loop over Ollama HTTP | **Out of scope.** Reinvents agent bodies and inherits every completion-truth defect already paid for. |
+| OpenCode provider → `http://localhost:11434/v1` | **In-scope body #1.** Same driver `opencode`; local labels `ollama/<tag>`. OCL-S00 proven. |
+| Claude Code → Anthropic-compat `11434` via per-run env | **In-scope body #2.** Same `claude_code` driver family; local provenance; isolation is the ship gate. |
+| Interactive `ollama launch claude\|opencode` | **Non-goal for product runs.** Human onboarding UX. Product stays under `RunService` + write lock. |
+| Crown one body forever | **Rejected.** Same law as multi-CLI bench. |
 
 ---
 
@@ -285,99 +421,79 @@ already bought. The Studio is a paid seat that never shows up to work.
 - A standalone `ollama` coding driver for mutating work.
 - `ollama launch …` as the Allnighter run path.
 - **Rewriting the user's `~/.config/opencode/opencode.json`.** Additive only,
-  behind an explicit setup verb, reversible. See §12 for the specific way this
-  goes wrong on the dogfood host today.
+  behind an explicit setup verb, reversible. See §12.
+- Silently rewriting global Claude / Anthropic env for the user’s shell.
+  Claude-local must be **per-run** isolation.
 - LAN / multi-host execution (shelved). A remote `OLLAMA_HOST` as an
   *inference URL only* is a separate future packet, not this one.
-- Auto-routing local vs cloud. `Scarcity_Aware_Routing.md` is brainstorm and its
-  §3 rejects standing vendor-preference rules outright.
+- Auto-routing local vs cloud. `Scarcity_Aware_Routing.md` §3 rejects standing
+  vendor-preference rules.
 - Any capacity percentage, park-for-limit, or substitution decision derived from
   Ollama state.
-- Claude-Code-via-Ollama as a v1 seat — different `sourceId` and auth story.
+- Reporting Anthropic-shaped meters (`costUSD`, fake 200k context, “firstParty”)
+  as truth for `ollama_local` seats.
 
 ---
 
-## 5. Current state (verified 2026-08-07 — binding over v1 assumptions)
+## 5. Current state (verified 2026-08-07/08 — binding over early assumptions)
 
 ### 5.1 Live code
 
 | Fact | Where | Why it matters |
 | --- | --- | --- |
-| Driver `opencode` invokes `opencode run --attach http://127.0.0.1:4096 -m {{model}}`, `maxConcurrentSpawns: 1`, `timeoutSeconds: 1800` | AgentOS `Catalog/catalog.json` | A local seat is a model **label**, not a new driver. The concurrency ceiling already exists. |
-| OpenCode models are ids like `model_opencode_deepseek_v4_pro` with label `opencode-go/deepseek-v4-pro` | AgentOS `catalog.json` + `catalog_overlay.json` (ranks 92→55) | **The provider is inside the label.** Today every OpenCode seat is a *Go* seat. A local seat is a different id with an `ollama/<tag>` label — not the same seat relabelled. |
-| `alln models add --driver <id> --name <n> --model-label <label>` then `alln models verify <id>` | `ModelsCLI.swift`, `ModelCatalog.createCustom`, `verifyModelSmoke` | A local seat can be created and smoke-verified **today, with no code**. This is OCL-S00. |
-| `ModelOrigin.discovered` exists; `ModelDiscoveryRegistry.provider(for:)` returns `nil` for every driver | `ModelCatalogTypes.swift`, `ModelDiscoveryProvider.swift` | The discovery seam is built and unused. A local-model provider would be its **first** implementation — extend the seam, do not invent a parallel one. |
-| Capacity is 8 seats: 6 PTY + 2 dashboard-scrape (`opencode_go`, `bailian_token_plan`), authored lists, not aliases | `CapacityAcquisition.swift` | The v1 packet's "seventh seat" framing is stale. More importantly, both existing tiers meter **paid subscriptions**. |
-| `CapacityAcquisitionTier` = onDisk / streamPiggyback / tuiProbe / failureClassification / dashboardScrape | `CapacityWindow.swift` | There is no tier for "ask the local runtime." Adding one is a product decision (§7.5), not a mechanical extension. |
+| Driver `opencode` invokes `opencode run --attach http://127.0.0.1:4096 -m {{model}}`, `maxConcurrentSpawns: 1`, `timeoutSeconds: 1800` | AgentOS `Catalog/catalog.json` | OpenCode-local is a model **label**, not a new driver. Concurrency ceiling exists. |
+| OpenCode models are ids like `model_opencode_deepseek_v4_pro` with label `opencode-go/…` | AgentOS `catalog.json` + overlay | **Provider is inside the label.** Local = `ollama/<tag>`, not a Go seat relabelled. |
+| `alln models add --driver <id> --name <n> --model-label <label>` then `verify` | `ModelsCLI.swift`, `ModelCatalog` | OpenCode-local seat can be created today (OCL-S00). Claude-local seating not productized yet. |
+| `ModelOrigin.discovered` exists; discovery providers unused | `ModelDiscoveryProvider.swift` | First real provider should be Ollama tags — body-agnostic list, body-specific enable. |
+| Capacity tiers meter **paid** subscriptions only | `CapacityAcquisition.swift` | Local stays readiness, not strip (§7.5). |
+| Claude Code paid seats use `claude_code` | catalog | Claude-local must share driver carefully: env isolation + provenance, never capacity bleed. |
 
 ### 5.2 This host (honest, and it is not the ICP)
 
 ```text
 Mac16,13 · 32 GB unified memory · macOS 15.6.1
-ollama 0.32.6 · /api/ps empty · /api/tags → one model: qwen2.5:0.5b
-  (capabilities: ["completion","tools"], context_length 32768)
-opencode 1.18.15 · ~/.config/opencode/opencode.json:
-  { "enabled_providers": ["opencode-go"], "plugin": ["@slkiser/opencode-quota"] }
+ollama 0.32.6 · pulled: qwen2.5:0.5b, qwen2.5-coder:1.5b, qwen2.5-coder:3b
+  (all advertise tools; served CONTEXT often 4096 on this host)
+opencode 1.18.15 · enabled_providers includes opencode-go + ollama (post OCL-S00)
+Claude Code 2.1.225 · local via env spike only (not an alln seat yet)
 ```
 
-Three consequences, all load-bearing:
+Consequences:
 
-1. **32 GB puts Ollama's default context at 32k** (its bands: <24 GiB → 4k,
-   24–48 GiB → 32k, ≥48 GiB → 256k), below the 64k its docs require for coding
-   agents. The gate in §7.4 would refuse a Code seat on this machine by default,
-   which is the correct behavior and also the reason the wedge is a Studio wedge.
-2. **The only pulled model is 0.5B.** It is enough to prove *plumbing* — it does
-   advertise `tools` — and nowhere near enough to prove *capability*. Keep those
-   two proofs separate and never let the first be reported as the second.
-3. **`enabled_providers` is an allowlist containing only `opencode-go`.** A
-   setup verb that writes rather than merges would silently remove all seven Go
-   seats. See §12.
+1. **32 GB default context bands** can leave served window at 4k–32k — below
+   64k agent guidance. Explicit `--model` warn-and-allow (§0.2); automatic Code
+   offers stay gated on served ≥64k.
+2. **0.5b is the Air pipe canary** — enough for G0/G2 plumbing; not capability.
+3. **1.5b/3b coder can fail G1** (text-fake tools). Do not treat that as “Air
+   cannot do local.” Pull mid-tier (`7b`) before capability claims.
+4. **`enabled_providers` clobber risk remains** for OpenCode setup verbs (§12).
 
 ---
 
-## 6. Structural parity with Go seats
+## 6. Structural parity
 
-### 6.1 Driver ≠ capacity source (the binding analogy)
+### 6.1 Driver ≠ capacity source (still binding)
 
-| Layer | OpenCode Go | OpenCode Local (Ollama) |
-| --- | --- | --- |
-| **Driver id** | `opencode` | `opencode` (identical) |
-| **Model plane** | Go remote models, label `opencode-go/…` | Local models, label `ollama/…` |
-| **Seat identity** | Authored catalog ids + authored rank | Discovered ids + **local** provenance; rank authored only for known models |
-| **Scarcity** | Dollar caps per rolling / weekly / monthly window | VRAM, load state, effective context, machine contention |
-| **Signal source** | `opencode.ai/workspace/{id}/go` (HTTP scrape) | `127.0.0.1:11434` (`/api/tags`, `/api/ps`) |
-| **Meter id** | `opencode_go` (capacity bench seat) | `ollama_local` — **recommended**, and see §6.2 on where it lives |
-| **Never** | Block `opencode` dispatch on missing Go credentials | Block `opencode` dispatch on missing Ollama when the seats in play are remote |
+| Layer | OpenCode Go | OpenCode Local | Claude Local (target) |
+| --- | --- | --- | --- |
+| **Driver id** | `opencode` | `opencode` | `claude_code` (isolated) |
+| **Model plane** | `opencode-go/…` | `ollama/…` | local model id + provenance |
+| **Scarcity** | subscription windows | VRAM / load / context | same local hardware |
+| **Signal source** | Go dashboard scrape | `127.0.0.1:11434` | same `ollama_local` |
+| **Never** | Block opencode on missing Go creds when seat is local | Block opencode on missing Ollama when seat is Go | Park paid Claude for Ollama OOM / miss |
 
-Same law: **driver ≠ signal source.** Local inference state must not be stuffed
-into `CapacityProbe` PTY, and must not be read or reported by
-`OpenCodeGoCapacity*`.
+### 6.2 Source id: `ollama_local`
 
-### 6.2 Source id recommendation: `ollama_local`
+Pick `ollama_local` over `opencode_local` or `claude_local`. Ollama produces the
+runtime readings; the body only consumes tokens. Naming the body as the signal
+source ages badly the moment a second body appears — and we now have two.
 
-Pick `ollama_local` over `opencode_local`. `Vendor_Signal_Isolation.md`'s
-promoted law is that a derived signal is attributed to **the source that
-produced it**. Ollama produces every one of these readings; OpenCode is merely
-the body that consumes the tokens. Naming it `opencode_local` would make the
-agent body answer for a runtime it does not own — and would age badly the moment
-a second agent body (or a second local runtime) appears. `ollama_local` is also
-unambiguous next to driver `opencode` and capacity `opencode_go`.
+### 6.3 OpenCode: one serve, one lane
 
-This id should be used wherever the signal lands, **whether or not it ever joins
-`benchSourceOrder`** (§7.5).
-
-### 6.3 One serve, one lane (the v1 packet missed this)
-
-Local and remote OpenCode seats are **not** independent. They share:
-
-- one `opencode serve` on `:4096` (`OpenCodeServeCoordinator.defaultPort`);
-- one `OpenCodeSpawnLock`, one `DriverConcurrencyGate`, `maxConcurrentSpawns: 1`;
-- one SSE event bus, with all the foreign-session scoping CT-03 exists to fix;
-- one 15-minute serve idle TTL and one 1800s driver wall.
-
-So "add local seats" is not additive at the process level: a slow local turn
-occupies the same lane a Go seat wants. The concurrency ceiling is therefore
-already handled; the thing that is **not** handled is timing (§12).
+Local and remote OpenCode seats share `:4096`, spawn lock, and SSE bus. See
+[`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md). Claude-local does **not**
+share that port — different isolation hazard (Anthropic env / keychain), not
+serve-busy.
 
 ---
 
@@ -388,74 +504,52 @@ already handled; the thing that is **not** handled is timing (§12).
 | Provenance | Meaning | Availability language |
 | --- | --- | --- |
 | OpenCode remote (Go / Zen) | Vendor plan models | Subscription windows via `opencode_go` |
-| **Local Ollama** | Models pulled on this Mac | Installed · loaded · effective context · machine busy · not installed |
+| Claude / Anthropic paid | Vendor plan models | Existing Claude capacity story |
+| **Local Ollama** (any body) | Models pulled on this Mac | Unavailable \| Idle \| Busy |
 | Ollama Cloud | **Out of packet** | Do not ship |
 
 A locally computed VRAM, load, or context reading is never presented as a
-vendor-stated fact ([project laws](../../AGENTS.md)).
+vendor-stated fact. Claude-local must not present `costUSD` / fake large context
+as Anthropic truth.
 
 ### 7.2 Never block the remote path
 
-`opencode` ready + Ollama absent → Go seats work normally and no local seat is
-offered. Negative proof required in the first slice that can break it: with
-Ollama unreachable, the seven Go seats resolve and dispatch unchanged.
+- `opencode` ready + Ollama absent → Go seats work; no local OpenCode seat offered.
+- `claude_code` ready + Ollama absent → paid Claude works; no local Claude seat offered.
+- Negative proofs required when the first slice can break either.
 
-### 7.3 Readiness gates (fail closed)
-
-Before a local model is offered as a **mutating / Code** seat:
+### 7.3 Readiness gates (fail closed) for mutating / Code seats
 
 1. Ollama reachable (`/api/version`).
-2. The tag is present locally in `/api/tags` — never a cloud tag.
-3. The model advertises `tools` in its `capabilities`.
-4. Effective context ≥ 64k (§7.4).
-
-Absent evidence yields no offer, never an assumed one. Judgment-only seats may
-relax 3 and 4 **with explicit labeling** — never as a silent Code default.
+2. Tag present locally in `/api/tags` — never a cloud tag.
+3. Model advertises `tools` **and** passes **G1** (structured tool_calls) before
+   automatic Code offer. G0-only → judgment / explicit pin with labeled risk.
+4. Effective **served** context ≥ 64k for automatic Code offer; warn-and-allow
+   on explicit `--model` (§0.2).
 
 ### 7.4 Context truth: advertised max ≠ served window
 
-`/api/tags` reports each model's `context_length` — that is the model's trained
-maximum (32768 for the model on this host). The window actually served is set by
-the app slider or `OLLAMA_CONTEXT_LENGTH` and is observable in `/api/ps` as
-`CONTEXT`, **only while the model is loaded**. Ollama defaults it from VRAM, so a
-model advertising 256k can be served at 4k.
-
-Rule: the ≥64k gate is measured against the **served** window. When the served
-window cannot be observed, the seat is not a Code seat by default and the reason
-is stated. Do not infer the served window from the advertised maximum; that
-inference is exactly the shape of lie `Vendor_Signal_Isolation.md` forbids, and
-its failure mode is a coding agent silently truncating the repo it was asked to
-reason about.
+Unchanged: gate on **served** window from `/api/ps` when loaded; do not infer
+from advertised `context_length`.
 
 ### 7.5 Capacity vs readiness (founder ruled — closed)
 
-`Product_Vocabulary.md`: *bench capacity = what each paid CLI subscription has
-left; vendor-printed only, never estimated.* A local model has no subscription
-and no vendor meter.
-
-**Founder ruling:** local availability is **readiness, not capacity.** Do **not**
-add `ollama_local` to `benchSourceOrder` in v1. Surface readiness through
-`alln models` / `alln doctor` only.
-
-**v1 readiness vocabulary (only):**
-
-| State | Meaning | Typical evidence |
-| --- | --- | --- |
-| `Unavailable` | Cannot use local seats | Ollama down, or no usable local model |
-| `Idle` | Ready, nothing running | Reachable; `/api/ps` empty (or equivalent) |
-| `Busy` | Local inference in use | Model loaded / serving per `/api/ps` |
-
-No VRAM %, no context gauges, no fake quota windows in v1. If evidence is
-missing, emit `Unavailable` — never invent `Busy`.
-
-OCL-S06 (strip row) stays **cancelled for v1**, not deferred-with-hope.
+Local availability is **readiness, not capacity.** Do **not** add `ollama_local`
+to `benchSourceOrder` in v1. Surface via `alln models` / `doctor` only.
+OCL-S06 strip row **cancelled for v1**.
 
 ### 7.6 Vendor signal isolation
 
-Ollama failures — server down, OOM, model missing, context too short, load
-timeout — answer only for `ollama_local` and the local seat. They never classify
-as a Claude, Codex, Grok, or Go limit, never park a run for a vendor limit that
-did not happen, and never produce a substitution. Fail closed.
+Ollama failures answer only for `ollama_local` and the local seat. They never
+classify as a Claude, Codex, Grok, or Go limit, never park a paid run, never
+produce a substitution. Claude-local env must fail closed toward Ollama — never
+silently fall back to Anthropic mid-seat.
+
+### 7.7 Body choice
+
+The user (or team seat config) selects the agent body. Allnighter does not
+auto-prefer Claude-local or OpenCode-local. No scarcity router invents a
+standing rule (§3 of Scarcity packet).
 
 ---
 
@@ -463,12 +557,13 @@ did not happen, and never produce a substitution. Fail closed.
 
 | Concern | Likely home |
 | --- | --- |
-| Detect Ollama; read `/api/tags` + `/api/ps` | AllnighterCore — one pure client + one pure parser, injectable transport, mirroring the `OpenCodeGoCapacityClient` / `…Probe` split |
-| Project local tags → seats | **`ModelDiscoveryProvider` for `opencode`** — the registry's first real provider; `origin: .discovered` |
-| Ensure OpenCode can reach `11434/v1` | Setup verb — **merge** into `enabled_providers` + `provider.ollama`, never overwrite |
-| Dispatch | Existing `opencode` driver. No change. |
-| Readiness surface | `alln models` / `alln doctor` — Unavailable \| Idle \| Busy only (§7.5) |
-| Capacity strip row | **Cancelled for v1** (founder). Do not build. |
+| Detect Ollama; `/api/tags` + `/api/ps` | AllnighterCore — pure client + parser (body-agnostic) |
+| Project local tags → candidate seats | `ModelDiscoveryProvider` — first real provider |
+| OpenCode: ensure `11434/v1` provider | Setup verb — **merge** `enabled_providers` + `provider.ollama` |
+| Claude-local: per-run Anthropic-compat env | AgentOS / `claude_code` spawn path — isolation + meter strip |
+| Dispatch | Existing `opencode` / `claude_code` drivers |
+| Readiness surface | `alln models` / `doctor` — three states only |
+| Capacity strip row | **Cancelled for v1** |
 
 ---
 
@@ -476,66 +571,69 @@ did not happen, and never produce a substitution. Fail closed.
 
 | | |
 | --- | --- |
-| **Truth owner** | Ollama `/api/tags` + `/api/ps` for local runtime state; OpenCode turn outcome for run truth; `ModelCatalog` for seat identity and provenance |
-| **Lie-prone** | Advertised context read as served context; a discovered model inheriting an authored rank; local readings phrased as quota; Ollama errors classified against another vendor; a setup verb that replaces `enabled_providers`; a 0.5B plumbing smoke reported as capability |
-| **Missing proof** | One `alln run --model <local>` that mutates a repo through OpenCode and settles honestly; the same on ICP-class hardware; stall/wall behavior on a slow local turn |
+| **Truth owner** | Ollama `/api/tags` + `/api/ps` for local runtime; agent-body turn outcome for run truth; `ModelCatalog` for seat identity and provenance |
+| **Lie-prone** | Advertised context as served; G0 pass sold as Code-ready; text-fake tools treated as harness bugs; OpenCode serve busy as model failure; Claude-local `costUSD` / 200k context / firstParty; `enabled_providers` clobber; 0.5b plumbing sold as Studio capability; ambient dirty / concurrent commits misread as the local seat’s `repoDelta` |
+| **Missing proof** | G3 honest mutate on OpenCode-local after serve-attach fix; G2/G3 Claude-local as an alln seat; mid-tier (`7b`) G1+G2; Studio-class §11 B |
 
 ---
 
 ## 10. Slice ladder (candidate — **unauthorized**)
 
-Not an implementation allowlist. No slice starts without a founder ruling, and
-OCL-S00 should decide whether the rest is worth writing.
+Not an implementation allowlist. No slice starts without a founder ruling.
 
 | Id | Intent | Code? |
 | --- | --- | --- |
-| **OCL-S00** | **DONE (2026-08-07).** Pipe PASS on Air with `qwen2.5:0.5b` — see §0.3. | **None** |
-| **OCL-S01** | Detect + doctor: Ollama reachable; list local models; readiness Unavailable/Idle/Busy | Core |
-| **OCL-S02** | Setup verb: additive OpenCode provider wiring, reversible, proven non-clobbering | Core/CLI |
-| **OCL-S03** | First `ModelDiscoveryProvider` for `opencode`: local tags → opt-in seats with `.discovered` origin and local provenance | Core |
-| **OCL-S04** | Readiness surface in `alln models` / `doctor` — three states only (§7.5) | Core/CLI |
-| **OCL-S05** | Turn timing for local seats: stall window / wall that fit cold load without hiding real hangs — **only if OCL-S00 measures a real problem** | **AgentOS** |
-| ~~**OCL-S06**~~ | ~~Capacity strip row~~ — **cancelled for v1** (founder) | — |
+| **OCL-S00** | **DONE (2026-08-07).** OpenCode-local pipe PASS on Air with `0.5b` — §0.3. | **None** |
+| **OCL-S00b** | Bakeoff recorded (§0.4). Claude G2 mutate PASS on `0.5b`; gates defined. | **None** |
+| **OCL-S01** | Detect + doctor: Ollama reachable; list local models; readiness Unavailable/Idle/Busy (**body-agnostic**) | Core |
+| **OCL-S02a** | Setup verb: additive OpenCode provider wiring, reversible, non-clobbering | Core/CLI |
+| **OCL-S02b** | Claude-local: per-run env isolation + meter strip + seating path (design then code) | Core/AgentOS |
+| **OCL-S03** | `ModelDiscoveryProvider` for Ollama tags → opt-in seats, `.discovered`, local provenance; body chosen at enable | Core |
+| **OCL-S04** | Readiness surface in `alln models` / `doctor` — three states only | Core/CLI |
+| **OCL-S05** | Turn timing for slow local loads — **only if measured** | AgentOS |
+| ~~**OCL-S06**~~ | ~~Capacity strip row~~ — **cancelled for v1** | — |
 
-Out of ladder entirely: scarcity auto-routing, remote `OLLAMA_HOST`,
-Claude-via-Ollama, Ollama Cloud, anything multi-host.
+Depends on sibling packets: Ambient Dirty honesty; OpenCode Serve Attach.
+
+Out of ladder: scarcity auto-routing, remote `OLLAMA_HOST`, Ollama Cloud,
+multi-host, crowning one body.
 
 ---
 
 ## 11. Works Test (target)
 
-Two tiers. Never report the first as the second.
+Three tiers. Never report a lower tier as a higher one.
 
-**A — Plumbing / pipe (any Apple Silicon, including Mac mini — required):**
+**A — Plumbing / pipe (any Apple Silicon — required), per body:**
 
 ```text
-Given: Ollama up, a tool-capable local model that fits this Mac, opencode.json
-       merged to enable an ollama provider alongside existing providers
+Given: Ollama up; canary model passes G0 (+ G1 if claiming tools);
+       body wired (OpenCode provider merge OR Claude-local env isolation)
 When:  alln models verify <local_model_id>
        alln run "<one-file bounded edit>" --model <local_model_id> --json
-Then:  the seat verifies; the run completes with a real answer or fails with a
-       classified reason; the repo delta is real; provenance reads local;
-       paid OpenCode seats are unaffected throughout; readiness never speaks
-       quota language
+Then:  seat verifies; run completes or fails with classified reason;
+       repo delta / dirty truth is honest; provenance local;
+       paid seats of that driver family unaffected; readiness never speaks quota
 ```
 
-**B — Capability / ICP feel (Studio-class RAM — optional sales proof, not a
-ship gate for the pipe):**
+Prove **A** for OpenCode-local and for Claude-local separately.
+
+**B — Capability / ICP feel (Studio-class RAM — optional sales proof):**
 
 ```text
-Given: A large-unified-memory Mac serving a coding-class local model at ≥64k
-When:  the same bounded repair slice is given to the local seat and to a paid
-       seat, and the lead re-runs the filtered gate itself
-Then:  the local seat's work stands on its own gate — not on its own report
+Given: coding-class local model at ≥64k served context (mid-tier+ on Air for
+       dry rehearsal; Studio for the claim)
+When:  same bounded repair on local seat vs paid seat; lead re-runs the gate
+Then:  local work stands on the gate — not on its own report
 ```
 
-Do not block Ready-for-pipe on B. Do not sell B as proven because A passed.
+**C — Model gate regression (dogfood):** G0→G1 scripted on each pulled tag
+before filing “alln local is broken.”
 
-**Negative test (required in whichever slice can first break it):** with Ollama
-stopped, Go seats resolve, dispatch, and complete unchanged; no capacity row,
-park, or substitution mentions Ollama.
+**Negative tests:** Ollama stopped ⇒ Go seats and paid Claude unchanged; no
+park/substitution mentions Ollama.
 
-Proof waiver: none claimed. Nothing here is shipped.
+Proof waiver: none claimed. Nothing here is shipped as product.
 
 ---
 
@@ -543,44 +641,51 @@ Proof waiver: none claimed. Nothing here is shipped.
 
 | Risk | Response |
 | --- | --- |
-| **`enabled_providers` clobber.** The dogfood config is an allowlist of exactly `["opencode-go"]`. A setup verb that writes instead of merging deletes all seven Go seats and looks like a driver outage. | Merge-only, with a before/after fixture test and a documented undo. Never touch the file outside an explicit verb. |
-| **Stall watchdog vs cold local load.** `stallQuietInterval` is a hardcoded 120s; a large model's load plus long-prompt prefill can be silent longer than that, and CT-02's fix (only touch on *real* progress) removes the accidental keepalive. A healthy local turn would be reported `stalled_no_progress`. | OCL-S05. Do **not** widen the window globally — that would blind the remote seats CT-02 exists to protect. Scope the timing to the seat, or find a real local progress signal. |
-| **1800s driver wall.** Slow local generation on a long turn can hit it while working. | Measure in OCL-S00/S01 before changing anything; a wall that is honestly hit is not a defect. |
-| Shared `:4096` lane contention between local and Go seats | Already ceilinged at 1 spawn. Name it in diagnostics so "waiting for the lane" never reads as a vendor limit. |
-| OpenCode completion truth is weaker on local models | Stay on the CT owners. Do not paper over with green tests — `Scarcity_Aware_Routing.md` §5a: every delegated defect this month was caught by re-running the gate, none by the seat's own report. |
-| Served context silently below 64k | §7.4 gate, fail closed, stated reason. |
-| Strength ranks for arbitrary pulls | `models add` already seats custom models as *Unrated — seats last*. Keep it. Author caliber only for models actually dogfooded. |
-| Thermal / memory pressure on the user's foreground machine | Readiness reflects it; it never silently vetoes a named seat (`Scarcity_Aware_Routing.md` §3 ruling 3). |
-| Scope creep into Cloud, LAN, or a model manager | §4 non-goals; separate packets only. |
+| **`enabled_providers` clobber** (OpenCode) | Merge-only setup verb; before/after fixture; documented undo. |
+| **Claude env bleed** into paid Anthropic or reverse | Per-run env only; fail closed; never park Claude for Ollama faults; negative proofs. |
+| **Claude-local meter lies** (200k / costUSD / firstParty) | Strip or relabel for `ollama_local`; never vendor-shaped. |
+| **Model-dependent tool bugs** blamed on Air / alln | G0→G3 ladder; attribute per §0.4. |
+| **Stall watchdog vs cold local load** | OCL-S05 only if measured; do not widen globally. |
+| **OpenCode `:4096` serve busy** | [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md). |
+| Shared OpenCode lane local ↔ Go | Ceilinged at 1; diagnostics must not read as vendor limit. |
+| OpenCode CT weaker on local | Stay on CT owners; re-run gates. |
+| Served context &lt; 64k | §7.4; warn-and-allow on explicit pin. |
+| Scope creep Cloud / LAN / model manager | §4. |
+| Building both body ladders before one Works Test | §0.1.8 — serialize adapters; share detect/readiness. |
 
 ---
 
 ## 13. Open questions (remaining)
 
-**Closed by founder (§0.1):** capacity vs readiness; Idle/Busy vocabulary;
-`ollama_local` id; mini proves pipe / Studio is ICP; OCL-S00 on current hardware;
-Ollama Cloud / LAN out.
+**Closed by founder:** capacity vs readiness; Idle/Busy; `ollama_local`; mini
+proves pipe / Studio ICP; OCL-S00; Ollama Cloud / LAN out; **both agent bodies**;
+model gate ladder; dev-builds-only until ready.
 
 Still open (Spec Review may recommend; founder decides):
 
-1. Discovery posture: every pulled tag offered opt-in, or only explicitly seated
-   models? Lean: discover all, enable none by default, Code-gate on §7.3.
-2. Is a judgment-only raw `ollama` driver ever wanted, or is OpenCode the only
-   local agent body forever? Lean: OpenCode-only.
-3. Served-context ≥64k: hard Code gate in v1, or warn + allow pin with labeled
-   risk on mini-class RAM?
+1. Discovery posture: every pulled tag offered opt-in, or only explicitly seated?
+   Lean: discover all, enable none by default, Code-gate on §7.3 + G1.
+2. Served-context ≥64k: hard automatic Code gate (yes per §0.2) — confirm copy
+   for warn-and-allow on explicit pin.
+3. Implementation sequence: OpenCode-local productization first (OCL-S00 exists)
+   vs Claude-local first (ICP stay-in-tool)? Lean: **shared S01 first**, then
+   **S02a (OpenCode)** in parallel design with **S02b (Claude)**; ship whichever
+   isolation story is ready — do not block Claude on OpenCode serve-attach or
+   vice versa beyond shared detect.
 
 ---
 
 ## 14. Done when (packet exit — future)
 
-- [ ] A local Ollama model does real bounded mutating work as an OpenCode seat,
-      proven by a gate the seat did not author
-- [ ] Local provenance and local availability language never borrow quota words
-- [ ] Ollama absent leaves every paid seat untouched (negative proof)
-- [ ] Setup is additive and reversible; no user config is overwritten
+- [ ] A local Ollama model does real bounded mutating work as an **OpenCode**
+      seat, proven by a gate the seat did not author
+- [ ] A local Ollama model does real bounded mutating work as a **Claude Code**
+      seat, same standard
+- [ ] Local provenance and readiness never borrow quota / Anthropic meter words
+- [ ] Ollama absent leaves every paid seat untouched (negative proof per body)
+- [ ] OpenCode setup additive/reversible; Claude-local env per-run only
 - [ ] Ollama Cloud remains out of product
-- [ ] Help + doctor teach detect → seat → run
+- [ ] Help + doctor teach detect → choose body → seat → run; G0–G3 for dogfood
 - [ ] Promote keepable law; archive this packet
 
 ---
@@ -589,8 +694,7 @@ Still open (Spec Review may recommend; founder decides):
 
 - [`Mac_Studio_LAN_Bench.md`](../archive/phases/Mac_Studio_LAN_Bench.md) —
   shelved multi-host execution fabric. This packet is **single-Mac local
-  inference under OpenCode**. Streamed diffs, remote mutators, and
-  PeerTransport-as-execution do not return here.
+  inference** under Claude Code and/or OpenCode.
 - `docs/archive/2026-06-13-allnighter-pivot/strategy/Allnighter-Local-AI-Worker-Opportunity.md`
   — historical thesis. Keep the market read (operating layer, not runtime
   layer); discard the night-shift positioning and the read-only-forever framing.
@@ -599,8 +703,9 @@ Still open (Spec Review may recommend; founder decides):
 
 | Task | Read first |
 | --- | --- |
-| Local / Ollama seats via OpenCode | This packet + `ModelCatalog` / `ModelDiscoveryProvider` |
-| OpenCode driver / serve lifecycle | AgentOS `OpenCodeServeClient.swift` (dispatch — separate concern) |
+| Local / Ollama seats (Claude Code and/or OpenCode) | This packet + `ModelCatalog` / `ModelDiscoveryProvider` |
+| OpenCode driver / serve lifecycle | AgentOS `OpenCodeServeClient.swift` + [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) |
+| Claude-local isolation / env | This packet §0.4 / §4 / §7.6 — code SSOT TBD |
 | OpenCode Go subscription meter | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) |
 | Abundant vs scarce seat selection | [`Scarcity_Aware_Routing.md`](Scarcity_Aware_Routing.md) §3 first |
 | Any capacity signal attribution | [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) |
