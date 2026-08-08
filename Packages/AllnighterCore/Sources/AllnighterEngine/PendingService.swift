@@ -438,29 +438,20 @@ public struct PendingService: Sendable {
         run.failedWorkerAnswers.compactMap(\.result.capacityObservation).first
     }
 
-    private func resume(from observation: CapacityObservation, attemptId: String, transcriptRef: String?) -> PendingResume? {
-        switch observation.kind {
-        case .accountRateLimit, .cooldown, .unknownCapacity:
-            return PendingResume(
-                reason: .cooldown,
-                lastAttemptId: attemptId,
-                transcriptRef: transcriptRef,
-                observedResetAt: observation.observedResetAt,
-                wakeAfter: observation.wakeAfter,
-                capacityObservation: observation
-            )
-        case .providerBusy:
-            return PendingResume(
-                reason: .providerBusy,
-                lastAttemptId: attemptId,
-                transcriptRef: transcriptRef,
-                observedResetAt: observation.observedResetAt,
-                wakeAfter: observation.wakeAfter,
-                capacityObservation: observation
-            )
-        case .authRequired, .manualRequired:
-            return nil
-        }
+    /// Delegates to `PendingCapacityResumeWriter` — one capacity -> resume policy,
+    /// including the local recheck cadence that keeps a vendor-silent transient
+    /// block from sitting forever. This used to be a second copy of that mapping
+    /// and drifted: it still read `wakeAfter` straight off the observation, so
+    /// after VSI stripped invented wakes a `providerBusy` item got no wake at all
+    /// and never became due.
+    private func resume(
+        from observation: CapacityObservation,
+        attemptId: String,
+        transcriptRef: String?,
+        now: Date = Date()
+    ) -> PendingResume? {
+        PendingCapacityResumeWriter.resume(
+            from: observation, attemptId: attemptId, transcriptRef: transcriptRef, now: now)
     }
 
     // MARK: - Projection helpers

@@ -200,3 +200,68 @@ final class PendingItemJSONFixtureTests: XCTestCase {
         XCTAssertFalse(blob.contains("runtime"))
     }
 }
+
+/// One capacity -> resume policy (`PendingCapacityResumeWriter.resume`). Both
+/// `PendingService` and the linked-capacity writer route through it, so the
+/// wake rules cannot drift between the two paths again.
+final class PendingCapacityResumeWakeTests: XCTestCase {
+    private func observation(
+        kind: CapacityObservationKind,
+        observedResetAt: Date? = nil,
+        wakeAfter: Date? = nil
+    ) -> CapacityObservation {
+        CapacityObservation(
+            kind: kind, source: "claude_code", sourceConfidence: .structured,
+            rawSnippet: "snip", observedAt: Date(timeIntervalSince1970: 1_000),
+            observedResetAt: observedResetAt, retryAfterSeconds: nil, wakeAfter: wakeAfter)
+    }
+
+    /// The vendor's own stated reset must reach the Wake Ticket. The mapping used
+    /// to read `wakeAfter` alone, so once VSI stopped populating it a
+    /// `providerBusy` item carried no wake, never became due, and the work sat
+    /// forever — `PendingWakePlanner` only selects among items with a due
+    /// `nextWakeAt`, it does not mint them.
+    func testVendorStatedResetReachesTheWakeTicket() throws {
+        let reset = Date(timeIntervalSince1970: 5_000)
+        let r = try XCTUnwrap(PendingCapacityResumeWriter.resume(
+            from: observation(kind: .providerBusy, observedResetAt: reset),
+            attemptId: "a1", transcriptRef: nil, now: Date(timeIntervalSince1970: 1_000)))
+        XCTAssertEqual(r.reason, .providerBusy)
+        XCTAssertEqual(r.wakeAfter, reset)
+    }
+
+    /// An explicit vendor wake still outranks everything local.
+    func testVendorWakeWins() throws {
+        let wake = Date(timeIntervalSince1970: 4_000)
+        let reset = Date(timeIntervalSince1970: 9_000)
+        let r = try XCTUnwrap(PendingCapacityResumeWriter.resume(
+            from: observation(kind: .cooldown, observedResetAt: reset, wakeAfter: wake),
+            attemptId: "a1", transcriptRef: nil, now: Date(timeIntervalSince1970: 1_000)))
+        XCTAssertEqual(r.wakeAfter, wake)
+    }
+
+    /// Vendor states nothing: the observation still carries no invented number
+    /// (VSI), but the local scheduler supplies a recheck cadence so the item can
+    /// become due. The cadence is local — it is never written back onto the
+    /// observation.
+    func testVendorSilenceGetsALocalRecheckNotAnInventedObservation() throws {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let obs = observation(kind: .providerBusy)
+        let r = try XCTUnwrap(PendingCapacityResumeWriter.resume(
+            from: obs, attemptId: "a1", transcriptRef: nil, now: now))
+        XCTAssertEqual(
+            r.wakeAfter,
+            now.addingTimeInterval(PendingCapacityResumeWriter.localRecheckInterval))
+        XCTAssertNil(r.capacityObservation?.wakeAfter, "observation stays vendor truth")
+        XCTAssertNil(r.observedResetAt)
+    }
+
+    /// Auth/manual blockers need a human — they must never get a wake ticket.
+    func testHumanBlockersGetNoWake() {
+        for kind in [CapacityObservationKind.authRequired, .manualRequired] {
+            XCTAssertNil(PendingCapacityResumeWriter.resume(
+                from: observation(kind: kind), attemptId: "a1", transcriptRef: nil,
+                now: Date(timeIntervalSince1970: 1_000)), "\(kind) must not schedule a retry")
+        }
+    }
+}
