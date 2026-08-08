@@ -1,14 +1,12 @@
 # OCL-S00 dogfood target
 
-STATUS: AFTER
+STATUS: BEFORE
 
-Co-Authored-By: Ollama qwen2.5 0.5b local via Allnighter
+## Notes
+Pipe probe file. Agents may change STATUS only.
 
-## Receipt
-
-- Host: MacBook Air M4 32GB (`Mac16,13`)
-- Model: `custom_opencode_ollama_qwen25_05b_local_7496` → `ollama/qwen2.5:0.5b`
-- Run: `6B012D73-4223-4A52-BBE7-E4E0E4B77AE0`
-- Pipe: PASS (OpenCode + Ollama via `alln run`)
-- Honesty: outcome claimed `completedWithoutChanges` despite this write — see
-  `docs/phases/OpenCode_Local_Ollama_Seats.md` §0.3
+## Ops
+- Never kill `alln serve` (long-lived daemon). `identityAlive` on a terminal
+  run can point at that daemon — check `ps` before any kill.
+- Leftover `opencode serve` on :4096 blocks the next `alln run` with
+  `opencode serve busy` until cleared or attach is implemented.

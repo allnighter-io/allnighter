@@ -3,7 +3,7 @@
 Status: **OCL-S00 pipe PASS (partial honesty) — code slices still unauthorized.**
   Founder rulings locked (§0.1). Spec Review Min: Ready for OCL-S00 only
   (`FE9F2530…`). Live dogfood recorded §0.3.
-Revised: 2026-08-07 (v4.1 — OCL-S00 + bug-vs-model attribution; proceed gate)
+Revised: 2026-08-07 (v4.2 — serve leftover repro; never kill alln serve)
 Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS only if
 local turn timing needs to change in the OpenCode driver)
 Created: 2026-08-07
@@ -109,7 +109,32 @@ Three different “lies,” three owners:
 
 **Implication:** do **not** dismiss S00 honesty issues as “0.5B is trash.” At least one is a real product bug (`completedWithoutChanges` under `--no-commit` + dirty tree). Serve ownership is a second real bug. Model weakness explains false prose, not the meter.
 
-### 0.4 Cleared to proceed? / Do we know how to make it work?
+### 0.3.2 Continued testing (same night) — kill safety + serve leftover
+
+**Ops law (founder FYI, binding for agents):** do **not** kill `alln serve`
+(e.g. pid 43273, multi-day daemon). A terminal run can show `identityAlive: true`
+while the identity points at the **long-lived server**, not a worker. Killing
+“dead” runs by pid without `ps` can take down Allnighter entirely. Check
+`ps -p <pid> -o command=` first; refuse if the command is `alln serve`.
+
+**OpenCode `:4096` leftover is a separate process** (`opencode … serve`). It is
+not `alln serve`. Stopping a leftover OpenCode serve for dogfood reclaim is OK;
+stopping `alln serve` is not.
+
+| Run | What | Result |
+| --- | --- | --- |
+| `6F7F31AD…` | Arithmetic JSON while foreign OpenCode :4096 up | **FAIL** `opencode serve busy: port owned by pid 4459` — healthy serve refused |
+| `E04065FB…` | Same JSON with :4096 free (alln starts OpenCode) | **PASS pipe** — completed; answer was fake `write` tool JSON (weak model), not `{"sum":5}` |
+| `D9D921EF…` | Mutating edit **immediately after** — leftover OpenCode pid 14749 still listening | **FAIL** `serve busy: port owned by pid 14749` — **reproducible** |
+| `5946FEB0…` | After stopping **only** OpenCode leftover (alln serve untouched) | **PASS pipe** — completed; model emitted fake `webfetch` JSON; TARGET unchanged; `completedWithoutChanges: true` again |
+
+**Hardening target #1 for local (and all OpenCode) seats:** after a run ends,
+either (a) tear down the OpenCode serve this worker started, or (b) **attach**
+to an already-healthy `:4096` instead of reporting busy. Today’s behavior makes
+second local runs flake unless a human clears the port — model-independent.
+
+`alln serve` 43273 stayed up through all of the above.
+
 
 | Question | Answer |
 | --- | --- |
@@ -129,9 +154,12 @@ Three different “lies,” three owners:
 
 1. Spec Review packet fixes (context gate, Busy=resident, discovery lean, drop raw-ollama maybe)
 2. `--no-commit` + dirty ⇒ false `completedWithoutChanges` (**bug**)
-3. OpenCode serve busy / verify flake (**bug**)
-4. OpenCode CT unfinished — local amplifies false-done prose
-5. No coding-class gated repair yet (0.5b is pipe-only)
+3. OpenCode serve leftover / foreign `:4096` ⇒ next run `serve busy` (**bug**,
+   reproducible same-night; reclaim or attach)
+4. Never treat terminal-run `identityAlive` pid as killable without `ps` —
+   may be `alln serve`
+5. OpenCode CT unfinished — local amplifies false-done prose
+6. No coding-class gated repair yet (0.5b is pipe-only)
 
 What v4/v4.1 changed: §0.3 live Air dogfood; §0.3.1 bug-vs-model split; proceed gate clarified.
 
