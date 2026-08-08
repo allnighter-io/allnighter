@@ -323,7 +323,14 @@ public enum CapacityProbe {
         let window = recentPaintWindow(text)
         if looksLikeCodexUpgradePrompt(window) { return false }
         let c = collapsedForMatch(window)
-        if c.contains("startingmcpservers") || c.contains("escrtointerrupt") { return false }
+        // "esc to interrupt" collapses to `esctointerrupt`. This read
+        // `escrtointerrupt` — one stray `r` — so the guard never fired against a
+        // real capture, and it is the ONLY guard that catches the shape that
+        // actually broke: model already resolved, MCP servers still starting.
+        // Codex then queues `/status` ("tab to queue message") instead of
+        // running it, the pane never paints, and the empty parse gets reported
+        // as `parserFailed` — sending us to fix a parser that works.
+        if c.contains("startingmcpservers") || c.contains("esctointerrupt") { return false }
         if c.contains("model"), c.contains("loading") { return false }
         // Status pane is already up — do not re-send /status from the boot waiter.
         if looksLikeCodexStatusPane(text) { return true }

@@ -960,6 +960,47 @@ final class CapacityAcquisitionTests: XCTestCase {
 
         let banner = "Heads up, you have less than 25% of your weekly limit left. Run /status for a breakdown."
         XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane(banner))
+    }
+
+    /// The shape that actually broke capacity on 2026-08-08, taken from the live
+    /// dump at Capacity/debug/codex-parseFailed.txt.
+    ///
+    /// `testCodexBootChromeAndLowQuotaBannerAreNotStatusPane` above looks like it
+    /// covers this and does not: its boot fixture also says `model: loading`,
+    /// which trips a different guard, so it passed while the MCP guard was
+    /// misspelled (`escrtointerrupt`) and dead. Here the model is already
+    /// resolved — exactly the real capture — so the MCP guard is the only thing
+    /// that can return false.
+    func testCodexIsNotReadyWhileMCPServersAreStillStarting() {
+        let mcpBooting = """
+        │ >_ OpenAI Codex (v0.147.0)                     │
+        │ model:     gpt-5.6-sol high   /model to change │
+        │ directory: ~/Library/…/Allnighter/ProbeScratch │
+        •Starting MCP servers (1/2): codex_apps(1s • esc to interrupt)
+        """
+        XCTAssertFalse(
+            CapacityProbe.looksLikeCodexReadyForStatusCommand(mcpBooting),
+            "sending /status here makes codex QUEUE it, so the pane never paints")
+
+        // The spinner alone must also hold it back — "Starting MCP servers" can
+        // scroll out of the recent paint window while the spinner is still live,
+        // which is why the misspelling mattered.
+        let spinnerOnly = """
+        │ >_ OpenAI Codex (v0.147.0)                     │
+        │ model:     gpt-5.6-sol high   /model to change │
+        │ directory: ~/Library/…/Allnighter/ProbeScratch │
+        (1s • esc to interrupt)
+        """
+        XCTAssertFalse(CapacityProbe.looksLikeCodexReadyForStatusCommand(spinnerOnly))
+
+        // Control: once the spinner clears, the same chrome IS ready.
+        let settled = """
+        │ >_ OpenAI Codex (v0.147.0)                     │
+        │ model:     gpt-5.6-sol high   /model to change │
+        │ directory: ~/Library/…/Allnighter/ProbeScratch │
+        › Summarize recent commits
+        """
+        XCTAssertTrue(CapacityProbe.looksLikeCodexReadyForStatusCommand(settled))
         XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane("›/status gpt-5.6-sol high"))
     }
 
