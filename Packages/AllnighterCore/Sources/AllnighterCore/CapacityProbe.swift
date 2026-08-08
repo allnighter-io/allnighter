@@ -170,6 +170,20 @@ public enum CapacityProbe {
         }
     }
 
+    /// Why an empty parse happened — the parser, or the absence of a screen.
+    ///
+    /// Extracted so the distinction is testable without a live vendor CLI. It is
+    /// the whole point of the fix: `parserFailed` means "a surface exists but we
+    /// could not read it" and sends someone to a parser; `probeTimeout` is
+    /// already documented as "hit the wall-clock budget before a usable screen",
+    /// which is what actually happened when codex hung on MCP startup and grok
+    /// never left its splash animation.
+    static func emptyParseReason(sawUsagePane: Bool, observedAt: Date) -> CapacityUnknownReason {
+        sawUsagePane
+            ? .parserFailed(observedAt: observedAt)
+            : .probeTimeout(observedAt: observedAt)
+    }
+
     /// Codex is blocking on MCP server startup and is advertising the way out.
     ///
     /// The TUI prints "Starting MCP servers (1/2): codex_apps (0s • esc to
@@ -527,17 +541,29 @@ public enum CapacityProbe {
             return [unknown(source: source, reason: .probeTimeout(observedAt: now), now: now)]
         case .empty:
             return [unknown(source: source, reason: .emptyCapture(observedAt: now), now: now)]
-        case .captured(let text):
+        case .captured(let text, let sawUsagePane):
             let parsed = parse(source: source, renderText: text, now: now)
             if parsed.isEmpty {
-                // CAP-HF-claude: keep last capture for fixture work (fail-soft).
+                // Two different failures wore the same name. `parserFailed` says
+                // "a surface exists but we could not read it" and sends someone
+                // to fix a parser. When the pane never rendered there is nothing
+                // to parse, and the honest reason already existed:
+                // `probeTimeout` is documented as "hit the wall-clock budget
+                // before a usable screen".
+                //
+                // This cost real hours on 2026-08-08: codex and grok both read
+                // `parserFailed` while their parsers were fine — codex never got
+                // past MCP startup, grok never got past its splash animation.
+                let reason = emptyParseReason(sawUsagePane: sawUsagePane, observedAt: now)
+                // Keep the capture either way — the dump is how both of those
+                // were actually diagnosed. The tag says which question to ask.
                 writeDebugDump(
                     source: source,
                     text: text,
-                    tag: "parseFailed",
+                    tag: sawUsagePane ? "parseFailed" : "paneNeverRendered",
                     directory: dumpDirectory ?? debugDumpDirectory
                 )
-                return [unknown(source: source, reason: .parserFailed(observedAt: now), now: now)]
+                return [unknown(source: source, reason: reason, now: now)]
             }
             return parsed
         }
@@ -655,7 +681,11 @@ public enum CapacityProbe {
     // MARK: - Capture result
 
     enum CaptureResult: Sendable, Equatable {
-        case captured(String)
+        /// `sawUsagePane` records whether the vendor's usage/status screen ever
+        /// actually rendered. Without it the caller cannot tell "the parser
+        /// could not read this screen" from "there was no screen" — and those
+        /// send you to opposite places.
+        case captured(String, sawUsagePane: Bool)
         case spawnFailed
         case timeout
         case empty
@@ -976,9 +1006,10 @@ public enum CapacityProbe {
         if finalText.isEmpty {
             return usageSent ? .empty : .timeout
         }
-        // Even without marker match, hand text to the parser — fail closed there.
-        _ = sawUsagePane
-        return .captured(finalText)
+        // Still hand text to the parser even without a marker match — the
+        // markers are heuristics and the parser is authoritative. But carry the
+        // marker verdict out so an empty parse can be attributed honestly.
+        return .captured(finalText, sawUsagePane: sawUsagePane)
     }
 
     /// Type the usage slash command. Claude needs per-keystroke delay so the

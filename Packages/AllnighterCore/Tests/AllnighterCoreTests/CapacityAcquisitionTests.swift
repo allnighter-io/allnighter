@@ -962,6 +962,31 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane(banner))
     }
 
+    /// An empty parse has two completely different causes and they used to share
+    /// one name. `parserFailed` says a surface exists that we could not read —
+    /// it sends a human to go fix a parser. On 2026-08-08 both codex and grok
+    /// reported it while their parsers were fine: codex never got past MCP
+    /// startup, grok never got past its splash animation. Neither had a screen.
+    func testEmptyParseIsAttributedToTheThingThatActuallyFailed() {
+        let at = Date(timeIntervalSince1970: 1_800_000_000)
+
+        // Pane rendered, parser could not read it — a genuine parser defect.
+        XCTAssertEqual(
+            CapacityProbe.emptyParseReason(sawUsagePane: true, observedAt: at),
+            .parserFailed(observedAt: at))
+
+        // Pane never rendered — nothing to parse. `probeTimeout` already means
+        // exactly this: "hit the wall-clock budget before a usable screen".
+        XCTAssertEqual(
+            CapacityProbe.emptyParseReason(sawUsagePane: false, observedAt: at),
+            .probeTimeout(observedAt: at))
+
+        // The two must never collapse back into one answer.
+        XCTAssertNotEqual(
+            CapacityProbe.emptyParseReason(sawUsagePane: true, observedAt: at),
+            CapacityProbe.emptyParseReason(sawUsagePane: false, observedAt: at))
+    }
+
     /// Codex's built-in `codex_apps` MCP server never finishes starting here, so
     /// waiting for it is unbounded. The TUI advertises the way out — "esc to
     /// interrupt" — and taking it turns a 60s timeout into a 4s read.
