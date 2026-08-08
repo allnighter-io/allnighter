@@ -53,7 +53,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **OPEN — CT coded; dogfood next** | Completion-truth follow-up implemented; archive after live long/concurrent proof. |
 | [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **CODE COMPLETE — dogfood + CT-08 ruling remain** | CT-01…07/09/11–13 shipped; CT-08 path harden only; CT-10/14 open. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
-| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **Brainstorm — no slice authorized** | Ollama = inference, OpenCode = agent body, ALLN = the bench. Studio wedge; ignore Ollama Cloud. v2 review: OCL-S00 is a zero-code founder Works Test; §7.5 capacity-vs-readiness ruling gates the rest. |
+| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **Brainstorm — founder rulings locked; Spec Review next** | Pipe on mini, sell to Studio. Readiness = Unavailable|Idle|Busy (not capacity strip). OCL-S00 zero-code on current Mac. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | Draft — needs re-base | Core routing built; GUI browse unbuilt. |
@@ -158,7 +158,7 @@ Open questions:
 | Capacity strip, `alln capacity`, warm pool, stale % | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) — Spec Review Min Ready; S00a scoped kill → Dock 30m silent schedule |
 | `alln run` fails from Codex, handoff host missing, stale handoff work | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) |
 | Plan-time quota routing, loop park-yield, cross-vendor arbitrage | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) |
-| OpenCode local / Ollama seats (Studio models via OpenCode, not raw `ollama run`) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — brainstorm; local availability is readiness, not a quota meter; ignore Ollama Cloud |
+| OpenCode local / Ollama seats (pipe on mini, sell to Studio; Idle/Busy readiness) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — founder rulings locked; Spec Review next; ignore Ollama Cloud |
 | Core execution broken, team research/execution lies | Code SSOT: `RunService.swift`, `TeamCatalog`, `RunWriteLockRegistry` |
 | Cold start — no `alln` on PATH | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) |
 | Composer `@` file references | [`Composer_File_References.md`](Composer_File_References.md) |

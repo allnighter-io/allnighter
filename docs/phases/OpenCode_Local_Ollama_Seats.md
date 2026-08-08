@@ -1,15 +1,19 @@
 # OpenCode Local (Ollama) Seats
 
 Status: **Brainstorm — NOT ready for implementation. No slice authorized.**
-Revised: 2026-08-07 (v2 — Opus review: bridge wedge + Go parity + Studio ICP)
+  Founder rulings locked 2026-08-07 (§0.1). Spec Review next; code still waits
+  on OCL-S00 + review.
+Revised: 2026-08-07 (v3 — founder: readiness Idle/Busy; mini proves pipe;
+  Studio is ICP/sales not a build gate)
 Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS only if
 local turn timing needs to change in the OpenCode driver)
 Created: 2026-08-07
 Origin: Founder dogfood — Ollama 0.32.x ships `ollama launch opencode` and
 documents OpenCode → `http://localhost:11434/v1` (OpenAI-compatible). Local
-models on large-unified-memory Macs are becoming real implementation labor, not
-chat toys. ALLN should seat them through the **same `opencode` driver** it
-already ships for Go, with local provenance and local honesty.
+models are becoming real implementation labor. ALLN seats them through the
+**same `opencode` driver** as Go, with local provenance and local honesty.
+**Dogfood split:** prove the pipe on a Mac mini (or any Apple Silicon); sell
+the upside to Mac Studio users. Same software.
 
 Companion packets:
 [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) (same driver, different
@@ -34,37 +38,46 @@ operations; code remains SSOT; archive this packet.
 
 ---
 
-## 0. Review verdict (Opus, 2026-08-07)
+## 0. Review verdict
 
-**Still Brainstorm. Not Ready for Implementation** — but the cheapest possible
-test of the entire thesis needs **zero code** and can be run today (§10,
-OCL-S00). Everything after that should wait on its result.
+**Still Brainstorm. Not Ready for Implementation** until Spec Review + OCL-S00.
+v2 (Opus) grounded the packet; v3 locks founder product law below.
 
-Why not Ready:
+### 0.1 Founder rulings (2026-08-07) — binding
 
-1. **No founder ruling on the capacity category.** `Product_Vocabulary.md`
-   defines bench capacity as *"what each paid CLI subscription has left —
-   vendor-printed only."* A local model has no subscription and no vendor meter.
-   Putting a hardware row in that strip is a category change, not a new seat
-   (§7.5). v1 recommendation: **readiness, not capacity.**
-2. **No proof a local model completes a mutating OpenCode turn.** Not once, on
-   any host. Everything below is design until OCL-S00 returns.
-3. **The dogfood host is not the ICP.** This Mac is 32 GB (`Mac16,13`), which
-   puts Ollama's default context at 32k — *below* the 64k its own docs require
-   for coding agents — with one 0.5B model pulled. Plumbing can be proven here;
-   the Studio capability claim cannot (§5.2).
-4. **Turn-timing thresholds are unknown and probably wrong for local.** The
-   OpenCode driver's stall watchdog is a hardcoded 120s quiet window and the
-   manifest wall is 1800s. Cold model load plus long-prompt prefill on a large
-   local model can exceed 120s of genuine silence (§12).
-5. **OpenCode's own completion truth is not finished.** CT-08 (lock-gated
-   sibling writes) and CT-10 (permission during SSE gap) are open. Local seats
-   arrive on top of that, not after it.
+1. **Readiness, not capacity strip.** Local availability is **not**
+   `benchSourceOrder` / subscription capacity. `Product_Vocabulary.md` capacity
+   stays vendor-printed quota. Local surface: `alln models` / `doctor`.
+2. **v1 readiness states are three words only:**
+   `Unavailable` | `Idle` | `Busy`.
+   No VRAM %, no fake 5h/weekly meters, no context gauges in v1 UI. Prefer
+   observed `ollama ps` / `/api/ps` (loaded ⇒ Busy; reachable + nothing loaded ⇒
+   Idle; down / no usable model ⇒ Unavailable). Unobserved ⇒ Unavailable, never
+   a guessed Busy.
+3. **Signal id:** `ollama_local` (attribution only — not a strip seat).
+4. **Dogfood hardware split:** Prove the **pipe** on a **Mac mini** (or any
+   Apple Silicon already on the desk). If the pipe works there, it works on a
+   Studio. **Do not buy a Studio to validate integration.** Studio owners are
+   the ICP / sales wedge (larger models, abundant labor feel) — not a build
+   prerequisite. Optional rental only if you later want Flash-class *feel*
+   evidence; not required for OCL-S00.
+5. **OCL-S00 now, on current hardware.** Do not wait for ICP RAM. Plumbing
+   proof ≠ capability demo (§11 A vs B).
+6. **Ollama Cloud stays out.** Remote `OLLAMA_HOST` / LAN Studio farm stay out
+   (separate packets only; LAN mutators remain shelved).
 
-What v2 changed: §2 (bridge positioning), §5 (state verified against live code
-and this host, replacing assumed state), §6 (Go parity plus the shared-serve
-fact the v1 packet missed), §7.4–7.5 (context truth and the capacity category
-rule), §10 (zero-code first rung), §12 (timing and config-clobber risks).
+### 0.2 Still blocking Ready (engineering / proof)
+
+1. **No OCL-S00 result yet** — zero live mutating local OpenCode turn through
+   `alln`.
+2. **Turn-timing** may mis-report healthy local cold load as stall (120s quiet
+   window) — measure in OCL-S00 before changing AgentOS.
+3. **OpenCode completion truth** still has open CT work; local seats land on
+   top of it, not after it.
+4. **Spec Review** has not stamped the packet Ready for Implementation.
+
+What v3 changed: closed §7.5; Idle/Busy law; mini-proves-pipe / Studio-is-ICP;
+OCL-S00 unblocked from hardware fantasy; open questions trimmed.
 
 ---
 
@@ -83,9 +96,19 @@ ollama serve + tool-capable model pulled
   → the model appears on the bench as an opencode seat, provenance: local
   → alln run "…" --model <local_model_id> --json
   → OpenCode agent body (tools / FS / shell) + Ollama inference
-  → honest completion or honest failure; readiness reads local hardware truth,
+  → honest completion or honest failure; readiness is Unavailable | Idle | Busy,
     never a subscription meter
 ```
+
+### Dogfood vs sell (founder)
+
+```text
+Mac mini (or any AS)  → prove the pipe (integration Works Test)
+Mac Studio owners     → who feel the upside (larger local models, abundant labor)
+```
+
+Same binary. Different wallet and model class. Integration dogfood must not
+depend on Studio RAM.
 
 ---
 
@@ -320,20 +343,28 @@ inference is exactly the shape of lie `Vendor_Signal_Isolation.md` forbids, and
 its failure mode is a coding agent silently truncating the repo it was asked to
 reason about.
 
-### 7.5 Capacity category rule (needs a founder ruling)
+### 7.5 Capacity vs readiness (founder ruled — closed)
 
 `Product_Vocabulary.md`: *bench capacity = what each paid CLI subscription has
-left; vendor-printed only, never estimated.* Effective availability is *the
-tightest ceiling across a seat's windows.* A local model has no subscription, no
-window, and no vendor to print anything.
+left; vendor-printed only, never estimated.* A local model has no subscription
+and no vendor meter.
 
-**Recommendation for v1: local availability is readiness, not capacity.** Surface
-it through `alln models` and `alln doctor`, where "installed / loaded / context /
-busy" is native language. Do not add `ollama_local` to `benchSourceOrder` until
-the founder rules that the strip's meaning widens from *subscription headroom* to
-*seat availability* — a change that touches every other row's reading, not just
-the new one. Reversing this later is cheap; un-teaching a strip that mixes
-"38% of your weekly Claude quota" with "model not currently loaded" is not.
+**Founder ruling:** local availability is **readiness, not capacity.** Do **not**
+add `ollama_local` to `benchSourceOrder` in v1. Surface readiness through
+`alln models` / `alln doctor` only.
+
+**v1 readiness vocabulary (only):**
+
+| State | Meaning | Typical evidence |
+| --- | --- | --- |
+| `Unavailable` | Cannot use local seats | Ollama down, or no usable local model |
+| `Idle` | Ready, nothing running | Reachable; `/api/ps` empty (or equivalent) |
+| `Busy` | Local inference in use | Model loaded / serving per `/api/ps` |
+
+No VRAM %, no context gauges, no fake quota windows in v1. If evidence is
+missing, emit `Unavailable` — never invent `Busy`.
+
+OCL-S06 (strip row) stays **cancelled for v1**, not deferred-with-hope.
 
 ### 7.6 Vendor signal isolation
 
@@ -352,8 +383,8 @@ did not happen, and never produce a substitution. Fail closed.
 | Project local tags → seats | **`ModelDiscoveryProvider` for `opencode`** — the registry's first real provider; `origin: .discovered` |
 | Ensure OpenCode can reach `11434/v1` | Setup verb — **merge** into `enabled_providers` + `provider.ollama`, never overwrite |
 | Dispatch | Existing `opencode` driver. No change. |
-| Readiness surface | `alln models` / `alln doctor` rows (§7.5) |
-| Capacity strip row | Only after the §7.5 ruling; dedicated modules, never `CapacityProbe`, never `OpenCodeGoCapacity*` |
+| Readiness surface | `alln models` / `alln doctor` — Unavailable \| Idle \| Busy only (§7.5) |
+| Capacity strip row | **Cancelled for v1** (founder). Do not build. |
 
 ---
 
@@ -374,13 +405,13 @@ OCL-S00 should decide whether the rest is worth writing.
 
 | Id | Intent | Code? |
 | --- | --- | --- |
-| **OCL-S00** | **Founder Works Test, no code.** Merge an `ollama` provider into `opencode.json` by hand, `alln models add --driver opencode --model-label ollama/<tag>`, `alln models verify`, then one bounded `alln run --model`. Record what actually happened. | **None** |
-| **OCL-S01** | Detect + doctor: Ollama reachable; list local models with `tools` and served-context truth; no seating | Core |
+| **OCL-S00** | **Founder Works Test, no code — on current Mac (mini-class OK).** Merge `ollama` provider into `opencode.json` by hand, `alln models add --driver opencode --model-label ollama/<tag>`, `alln models verify`, one bounded `alln run --model`. Record outcome. Studio not required. | **None** |
+| **OCL-S01** | Detect + doctor: Ollama reachable; list local models; readiness Unavailable/Idle/Busy | Core |
 | **OCL-S02** | Setup verb: additive OpenCode provider wiring, reversible, proven non-clobbering | Core/CLI |
 | **OCL-S03** | First `ModelDiscoveryProvider` for `opencode`: local tags → opt-in seats with `.discovered` origin and local provenance | Core |
-| **OCL-S04** | Readiness surface in `alln models` / `doctor` (§7.5) | Core/CLI |
-| **OCL-S05** | Turn timing for local seats: stall window and wall that fit cold load + prefill without hiding real hangs | **AgentOS** |
-| **OCL-S06** | Capacity strip row — **blocked** on the §7.5 founder ruling | Core |
+| **OCL-S04** | Readiness surface in `alln models` / `doctor` — three states only (§7.5) | Core/CLI |
+| **OCL-S05** | Turn timing for local seats: stall window / wall that fit cold load without hiding real hangs — **only if OCL-S00 measures a real problem** | **AgentOS** |
+| ~~**OCL-S06**~~ | ~~Capacity strip row~~ — **cancelled for v1** (founder) | — |
 
 Out of ladder entirely: scarcity auto-routing, remote `OLLAMA_HOST`,
 Claude-via-Ollama, Ollama Cloud, anything multi-host.
@@ -391,19 +422,21 @@ Claude-via-Ollama, Ollama Cloud, anything multi-host.
 
 Two tiers. Never report the first as the second.
 
-**A — Plumbing (runnable on this 32 GB host, today):**
+**A — Plumbing / pipe (any Apple Silicon, including Mac mini — required):**
 
 ```text
-Given: Ollama up, a tool-capable local model pulled, opencode.json merged to
-       enable an ollama provider alongside opencode-go
+Given: Ollama up, a tool-capable local model that fits this Mac, opencode.json
+       merged to enable an ollama provider alongside existing providers
 When:  alln models verify <local_model_id>
        alln run "<one-file bounded edit>" --model <local_model_id> --json
 Then:  the seat verifies; the run completes with a real answer or fails with a
        classified reason; the repo delta is real; provenance reads local;
-       the seven Go seats are unaffected throughout
+       paid OpenCode seats are unaffected throughout; readiness never speaks
+       quota language
 ```
 
-**B — Capability (requires ICP hardware, ≥64k served context):**
+**B — Capability / ICP feel (Studio-class RAM — optional sales proof, not a
+ship gate for the pipe):**
 
 ```text
 Given: A large-unified-memory Mac serving a coding-class local model at ≥64k
@@ -411,6 +444,8 @@ When:  the same bounded repair slice is given to the local seat and to a paid
        seat, and the lead re-runs the filtered gate itself
 Then:  the local seat's work stands on its own gate — not on its own report
 ```
+
+Do not block Ready-for-pipe on B. Do not sell B as proven because A passed.
 
 **Negative test (required in whichever slice can first break it):** with Ollama
 stopped, Go seats resolve, dispatch, and complete unchanged; no capacity row,
@@ -436,20 +471,20 @@ Proof waiver: none claimed. Nothing here is shipped.
 
 ---
 
-## 13. Open questions (founder)
+## 13. Open questions (remaining)
 
-1. **§7.5 — does local availability belong in the capacity strip at all**, or in
-   `alln models` / `doctor`? This is the one answer that changes the shape of
-   every slice below OCL-S04. Recommendation: readiness in v1.
-2. Confirm `ollama_local` as the signal id (§6.2).
-3. Discovery posture: every pulled tag offered opt-in, or only models the
-   founder explicitly seats? Recommendation: discover all, enable none by
-   default, Code-gate on §7.3.
-4. Is OCL-S00 worth an hour of founder time now, or does this wait for ICP
-   hardware? Nothing below it should be built first either way.
-5. Is a judgment-only raw `ollama` driver ever wanted, or is OpenCode the only
-   local agent body forever?
-6. When, if ever, is remote `OLLAMA_HOST` in scope as an inference URL only?
+**Closed by founder (§0.1):** capacity vs readiness; Idle/Busy vocabulary;
+`ollama_local` id; mini proves pipe / Studio is ICP; OCL-S00 on current hardware;
+Ollama Cloud / LAN out.
+
+Still open (Spec Review may recommend; founder decides):
+
+1. Discovery posture: every pulled tag offered opt-in, or only explicitly seated
+   models? Lean: discover all, enable none by default, Code-gate on §7.3.
+2. Is a judgment-only raw `ollama` driver ever wanted, or is OpenCode the only
+   local agent body forever? Lean: OpenCode-only.
+3. Served-context ≥64k: hard Code gate in v1, or warn + allow pin with labeled
+   risk on mini-class RAM?
 
 ---
 
