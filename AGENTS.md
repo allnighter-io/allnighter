@@ -65,25 +65,24 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 
 | Task type | Read first |
 | --- | --- |
-| Core execution broken, Team research or execution does not work in the real repo | One run owner: `RunService.run`. Mirrors, clones, mechanical read-only Teams, and resident execution do not exist — `config/architecture-policy.json` + `scripts/check_architecture_policy.sh` fail the build if they return. |
+| Core execution broken, Team research or execution does not work in the real repo | One run owner: `RunService.run`. Mirrors, clones, mechanical read-only Teams, and resident execution do not exist — `scripts/check_architecture_policy.sh` fails the build if they return. |
 | Product scope, MVP foundation, what shipped | `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md` |
 | Post-MVP planning, open build packets, what to archive next | `docs/phases/README.md` (ephemeral packets only — never SSOT; closeout = promote + archive) |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | Code SSOT: `RunService.swift`, `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry` |
 | Run started — what is happening, is anything needed, where is the result | `alln show <id> --json` snapshot / `alln show <id> --stream` observe + deliver. Code SSOT: `RunService.swift`, `TeamRunJSONMapper` (`observation`), `RemoteRunEventJournal` (derived history) |
 | Multi-seat / `--seat` drops a seat on Cursor/OpenCode spawn gate; same-CLI crew on large teams | Open packet: `docs/phases/Crew_Understaffed_Signal.md` — serialize don't drop (AgentOS `GatedWorkerRunner` / `DriverConcurrencyGate`); dry-run names serial drivers via `RunService` warnings; do not refuse same-CLI |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | Code SSOT: `KillSettlement.swift`, `RunClockEnforcer.swift`, `IdempotencyStore.swift`, `ProcessOwnership.swift` |
-| Capacity strip, `alln capacity`, warm pool, menu-bar resident | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) — Dock 30m silent schedule (Spec Review Min Ready); S00a scoped kill first; S02 `capacity.sock` fast/cold shipped (code SSOT `CapacitySocket.swift`); menu bar / warm PTY not v1 |
+| Capacity strip, `alln capacity`, warm pool, menu-bar resident | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) — S02 `capacity.sock` shipped (code SSOT `CapacitySocket.swift`); host lock superseded by `Probe_Freshness.md` §0.2; menu bar / warm PTY not v1 |
 | Plan-time quota routing, capacity in menu/bootstrap, loop session-cap wake | Open packet: `docs/phases/Quota_Aware_Bench_Continuity.md` — runtime park/sub only; menu capacity suspended per CWB; code SSOT `VendorBackoffReconciler`, `VendorSubstitutionPolicy`, `LoopCoordinator.dispatchDevTurn` |
 | OpenCode Go plan capacity (browser `/go` scrape, encrypted credentials) | Open packet: `docs/phases/OpenCode_Go_Capacity.md` — not PTY; v1 strip only; code SSOT TBD `OpenCodeGoCapacityProbe`, `OpenCodeGoCredentialStore` |
 | OpenCode `serve busy: port owned by pid` / leftover `:4096` between runs | Open packet: `docs/phases/OpenCode_Serve_Attach.md` — attach healthy serve (all OpenCode seats); code SSOT AgentOS `OpenCodeServeCoordinator` |
 | OpenCode local / Ollama seats (Claude Code and/or OpenCode bodies; pipe on mini, sell to Studio) | Open packet: `docs/phases/OpenCode_Local_Ollama_Seats.md` — agnostic bodies; `ollama_local` readiness not capacity; ignore Ollama Cloud; code unauthorized until ready |
-| OpenCode headless completion / foreign idle / prompt-as-answer / `external_directory` hang | S122 shipped (honest completion); code SSOT AgentOS `OpenCodeServeClient`/`OpenCodeSSEParser`/`OpenCodePermissionPolicy`, Allnighter `OpenCodeOutcomeAuthority`/`RepoDelta.worktreeDirty`; help `opencode_headless_completion`; archive `docs/archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md` |
-| OpenCode long runs / concurrent `stream_drop` / subagent (`task`) hang | **Dogfood green** — open packet: `docs/phases/OpenCode_Long_Run_Continuity.md` + `docs/phases/OpenCode_Completion_Truth_Followup.md`; CT-08 lock-gated sibling code slice remains. Code SSOT AgentOS `OpenCodeServeClient`/`OpenCodeSSEParser`/`OpenCodeServeCoordinator`/`OpenCodeSpawnLock`/`OpenCodePermissionPolicy`; Allnighter `RunService`/`OpenCodeOutcomeAuthority` |
+| OpenCode long runs / concurrent `stream_drop` / subagent (`task`) hang | **Dogfood green** — open packet: `docs/phases/OpenCode_Long_Run_Continuity.md` + `docs/phases/OpenCode_Completion_Truth_Followup.md`; CT-08 lock-gated sibling code slice remains. Code SSOT: AgentOS `OpenCode*` + Allnighter `RunService` / `OpenCodeOutcomeAuthority` |
 | Mutating run failed `incomplete_uncommitted` despite a full answer / zero run-owned edits; ambient dirty tree | Open packet: `docs/phases/Ambient_Dirty_Run_Outcome.md` — S122.3 must compare dirty vs run start, not end porcelain alone. Code SSOT `RunService.applyIncompleteUncommitted`, `GitObserver.repoDelta`, `OpenCodeOutcomeAuthority` |
-| Smart / auto model routing, economy vs balanced seats, "always prefer vendor X" | Brainstorm only, no slice authorized: `docs/phases/Scarcity_Aware_Routing.md` — read its §3 rejected list first (intent router dead; no standing routing rules; sensors never veto; no estimates) |
+| Smart / auto model routing, economy vs balanced seats, "always prefer vendor X" | Brainstorm only, no slice authorized: `docs/phases/Scarcity_Aware_Routing.md` — read its §3 rejected list first |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | Code SSOT: `VendorBackoffReconciler.swift`, `VendorSubstitutionPolicy.swift` |
-| Wrong/invented capacity verdict; run parked for a limit that never happened; adding a new CLI's limit detection; a failed run's work missing from `alln show`/`export` | Open packet: `docs/phases/Vendor_Signal_Isolation.md` — a vendor parser must answer only for its own `sourceId`; declare capacity signals in the driver manifest, never a classifier branch. Code SSOT: AgentOS `CapacityClassifier.swift`, `DriverManifest.swift` |
-| `alln bootstrap` teaching block wrong or stale in a host file; retired vocabulary shipping from the front door; how to brief and verify a delegated seat | Open packet: `docs/phases/Agent_Teaching_Surface.md` (sequenced after Vendor Signal Isolation). Code SSOT: `TeachingSnippet.swift`, `HelpTopicRegistry.swift`, `RetiredVocabulary.swift` |
+| Wrong/invented capacity verdict; run parked for a limit that never happened; adding a new CLI's limit detection; a failed run's work missing from `alln show` | Open packet: `docs/phases/Vendor_Signal_Isolation.md` — a vendor parser answers only for its own `sourceId`; declare capacity signals in the driver manifest, never a classifier branch. Code SSOT: AgentOS `CapacityClassifier`, `DriverManifest` |
+| Stale teaching block or help; retired vocabulary shipping from the front door; invented flags; empty `help search`; `version` freshness | Open packet: `docs/phases/Agent_Teaching_Surface.md` (after Vendor Signal Isolation). Code SSOT: `TeachingSnippet.swift`, `HelpTopicRegistry.swift`, `RetiredVocabulary.swift`, `AllnighterVersionIdentity` |
 | Composer `@` file references, Project file search, file chips | Open packet: `docs/phases/Composer_File_References.md` (not SSOT) |
 | GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
@@ -93,10 +92,8 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Execution/answer teams, mutating runs, source/write safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` |
 | CLI product surface, `alln`, TeamRunJSON | Code SSOT: `ContractRegistry` / CLI; naming packet: `CLI_Product_Spine.md` (not SSOT) |
 | Team run artifact / `alln artifact` | Code SSOT: `ArtifactProjector.swift`, `ArtifactWriter.swift`, `ArtifactCLI.swift`; closed record: archived `Team_Run_Receipt.md` |
-| Agent surface, `alln bootstrap` activation, help/menu routing (MCP retired 2026-07-16) | Live `alln menu --json` is the selection front door; `alln bootstrap` prints the paste-ready host context; CLI is the only agent surface. Code SSOT: `MenuCatalog.swift`, `Bootstrap.swift`, `HelpTopicRegistry.swift` |
-| Agent front door: `install-cli`, `bootstrap`, live menu selection | Front door V1 complete; there is no intent router — the caller chooses from the live menu. Code SSOT: `InstallCLI.swift`, `Bootstrap.swift`, `TeachingSnippet.swift`, `MenuCatalog.swift` |
+| Agent surface / front door: `install-cli`, `bootstrap`, live menu selection, help routing (MCP retired 2026-07-16) | Live `alln menu --json` is the selection front door and the CLI is the only agent surface; `alln bootstrap [--host]` prints the paste-ready host context. There is no intent router — the caller chooses from the live menu. Code SSOT: `MenuCatalog.swift`, `Bootstrap.swift`, `InstallCLI.swift`, `TeachingSnippet.swift`, `HelpTopicRegistry.swift` |
 | Cold start — no `alln` on PATH yet (Hermes/OpenClaw one-paste curl install) | Open packet: `docs/phases/One_Paste_Cold_Start.md` — curl faucet + bootstrap host paste; MCP stays dead; app is human faucet; npm deferred |
-| Stale MCP / invented flags in help, empty `help search`, dead verbs in living docs, `version` freshness | Code SSOT: `RetiredVocabulary.swift`, `HelpTopicRegistry.swift`, `AllnighterVersionIdentity` + `docs/workflows/SSOT_Founder_Input_Workflow.md` §Agent-facing help |
 | Copy lane, `/copy`, copy type packs, copy work orders | `docs/phases/copy/README.md` |
 | iOS companion, remote control, Tailscale pairing | `docs/phases/ios/README.md` + `docs/operations/ios-testing-loop.md` |
 | Shared Mac/iOS SwiftUI or `Packages/AllnighterUI` | `docs/gui/GUI_Workflow.md` §5 — default **no**; founder escalation required |
@@ -104,11 +101,10 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
-| Forward Mac app shell, Dock app, background scheduler | `alln serve` is a background SCHEDULER only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay). It owns no run semantics and `alln run` never needs it; adding an operation to it is a new feature packet. |
+| Forward Mac app shell, Dock app, background scheduler | `alln serve` is a background SCHEDULER only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay, probe/capacity refresh). It owns no run semantics; adding an operation to it is a new feature packet. |
 | Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |
-| Team lab seat economics, roster ablation, named variants, necessity suite | Team Lab is SHUT DOWN (founder, 2026-07-24) — do not resume; built-in Teams ship as-is via `TeamCatalog`/`BuiltInTeams.swift` |
 | Sprint or phase execution (Task → Deslop → Code Audit → closeout) | `docs/operations/Execution-Playbook.md` + the target phase doc |
 | **Implement one bounded slice (32K agents)** | `docs/phases/sprint/README.md` — one work order only |
 | GLM advisory review / serial hardening pass | `docs/operations/GLM_Worker_Best_Practices.md` + `docs/archive/phases/code_review/README.md` |
@@ -118,7 +114,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Bug report / fix a bug / broken workflow | `docs/operations/Debugger.md` (+ `docs/operations/debugger/`) |
 | Code cleanup, maintainability, file hygiene | `docs/operations/code-maintainer/` |
 | Stack, Xcode, Swift package, commands | `docs/operations/TechStack.md` |
-| Test / CI / `check.sh` / agent proof commands / test pile-ups | `docs/operations/Execution-Playbook.md` § Green Wall (PATH shim + token makes the wrapper the only working path on every agent host; history: `docs/archive/phases/Test_Infrastructure_Upgrade.md`) |
+| Test / CI / `check.sh` / agent proof commands / test pile-ups | `docs/operations/Execution-Playbook.md` § Green Wall (PATH shim + token make the wrapper the only working path on every agent host) |
 | iOS simulator dev / test loop (preview vs live) | `docs/operations/ios-testing-loop.md` |
 | Marketing, positioning, pricing copy | `docs/marketing/README.md` |
 | Changing a price, tier, trial length, or the free core | `docs/phases/Pricing_Change_Process.md` (founder ruling required; offer SSOT is `docs/marketing/Pricing_Recommendation.md`) |
