@@ -247,6 +247,59 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(trj.errors.first?.message, "opencode serve busy: port owned by pid 96665")
     }
 
+    /// RRT-S03 — `outcome.headline` was byte-identical to
+    /// `teamRun.identitySummary`: the field named `headline` printed who ran,
+    /// never what happened. Lead with the verdict the run already emitted.
+    func testHeadlineLeadsWithVerdictNotIdentity() throws {
+        let markdown = """
+        ## Status: Ready
+
+        Body text that a reader should not have to reach.
+
+        ```lead-call
+        {"schemaVersion": 1, "status": "Ready", "title": "Expire at projection"}
+        ```
+        """
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_sonnet#0", modelId: "model_sonnet", role: "answer",
+                result: WorkerRunResult(status: .done, output: markdown))],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let headline = try XCTUnwrap(trj.outcome?.headline)
+
+        XCTAssertTrue(headline.hasPrefix("Ready · Expire at projection"),
+                      "headline must lead with the verdict — got: \(headline)")
+        XCTAssertNotEqual(headline, trj.teamRun.identitySummary,
+                          "headline must not be the identity string")
+    }
+
+    /// A true `partial` must name its subject. FCF51DB2 printed the bare word
+    /// while two of three seats had in fact delivered and the third died on
+    /// `opencode serve busy` — the reader took it as a verdict on the whole run.
+    func testPartialHeadlineNamesHowManySeatsDelivered() throws {
+        let run = try Fixtures.run(.runPartial)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertEqual(trj.outcome?.status, .partial, "fixture precondition")
+
+        let headline = try XCTUnwrap(trj.outcome?.headline)
+        let ran = run.answers.filter { $0.result.status != .skipped }
+        let done = ran.filter { $0.result.status == .done }.count
+        XCTAssertTrue(headline.contains("\(done) of \(ran.count) seats delivered"),
+                      "partial must name its subject — got: \(headline)")
+    }
+
+    /// No lead-call block (an ordinary mutating run) must not regress: the
+    /// existing identity/repo-delta headline still stands on its own.
+    func testHeadlineUnchangedWhenRunEmitsNoLeadCall() throws {
+        let run = try Fixtures.run(.runComplete)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        let wallMs = outcome.timing.flatMap { $0.wallMs }
+        XCTAssertEqual(outcome.headline, RunIdentity.outcomeHeadline(run, wallMs: wallMs))
+    }
+
     func testInflightRunMapsToRunning() throws {
         let run = try Fixtures.run(.runInflight)            // status .fanningOut
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())

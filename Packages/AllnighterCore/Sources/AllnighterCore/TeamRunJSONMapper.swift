@@ -402,7 +402,7 @@ public enum TeamRunJSONMapper {
         return TeamRunJSON.Outcome(
             status: outcomeStatus,
             committed: changed,
-            headline: RunIdentity.outcomeHeadline(run, wallMs: wallMs),
+            headline: outcomeHeadline(run, status: outcomeStatus, wallMs: wallMs),
             completedWithoutChanges: completedWithoutChanges,
             commitMessageMatched: commitMatched,
             proof: proof,
@@ -499,6 +499,50 @@ public enum TeamRunJSONMapper {
             message: a.result.errorReason ?? "worker did not produce an answer",
             requiresManual: false, retryable: true, runId: runId, agentId: a.memberId
         )
+    }
+
+    /// RRT-S03 — `outcome.headline` used to be byte-identical to
+    /// `teamRun.identitySummary`: the field named `headline` printed *who ran*
+    /// ("model model_gpt_sol · lane code · readOnly") and never *what happened*.
+    /// On a read-only judgment run nothing else was appended, so the reader got
+    /// identity and nothing else, while the verdict sat 40 lines deep in 14 KB
+    /// of markdown.
+    ///
+    /// Lead with what happened, then keep the existing repo-delta / proof tail.
+    /// Adds no field: the verdict comes from `LeadCallParser`, which already
+    /// ships and which `ArtifactProjector` already trusts for the HTML artifact.
+    static func outcomeHeadline(
+        _ run: TeamRun, status: TeamRunJSON.Outcome.Status, wallMs: Int?
+    ) -> String {
+        var lead: [String] = []
+        if let call = leadCall(in: run),
+           let verdict = call.status?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !verdict.isEmpty {
+            lead.append(verdict)
+            if let title = call.title?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !title.isEmpty { lead.append(title) }
+        }
+        // A true `partial` must name its subject: which seats did not deliver.
+        // Without this the reader takes one bare word as a verdict on the run.
+        if status == .partial {
+            let ran = run.answers.filter { $0.result.status != .skipped }
+            let done = ran.filter { $0.result.status == .done }.count
+            lead.append("\(done) of \(ran.count) seats delivered")
+        }
+        let identity = RunIdentity.outcomeHeadline(run, wallMs: wallMs)
+        guard !lead.isEmpty else { return identity }
+        return (lead + [identity]).joined(separator: " · ")
+    }
+
+    /// First parseable lead-call block in the run's durable text. The synthesis
+    /// (`run.plan`) wins over a single seat's answer, matching how `answer` is
+    /// projected.
+    private static func leadCall(in run: TeamRun) -> LeadCall? {
+        if let call = LeadCallParser.parse(from: run.plan), call.status != nil { return call }
+        for answer in run.answers {
+            if let call = LeadCallParser.parse(from: answer.output), call.status != nil { return call }
+        }
+        return nil
     }
 
     /// RRT-S04 — top-level `errors` used to be a hardcoded `[]`, so no run ever
