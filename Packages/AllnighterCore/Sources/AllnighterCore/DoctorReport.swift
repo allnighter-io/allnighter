@@ -323,8 +323,7 @@ public enum DoctorReport {
     /// read "Rate limited — resets Aug 14, 2026 at 11:11 AM". The plausible date
     /// is what made the invented limit credible, so it is the part to withhold.
     public static func rateLimitedDetail(observation: CapacityObservation, vendorReset: Date? = nil, now: Date = Date()) -> String {
-        guard observation.sourceConfidence == .structured
-                || observation.sourceConfidence == .messageFallback
+        guard ProbeFreshnessGate.isVendorStated(observation)
         else { return "Rate limited — reset time unknown" }
         guard let reset = vendorReset ?? observation.observedResetAt else {
             return "Rate limited — reset time unknown"

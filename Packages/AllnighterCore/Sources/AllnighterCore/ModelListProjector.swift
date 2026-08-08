@@ -12,11 +12,11 @@ public enum ModelListProjector {
         driverId: String? = nil,
         parkedDriverIds: Set<String> = []
     ) -> ModelListJSON {
-        // PF-S00: read-time freshness. A negative verdict past its own retry
-        // window (or the 30m clock) is no longer evidence, so it is not asserted
-        // — the seat reads as not-recently-checked instead of unavailable. The
-        // stored record is never rewritten.
-        let expiredNegative = ProbeFreshnessGate.expiredNegativeDriverIds(probeRecords, now: now)
+        // PF-S00/S02: read-time projection. A negative verdict that is past its
+        // own retry window, or that no vendor ever stated, is not evidence — so
+        // it is not asserted and the seat reads as unknown rather than
+        // unavailable. The stored record is never rewritten.
+        let unassertable = ProbeFreshnessGate.unassertableNegatives(probeRecords, now: now)
         let recordsByDriver = Dictionary(uniqueKeysWithValues:
             probeRecords.map { ($0.driverId, $0) })
         let manifestIDs = Set(registry.all.map(\.id))
@@ -33,14 +33,14 @@ public enum ModelListProjector {
                 status = "driverMissing"
             } else if parked {
                 status = "parked"
-            } else if let record, !expiredNegative.contains(def.driverId) {
+            } else if let record, unassertable[def.driverId] == nil {
                 status = record.status.isSmokeReady ? "ready" : "notReady"
             } else {
-                // No record, or a negative verdict past its own evidence: both
-                // are "we don't currently know", which already renders as
-                // "Source not checked" rather than "Source not ready". The
-                // distinction matters — an agent reading `notReady` stops
-                // considering the seat.
+                // No record, or a negative verdict that outlived its evidence or
+                // never had any: all are "we don't currently know", which
+                // already renders as "Source not checked" rather than "Source
+                // not ready". The distinction matters — an agent reading
+                // `notReady` stops considering the seat.
                 status = "notChecked"
             }
             let driverName = registry.manifest(id: def.driverId)?.displayName ?? def.driverId

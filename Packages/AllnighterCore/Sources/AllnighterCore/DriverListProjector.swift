@@ -11,11 +11,11 @@ public enum DriverListProjector {
         vendorResetsBySource: [String: Date] = [:],
         contractVersion: String = ContractRegistry.contractVersion
     ) -> DriverListJSON {
-        // PF-S00: read-time freshness. A negative verdict past its own retry
-        // window (or the 30m clock) is no longer evidence, so it is not asserted
-        // — the seat reads as not-recently-checked instead of unavailable. The
-        // stored record is never rewritten.
-        let expiredNegative = ProbeFreshnessGate.expiredNegativeDriverIds(probeRecords, now: now)
+        // PF-S00/S02: read-time projection. A negative verdict that is past its
+        // own retry window, or that no vendor ever stated, is not evidence — so
+        // it is not asserted and the seat reads as unknown rather than
+        // unavailable. The stored record is never rewritten.
+        let unassertable = ProbeFreshnessGate.unassertableNegatives(probeRecords, now: now)
         let recordsByDriver = Dictionary(uniqueKeysWithValues:
             probeRecords.map { ($0.driverId, $0) })
         let onCount = Dictionary(grouping: models.filter(\.enabled), by: \.driverId)
@@ -35,14 +35,18 @@ public enum DriverListProjector {
                     if record.status.isSmokeReady {
                         status = "ready"
                         detail = nil
-                    } else if expiredNegative.contains(manifest.id) {
-                        // PF-S00: the verdict outlived its evidence. Say when it
-                        // was last checked instead of restating a limit the
-                        // vendor may no longer be imposing — the fabricated
-                        // version of this printed "Rate limited — resets Aug 14"
-                        // for a Kimi seat that was answering prompts.
+                    } else if let reason = unassertable[manifest.id] {
+                        // The verdict may not be asserted. Both reasons project
+                        // as unknown; the copy differs because the facts do —
+                        // "not checked recently" would itself be false about a
+                        // record probed two minutes ago whose limit we invented.
+                        // The fabricated version of this printed "Rate limited —
+                        // resets Aug 14" for a Kimi seat answering prompts.
                         status = "notChecked"
-                        detail = "Not checked recently"
+                        switch reason {
+                        case .expired: detail = "Not checked recently"
+                        case .inferred: detail = "Capacity unknown"
+                        }
                     } else {
                         status = "notReady"
                         detail = shortProbeDetail(record.status, vendorReset: vendorResetsBySource[manifest.id])

@@ -44,25 +44,67 @@ public enum ProbeFreshnessGate {
         return age >= gateInterval
     }
 
-    /// Drivers whose NEGATIVE verdict has aged out: unknown now, and therefore
-    /// selectable.
+    /// Why a stored negative may not be asserted. Both project the same status;
+    /// they differ in what is honest to say about it, and the difference is the
+    /// point — "not checked recently" is itself a lie about a record probed two
+    /// minutes ago whose verdict was never evidence.
+    public enum UnassertedReason: String, Sendable, Equatable {
+        /// Observed, but the observation has outlived its own evidence (PF-S00).
+        case expired
+        /// Never observed — we computed it. The vendor said nothing (PF-S02).
+        case inferred
+    }
+
+    /// Drivers whose NEGATIVE verdict may not be asserted: unknown now, and
+    /// therefore selectable.
     ///
-    /// Reported as a set rather than by rewriting the record's status. Decaying
-    /// into `installedNotProbed` was the obvious move and is wrong — that case
-    /// already means "installed, never smoke-checked", and overloading it makes
-    /// an expired verdict indistinguishable from a never-probed one, so every
-    /// consumer of that case silently changes behavior for both. Callers ask
-    /// this question explicitly and keep their own semantics.
+    /// Reported as a projection rather than by rewriting the record's status.
+    /// Decaying into `installedNotProbed` was the obvious move and is wrong —
+    /// that case already means "installed, never smoke-checked", and overloading
+    /// it makes an unassertable verdict indistinguishable from a never-probed
+    /// one, so every consumer of that case silently changes behavior for both.
+    /// Callers ask this question explicitly and keep their own semantics.
     ///
     /// Positives are not included: decaying `.ready` would remove a working seat
     /// from selection to fix a problem whose entire harm is seats disappearing.
     /// Their age is disclosed, not acted on.
-    public static func expiredNegativeDriverIds(
+    ///
+    /// `inferred` outranks `expired` when a record is both: "we never knew" is a
+    /// deeper statement than "we knew a while ago", and refreshing an inferred
+    /// verdict does not make it evidence.
+    public static func unassertableNegatives(
         _ records: [ToolProbeRecord], now: Date
-    ) -> Set<String> {
-        Set(records
-            .filter { assertsUnavailable($0.status) && isExpired($0, now: now) }
-            .map(\.driverId))
+    ) -> [String: UnassertedReason] {
+        var out: [String: UnassertedReason] = [:]
+        for record in records where assertsUnavailable(record.status) {
+            if isInferred(record.status) {
+                out[record.driverId] = .inferred
+            } else if isExpired(record, now: now) {
+                out[record.driverId] = .expired
+            }
+        }
+        return out
+    }
+
+    /// True when a `.rateLimited` verdict was computed locally rather than
+    /// stated by the vendor.
+    ///
+    /// PF-S02. VSI's law is that absence of a declared signal yields no
+    /// observation, never an inferred one — so a limit no vendor asserted is not
+    /// a limit, it is silence. `.probeFailed` is deliberately excluded: a probe
+    /// that actually failed is a local fact we genuinely observed, and it ages
+    /// out on the clock like any other.
+    public static func isInferred(_ status: ModelSetupStatus) -> Bool {
+        guard case .rateLimited(let observation) = status else { return false }
+        return !isVendorStated(observation)
+    }
+
+    /// The one definition of "the vendor said this", shared with
+    /// `DoctorReport.rateLimitedDetail`. Two copies of this predicate is how a
+    /// surface ends up withholding the limit while another still prints it.
+    public static func isVendorStated(_ observation: CapacityObservation) -> Bool {
+        observation.sourceConfidence == .structured
+            || observation.sourceConfidence == .messageFallback
     }
 
     /// Negative verdicts that are OBSERVATIONS, and therefore age.
