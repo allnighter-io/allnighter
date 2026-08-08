@@ -9,10 +9,12 @@ abundant seat when one is available, ALLN would stretch the paid bench further.
 Competitor framing: "Standard compute offers auto smart routing. Even Claude
 and Cursor do."
 
-Companion packet under active build: [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md).
-This doc exists so routing can keep being reviewed and argued while that spike
-ships — the two are coupled (routing wants Go capacity as an input; Go capacity
-is not yet trustworthy enough to be one).
+Companion packets: [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md)
+(under build — Go headroom as a future routing input),
+[`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md)
+(brainstorm — local Ollama seats as the purest abundant OpenCode labor).
+This doc exists so routing can keep being reviewed and argued while those
+inputs mature — routing wants observed headroom; inventing it is banned.
 
 Phases are ephemeral. At closeout: promote product law into help / vocabulary /
 operations; code remains SSOT; archive this packet.
