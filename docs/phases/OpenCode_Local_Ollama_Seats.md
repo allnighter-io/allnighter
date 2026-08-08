@@ -3,7 +3,7 @@
 Status: **OCL-S00 pipe PASS (partial honesty) — code slices still unauthorized.**
   Founder rulings locked (§0.1). Spec Review Min: Ready for OCL-S00 only
   (`FE9F2530…`). Live dogfood recorded §0.3.
-Revised: 2026-08-07 (v4 — OCL-S00 on MacBook Air M4 32GB with qwen2.5:0.5b)
+Revised: 2026-08-07 (v4.1 — OCL-S00 + bug-vs-model attribution; proceed gate)
 Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS only if
 local turn timing needs to change in the OpenCode driver)
 Created: 2026-08-07
@@ -84,23 +84,56 @@ Host: `Mac16,13` · 32 GB · ollama 0.32.6 · opencode 1.18.15.
 | `alln models enable` | **PASS** |
 | `alln run --model … --no-commit` mutating TARGET.md | **PASS (pipe)** — run `6B012D73-4223-4A52-BBE7-E4E0E4B77AE0` · `sourceId=opencode` · wall ~4s · write tool activity observed |
 | Real file edit | **PASS** — `docs/qa/ocl-s00-dogfood/TARGET.md` became `STATUS: AFTER` (plus model-added co-author line) |
-| Outcome honesty | **FAIL** — `completedWithoutChanges: true` / `repoDelta.changed: false` despite write (untracked path + weak model narrative claiming `result.txt`) |
-| Served context (`ollama ps`) | **4096** — below 64k agent guidance; explicit pin still ran (matches Spec Review warn-and-allow lean) |
+| Outcome `completedWithoutChanges` | **ALLN semantics, not model** — see §0.3.1 |
+| Model narrative (`result.txt`) | **Weak model** — see §0.3.1 |
+| Served context (`ollama ps`) | **4096** — below 64k agent guidance; explicit pin still ran |
 | Stall / 120s quiet | **N/A** — tiny model finished in seconds |
-| Go seats after merge | **PASS** — `enabled_providers` still includes `opencode-go`; Go model ids still listed |
+| Go seats after merge | **PASS** — `enabled_providers` still includes `opencode-go` |
+| Follow-up JSON transform (no tools) | Run `985C04B1…` — JSON shape returned; `shouted` wrong (echoed Co-Authored-By) — **weak model** (+ possible provenance prompt bleed) |
+| Serve contention | Run `DECEC902…` failed `opencode serve busy: port owned by pid …` — **infra bug**, model-independent |
 
-**Also observed (1.5b coder earlier):** run `AC6BD0CB…` returned tool JSON as text without editing TARGET — same pipe, weaker tool follow-through. Prefer 0.5b run as the recorded S00 mutating proof (file actually changed).
+**Also observed (1.5b coder earlier):** run `AC6BD0CB…` returned tool JSON as text without editing TARGET — tool follow-through weak on tiny models.
 
-**OCL-S00 verdict:** **Pipe works on Air.** Do not authorize S01–S05 until (1) Spec Review doc fixes land, (2) outcome/repoDelta honesty for local writes is understood, (3) optionally one coding-class gated repair on a stronger local model.
+**OCL-S00 verdict:** **Pipe works on Air.** Cleared to **finalize the spec and plan iron-out slices**. **Not** cleared to build the full discovery/setup ladder as if local coding seats are product-ready.
 
-### 0.4 Still blocking Ready-for-Implementation
+### 0.3.1 Bug vs weak model (attribution)
 
-1. Spec Review packet fixes (context gate, Busy definition, §7.1 vocabulary, etc.)
-2. Outcome lie: completedWithoutChanges with a real write
-3. OpenCode CT unfinished — local amplifies false-done
-4. No coding-class gated repair yet (0.5b is pipe-only)
+Three different “lies,” three owners:
 
-What v4 changed: §0.3 live Air dogfood; status flipped from “no OCL-S00” to pipe PASS.
+| Observation | Owner | Why |
+| --- | --- | --- |
+| `outcome.completedWithoutChanges: true` while TARGET.md changed under `--no-commit` | **Allnighter** | `TeamRunJSONMapper` sets that flag from `repoDelta.changed` only. `RepoDelta.changed` is **commit-range** truth (`baseline ≠ head`). With `--no-commit`, head never moves, so the flag is true even when `worktreeDirty: true`. The dirty bit was present and honest; the headline flag ignored it. **Model-independent.** Code: `TeamRunJSONMapper` + `RepoDelta` docs. |
+| Answer claimed `result.txt` / “already done” while write tool hit TARGET.md | **Weak model** (0.5B) | Tools actually ran (`workerActivity` tool=write). Narrative ≠ tool trail. Stronger models may still need CT honesty, but this instance is capability. |
+| JSON probe `shouted` = Co-Authored-By string | **Mostly weak model**; check provenance injection | Shape OK; value wrong. May be echoing Allnighter’s no-commit / co-author prompt furniture — still not an outcome-meter bug. |
+| `models verify` / run fail with serve busy or Session not found | **Allnighter ↔ OpenCode serve** | Stale or foreign `:4096` owner blocks attach. Recurs in dogfood. **Must iron out** before local seats feel reliable. |
+
+**Implication:** do **not** dismiss S00 honesty issues as “0.5B is trash.” At least one is a real product bug (`completedWithoutChanges` under `--no-commit` + dirty tree). Serve ownership is a second real bug. Model weakness explains false prose, not the meter.
+
+### 0.4 Cleared to proceed? / Do we know how to make it work?
+
+| Question | Answer |
+| --- | --- |
+| Cleared for **OCL-S00** (pipe)? | **Yes — done.** |
+| Cleared for **full implementation** (S01–S05 as product)? | **No.** Spec fixes + honesty/serve iron-outs first. |
+| Do we know the architecture? | **Yes:** Ollama = `11434/v1` provider under driver `opencode`; seat via `models add` + label `ollama/<tag>`; readiness Idle/Busy outside capacity strip. |
+| Do we know the ship blockers? | **Yes:** (1) `--no-commit` outcome honesty, (2) serve attach/busy, (3) Spec Review context-gate deadlock fix in the packet, (4) coding-class gated repair still missing. |
+
+**Recommended next (unauthorized until founder says go):**
+
+1. **Doc/spec v5** — absorb Spec Review leans (§0.2) into binding law (separate commit OK).
+2. **Small honesty slice** — for mutating `--no-commit`, `completedWithoutChanges` must not be true when `worktreeDirty` (or rename the flag’s meaning in the contract). Prove with the existing TARGET fixture.
+3. **Serve ownership** — verify/run must attach or reclaim `:4096` without flaking on a live foreign serve.
+4. **Only then** S01/S02 readiness + setup verb.
+
+### 0.5 Still blocking Ready-for-Implementation
+
+1. Spec Review packet fixes (context gate, Busy=resident, discovery lean, drop raw-ollama maybe)
+2. `--no-commit` + dirty ⇒ false `completedWithoutChanges` (**bug**)
+3. OpenCode serve busy / verify flake (**bug**)
+4. OpenCode CT unfinished — local amplifies false-done prose
+5. No coding-class gated repair yet (0.5b is pipe-only)
+
+What v4/v4.1 changed: §0.3 live Air dogfood; §0.3.1 bug-vs-model split; proceed gate clarified.
 
 ---
 
