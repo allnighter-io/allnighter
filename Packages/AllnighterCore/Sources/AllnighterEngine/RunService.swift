@@ -1485,6 +1485,13 @@ public actor RunService {
             noCommit: noCommit,
             proofCommand: proofCommand)
         let baselineHead = gitObserver.observe(rootPath: repoRoot).head
+        // ADR-S01: what was ALREADY dirty before this run started. `repoDelta`
+        // is commit-range truth and `worktreeDirty` is end-of-run porcelain, so
+        // the S122.3 gate below could not tell the seat's uncommitted work from
+        // the user's pre-existing WIP — and blamed the seat for ambient dirt it
+        // never touched. Transient gate input only, exactly like `baselineHead`:
+        // never persisted on `TeamRun`.
+        let startDirtyPaths = Set(gitObserver.dirtyFiles(rootPath: repoRoot))
         let startedAt = now()
         let effectiveLane = requestLane ?? preset.lane
         // RLR-L3: the default route is a single worker — it never fans out.
@@ -2150,9 +2157,22 @@ public actor RunService {
             }
         }
         // S122.3: dirty tree + zero commits is not clean success (unless --no-commit).
+        //
+        // ADR-S01: fire only on dirt THIS RUN introduced. `worktreeDirty` is
+        // end-of-run porcelain, so a repo that was already dirty from unrelated
+        // WIP made every honest zero-edit answer fail as
+        // `incomplete_uncommitted` — blaming the seat for the user's own work
+        // (origin: run 09E19604, a full READ ONLY answer marked failed).
+        //
+        // Set-subtract, not a count: a path dirty at start stays excluded even
+        // if the seat edited it further. Accepted v1 limitation — fail open on
+        // ambient paths beats false-failing delivered answers. Content-hash of
+        // already-dirty paths is deferred.
         if run.mutating, noCommit != true,
            let delta = run.repoDelta, delta.worktreeDirty, delta.commits.isEmpty,
-           run.status == .complete || run.status == .done || run.status == .partial {
+           run.status == .complete || run.status == .done || run.status == .partial,
+           !Set(gitObserver.dirtyFiles(rootPath: repoRoot))
+               .subtracting(startDirtyPaths).isEmpty {
             Self.applyIncompleteUncommitted(&run)
         }
         // WL-PWR-S01 / WT-L3: capture repo truth above, then release RunService's
@@ -2564,7 +2584,18 @@ public actor RunService {
         for i in run.answers.indices {
             guard run.answers[i].result.status == .done else { continue }
             run.answers[i].result.status = .failed
-            run.answers[i].result.errorKind = .emptyOutput
+            // ADR-S02: the reason is `incomplete_uncommitted` — that part is
+            // true. `emptyOutput` is not, when the seat delivered text: the run
+            // is incomplete because work was left uncommitted, not because
+            // nothing came back. Stamping both made a full ~7k answer read as
+            // "the worker produced nothing" and sent readers hunting for output
+            // that was sitting right there.
+            //
+            // Only claim empty when it is empty. A tool-only turn with no
+            // assistant text keeps `.emptyOutput` — that one really is empty,
+            // and `OpenCodeOutcomeAuthority.apply` still owns it.
+            let delivered = !(run.answers[i].result.output ?? "").isEmpty
+            run.answers[i].result.errorKind = delivered ? nil : .emptyOutput
             run.answers[i].result.errorReason = "incomplete_uncommitted"
         }
     }

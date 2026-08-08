@@ -162,6 +162,69 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
         XCTAssertFalse(porcelain.isEmpty)
     }
 
+    /// ADR-S01 — the repo was ALREADY dirty before dispatch and the seat edited
+    /// nothing. `worktreeDirty` is end-of-run porcelain, so this used to fail as
+    /// `incomplete_uncommitted`, blaming the seat for the user's own WIP. Origin:
+    /// run 09E19604 — a full READ ONLY answer marked failed.
+    func testAmbientDirtyTreeDoesNotFailAnHonestZeroEditRun() async throws {
+        let repo = try makeGitRepo()
+        // Pre-existing, unrelated WIP — present before the run starts.
+        try "ambient wip".write(
+            to: repo.appendingPathComponent("ambient.txt"), atomically: true, encoding: .utf8)
+
+        let service = makeMutatingService(
+            repo: repo, commandRunner: EchoingCommandRunner(output: "here is the answer"))
+        let result = await service.run(
+            RunRequest(message: "READ ONLY. Reply only.", repoRoot: repo.path, pinnedModelId: "model_grok"),
+            origin: .cli, runId: "adr-ambient-dirty")
+
+        guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
+        let delta = try XCTUnwrap(run.repoDelta)
+        XCTAssertTrue(delta.worktreeDirty, "precondition: the tree really is dirty")
+        XCTAssertFalse(delta.changed)
+        XCTAssertNotEqual(
+            run.answers.first?.result.errorReason, "incomplete_uncommitted",
+            "ambient dirt is not the seat's uncommitted work")
+        XCTAssertEqual(run.status, .complete)
+    }
+
+    /// ADR-S01 Control B — start dirty, and the seat ALSO writes a new file
+    /// without committing. The new path is still detected; set-subtract must not
+    /// blanket-excuse a dirty repo.
+    func testSeatOwnedDirtStillFailsEvenWhenTheTreeStartedDirty() async throws {
+        let repo = try makeGitRepo()
+        try "ambient wip".write(
+            to: repo.appendingPathComponent("ambient.txt"), atomically: true, encoding: .utf8)
+
+        let service = makeMutatingService(
+            repo: repo, commandRunner: DirtyingCommandRunner(repoRoot: repo))
+        let result = await service.run(
+            RunRequest(message: "Edit a file", repoRoot: repo.path, pinnedModelId: "model_grok"),
+            origin: .cli, runId: "adr-start-dirty-plus-new")
+
+        guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
+        XCTAssertEqual(run.status, .failed)
+        XCTAssertEqual(run.answers.first?.result.errorReason, "incomplete_uncommitted")
+    }
+
+    /// ADR-S02 — the run is incomplete because work was left uncommitted, not
+    /// because nothing came back. A delivered answer must not be stamped
+    /// `emptyOutput`; that sent readers hunting for output that was right there.
+    func testDeliveredAnswerIsNotRelabelledEmptyOutput() async throws {
+        let repo = try makeGitRepo()
+        let service = makeMutatingService(
+            repo: repo, commandRunner: DirtyingCommandRunner(repoRoot: repo))
+        let result = await service.run(
+            RunRequest(message: "Edit a file", repoRoot: repo.path, pinnedModelId: "model_grok"),
+            origin: .cli, runId: "adr-delivered-not-empty")
+
+        guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
+        let answer = try XCTUnwrap(run.answers.first)
+        XCTAssertEqual(answer.result.errorReason, "incomplete_uncommitted")
+        XCTAssertFalse((answer.result.output ?? "").isEmpty, "precondition: text was delivered")
+        XCTAssertNil(answer.result.errorKind, "delivered text is not empty output")
+    }
+
     func testGitObserverRepoDeltaReportsWorktreeDirtyOnRealPorcelain() throws {
         let repo = try makeGitRepo()
         let baseline = try XCTUnwrap(GitObserver().observe(rootPath: repo.path).head)
@@ -243,5 +306,17 @@ final class CommittingCommandRunner: CommandRunner, @unchecked Sendable {
         p.arguments = ["-C", cwd.path] + args
         p.standardOutput = Pipe(); p.standardError = Pipe(); p.standardInput = FileHandle.nullDevice
         try? p.run(); p.waitUntilExit()
+    }
+}
+
+/// Fake worker that returns text and never touches the working tree.
+final class EchoingCommandRunner: CommandRunner, @unchecked Sendable {
+    private let output: String
+    init(output: String) { self.output = output }
+    func run(
+        command: String, args: [String], stdin: String?, env: [String: String],
+        workingDirectory: String?, timeout: Duration
+    ) async -> CommandResult {
+        CommandResult(stdout: output, stderr: "", exitCode: 0)
     }
 }
