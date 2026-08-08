@@ -896,12 +896,24 @@ public enum CapacityProbe {
         // Claude paints the Usage tab progressively — a single "% used" flash is
         // often a half-painted pane that fails the pure parser. Wait for a
         // parse-stable capture (or deadline) instead of returning the first flash.
+        // Markers that indicate a real usage/quota surface — nothing else.
+        //
+        // "settings", "status", "config", "usage" and "stats" used to live here,
+        // labelled "Claude Usage tab chrome". Claude never reaches this list
+        // (it has its own `hasClaudeUsage` branch below) and neither does codex,
+        // so those five words only ever applied to OTHER vendors' screens, where
+        // they are ordinary chat chrome. cursor_agent matched "settings" and
+        // "config" on a plain composer, `sawUsagePane` went true with no usage
+        // text present, and the run was reported as `parserFailed` — pointing at
+        // a parser for a pane that was never open.
+        //
+        // Same law as source-aware readiness: a generic marker may not speak for
+        // a source that has its own answer.
         let usageMarkers = [
             "weekly limit", "five hour", "5h limit", "plan usage",
             "models & quota", "% used", "% remaining", "on-demand",
             "monthly plan", "included", "resets ",
             "current session", "current week",
-            "settings", "status", "config", "usage", "stats", // Claude Usage tab chrome
             // codex: remaining-polarity display
             "% left",
             // grok: credit-based display
