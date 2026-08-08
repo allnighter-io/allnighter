@@ -144,6 +144,58 @@ public enum CapacityProbe {
         source == "claude_code" ? claudeTimeout : defaultTimeout
     }
 
+    /// Extra argv for a source's probe launch.
+    ///
+    /// A capacity probe reads one screen and exits. Anything the vendor boots
+    /// for a real coding session — plugins, MCP servers, tool hosts — is pure
+    /// cost here, and worse, it is a hang dependency: codex's built-in
+    /// `codex_apps` MCP server loads plugin metadata and on this machine never
+    /// finishes, spinning at "Starting MCP servers (1/2)" past a 60s budget, so
+    /// `/status` was never sent at all.
+    ///
+    /// Empty for every other source — do not add flags speculatively. Each entry
+    /// here must be justified by a measured before/after on the live probe.
+    public static func probeArguments(for source: String) -> [String] {
+        switch source {
+        case "codex":
+            // Clears the user's configured MCP servers so the probe does not
+            // spawn tool hosts it will never call. Measured: does NOT stop the
+            // built-in `codex_apps`, which has no disable flag in 0.147.0 —
+            // `--disable plugins` was tried and made no difference to the hang,
+            // so it is deliberately not here. `codex_apps` is escaped instead;
+            // see `looksLikeCodexMCPStarting`.
+            return ["-c", "mcp_servers={}"]
+        default:
+            return []
+        }
+    }
+
+    /// Codex is blocking on MCP server startup and is advertising the way out.
+    ///
+    /// The TUI prints "Starting MCP servers (1/2): codex_apps (0s • esc to
+    /// interrupt)". On this machine `codex_apps` never completes, so waiting is
+    /// unbounded — but pressing Escape aborts it and leaves a usable prompt.
+    /// That is not a guess: our own first capture recorded the result,
+    /// "⚠ MCP startup interrupted. The following servers were not initialized:
+    /// codex_apps", after which the composer accepted input.
+    public static func looksLikeCodexMCPStarting(_ text: String) -> Bool {
+        let c = collapsedForMatch(recentPaintWindow(text))
+        // Already aborted — one Escape is the whole fix. Pressing it again once
+        // the composer is live gets read as "edit previous message"
+        // ("• No previous message to edit." showed up in the capture that
+        // proved this), so the abort confirmation must switch this off.
+        if codexMCPAborted(c) { return false }
+        return c.contains("startingmcpservers") || c.contains("esctointerrupt")
+    }
+
+    /// Codex confirmed it gave up on MCP startup. The capture keeps the old
+    /// "esc to interrupt" spinner text in its scrollback forever, so freshness
+    /// cannot be judged by that string alone — this is the positive signal that
+    /// outranks it.
+    static func codexMCPAborted(_ collapsed: String) -> Bool {
+        collapsed.contains("mcpstartupinterrupted") || collapsed.contains("notinitialized")
+    }
+
     /// Fail-soft dump directory for unreadable captures (inspectable, no PII required).
     public static var debugDumpDirectory: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -346,6 +398,17 @@ public enum CapacityProbe {
         // Codex then queues `/status` ("tab to queue message") instead of
         // running it, the pane never paints, and the empty parse gets reported
         // as `parserFailed` — sending us to fix a parser that works.
+        // Stale spinner text lives in the scrollback for the rest of the
+        // session, so the abort confirmation has to win or codex is never ready.
+        if codexMCPAborted(c) {
+            // Codex prints the abort immediately above a live composer, so this
+            // IS readiness. It also has to be a positive and not merely "stop
+            // blocking": by this point the boot box has scrolled out of the
+            // recent paint window, so the `directory:` + `model:` test below can
+            // no longer fire and codex would wait out the whole budget without
+            // ever sending /status.
+            return true
+        }
         if c.contains("startingmcpservers") || c.contains("esctointerrupt") { return false }
         if c.contains("model"), c.contains("loading") { return false }
         // Status pane is already up — do not re-send /status from the boot waiter.
@@ -661,6 +724,7 @@ public enum CapacityProbe {
         var sawUsagePane = false
         var trustAccepts = 0
         var codexUpgradeSkips = 0
+        var codexMCPInterrupts = 0
 
         // 1) Wait for the interactive prompt / boot chrome. Handle Claude's
         // workspace trust dialog — real captures often strip spaces
@@ -709,6 +773,19 @@ public enum CapacityProbe {
                 } else {
                     _ = waitBrief(0.2)
                 }
+                continue
+            }
+            // Codex: MCP startup can never finish (built-in `codex_apps`), and
+            // the TUI itself offers "esc to interrupt". Take it — a probe reads
+            // one screen and has no use for tool hosts. Bounded, so a
+            // misdetection cannot turn into an Escape storm.
+            if source == "codex", codexMCPInterrupts < 1, looksLikeCodexMCPStarting(text) {
+                let esc: [UInt8] = [0x1B]
+                _ = esc.withUnsafeBufferPointer { ptr in
+                    write(master, ptr.baseAddress!, ptr.count)
+                }
+                codexMCPInterrupts += 1
+                _ = waitBrief(0.7)
                 continue
             }
             if looksReadyForUsageCommand(text, source: source) {
@@ -977,7 +1054,8 @@ public enum CapacityProbe {
             for key in scrub { env.removeValue(forKey: key) }
         }
 
-        var argv: [UnsafeMutablePointer<CChar>?] = [strdup(executable), nil]
+        var argv: [UnsafeMutablePointer<CChar>?] =
+            [strdup(executable)] + probeArguments(for: source).map { strdup($0) } + [nil]
         defer { for p in argv where p != nil { free(p) } }
 
         var envp: [UnsafeMutablePointer<CChar>?] = env.map { strdup("\($0.key)=\($0.value)") }

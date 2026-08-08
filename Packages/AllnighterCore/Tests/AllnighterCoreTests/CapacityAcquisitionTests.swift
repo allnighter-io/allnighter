@@ -962,6 +962,62 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane(banner))
     }
 
+    /// Codex's built-in `codex_apps` MCP server never finishes starting here, so
+    /// waiting for it is unbounded. The TUI advertises the way out — "esc to
+    /// interrupt" — and taking it turns a 60s timeout into a 4s read.
+    func testCodexMCPStartupIsDetectedThenStopsOnceAborted() {
+        let spinning = """
+        │ model:     gpt-5.6-sol high   /model to change │
+        •Starting MCP servers (1/2): codex_apps (0s • esc to interrupt)
+        """
+        XCTAssertTrue(CapacityProbe.looksLikeCodexMCPStarting(spinning))
+
+        // After the abort, Escape must NOT be sent again — a second press lands
+        // on a live composer and reads as "edit previous message", which is
+        // exactly what the capture showed ("No previous message to edit.").
+        let aborted = """
+        Starting MCP servers (1/2): codex_apps (0s • esc to interrupt)
+        ⚠ MCP startup interrupted. The following servers were not initialized: codex_apps
+        › Use /skills to list available skills
+        """
+        XCTAssertFalse(
+            CapacityProbe.looksLikeCodexMCPStarting(aborted),
+            "the spinner text survives in scrollback; the abort must outrank it")
+    }
+
+    /// The abort confirmation must be a POSITIVE readiness signal, not merely
+    /// "stop blocking". By the time it prints, the boot box carrying
+    /// `directory:` + `model:` has scrolled out of the recent paint window, so
+    /// the ordinary positive test can no longer fire — codex would sit ready-less
+    /// for the whole budget and never send /status. That was the last bug in the
+    /// chain, and it is invisible unless the fixture omits the boot box.
+    func testCodexIsReadyOnceMCPStartupIsInterrupted() {
+        let abortedNoBootBox = """
+        ⚠ MCP startup interrupted. The following servers were not initialized: codex_apps
+        › Use /skills to list available skills
+        gpt-5.6-sol high · ~/Library/Application Support/Allnighter/ProbeScratch
+        """
+        XCTAssertFalse(
+            CapacityProbe.collapsedForMatch(abortedNoBootBox).contains("directory:"),
+            "precondition: the boot box is gone — that is what made this subtle")
+        XCTAssertTrue(
+            CapacityProbe.looksLikeCodexReadyForStatusCommand(abortedNoBootBox))
+        XCTAssertTrue(
+            CapacityProbe.looksReadyForUsageCommand(abortedNoBootBox, source: "codex"))
+    }
+
+    /// A capacity probe reads one screen; it has no use for the user's MCP tool
+    /// hosts. Every argument here has to be earned by a measured before/after,
+    /// so the test also pins that no other source gained flags by accident.
+    func testProbeArgumentsAreCodexOnly() {
+        XCTAssertEqual(CapacityProbe.probeArguments(for: "codex"), ["-c", "mcp_servers={}"])
+        for source in ["grok", "claude_code", "kimi", "cursor_agent", "agy"] {
+            XCTAssertTrue(
+                CapacityProbe.probeArguments(for: source).isEmpty,
+                "\(source) must launch bare unless a measurement justifies otherwise")
+        }
+    }
+
     /// Fixing codex's MCP guard was not enough — the guard was being ROUTED
     /// AROUND. `looksReadyForUsageCommand` matched the generic marker `"tip:"`
     /// against codex's own boot chrome ("Tip: Try the Desktop app") and returned
