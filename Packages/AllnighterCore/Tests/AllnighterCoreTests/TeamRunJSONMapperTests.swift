@@ -300,6 +300,43 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertEqual(outcome.headline, RunIdentity.outcomeHeadline(run, wallMs: wallMs))
     }
 
+    /// RRT-S03 — a failed run with no verdict block must still lead with the
+    /// bad news. Run 45D454CE headlined "model … · queue 413ms · wall 0ms" and
+    /// read like a receipt for work done; nothing said it had failed.
+    func testFailedRunWithoutLeadCallStillLeadsWithFailure() throws {
+        let run = terminalRun(
+            status: .failed,
+            answers: [TeamAnswer(
+                memberId: "model_opencode_deepseek_v4_pro#0",
+                modelId: "model_opencode_deepseek_v4_pro", role: "answer",
+                result: WorkerRunResult(
+                    status: .failed, output: nil,
+                    errorReason: "opencode serve busy: port owned by pid 96665"))],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+
+        let headline = try XCTUnwrap(trj.outcome?.headline)
+        XCTAssertTrue(headline.hasPrefix("failed"),
+                      "a failed run must not headline like a receipt — got: \(headline)")
+        // And S04 still carries the reason, so one screen answers both halves.
+        XCTAssertEqual(trj.errors.first?.message, "opencode serve busy: port owned by pid 96665")
+    }
+
+    /// A clean success needs no prefix: `outcome.status` sits beside it and the
+    /// identity/timing line is the useful part. Guards against noise creep.
+    func testSuccessfulRunWithoutLeadCallKeepsIdentityHeadline() throws {
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_sonnet#0", modelId: "model_sonnet", role: "answer",
+                result: WorkerRunResult(status: .done, output: "OK"))],
+            mutating: false)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertEqual(outcome.status, .completed)
+        XCTAssertFalse(outcome.headline.hasPrefix("completed"), "no prefix noise on the happy path")
+    }
+
     func testInflightRunMapsToRunning() throws {
         let run = try Fixtures.run(.runInflight)            // status .fanningOut
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())

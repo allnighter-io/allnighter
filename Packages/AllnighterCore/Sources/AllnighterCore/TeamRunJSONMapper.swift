@@ -529,6 +529,15 @@ public enum TeamRunJSONMapper {
             let done = ran.filter { $0.result.status == .done }.count
             lead.append("\(done) of \(ran.count) seats delivered")
         }
+        // Bad news always leads, even when the run emitted no verdict block.
+        // Run 45D454CE headlined "model … · queue 413ms · wall 0ms" with no hint
+        // it had failed at all. A clean success needs no prefix — `status:
+        // completed` sits beside it and identity/timings are the useful part —
+        // but a failure that reads like a receipt is the lie this packet exists
+        // to remove. AGENTS.md: a failed worker is shown failed, never faked.
+        if lead.isEmpty, status == .failed || status == .timedOut {
+            lead.append(status.rawValue)
+        }
         let identity = RunIdentity.outcomeHeadline(run, wallMs: wallMs)
         guard !lead.isEmpty else { return identity }
         return (lead + [identity]).joined(separator: " · ")
