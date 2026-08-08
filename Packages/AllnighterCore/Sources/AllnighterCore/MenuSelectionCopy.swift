@@ -219,7 +219,7 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Judgment, not code"
         ),
         "fusion": Pair(
-            useWhen: "OpenRouter Fusion control: same prompt, fixed panel, merge",
+            useWhen: "Fusion control: same prompt, fixed panel",
             dontUseWhen: "Differentiated seats; use code_spec_review"
         ),
         "code_spec_review_min": Pair(
