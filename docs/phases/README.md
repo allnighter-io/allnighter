@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-08-07
+Updated: 2026-08-08
 
 ## Purpose
 
@@ -36,6 +36,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
+| [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **OPEN — Ready to code (S01/S02)** | Serialize-don't-drop: AgentOS gate timeout = seat invoke timeout; dry-run names serial drivers. Hardened by DeepSeek + Kimi K3. AI PMs only. |
 | [`Probe_Freshness.md`](Probe_Freshness.md) | **OPEN — draft v1, Spec Review Min pending** | `alln menu` reported Grok + Kimi `notReady` while both answered live prompts. Immortal probe cache + `localPolicy` verdict invented from a crash string + spliced reset date. PF-S00/S02 stop the lie; PF-S03 re-homes refresh into `alln serve`. Origin: 2026-08-08. |
 | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then Dock scheduler** | Spec Review Min Ready: one 30m freshness clock; scoped kill before timer; Dock-only. |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
@@ -43,7 +44,6 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
-| [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **OPEN — reoriented; serialize-don't-drop** | Same-CLI multi-seat allowed; gate must not timeout-drop waiters; dry-run names serial drivers. AI PMs only. |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
 
 ### Forward feature packets
