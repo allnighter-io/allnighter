@@ -168,6 +168,13 @@ public final class ServeDaemon: @unchecked Sendable {
                     await reconciler.run { shutdown.isCancelled }
                 }
                 group.addTask {
+                    // Capacity refresh without the Dock app (Probe_Freshness
+                    // §0.2). No-ops while the app is refreshing, because both
+                    // write the same durable history and this loop reads its
+                    // recency — see CapacityRefreshScheduler.
+                    await CapacityRefreshScheduler().run { shutdown.isCancelled }
+                }
+                group.addTask {
                     let notifications = NotificationScheduler(
                         commandRunner: wake.commandRunner,
                         models: wake.models,
