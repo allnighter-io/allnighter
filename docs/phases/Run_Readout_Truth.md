@@ -1,11 +1,11 @@
 # Run Readout Truth — one screen, one status, no plumbing
 
-Status: **v3 — Ready for named slices (RRT-S01 + RRT-S04). Two reviews
-adjudicated (§0). Grok 4.5 `411F2E17` Not ready; DeepSeek V4 Pro `AC2E53DC`
-Ready. They disagreed head-on; both were right about different things.**
+Status: **v4 — RRT-S03 + RRT-S04 SHIPPED (`e7087b0d`, `dbf0f7ce`), dogfooded
+on the originating run. RRT-S01 BLOCKED — its delete math is unpayable (§4).
+RRT-S02 (teaching) open. Two reviews adjudicated (§0).**
 Owner: AllnighterCore (`TeamRunJSONMapper`, `LeadCallParser`, `TeachingSnippet`,
 `RunService` settle path, CLI `show`)
-Created: 2026-08-08 · Revised: 2026-08-08 (v3 — Grok + DeepSeek reviews adjudicated)
+Created: 2026-08-08 · Revised: 2026-08-08 (v4 — S03/S04 shipped; S01 blocked)
 Origin: PM incident 2026-08-08 — a completed Spec Review with a **Ready** verdict
 was read as a crashed run. Founder: *"why were you just sitting there and doing
 nothing… I have tried to improve alln 10 times and this still happens."*
@@ -278,7 +278,31 @@ requires all three:
 Grok: *"No slice should be authorized until edits 5–13 land."* Those edits are
 applied in this revision; re-review is pending before authorization.
 
-### RRT-S01 — Elect one lifecycle answer
+### RRT-S01 — Elect one lifecycle answer — **BLOCKED, delete math unpayable**
+
+**Implementation attempt 2026-08-08 found no affordable deletion.** Grok
+predicted this ("without a locked delete list, S01 fails §3 by construction");
+the audit confirms it. Every status-bearing field is load-bearing:
+
+| Field | Can it pay for a new top-level `status`? |
+| --- | --- |
+| `teamRun.status` / `endReason` | No — the derivation source |
+| `outcome.status` | No — truthful multi-seat signal (§1.2) |
+| `observation.ownerState` | No — `ContractSchema:73–76` `required`, ORS law |
+| `pmTurn.lifecycleStatus` / `reason` | **No** — `LoopCoordinator.swift:2259` sets these from *loop* state for `kind: relay`. Not redundant with a run's status; deleting them breaks the relay path. |
+
+That last row kills both DeepSeek's proposed delete target and this packet's own
+v3 OQ7 lean. Both were wrong.
+
+**And the need largely evaporated.** RRT-S03 delivers the founder's actual
+question — *did it work, and what did it say* — on the first screen, in a field
+that already existed, at zero field cost. Before minting `status`, prove a
+reader still cannot answer it from the shipped headline.
+
+**Recommended:** fold into the closeout check. If the cold-agent gate passes
+without it, drop S01 entirely; §3 stays intact and the surface stays smaller.
+
+<details><summary>Original S01 scope (superseded)</summary>
 
 Prefer electing `teamRun.status` (already public, already correct) over a new
 top-level key. If a top-level `status` is minted anyway, the same slice removes
@@ -297,6 +321,7 @@ And:   no field contradicts it
 And:   status-bearing field count is <= the pre-slice count (locked inventory)
 Mutation: force endReason = "failed" ⇒ the elected field flips.
 ```
+</details>
 
 ### RRT-S02 — Demote `ownerState`; do not remove it
 
@@ -315,7 +340,7 @@ And:   observation still carries all three keys (ORS :30-31 unbroken)
 And:   a running run's observation is unchanged (no live-path regression)
 ```
 
-### RRT-S03 — `headline` says what happened (reuse the existing parser)
+### RRT-S03 — `headline` says what happened — **SHIPPED `e7087b0d`**
 
 **OQ1 closed:** parse at the read surface with the existing `LeadCallParser`,
 writing into the existing `outcome.headline`. **No new `leadCall` key** — that
@@ -334,7 +359,7 @@ Given: a run kind with no lead-call block
 Then:  headline still states an outcome, never an identity string
 ```
 
-### RRT-S04 — Wire `errors` (authorized alongside S01)
+### RRT-S04 — Wire `errors` — **SHIPPED `dbf0f7ce`**
 
 **Promoted in v3 to a first-class slice** — `TeamRunJSONMapper.swift:238` passes
 `errors: []` as a hardcoded literal, so no run has ever reported a reason at top
@@ -376,6 +401,27 @@ And:   no nextAction repeats the command just run
 - [ ] Locked status-bearing field inventory shows no net growth
 - [ ] Teaching snippet and payload agree
 - [ ] Promote §2 laws into help + `docs/operations/`; archive
+
+---
+
+## 4.1 Shipped result — dogfooded on the originating run
+
+`FCF51DB2`, the run this packet was written about, read through the rebuilt CLI:
+
+```
+outcome.headline: Ready · Fix the lying bench, but expire at projection,
+                  not the store · 2 of 3 seats delivered ·
+                  model model_gpt_sol · lane code · readOnly
+outcome.status  : partial
+errors          : ["opencode serve busy: port owned by pid 48831"]
+```
+
+Did it work, what did it say, why `partial`, and what broke — one call, first
+screen. Before: an identity string, a bare `partial`, and `errors: []`.
+
+Still open before closeout: the cold-agent gate (§3) also requires the teaching
+fix (RRT-S02) — `TeachingSnippet.swift:86` still routes readers to
+`observation`.
 
 ---
 
