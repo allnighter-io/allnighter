@@ -1,8 +1,8 @@
 # Ambient Dirty Run Outcome
 
-Status: **OPEN — Ready to code (ADR-S01/S02); ADR-S03 teaching narrow.
-Hardened 2026-08-08 by DeepSeek V4 Pro `--read-only` review `B8818101`.
-Not coded. Sequenced after [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md).**
+Status: **CLOSED 2026-08-08 — ADR-S01/S02/S03 all shipped
+(`b06e67ad`, `5dbfc130`). Law promoted to help `opencode_headless_completion`;
+code SSOT `RunService`. ARCHIVED.**
 Owner: Allnighter (`RunService.applyIncompleteUncommitted`,
 `GitObserver.dirtyFiles`, `OpenCodeOutcomeAuthority`); help
 `HelpTopicRegistry` (`incomplete_uncommitted` / `answerOnly`)
@@ -22,6 +22,38 @@ Related: archived
 [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) (leftover `:4096` refuse).
 
 Phases are ephemeral. Closeout: promote keepable law into code + help; archive.
+
+---
+
+## Closeout (2026-08-08)
+
+| Slice | Result |
+| --- | --- |
+| ADR-S01 dirty-vs-start | **Shipped** `b06e67ad` — `startDirtyPaths` snapshot beside `baselineHead`; gate fires only on paths this run introduced |
+| ADR-S02 delivered ≠ empty | **Shipped** `b06e67ad` — `errorKind` nil when output exists; tool-only-no-text still `.emptyOutput` |
+| ADR-S03 teaching | **Shipped** `5dbfc130` — help only; no menu `dontUseWhen`, no prompt sniffing |
+
+**Works Test — the packet's own script, as real git-repo tests**
+(`RunRepoDeltaTests`, 9 pass):
+
+| Case | Result |
+| --- | --- |
+| Ambient dirty + zero seat edits | **not** `incomplete_uncommitted`, run complete |
+| Control A: clean start, seat dirties, no commit | still `incomplete_uncommitted` |
+| Control B: start dirty, seat writes a NEW file | still `incomplete_uncommitted` |
+| Delivered answer under the gate | `errorKind` nil, text preserved |
+
+Mutation check: reverting either slice turns 3 assertions red.
+
+**Promoted:** help topic `opencode_headless_completion` now states that
+`incomplete_uncommitted` means work the seat itself created, measured against
+the tree at dispatch, and that a delivered answer keeps its text. Code SSOT:
+`RunService` (`startDirtyPaths` capture, S122.3 gate, `applyIncompleteUncommitted`).
+
+**Carried forward, unchanged from §"Out of scope":** the v1 limitation stands —
+a seat that only further-edits a path already dirty at start is not detected by
+set-subtract. Content-hash / porcelain-line diff remains deferred, and failing
+open on ambient paths is the deliberate trade.
 
 ---
 
