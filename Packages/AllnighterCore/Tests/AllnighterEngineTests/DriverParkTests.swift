@@ -107,7 +107,11 @@ final class DriverParkTests: XCTestCase {
                     driverId: "codex",
                     status: .rateLimited(observation: observation),
                     version: "0.9",
-                    lastProbeAt: .distantPast
+                    // Fresh on purpose: this test is about rendering a CURRENT
+                    // rate-limit detail. It previously used `.distantPast` as
+                    // convenience, which PF-S00 now (correctly) treats as an
+                    // expired verdict — see the companion test below.
+                    lastProbeAt: Date()
                 ),
             ],
             models: models,
@@ -118,6 +122,40 @@ final class DriverParkTests: XCTestCase {
         XCTAssertEqual(row.status, "notReady")
         XCTAssertEqual(row.probeDetail, DoctorReport.rateLimitedDetail(observation: observation))
         XCTAssertTrue(row.probeDetail?.contains("Rate limited") ?? false)
+    }
+
+    /// PF-S00 — the same record, aged out, must stop asserting the limit.
+    /// A 38-hour-old `rateLimited` whose observation declared `retryAfterSeconds:
+    /// 3600` is not evidence, and restating it as "Rate limited — resets …" hid
+    /// working Grok and Kimi seats for two days.
+    func testDriverListProjectorStopsAssertingAnExpiredRateLimit() {
+        let now = Date()
+        let observation = CapacityObservation(
+            kind: .accountRateLimit, source: "codex", sourceConfidence: .messageFallback,
+            rawSnippet: "rate limited", observedAt: now.addingTimeInterval(-38 * 3600),
+            retryAfterSeconds: 3600)
+        let registry = DriverRegistry([TestSupport.headlessManifest(id: "codex", command: "codex")])
+        let models: [Model] = [
+            Model(id: "m_c", displayName: "C", modelLabel: "c", driverId: "codex", role: .both, enabled: true),
+        ]
+        let list = DriverListProjector.build(
+            registry: registry,
+            probeRecords: [
+                ToolProbeRecord(
+                    driverId: "codex",
+                    status: .rateLimited(observation: observation),
+                    version: "0.9",
+                    lastProbeAt: now.addingTimeInterval(-38 * 3600)
+                ),
+            ],
+            now: now,
+            models: models,
+            parkedDriverIds: []
+        )
+        let row = list.drivers[0]
+        XCTAssertEqual(row.status, "notChecked", "an expired verdict is unknown, not unavailable")
+        XCTAssertEqual(row.probeDetail, "Not checked recently")
+        XCTAssertFalse(row.probeDetail?.contains("Rate limited") ?? false)
     }
 
     func testBenchReadinessExcludesParked() {

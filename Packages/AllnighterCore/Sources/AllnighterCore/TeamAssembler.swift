@@ -62,6 +62,12 @@ public enum TeamAssembler {
         from records: [ToolProbeRecord],
         excludingParked parked: Set<String> = []
     ) -> Set<String> {
+        // PF-S00 deliberately does NOT widen admission. `rateLimited` — the
+        // status that hid Grok and Kimi — is already admitted here, so expiry
+        // changes nothing for it, and widening `probeFailed` would auto-seat a
+        // CLI whose last real signal was a failure. The stale-verdict harm was
+        // on the DISPLAY surfaces (`ready: false`, `blockedReason`, "Rate
+        // limited" copy), and the freshness gate is applied there.
         Set(records.filter {
             ($0.status.isSmokeReady || $0.status.kind == .rateLimited)
                 && !parked.contains($0.driverId)

@@ -6,12 +6,19 @@ public enum ModelListProjector {
         registry: DriverRegistry,
         definitions: [ModelDefinition],
         probeRecords: [ToolProbeRecord],
+        now: Date = Date(),
         diagnostics: [ModelCatalogDiagnostic],
         benchOnly: Bool = false,
         driverId: String? = nil,
         parkedDriverIds: Set<String> = []
     ) -> ModelListJSON {
-        let recordsByDriver = Dictionary(uniqueKeysWithValues: probeRecords.map { ($0.driverId, $0) })
+        // PF-S00: read-time freshness. A negative verdict past its own retry
+        // window (or the 30m clock) is no longer evidence, so it is not asserted
+        // — the seat reads as not-recently-checked instead of unavailable. The
+        // stored record is never rewritten.
+        let expiredNegative = ProbeFreshnessGate.expiredNegativeDriverIds(probeRecords, now: now)
+        let recordsByDriver = Dictionary(uniqueKeysWithValues:
+            probeRecords.map { ($0.driverId, $0) })
         let manifestIDs = Set(registry.all.map(\.id))
         let resolved = ModelCatalog.resolvedModels(registry: registry)
         let enabledMap = Dictionary(uniqueKeysWithValues: resolved.map { ($0.id, $0.enabled) })
@@ -26,9 +33,14 @@ public enum ModelListProjector {
                 status = "driverMissing"
             } else if parked {
                 status = "parked"
-            } else if let record {
+            } else if let record, !expiredNegative.contains(def.driverId) {
                 status = record.status.isSmokeReady ? "ready" : "notReady"
             } else {
+                // No record, or a negative verdict past its own evidence: both
+                // are "we don't currently know", which already renders as
+                // "Source not checked" rather than "Source not ready". The
+                // distinction matters — an agent reading `notReady` stops
+                // considering the seat.
                 status = "notChecked"
             }
             let driverName = registry.manifest(id: def.driverId)?.displayName ?? def.driverId

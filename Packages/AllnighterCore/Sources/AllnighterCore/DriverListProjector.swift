@@ -5,12 +5,19 @@ public enum DriverListProjector {
     public static func build(
         registry: DriverRegistry,
         probeRecords: [ToolProbeRecord],
+        now: Date = Date(),
         models: [Model],
         parkedDriverIds: Set<String>,
         vendorResetsBySource: [String: Date] = [:],
         contractVersion: String = ContractRegistry.contractVersion
     ) -> DriverListJSON {
-        let recordsByDriver = Dictionary(uniqueKeysWithValues: probeRecords.map { ($0.driverId, $0) })
+        // PF-S00: read-time freshness. A negative verdict past its own retry
+        // window (or the 30m clock) is no longer evidence, so it is not asserted
+        // — the seat reads as not-recently-checked instead of unavailable. The
+        // stored record is never rewritten.
+        let expiredNegative = ProbeFreshnessGate.expiredNegativeDriverIds(probeRecords, now: now)
+        let recordsByDriver = Dictionary(uniqueKeysWithValues:
+            probeRecords.map { ($0.driverId, $0) })
         let onCount = Dictionary(grouping: models.filter(\.enabled), by: \.driverId)
             .mapValues(\.count)
 
@@ -28,6 +35,14 @@ public enum DriverListProjector {
                     if record.status.isSmokeReady {
                         status = "ready"
                         detail = nil
+                    } else if expiredNegative.contains(manifest.id) {
+                        // PF-S00: the verdict outlived its evidence. Say when it
+                        // was last checked instead of restating a limit the
+                        // vendor may no longer be imposing — the fabricated
+                        // version of this printed "Rate limited — resets Aug 14"
+                        // for a Kimi seat that was answering prompts.
+                        status = "notChecked"
+                        detail = "Not checked recently"
                     } else {
                         status = "notReady"
                         detail = shortProbeDetail(record.status, vendorReset: vendorResetsBySource[manifest.id])
