@@ -314,12 +314,21 @@ public enum DoctorReport {
     }
 
     /// Honest temporary-unavailability copy for a probe `.rateLimited` observation.
+    ///
+    /// PF-S02: the confidence guard governs the **whole sentence**, not just the
+    /// observation's own reset field. `vendorReset` used to be spliced in ahead
+    /// of the guard, so a limit *we* inferred could be dressed in a real reset
+    /// time read off the vendor's usage screen — two sources, one confident
+    /// sentence. That is how a Kimi seat answering prompts in the same minute
+    /// read "Rate limited — resets Aug 14, 2026 at 11:11 AM". The plausible date
+    /// is what made the invented limit credible, so it is the part to withhold.
     public static func rateLimitedDetail(observation: CapacityObservation, vendorReset: Date? = nil, now: Date = Date()) -> String {
-        let effectiveReset: Date? = vendorReset ?? {
-            guard observation.sourceConfidence == .structured || observation.sourceConfidence == .messageFallback else { return nil }
-            return observation.observedResetAt
-        }()
-        guard let reset = effectiveReset else { return "Rate limited — reset time unknown" }
+        guard observation.sourceConfidence == .structured
+                || observation.sourceConfidence == .messageFallback
+        else { return "Rate limited — reset time unknown" }
+        guard let reset = vendorReset ?? observation.observedResetAt else {
+            return "Rate limited — reset time unknown"
+        }
         guard let displayTime = VendorContinuityPresentation.resetDisplayTime(reset, now: now)
         else { return "Rate limited" }
         return "Rate limited — resets \(displayTime)"

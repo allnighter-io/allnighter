@@ -239,12 +239,33 @@ final class DoctorReportTests: XCTestCase {
         XCTAssertFalse(detail.contains("in "))
     }
 
-    func testVendorResetSuppliesCountdownWhenObservationHasNoUsableReset() {
+    /// PF-S02. This assertion used to run the other way: a `.localPolicy` limit
+    /// plus a crawler reset window rendered a confident countdown. The limit is
+    /// inferred by us and the reset is vendor-read — splicing them states as one
+    /// fact something no vendor ever said.
+    func testVendorResetDoesNotDressAnInferredLimitInAVendorTime() {
         let vendorReset = fixedNow.addingTimeInterval(2 * 3_600)
         let observation = CapacityObservation(
             kind: .accountRateLimit,
             source: "codex",
             sourceConfidence: .localPolicy,
+            rawSnippet: "rate limit",
+            observedAt: fixedNow,
+            observedResetAt: nil
+        )
+        let detail = DoctorReport.rateLimitedDetail(observation: observation, vendorReset: vendorReset, now: fixedNow)
+        XCTAssertEqual(detail, "Rate limited — reset time unknown")
+        XCTAssertFalse(detail.contains("in "), "inferred limit must not carry a countdown")
+    }
+
+    /// The control: `vendorReset` still does its job when the limit itself is
+    /// vendor-stated. PF-S02 withholds the splice, not the feature.
+    func testVendorResetStillSuppliesCountdownForAVendorStatedLimit() {
+        let vendorReset = fixedNow.addingTimeInterval(2 * 3_600)
+        let observation = CapacityObservation(
+            kind: .accountRateLimit,
+            source: "codex",
+            sourceConfidence: .structured,
             rawSnippet: "rate limit",
             observedAt: fixedNow,
             observedResetAt: nil
