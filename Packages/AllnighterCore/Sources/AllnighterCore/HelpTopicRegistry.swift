@@ -389,6 +389,19 @@ public enum HelpTopicRegistry {
             - **Mutating:** assistant text, **or** tool work with commits / an honest \
               `repoDelta` (dirty tree + zero commits is `incomplete_uncommitted`, not green).
 
+            ## `incomplete_uncommitted` means the seat left work IT created
+
+            It fires on paths this run made dirty — measured against the tree as it \
+            was at dispatch, so pre-existing WIP in your checkout never fails an \
+            honest zero-edit answer (ADR-S01). A delivered answer also keeps its \
+            text: the run is incomplete because work was left uncommitted, not \
+            because nothing came back, so `errorKind` is not `empty_output` when the \
+            seat produced output (ADR-S02).
+
+            Default chat is **mutating**. For "read this and tell me" work, say so \
+            with the flags rather than relying on a clean tree: `--read-only` \
+            (needs `--model`), a judgment team, or `--no-commit`.
+
             ## What fails closed
 
             - Prompt echoed as the answer
