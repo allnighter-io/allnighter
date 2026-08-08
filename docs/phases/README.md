@@ -37,6 +37,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | Doc | Status | Next action |
 | --- | --- | --- |
 | [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **OPEN — Ready to code (S01/S02)** | Serialize-don't-drop: AgentOS gate timeout = seat invoke timeout; dry-run names serial drivers. Hardened by DeepSeek + Kimi K3. AI PMs only. |
+| [`Ambient_Dirty_Run_Outcome.md`](Ambient_Dirty_Run_Outcome.md) | **OPEN — draft; after crew signal** | S122.3 `incomplete_uncommitted` fires on ambient WIP; OpenCode can deliver a full answer with zero run-owned edits and still fail. ADR-S01 dirty-vs-start; ADR-S02 don't stamp `empty_output` on delivered text. Origin: `09E19604`. |
 | [`Probe_Freshness.md`](Probe_Freshness.md) | **OPEN — draft v1, Spec Review Min pending** | `alln menu` reported Grok + Kimi `notReady` while both answered live prompts. Immortal probe cache + `localPolicy` verdict invented from a crash string + spliced reset date. PF-S00/S02 stop the lie; PF-S03 re-homes refresh into `alln serve`. Origin: 2026-08-08. |
 | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then Dock scheduler** | Spec Review Min Ready: one 30m freshness clock; scoped kill before timer; Dock-only. |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
