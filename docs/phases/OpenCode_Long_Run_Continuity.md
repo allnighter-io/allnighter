@@ -1,16 +1,16 @@
 # Phase 123 — OpenCode Long-Run & Concurrent Continuity
 
-Status: **OPEN — completion-truth follow-up coded; dogfood + CT-08 ruling before archive**
+Status: **ARCHIVE READY — CT-08 coded; doc closeout + archive remain**
 Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`, `OpenCodeRoutingWorkerRunner`,
 `OpenCodeServeCoordinator`, `OpenCodeSpawnLock`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
 `observation`, outcome gates)
 Created: 2026-08-07
-Updated: 2026-08-07 (CT follow-up executed end-to-end)
+Updated: 2026-08-07 (live dogfood gates 1–3)
 
 **Follow-up (implementation status):**
 [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md)
-— CT-01…07,09,11–13 coded with unit proofs. Remaining: live dogfood, CT-08
-sibling write-lock ruling, CT-10, CT-14 two-PID lock proof.
+— CT-01…07,09,11–13 coded with unit proofs. **Dogfood green** (2026-08-07).
+Remaining: CT-08 lock-gated sibling code slice; CT-10 deferred.
 
 **Successor to archived**
 [`OpenCode_Headless_Completion_And_Session_Scoping.md`](../archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md)
@@ -121,21 +121,24 @@ by implementer.
 
 | ID | Sev | Finding | Maps to | Status |
 | --- | --- | --- | --- | --- |
-| **F1** | HIGH | `listActiveDelegationSessions` ignores OpenCode `parentID` | Bug C / S123.2 | **PARTIAL** — prefers `parentID` when present; capability probe still data-presence ([CT-11](OpenCode_Completion_Truth_Followup.md#ct-11--parentid-capability-probe-incomplete-medium)) |
-| **F2** | HIGH | Child poll gated on SSE `task` tool name | Bug C / S123.2 | **PARTIAL** — always polls children; completion predicate still fake-success ([CT-01](OpenCode_Completion_Truth_Followup.md#ct-01--poll-fallback-declares-clean-success-mid-turn-blocker)) |
+| **F1** | HIGH | `listActiveDelegationSessions` ignores OpenCode `parentID` | Bug C / S123.2 | **FIXED** — sticky `parentID` probe shipped ([CT-11](OpenCode_Completion_Truth_Followup.md#ct-11--parentid-capability-probe-incomplete-medium)) |
+| **F2** | HIGH | Child poll gated on SSE `task` tool name | Bug C / S123.2 | **FIXED** — completion-truth trio ([CT-01](OpenCode_Completion_Truth_Followup.md#ct-01--poll-fallback-declares-clean-success-mid-turn-blocker)) |
 | **F3** | MED | `promptAsync` error cancels live SSE via `cancelAll` | Resilience | **FIXED** — `idleGate.signalPromptFailed`; no group throw |
-| **F4** | HIGH | No stall watchdog | Bug C / S123.4 | **DEFEATED** — poll `touch()` on every HTTP GET ([CT-02](OpenCode_Completion_Truth_Followup.md#ct-02--stall-watchdog-is-effectively-dead-while-serve-answers-http-high)) |
-| **F5** | HIGH | Process-local concurrency gate | Bug B / S123.0 | **PARTIAL** — flock exists; smoke/doctor bypass + proof gap ([CT-05](OpenCode_Completion_Truth_Followup.md#ct-05--doctorsmoke-can-kill-a-live-serve-outside-the-spawn-lock-high), [CT-14](OpenCode_Completion_Truth_Followup.md#ct-14--cross-process-spawn-lock-proven-only-in-process-medium--proof)) |
-| **F6** | MED | Flat 100ms SSE reconnect | S123.1 polish | **PARTIAL** — backoff shipped; foreign idle aborts reconnect ([CT-03](OpenCode_Completion_Truth_Followup.md#ct-03--foreign-sessions-defeat-scoping-twice-high)) |
-| **F7** | MED | Zero isolated tests for poll/parent paths | Proof | **PARTIAL** — unit tests exist; do not pin CT-01…03 |
-| **F8** | LOW | Outcome authority collapses stall/`stream_drop`/etc. to `incomplete_no_final_message` | Observability | **PARTIAL** — classified reasons in tree; rewrite can still clobber permission ([CT-04](OpenCode_Completion_Truth_Followup.md#ct-04--outcome-rewrite-destroys-classified-worker-reasons-high)); Allnighter F8 may be uncommitted ([CT-15](OpenCode_Completion_Truth_Followup.md#ct-15--s123-packet-fixed-column--uncommitted-polish-low--hygiene)) |
-| **F9** | LOW | Stall timer starts at IdleGate construction (burns window during session/SSE open) | F4 polish | **PARTIAL** — nil-until-touch shipped; defeated by CT-02 |
-| **F10** | LOW | Spawn lock busy-polls flock every 50ms | F5 polish | **PARTIAL** — backoff in working tree; verify commit ([CT-15](OpenCode_Completion_Truth_Followup.md#ct-15--s123-packet-fixed-column--uncommitted-polish-low--hygiene)) |
+| **F4** | HIGH | No stall watchdog | Bug C / S123.4 | **FIXED** — progress-only `touch()` ([CT-02](OpenCode_Completion_Truth_Followup.md#ct-02--stall-watchdog-is-effectively-dead-while-serve-answers-http-high)) |
+| **F5** | HIGH | Process-local concurrency gate | Bug B / S123.0 | **FIXED** — flock + refuse foreign kill ([CT-05](OpenCode_Completion_Truth_Followup.md#ct-05--doctorsmoke-can-kill-a-live-serve-outside-the-spawn-lock-high)); live two-PID proof ([CT-14](OpenCode_Completion_Truth_Followup.md#ct-14--cross-process-spawn-lock-proven-only-in-process-medium--proof)) |
+| **F6** | MED | Flat 100ms SSE reconnect | S123.1 polish | **FIXED** — backoff + foreign idle no longer aborts reconnect ([CT-03](OpenCode_Completion_Truth_Followup.md#ct-03--foreign-sessions-defeat-scoping-twice-high)) |
+| **F7** | MED | Zero isolated tests for poll/parent paths | Proof | **FIXED** — CT-01…03 unit fixtures green |
+| **F8** | LOW | Outcome authority collapses stall/`stream_drop`/etc. to `incomplete_no_final_message` | Observability | **FIXED** — authority rewrite honesty ([CT-04](OpenCode_Completion_Truth_Followup.md#ct-04--outcome-rewrite-destroys-classified-worker-reasons-high), [CT-13](OpenCode_Completion_Truth_Followup.md#ct-13--client-vs-authority-reason-precedence-medium)) |
+| **F9** | LOW | Stall timer starts at IdleGate construction (burns window during session/SSE open) | F4 polish | **FIXED** — nil-until-touch + CT-02 progress touch |
+| **F10** | LOW | Spawn lock busy-polls flock every 50ms | F5 polish | **FIXED** — exponential backoff in `OpenCodeSpawnLock` |
 
-AgentOS commits: `335d778` (reconnect/poll), then S123.2b–S123.4 / F1–F7 follow-up, then F8–F10.
+AgentOS commits: `335d778` (reconnect/poll), then CT follow-up `ab96e7c`→`d4a5d01`.
+Allnighter: `4950d63f` (outcome rewrite), `43e1b8a9` (`answerOnly`).
 **Works Test (constrained):** solo long + concurrent short-over-long green 2026-08-07
 (`4848765D`, `1AE9FC3A`/`91474DA9`) — no `stream_drop`; short queued ~4.5s behind flock.
-**Still open:** subagent/`task`-heavy long stress (class `18B2E77D`); archive after that.
+**Dogfood (2026-08-07, `alln` `cb18e54d`):** subagent-heavy long `ABB38F3C`
+(`local_idle`, tools `task`/`read`/`grep`, ~2m); concurrent `F67766CF` long completed
+while `6FC2DACB` short waited then refused orphan serve — no first-seat `stream_drop`.
 
 ### F1 detail — `parentID` ignored
 
@@ -267,7 +270,8 @@ global `/event` filter alone).
 ## Works Test (owner-visible)
 
 ```text
-Prereq: opencode serve on :4096; alln menu --json once.
+Prereq: port `:4096` **free** (do not pre-start `opencode serve` — CT-05 refuses
+foreign listeners; let `alln` spawn). `alln menu --json` once.
 Policy: poll show --json; never block on --stream for full idle-timeout.
 Stall kill: no new events for 120s → kill and record failed.
 
@@ -304,8 +308,9 @@ Mutator companion (from S122): one-line create+commit; dirty-no-commit ⇒
 
 ## Closeout
 
-- [ ] F1–F4, F6, F7 green in AgentOS tests
-- [ ] F5 cross-process gate (or explicit refuse) shipped
-- [ ] Owner-visible Works Test passes (Pro, concurrent + long) with stall kill
-- [ ] Help topic amended
+- [x] F1–F4, F6, F7 green in AgentOS tests
+- [x] F5 cross-process gate (or explicit refuse) shipped — live `F67766CF`/`6FC2DACB`
+- [x] Owner-visible Works Test passes (Pro, concurrent + long subagent) with stall kill
+- [x] CT-08 lock-gated sibling `external_directory` code slice
+- [x] Help topic amended
 - [ ] Archive this packet; link from `OpenCode_CLI_Support.md`

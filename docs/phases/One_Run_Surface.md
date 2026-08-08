@@ -231,6 +231,47 @@ Plain `alln show <run-id>` renders the same truth compactly for a human.
 `--full` remains the explicit audit expansion for prompt snapshots. It is not a
 progress mode and is mutually exclusive with `--stream`.
 
+### What the terminal snapshot must say
+
+Promoted from `Run_Readout_Truth.md` (closed 2026-08-08). Origin: a completed
+Spec Review carrying a **Ready** verdict was read as a crashed run and nearly
+dropped — the payload held five status-bearing fields, three of them right, and
+the two a reader was steered toward were the two that lied.
+
+**The cold-agent gate.** Cheap, repeatable, needs no judgment — apply it to any
+future change to this surface:
+
+> Can a cold agent answer *"did it work, and what did it say"* from the first
+> screen of `alln show --json`, in one call, where the answer derives from
+> `teamRun.endReason` (already correct)?
+
+It is only passable when all three hold — a payload fix alone is not enough,
+because the shipped teaching is part of the surface:
+
+1. **`outcome.headline` says what happened, not who ran it.** Identity already
+   has `teamRun.identitySummary`; a headline byte-identical to it tells the
+   reader nothing. Bad news leads even when the run emits no verdict block, and
+   a true `partial` names which seats did not deliver — a signal without its
+   subject is still a readout failure.
+2. **`errors` is non-empty whenever a reason exists anywhere in the payload.**
+   It shipped as a hardcoded `[]`, so no run ever reported a failure reason at
+   top level while the reason sat in four other keys.
+3. **Process state never answers "did it work."** `observation.ownerState` stays
+   in the payload — the three-key contract above is binding — but nothing may
+   route a terminal reader to it. `dead` is what a finished worker looks like.
+
+**Teaching and payload change together** (`TeachingSnippet`, v11). A readout law
+the shipped teaching contradicts is not landed.
+
+**Do not mint a second status field.** Verified 2026-08-08 against real runs:
+`outcome.status` already answers did-it-work on the first screen, so a
+top-level `status` would add surface for nothing — and there is nothing
+affordable to delete for it. `pmTurn.lifecycleStatus` is *not* redundant; it
+carries **loop** state for `kind: relay` (`LoopCoordinator.swift:2259`).
+
+Code SSOT: `TeamRunJSONMapper` (`runErrors`, `outcomeHeadline`),
+`LeadCallParser`, `TeachingSnippet`.
+
 ### Reattachable stream
 
 ```bash

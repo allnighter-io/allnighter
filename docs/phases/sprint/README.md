@@ -38,7 +38,7 @@ Each sprint file must fit on **one to two screens** and include:
 
 ## Active sprints
 
-**None.** Open a new work order here when slicing.
+_None — CT-S04 done; archive S123 when ready._
 
 ## Recently archived (2026-08-07)
 

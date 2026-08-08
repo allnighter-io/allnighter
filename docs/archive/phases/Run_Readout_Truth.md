@@ -1,11 +1,11 @@
 # Run Readout Truth — one screen, one status, no plumbing
 
-Status: **v4 — RRT-S03 + RRT-S04 SHIPPED (`e7087b0d`, `dbf0f7ce`), dogfooded
-on the originating run. RRT-S01 BLOCKED — its delete math is unpayable (§4).
-RRT-S02 (teaching) open. Two reviews adjudicated (§0).**
+Status: **CLOSED 2026-08-08 — S02/S03/S04 shipped, cold-agent gate passed,
+S01 dropped as unnecessary. Law promoted to `One_Run_Surface.md`
+§"What the terminal snapshot must say". ARCHIVED.**
 Owner: AllnighterCore (`TeamRunJSONMapper`, `LeadCallParser`, `TeachingSnippet`,
 `RunService` settle path, CLI `show`)
-Created: 2026-08-08 · Revised: 2026-08-08 (v4 — S03/S04 shipped; S01 blocked)
+Created: 2026-08-08 · Closed: 2026-08-08
 Origin: PM incident 2026-08-08 — a completed Spec Review with a **Ready** verdict
 was read as a crashed run. Founder: *"why were you just sitting there and doing
 nothing… I have tried to improve alln 10 times and this still happens."*
@@ -22,6 +22,56 @@ co-defendant here), [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md)
 
 Phases are ephemeral. At closeout: promote product law into help / vocabulary /
 operations; code remains SSOT; archive this packet.
+
+---
+
+## Closeout (2026-08-08)
+
+| Slice | Result |
+| --- | --- |
+| RRT-S02 teaching v11 | **Shipped** `9aa06836` — terminal readers routed to the verdict, not `observation` |
+| RRT-S03 headline | **Shipped** `e7087b0d` + `10c287b7` — leads with the verdict; `partial` names its seats; a failed run no longer headlines like a receipt |
+| RRT-S04 `errors` | **Shipped** `dbf0f7ce` — was a hardcoded `[]` |
+| RRT-S01 top-level `status` | **DROPPED — unnecessary** |
+
+**Cold-agent gate: PASSED**, verified against three real runs on the rebuilt
+binary — a partial success, a spawn refusal, and a plain run:
+
+```
+FCF51DB2  Ready · Fix the lying bench… · 2 of 3 seats delivered
+          status partial · errors ["opencode serve busy: port owned by pid 48831"]
+45D454CE  failed · model model_opencode_deepseek_v4_pro …
+          status failed · errors ["opencode serve busy: port owned by pid 96665"]
+E55A43AD  status completed · answer "OK"
+```
+
+Did it work, what did it say, and why — one call, first screen, in all three
+shapes.
+
+**Why S01 was dropped rather than deferred.** Two independent reasons. Its
+delete math is unpayable — every status-bearing field is load-bearing, and
+`pmTurn.lifecycleStatus` in particular carries *loop* state for `kind: relay`
+(`LoopCoordinator.swift:2259`), so it is not a duplicate of a run's status.
+And the need evaporated: `outcome.status` already answers did-it-work on the
+first screen once the headline stopped lying. Adding a field for a question
+already answered would violate this packet's own §3.
+
+**Promoted** to `One_Run_Surface.md` §"What the terminal snapshot must say":
+the cold-agent gate, the three payload laws, teaching-and-payload-together, and
+the do-not-mint-a-second-status ruling. Code SSOT: `TeamRunJSONMapper`
+(`runErrors`, `outcomeHeadline`), `LeadCallParser`, `TeachingSnippet`.
+
+**Carried out of this packet, still open:**
+
+- Follow-up (a) — no completion signal for `--no-wait`. Every path is pull.
+- Follow-up (b) — `warnings` attribution: a read-only run blamed itself for a
+  HEAD change another process made.
+- Follow-up (c)/(e) — `errorKind: timed_out` on a 0 ms refusal, and
+  `ErrorEnvelope.code` losing the kind in translation. Both
+  `Vendor_Signal_Isolation.md`.
+- Follow-up (d) — writer emits the Lead Call structured instead of as prose.
+- `Options` still has global flag-name shape; the collision fix (`e8d98be8`) is
+  a guard, not the per-command refactor.
 
 ---
 

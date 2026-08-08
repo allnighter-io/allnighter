@@ -35,13 +35,12 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 ### Active priorities (founder-ordered)
 
 > **Founder-ordered queue (2026-08-08)** — work in this order:
-> **0.** Run readout (`alln show` says nothing useful) · **0.5** Ambient dirty run outcome ·
+> ~~**0.** Run readout~~ (CLOSED 2026-08-08) · **0.5** Ambient dirty run outcome ·
 > **1.** Scheduler 2.0 · **2.** Seat assignments · **3.** OpenCode attach · **4.** Ollama.
 > Everything below the queue is unordered backlog.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
-| [`Run_Readout_Truth.md`](Run_Readout_Truth.md) | **0 · Ready-first fix — S03+S04 SHIPPED; S02 open, S01 blocked** | Shipped `dbf0f7ce` (wire `errors`, was a hardcoded `[]`) + `e7087b0d` (headline says what happened, names seats on `partial`). Dogfooded on the originating run. **Open: RRT-S02** — `TeachingSnippet.swift:86` still routes readers to `observation`, so the cold-agent gate is still red. RRT-S01 blocked: no affordable deletion, and S03 may have removed the need. |
 | [`Ambient_Dirty_Run_Outcome.md`](Ambient_Dirty_Run_Outcome.md) | **0.5 · Ambient dirty — Ready to code (S01/S02)** | Before the scheduler (founder 2026-08-08). S122.3 ambient-dirty false fail. Locked: dirty-path-set diff via `GitObserver.dirtyFiles`. DeepSeek Pro `--read-only` review `B8818101` (prior `89417ED3` hit `portOwnedByForeignProcess`). Origin: `09E19604`. |
 | [`Probe_Freshness.md`](Probe_Freshness.md) | **1 · Scheduler 2.0 — v2, Ready for named slices** | `alln menu` hid Grok + Kimi as `notReady` while both answered live prompts. PF-S00 expire-at-projection + PF-S02 un-invent the verdict stop the lie; PF-S01 discloses age; **PF-S03 re-homes refresh into `alln serve`** — founder ruling §0.2 supersedes the CWB Dock-only host lock. Spec Review Min `FCF51DB2` Ready. |
 | [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **2 · Seat assignments — Ready to code (S01/S02)** | Serialize-don't-drop: AgentOS gate timeout = seat invoke timeout; dry-run names serial drivers. Hardened by DeepSeek + Kimi K3. AI PMs only. |
@@ -95,6 +94,7 @@ Verified against code/commits; full index:
 
 | Packet | Why archived | Successor |
 | --- | --- | --- |
+| [`Run_Readout_Truth.md`](../archive/phases/Run_Readout_Truth.md) | **CLOSED (2026-08-08)** — a completed Spec Review carrying a Ready verdict read as a crashed run. S02 teaching v11, S03 honest `outcome.headline`, S04 wired `errors` (was a hardcoded `[]`). S01 dropped: `outcome.status` already answers did-it-work, and nothing was affordable to delete for a new field. Cold-agent gate passed on three real runs. | `One_Run_Surface.md` §"What the terminal snapshot must say"; code SSOT `TeamRunJSONMapper` (`runErrors`, `outcomeHeadline`), `LeadCallParser`, `TeachingSnippet` |
 | [`Allnighter_Qwen_Driver_Bug_Report.md`](../archive/phases/Allnighter_Qwen_Driver_Bug_Report.md) | **QDR-S01 Complete (2026-08-07)** — headless write grant + answer retrieval; intake closed | AgentOS `catalog.json` (qwen/kimi `--yolo`); `TeamRunJSONMapper` / `alln show --answer` / contract 9.10.0 |
 | [`Mac_Studio_LAN_Bench.md`](../archive/phases/Mac_Studio_LAN_Bench.md) | **SHELVED / NO BUILD (2026-08-06)** — streamed-diffs + iOS-pairing-as-execution fabric rejected; wrong ICP hero (Studio farm vs one-floor multi-CLI). Do not resume. | None — optional future: remote inference URL / research-only remote seats as separate packets. Active attention: capacity truth, park/substitute, teaching (`Vendor_Signal_Isolation`, `Quota_Aware_Bench_Continuity`, `Agent_Teaching_Surface`). |
 | [`CLI_Park.md`](../archive/phases/CLI_Park.md) | `alln drivers park\|unpark` shipped `073522c7` | `SetupStore.parkedDriverIds`, `DriversCLI`, `Product_Vocabulary.md` |

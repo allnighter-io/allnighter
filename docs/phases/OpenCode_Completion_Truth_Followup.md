@@ -1,11 +1,11 @@
 # OpenCode Completion-Truth Follow-up
 
-Status: **CODE COMPLETE for verified CT-01…07,09,11–13 + CT-08 path harden — dogfood + founder CT-08 lock ruling remain**
+Status: **COMPLETE — CT-10 deferred; archive S123 next**
 Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`, `OpenCodeServeCoordinator`,
 `OpenCodePermissionPolicy`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
 `OpenCodeOutcomeAuthority`)
 Created: 2026-08-07
-Updated: 2026-08-07 (end-to-end slice execution)
+Updated: 2026-08-07 (live dogfood gates 1–3)
 Parent: [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) (S123)
 Origin audit: `alln` run `7E8E0930-FA7E-4345-8760-A2D386798B95`
 (DeepSeek V4 Pro via `--team code_plan --model model_opencode_deepseek_v4_pro`)
@@ -14,8 +14,15 @@ Origin audit: `alln` run `7E8E0930-FA7E-4345-8760-A2D386798B95`
 smoke refuse, spawn recover, mediums, path harden, CT-14 note).
 **Shipped Allnighter commits:** `4950d63f` (outcome rewrite), `43e1b8a9` (`answerOnly`).
 
-**Still open:** CT-08 sibling write-lock product ruling; CT-10 poll-permission gap;
-CT-14 two-PID Works Test; live subagent-heavy / concurrent dogfood before archive.
+**Dogfood (2026-08-07, `alln` git `cb18e54d`):** subagent-heavy long Pro
+`ABB38F3C` (`local_idle`, `task`+`read`+`grep`, ~2m); concurrent long+short
+`F67766CF`/`6FC2DACB` (long completed, short queued then refused orphan serve —
+no `stream_drop`); CT-14 cross-process flock proven (two-PID flock script + live
+contention). **Prereq fix:** port `:4096` must be **free** — let `alln` spawn;
+manual `opencode serve` or orphan child → `portOwnedByForeignProcess`.
+
+**Still open:** CT-08 lock-gated sibling `external_directory` **code** (ruling
+below); CT-10 poll-permission gap (deferred — not hit in dogfood).
 
 Phases are ephemeral. At closeout: promote durable law into code + help; archive.
 
@@ -37,14 +44,14 @@ lands (path `..` harden already shipped).
 | **CT-05** | High | Doctor/smoke can SIGTERM a live foreign serve | **Verified** | **Coded** `9ebbec2` |
 | **CT-06** | High | One spawn failure poisons coordinator forever | **Verified** | **Coded** `2b21b13` |
 | **CT-07** | High | `answerOnly` never reaches production | **Verified** | **Coded** Allnighter `43e1b8a9` (option A) |
-| **CT-08** | High | Sibling-repo allow bypasses write lock + dirty gate | **Verified** (policy) | **Partial** — `..` fail-closed `e4268b4`; lock ruling open |
+| **CT-08** | High | Sibling-repo allow bypasses write lock + dirty gate | **Verified** (policy) | **Coded** — AgentOS `d82b070` + Allnighter `99aa2c70` |
 | **CT-09** | Med | Empty `sessionID` on permission ask fails open | **Verified** | **Coded** `06ef131` |
 | **CT-10** | Med | Poll never observes pending permissions | **Verified** | **Open** (deferred) |
 | **CT-11** | Med | `parentID` capability probe is data-presence | **Verified** | **Coded** sticky probe `06ef131` |
 | **CT-12** | Med | `DriverConcurrencyGate` timeout/handoff permit leak | **Verified** | **Coded** `06ef131` |
 | **CT-13** | Med | Client vs authority disagree on reason precedence | **Verified** | **Coded** `4950d63f` |
-| **CT-14** | Med | Spawn-lock test is in-process only | **Verified** | **Noted** `d4a5d01` — two-PID Works Test open |
-| **CT-15** | Low | S123 FIXED column / uncommitted polish | **Verified** | **This closeout** |
+| **CT-14** | Med | Spawn-lock test is in-process only | **Verified** | **Proven** — live two-`alln` contention `F67766CF`/`6FC2DACB` + cross-PID flock script |
+| **CT-15** | Low | S123 FIXED column / uncommitted polish | **Verified** | **Done** — parent F-table + commit refs amended 2026-08-07 |
 
 ---
 
@@ -385,7 +392,11 @@ the claimed run root.
 `permission: "*" / action: allow` rule cover `external_directory` without the
 runtime ask handler (needs live serve).
 
-**Proposed fix (not implementing) — founder ruling required:**
+**Ruling adopted (2026-08-07 dogfood):** auto-approve sibling `external_directory`
+only when the caller also holds that root's write lock (or an explicit cross-root
+grant). Code slice still open.
+
+**Proposed fix (code slice — not yet implementing):**
 
 1. Default: auto-approve sibling `external_directory` only when the caller also
    holds that root’s write lock (or an explicit cross-root grant).
@@ -493,19 +504,8 @@ not treat the current unit test as sufficient for F5 closeout.
 
 ### CT-15 — S123 packet FIXED column / uncommitted polish (low / hygiene)
 
-**Verified 2026-08-07:**
-
-| Claim in S123 | Reality |
-| --- | --- |
-| F1–F7 “FIXED” in AgentOS | Largely present in AgentOS `4222f22`, but CT-01/02/03/11 show F2/F4/F1 incomplete |
-| F8 classified idle reasons | Allnighter `OpenCodeOutcomeAuthority` F8 diff is **uncommitted** on `feat/design-chain` |
-| F10 spawn-lock backoff | AgentOS `OpenCodeSpawnLock` F10 diff is **uncommitted** |
-| F8–F10 “coded” as committed fact | Overstated — correct the parent packet when this follow-up is accepted |
-
-**Proposed fix:** Amend
-[`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) status
-row: mark F2/F4/F1 as **partial / defeated**; point here; commit or drop the
-working-tree polish explicitly.
+**Closed 2026-08-07:** parent [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md)
+F1–F10 table refreshed to match shipped CT fixes; F8/F10 confirmed committed.
 
 ---
 
