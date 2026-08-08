@@ -113,10 +113,15 @@ final class ModelCatalogCLITests: XCTestCase {
             driverId: "claude_code", displayName: "Fabel", modelLabel: "fabel",
             role: .answerer, enabled: true, registry: registry)
         let list = ModelsCLI.modelListJSON(runtime: runtime(), driverId: "claude_code")
-        let fabel = list.models.first { $0.displayName == "Fabel" }
+        // `try XCTUnwrap`, never `!`: a force-unwrap here aborts the whole test
+        // process (signal 5), taking every other suite's result with it. That is
+        // how one broken assertion made an entire wall run unreadable.
+        let fabel = try XCTUnwrap(
+            list.models.first { $0.displayName == "Fabel" },
+            "custom model missing from the catalog view")
         // Custom models stay off-Bench until smoke-verified + enable.
-        XCTAssertEqual(fabel?.state, "available")
-        XCTAssertFalse(fabel?.enabled ?? true)
-        XCTAssertEqual(ModelCatalog.get(fabel!.id)?.modelSmokeStatus, "unverified")
+        XCTAssertEqual(fabel.state, "available")
+        XCTAssertFalse(fabel.enabled)
+        XCTAssertEqual(ModelCatalog.get(fabel.id)?.modelSmokeStatus, "unverified")
     }
 }
