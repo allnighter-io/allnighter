@@ -19,7 +19,7 @@ public enum TeachingSnippet {
     /// "the user hand-edited this" — which is a lie about who changed it.
     /// Bumping the version makes them parse as `.stale` instead, which is true
     /// and which the installer knows how to repair.
-    public static let schemaVersion = 10
+    public static let schemaVersion = 11
 
     /// Open marker: `<!-- ALLNIGHTER:TEACHING v<N> hash=<hex> -->`
     public static let openMarkerPrefix = "<!-- ALLNIGHTER:TEACHING v"
@@ -47,7 +47,12 @@ public enum TeachingSnippet {
     /// 1. Read the menu — a catalog cannot announce itself to an agent that
     ///    never opens it.
     /// 2. `running` ≠ progress — the status field actively reads as progress,
-    ///    so the output misleads unless contradicted.
+    ///    so the output misleads unless contradicted. v11 scopes it: that rule
+    ///    is true *while running*. On a terminal run `observation.ownerState`
+    ///    is the worker pid's state — `dead` is what a finished process looks
+    ///    like — and a PM following the v10 wording reported a completed
+    ///    `Ready` review as a crash (Run_Readout_Truth §1.4). Terminal readers
+    ///    go to `outcome.headline`, which now leads with the verdict.
     /// 3. Run the waiter once — an agent that fears re-dispatch polls instead,
     ///    and nothing in the response says re-running is safe.
     ///
@@ -83,7 +88,7 @@ public enum TeachingSnippet {
     ///   not kill, that is `kill`'s own output to explain, not this block's.
     public static let reflexLines = [
         "1. `alln menu --json` first, and again each new session. Never a pasted catalog.",
-        "2. `running` ≠ progress. Read `observation` on `alln show <id> --json`.",
+        "2. `running` ≠ progress: read `observation` while running, `outcome.headline` when done — `alln show <id> --json`.",
         "3. After `--no-wait`, run the returned `nextAction.command` once. Never poll — re-running reattaches.",
     ]
 

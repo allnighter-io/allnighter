@@ -11,15 +11,22 @@ final class TeachingSnippetTests: XCTestCase {
     }
 
     func testBodyTeachesLiveMenuReflexAndDetachedDelivery() {
-        XCTAssertEqual(TeachingSnippet.schemaVersion, 10)
+        XCTAssertEqual(TeachingSnippet.schemaVersion, 11)
         XCTAssertEqual(TeachingSnippet.reflexLines.count, 3)
         XCTAssertEqual(TeachingSnippet.body, TeachingSnippet.reflexLines.joined(separator: "\n"))
         // 1 — the front door, and the reflex to re-read it.
         XCTAssertTrue(TeachingSnippet.body.contains("alln menu --json"))
         XCTAssertTrue(TeachingSnippet.body.contains("Never a pasted catalog"))
-        // 2 — the status field reads as progress; contradict it.
+        // 2 — the status field reads as progress; contradict it. v11 scopes
+        // the rule to in-flight runs and routes terminal readers to the verdict,
+        // because `observation.ownerState: dead` is what a FINISHED worker looks
+        // like and the v10 wording made a cold agent call a Ready run a crash.
         XCTAssertTrue(TeachingSnippet.body.contains("observation"))
         XCTAssertTrue(TeachingSnippet.body.contains("alln show <id> --json"))
+        XCTAssertTrue(TeachingSnippet.body.contains("outcome.headline"),
+                      "terminal readers must be routed to the verdict, not to process state")
+        XCTAssertTrue(TeachingSnippet.body.contains("while running"),
+                      "the observation rule must be scoped to in-flight runs")
         // 3 — detached delivery: run the waiter once, do not poll.
         XCTAssertTrue(TeachingSnippet.body.contains("nextAction.command"))
         XCTAssertTrue(TeachingSnippet.body.contains("Never poll"))
