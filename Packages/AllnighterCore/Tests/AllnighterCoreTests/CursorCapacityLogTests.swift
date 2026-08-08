@@ -147,6 +147,25 @@ final class CursorCapacityLogTests: XCTestCase {
         XCTAssertEqual(childCategories.map(\.name), ["Auto", "API"])
     }
 
+    /// The strip and `alln capacity` must meter Auto and API separately — collapsing
+    /// to Included hid two different Cursor quotas behind one number.
+    func testAsCapacityWindowsEmitsAutoAndAPINotIncludedRollup() {
+        guard let snapshot = CursorCapacityLog.parse(renderText: verbatimFixture, observedAt: fixedObservedAt) else {
+            XCTFail("Failed to parse fixture")
+            return
+        }
+        let windows = snapshot.asCapacityWindows()
+        XCTAssertEqual(windows.map(\.poolLabel), ["Auto", "API"])
+        XCTAssertFalse(
+            windows.contains { $0.poolLabel?.lowercased() == "included" },
+            "Included is the parent rollup — not a strip meter"
+        )
+        XCTAssertEqual(windows.map(\.usedPercent), [27.0, 27.0])
+        XCTAssertEqual(windows.map(\.planTier), ["Ultra", "Ultra"])
+        XCTAssertNotNil(windows.first?.onDemand)
+        XCTAssertNil(windows.last?.onDemand)
+    }
+
     func testOnDemandDollarsParsedAsMoneyAndNotAsPercent() {
         let fixtureWithMoneyOnly = """
  Usage • Pro                                                    Resets Sep 10

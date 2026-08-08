@@ -346,7 +346,7 @@ Wiring:
 - `CapacityAcquisition.dogfoodSourceId` + `validateRefreshSourceId(_:dogfood:)`
 - `CapacityFetch.dogfoodOpenCodeGoSnapshot()` — six `neverSampled` PTY rows + Go wave
 - `CapacityUnknownReason.authRequired` + `CapacityAcquisitionTier.dashboardScrape`
-- Strip display name `OpenCode Go`; rolling → `fiveHour` scope; plan tier `Go`
+- Strip display name `OpenCode` (CLI); rolling → `fiveHour` scope; plan tier `Go`
 - Qualification ledger: `…/Allnighter/Capacity/opencode-go-qualification.jsonl`
   (redacted JSON lines — no HTML, no cookie)
 

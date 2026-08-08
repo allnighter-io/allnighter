@@ -103,12 +103,13 @@ public struct CursorCapacitySnapshot: Sendable, Equatable {
     /// Cursor is used-polarity, **monthly** scope, **day** reset precision, TUI probe tier.
     /// Dollar spend lands in `onDemand` with `unit == "$"` — never coerced into a percentage.
     ///
-    /// Emits one monthly window from the primary percent category (parent "Included" when
-    /// present, else the first category with a known percent). Child category rows share the
-    /// same parent limit and are not re-emitted as separate windows. Categories without a
-    /// percent are skipped (never zero-filled). Money-only snapshots with no usable percent
-    /// yield `[]` — `CapacityWindow` cannot carry paid spend without a polarity constructor,
-    /// and inventing 0% is banned (report, do not widen).
+    /// Auto and API are separate meters — different quotas, different burn. When the
+    /// `/usage` render nests them under Included, emit **one monthly window per child**
+    /// (`poolLabel` = `Auto` / `API`). Do not collapse to the Included parent rollup;
+    /// that hid the split and made the strip look like one Cursor number. Fall back to
+    /// the parent/first known percent only when no child meters have a usable percent.
+    /// Categories without a percent are skipped (never zero-filled). Money-only snapshots
+    /// with no usable percent yield `[]` — inventing 0% is banned.
     public func asCapacityWindows() -> [CapacityWindow] {
         let paid = onDemandSpend.map { spend in
             CapacityPaidAmount(
@@ -119,26 +120,36 @@ public struct CursorCapacitySnapshot: Sendable, Equatable {
             )
         }
 
-        // Prefer parent "Included", then any parent, then first known percent.
-        let primary: CursorPercentCategory? =
-            percentCategories.first(where: {
-                if case .parent = $0.hierarchy, $0.name.lowercased() == "included", $0.usedPercent != nil {
-                    return true
-                }
-                return false
-            })
-            ?? percentCategories.first(where: {
-                if case .parent = $0.hierarchy { return $0.usedPercent != nil }
-                return false
-            })
-            ?? percentCategories.first(where: { $0.usedPercent != nil })
+        let childMeters = percentCategories.filter { category in
+            guard category.usedPercent != nil else { return false }
+            if case .child = category.hierarchy { return true }
+            let name = category.name.lowercased()
+            return name == "auto" || name == "api"
+        }
 
-        guard let primary, let used = primary.usedPercent else {
+        let meters: [CursorPercentCategory]
+        if !childMeters.isEmpty {
+            // Stable product order: Auto before API when both present.
+            meters = childMeters.sorted { lhs, rhs in
+                Self.cursorMeterRank(lhs.name) < Self.cursorMeterRank(rhs.name)
+            }
+        } else if let primary = percentCategories.first(where: {
+            if case .parent = $0.hierarchy, $0.name.lowercased() == "included", $0.usedPercent != nil {
+                return true
+            }
+            return false
+        }) ?? percentCategories.first(where: {
+            if case .parent = $0.hierarchy { return $0.usedPercent != nil }
+            return false
+        }) ?? percentCategories.first(where: { $0.usedPercent != nil }) {
+            meters = [primary]
+        } else {
             return []
         }
 
-        return [
-            CapacityWindow(
+        return meters.enumerated().compactMap { index, category in
+            guard let used = category.usedPercent else { return nil }
+            return CapacityWindow(
                 used: used,
                 source: "cursor_agent",
                 scope: .monthly,
@@ -146,11 +157,21 @@ public struct CursorCapacitySnapshot: Sendable, Equatable {
                 resetPrecision: .day,
                 observedAt: observedAt,
                 sourceTier: .tuiProbe,
-                poolLabel: primary.name,
+                poolLabel: category.name,
                 planTier: planTier,
-                onDemand: paid
+                // Paid spend is seat-level — attach once, on the first meter.
+                onDemand: index == 0 ? paid : nil
             )
-        ]
+        }
+    }
+
+    /// Auto before API; everything else keeps input order after those two.
+    private static func cursorMeterRank(_ name: String) -> Int {
+        switch name.lowercased() {
+        case "auto": return 0
+        case "api": return 1
+        default: return 100
+        }
     }
 }
 

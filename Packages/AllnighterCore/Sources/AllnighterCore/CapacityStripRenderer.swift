@@ -180,9 +180,107 @@ public enum CapacityStripRenderer {
         case "grok": return "Grok"
         case "kimi": return "Kimi"
         case "agy", "antigravity": return "Antigravity"
-        case "opencode_go": return "OpenCode Go"
+        // CLI name is OpenCode; "Go" is the plan tier (shown under the name).
+        case "opencode_go": return "OpenCode"
         case "bailian_token_plan": return "Qwen"
         default: return source
+        }
+    }
+
+    // MARK: - Meter lines (GUI: one measured capacity = one row)
+
+    /// Flattened strip row: if we measure it, it gets a row.
+    ///
+    /// Multi-pool CLIs (Antigravity Gemini + Claude/GPT) become adjacent sibling
+    /// lines titled `Antigravity · Gemini`, not nested pool columns inside one
+    /// CLI row. Seat count stays "how many CLIs", not how many meter lines.
+    public struct CapacityMeterLine: Sendable, Equatable, Identifiable {
+        public var id: String { "\(source)#\(poolOrdinal)" }
+        public let source: String
+        /// Stable index within the parent CLI's pool order (0 for a single meter).
+        public let poolOrdinal: Int
+        /// `Antigravity · Gemini`, or just `OpenCode` when there is no pool name.
+        public let title: String
+        public let planTier: String?
+        /// First meter of a CLI — owns expand disclosure + trailing age/refresh chrome.
+        public let isFirstOfSource: Bool
+        public let pool: CapacityBenchPoolMetrics?
+        public let rowUnknownReason: CapacityUnknownReason?
+
+        public init(
+            source: String,
+            poolOrdinal: Int,
+            title: String,
+            planTier: String?,
+            isFirstOfSource: Bool,
+            pool: CapacityBenchPoolMetrics?,
+            rowUnknownReason: CapacityUnknownReason?
+        ) {
+            self.source = source
+            self.poolOrdinal = poolOrdinal
+            self.title = title
+            self.planTier = planTier
+            self.isFirstOfSource = isFirstOfSource
+            self.pool = pool
+            self.rowUnknownReason = rowUnknownReason
+        }
+
+        /// One meter line per measured pool, CLI siblings kept adjacent in
+        /// `rows` order. Unnamed single pools keep the bare CLI title; unnamed
+        /// pools on a multi-pool seat read `Total`.
+        public static func flatten(rows: [CapacityBenchRow]) -> [CapacityMeterLine] {
+            var lines: [CapacityMeterLine] = []
+            for row in rows {
+                let seat = displayName(for: row.source)
+                let ordered = orderedPools(in: row)
+                if ordered.isEmpty {
+                    lines.append(
+                        CapacityMeterLine(
+                            source: row.source,
+                            poolOrdinal: 0,
+                            title: seat,
+                            planTier: row.planTier,
+                            isFirstOfSource: true,
+                            pool: nil,
+                            rowUnknownReason: row.unknownReason
+                        )
+                    )
+                    continue
+                }
+                for (index, pool) in ordered.enumerated() {
+                    let suffix = poolTitleSuffix(pool, poolCount: ordered.count)
+                    let title = suffix.isEmpty ? seat : "\(seat) · \(suffix)"
+                    lines.append(
+                        CapacityMeterLine(
+                            source: row.source,
+                            poolOrdinal: index,
+                            title: title,
+                            planTier: row.planTier,
+                            isFirstOfSource: index == 0,
+                            pool: pool,
+                            rowUnknownReason: row.unknownReason
+                        )
+                    )
+                }
+            }
+            return lines
+        }
+
+        /// Unnamed pools first (as `Total` when siblings exist), then vendor-named.
+        private static func orderedPools(in row: CapacityBenchRow) -> [CapacityBenchPoolMetrics] {
+            let unnamed = row.pools.filter { ($0.poolLabel ?? "").isEmpty }
+            let named = row.pools.filter { !($0.poolLabel ?? "").isEmpty }
+            return unnamed + named
+        }
+
+        private static func poolTitleSuffix(
+            _ pool: CapacityBenchPoolMetrics,
+            poolCount: Int
+        ) -> String {
+            guard let label = pool.poolLabel, !label.isEmpty else {
+                return poolCount > 1 ? "Total" : ""
+            }
+            return compressPoolLabel(label)
         }
     }
 

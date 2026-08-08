@@ -7,6 +7,38 @@ final class CapacityStripRendererTests: XCTestCase {
     /// ~2026-07-30 00:48 UTC — matches the Grok log sample era.
     private let now = Date(timeIntervalSince1970: 1_753_833_600)
 
+    // MARK: - Display names
+
+    func testOpenCodeCLIDisplayNameIsOpenCodeNotOpenCodeGo() {
+        // "Go" is the plan tier under the name; the CLI column is just OpenCode.
+        XCTAssertEqual(CapacityStripRenderer.displayName(for: "opencode_go"), "OpenCode")
+    }
+
+    func testMeterLinesFlattenMultiPoolCLIIntoAdjacentSiblingRows() {
+        let windows = [
+            remaining(93, source: "agy", scope: .weekly,
+                      resetAt: now.addingTimeInterval(6 * 86400),
+                      poolLabel: "GEMINI MODELS"),
+            remaining(60, source: "agy", scope: .weekly,
+                      resetAt: now.addingTimeInterval(2 * 86400),
+                      poolLabel: "CLAUDE AND GPT MODELS"),
+            used(40, source: "codex", scope: .weekly,
+                 resetAt: now.addingTimeInterval(5 * 86400)),
+        ]
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        let ordered = CapacityStripRenderer.ordered(rows: rows, notReadyOrParked: [])
+        let lines = CapacityStripRenderer.CapacityMeterLine.flatten(rows: ordered)
+        let titles = lines.map(\.title)
+        XCTAssertEqual(
+            titles,
+            ["Codex/ChatGPT", "Antigravity · Gemini", "Antigravity · Claude/GPT"],
+            "each measured pool is its own row; CLI siblings stay adjacent"
+        )
+        XCTAssertEqual(lines.filter { $0.source == "agy" }.count, 2)
+        XCTAssertTrue(lines.first { $0.source == "agy" }?.isFirstOfSource == true)
+        XCTAssertTrue(lines.last { $0.source == "agy" }?.isFirstOfSource == false)
+    }
+
     // MARK: - Helpers
 
     /// The strip prints an "Expiring soon with headroom" banner above the table,

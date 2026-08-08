@@ -407,6 +407,100 @@ final class CapacityStripModelTests: XCTestCase {
         )
     }
 
+    // MARK: - Refresh elevation (never sampled / stale → amber)
+
+    func testRefreshElevatesWhenAnySeatIsNeverSampled() {
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.mixedWindows(),
+            now: CapacityStripFixtures.now
+        )
+        XCTAssertTrue(
+            model.refreshIsElevated,
+            "Claude and Qwen are neverSampled in the mixed fixture — Refresh is the strip primary"
+        )
+    }
+
+    func testRefreshElevatesWhenNewestSampleIsOlderThanOneHour() {
+        let now = CapacityStripFixtures.now
+        let windows = [
+            CapacityWindow(
+                used: 40,
+                source: "codex",
+                scope: .weekly,
+                resetAt: now.addingTimeInterval(5 * 86400),
+                resetPrecision: .exact,
+                observedAt: now.addingTimeInterval(-(CapacityStripModel.staleAge + 60)),
+                sourceTier: .tuiProbe,
+                planTier: "Plus"
+            ),
+        ]
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        XCTAssertTrue(
+            CapacityStripModel.refreshIsElevated(
+                benchRows: rows,
+                benchObservedAt: now.addingTimeInterval(-(CapacityStripModel.staleAge + 60)),
+                now: now
+            ),
+            "a sample older than one hour is stale — elevate Refresh"
+        )
+    }
+
+    func testRefreshStaysQuietWhenEverySeatIsFreshlySampled() {
+        let now = CapacityStripFixtures.now
+        let windows = [
+            CapacityWindow(
+                used: 40,
+                source: "codex",
+                scope: .weekly,
+                resetAt: now.addingTimeInterval(5 * 86400),
+                resetPrecision: .exact,
+                observedAt: now.addingTimeInterval(-45),
+                sourceTier: .tuiProbe,
+                planTier: "Plus"
+            ),
+        ]
+        let rows = CapacityBenchProjection.rows(from: windows, now: now)
+        XCTAssertFalse(
+            CapacityStripModel.refreshIsElevated(
+                benchRows: rows,
+                benchObservedAt: now.addingTimeInterval(-45),
+                now: now
+            ),
+            "fresh, fully sampled board — Refresh is chrome, not the primary"
+        )
+    }
+
+    func testMeterLinesKeepSeatCountAsCLICountNotPoolCount() {
+        let model = CapacityStripModel()
+        model.seedFixture(
+            windows: CapacityStripFixtures.mixedWindows(),
+            now: CapacityStripFixtures.now
+        )
+        XCTAssertGreaterThan(
+            model.meterLines.count,
+            model.onBenchCount,
+            "Antigravity's two pools must add meter lines without inflating seat count"
+        )
+        XCTAssertTrue(
+            model.meterLines.contains { $0.title == "Antigravity · Gemini" }
+        )
+        XCTAssertTrue(
+            model.meterLines.contains { $0.title == "Antigravity · Claude/GPT" }
+        )
+        XCTAssertTrue(
+            model.meterLines.contains { $0.title == "OpenCode" },
+            "OpenCode is the CLI name; Go stays the plan tier"
+        )
+        XCTAssertTrue(
+            model.meterLines.contains { $0.title == "Cursor · Auto" }
+        )
+        XCTAssertTrue(
+            model.meterLines.contains { $0.title == "Cursor · API" },
+            "Cursor Auto and API are separate meters"
+        )
+    }
+
     // MARK: - CWB-S01a: strip runs through the resident funnel
 
     /// Resident single-flight: a second full refresh coalesces on the in-flight

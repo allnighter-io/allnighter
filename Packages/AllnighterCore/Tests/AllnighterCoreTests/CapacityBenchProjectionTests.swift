@@ -173,15 +173,20 @@ final class CapacityBenchProjectionTests: XCTestCase {
 
         let windows = [
             used(27, source: "cursor_agent", scope: .monthly, resetAt: resetAt,
-                 precision: .day, poolLabel: "Included", planTier: "Ultra",
+                 precision: .day, poolLabel: "Auto", planTier: "Ultra",
                  onDemand: CapacityPaidAmount(used: 0, cap: 1, remaining: 1, unit: "$")),
+            used(41, source: "cursor_agent", scope: .monthly, resetAt: resetAt,
+                 precision: .day, poolLabel: "API", planTier: "Ultra"),
         ]
 
         let rows = CapacityBenchProjection.rows(from: windows, now: now)
         XCTAssertEqual(rows.count, 1)
         let row = rows[0]
+        XCTAssertEqual(row.pools.count, 2)
+        XCTAssertEqual(row.pools.map(\.poolLabel), ["Auto", "API"])
         XCTAssertEqual(row.pools[0].dashboardScope, .monthly)
         XCTAssertEqual(row.pools[0].dashboardRemainingPercent, 73.0)
+        XCTAssertEqual(row.pools[1].dashboardRemainingPercent, 59.0)
         XCTAssertEqual(row.pools[0].dashboardResetPrecision, .day)
         XCTAssertEqual(row.pools[0].dashboardResetAt, resetAt)
         XCTAssertEqual(row.planTier, "Ultra")

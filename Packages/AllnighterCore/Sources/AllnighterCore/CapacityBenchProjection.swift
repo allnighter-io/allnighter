@@ -65,10 +65,9 @@ public struct CapacityBenchPoolMetrics: Sendable, Equatable, Codable {
 
 // MARK: - Row (one CLI)
 
-/// One capacity-strip row — **one source, never two**. Multi-pool CLIs (agy) carry
-/// pools inside `pools`, not as sibling rows.
-///
-/// Pure surface: no clock reads, no IO. `now` is always a call-site parameter.
+/// One capacity-strip **CLI** — multi-pool sources still project as one row with
+/// `pools` inside. The Mac strip flattens those pools into adjacent meter lines
+/// (`Antigravity · Gemini`) via `CapacityMeterLine.flatten`.
 public struct CapacityBenchRow: Sendable, Equatable, Codable {
     public let source: String
     public let planTier: String?

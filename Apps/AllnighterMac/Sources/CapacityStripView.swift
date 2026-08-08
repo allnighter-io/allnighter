@@ -1,48 +1,39 @@
 import SwiftUI
 import AllnighterCore
 
-/// Column geometry for the bench table — **one** definition, read by the column
-/// headers and by every row.
-///
-/// A width declared in two places is a width that drifts. The weekly bars used
-/// to start at a different x on every row because single-pool and multi-pool
-/// lines were separate views with separate constants; both now render through
-/// `weeklyPoolLine` against these numbers, so the bars share one left edge and
-/// are actually comparable down the column.
+/// Column geometry for the bench table — **one** definition, read by headers
+/// and every meter row. No pool-label gutter: pool identity lives in the title
+/// (`Antigravity · Gemini`), so every weekly bar shares one left edge.
 private enum CapacityStripLayout {
-    // Outer table columns.
     static let rowInset: CGFloat = 24
     /// Headers sit slightly inboard of the rows — the row's leading chevron is
     /// chrome, not a column, so the label lines up with the CLI glyph instead.
     static let headerInset: CGFloat = 34
     static let columnGap: CGFloat = 18
-    static let shortWidth: CGFloat = 88
+    static let shortWidth: CGFloat = 72
     static let ageWidth: CGFloat = 72
 
-    // Weekly-cell sub-columns. Every pool line uses all four, always.
-    static let poolLabelWidth: CGFloat = 62
     static let barWidth: CGFloat = 68
     static let percentWidth: CGFloat = 46
     static let resetWidth: CGFloat = 54
     static let cellGap: CGFloat = 10
 
-    /// Pool lines are fixed-height so the weekly and 5h columns stay on shared
-    /// baselines however many pools a row carries.
-    static let poolLineHeight: CGFloat = 18
-    static let poolLineSpacing: CGFloat = 8
+    static var weeklyMetricsWidth: CGFloat {
+        barWidth + cellGap + percentWidth + cellGap + resetWidth
+    }
 }
 
 /// Launch-surface capacity strip — renders the same Core projection the CLI prints.
 ///
-/// Locked product law (`docs/phases/CLI_Capacity_TUI_Sampling.md` §Launch surface):
-/// one row per CLI, fixed order, weekly bars + 5h numbers, age chip = per-row
-/// refresh, three colours only (neutral / amber / red), no status dots, no green.
+/// Product law: **if we measure capacity, it gets a row.** Multi-pool CLIs become
+/// adjacent sibling lines (`Antigravity · Gemini`, `Antigravity · Claude/GPT`),
+/// not nested columns. Seat count = CLIs. Three colours only (neutral / amber / red).
 struct CapacityStripView: View {
     @Bindable var model: CapacityStripModel
     /// Optional CTA: hero "Start a run on X" focuses the composer seat.
     var onHeroStart: ((String) -> Void)? = nil
 
-    @State private var expandedSources: Set<String> = []
+    @State private var expandedMeters: Set<String> = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,15 +43,16 @@ struct CapacityStripView: View {
                 columnHeaders
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(model.benchRows, id: \.source) { row in
-                            CapacityStripRowView(
-                                row: row,
+                        ForEach(model.meterLines) { line in
+                            CapacityStripMeterRowView(
+                                line: line,
+                                parent: model.benchRow(for: line),
                                 now: model.now,
-                                isRefreshing: model.isRefreshing(row.source),
-                                showsOwnAge: model.showsOwnAge(row),
-                                isExpanded: expandedSources.contains(row.source),
-                                onToggleExpand: { toggleExpand(row.source) },
-                                onRefresh: { model.refreshSource(row.source) }
+                                isRefreshing: model.isRefreshing(line.source),
+                                showsOwnAge: model.benchRow(for: line).map { model.showsOwnAge($0) } ?? true,
+                                isExpanded: expandedMeters.contains(line.id),
+                                onToggleExpand: { toggleExpand(line.id) },
+                                onRefresh: { model.refreshSource(line.source) }
                             )
                         }
                         parkedFooter
@@ -108,11 +100,6 @@ struct CapacityStripView: View {
 
     // MARK: - Hero
 
-    /// The launch surface's answer to "which seat should I use right now?"
-    ///
-    /// Present whenever the bench has a usable number, in one of two moods. An
-    /// earlier version rendered only for an expiring seat, which left the page
-    /// opening on a bare table on any ordinary day.
     @ViewBuilder
     private var heroZone: some View {
         if let hero = model.hero {
@@ -127,11 +114,6 @@ struct CapacityStripView: View {
         }
     }
 
-    /// Amber wash for the seat you are about to lose; a quiet one when nothing
-    /// is at stake.
-    ///
-    /// Amber has to keep meaning "money is about to evaporate". Spending it on a
-    /// calm day is how a colour stops being read.
     private func heroBackground(_ mood: CapacityHeroPresentation.Mood) -> some View {
         let wash: [Color] = mood == .expiring
             ? [ALColor.accent.opacity(0.10), ALColor.accent.opacity(0.02), ALColor.base]
@@ -192,8 +174,6 @@ struct CapacityStripView: View {
         }
     }
 
-    /// The one big line. Amber marks the number only when it is at risk —
-    /// on a calm bench the same colour would be crying wolf.
     private func heroHeadline(_ hero: CapacityHeroPresentation) -> Text {
         let name = Text("\(hero.displayName) — ").foregroundStyle(ALColor.textPrimary)
         let percent = Text(CapacityStripRenderer.formatPercent(hero.remainingPercent))
@@ -216,8 +196,6 @@ struct CapacityStripView: View {
 
     // MARK: - Strip chrome
 
-    /// The strip's one chrome band: what you have, when we last looked, and the
-    /// only control that changes either.
     private var stripHeader: some View {
         HStack(alignment: .center, spacing: 10) {
             Text("Your bench")
@@ -225,18 +203,10 @@ struct CapacityStripView: View {
                 .tracking(0.8)
                 .textCase(.uppercase)
                 .foregroundStyle(ALColor.textFaint)
-            // "on bench" under a heading that already says YOUR BENCH said the
-            // word twice in five.
             Text("· \(model.onBenchCount) seats")
                 .font(ALFont.sans(11))
                 .foregroundStyle(ALColor.textFaint)
             Spacer()
-            // One clock for the whole table. The rows are probed in one wave, so
-            // a per-row timestamp was the same fact copied eight times; it lives
-            // here now and only a divergent row prints its own.
-            //
-            // Freshness sits beside the button, never inside it — a label that
-            // reflows every minute would make the control jump under the cursor.
             Text(model.freshnessLine)
                 .font(ALFont.sans(11))
                 .foregroundStyle(ALColor.textFaint)
@@ -253,22 +223,37 @@ struct CapacityStripView: View {
                             .font(.system(size: 10, weight: .semibold))
                     }
                     Text("Refresh")
-                        .font(ALFont.sans(11, .medium))
+                        .font(ALFont.sans(11, .semibold))
                 }
-                .foregroundStyle(ALColor.textSecondary)
+                .foregroundStyle(
+                    model.refreshIsElevated ? ALColor.accentText : ALColor.textSecondary
+                )
                 .padding(.horizontal, 10)
                 .padding(.vertical, 4)
-                .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+                .background(
+                    model.refreshIsElevated
+                        ? ALColor.accent.opacity(0.14)
+                        : ALColor.raised,
+                    in: RoundedRectangle(cornerRadius: ALRadius.sm)
+                )
                 .overlay {
                     RoundedRectangle(cornerRadius: ALRadius.sm)
-                        .strokeBorder(ALColor.borderDefault, lineWidth: 1)
+                        .strokeBorder(
+                            model.refreshIsElevated
+                                ? ALColor.accentBorder
+                                : ALColor.borderDefault,
+                            lineWidth: 1
+                        )
                 }
             }
             .buttonStyle(.plain)
             .disabled(model.isRefreshingAll)
             .help("Refresh every seat so the strip stays comparable")
-            // Turning capacity off is a setting, not a reading-path action; it
-            // does not deserve a permanent tab stop next to Refresh.
+            .accessibilityLabel(
+                model.refreshIsElevated
+                    ? "Refresh bench — samples missing or stale"
+                    : "Refresh every seat"
+            )
             Menu {
                 Button("Turn off capacity checks") { model.disableFeature() }
             } label: {
@@ -286,11 +271,6 @@ struct CapacityStripView: View {
         .padding(.bottom, 10)
     }
 
-    /// Parked / not-ready seats, named once under the table.
-    ///
-    /// They are absent from the bench count above precisely because they cannot
-    /// take work; naming them here is what keeps that count from reading as a
-    /// seat that quietly vanished.
     @ViewBuilder
     private var parkedFooter: some View {
         let parked = model.parkedDisplayNames
@@ -308,12 +288,10 @@ struct CapacityStripView: View {
         HStack(spacing: CapacityStripLayout.columnGap) {
             Text("CLI")
                 .frame(maxWidth: .infinity, alignment: .leading)
-            // "Headroom" and "window" are our vocabulary, not the reader's. The
-            // percentages underneath explain themselves.
             Text("This week")
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: CapacityStripLayout.weeklyMetricsWidth, alignment: .leading)
             Text("Last 5h")
-                .frame(width: CapacityStripLayout.shortWidth, alignment: .leading)
+                .frame(width: CapacityStripLayout.shortWidth, alignment: .trailing)
             Text("")
                 .frame(width: CapacityStripLayout.ageWidth, alignment: .trailing)
         }
@@ -328,23 +306,22 @@ struct CapacityStripView: View {
         }
     }
 
-    private func toggleExpand(_ source: String) {
-        if expandedSources.contains(source) {
-            expandedSources.remove(source)
+    private func toggleExpand(_ id: String) {
+        if expandedMeters.contains(id) {
+            expandedMeters.remove(id)
         } else {
-            expandedSources.insert(source)
+            expandedMeters.insert(id)
         }
     }
 }
 
-// MARK: - Row
+// MARK: - Meter row (one shape for every line)
 
-private struct CapacityStripRowView: View {
-    let row: CapacityBenchRow
+private struct CapacityStripMeterRowView: View {
+    let line: CapacityStripRenderer.CapacityMeterLine
+    let parent: CapacityBenchRow?
     let now: Date
     let isRefreshing: Bool
-    /// True only when this row's sample time cannot be vouched for by the
-    /// header — a seat refreshed alone, or one whose age we cannot determine.
     let showsOwnAge: Bool
     let isExpanded: Bool
     let onToggleExpand: () -> Void
@@ -353,28 +330,27 @@ private struct CapacityStripRowView: View {
     @State private var hovering = false
 
     private var color: CapacityStripColor {
-        CapacityStripRenderer.color(for: row, now: now)
+        guard let parent else { return .neutral }
+        return CapacityStripRenderer.color(for: parent, now: now)
     }
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(alignment: .center, spacing: CapacityStripLayout.columnGap) {
-                cliColumn
+                titleColumn
                     .frame(maxWidth: .infinity, alignment: .leading)
                 weeklyColumn
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(width: CapacityStripLayout.weeklyMetricsWidth, alignment: .leading)
                 shortColumn
-                    .frame(width: CapacityStripLayout.shortWidth, alignment: .leading)
-                // The column keeps its width whether or not a chip prints, so
-                // the metric columns above never shift when one seat diverges.
+                    .frame(width: CapacityStripLayout.shortWidth, alignment: .trailing)
                 trailingColumn
                     .frame(width: CapacityStripLayout.ageWidth, alignment: .trailing)
             }
             .padding(.horizontal, CapacityStripLayout.rowInset)
-            .padding(.vertical, 12)
+            .padding(.vertical, 10)
 
-            if isExpanded {
-                detailDisclosure
+            if isExpanded, let parent {
+                detailDisclosure(parent)
                     .padding(.horizontal, CapacityStripLayout.rowInset)
                     .padding(.bottom, 12)
             }
@@ -388,27 +364,10 @@ private struct CapacityStripRowView: View {
         .onTapGesture { onToggleExpand() }
     }
 
-    /// Age chip, refresh button, or nothing.
-    ///
-    /// Silence here means "this row was sampled with the rest of the bench, and
-    /// the header already said when." It must never mean "we could not tell" —
-    /// `showsOwnAge` is computed to fail loud, so an undeterminable age prints
-    /// rather than hides.
-    @ViewBuilder
-    private var trailingColumn: some View {
-        if isRefreshing || showsOwnAge {
-            ageChip
-        } else if hovering {
-            refreshOnlyChip
-        }
-    }
+    // MARK: Title
 
-    // MARK: CLI name + plan + disclosure
-
-    private var cliColumn: some View {
+    private var titleColumn: some View {
         HStack(alignment: .center, spacing: 8) {
-            // Eight resting chevrons advertise a disclosure almost nobody opens.
-            // The affordance appears on approach; the whole row stays clickable.
             Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                 .font(.system(size: 9, weight: .semibold))
                 .foregroundStyle(ALColor.textFaint)
@@ -416,7 +375,7 @@ private struct CapacityStripRowView: View {
                 .opacity(isExpanded || hovering ? 1 : 0)
 
             DriverBrandGlyph(
-                driverId: glyphDriverId(row.source),
+                driverId: glyphDriverId(line.source),
                 boxSize: 20,
                 iconSize: 11,
                 cornerRadius: 5,
@@ -424,13 +383,13 @@ private struct CapacityStripRowView: View {
             )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(CapacityStripRenderer.displayName(for: row.source))
+                Text(line.title)
                     .font(ALFont.sans(13, .medium))
                     .foregroundStyle(ALColor.textPrimary)
-                // Plan tier only. The old fallback listed this row's pool names
-                // here — the same names already sitting beside their own numbers
-                // one column over, so the row said "Gemini, Claude/GPT" twice.
-                if let plan = row.planTier, !plan.isEmpty {
+                    .lineLimit(1)
+                // Plan on the first sibling only — Antigravity · Gemini and
+                // · Claude/GPT share one plan; repeating it is noise.
+                if line.isFirstOfSource, let plan = line.planTier, !plan.isEmpty {
                     Text(plan)
                         .font(ALFont.sans(10))
                         .foregroundStyle(ALColor.textFaint)
@@ -439,106 +398,36 @@ private struct CapacityStripRowView: View {
         }
     }
 
-    // MARK: Pool lines — the one shape both metric columns render
-
-    /// One rendered line inside the weekly and 5h columns.
-    ///
-    /// Single-pool and multi-pool rows produce the *same* line, label column and
-    /// all. That is what keeps the bars aligned: there is no second code path
-    /// that can omit a column.
-    private struct PoolLine: Identifiable {
-        let id: Int
-        let label: String
-        let pool: CapacityBenchPoolMetrics
-    }
-
-    /// Pools in display order, each with its resolved label.
-    ///
-    /// A pool the vendor did not name is that row's whole allowance, so it reads
-    /// `Total` and sorts first. Vendor-named pools (Fable, Gemini, Claude/GPT)
-    /// keep their own name and their own order — a named bucket is a vendor fact
-    /// and must never be relabelled as a total it does not cover.
-    private var poolLines: [PoolLine] {
-        let unnamed = row.pools.filter { ($0.poolLabel ?? "").isEmpty }
-        let named = row.pools.filter { !($0.poolLabel ?? "").isEmpty }
-        return (unnamed + named).enumerated().map { index, pool in
-            PoolLine(id: index, label: poolLineLabel(pool), pool: pool)
-        }
-    }
-
-    /// A pool's label, or empty when the row has nothing to disambiguate.
-    ///
-    /// "Total" on a single-pool row labels the only thing there is — eight rows
-    /// of a word that never varies. The *column* stays (its fixed width is what
-    /// keeps every bar on one left edge); only the text goes.
-    private func poolLineLabel(_ pool: CapacityBenchPoolMetrics) -> String {
-        guard let label = pool.poolLabel, !label.isEmpty else {
-            return row.pools.count > 1 ? "Total" : ""
-        }
-        return compressPoolLabel(label)
-    }
-
-    // MARK: Weekly / monthly
+    // MARK: This week — [bar][%][reset], always the same three slots
 
     @ViewBuilder
     private var weeklyColumn: some View {
-        if let reason = row.unknownReason {
-            // "unknown — parser failed 08-07" is a stack trace wearing a
-            // sentence: the reader cannot fix a parser and does not know they
-            // have one. The dash says the same thing the other unknown cells
-            // say; the reason waits in the expanded row for whoever asks.
+        if line.rowUnknownReason != nil {
             Text("—")
                 .font(ALFont.mono(13))
                 .foregroundStyle(ALColor.textFaint)
-                .help(CapacityStripRenderer.unknownCopy(reason))
-        } else if poolLines.isEmpty {
-            Text("—")
-                .font(ALFont.mono(13))
-                .foregroundStyle(ALColor.textFaint)
-        } else {
-            VStack(alignment: .leading, spacing: CapacityStripLayout.poolLineSpacing) {
-                ForEach(poolLines) { line in
-                    weeklyPoolLine(line)
+                .help(line.rowUnknownReason.map { CapacityStripRenderer.unknownCopy($0) } ?? "")
+        } else if let pool = line.pool, let remaining = pool.dashboardRemainingPercent {
+            HStack(spacing: CapacityStripLayout.cellGap) {
+                CapacityBar(remaining: remaining, color: color)
+                Text(CapacityStripRenderer.formatPercent(remaining))
+                    .font(ALFont.mono(13))
+                    .foregroundStyle(toneColor)
+                    .frame(width: CapacityStripLayout.percentWidth, alignment: .trailing)
+                Group {
+                    if let reset = pool.dashboardResetAt {
+                        Text(CapacityStripRenderer.relativeClock(from: now, to: reset))
+                            .foregroundStyle(toneColor.opacity(color == .neutral ? 0.75 : 1))
+                    } else {
+                        Text("—")
+                            .foregroundStyle(ALColor.textFaint)
+                    }
                 }
-            }
-        }
-    }
-
-    /// The only weekly line in the strip: `[label][bar][%][resets in]`, every
-    /// column a fixed width from `CapacityStripLayout`.
-    private func weeklyPoolLine(_ line: PoolLine) -> some View {
-        HStack(spacing: CapacityStripLayout.cellGap) {
-            Text(line.label)
-                .font(ALFont.sans(10))
-                .foregroundStyle(ALColor.textFaint)
+                .font(ALFont.mono(11))
                 .lineLimit(1)
-                .frame(width: CapacityStripLayout.poolLabelWidth, alignment: .leading)
-            weeklyPoolMetrics(line.pool)
-        }
-        .frame(height: CapacityStripLayout.poolLineHeight)
-    }
-
-    @ViewBuilder
-    private func weeklyPoolMetrics(_ pool: CapacityBenchPoolMetrics) -> some View {
-        if let remaining = pool.dashboardRemainingPercent {
-            CapacityBar(remaining: remaining, color: color)
-            Text(CapacityStripRenderer.formatPercent(remaining))
-                .font(ALFont.mono(13))
-                .foregroundStyle(toneColor)
-                .frame(width: CapacityStripLayout.percentWidth, alignment: .trailing)
-            Group {
-                if let reset = pool.dashboardResetAt {
-                    Text(CapacityStripRenderer.relativeClock(from: now, to: reset))
-                        .foregroundStyle(toneColor.opacity(color == .neutral ? 0.75 : 1))
-                } else {
-                    Text("—")
-                        .foregroundStyle(ALColor.textFaint)
-                }
+                .frame(width: CapacityStripLayout.resetWidth, alignment: .leading)
             }
-            .font(ALFont.mono(11))
-            .lineLimit(1)
-            .frame(width: CapacityStripLayout.resetWidth, alignment: .leading)
-        } else if let reason = pool.unknownReason {
+        } else if let pool = line.pool, let reason = pool.unknownReason {
             Text(CapacityStripRenderer.unknownCopy(reason))
                 .font(ALFont.sans(11))
                 .foregroundStyle(ALColor.textFaint)
@@ -551,41 +440,22 @@ private struct CapacityStripRowView: View {
         }
     }
 
-    // MARK: 5h (numbers only — no bar)
+    // MARK: Last 5h
 
     @ViewBuilder
     private var shortColumn: some View {
-        if row.unknownReason != nil {
-            Text("—")
-                .font(ALFont.mono(13))
-                .foregroundStyle(ALColor.textFaint)
-        } else if poolLines.isEmpty {
-            Text("—")
-                .font(ALFont.mono(13))
-                .foregroundStyle(ALColor.textFaint)
-        } else {
-            // Same lines, same order, same heights as the weekly column — that is
-            // what keeps a pool's 5h number level with its own weekly bar.
-            VStack(alignment: .leading, spacing: CapacityStripLayout.poolLineSpacing) {
-                ForEach(poolLines) { line in
-                    shortCell(pool: line.pool)
-                        .frame(height: CapacityStripLayout.poolLineHeight, alignment: .leading)
-                }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private func shortCell(pool: CapacityBenchPoolMetrics) -> some View {
-        switch shortPresentation(pool: pool) {
+        switch shortPresentation {
         case .none:
-            // Genuine product fact for seats with no short window (Grok, Cursor).
             Text("—")
                 .font(ALFont.mono(13))
                 .foregroundStyle(ALPalette.ink500)
         case .unknown:
             Text("unknown")
                 .font(ALFont.sans(12))
+                .foregroundStyle(ALColor.textFaint)
+        case .dash:
+            Text("—")
+                .font(ALFont.mono(13))
                 .foregroundStyle(ALColor.textFaint)
         case .known(let remaining):
             Text(CapacityStripRenderer.formatPercent(remaining))
@@ -594,21 +464,25 @@ private struct CapacityStripRowView: View {
         }
     }
 
-    private enum ShortCell {
+    private enum ShortPresentation {
         case none
         case unknown
+        case dash
         case known(Double)
     }
 
-    /// Effective availability for the short column — same law as the CLI renderer.
-    private func shortPresentation(pool: CapacityBenchPoolMetrics) -> ShortCell {
+    /// This meter's own short window, floored by its own weekly/monthly sample —
+    /// never by a sibling pool on the same CLI.
+    private var shortPresentation: ShortPresentation {
+        if line.rowUnknownReason != nil { return .dash }
+        guard let pool = line.pool else { return .dash }
         switch pool.shortWindow {
         case .none:
             return .none
         case .unknown:
             return .unknown
         case .known(let shortRemaining, _, _, _, _):
-            var floored = row.effectiveRemainingPercent.map { min($0, shortRemaining) } ?? shortRemaining
+            var floored = shortRemaining
             if let dash = pool.dashboardRemainingPercent {
                 floored = min(floored, dash)
             }
@@ -616,10 +490,19 @@ private struct CapacityStripRowView: View {
         }
     }
 
-    // MARK: Age chip = per-row refresh
+    // MARK: Trailing chrome — first sibling of a CLI only
 
-    /// Refresh with no timestamp — for a row that agrees with the header and so
-    /// has no age worth printing, but still deserves its own button on hover.
+    @ViewBuilder
+    private var trailingColumn: some View {
+        if line.isFirstOfSource {
+            if isRefreshing || showsOwnAge {
+                ageChip
+            } else if hovering {
+                refreshOnlyChip
+            }
+        }
+    }
+
     private var refreshOnlyChip: some View {
         Button(action: onRefresh) {
             Image(systemName: "arrow.clockwise")
@@ -631,7 +514,7 @@ private struct CapacityStripRowView: View {
         }
         .buttonStyle(.plain)
         .help("Refresh this seat only")
-        .accessibilityLabel("Refresh \(CapacityStripRenderer.displayName(for: row.source))")
+        .accessibilityLabel("Refresh \(line.title)")
     }
 
     private var ageChip: some View {
@@ -641,10 +524,8 @@ private struct CapacityStripRowView: View {
                     ProgressView()
                         .controlSize(.mini)
                         .frame(width: 10, height: 10)
-                } else {
-                    // Bare duration — "ago" once in the header reads as English;
-                    // eight of them down a column is a stutter.
-                    Text(CapacityStripRenderer.bareAgeLabel(for: row, now: now))
+                } else if let parent {
+                    Text(CapacityStripRenderer.bareAgeLabel(for: parent, now: now))
                         .font(ALFont.mono(11))
                         .foregroundStyle(ALColor.textFaint)
                     Image(systemName: "arrow.clockwise")
@@ -660,17 +541,18 @@ private struct CapacityStripRowView: View {
         .buttonStyle(.plain)
         .disabled(isRefreshing)
         .help("Refresh this seat only")
-        .accessibilityLabel("Refresh \(CapacityStripRenderer.displayName(for: row.source))")
+        .accessibilityLabel("Refresh \(line.title)")
     }
 
-    // MARK: Detail disclosure (provenance)
+    // MARK: Detail
 
-    private var detailDisclosure: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            ForEach(Array(row.rawWindows.enumerated()), id: \.offset) { _, window in
-                detailLine(window)
+    private func detailDisclosure(_ row: CapacityBenchRow) -> some View {
+        let windows = disclosureWindows(in: row)
+        return VStack(alignment: .leading, spacing: 4) {
+            ForEach(Array(windows.enumerated()), id: \.offset) { _, window in
+                detailLine(window, row: row)
             }
-            if row.rawWindows.isEmpty, let reason = row.unknownReason {
+            if windows.isEmpty, let reason = row.unknownReason {
                 detailKV("Unknown", CapacityStripRenderer.unknownCopy(reason))
             }
         }
@@ -684,7 +566,15 @@ private struct CapacityStripRowView: View {
         }
     }
 
-    private func detailLine(_ window: CapacityWindow) -> some View {
+    /// Prefer this meter's pool windows; fall back to the whole seat.
+    private func disclosureWindows(in row: CapacityBenchRow) -> [CapacityWindow] {
+        guard let pool = line.pool else { return row.rawWindows }
+        let key = pool.poolLabel ?? ""
+        let matched = row.rawWindows.filter { ($0.poolLabel ?? "") == key }
+        return matched.isEmpty ? row.rawWindows : matched
+    }
+
+    private func detailLine(_ window: CapacityWindow, row: CapacityBenchRow) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             if let reason = window.unknownReason {
                 detailKV(scopeLabel(window), CapacityStripRenderer.unknownCopy(reason))
@@ -701,10 +591,7 @@ private struct CapacityStripRowView: View {
             if let raw = vendorSnippet(window) {
                 detailKV("Vendor said", raw)
             }
-            detailKV(
-                "Observed",
-                CapacityStripRenderer.ageLabel(for: row, now: now)
-            )
+            detailKV("Observed", CapacityStripRenderer.ageLabel(for: row, now: now))
         }
         .padding(.bottom, 4)
     }
@@ -724,7 +611,7 @@ private struct CapacityStripRowView: View {
 
     private func scopeLabel(_ window: CapacityWindow) -> String {
         var parts: [String] = []
-        if let pool = window.poolLabel {
+        if let pool = window.poolLabel, !pool.isEmpty {
             parts.append(compressPoolLabel(pool))
         }
         switch window.scope {
@@ -762,8 +649,6 @@ private struct CapacityStripRowView: View {
         return nil
     }
 
-    // MARK: Tone
-
     private var toneColor: Color {
         switch color {
         case .neutral: return ALColor.textPrimary
@@ -780,13 +665,11 @@ private struct CapacityBar: View {
     let color: CapacityStripColor
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .leading) {
-                Capsule().fill(ALPalette.ink650)
-                Capsule()
-                    .fill(fill)
-                    .frame(width: max(2, geo.size.width * CGFloat(clamped / 100)))
-            }
+        ZStack(alignment: .leading) {
+            Capsule().fill(ALPalette.ink650)
+            Capsule()
+                .fill(fill)
+                .frame(width: max(2, CapacityStripLayout.barWidth * CGFloat(clamped / 100)))
         }
         .frame(width: CapacityStripLayout.barWidth, height: 5)
     }

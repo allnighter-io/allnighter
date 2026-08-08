@@ -121,7 +121,21 @@ final class CapacityStripModel {
     }
 
     /// Seats that can actually take work — the header's one number.
+    ///
+    /// Count of CLIs, not flattened meter lines. Antigravity's two pools are
+    /// still one seat on the bench.
     var onBenchCount: Int { benchRows.count }
+
+    /// Flattened table rows: one measured capacity → one line. CLI siblings stay
+    /// adjacent (`Antigravity · Gemini` then `Antigravity · Claude/GPT`).
+    var meterLines: [CapacityStripRenderer.CapacityMeterLine] {
+        CapacityStripRenderer.CapacityMeterLine.flatten(rows: benchRows)
+    }
+
+    /// Parent CLI row for a meter line (age, colour, disclosure).
+    func benchRow(for line: CapacityStripRenderer.CapacityMeterLine) -> CapacityBenchRow? {
+        benchRows.first { $0.source == line.source }
+    }
 
     /// Parked / not-ready seats by display name, for the footer note.
     ///
@@ -144,6 +158,33 @@ final class CapacityStripModel {
             benchObservedAt: benchObservedAt,
             now: now
         )
+    }
+
+    /// Age past which the strip's sample is stale and Refresh becomes the
+    /// surface primary (amber). One hour matches "numbers I can still trust."
+    static let staleAge: TimeInterval = 3600
+
+    /// Elevate Refresh when the board still needs a real look — any seat never
+    /// sampled, no bench observation yet, or the newest sample is older than
+    /// `staleAge`. Calm when every on-bench seat has a fresh number.
+    var refreshIsElevated: Bool {
+        Self.refreshIsElevated(
+            benchRows: benchRows,
+            benchObservedAt: benchObservedAt,
+            now: now
+        )
+    }
+
+    static func refreshIsElevated(
+        benchRows: [CapacityBenchRow],
+        benchObservedAt: Date?,
+        now: Date
+    ) -> Bool {
+        if benchRows.contains(where: { $0.unknownReason == .neverSampled }) {
+            return true
+        }
+        guard let sampled = benchObservedAt else { return true }
+        return now.timeIntervalSince(sampled) > staleAge
     }
 
     /// Pure so the sentences can be proven without a live resident.
@@ -560,6 +601,18 @@ enum CapacityStripFixtures {
                 resetPrecision: .day,
                 observedAt: now.addingTimeInterval(-1_800),
                 sourceTier: .tuiProbe,
+                poolLabel: "Auto",
+                planTier: "Ultra"
+            ),
+            CapacityWindow(
+                used: 41,
+                source: "cursor_agent",
+                scope: .monthly,
+                resetAt: now.addingTimeInterval(26 * 86400),
+                resetPrecision: .day,
+                observedAt: now.addingTimeInterval(-1_800),
+                sourceTier: .tuiProbe,
+                poolLabel: "API",
                 planTier: "Ultra"
             ),
             CapacityWindow(
@@ -629,6 +682,36 @@ enum CapacityStripFixtures {
                 observedAt: now.addingTimeInterval(-45),
                 sourceTier: .tuiProbe,
                 poolLabel: "CLAUDE AND GPT MODELS"
+            ),
+            // Unlabeled single-pool seat — the layout proof that empty pool
+            // labels still reserve the gutter so this bar shares an edge with
+            // Claude's "Total" / Cursor's "Included".
+            CapacityWindow(
+                remaining: 91,
+                source: "opencode_go",
+                scope: .weekly,
+                resetAt: now.addingTimeInterval(16 * 86400 + 22 * 3600),
+                resetPrecision: .minute,
+                observedAt: now.addingTimeInterval(-45),
+                sourceTier: .dashboardScrape,
+                planTier: "Go"
+            ),
+            CapacityWindow(
+                remaining: 9,
+                source: "opencode_go",
+                scope: .fiveHour,
+                resetAt: now.addingTimeInterval(4 * 3600 + 12 * 60),
+                resetPrecision: .minute,
+                observedAt: now.addingTimeInterval(-45),
+                sourceTier: .dashboardScrape,
+                planTier: "Go"
+            ),
+            CapacityWindow.unknown(
+                reason: .neverSampled,
+                source: "bailian_token_plan",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape
             ),
         ]
     }

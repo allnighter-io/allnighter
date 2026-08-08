@@ -532,25 +532,27 @@ final class CapacityWindowTests: XCTestCase {
         """
 
         let windows = CursorCapacityLog.capacityWindows(fromRender: fixture, observedAt: observed)
-        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(windows.count, 2, "Auto and API are separate Cursor meters — not one Included rollup")
 
-        let window = windows[0]
-        XCTAssertEqual(window.source, "cursor_agent")
-        XCTAssertEqual(window.scope, .monthly)
-        XCTAssertEqual(window.resetPrecision, .day)
-        XCTAssertNotEqual(window.resetPrecision, .exact)
-        XCTAssertEqual(window.sourceTier, .tuiProbe)
-        XCTAssertEqual(window.usedPercent, 27.0)
-        XCTAssertEqual(window.remainingPercent, 73.0)
-        XCTAssertEqual(window.planTier, "Ultra")
-        XCTAssertEqual(window.poolLabel, "Included")
+        XCTAssertEqual(windows.map(\.poolLabel), ["Auto", "API"])
+        for window in windows {
+            XCTAssertEqual(window.source, "cursor_agent")
+            XCTAssertEqual(window.scope, .monthly)
+            XCTAssertEqual(window.resetPrecision, .day)
+            XCTAssertNotEqual(window.resetPrecision, .exact)
+            XCTAssertEqual(window.sourceTier, .tuiProbe)
+            XCTAssertEqual(window.usedPercent, 27.0)
+            XCTAssertEqual(window.remainingPercent, 73.0)
+            XCTAssertEqual(window.planTier, "Ultra")
+        }
 
-        // Dollars stay in paid-amount, never become a percentage.
-        XCTAssertEqual(window.onDemand?.used, 0.0)
-        XCTAssertEqual(window.onDemand?.cap, 1.0)
-        XCTAssertEqual(window.onDemand?.remaining, 1.0)
-        XCTAssertEqual(window.onDemand?.unit, "$")
-        XCTAssertNotEqual(window.usedPercent, window.onDemand?.used)
+        // Dollars stay in paid-amount on the first meter only — never a percentage.
+        XCTAssertEqual(windows[0].onDemand?.used, 0.0)
+        XCTAssertEqual(windows[0].onDemand?.cap, 1.0)
+        XCTAssertEqual(windows[0].onDemand?.remaining, 1.0)
+        XCTAssertEqual(windows[0].onDemand?.unit, "$")
+        XCTAssertNil(windows[1].onDemand, "on-demand spend is seat-level — once, not duplicated")
+        XCTAssertNotEqual(windows[0].usedPercent, windows[0].onDemand?.used)
 
         var expectedReset = DateComponents()
         expectedReset.year = 2026
@@ -559,7 +561,8 @@ final class CapacityWindowTests: XCTestCase {
         expectedReset.hour = 0
         expectedReset.minute = 0
         expectedReset.second = 0
-        XCTAssertEqual(window.resetAt, calendar.date(from: expectedReset))
+        XCTAssertEqual(windows[0].resetAt, calendar.date(from: expectedReset))
+        XCTAssertEqual(windows[1].resetAt, calendar.date(from: expectedReset))
     }
 
     func testAcquisitionTierOnDiskForGrokTuiProbeForOthers() {
