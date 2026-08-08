@@ -1,13 +1,16 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **v2 — Ready for named slices (PF-S00 merged, PF-S02 narrowed).**
+Status: **v3 — PF-S00 and PF-S02 SHIPPED. PF-S01 ready. PF-S03 BLOCKED on a
+  missing evidence-contract decision (§0.3).**
   Spec Review Min `FCF51DB2` Ready (§0.1). PF-S03 carries the 2026-08-08
-  founder ruling that supersedes the Capacity Warm Bench Dock-only lock (§0.2).
+  founder ruling that supersedes the Capacity Warm Bench Dock-only lock (§0.2),
+  and the 2026-08-08 design review that found its scope named the wrong
+  function and its cheap refresh path unable to produce evidence (§0.3).
 Owner: AllnighterEngine (`SourceProbeService`, `CensusIngest`) +
 AllnighterCore (`DriverListProjector`, `ModelListProjector`, `MenuCatalog`,
 `BenchReadiness`, `TeamAssembler`, `DoctorReport`, `DispatchReadiness`);
 `alln serve` for PF-S03
-Created: 2026-08-08 · Revised: 2026-08-08 (v2 — review applied)
+Created: 2026-08-08 · Revised: 2026-08-08 (v3 — S00/S02 shipped, S03 blocked)
 Origin: Founder dogfood 2026-08-08 — `alln menu --json` reported Grok and Kimi
 as `notReady` / "Rate limited — resets Aug 14" while both CLIs answered a live
 prompt in the same minute. Founder: *"why on launch alln menu is LYING."*
@@ -77,6 +80,28 @@ Per *laws are hypotheses, revisable by founder ruling only*, this is that
 ruling. §3.6 stands. PF-S03 targets `alln serve`. **`Capacity_Warm_Bench.md`
 must be updated to drop its Dock-only host lock** — that edit belongs to CWB's
 owner, not to this packet, and is tracked as Follow-up (d).
+
+### 0.3 PF-S03 design review (2026-08-08) — GPT Sol, run `FAC7C1CB`
+
+Read-only review of PF-S03 against the code, commissioned because PF-S03 is the
+only remaining slice whose shape was argued rather than proven. It found three
+things the packet had wrong or silent about; all three were re-verified against
+the source before being written down here.
+
+| Finding | Severity | Lands in |
+| --- | --- | --- |
+| PF-S03's scope named `AppModel.refreshCapacityCooldowns()`, which never touches probe records. The real scheduler is `CapacityResidentService` (`AllnighterMacApp.swift:108`). Removing the cited `onAppear` calls would have deleted an unrelated picker cache. | Packet-breaking | §PF-S03 scope |
+| The cheap (`full: false`) path persists nothing — `setupStore.save` is inside the `if full` branch. A non-smoke 30m refresh is a no-op against the gate. | Packet-breaking | §PF-S03 missing decision |
+| No LaunchAgent/login item exists, so "the app is not running, serve is" is hand-made today and not durable across reboot. | High | §PF-S03 finding 2 |
+
+The review also confirmed PF-S03 has no compile-time dependency on PF-S02 — the
+coupling is semantic only (refreshing timestamps while retaining legacy statuses
+would make an invented verdict current again). Order preserved anyway; PF-S02
+shipped first.
+
+**Process note.** The review run itself came back `status: failed` /
+`incomplete_uncommitted` while delivering a complete answer, because the lead
+edited files in the same repo while it was in flight. See Follow-up (e).
 
 ---
 
@@ -264,7 +289,7 @@ knowledge, not about the seat.
 PF-S00 and PF-S02 stop the lie and are red today. PF-S01 is disclosure on top of
 S00. PF-S03 is structural and **must not lead** (see its note).
 
-### PF-S00 — Expire the verdict, at the projection
+### PF-S00 — Expire the verdict, at the projection — SHIPPED `c817eaba`
 
 **Scope:** one shared freshness projection, consumed by every surface that reads
 setup records:
@@ -323,7 +348,7 @@ And:   stale == true, with a nextAction whose command actually refreshes
 And:   a never-probed row reports checkedAt: null, not a fabricated time
 ```
 
-### PF-S02 — Un-invent the verdict (Allnighter half)
+### PF-S02 — Un-invent the verdict (Allnighter half) — SHIPPED `19dba3b3`, `84a86e0b`
 
 **Scope — the two red jobs, both in Allnighter:**
 
@@ -352,17 +377,23 @@ And:   the driver is not reported notReady on that basis
 
 ### PF-S03 — Re-home scheduled refresh into `alln serve` (Scheduler 2.0)
 
-**Scope:** Capacity/probe refresh is currently driven from
-`AppModel.refreshCapacityCooldowns()`, called from `TeamControlView:207`
-(`onAppear`), `RoutingComposerTargetPopover:40`, and `RoutingComposer:196`. It
-refreshes when a SwiftUI view happens to appear. App closed — or open on
-another screen — and nothing checks anything.
+**Status: BLOCKED on a missing decision (§0.3). Do not open this slice until
+the evidence contract below is ruled.**
 
-Move the periodic refresh into the `alln serve` scheduler alongside Boost seed
-(`BoostWindowOperations`), which already fires reliably overnight with the app
-closed — founder-observed, and the existence proof that serve-hosted schedules
-work. `CapacityResidentService` and `capacity.sock` (CWB S02) already ship, so
-this is largely re-homing, not new construction.
+**Scope — corrected 2026-08-08.** v2 of this packet named
+`AppModel.refreshCapacityCooldowns()` as the thing to re-home. **That is the
+wrong function.** It rescans failed-run capacity observations into an in-memory
+picker cache (`AppModel.swift:513`) and never touches probe records or
+`cli_setup.json`; the `onAppear` call sites cited in v2
+(`TeamControlView:207`, `RoutingComposerTargetPopover:40`,
+`RoutingComposer:196`) are that cache, not the refresh. They must **not** be
+mechanically removed.
+
+The real app-owned scheduler is `CapacityResidentService`, started at launch
+behind the capacity feature toggle (`AllnighterMacApp.swift:108`) with its own
+deadline schedule and a `didWakeNotification` observer. That is what PF-S03
+re-homes. `ServeDaemon` (`ServeDaemon.swift:124-178`) schedules Pending wake,
+Boost, backoff and notifications today — and no capacity/probe refresh.
 
 Founder-ruled 2026-08-08 (§0.2), superseding the CWB Dock-only host lock. In
 charter: `alln serve` is a scheduler and periodic refresh is scheduling, not run
@@ -371,7 +402,48 @@ semantics.
 **Does not fix the lie on its own.** On today's code a perfect 30-minute
 scheduler yields a *fresher* wrong answer: the stale record still projects a
 negative and the legacy verdict is still believed. **Sequencing is binding:
-PF-S00 and PF-S02 land before PF-S03.**
+PF-S00 and PF-S02 land before PF-S03.** (Both have now landed —
+`c817eaba`, `19dba3b3`, `84a86e0b`.)
+
+**Three findings that change the slice (§0.3):**
+
+1. **No arbiter exists.** Adding a schedule to serve without removing the app's
+   would run two cross-process schedulers. Resident single-flight is
+   actor-local (`CapacityResidentService.swift:440-506`); `capacity.sock` is
+   read-only and app-owned and unlinks its path at startup
+   (`CapacitySocket.swift:155-162`); `CapacityHistoryStore` explicitly accepts
+   unlocked concurrent writers; `ServeDaemonStore` is a liveness record, not a
+   lock. Serve must become the **sole** automatic scheduler, under a
+   daemon-lifetime advisory lock.
+2. **Nothing keeps serve alive across logout or reboot.** There is no
+   LaunchAgent, login item, or `KeepAlive` in the repo — serve is started by
+   `alln serve` or detached on demand by Loop commands
+   (`ServeAutoLaunch.swift:104-118`). The Works Test's `Given` is made true by
+   hand today. PF-S03 may assume it, but **may not claim** reboot continuity;
+   auto-start at login is a separate slice and a founder call (activation and
+   opt-out posture).
+3. **The cheap path cannot produce fresh evidence — this is the blocker.**
+   `SourceProbeService.probe(full: false)` persists nothing:
+   `setupStore.save` lives *inside* the `if full` branch
+   (`SourceProbeService.swift:194-212`). With a complete cache it returns the
+   records unchanged, old `lastProbeAt` included
+   (`SourceProbeService.swift:214-216`). So a 30-minute non-smoke refresh is a
+   **no-op** against `ProbeFreshnessGate`, which reads `lastProbeAt` directly.
+
+**Missing decision (must be ruled before coding):** under the current record
+model, "new `lastProbeAt` with no smoke" is a contradiction — writing the
+timestamp forward while keeping a smoke-derived status manufactures fresh
+evidence that no probe produced, which is the same defect class this packet
+exists to kill. Two candidate shapes:
+
+| Option | Shape | Cost |
+| --- | --- | --- |
+| **A — split the timestamp** | Add `lastDetectedAt` for cheap detection; leave `lastProbeAt` as smoke-only evidence. The gate ages smoke; detection answers "is the binary still there". | Record model change; PF-S01's disclosure must then name *which* clock it is reporting. |
+| **B — permit periodic smoke** | Serve runs a real `full: true` probe on the freshness clock. | Spends quota on a timer, against the user's own subscriptions. Needs a founder ruling on its own. |
+
+Lean: **A.** It is the only one that keeps "fresh" meaning "recently proven",
+and it composes with PF-S01 — a surface can honestly say *detected 4m ago,
+last proven 3h ago*. B trades the packet's core law for convenience.
 
 **Works Test:**
 ```
@@ -402,6 +474,7 @@ And:   the 30m refresh uses the cheap non-full path (no quota smoke)
 | (b) | **Version source for the heal path:** `invalidateStaleVersions` is a no-op at dispatch (`currentVersions: [:]`). Either feed it or delete it. | Dead code that reads as a working safety net is its own lie. Out of PF-S00's blast radius. |
 | (c) | **Split the clocks** if dogfood shows a 30-minute probe cadence churning verdicts. Capacity paint freshness ≠ smoke-verdict freshness. | One clock until evidence separates them. Contrarian flag 2. |
 | (d) | **Update `Capacity_Warm_Bench.md`** to drop the Dock-only host lock per §0.2. | Belongs to CWB's owner, not this packet. |
+| (e) | **Ambient-dirty misattributes a concurrent editor.** ADR-S01 narrowed the `incomplete_uncommitted` gate to paths a run introduced (`RunService.swift:2173`), but "introduced" is a git-wide set-subtract, so files the *lead* edits while a run is in flight are charged to the run. Run `FAC7C1CB` delivered a complete review and was marked `failed`. | Reopening `Ambient_Dirty_Run_Outcome.md` (archived) or a successor. It is a run-outcome semantics change — demote to warning when an answer was delivered — and does not belong inside a probe-freshness slice. Systematically punishes the founder's own prescribed "dispatch read-only diagnosis while you keep building" workflow, so it is not cosmetic. |
 
 ---
 
