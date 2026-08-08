@@ -147,9 +147,16 @@ public enum MenuSelectionCopy {
     // MARK: - Authored tables
 
     private static let actions: [String: Pair] = [
+        // `--read-only` earns the scarce useWhen slot because omitting it costs
+        // real money: the menu is the prescribed front door, so an agent that
+        // follows it dispatches every investigation as a mutating run — taking
+        // the repo write lock (serializing parallel reviews behind each other)
+        // and tripping the incomplete_uncommitted gate on a delivered answer.
+        // `--seat` moves to dontUseWhen, which has the headroom, rather than
+        // being dropped.
         "run": Pair(
-            useWhen: "Ask a worker/team; `--seat` staffs crew once",
-            dontUseWhen: "Not catalog write; teams duplicate, teams edit"
+            useWhen: "Ask a worker/team; --read-only to investigate",
+            dontUseWhen: "Not catalog write; teams duplicate/edit; --seat staffs crew"
         ),
         "teams duplicate": Pair(
             useWhen: "Copy a shipped team, edit it",
