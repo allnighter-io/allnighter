@@ -58,14 +58,42 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
 
     /// Names of M1 flags with `takesValue == false`. Single owner for argv boolean
     /// parsing (`Options.booleanFlags`) so FlagSpec cannot drift from the parser.
+    /// Flag names that are boolean in **every** m1 command that declares them.
+    ///
+    /// `Options` applies this set globally — it has no command context — so a
+    /// name that is boolean in one command and value-taking in another cannot be
+    /// both. Resolution: value-taking wins, because the failure modes are not
+    /// symmetric. Treating a value flag as boolean silently drops the value and
+    /// leaves it as a stray positional (`--answer 76` parsed as flag `answer`
+    /// plus positional `76`, so `loop resume` reported `missing required
+    /// --answer <text>` while the user had supplied it). Treating a boolean flag
+    /// as value-taking only misparses when a positional immediately follows the
+    /// flag, and every emitted form puts the flag last (`alln show <id>
+    /// --answer`).
+    ///
+    /// Collision found 2026-08-08: `show --answer` (boolean, QDR-S01) poisoned
+    /// `loop resume --answer <text>` / `relay-resume --answer <text>`.
+    /// `flagNameShapeCollisions` reports the set; the real fix is per-command
+    /// flag shape, which is a larger refactor of `Options`.
     public static func booleanFlagNames(_ registry: ContractRegistry = .milestone1) -> Set<String> {
-        Set(
-            registry.commands
-                .filter { $0.milestone == .m1 }
-                .flatMap(\.flags)
-                .filter { !$0.takesValue }
-                .map(\.name)
-        )
+        let flags = registry.commands
+            .filter { $0.milestone == .m1 }
+            .flatMap(\.flags)
+        let valueTaking = Set(flags.filter(\.takesValue).map(\.name))
+        return Set(flags.filter { !$0.takesValue }.map(\.name)).subtracting(valueTaking)
+    }
+
+    /// Flag names declared with conflicting shapes across m1 commands. Non-empty
+    /// is a smell, not a failure — `booleanFlagNames` resolves them — but each
+    /// one is a place where a caller's flag parses differently than its own
+    /// command's spec claims.
+    public static func flagNameShapeCollisions(_ registry: ContractRegistry = .milestone1) -> Set<String> {
+        let flags = registry.commands
+            .filter { $0.milestone == .m1 }
+            .flatMap(\.flags)
+        let valueTaking = Set(flags.filter(\.takesValue).map(\.name))
+        let boolean = Set(flags.filter { !$0.takesValue }.map(\.name))
+        return valueTaking.intersection(boolean)
     }
 
     /// Canonical serialization hashed by `contractHash`. Deterministic: CoreJSON

@@ -6,6 +6,27 @@ import XCTest
 /// (docs/archive/phases/CLI_Implementation_Contract.md §Generated Artifacts).
 final class ContractExportTests: XCTestCase {
 
+    /// `Options` has no command context, so its boolean-flag set is global. A
+    /// name declared boolean in one m1 command and value-taking in another gets
+    /// resolved by `booleanFlagNames` (value-taking wins). This records which
+    /// names are in that state so a new collision is a deliberate act, not a
+    /// silent parsing change in an unrelated command.
+    ///
+    /// Regression: `show --answer` (boolean) made `loop resume --answer <text>`
+    /// throw `missingRequired("--answer <text>")` with the value supplied.
+    func testFlagShapeCollisionsAreKnownAndResolvedTowardValueTaking() {
+        let collisions = ContractRegistry.flagNameShapeCollisions()
+        XCTAssertEqual(
+            collisions, ["answer"],
+            "flag-shape collisions changed: \(collisions.sorted()). Give the new flag a "
+            + "distinct name, or accept it here and confirm every emitted form puts the "
+            + "boolean use last on the command line.")
+        // Resolution: a name that takes a value anywhere is never globally boolean,
+        // so the value is not silently dropped.
+        XCTAssertFalse(ContractRegistry.booleanFlagNames().contains("answer"))
+    }
+
+
     /// Repo root, resolved from this source file:
     /// …/Packages/AllnighterCore/Tests/AllnighterCoreTests/<this>.swift → up 5.
     private var repoRoot: URL {
