@@ -554,14 +554,44 @@ final class TeamResolverTests: XCTestCase {
             readyModels: ready, capabilities: caps)
         XCTAssertTrue(r.isRunnable)
         XCTAssertEqual(r.planWriter?.modelId, "model_fable")
-        XCTAssertEqual(
-            r.answerWorkers.map(\.modelId),
-            ["model_gpt_sol", "model_cursor_fable", "model_kimi_k3"])
         XCTAssertFalse(r.answerWorkers.map(\.modelId).contains(haikuId))
-        let answerFamilies = Set(r.answerWorkers.map { w in
-            ModelCatalog.modelFamily(w.modelId, driverId: ready.first { $0.id == w.modelId }?.driverId)
-        })
-        XCTAssertEqual(answerFamilies, Set(["gpt", "claude", "kimi"]))
+
+        // Assert the SEATING LAW, not a snapshot of today's catalog. Founder
+        // 2026-08-08: "Seating should not be hardcoded because if a new model
+        // gets introduced and we give it a higher rank it should get auto
+        // seated." A frozen id list turns every catalog addition into a red
+        // test and tempts the next reader to edit the expectation until it
+        // passes — which is how this test drifted for three catalog changes
+        // (OpenCode DeepSeek/GLM/Qwen seats) without anyone noticing the
+        // roster had changed.
+        let seated = r.answerWorkers.map(\.modelId)
+        XCTAssertEqual(seated.count, 3)
+
+        // 1. Distinct families — the point of the team (S1 floor + S2).
+        func family(_ id: String) -> String {
+            ModelCatalog.modelFamily(id, driverId: ready.first { $0.id == id }?.driverId)
+        }
+        XCTAssertEqual(Set(seated.map(family)).count, seated.count,
+                       "each answer seat must come from a different family — got \(seated)")
+
+        // 2. Selection is by caliber, not by identity: no unseated model from an
+        //    unrepresented family may outrank the weakest seat. This is exactly
+        //    what makes a newly added, higher-ranked model auto-seat — and it
+        //    holds regardless of the order the team lays its slots out in
+        //    (answerWorkers is slot-ordered, not rank-ordered).
+        let seatedRanks = seated.map { caps($0).strengthRank }
+        let weakestSeat = seatedRanks.min() ?? 0
+        let claimedFamilies = Set(seated.map(family))
+        let skippedStronger = ready
+            .filter { !seated.contains($0.id) && $0.id != haikuId }
+            .filter { !claimedFamilies.contains(family($0.id)) }
+            .filter { caps($0.id).strengthRank > weakestSeat }
+        XCTAssertTrue(
+            skippedStronger.isEmpty,
+            "a stronger model from an unrepresented family was skipped: "
+            + "\(skippedStronger.map { "\($0.id)=\(caps($0.id).strengthRank)" }) "
+            + "vs weakest seat \(weakestSeat) in \(seated)")
+
         XCTAssertEqual(ModelCatalog.modelFamily("model_fable"), "claude")
     }
 
