@@ -204,6 +204,49 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertTrue(trj.stages.contains { $0.purpose == .plan && $0.status == .failed })
     }
 
+    /// RRT-S04 — top-level `errors` was a hardcoded `[]`, so `alln show --json`
+    /// could never report a failure reason at the top level for any run. A PM
+    /// reading the field named `errors` on a failed run learned nothing while
+    /// the reason sat in `answers[].error`, `pmTurn.notes`, and
+    /// `teamRun.attempts[]`. Fails before the fix: the array was always empty.
+    func testFailedSeatsSurfaceAtTopLevelErrors() throws {
+        let run = try Fixtures.run(.runPartial)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+
+        let failedAnswers = trj.answers.filter { $0.status == .failed || $0.status == .timedOut }
+        XCTAssertFalse(failedAnswers.isEmpty, "fixture must contain a failed seat")
+
+        XCTAssertFalse(trj.errors.isEmpty, "a run with a failed seat must state why at top level")
+        XCTAssertEqual(trj.errors.count, failedAnswers.count)
+        // The top-level envelope carries the same reason the seat recorded —
+        // no new classification, no invented message.
+        for answer in failedAnswers {
+            XCTAssertTrue(
+                trj.errors.contains { $0.message == answer.error?.message },
+                "top-level errors must carry the seat's own reason, not a summary")
+        }
+        XCTAssertTrue(trj.errors.allSatisfy { $0.runId == run.id })
+    }
+
+    /// A run that failed before any seat produced an answer envelope still says
+    /// why — sourced from the last attempt that recorded a reason. This is the
+    /// shape of run 45D454CE (`opencode serve busy: port owned by pid N`).
+    func testRunFailedBeforeAnyAnswerStillStatesReason() throws {
+        var run = try Fixtures.run(.runPartial)
+        run.answers = []
+        run.attempts = [
+            RunAttempt(
+                attemptNumber: 1,
+                startedAt: Date(timeIntervalSince1970: 1_750_000_000),
+                reason: "opencode serve busy: port owned by pid 96665"
+            )
+        ]
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+
+        XCTAssertEqual(trj.errors.count, 1)
+        XCTAssertEqual(trj.errors.first?.message, "opencode serve busy: port owned by pid 96665")
+    }
+
     func testInflightRunMapsToRunning() throws {
         let run = try Fixtures.run(.runInflight)            // status .fanningOut
         let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())

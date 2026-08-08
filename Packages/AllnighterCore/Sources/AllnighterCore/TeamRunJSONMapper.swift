@@ -235,7 +235,7 @@ public enum TeamRunJSONMapper {
             researchGitObservation: run.mutating ? nil : run.researchGitObservation,
             outcome: run.status.isTerminal ? mapOutcome(run) : nil,
             stages: stages, plan: plan, usage: usage,
-            warnings: runWarnings, errors: [],
+            warnings: runWarnings, errors: runErrors(run),
             nextActions: terminalArtifactNextActions(
                 for: run,
                 answerContent: !(answer?.markdown ?? "").isEmpty
@@ -499,6 +499,28 @@ public enum TeamRunJSONMapper {
             message: a.result.errorReason ?? "worker did not produce an answer",
             requiresManual: false, retryable: true, runId: runId, agentId: a.memberId
         )
+    }
+
+    /// RRT-S04 — top-level `errors` used to be a hardcoded `[]`, so no run ever
+    /// reported a failure reason at the top level even when the reason was
+    /// already present in `answers[].error`, `pmTurn.notes`, and
+    /// `teamRun.attempts[]`. A caller reading the field named `errors` on a
+    /// failed run learned nothing.
+    ///
+    /// Collect the per-answer envelopes that already exist. When a run failed
+    /// before producing any answer envelope, fall back to the last attempt that
+    /// recorded a reason so the run still says why it failed. Adds no field and
+    /// no new classification — `code` stays whatever `errorEnvelope` derived.
+    static func runErrors(_ run: TeamRun) -> [ErrorEnvelope] {
+        let answerErrors = run.answers.compactMap { errorEnvelope(for: $0, runId: run.id) }
+        guard answerErrors.isEmpty else { return answerErrors }
+        guard let attempt = run.attempts.last(where: { !($0.reason ?? "").isEmpty }),
+              let reason = attempt.reason
+        else { return [] }
+        return [ErrorEnvelope(
+            code: "AGENT_FAILED", message: reason,
+            requiresManual: false, retryable: true, runId: run.id
+        )]
     }
 
     private static func iso(_ date: Date?) -> String? {
