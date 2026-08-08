@@ -139,14 +139,19 @@ final class SkillCatalogTests: XCTestCase {
     }
 
     func testModelCapabilitiesAreDeterministicAndRanked() {
-        // Flagship-only seats top the ladder (Fable + Sol); Opus is a strong high seat.
-        XCTAssertEqual(ModelCatalog.capabilities("model_fable").strengthRank, 100)
-        XCTAssertEqual(ModelCatalog.capabilities("model_cursor_gpt_sol").strengthRank, 99)
-        XCTAssertEqual(ModelCatalog.capabilities("model_gpt_sol").strengthRank, 99)
-        XCTAssertEqual(ModelCatalog.capabilities("model_gpt_terra").strengthRank, 86)
-        XCTAssertEqual(ModelCatalog.capabilities("model_opus").strengthRank, 90)
-        XCTAssertLessThan(ModelCatalog.capabilities("model_gemini").strengthRank,
-                          ModelCatalog.capabilities("model_opus").strengthRank)
+        // Flagship-only seats top the ladder (Fable + Sol); Opus is a strong high
+        // seat. Asserted as ORDER, not as magic numbers — the absolute founder
+        // ordering is pinned once, in
+        // `CatalogOverlayTests.testPrimarySeatCaliberFollowsFounderOrdering`.
+        // Hardcoding ranks here meant a caliber change broke unrelated suites and
+        // tempted whoever hit it to edit numbers until they passed.
+        func rank(_ id: String) -> Int { ModelCatalog.capabilities(id).strengthRank }
+        XCTAssertGreaterThan(rank("model_fable"), rank("model_gpt_sol"))
+        XCTAssertEqual(rank("model_gpt_sol"), rank("model_cursor_gpt_sol"),
+                       "same model on a different CLI keeps its caliber")
+        XCTAssertGreaterThan(rank("model_gpt_sol"), rank("model_opus"))
+        XCTAssertGreaterThan(rank("model_opus"), rank("model_gpt_terra"))
+        XCTAssertLessThan(rank("model_gemini"), rank("model_opus"))
         XCTAssertTrue(ModelCatalog.capabilities("model_opus").capabilityTags.contains(.planner))
         XCTAssertTrue(ModelCatalog.capabilities("model_gemini").capabilityTags.contains(.image))
         // Unknown model -> empty defaults, never a crash.

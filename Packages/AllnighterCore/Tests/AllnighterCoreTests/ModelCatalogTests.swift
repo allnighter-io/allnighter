@@ -256,7 +256,11 @@ final class ModelCatalogTests: XCTestCase {
         var poisoned = created
         poisoned.capabilities = ModelCatalog.builtInCapabilities["model_fable"]!
         try ModelCatalog.updateCustom(poisoned)
-        XCTAssertEqual(ModelCatalog.get(created.id)?.capabilities.strengthRank, 100)
+        // The donor's rank, whatever it is — this test is about the poisoned
+        // record being ignored at read time, not about a specific number.
+        XCTAssertEqual(
+            ModelCatalog.get(created.id)?.capabilities.strengthRank,
+            ModelCatalog.builtInCapabilities["model_fable"]?.strengthRank)
         XCTAssertEqual(ModelCatalog.capabilities(created.id).strengthRank, ModelCatalog.unratedModelRank)
     }
 
