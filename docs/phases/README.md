@@ -34,17 +34,19 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 ### Active priorities (founder-ordered)
 
-> **Founder-ordered top four (2026-08-08)** — work them in this order:
+> **Founder-ordered queue (2026-08-08)** — work in this order:
+> **0.** Run readout (`alln show` says nothing useful) · **0.5** Ambient dirty run outcome ·
 > **1.** Scheduler 2.0 · **2.** Seat assignments · **3.** OpenCode attach · **4.** Ollama.
-> Everything below the top four is unordered backlog.
+> Everything below the queue is unordered backlog.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
+| [`Run_Readout_Truth.md`](Run_Readout_Truth.md) | **0 · Ready-first fix — draft v1, reviews out** | A completed Spec Review with a **Ready** verdict read as dead: five status-bearing fields, three say done, `outcome.status` says `partial`, `observation.ownerState` says `dead`, and no top-level `status`. Net-negative fields, no new command/flag/daemon. Blocks the queue below it. |
+| [`Ambient_Dirty_Run_Outcome.md`](Ambient_Dirty_Run_Outcome.md) | **0.5 · Ambient dirty — Ready to code (S01/S02)** | Before the scheduler (founder 2026-08-08). S122.3 ambient-dirty false fail. Locked: dirty-path-set diff via `GitObserver.dirtyFiles`. DeepSeek Pro `--read-only` review `B8818101` (prior `89417ED3` hit `portOwnedByForeignProcess`). Origin: `09E19604`. |
 | [`Probe_Freshness.md`](Probe_Freshness.md) | **1 · Scheduler 2.0 — v2, Ready for named slices** | `alln menu` hid Grok + Kimi as `notReady` while both answered live prompts. PF-S00 expire-at-projection + PF-S02 un-invent the verdict stop the lie; PF-S01 discloses age; **PF-S03 re-homes refresh into `alln serve`** — founder ruling §0.2 supersedes the CWB Dock-only host lock. Spec Review Min `FCF51DB2` Ready. |
 | [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **2 · Seat assignments — Ready to code (S01/S02)** | Serialize-don't-drop: AgentOS gate timeout = seat invoke timeout; dry-run names serial drivers. Hardened by DeepSeek + Kimi K3. AI PMs only. |
 | [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) | **3 · OpenCode attach — Ready, OSA-S00→S03** | Attach healthy leftover serve on `:4096`; do not tear down per run. All OpenCode seats. Live repro 2026-08-08: killed the Proof Auditor seat inside a Spec Review run (`pid 48831`). |
 | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **4 · Ollama — OCL-S00 pipe PASS; code unauthorized** | **Dev builds only until fully ready** (founder 2026-08-08) — no dev-build gate exists in the CLI today, so that mechanism precedes OCL-S01/S02/S04. Also blocked on doc v5 + `--no-commit` honesty + serve attach. |
-| [`Ambient_Dirty_Run_Outcome.md`](Ambient_Dirty_Run_Outcome.md) | **OPEN — Ready to code (S01/S02); v2 after top four** | After seat assignments. S122.3 ambient-dirty false fail. Locked: dirty-path-set diff via `GitObserver.dirtyFiles`. DeepSeek Pro `--read-only` review `B8818101` (prior `89417ED3` hit `portOwnedByForeignProcess`). Origin: `09E19604`. |
 | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then scheduler** | One 30m freshness clock; scoped kill before timer. ⚠ Its **Dock-only host lock is superseded** by `Probe_Freshness.md` §0.2 — reconcile. |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete; one dogfood proof remains** | Wall-crossing resume half blocked on Codex real reset (2026-08-04). Code SSOT: `CapacityDisplayAcquisition`, `MenuCatalog`, `LoopCoordinator`, `VendorBackoffReconciler`. |
