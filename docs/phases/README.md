@@ -53,7 +53,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **OPEN — CT coded; dogfood next** | Completion-truth follow-up implemented; archive after live long/concurrent proof. |
 | [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **CODE COMPLETE — dogfood + CT-08 ruling remain** | CT-01…07/09/11–13 shipped; CT-08 path harden only; CT-10/14 open. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
-| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **Brainstorm — founder rulings locked; Spec Review next** | Pipe on mini, sell to Studio. Readiness = Unavailable|Idle|Busy (not capacity strip). OCL-S00 zero-code on current Mac. |
+| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **OCL-S00 pipe PASS on Air — code unauthorized** | qwen2.5:0.5b via OpenCode/`alln run` on M4 Air 32GB. Outcome honesty gap. Readiness Idle/Busy; Studio=ICP. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | Draft — needs re-base | Core routing built; GUI browse unbuilt. |

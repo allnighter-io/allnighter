@@ -1,10 +1,9 @@
 # OpenCode Local (Ollama) Seats
 
-Status: **Brainstorm — NOT ready for implementation. No slice authorized.**
-  Founder rulings locked 2026-08-07 (§0.1). Spec Review next; code still waits
-  on OCL-S00 + review.
-Revised: 2026-08-07 (v3 — founder: readiness Idle/Busy; mini proves pipe;
-  Studio is ICP/sales not a build gate)
+Status: **OCL-S00 pipe PASS (partial honesty) — code slices still unauthorized.**
+  Founder rulings locked (§0.1). Spec Review Min: Ready for OCL-S00 only
+  (`FE9F2530…`). Live dogfood recorded §0.3.
+Revised: 2026-08-07 (v4 — OCL-S00 on MacBook Air M4 32GB with qwen2.5:0.5b)
 Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS only if
 local turn timing needs to change in the OpenCode driver)
 Created: 2026-08-07
@@ -12,7 +11,7 @@ Origin: Founder dogfood — Ollama 0.32.x ships `ollama launch opencode` and
 documents OpenCode → `http://localhost:11434/v1` (OpenAI-compatible). Local
 models are becoming real implementation labor. ALLN seats them through the
 **same `opencode` driver** as Go, with local provenance and local honesty.
-**Dogfood split:** prove the pipe on a Mac mini (or any Apple Silicon); sell
+**Dogfood split:** prove the pipe on a Mac mini / Air (any Apple Silicon); sell
 the upside to Mac Studio users. Same software.
 
 Companion packets:
@@ -40,8 +39,9 @@ operations; code remains SSOT; archive this packet.
 
 ## 0. Review verdict
 
-**Still Brainstorm. Not Ready for Implementation** until Spec Review + OCL-S00.
-v2 (Opus) grounded the packet; v3 locks founder product law below.
+**Pipe proven on Air. Not Ready for Implementation slices** until Spec Review
+fixes land and a coding-class gated repair passes (§11 B optional; honesty gaps
+below are mandatory for S01+).
 
 ### 0.1 Founder rulings (2026-08-07) — binding
 
@@ -53,31 +53,54 @@ v2 (Opus) grounded the packet; v3 locks founder product law below.
    No VRAM %, no fake 5h/weekly meters, no context gauges in v1 UI. Prefer
    observed `ollama ps` / `/api/ps` (loaded ⇒ Busy; reachable + nothing loaded ⇒
    Idle; down / no usable model ⇒ Unavailable). Unobserved ⇒ Unavailable, never
-   a guessed Busy.
+   a guessed Busy. (**Busy = resident in memory**, not “currently inferring” —
+   Spec Review: `keep_alive` keeps models loaded after idle.)
 3. **Signal id:** `ollama_local` (attribution only — not a strip seat).
-4. **Dogfood hardware split:** Prove the **pipe** on a **Mac mini** (or any
-   Apple Silicon already on the desk). If the pipe works there, it works on a
-   Studio. **Do not buy a Studio to validate integration.** Studio owners are
-   the ICP / sales wedge (larger models, abundant labor feel) — not a build
-   prerequisite. Optional rental only if you later want Flash-class *feel*
-   evidence; not required for OCL-S00.
-5. **OCL-S00 now, on current hardware.** Do not wait for ICP RAM. Plumbing
-   proof ≠ capability demo (§11 A vs B).
-6. **Ollama Cloud stays out.** Remote `OLLAMA_HOST` / LAN Studio farm stay out
-   (separate packets only; LAN mutators remain shelved).
+4. **Dogfood hardware split:** Prove the **pipe** on **any Apple Silicon on the
+   desk** (Air / mini). Studio is ICP/sales, not a build gate.
+5. **OCL-S00 on current hardware** — done (§0.3).
+6. **Ollama Cloud stays out.** Remote `OLLAMA_HOST` / LAN Studio farm stay out.
 
-### 0.2 Still blocking Ready (engineering / proof)
+### 0.2 Spec Review Min (2026-08-07) — `FE9F2530-7E96-4E16-AC0F-296F4CA26D86`
 
-1. **No OCL-S00 result yet** — zero live mutating local OpenCode turn through
-   `alln`.
-2. **Turn-timing** may mis-report healthy local cold load as stall (120s quiet
-   window) — measure in OCL-S00 before changing AgentOS.
-3. **OpenCode completion truth** still has open CT work; local seats land on
-   top of it, not after it.
-4. **Spec Review** has not stamped the packet Ready for Implementation.
+Verdict: **Ready for OCL-S00 only.** Leans locked for implementers:
 
-What v3 changed: closed §7.5; Idle/Busy law; mini-proves-pipe / Studio-is-ICP;
-OCL-S00 unblocked from hardware fantasy; open questions trimmed.
+- ≥64k: hard block on **automatic** offers; **warn-and-allow** on explicit
+  `--model` (unblocks served-context deadlock).
+- Discovery: list all / enable none; build S03 only after one real gated local
+  repair.
+- No raw `ollama` driver — OpenCode only for this packet’s lifetime.
+
+### 0.3 OCL-S00 live result (2026-08-07, MacBook Air M4 32GB)
+
+Host: `Mac16,13` · 32 GB · ollama 0.32.6 · opencode 1.18.15.
+
+| Step | Result |
+| --- | --- |
+| Backup + merge `ollama` into `enabled_providers` (keep `opencode-go`) | **PASS** — backup `~/.config/opencode/opencode.json.bak-ocl-s00-20260807-204036` |
+| `opencode models` lists `ollama/qwen2.5:0.5b` + Go seats | **PASS** |
+| `alln models add` → `custom_opencode_ollama_qwen25_05b_local_7496` | **PASS** |
+| `alln models verify` (needs healthy `opencode serve` on :4096) | **PASS** when serve fresh; **FAIL** with stale/missing serve (`Session not found` / Unexpected server error) |
+| `alln models enable` | **PASS** |
+| `alln run --model … --no-commit` mutating TARGET.md | **PASS (pipe)** — run `6B012D73-4223-4A52-BBE7-E4E0E4B77AE0` · `sourceId=opencode` · wall ~4s · write tool activity observed |
+| Real file edit | **PASS** — `docs/qa/ocl-s00-dogfood/TARGET.md` became `STATUS: AFTER` (plus model-added co-author line) |
+| Outcome honesty | **FAIL** — `completedWithoutChanges: true` / `repoDelta.changed: false` despite write (untracked path + weak model narrative claiming `result.txt`) |
+| Served context (`ollama ps`) | **4096** — below 64k agent guidance; explicit pin still ran (matches Spec Review warn-and-allow lean) |
+| Stall / 120s quiet | **N/A** — tiny model finished in seconds |
+| Go seats after merge | **PASS** — `enabled_providers` still includes `opencode-go`; Go model ids still listed |
+
+**Also observed (1.5b coder earlier):** run `AC6BD0CB…` returned tool JSON as text without editing TARGET — same pipe, weaker tool follow-through. Prefer 0.5b run as the recorded S00 mutating proof (file actually changed).
+
+**OCL-S00 verdict:** **Pipe works on Air.** Do not authorize S01–S05 until (1) Spec Review doc fixes land, (2) outcome/repoDelta honesty for local writes is understood, (3) optionally one coding-class gated repair on a stronger local model.
+
+### 0.4 Still blocking Ready-for-Implementation
+
+1. Spec Review packet fixes (context gate, Busy definition, §7.1 vocabulary, etc.)
+2. Outcome lie: completedWithoutChanges with a real write
+3. OpenCode CT unfinished — local amplifies false-done
+4. No coding-class gated repair yet (0.5b is pipe-only)
+
+What v4 changed: §0.3 live Air dogfood; status flipped from “no OCL-S00” to pipe PASS.
 
 ---
 
@@ -405,7 +428,7 @@ OCL-S00 should decide whether the rest is worth writing.
 
 | Id | Intent | Code? |
 | --- | --- | --- |
-| **OCL-S00** | **Founder Works Test, no code — on current Mac (mini-class OK).** Merge `ollama` provider into `opencode.json` by hand, `alln models add --driver opencode --model-label ollama/<tag>`, `alln models verify`, one bounded `alln run --model`. Record outcome. Studio not required. | **None** |
+| **OCL-S00** | **DONE (2026-08-07).** Pipe PASS on Air with `qwen2.5:0.5b` — see §0.3. | **None** |
 | **OCL-S01** | Detect + doctor: Ollama reachable; list local models; readiness Unavailable/Idle/Busy | Core |
 | **OCL-S02** | Setup verb: additive OpenCode provider wiring, reversible, proven non-clobbering | Core/CLI |
 | **OCL-S03** | First `ModelDiscoveryProvider` for `opencode`: local tags → opt-in seats with `.discovered` origin and local provenance | Core |
