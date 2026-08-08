@@ -43,7 +43,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
-| [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **OPEN — Spec Review Min Ready; CHS-S01 authorized** | CLI→CLI shout on `alln show`/`--stream` (`crew_understaffed`); stream seat-death frame; no reseat. Origin: 2026-08-07. |
+| [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **OPEN — reoriented; serialize-don't-drop** | Same-CLI multi-seat allowed; gate must not timeout-drop waiters; dry-run names serial drivers. AI PMs only. |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
 
 ### Forward feature packets

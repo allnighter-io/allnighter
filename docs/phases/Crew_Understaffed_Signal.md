@@ -1,61 +1,52 @@
 # Crew Understaffed Signal
 
-Status: **OPEN — Spec Review Min Ready (run `7FF03849`, 2026-08-07). CHS-S01
-authorized after apply-to-doc edits below. Not coded.**
-Owner: AllnighterCore (`TeamRunJSONMapper`, stream projector) + AllnighterCLI
-teaching
+Status: **OPEN — reoriented 2026-08-08. Front-door + serialize-don't-drop.
+Prior Spec Review stream/warning design is parked (not authorized).**
+Owner: AllnighterCore (`TeamExplicitSeats` / resolve path) + spawn gate
+(`DriverConcurrencyGate` / `acquireDriverSpawnGate`) + agent teaching
 Created: 2026-08-07
-Origin: Founder dogfood — a PM agent (Opus in a CLI) staffed a multi-seat team
-with `--seat`; one seat never ran; the panel reported as dispatched and kept
-going 2/3. Nothing shouted. A human watching the Mac GUI would have seen a dead
-row; CLI→CLI callers do not look that way. Related substrate:
-[`One_Run_Surface.md`](One_Run_Surface.md) (`alln show`), archived
-[`Ephemeral_Teams.md`](../archive/phases/Ephemeral_Teams.md) (`--seat`, no
-silent reseat), code `VendorSubstitutionPolicy` (explicit → never silent hop),
-code `SeatReseat` (team-preset seats only), archived
-[`Rate_Limit_Continuity.md`](../archive/phases/Rate_Limit_Continuity.md)
-(answer panels fail-soft; parked-seat / partial-board settlement deferred).
+Revised: 2026-08-08 — founder: audience is ~95% AI PMs (no human-notification
+path); 8-seat teams **must** multi-seat the same CLI; read-only/judgment
+fan-out is normal. Do **not** refuse same-driver crews.
+Origin incidents:
+- `F3B862ED` — explicit `--seat` Kimi + Cursor Sol + Cursor Opus; Opus
+  `spawn gate timed out for cursor_agent` (never started). Sol held the only
+  `cursor_agent` slot (~482s); gate waiter timeout is 300s → drop.
+- Spec Review Min `7FF03849` — understaffed panel finished useful; nothing
+  shouted (separate, deferred).
 
-Phases are ephemeral. At closeout: promote one teaching line + vocabulary if
-needed; code remains SSOT; archive this packet.
+Related: archived [`Ephemeral_Teams.md`](../archive/phases/Ephemeral_Teams.md)
+(`--seat`); code `DriverConcurrencyGate` / `DriverManifest.maxConcurrentSpawns`
+(`cursor_agent`/`opencode`/`agy` = 1; claude/codex/grok unlimited); ORS
+[`One_Run_Surface.md`](One_Run_Surface.md).
+
+Phases are ephemeral. At closeout: promote teaching + vocabulary if needed;
+code remains SSOT; archive this packet.
 
 ---
 
-## Founder intake
+## Founder intake (locked)
 
 ```text
-Founder intent:
-  When a PM agent starts a judgment team (especially with custom --seat), a dead
-  seat must be impossible to miss on the CLI surface that agent already uses.
-  The agent should learn early enough to pick a different model — not at end-of-
-  run when outcome is quietly "partial". Humans in the GUI already see per-seat
-  rows; design for CLI→CLI first, keep GUI parity by sharing the same contract.
+Audience:
+  ~95% AI agents delegating and running. Human Mac banners / GUI rows are
+  almost useless for this problem. Design for CLI→CLI PMs only.
+
+Intent:
+  Stop the preventable class where a PM staffs a judgment crew, two seats share
+  a spawn-gated CLI, and the second seat is silently dropped after a gate
+  timeout while the first is still running — panel looks "dispatched," finishes
+  understaffed.
+
+Not the intent:
+  Ban multiple seats on the same CLI. Large teams (Spec Review Max, Bug Hunt
+  Max, Growth, …) MUST put several agents on Claude / Codex / Cursor / etc.
+  Read-only / judgment fan-out is normal and desired when the driver allows it.
 
 Product value:
-  A dispatched panel is not necessarily a fully staffed one. Stop silent
-  understaffing for agent PMs who treat "accepted / running" as "the jury is in."
-
-Trusted workflow slice:
-  PM agent: alln run … --seat A --seat B --seat C --no-wait
-  → runs returned nextAction (alln show … --stream)
-  → one seat fails to start or dies early
-  → show --json / --stream surfaces a top-level understaffed warning naming the
-    dead model + cause, while siblings still run (stream: on the seat-death
-    frame, before terminal)
-  → PM picks another model and re-runs (or kills and re-staffs) — no forensics
-
-Non-goals (push SIMPLE — reject these):
-  - Mid-run reseat / hot-swap into the same run id
-  - Parking the whole parallel panel on one dead seat
-  - New commands (alln crew, alln reseat, …)
-  - Expanding observation beyond ORS's three fields
-  - --require-full-crew flags / policy knobs in v1
-  - GUI-first Live Team Board work as a dependency
-  - Silent auto-substitute of an explicit --seat (already banned; keep it)
-  - Inventing progress prose or "Sol is thinking"
-  - Queued-duration stall detection (inference from absence)
-  - New NextAction.Kind cases (closed enum; kill stays in prose)
-  - Persisting the warning into durable TeamRun.warnings (projection only)
+  Same-CLI multi-seat either runs (parallel if safe, serial if gated) or the
+  PM is told at the front door how it will run — never a quiet timeout-fail
+  that looks like the model was broken.
 ```
 
 ---
@@ -63,142 +54,109 @@ Non-goals (push SIMPLE — reject these):
 ## Product promise
 
 ```text
-If any requested crew seat is terminal-dead while the team run is still live
-(or finishes partial), alln show --json / --stream names that understaffing at
-the top level — model id + honest cause — without digging answers[]. A PM who
-attaches once with --stream sees the shout on a pre-terminal frame.
+On a judgment / read-only team, every accepted crew seat either runs to a real
+terminal (done/failed for its own work) or the accept/dry-run already told the
+PM that N seats on driver D will serialize. A spawn gate never turns "wait your
+turn" into "you failed" while a sibling on the same team still holds the slot.
 ```
 
-One claim. No new lifecycle. Fail-soft stays the default; silence dies.
+---
+
+## Why blanket refuse is wrong (80/20 trap)
+
+| Idea | Verdict |
+| --- | --- |
+| Refuse any `--seat` crew with 2+ models on the same driver | **Rejected.** An 8-seat team cannot staff 8 distinct CLIs. Same-CLI multi-seat is required. |
+| Refuse only when `maxConcurrentSpawns == 1` | **Rejected as refuse.** Still blocks legitimate dual-Cursor / dual-OpenCode juries; the right behavior is serialize, not ban. |
+| Human notification / Mac banner when a seat dies | **Rejected.** Wrong audience. |
+| Mid-run reseat / stream warning / observation bloat as v1 | **Parked.** Useful later for unpreventable deaths (rate limit, serve busy); not the 80/20. |
+
+### What `F3B862ED` actually was
+
+`cursor_agent` declares `maxConcurrentSpawns: 1` (real race on
+`~/.cursor/cli-config.json` — concurrent Cursor processes are unsafe even for
+read-only prompts). Gate correctly serializes. Bug: waiter **times out at 300s**
+and settles `failed` / never started while Sol still ran ~8 minutes. Fail-soft
+panel continued 2/3. PM learned nothing at accept time.
+
+OpenCode Bug Hunt Max (`A347D821`) shows the same gate-timeout drop class on
+`opencode` (=1).
+
+Parallel-safe drivers (claude / codex / grok, no limit) already multi-seat fine
+on 8-wide teams. Do not “fix” them.
 
 ---
 
-## Why CLI→CLI first
+## Simple design (authorized v1)
 
-| Caller | How they watch | Today |
-| --- | --- | --- |
-| Human in Mac GUI | Per-seat board / Floor rows | Dead seat visible if they look |
-| PM agent in another CLI | `alln show --json` / `--stream` after `--no-wait` | `running` looks fine; dead seat buried in `answers[]` |
-| Same human via CLI | Same show surface | Same bury |
+Two moves only. No new commands. No human notify. No stream schema work.
 
-Humans do not staff custom `--seat` panels the way agent PMs do. Fix the
-contract agents already poll. GUI parity = render the same warning later; do
-not invent a second truth.
+### CHS-S01 — Serialize, don't drop (runtime)
 
----
+For seats competing on a driver with `maxConcurrentSpawns` set:
 
-## Simple design (v1 = one projection)
+- Keep the gate (do not claim concurrent Cursor/OpenCode/agy is safe).
+- **Same team-run waiters must not die on the acquire timeout** while a sibling
+  seat from that run still holds (or is queued for) the slot. Prefer: unbounded
+  wait for in-team gate acquisition, or a timeout ≥ the seat's own invoke
+  timeout — never a short global 300s that is shorter than a normal Spec Review
+  seat.
+- When the slot frees, the waiter runs. Read-only / judgment stays fail-soft for
+  real worker failures; gate wait is not a worker failure.
 
-Reuse what exists. Do not add a parallel status schema.
+Truth owner: `acquireDriverSpawnGate` / `DriverConcurrencyGate` call sites used
+by team fan-out (`CatalogRunCoordinator` / `RunService`). Scope the “don't drop”
+rule to judgment / non-mutating team fan-out first if a global change is risky.
 
-### Signal
+### CHS-S02 — Front-door honesty (accept + dry-run)
 
-On every `TeamRunJSON` projection (`show`, stream snapshot, terminal):
+When resolving `--seat` (and dry-run), if crew model ids map to a driver whose
+`maxConcurrentSpawns` is `N` and this crew asks for more than `N` on that
+driver:
 
-1. Count non-`skipped` **crew answer rows** only (scout/lead excluded) vs seats
-   in `{failed, timedOut, cancelled, interrupted}`.
-2. When any crew seat is dead and `expected > stillUseful` (live or done), emit
-   a **top-level** `warnings[]` entry (one entry, length-capped):
+- **Do not refuse** (large teams need this).
+- Emit a clear, stable message on dry-run / accept JSON (warning or structured
+  note the PM already reads) naming driver, limit, model ids, and that those
+  seats will **run serially**.
+
+Example shape (illustrative):
 
 ```text
-code:    crew_understaffed
-message: crew 2/3 — model_gpt_sol: CLI not installed / wrong CLI
+code: seat_driver_serialized
+message: cursor_agent allows 1 concurrent spawn; seats model_cursor_gpt_sol +
+  custom_cursor_agent_opus_5_cursor will run one after another (not in parallel).
 ```
 
-Multiple dead seats append as `; modelId: cause` pairs in that single message.
+Teaching: `--seat` may place multiple models on one CLI; gated CLIs serialize;
+after dry-run, read that note before spending a long panel.
 
-3. **Cause owner:** one **Core** helper (capacity observation wins when present;
-   else `errorKind` / `errorReason`). Never invent a vendor limit you did not
-   observe. Mac `WorkerFailurePresenter` is **not** imported — GUI adopts the
-   Core helper at parity time.
+Truth owner: `TeamExplicitSeats.resolve` (or the resolve/dry-run projector that
+already surfaces seat lineup) + `HelpTopicRegistry`.
 
-4. Keep existing per-seat `answers[]` rows as the detail ledger. Warning is the
-   shout; rows remain the proof.
+### Explicitly out of v1
 
-5. **Never-spawned invariant:** a crew seat that fails to spawn must settle a
-   terminal-`failed` `answers[]` row. CHS-S01 verifies this against `RunService`
-   and fixes the boundary if it does not hold. Queued-duration stall detection
-   is rejected.
-
-6. **Live stream:** the frame that reports a crew seat entering a dead state
-   must carry the top-level `crew_understaffed` warning (additive field on the
-   existing seat-death frame; no new NDJSON event type). Snapshot-only delivery
-   is insufficient — today full run projection rides only snapshot + terminal
-   (`NDJSONStreamProjector`); an attach-once PM would otherwise first see the
-   shout at terminal. Do not re-emit a second full snapshot (consumers assume
-   one).
-
-**Projection-only:** compute the warning in `TeamRunJSONMapper` from
-`answers[]`. Do **not** persist it into durable `TeamRun.warnings` (no second
-truth store).
-
-### Action (still simple)
-
-While the run is **non-terminal** and `crew_understaffed` is present:
-
-- Label an existing `nextActions` entry of kind **`showRun`** so the label names
-  the dead model and says to pick another / re-run with `--seat` (or kill the
-  understaffed panel first).
-- `alln kill` appears in the **label / teaching prose only** — no new
-  `NextAction.Kind` case in v1 (`NextAction.Kind` is closed / contract-owned).
-- Never emit a nextAction whose command is the same `alln show --json` call that
-  produced the snapshot (no self-referential poll loop). Prefer the stream
-  attach command the PM already holds, or omit a redundant show command when
-  the warning itself is the signal.
-
-When the run is **terminal** `outcome.status == partial`, the same warning must
-still be present so end-state review cannot miss it.
-
-### Teaching (same slice)
-
-- `HelpTopicRegistry` / team-run help: **accepted ≠ fully staffed**; after
-  `--no-wait`, read `warnings` for `crew_understaffed` the same way ORS taught
-  reading `observation` (running ≠ progress). Teach that `--stream` surfaces
-  the warning on seat death, before terminal.
-- Help search hits: `understaffed`, `dead seat`, `seat failed`, `partial crew`,
-  `custom seats`.
-- One short bootstrap / recipe line for PM agents staffing with `--seat`.
-
-### GUI parity (later, not blocking)
-
-Mac Floor / Live Team Board may banner the same `crew_understaffed` warning.
-No GUI-owned field. No slice until CLI projection + teaching ship.
+- Refusing same-CLI crews
+- Raising `cursor_agent`/`opencode` concurrency without a separate AgentOS proof
+  (config race is real; read-only prompt does not remove it)
+- `crew_understaffed` stream frames / mapper warnings (parked)
+- `attentionRequired` mid-panel (parked — revisit only if serialize-don't-drop
+  + front-door note still leave AI PMs blind)
+- Mac / URN / human banners
+- Mid-run reseat
+- Changing built-in 8-seat team rosters
 
 ---
 
-## Current state (verified against code, 2026-08-07)
+## Current state
 
 | Piece | State |
 | --- | --- |
-| Multi-seat fail-soft | Intentional — board continues with remaining answers |
-| Explicit `--seat` | No silent `SeatReseat` (`CatalogRunCoordinator` skips explicit) |
-| Single-worker explicit park + “Use another model” | Exists; **not** wired for one dead seat on a live multi-seat panel |
-| `observation` | Three fields only (ORS) — do not stuff crew here |
-| `warnings[]` / `nextActions[]` | Already on `TeamRunJSON`; underused for crew |
-| Stream frames | Full projection on snapshot + terminal only — seat-death frames need the additive warning field |
-| `outcome.partial` | Terminal only — too late alone for a live PM |
-| Per-seat failure presenter | GUI `WorkerFailurePresenter` — replace with Core helper at parity |
-| Spawn-failure → `failed` row | **Verify in S01** — not assumed (founding incident was never-ran) |
-
-Archived RLC deferred “parked-seat / partial-board settlement.” This packet is
-**only** the shout + teaching. It does not settle the board or park siblings.
-
----
-
-## Truth owner / lie-prone layers
-
-| Concern | Owner |
-| --- | --- |
-| When understaffed is true | `TeamRunJSONMapper` (pure projection from crew `answers[]`) |
-| Cause string | One Core helper (capacity wins, else `errorKind` / reason) |
-| Live stream delivery | NDJSON seat-death frame carries projected warning (additive) |
-| Wire shape | `TeamRunJSON.warnings` (+ `showRun` nextAction **label**) |
-| Teaching | `HelpTopicRegistry`, menu/recipe copy |
-
-Lie-prone: any path that says “dispatched” / “running” without the warning while
-a crew seat is already terminal-dead; stream that only shouts at terminal;
-help that teaches agents to trust seat count from the team preset alone;
-durable `TeamRun.warnings` as a second store for the same fact.
+| `maxConcurrentSpawns` | Data on driver manifest; cursor/opencode/agy = 1 |
+| Gate | Serializes correctly |
+| Gate acquire timeout | ~300s → **drops** long-waiting siblings (`F3B862ED`) |
+| `--seat` resolve | Readiness / count / compatibility — **no** serialize note |
+| Large judgment teams | Must multi-seat same CLI — working as designed when ungated |
+| Human notifications | Shipped for humans; **irrelevant** to this packet |
 
 ---
 
@@ -206,82 +164,36 @@ durable `TeamRun.warnings` as a second store for the same fact.
 
 | Junction | Forbidden inference | Ban |
 | --- | --- | --- |
-| `teamRun.status == running` | Crew is fully staffed | Understaffing is a warning fact from answers |
-| Missing `crew_understaffed` | All seats healthy | Absence means no terminal-dead crew seat yet — not “verified healthy” |
-| One seat capacity-failed | Whole panel should park | Fail-soft remains; shout only |
-| Explicit seat failed | Silent reseat / Auto hop | Still banned — PM chooses the next model |
-| Warning message | Guessed vendor limit | Only observed `errorKind` / capacity / reason |
-| Seat stuck `queued` | Dead / understaffed | No duration heuristic; spawn must settle `failed` |
-
----
-
-## Spec Review Min — Lead Call (2026-08-07)
-
-Run `7FF03849-05B9-42E1-A45D-533B60491D0F` — **Ready**. Irony: the Proof Auditor
-seat (`model_opencode_qwen_38_max`) failed to start; outcome `partial` — the
-packet's own bug, live. Lead: stream delivery on seat-death frame; dead set
-includes `interrupted`; never-spawned row invariant; projection-only + Core
-cause helper; Works Test via fixture / process-kill (not bad seat id).
-
----
-
-## Slices
-
-### CHS-S01 — Shout + teach (**authorized**)
-
-- Project `crew_understaffed` warning whenever applicable (live + terminal partial).
-- Dead set `{failed, timedOut, cancelled, interrupted}`; crew answer rows only.
-- Name dead `modelId` + honest Core cause in one capped message.
-- Seat-death stream frame carries the warning (pre-terminal); mapper owns the
-  predicate; projector attaches it.
-- Verify never-spawned seats settle `failed`; fix boundary if not.
-- Non-terminal: label existing `showRun` nextAction (kill in prose only).
-- Help + search + one PM-facing recipe line.
-- Mapper + stream fixture tests; host proof via process-kill mid-run.
-- **No** new commands, flags, observation fields, reseat, Kind cases, or GUI work.
-
-### CHS-S02 — deferred (do not start without founder)
-
-Only if S01 dogfood still leaves PMs blind:
-
-- Stronger live nextAction (paste-ready kill + reproduce with dead seat called out).
-- Optional compact `crew: { expected, live, failed[] }` object if warnings prove
-  too easy to ignore — still projected from the same answers, still no reseat.
-- Optional early “staffing settled N/M” frame **only if** dogfood shows most
-  deaths are at spawn (Premise rival absorbed as invariant in S01 first).
-
-Default plan: **ship S01 only.** Complexity belongs in the reject list until
-proven necessary.
+| Two seats share a driver | Invalid crew / refuse | Large teams require it |
+| Read-only prompt | Concurrent Cursor is safe | Gate=1 is about process/config races, not write policy |
+| Gate timeout failure | Model/auth broken | It was still waiting its turn |
+| Dry-run silent on serialize | Seats will fan out in parallel | Must name serial drivers |
+| Understaffed panel | Need human banner | AI PM surface only |
 
 ---
 
 ## Works Test
 
 ```text
-Setup (mapper): fixture TeamRun with 1 failed crew answer + 2 running
-                (not a deliberate bad --seat id — ExactId readiness refuses
-                before spawn, so no run exists to inspect).
-Setup (host):   real --no-wait 3-seat judgment; kill one live seated process.
-Gesture:        alln show <id> --json ; alln show <id> --stream (attach once)
-Assert:
-  - warnings contains code crew_understaffed
-  - message names the dead modelId and a non-empty honest cause
-  - streaming attachment sees crew_understaffed on a pre-terminal frame
-  - surviving seats still show running/done (fail-soft unchanged)
-  - help search "dead seat" / "understaffed" hits the topic
-Negative:
-  - fully staffed running run → no crew_understaffed
-  - explicit failed seat → no silent substitute modelId on that row
-  - lead/scout failure alone does not fire crew_understaffed
+CHS-S01:
+  Fixture or host: judgment --seat with 2 models on cursor_agent (or test double
+  with maxConcurrentSpawns=1), first seat held longer than former 300s timeout.
+  Assert: second seat eventually starts (or still waiting), never
+  errorReason "spawn gate timed out for …" while sibling active.
+  Negative: real worker failure (auth, nonzero exit) still fails that seat.
+
+CHS-S02:
+  alln run … --team code_spec_review_min \
+    --seat <cursor_a> --seat <cursor_b> --seat <other> --dry-run --json
+  Assert: surfaces seat_driver_serialized (or equivalent) naming cursor_agent,
+  limit 1, both model ids; exit success (not refused).
+  Negative: three claude/codex seats with no spawn limit → no serialize note.
+  Help search: "spawn gate", "same CLI", "serialize seats", "concurrent seats".
 ```
 
-Proof commands (slice):
-
 ```text
-scripts/swift-test.sh --filter TeamRunJSONMapper
-scripts/swift-test.sh --filter OneRunSurfaceShowStream
-scripts/swift-test.sh --filter HelpTopic
-# host: kill a live seat mid --no-wait; stream shows warning before terminal
+scripts/swift-test.sh --filter 'TeamExplicitSeats|DriverConcurrency|SpawnGate'
+# plus focused dry-run / resolve tests
 bash scripts/check.sh   # closeout ONLY
 ```
 
@@ -289,21 +201,24 @@ bash scripts/check.sh   # closeout ONLY
 
 ## Done when
 
-- User-visible: understaffed crew is named on `alln show` / `--stream` without
-  reading `answers[]` first, and before terminal for attach-once PMs.
-- CLI contract only (GUI may follow; not required to close).
-- Teaching updated; search finds it.
-- S01 Works Test green; S02 not opened by default.
+- Dual Cursor (or dual OpenCode) on a judgment `--seat` crew no longer loses a
+  seat to gate timeout while a sibling holds the slot.
+- Dry-run/accept names serial drivers before the PM spends the panel.
+- Teaching finds it; no human-notification work claimed.
+- Parked stream/warning design not started.
 
 ---
 
-## Sequencing
+## History / parking lot
 
-- Does **not** block Capacity / VSI / OpenCode packets.
-- Composes with ORS: same `show` surface; do not reopen retired status verbs;
-  do not expand the three-field `observation`.
-- Distinct from [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md)
-  (relay/git recovery) and [`Live_Team_Board.md`](Live_Team_Board.md) (GUI board).
-- If teaching-only drift appears later, fold durable lines into
-  `Agent_Teaching_Surface` / `Product_Vocabulary` at closeout — not a second
-  live packet.
+### Spec Review Min `7FF03849` (2026-08-07) — Ready on old design
+
+Locked stream-frame `crew_understaffed` warnings, Core cause helper, etc.
+**Superseded by this reorientation** for v1. Keep as deferred CHS-S03+ only if
+S01/S02 dogfood still leave AI PMs blind on *unpreventable* deaths (rate limit,
+serve busy, true crash).
+
+### Audience correction (2026-08-08)
+
+GUI parity and Mac banners are not part of the trusted workflow. CLI contract
+for agent PMs only.
