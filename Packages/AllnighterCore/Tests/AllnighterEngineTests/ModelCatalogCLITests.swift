@@ -77,6 +77,36 @@ final class ModelCatalogCLITests: XCTestCase {
         XCTAssertFalse(sonnet?.enabled ?? true)
     }
 
+    /// `alln models` is the CATALOG view, not the selection menu. A model that
+    /// is off-Bench must still be listed as `available` — otherwise
+    /// `models add` → `models verify` → `models enable` is unusable, because the
+    /// seat is invisible in the command the user runs to confirm it exists.
+    ///
+    /// Regression: `ModelListProjector` reconciled through
+    /// `MenuCatalog.project(...)` without `detailed:`, inheriting the menu's
+    /// `filter(\.enabled)` and silently dropping every disabled model.
+    func testCatalogViewListsOffBenchModelsThatTheMenuWouldHide() throws {
+        try ModelCatalog.setEnabled("model_sonnet", false)
+        let registry = DriverRegistry(DefaultConfig.manifests)
+        _ = try ModelCatalog.createCustom(
+            driverId: "claude_code", displayName: "Offbench", modelLabel: "offbench",
+            role: .answerer, enabled: true, registry: registry)
+
+        let list = ModelsCLI.modelListJSON(runtime: runtime(), driverId: "claude_code")
+        let ids = Set(list.models.map(\.id))
+
+        XCTAssertTrue(ids.contains("model_sonnet"), "a disabled built-in must stay in the catalog view")
+        XCTAssertEqual(list.models.first { $0.id == "model_sonnet" }?.state, "available")
+        XCTAssertTrue(
+            list.models.contains { $0.displayName == "Offbench" },
+            "a freshly added custom is off-Bench by design and must still be listed")
+
+        // And the Bench view still excludes them — the filter belongs there.
+        let bench = ModelsCLI.modelListJSON(runtime: runtime(), driverId: "claude_code", benchOnly: true)
+        XCTAssertFalse(bench.models.contains { $0.id == "model_sonnet" })
+        XCTAssertFalse(bench.models.contains { $0.displayName == "Offbench" })
+    }
+
     func testAddCustomModel() throws {
         let registry = DriverRegistry(DefaultConfig.manifests)
         _ = try ModelCatalog.createCustom(

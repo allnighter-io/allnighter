@@ -52,7 +52,16 @@ public enum ModelListProjector {
         // Selection identity/state share MenuCatalog records (MR-S05 / Law 2).
         // Probe/capability fields stay on the domain Entry; enabled/ready/display
         // align to the same menu rows `alln menu --json` exposes.
-        let menuModels = MenuCatalog.project(modelEntries: entries).models
+        // `detailed: true` is required, not cosmetic. MenuCatalog is the
+        // SELECTION front door and drops disabled rows
+        // (`selectableRows = detailed ? modelRows : modelRows.filter(\.enabled)`).
+        // `alln models` is the CATALOG view — it must show off-Bench seats as
+        // `state: "available"`, which is the whole point of the
+        // `models add` → `models verify` → `models enable` flow. Borrowing the
+        // menu's filter here made a freshly added custom model invisible in the
+        // very command the user runs to confirm it exists. Bench filtering is
+        // already applied upstream via `benchOnly`.
+        let menuModels = MenuCatalog.project(modelEntries: entries, detailed: true).models
         let byId = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
         let reconciled: [ModelListJSON.Entry] = menuModels.compactMap { row in
             guard let base = byId[row.id] else { return nil }
