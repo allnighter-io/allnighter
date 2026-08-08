@@ -291,11 +291,27 @@ public enum CapacityProbe {
     /// Always evaluates the **recent paint window** so a previously accepted
     /// trust dialog still sitting in the buffer head cannot block readiness
     /// (real dogfood: welcome screen paints under stale "Yes,Itrustthisfolder").
-    public static func looksReadyForUsageCommand(_ text: String) -> Bool {
+    /// - Parameter source: the driver id, when known. A source that ships its
+    ///   own readiness predicate is **authoritative for both answers** — its
+    ///   "still booting" must be able to veto generic chrome. Passing `""` means
+    ///   "generic chrome only" and is the historical behavior.
+    ///
+    ///   This parameter exists because the generic marker list below silently
+    ///   overrode codex's MCP guard: codex's boot screen prints
+    ///   "Tip: Try the Desktop app", the generic `"tip:"` marker matched and
+    ///   returned true, and `looksLikeCodexReadyForStatusCommand` — consulted
+    ///   only as a positive fallback at the end — never ran. The probe then
+    ///   typed `/status` into a busy TUI, codex queued it instead of running it,
+    ///   and the unpainted pane was reported as `parserFailed`. Fixing the guard
+    ///   itself was not enough; it was being routed around.
+    public static func looksReadyForUsageCommand(_ text: String, source: String = "") -> Bool {
         let window = recentPaintWindow(text)
         // If the *recent* paint is still boot chrome, not ready.
         if looksLikeWorkspaceTrustDialog(window) { return false }
         if looksLikeCodexUpgradePrompt(window) { return false }
+        // Source-specific readiness wins outright — never fall through to the
+        // generic markers, or a source's "not ready" becomes advisory.
+        if source == "codex" { return looksLikeCodexReadyForStatusCommand(text) }
         let lower = window.lowercased()
         let collapsed = collapsedForMatch(window)
         let spacedMarkers = [
@@ -695,7 +711,7 @@ public enum CapacityProbe {
                 }
                 continue
             }
-            if looksReadyForUsageCommand(text) {
+            if looksReadyForUsageCommand(text, source: source) {
                 sawReady = true
                 break
             }

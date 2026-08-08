@@ -962,6 +962,47 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertFalse(CapacityProbe.looksLikeCodexStatusPane(banner))
     }
 
+    /// Fixing codex's MCP guard was not enough — the guard was being ROUTED
+    /// AROUND. `looksReadyForUsageCommand` matched the generic marker `"tip:"`
+    /// against codex's own boot chrome ("Tip: Try the Desktop app") and returned
+    /// true before the codex predicate was ever consulted, because that
+    /// predicate sat at the end as a positive fallback only.
+    ///
+    /// The law this pins: a source that ships its own readiness predicate is
+    /// authoritative for BOTH answers. A generic chrome marker may never
+    /// override a source-specific "still booting".
+    func testGenericChromeMarkersCannotOverrideCodexNotReady() {
+        let bootingWithTip = """
+        │ >_ OpenAI Codex (v0.147.0)                     │
+        │ model:     gpt-5.6-sol high   /model to change │
+        │ directory: ~/Library/…/Allnighter/ProbeScratch │
+          Tip: Try the Desktop app. Run 'codex app'
+        •Starting MCP servers (1/2): codex_apps(0s • esc to interrupt)
+        """
+        // The generic path is exactly what shipped the bug.
+        XCTAssertTrue(
+            CapacityProbe.looksReadyForUsageCommand(bootingWithTip),
+            "precondition: generic chrome DOES match here — that was the trap")
+        // Source-aware, codex's own verdict wins.
+        XCTAssertFalse(
+            CapacityProbe.looksReadyForUsageCommand(bootingWithTip, source: "codex"),
+            "codex must not be declared ready while MCP servers are still starting")
+
+        // Control: once settled, source-aware readiness still says yes.
+        let settled = """
+        │ >_ OpenAI Codex (v0.147.0)                     │
+        │ model:     gpt-5.6-sol high   /model to change │
+        │ directory: ~/Library/…/Allnighter/ProbeScratch │
+          Tip: Try the Desktop app. Run 'codex app'
+        › Summarize recent commits
+        """
+        XCTAssertTrue(CapacityProbe.looksReadyForUsageCommand(settled, source: "codex"))
+
+        // Other sources keep the generic path untouched.
+        XCTAssertTrue(
+            CapacityProbe.looksReadyForUsageCommand("? for shortcuts", source: "grok"))
+    }
+
     /// The shape that actually broke capacity on 2026-08-08, taken from the live
     /// dump at Capacity/debug/codex-parseFailed.txt.
     ///
