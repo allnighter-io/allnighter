@@ -1,23 +1,82 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **Draft v1 — Spec Review Min pending. No slice authorized.**
-Owner: AllnighterCore (`SourceProbeService`, `DriverListProjector`,
-`MenuCatalog`, `DoctorReport`, `DispatchReadiness`); `alln serve` for PF-S03
-Created: 2026-08-08
+Status: **v2 — Ready for named slices (PF-S00 merged, PF-S02 narrowed).**
+  Spec Review Min `FCF51DB2` Ready (§0.1). PF-S03 carries the 2026-08-08
+  founder ruling that supersedes the Capacity Warm Bench Dock-only lock (§0.2).
+Owner: AllnighterEngine (`SourceProbeService`, `CensusIngest`) +
+AllnighterCore (`DriverListProjector`, `ModelListProjector`, `MenuCatalog`,
+`BenchReadiness`, `TeamAssembler`, `DoctorReport`, `DispatchReadiness`);
+`alln serve` for PF-S03
+Created: 2026-08-08 · Revised: 2026-08-08 (v2 — review applied)
 Origin: Founder dogfood 2026-08-08 — `alln menu --json` reported Grok and Kimi
 as `notReady` / "Rate limited — resets Aug 14" while both CLIs answered a live
 prompt in the same minute. Founder: *"why on launch alln menu is LYING."*
 
 Companion packets:
 [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) (a signal answers
-only for the source that produced it — PF-S02 is that packet's missing Works
-Test), [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) (owns the 30-minute
-freshness clock and the Dock schedule PF-S03 re-homes),
+only for the source that produced it — PF-S02 is VSI's **sibling** on the
+Allnighter consumer boundary, not its missing proof),
+[`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) (owns the 30-minute
+freshness clock; its Dock-only host lock is superseded — see §0.2),
 [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md)
 (runtime park/substitution — must not consume an expired verdict).
 
 Phases are ephemeral. At closeout: promote product law into help / vocabulary /
 operations; code remains SSOT; archive this packet.
+
+---
+
+## 0. Review record
+
+### 0.1 Spec Review Min (2026-08-08) — `FCF51DB2-AC6D-4B5D-923F-AF6328D79740`
+
+Verdict: **Ready for named slices only** — PF-S00 (merged) and PF-S02
+(narrowed) authorized after doc edits; PF-S01 follows S00; PF-S03 last.
+
+Findings accepted and applied in v2, each lead-verified against code:
+
+| Finding | Severity | Where |
+| --- | --- | --- |
+| v1's §7.1 lean (expired ⇒ `installedNotProbed`) **reproduces the hide it fixes**. `TeamAssembler.readyDriverIds` (`TeamAssembler.swift:66`) admits `isSmokeReady \|\| .rateLimited` — so a rate-limited driver auto-seats today and `installedNotProbed` does not. The v1 lean would have *removed* seats from auto-assembly. | Packet-breaking | §7.1 → §3.7, PF-S00 |
+| Expiry must project at **read time**, never rewrite the stored record — a read path must not mutate `cli_setup.json`, and PF-S01 needs the original `lastProbeAt` to disclose age. | Packet-breaking | §3.7, PF-S00 |
+| PF-S00 scoped to `SourceProbeService` alone never reaches the lying surfaces; `drivers`/`models`/`menu` read records past the fast path. | High | PF-S00 |
+| `invalidateStaleVersions` at dispatch is a **no-op**: `RunService.swift:336` passes `currentVersions: [:]`. v1 §2.2 overclaimed the self-heal. | Medium | §2.2, PF-S00 |
+| PF-S02's classifier half is **already green** — AgentOS bare-error gates shipped with VSI-S03. Only the legacy records and the `vendorReset` splice are red. | Medium | PF-S02 |
+| §2 package paths wrong: `SourceProbeService` / `CensusIngest` are AllnighterEngine, not AllnighterCore. | Low | §2, Owner |
+
+Contrarian flags carried forward, not silenced:
+
+1. **No feedback loop.** A successful real run never clears a contradicting
+   stale negative, so a scheduler can refresh the same wrong answer forever.
+   Expiry + disclosure removes the *silent hide* now; the loop is Follow-up (a).
+2. **One clock for two facts.** Capacity paint freshness and smoke-verdict
+   freshness may not deserve the same constant. Follow-up (c).
+
+**Review honesty note:** the Proof Auditor seat never launched — it died with
+`opencode serve busy: port owned by pid 48831`. No independent proof audit ran
+on this packet. That is [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md)'s
+defect firing inside the review of this one, and a live repro for that packet.
+
+### 0.2 Founder ruling (2026-08-08) — scheduler host
+
+The review ruled PF-S03 should ride the **Dock app** schedule, citing the
+Capacity Warm Bench lock (`Capacity_Warm_Bench.md:123` *"Main Dock app only"*;
+`:319` non-goal *"`alln serve` as owner"*). That lock is **superseded**.
+
+Founder, this session, on seeing the defect:
+
+> *"OR we refactor the scheduler and make it part of `alln serve` so the app
+> does not have to be open. That might be worth a refactor."*
+> *"Scheduler requiring app to be open feels like 100% the WRONG call."*
+
+and ranked **Scheduler 2.0 as priority #1**. Evidence cited: Capacity Boost
+fired overnight, reliably, with the app closed — because `BoostWindowOperations`
+already runs under `alln serve`.
+
+Per *laws are hypotheses, revisable by founder ruling only*, this is that
+ruling. §3.6 stands. PF-S03 targets `alln serve`. **`Capacity_Warm_Bench.md`
+must be updated to drop its Dock-only host lock** — that edit belongs to CWB's
+owner, not to this packet, and is tracked as Follow-up (d).
 
 ---
 
@@ -55,6 +114,10 @@ team* — and the bench quietly sent two of them home.
 
 ## 2. Root cause — four layers
 
+Package note: `SourceProbeService` and `CensusIngest` live in
+**AllnighterEngine**; the projectors and `DispatchReadiness` live in
+**AllnighterCore**.
+
 ### 2.1 The freshness data exists and nothing reads it
 
 `ToolProbeRecord.lastProbeAt` **is** persisted. Every record in
@@ -63,7 +126,7 @@ team* — and the bench quietly sent two of them home.
 
 ```
 grep -rn "lastProbeAt" Packages/AllnighterCore/Sources
-→ CensusIngest.swift:47   (writes it)
+→ AllnighterEngine/CensusIngest.swift:47   (writes it)
 → (no other hit)
 ```
 
@@ -73,7 +136,7 @@ it. This makes the fix small.
 
 ### 2.2 The probe cache is immortal on the fast path
 
-`SourceProbeService.swift:214–216`:
+`AllnighterEngine/SourceProbeService.swift:214–216`:
 
 ```swift
 let cached = previous.records.filter { headlessIds.contains($0.driverId) }
@@ -86,11 +149,17 @@ If every headless driver has a record, the whole cache is returned. No TTL, no
 its own.
 
 Independent corroboration: cached `grok` version is `0.2.118`; the binary on
-PATH is `1.0.0`. `DispatchReadiness.invalidateStaleVersions` exists precisely to
-self-heal this (its doc comment names the grok version-drift case), but it is
-called only from `RunService:334` (dispatch) and `SourceProbeService:152` —
-and the latter applies it **only to parked drivers inside `detect()`**. The
-menu / drivers / models path never gets it.
+PATH is `1.0.0`. `DispatchReadiness.invalidateStaleVersions` exists to self-heal
+exactly this (its doc comment names the grok version-drift case) — **but it is
+not actually healing anything.** Its two call sites:
+
+| Call site | Reality |
+| --- | --- |
+| `AllnighterEngine/RunService.swift:334–336` | Passes `currentVersions: [:]` — a **no-op**. The comment says the map is "filled by detect/doctor"; on this path it never is. |
+| `AllnighterEngine/SourceProbeService.swift:152` | Applied **only to parked drivers**, inside `detect()` (`full: true`). |
+
+So no path that serves `menu` / `drivers` / `models` heals a version-drifted
+record. PF-S00 must not depend on this mechanism.
 
 ### 2.3 The verdict was inferred, not observed
 
@@ -113,9 +182,13 @@ observation, never an inferred one*; *a locally computed value is never
 presented as a vendor-stated fact*; *a derived signal is attributed to the
 source that produced it*.
 
+Scope note: AgentOS shipped bare-error classifier gates with VSI-S03, so a
+*newly produced* record of this shape should no longer be created. These two are
+**legacy persisted records** that predate the gate and are still believed.
+
 ### 2.4 Two sources spliced into one confident sentence
 
-`DriverListProjector.swift:68` passes a `vendorReset` into
+`AllnighterCore/DriverListProjector.swift:68` passes a `vendorReset` into
 `DoctorReport.rateLimitedDetail(observation:vendorReset:)`. That reset comes
 from `Capacity/grok.json`'s newest weekly window — a window reading
 **`peakUsedPercent: 5`**, i.e. 5% consumed, not limited.
@@ -140,10 +213,11 @@ unknown-id / write-lock, never the probe cache. So `alln run --model model_grok`
 would likely have worked all along.
 
 The lie lives entirely in the **selection surfaces** — `menu`, `drivers`,
-`models`. Which is worse than it sounds: an agent reading `alln menu --json`
-sees `ready: false` and **never attempts the run**. A sensor that informs
-selection by stating a false fact does not inform selection; it silently
-subtracts seats. That is the letter of the law honored and its intent broken.
+`models`, and auto-assembly. Which is worse than it sounds: an agent reading
+`alln menu --json` sees `ready: false` and **never attempts the run**. A sensor
+that informs selection by stating a false fact does not inform selection; it
+silently subtracts seats. That is the letter of the law honored and its intent
+broken.
 
 ---
 
@@ -157,53 +231,88 @@ subtracts seats. That is the letter of the law honored and its intent broken.
 3. **Staleness may never rank a seat below `unknown`.** A stale positive may
    decay to `unknown`; a stale negative must *also* decay to `unknown`. An old
    negative verdict may never hide a seat. (§1.2 asymmetry.)
-4. **No verdict without a declared signal.** `sourceConfidence: .localPolicy`
-   may report `probeFailed`; it may never report `rateLimited`. A vendor limit
-   is a vendor-printed fact or it is not a fact.
+4. **No verdict without a declared signal.** A probe whose output matches no
+   declared vendor signal yields `probeFailed` at the detector — never
+   `rateLimited`. A legacy persisted `rateLimited` carrying
+   `sourceConfidence: .localPolicy` is normalized to `unknown` at projection.
+   A vendor limit is a vendor-printed fact or it is not a fact.
 5. **One sentence, one source.** A reset time from capacity history may not be
    attached to a limit verdict produced by a probe. If the observation cannot
    name its own reset, the copy says so.
 6. **Scheduled refresh belongs to `alln serve`.** Freshness must not depend on
-   a SwiftUI view appearing.
+   a SwiftUI view appearing, or on the Dock app being open (§0.2).
+7. **Expiry projects; it does not rewrite.** Aging is computed at read time in
+   a shared projection. The persisted record and its `lastProbeAt` are never
+   mutated by a read path — PF-S01 needs that original timestamp to disclose
+   age, and a menu invocation must not write durable state.
+
+**Boundary between law 4 and law 3** (they pull in opposite directions, and the
+line is exact): fail-closed governs **producing** a verdict — no declared
+signal, no `rateLimited`. Law 3 governs **aging** one — an expired verdict
+decays to `unknown`, never to a stronger claim and never to a `blockedReason`.
+Fail-closed means *decline to assert*, which is `unknown`. It has never meant
+*assert the worst case*.
+
+**`unknown` is selectable.** It carries no `blockedReason`, it stays in
+`alln menu`, and it is admitted by auto-assembly. It is a statement about our
+knowledge, not about the seat.
 
 ---
 
 ## 4. Slice plan
 
-PF-S00 and PF-S02 stop the lie and are independent of each other. PF-S01 is the
-founder's disclosure. PF-S03 is the structural fix and can run in parallel —
-different files, different owner.
+PF-S00 and PF-S02 stop the lie and are red today. PF-S01 is disclosure on top of
+S00. PF-S03 is structural and **must not lead** (see its note).
 
-### PF-S00 — Expire the verdict
+### PF-S00 — Expire the verdict, at the projection
 
-**Scope:** `SourceProbeService` fast path honors freshness. A record whose
-`lastProbeAt` is older than the freshness clock, or whose `retryAfterSeconds`
-has elapsed, is not returned as fact. Reuse the **existing 30-minute clock**
-from `Capacity_Warm_Bench.md` — do not introduce a second freshness constant.
+**Scope:** one shared freshness projection, consumed by every surface that reads
+setup records:
 
-Expired ⇒ `installedNotProbed` (or an explicit `unknown`), never `notReady`,
-never `rateLimited`. Also feed `invalidateStaleVersions` on this path so a
-version-drifted record self-heals as it already does at dispatch.
+| Consumer | Today | After |
+| --- | --- | --- |
+| `DriverListProjector` | renders stale `rateLimited` copy | expired ⇒ `unknown`, no rate-limit copy |
+| `ModelListProjector` | `ready: false` | expired ⇒ selectable, no `blockedReason` |
+| `MenuCatalog` | `"Source not ready"` | expired ⇒ no negative assertion |
+| `BenchReadiness` / `TeamAssembler` | `installedNotProbed` excluded from auto-seating | expired ⇒ admitted |
+| `DoctorReport` | states the limit | states "not recently checked" |
+
+A record is expired when `lastProbeAt` is older than the freshness clock, or
+when its observation's `retryAfterSeconds` has elapsed. Reuse the **existing
+30-minute clock** from `Capacity_Warm_Bench.md` — do not introduce a second
+freshness constant. Compute at read time only (law 7).
+
+**Do not** wire `invalidateStaleVersions` into this path — it is a no-op today
+(§2.2) and would add a dependency on a version map that the fast path does not
+have. Tracked as Follow-up (b).
 
 **Works Test:**
 ```
-Given: a cached record with status=rateLimited, retryAfterSeconds=3600,
+Given: a seeded record status=rateLimited, retryAfterSeconds=3600,
        lastProbeAt = now - 38h
-When:  alln drivers --json / alln menu --json
-Then:  the driver is NOT reported notReady for a rate limit
-And:   its models are not blockedReason "Source not ready"
-And:   the surface states the verdict is unknown / not recently checked
+When:  alln drivers --json / alln menu --json / alln models --json
+Then:  the driver is present and carries NO rate-limit copy
+And:   its models carry no blockedReason and are not ready:false for staleness
+And:   TeamAssembler.readyDriverIds admits the driver
+And:   alln run --model <that model> --dry-run accepts it
+And:   the persisted cli_setup.json record is byte-identical afterwards (law 7)
+Mutation check: restore the old notReady projection ⇒ all five assertions fail.
 ```
+All five fail on current code — verified this session.
 
 ### PF-S01 — Disclose age on every selection surface
 
-**Scope:** `menu`, `drivers`, `models` JSON each carry `checkedAt`,
-`ageMinutes`, and `stale: true` past the clock, plus a `nextAction` naming the
-refresh command. Structured first — a human-only banner leaves every agent
-reading `--json` believing the stale value.
+**Scope:** `menu`, `drivers`, `models` each carry `checkedAt`, `ageMinutes`, and
+`stale: true` past the clock, plus a `nextAction` naming the refresh command.
+Structured first — a human-only banner leaves every agent reading `--json`
+believing the stale value. Contract change ⇒ `contractVersion` bump per the
+version rule; CLI/GUI/iOS move together.
 
-Past the threshold the surface **stops asserting** rather than asserting
-louder (law 3). Contract change ⇒ `contractVersion` bump per the version rule.
+Define: `checkedAt` is null for a never-probed row (not epoch, not now); a model
+row inherits its driver's evidence and says so.
+
+The "no negative verdict from a stale record" assertion belongs to PF-S00's
+gate, not here — this slice adds disclosure only.
 
 **Works Test:**
 ```
@@ -211,31 +320,37 @@ Given: cli_setup.json last written 38h ago
 When:  alln menu --json
 Then:  every driver/model row carries checkedAt + ageMinutes
 And:   stale == true, with a nextAction whose command actually refreshes
-And:   no row reports a negative readiness verdict sourced from that record
+And:   a never-probed row reports checkedAt: null, not a fabricated time
 ```
 
-### PF-S02 — No verdict without a declared signal
+### PF-S02 — Un-invent the verdict (Allnighter half)
 
-**Scope:** A `localPolicy`-confidence observation may not produce
-`.rateLimited`. Classify `"Internal error: {"` as `probeFailed`, not a quota
-wall. Remove the `vendorReset` splice at `DriverListProjector.swift:68`, or
-restrict it to observations that already carry vendor-stated reset truth.
-Declared signals come from the driver manifest, per
-[`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) §S04 — this slice is
-that packet's missing proof.
+**Scope — the two red jobs, both in Allnighter:**
+
+1. **Legacy record normalization.** A persisted `rateLimited` observation with
+   `sourceConfidence: .localPolicy` normalizes to `unknown` at projection. It
+   never renders limit copy and never sets a `blockedReason`.
+2. **Remove the splice.** Delete the `vendorReset` pass-through at
+   `DriverListProjector.swift:68`, or restrict it to observations that already
+   carry vendor-stated reset truth. `rateLimitedDetail`'s own confidence guard
+   is correct and must not be routed around.
+
+**Not in scope:** the detector-side bare-error classifier. AgentOS shipped those
+gates with VSI-S03; that half is already green. This slice is
+[`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md)'s **sibling** at the
+Allnighter consumer boundary — VSI-S04 owns AgentOS manifests, PF-S02 owns what
+Allnighter does with what it receives and what it already persisted.
 
 **Works Test:**
 ```
-Given: a probe whose only output is "Internal error: {"
-When:  the record is classified
-Then:  status is probeFailed with that reason — never rateLimited
-And:   no reset date from any capacity window is attached to it
-Given: an observation with sourceConfidence == .localPolicy
+Given: a persisted observation with sourceConfidence == .localPolicy
 When:  a driver row renders it
-Then:  the copy never states a vendor reset time as fact
+Then:  no vendor reset time is stated as fact
+And:   no reset date from any capacity window is attached to it
+And:   the driver is not reported notReady on that basis
 ```
 
-### PF-S03 — Re-home scheduled refresh into `alln serve`
+### PF-S03 — Re-home scheduled refresh into `alln serve` (Scheduler 2.0)
 
 **Scope:** Capacity/probe refresh is currently driven from
 `AppModel.refreshCapacityCooldowns()`, called from `TeamControlView:207`
@@ -249,14 +364,14 @@ closed — founder-observed, and the existence proof that serve-hosted schedules
 work. `CapacityResidentService` and `capacity.sock` (CWB S02) already ship, so
 this is largely re-homing, not new construction.
 
-In charter: `alln serve` is a scheduler and periodic refresh is scheduling, not
-run semantics. Per AGENTS.md, adding an operation to serve is a new feature
-packet — this is that packet.
+Founder-ruled 2026-08-08 (§0.2), superseding the CWB Dock-only host lock. In
+charter: `alln serve` is a scheduler and periodic refresh is scheduling, not run
+semantics.
 
 **Does not fix the lie on its own.** On today's code a perfect 30-minute
-scheduler yields a *fresher* wrong answer: the classifier still invents the
-limit and the immortal cache still shadows it. PF-S03 must not be sequenced
-ahead of PF-S00/S02.
+scheduler yields a *fresher* wrong answer: the stale record still projects a
+negative and the legacy verdict is still believed. **Sequencing is binding:
+PF-S00 and PF-S02 land before PF-S03.**
 
 **Works Test:**
 ```
@@ -265,25 +380,39 @@ When:  the freshness clock elapses
 Then:  probe/capacity records refresh on disk with a new lastProbeAt
 And:   alln menu --json reports stale == false without any GUI interaction
 And:   with serve stopped, surfaces report stale == true — never a fresh lie
+And:   the 30m refresh uses the cheap non-full path (no quota smoke)
 ```
 
 ### PF-S04 — Closeout
 
 - [ ] PF-S00…S03 Works Tests pass
-- [ ] Promote laws §3.1–3.6 into help topics + `docs/operations/`
+- [ ] Promote laws §3.1–3.7 into help topics + `docs/operations/`
 - [ ] Negative proof: a genuinely rate-limited vendor still reports the limit,
       with vendor-stated reset copy, and still never hard-blocks dispatch
+- [ ] `Capacity_Warm_Bench.md` host lock reconciled with §0.2
 - [ ] Archive this packet
 
 ---
 
-## 5. Non-goals
+## 5. Follow-ups (named, not silenced)
+
+| # | Item | Why deferred |
+| --- | --- | --- |
+| (a) | **Feedback loop:** a successful real run clears a contradicting stale negative. Without it a scheduler can refresh the same wrong answer forever. | Expiry + disclosure removes the *silent hide* now. Real gap; not a reason to hold a P1 fix. Spec Review contrarian flag 1. |
+| (b) | **Version source for the heal path:** `invalidateStaleVersions` is a no-op at dispatch (`currentVersions: [:]`). Either feed it or delete it. | Dead code that reads as a working safety net is its own lie. Out of PF-S00's blast radius. |
+| (c) | **Split the clocks** if dogfood shows a 30-minute probe cadence churning verdicts. Capacity paint freshness ≠ smoke-verdict freshness. | One clock until evidence separates them. Contrarian flag 2. |
+| (d) | **Update `Capacity_Warm_Bench.md`** to drop the Dock-only host lock per §0.2. | Belongs to CWB's owner, not this packet. |
+
+---
+
+## 6. Non-goals
 
 - Making readiness block dispatch. `DispatchReadiness` law stands: sensors
   inform, never veto (`readiness-informs-never-blocks`).
 - A second freshness constant. Reuse the CWB 30-minute clock.
 - Probing on every `alln menu` invocation. Menu must stay fast; freshness comes
   from the scheduler plus honest disclosure, not from synchronous probing.
+- Mutating persisted records from a read path (law 7).
 - Auto-substituting a seat whose verdict went `unknown`. Unknown means ask or
   attempt, not silently reseat.
 - Reworking capacity window math or the strip. Out of packet.
@@ -291,34 +420,36 @@ And:   with serve stopped, surfaces report stale == true — never a fresh lie
 
 ---
 
-## 6. Risks
+## 7. Risks
 
 | Risk | Response |
 | --- | --- |
 | Expiring negatives re-offers a genuinely dead CLI | Accepted and correct — §1.2. The failure is one loud failed run; dispatch already fails honestly with `command not found` / `errorKind: .missingCLI`. |
 | `stale: true` becomes background noise agents learn to ignore | Tie loudness to consequence: stale never asserts a negative, so the only thing an agent can ignore is a *weaker* claim, not a hidden seat. |
-| Contract churn on menu/drivers/models JSON | One coordinated additive change, one `contractVersion` bump; CLI/GUI/iOS share `TeamRunJSON`-adjacent shapes and must move together. |
+| A read-time projection drifts from what doctor writes | One shared projection consumed by all five surfaces (PF-S00 table), not per-surface staleness logic. |
+| Contract churn on menu/drivers/models JSON | One coordinated additive change, one `contractVersion` bump; CLI/GUI/iOS move together. |
 | Refresh in `alln serve` spends quota on a schedule | The 30m refresh must be the cheap non-`--full` path. A quota-spending smoke stays explicit (`alln doctor --full`). |
 | PF-S03 lands first and ships a fresher lie | Sequencing is binding: PF-S00/S02 before PF-S03. |
+| CWB and this packet disagree on scheduler host until (d) lands | §0.2 is the ruling of record; CWB is stale on this point, not authoritative. |
 
 ---
 
-## 7. Open questions
+## 8. Open questions
 
-1. Does expired resolve to existing `installedNotProbed`, or does a new explicit
-   `unknown` status earn its place? Lean: reuse `installedNotProbed` — no new
-   vocabulary, and the copy *"Installed, not checked"* is already honest.
+1. ~~Expired ⇒ `installedNotProbed` or a new `unknown`?~~ **Ruled (§0.1):** a
+   read-time `unknown` at the projection layer. `installedNotProbed` projects as
+   `notReady` and is excluded by `TeamAssembler` — it cannot carry this meaning.
 2. Is 30 minutes right for probe freshness, or only for capacity? Lean: one
-   clock for both until evidence separates them.
+   clock for both until dogfood separates them — Follow-up (c).
 3. Should `alln menu` opportunistically refresh when it finds a stale record and
    serve is not running? Lean: no in v1 — disclose and let `nextAction` carry
    it; menu latency is a hero-loop property.
-4. Does PF-S03 need a founder ruling as a new `alln serve` operation, or does
-   the CWB Dock schedule already cover it?
+4. ~~Does PF-S03 need a founder ruling?~~ **Ruled (§0.2):** it has one; it
+   targets `alln serve` and supersedes the CWB Dock-only lock.
 
 ---
 
-## 8. Immediate unblock (available today, no code)
+## 9. Immediate unblock (available today, no code)
 
 `alln doctor --full` re-probes and overwrites `cli_setup.json`. It smokes every
 driver, so it spends some quota across all installed CLIs. Until PF-S00 lands,
@@ -331,7 +462,8 @@ argument for the packet.
 
 | Task | Read first |
 | --- | --- |
-| A working CLI shows `notReady` / missing from `alln menu`; stale or invented readiness | This packet + `SourceProbeService.swift`, `DriverListProjector.swift`, `DispatchReadiness.swift` |
+| A working CLI shows `notReady` / missing from `alln menu`; stale or invented readiness | This packet + `AllnighterEngine/SourceProbeService.swift`, `AllnighterCore/DriverListProjector.swift`, `DispatchReadiness.swift` |
+| Scheduler host — app-open vs `alln serve` | §0.2 founder ruling (supersedes `Capacity_Warm_Bench.md` Dock-only lock) |
 | A capacity signal attributed to the wrong source | [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) |
-| Freshness clock / warm bench schedule | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) |
+| Freshness clock | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) |
 | Whether a sensor may block dispatch | `DispatchReadiness.swift` — it may not |

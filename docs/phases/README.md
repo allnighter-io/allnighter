@@ -34,12 +34,18 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 ### Active priorities (founder-ordered)
 
+> **Founder-ordered top four (2026-08-08)** — work them in this order:
+> **1.** Scheduler 2.0 · **2.** Seat assignments · **3.** OpenCode attach · **4.** Ollama.
+> Everything below the top four is unordered backlog.
+
 | Doc | Status | Next action |
 | --- | --- | --- |
-| [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **OPEN — Ready to code (S01/S02)** | Serialize-don't-drop: AgentOS gate timeout = seat invoke timeout; dry-run names serial drivers. Hardened by DeepSeek + Kimi K3. AI PMs only. |
-| [`Ambient_Dirty_Run_Outcome.md`](Ambient_Dirty_Run_Outcome.md) | **OPEN — draft; after crew signal** | S122.3 `incomplete_uncommitted` fires on ambient WIP; OpenCode can deliver a full answer with zero run-owned edits and still fail. ADR-S01 dirty-vs-start; ADR-S02 don't stamp `empty_output` on delivered text. Origin: `09E19604`. |
-| [`Probe_Freshness.md`](Probe_Freshness.md) | **OPEN — draft v1, Spec Review Min pending** | `alln menu` reported Grok + Kimi `notReady` while both answered live prompts. Immortal probe cache + `localPolicy` verdict invented from a crash string + spliced reset date. PF-S00/S02 stop the lie; PF-S03 re-homes refresh into `alln serve`. Origin: 2026-08-08. |
-| [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then Dock scheduler** | Spec Review Min Ready: one 30m freshness clock; scoped kill before timer; Dock-only. |
+| [`Probe_Freshness.md`](Probe_Freshness.md) | **1 · Scheduler 2.0 — v2, Ready for named slices** | `alln menu` hid Grok + Kimi as `notReady` while both answered live prompts. PF-S00 expire-at-projection + PF-S02 un-invent the verdict stop the lie; PF-S01 discloses age; **PF-S03 re-homes refresh into `alln serve`** — founder ruling §0.2 supersedes the CWB Dock-only host lock. Spec Review Min `FCF51DB2` Ready. |
+| [`Crew_Understaffed_Signal.md`](Crew_Understaffed_Signal.md) | **2 · Seat assignments — Ready to code (S01/S02)** | Serialize-don't-drop: AgentOS gate timeout = seat invoke timeout; dry-run names serial drivers. Hardened by DeepSeek + Kimi K3. AI PMs only. |
+| [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) | **3 · OpenCode attach — Ready, OSA-S00→S03** | Attach healthy leftover serve on `:4096`; do not tear down per run. All OpenCode seats. Live repro 2026-08-08: killed the Proof Auditor seat inside a Spec Review run (`pid 48831`). |
+| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **4 · Ollama — OCL-S00 pipe PASS; code unauthorized** | **Dev builds only until fully ready** (founder 2026-08-08) — no dev-build gate exists in the CLI today, so that mechanism precedes OCL-S01/S02/S04. Also blocked on doc v5 + `--no-commit` honesty + serve attach. |
+| [`Ambient_Dirty_Run_Outcome.md`](Ambient_Dirty_Run_Outcome.md) | **OPEN — draft; after the top four** | S122.3 `incomplete_uncommitted` fires on ambient WIP; OpenCode can deliver a full answer with zero run-owned edits and still fail. ADR-S01 dirty-vs-start; ADR-S02 don't stamp `empty_output` on delivered text. Origin: `09E19604`. |
+| [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then scheduler** | One 30m freshness clock; scoped kill before timer. ⚠ Its **Dock-only host lock is superseded** by `Probe_Freshness.md` §0.2 — reconcile. |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete; one dogfood proof remains** | Wall-crossing resume half blocked on Codex real reset (2026-08-04). Code SSOT: `CapacityDisplayAcquisition`, `MenuCatalog`, `LoopCoordinator`, `VendorBackoffReconciler`. |
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
@@ -56,8 +62,6 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **ARCHIVE READY** | Dogfood + CT-08 coded; archive + promote next. |
 | [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **COMPLETE** | CT-10 deferred; archive with S123. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
-| [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) | **Ready — OSA-S00→S03** | Attach healthy leftover serve on :4096; do not tear down per run. All OpenCode seats. |
-| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **OCL-S00 pipe PASS on Air — code unauthorized** | qwen2.5:0.5b via OpenCode/`alln run` on M4 Air 32GB. Outcome honesty gap. Readiness Idle/Busy; Studio=ICP. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |
 | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) | Draft — needs re-base | Core routing built; GUI browse unbuilt. |
