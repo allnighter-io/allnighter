@@ -243,6 +243,69 @@ final class CapacityHistoryStoreTests: XCTestCase {
         XCTAssertEqual(record.firstObservedAt, t0)
     }
 
+    /// The peak and the current reading are different questions, and they used
+    /// to share one answer.
+    ///
+    /// `merge` pairs the highest peak ever seen with the NEWEST observation
+    /// time, and `asCapacityWindow` displayed `peakUsedPercent`. So after 80%
+    /// then a real 50%, the strip reported "80% used, observed just now" — a
+    /// stale worst case wearing a fresh timestamp. Right for peak accounting,
+    /// wrong for the current reading, and the current reading is what a bench
+    /// decision is made on.
+    func testDisplayedUsageIsTheLatestReadingNotTheHighWaterMark() throws {
+        let high = known(source: "grok", used: 80, resetAt: resetBase, observedAt: t0)
+        let low = known(
+            source: "grok",
+            used: 50,
+            resetAt: resetBase,
+            observedAt: t0.addingTimeInterval(120)
+        )
+        try store.record([high], now: t0)
+        try store.record([low], now: t0.addingTimeInterval(120))
+
+        let record = try XCTUnwrap(store.load(sourceId: "grok").first)
+        // Analytics keep the peak.
+        XCTAssertEqual(record.peakUsedPercent, 80)
+        // Display gets the newer sample, including when it is LOWER.
+        XCTAssertEqual(record.lastUsedPercent, 50)
+
+        let window = record.asCapacityWindow()
+        XCTAssertEqual(window.usedPercent, 50, "hydrated display must not report the peak")
+        XCTAssertEqual(window.observedAt, t0.addingTimeInterval(120))
+    }
+
+    /// A rising sample must still move the current reading — otherwise "latest"
+    /// would silently mean "lowest", which is the same class of lie inverted.
+    func testLatestReadingRisesToo() throws {
+        try store.record(
+            [known(source: "grok", used: 20, resetAt: resetBase, observedAt: t0)], now: t0)
+        try store.record(
+            [known(source: "grok", used: 65, resetAt: resetBase,
+                   observedAt: t0.addingTimeInterval(60))],
+            now: t0.addingTimeInterval(60))
+
+        let record = try XCTUnwrap(store.load(sourceId: "grok").first)
+        XCTAssertEqual(record.lastUsedPercent, 65)
+        XCTAssertEqual(record.peakUsedPercent, 65)
+    }
+
+    /// Records written before `lastUsedPercent` existed decode with it nil and
+    /// must keep their old display behavior rather than showing no value.
+    func testLegacyRecordWithoutLastUsedFallsBackToPeak() {
+        let legacy = CapacityWindowRecord(
+            sourceId: "grok",
+            scope: .weekly,
+            resetAt: resetBase,
+            resetPrecision: .exact,
+            peakUsedPercent: 42,
+            firstObservedAt: t0,
+            lastObservedAt: t0,
+            observationCount: 1
+        )
+        XCTAssertNil(legacy.lastUsedPercent)
+        XCTAssertEqual(legacy.asCapacityWindow().usedPercent, 42)
+    }
+
     // MARK: 6 — Unknown windows are not recorded
 
     func testUnknownWindowsAreNotRecorded() throws {

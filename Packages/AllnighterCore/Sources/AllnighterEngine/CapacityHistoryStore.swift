@@ -26,6 +26,18 @@ public struct CapacityWindowRecord: Codable, Sendable, Equatable {
     public let resetAt: Date
     public let resetPrecision: CapacityResetPrecision
     public let peakUsedPercent: Double
+    /// Usage as of `lastObservedAt` — the CURRENT reading, as opposed to
+    /// `peakUsedPercent` which is the monotone high-water mark for the window.
+    ///
+    /// These are different questions and used to share one answer. The merge
+    /// pairs the highest peak ever seen with the newest observation time, so
+    /// hydrating `peakUsedPercent` for display reported "80% used, observed just
+    /// now" after a real 50% sample. Correct as peak accounting, wrong as
+    /// current accounting — and current is what a bench decision is made on.
+    ///
+    /// Optional so records written before this field decode unchanged; readers
+    /// fall back to the peak, which is the old behavior.
+    public let lastUsedPercent: Double?
     public let firstObservedAt: Date
     public let lastObservedAt: Date
     public let observationCount: Int
@@ -38,6 +50,7 @@ public struct CapacityWindowRecord: Codable, Sendable, Equatable {
         resetAt: Date,
         resetPrecision: CapacityResetPrecision,
         peakUsedPercent: Double,
+        lastUsedPercent: Double? = nil,
         firstObservedAt: Date,
         lastObservedAt: Date,
         observationCount: Int,
@@ -49,6 +62,7 @@ public struct CapacityWindowRecord: Codable, Sendable, Equatable {
         self.resetAt = resetAt
         self.resetPrecision = resetPrecision
         self.peakUsedPercent = peakUsedPercent
+        self.lastUsedPercent = lastUsedPercent
         self.firstObservedAt = firstObservedAt
         self.lastObservedAt = lastObservedAt
         self.observationCount = observationCount
@@ -240,6 +254,11 @@ public struct CapacityHistoryStore: Sendable {
             resetAt: existing.resetAt,
             resetPrecision: laterIsIncoming ? incoming.resetPrecision : existing.resetPrecision,
             peakUsedPercent: max(existing.peakUsedPercent, incoming.peakUsedPercent),
+            // Peak takes the max; the current reading takes the NEWER sample —
+            // including when it is lower, which is the whole point.
+            lastUsedPercent: laterIsIncoming
+                ? (incoming.lastUsedPercent ?? incoming.peakUsedPercent)
+                : (existing.lastUsedPercent ?? existing.peakUsedPercent),
             firstObservedAt: min(existing.firstObservedAt, incoming.firstObservedAt),
             lastObservedAt: max(existing.lastObservedAt, incoming.lastObservedAt),
             observationCount: existing.observationCount + incoming.observationCount,
@@ -268,6 +287,8 @@ public struct CapacityHistoryStore: Sendable {
             resetAt: resetAt,
             resetPrecision: window.resetPrecision,
             peakUsedPercent: used,
+            // A fresh seed is both the peak so far and the current reading.
+            lastUsedPercent: used,
             firstObservedAt: window.observedAt,
             lastObservedAt: window.observedAt,
             observationCount: 1,
@@ -313,7 +334,9 @@ extension CapacityWindowRecord {
             ? ClaudeCapacityLog.canonicalPoolLabel(poolLabel)
             : poolLabel
         return CapacityWindow(
-            used: peakUsedPercent,
+            // The latest reading, not the high-water mark. Falls back to the
+            // peak for records written before `lastUsedPercent` existed.
+            used: lastUsedPercent ?? peakUsedPercent,
             source: sourceId,
             scope: scope,
             resetAt: resetAt,
