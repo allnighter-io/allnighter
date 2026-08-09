@@ -1,9 +1,10 @@
 # SC-S00 — Serve LaunchAgent honesty (doctor + health)
 
-Status: ready  
+Status: in_progress  
 Slice: SC-S00  
+Run: `2ADC34AF-DB8D-4712-8FE4-43DAE717EC0E`  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §3.4 + §4  
-Executor: Kimi K3 (`model_kimi_k3`) via `alln run --team build_slice --seat model_kimi_k3`
+Executor: Kimi K3 (`model_kimi_k3`) via `alln run --team build_slice --model model_kimi_k3`
 
 ## Goal
 
