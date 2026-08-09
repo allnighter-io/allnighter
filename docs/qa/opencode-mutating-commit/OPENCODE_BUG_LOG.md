@@ -17,3 +17,7 @@ Not SSOT — promote durable lessons into help / packets on closeout.
 - Mutating + **must git commit** explicit paths for the slice.
 - Leave unrelated untracked dirs alone.
 - Host audits Pro’s diff before accepting the commit if Pro commits first; amend only if Pro’s commit is wrong and policy allows — prefer fixup commit from host.
+
+| 2026-08-09 | `37439B6E` | Flash | OMH-S05 multi-file | **Green** — `9e94b7f2`, both MULTI paths committed. |
+| 2026-08-09 | host | — | OMH-S01/S02/S04 | Help topic + playbook + SLICE_TEMPLATE (`dd249629`). |
+| 2026-08-09 | host | — | OMH-S03 | Documented `lastActivityAt`/tool activity in commit contract help; existing `OneRunSurfaceEventJournalTests` proves `worker.tool` bumps the clock. |

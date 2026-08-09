@@ -477,6 +477,13 @@ public enum HelpTopicRegistry {
             Orchestrators must not tell the seat “leave uncommitted” unless \
             `--no-commit` is on the command. That prompt alone turns a good \
             edit into a failed run.
+
+            ## Long mutating runs
+
+            During tool storms, `alln show <id> --json` → `observation.lastActivityAt` \
+            advances when the seat uses tools (`worker.tool` / `workerActivity`). \
+            If that clock freezes while you expect edits, treat it as stuck and \
+            inspect with `--stream` — do not raise stall timeouts to hide a hang.
             """,
             aliases: [
                 "opencode commit", "mutating commit", "opencode mutating",

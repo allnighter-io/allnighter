@@ -1,7 +1,8 @@
 # OpenCode Mutating Long-Run Hardening
 
-Status: **OPEN — Ready for Implementation** (founder: long Pro mutating must
-work, not read-only-only)
+Status: **COMPLETE — OMH-S01…S05 shipped 2026-08-09.** ARCHIVE READY.
+  Durable: help `opencode_mutating_commit_contract`; playbook §Commits OpenCode
+  mutating; harness under `docs/qa/opencode-mutating-commit/`.
 Owner: Allnighter (`RunService` / teaching / Works Test gate) + AgentOS
 (`OpenCode*` capture continuity) as named per slice
 Created: 2026-08-09 | Updated: 2026-08-09
