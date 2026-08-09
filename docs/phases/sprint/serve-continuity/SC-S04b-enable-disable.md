@@ -1,6 +1,7 @@
 # SC-S04b — Product-owned serve enable / disable (LaunchAgent → staged binary)
 
-Status: ready  
+Run: 
+Status: in_progress  
 Slice: SC-S04b (small)  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §6 + §4 SC-S04b  
 Executor: Kimi K3 if 5h remaining ≥15%; else DeepSeek V4 Pro
