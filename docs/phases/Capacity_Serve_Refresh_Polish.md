@@ -1,9 +1,11 @@
 # Capacity Serve Refresh Polish
 
-Status: **IN FLIGHT — founder authorized 2026-08-09 (execute slice-by-slice).**
-  Ship order S02 → S01 → S04 → S03; S05 deferred. Each slice: DeepSeek V4 Pro
-  implement → host audit → focused proof → commit. OpenCode bugs →
+Status: **IN FLIGHT — S02 SHIPPED (`70a961bd`); next S01 → S04 → S03.**
+  Founder authorized 2026-08-09. Each slice: DeepSeek V4 Pro implement → host
+  audit → focused proof → commit. OpenCode bugs →
   `docs/qa/opencode-mutating-commit/OPENCODE_BUG_LOG.md`.
+  **CRS-S02:** serveFreshnessMargin 2m + tickJitterSeconds default 60; host
+  audit CLEAN; `CapacityRefreshSchedulerTests` 10/10 green.
 Owner: AllnighterEngine (`CapacityRefreshScheduler`, `ServeDaemon`,
 `CapacityFetch`, `CapacityHistoryStore`; app peer `CapacityResidentService`)
 Created: 2026-08-09 | Updated: 2026-08-09 (authorized)

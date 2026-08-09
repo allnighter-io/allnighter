@@ -6,7 +6,8 @@ Not SSOT — promote durable lessons into help / packets on closeout.
 | When | Run | Seat | Symptom | Verdict |
 | --- | --- | --- | --- | --- |
 | 2026-08-09 | `2CEEDE81` | GLM-5.2 | Mutating doc edit delivered; run `failed` / `incomplete_uncommitted` | **Prompt**, not OpenCode — instructed “do not commit.” Same seat + Flash commit dogfood green (`24A8B6D3`, `4A3275D3`). |
-| 2026-08-09 | (CRS exec) | Pro | _pending_ | |
+| 2026-08-09 | `78C6514D` | DeepSeek V4 Pro | CRS-S02 implement+commit | **Green** — `70a961bd`, 10/10 tests, host audit CLEAN. |
+| 2026-08-09 | (CRS-S01…) | Pro | _pending_ | |
 
 ## Rules for CRS Pro slices
 
