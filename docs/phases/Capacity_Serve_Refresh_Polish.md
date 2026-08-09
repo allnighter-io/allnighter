@@ -1,9 +1,12 @@
 # Capacity Serve Refresh Polish
 
-Status: **OPEN — packet only; code unauthorized until Ready**
+Status: **IN FLIGHT — founder authorized 2026-08-09 (execute slice-by-slice).**
+  Ship order S02 → S01 → S04 → S03; S05 deferred. Each slice: DeepSeek V4 Pro
+  implement → host audit → focused proof → commit. OpenCode bugs →
+  `docs/qa/opencode-mutating-commit/OPENCODE_BUG_LOG.md`.
 Owner: AllnighterEngine (`CapacityRefreshScheduler`, `ServeDaemon`,
 `CapacityFetch`, `CapacityHistoryStore`; app peer `CapacityResidentService`)
-Created: 2026-08-09 | Updated: 2026-08-09
+Created: 2026-08-09 | Updated: 2026-08-09 (authorized)
 Parent: [`Probe_Freshness.md`](Probe_Freshness.md) PF-S03 (SHIPPED —
 `CapacityRefreshScheduler`) · supersedes Dock-only host lock per §0.2
 Related: [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) (host lock still
