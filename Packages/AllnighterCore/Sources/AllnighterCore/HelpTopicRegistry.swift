@@ -412,6 +412,11 @@ public enum HelpTopicRegistry {
 
             - Prompt echoed as the answer
             - Foreign idle / stream drop / timeout mid-turn
+            - `stalled_no_progress` when the parent is quiet with **no** live \
+              delegation child / running tools / open `task` (OCH-S04 — a live \
+              child keeps the turn busy)
+            - `reconcile failed: …` when clean idle left an empty answer and the \
+              final HTTP message fetch failed (OCH-S02)
             - Read-only tool loop with no answer text
             - Uncovered `external_directory` permission ask → `blockedOn: permission` \
               (arbitrary paths are not allow-listed)
@@ -431,6 +436,7 @@ public enum HelpTopicRegistry {
                 "opencode", "opencode serve", "session.idle", "headless opencode",
                 "opencode completion", "prompt echo", "external_directory",
                 "incomplete_uncommitted", "deepseek v4 pro",
+                "reconcile failed", "stalled_no_progress", "incomplete_no_final_message",
             ],
             relatedCommandNames: ["run", "show", "drivers"],
             needsLiveCheck: false),

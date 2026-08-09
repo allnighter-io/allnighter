@@ -1,16 +1,19 @@
 # OpenCode Turn Capture Hardening
 
-Status: **OPEN — Ready to code (v2 — Flash 5BBA6E13 + Pro 54CFCA2B harden).**
+Status: **COMPLETE — OCH-S01…S04 shipped AgentOS `65da768` (2026-08-09).**
 Owner: AgentOS (`OpenCodeSSEParser`, `OpenCodeServeClient`, `OpenCodeRoutingWorkerRunner`,
 `OpenCodeSpawnLock`, private actor `IdleGate`)
-Created: 2026-08-09 | Updated: 2026-08-09
-Parent: [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md)
-  (COMPLETE) + [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md)
+Created: 2026-08-09 | Updated: 2026-08-09 (closeout)
+Parent: [`OpenCode_Completion_Truth_Followup.md`](../phases/OpenCode_Completion_Truth_Followup.md)
+  (COMPLETE) + [`OpenCode_Long_Run_Continuity.md`](../phases/OpenCode_Long_Run_Continuity.md)
 Doc reviews: Flash `5BBA6E13` (PRIMARY accumulate) · Pro `54CFCA2B` (idle+stall, rejected, S02 retry, S03)
 
-Phases are ephemeral. At closeout: promote durable law into AgentOS code + tests;
-archive. No Allnighter product law changes required unless teaching must name a
-new `errorReason`.
+**Shipped:** AgentOS `65da768` (actor parser last-only, harden reconcile, busy/idle-defer
++ clock injection, shared seat timeout budget). Help aliases on
+`opencode_headless_completion`. Live: Flash pong smokes green; Pro+`task` dogfood
+`9BED7495` → `local_idle` / done (not `stalled_no_progress`).
+
+Archive copy — durable SSOT is AgentOS code + help topic above.
 
 ---
 
