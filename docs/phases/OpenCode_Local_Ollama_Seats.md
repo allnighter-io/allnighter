@@ -1,10 +1,13 @@
 # Ollama Local Seats (OpenCode + Claude Code)
 
 Status: **OCL-S00 pipe PASS (partial honesty) — code slices still unauthorized.**
-  Founder rulings locked (§0.1), including **both agent bodies** (2026-08-08).
+  Founder rulings locked (§0.1), including **both agent bodies** (2026-08-08) and
+  the **delegation asymmetry / Context Firewall** headline (2026-08-09, §0.1.11).
   Spec Review Min: Ready for OCL-S00 only (`FE9F2530…`); OpenCode-only lean
   **superseded** by §0.1.7. Live dogfood §0.3; bakeoff §0.4.
-Revised: 2026-08-08 (v5 — Claude Code + OpenCode agnostic; bakeoff; G0–G3 gates)
+  **Workflows and market segments: §2.4–§2.8 — the reason this packet exists.**
+Revised: 2026-08-09 (v6 — delegation asymmetry; workflow catalog; Context
+  Firewall as headline; segment research; horizon argument)
 Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS for
 OpenCode serve attach / local turn timing / Claude-local env isolation as scoped)
 Created: 2026-08-07
@@ -93,6 +96,30 @@ mandatory for S01+).
    binding for dogfood and for what we offer as a Code seat.
 10. **Dev builds only until fully ready** (founder) — no CLI dev-build gate
     exists yet; that mechanism precedes productizing OCL-S01/S02/S04.
+
+**2026-08-09 (workflows + headline)**
+
+11. **The delegation asymmetry is the thesis.** Frontier models can act as
+    project managers — decompose, decide, delegate, judge, route. Local models
+    cannot yet, so today *only the human* can route work to a local model. The
+    bridge is what lets a frontier PM command abundant local labor, which is
+    where the automation ceiling actually lifts. Full argument §2.4. **The
+    marketing hook "turn your AI into the PM" stays rejected (2026-08-06)** —
+    §2.4 is architecture, not positioning.
+12. **Context Firewall is the headline claim** and the thing to build now
+    (§2.6.1, §7.8). It is the only workflow in this packet that is unavailable
+    at any price today.
+13. **Model-vs-model benchmarking is out** (§4). Tokens/sec and "which model
+    won" is theater, returns a screenshot, and collides with *alln never rates
+    itself* + the no-projections law. Side-by-side survives only as **option
+    generation** (two patches, keep one), which is not local-specific.
+
+### 0.1.1a Order of execution (founder, 2026-08-09)
+
+Packets execute **end to end**, in document order. Ladder position is not a
+priority signal and must not be reshuffled to argue sequencing strategy. New
+workflow slices are therefore **appended** (§10 OCL-S07+), and "build now" is
+expressed by the headline marker, not by moving rows.
 
 ### 0.2 Spec Review Min (2026-08-07) — `FE9F2530-7E96-4E16-AC0F-296F4CA26D86`
 
@@ -281,9 +308,21 @@ the Allnighter run path.
 6. Claude-local isolation + meter honesty not designed in code
 7. No coding-class gated repair yet (0.5b is pipe-only; 3b failed G1 often)
 8. Dev-build gate mechanism (founder) before productizing discovery/setup
+9. **Root-less dispatch shape undesigned** — blocks the Context Firewall
+   (§13.5); OCL-S07a is design-only for exactly this reason
+10. **Outcome honesty is a prerequisite for the egress ledger**, not a parallel
+    track — a crossing record sitting on top of a lying outcome meter (item 2)
+    is worse than no record at all
 
 What v5 changed: both bodies as law; bakeoff §0.4; G0–G3 gates; Claude keep /
 OpenCode keep; Spec Review OpenCode-only lean superseded.
+
+What v6 changed: **delegation asymmetry** as the durable thesis (§2.4); segment
+research incl. prior art (§2.5); **workflow catalog** (§2.6) with **Context
+Firewall** as the headline claim; horizon / inversion argument (§2.8); egress
+policy law (§7.8); appended slices OCL-S07–S09 (§10); Works Test D (§11);
+model-vs-model benchmarking added to non-goals (§4); the shelved-LAN tension
+surfaced honestly rather than left silent (§13.4).
 
 ---
 
@@ -294,6 +333,12 @@ that model on the bench as a **local seat** behind an agent body they already
 use — **Claude Code and/or OpenCode** — and pin it with `--model`, the same way
 they pin any other seat. No new inference stack, no claim that Allnighter runs
 models, no crowning of a single local harness.
+
+**And the claim that makes it worth building (v6):** a frontier seat can then
+*delegate to that local seat* — decompose, dispatch, and judge — so abundant
+local labour is commanded by scarce judgment instead of by the user's hands
+(§2.4). Under a **Context Firewall** the frontier seat can do that without ever
+receiving the source (§2.6.1).
 
 Trusted workflow slice (target):
 
@@ -397,6 +442,232 @@ seat that never shows up to work.
 | A local model provider | ALLN does not host, serve, or bill inference. Ollama does. |
 | An overnight pitch | All-day Teams + Loop. The name is brand only. |
 | A forever-OpenCode-only local path | Superseded §0.1.7 — both bodies. |
+| A model leaderboard | §0.1.13 — no tok/s, no model-vs-model verdicts. |
+
+### 2.4 The delegation asymmetry — the durable claim
+
+Frontier models became **project managers**. They decompose a goal, decide what
+matters, delegate, judge the result, and route the next step. Local models are
+not there yet — and PM capability is precisely the capability that arrives
+**last**, because it needs long stable context, tool discipline sustained over
+many turns, and judgment under ambiguity. Those are the first things to degrade
+under quantization. Execution capability arrives first. Delegation arrives last.
+
+| | Frontier seat | Local seat (today) |
+| --- | --- | --- |
+| Decompose · decide · route | **yes** | no |
+| Judge a result | **yes** | weak |
+| Apply a bounded, well-specified order | yes | **yes** |
+| Grind 400 targets | economically no | **yes** |
+| Marginal cost per step | metered | ~0 |
+| Clock | resets, limits, parks | none |
+
+**Without a bridge, the human is the router.** Every local task must be handed
+over by a person, one at a time, because nothing local can be trusted to decide
+what to hand over. That caps automation at human dispatch rate — which is why a
+Studio full of weights still behaves like a chat toy.
+
+**With a bridge, one paid planning turn commands many free execution turns.**
+The paid cost of a fifty-step job collapses toward the cost of the plan. That is
+not a speed claim or a quality claim; it is a change in what is economically
+worth automating at all.
+
+This is the shape [`alln loop`](../operations/Execution-Playbook.md) already has:
+a strong lead steers and reviews, execution seats do the mutating work, exactly
+one mutating worker per root. **Loop was specified before local seats existed
+and needs no new architecture to accept one.** The local seat is the execution
+seat Loop was always describing.
+
+**When local PMs arrive, this packet does not expire.** The PM seat's provenance
+changes from paid to local; nothing else moves — same write lock, same run
+contract, same egress ledger, same artifacts, same honesty rules. The gap that
+closes is capability. The gap that does not close is the need for *something* to
+delegate, and for a bench that records what happened. We are building the half
+that survives (§2.8).
+
+### 2.5 Who runs local (segment read, 2026-08-09)
+
+External research, not SSOT. Recorded because it changes what to build first.
+
+| Segment | What they have | Unsolved today |
+| --- | --- | --- |
+| **Quota-squeezed power user** (our dogfood) | Paid CLIs + a Mac | Reading files burns paid context and quota. Hand-rolled workarounds already exist (prior art below). |
+| **Studio / local maximalist** | 128–512 GB unified memory | The machine is a **chat toy** — one model, one TUI, one session. Abundance with no consumption mechanism. |
+| **Regulated** (ITAR / HIPAA / SOX) | Mandate + budget | **All-or-nothing.** Every shipping answer is "go fully on-prem and eat the capability gap." Nobody offers *keep the frontier model, deny it the source*. |
+| **Privacy pragmatist** (larger than regulated) | Proprietary code, no mandate | Same all-or-nothing, by preference rather than policy. |
+| **Cost-constrained indie / non-US** | Free local, rationed cloud | Same as row 1 with a harder floor. |
+
+**Prior art — the wedge is already being hand-rolled.** `ask-local`
+(github.com/alisorcorp/ask-local, ~47 stars, originated in an r/LocalLLaMA
+thread) delegates file-reading from Claude Code to a local LM Studio model so
+that "file contents stay on your machine; only the final answer enters your
+Claude session." Its own README lists the jobs: pattern inventory, content
+audits, triage, log analysis. It is a single MCP tool — LM Studio only, one
+direction, no run contract, no queue, no write lock, no record of what crossed.
+**Read this as validated demand with a hobby implementation**, not as a
+competitor. Its stated limits (30B-class quality lags on subtle correctness;
+degrades well below advertised context) match our G1/§7.4 findings exactly.
+
+**Field convention worth adopting verbatim:** route per **task**, not per
+workflow. Local for extraction, classification, formatting, high-frequency
+routine, and privacy-bound reads; frontier for hard reasoning, long context, and
+quality-risk output. This is a *user-selected team shape*, never an automatic
+router — `Scarcity_Aware_Routing.md` §3 still forbids standing preference rules.
+
+**Batch is a known open wound.** Published practice is that teams burn hundreds
+of engineering hours on fragile for-loop + retry + checkpoint scripts. Nothing
+does this for *coding agents*, local or otherwise (§2.6.2).
+
+### 2.6 Workflow catalog
+
+The reason to build this packet. Each row states what is impossible or painful
+today, not what is faster.
+
+#### 2.6.1 Context Firewall — **headline claim (build now)**
+
+The manual version exists today and is done with a clipboard: paste code into a
+local model, ask it to genericise, paste the abstraction into the frontier
+model, paste the answer back. Productised, it is a **seat-level egress
+boundary** on a project:
+
+```text
+local seat   reads the repo, produces an abstraction
+   │                        ↓  (recorded, verbatim, in the egress ledger)
+frontier seat               reasons over the abstraction only — never the source
+   │                        ↓
+local seat   re-grounds the answer onto real files, holds the write lock
+```
+
+| Policy | Meaning |
+| --- | --- |
+| `egress: open` | Today's behaviour. Default. Unchanged. |
+| `egress: abstracted` | Only local-provenance seats are dispatched against the repo root. Non-local seats receive only text a local seat emitted. Every crossing is recorded. |
+| `egress: local_only` | No paid seat runs in this root at all. |
+
+Why this is the headline: it is the **only** workflow here that is unavailable
+at any price today. Every shipping answer for the regulated and privacy segments
+is "go fully on-prem." This one says *keep Opus, deny it the source* — and the
+crossing record is the deliverable, because for a regulated buyer the artifact
+**is** the product.
+
+Enforcement is **dispatch-level, not a sandbox**: the non-local seat is simply
+not pointed at the repo root. This is deliberate — a mechanical read-only
+overlay of the real tree is forbidden by
+`scripts/check_architecture_policy.sh`, and nothing here reintroduces one.
+
+**Honesty bound — do not overclaim, this one is a liability if we do.** The
+claim is *auditable egress*, never *guaranteed sanitisation*. A local model can
+and will leak identifiers into its own summary; the paid CLI is a process on the
+user's machine and we do not control everything it can read. The product
+promise is therefore exactly:
+
+> You can see precisely what left this machine, verbatim, per run.
+
+Not "nothing sensitive left." Marketing copy that implies sanitisation is a
+defect, not a stretch.
+
+**Fail closed:** if the local seat is unavailable under `abstracted`, the run
+**fails**. It never silently promotes the frontier seat to repo access. This is
+user intent, not a sensor reading, so refusal is legitimate — same class as the
+per-root write lock, not a readiness veto (`readiness informs, never blocks`).
+
+Open design question, and the real technical risk: a run today is *an agent in
+the repo root* (`RunService.swift`). A seat dispatched with **no** project root
+is a new run shape and must be designed before code — see §13.5.
+
+#### 2.6.2 Sweep — bulk work with a resumable queue
+
+One order, N targets, checkpointed, **resumable**. 400 files, the model dies at
+250, you resume at 250. That resume property is what the hundreds of hand-rolled
+engineering hours are actually spent on.
+
+This is the Studio's missing consumption mechanism, and it is judgment at a
+volume nobody would ever buy: *does every doc still agree with
+`Product_Vocabulary.md`?* *Is this test tautological (the `measurement_auditor`
+question, applied to every test file rather than the twelve in the diff)?*
+Between `grep` (free, deterministic, dumb) and a frontier seat (sharp, rationed)
+there is a gap that only abundant local labour fills.
+
+Alln already owns run ids, artifacts, the journal, and the write lock. Sweep is
+a verb over machinery that exists.
+
+#### 2.6.3 Two-tier teams — frontier judgment × local labour
+
+| Direction | Shape |
+| --- | --- |
+| **Local drafts → frontier judges** | N cheap candidate patches; the paid seat picks and repairs one. Volume from the free seat, quality floor from the expensive one. Option generation with local economics. |
+| **Frontier plans → local executes** | The lead writes a precise bounded work order; local seats apply it across many sites. This is `alln loop` unchanged (§2.4). |
+| **Local as tripwire** | Local re-reads each commit continuously and escalates to a paid seat only on a smell. Paid attention is scarce; local attention is free. |
+
+#### 2.6.4 Continuity across the boundary
+
+Today, switching from a paid model to a local one means a new session and
+re-pasting the context. Hit a limit, switch, re-explain. `ask-local` does not fix
+it; `ollama launch` does not; editor extensions do not. **Alln threads are
+continuous across seats — change the model mid-thread and keep the context.**
+Small surface, felt daily, and it falls out of the existing thread model rather
+than needing new architecture.
+
+#### 2.6.5 Standing orders on abundant labour
+
+`alln serve` is already a background scheduler. A local seat is the only seat
+schedulable without a quota conversation: every commit, every hour, every branch.
+Framed as **standing orders**, never as the banned overnight pitch. Escalation to
+a paid seat is by exception and always disclosed.
+
+#### 2.6.6 `alln models gate <tag>` — the ladder as a product
+
+When V4-Flash-class then V4-Pro-class weights land locally, every user's question
+becomes *"is my local model good enough for this job yet?"* Today they burn an
+afternoon finding out. The G0→G3 ladder (§0.4.2) already answers it and is
+currently framed as internal dogfood. Shipped, it accumulates **the user's own
+observed pass/fail per model per job class** — a personal asset no benchmark site
+has, and the thing worth posting instead of tok/s.
+
+Stays legal: observed pass/fail on the user's own gates is a **fact**, not a
+score, a rating, or a projection — same precedent as the Cost Advisor's
+retrospective-usage-only rule. It does not rank models against each other and it
+never rates Allnighter (D5).
+
+### 2.7 What to build now
+
+Ranked by *unavailable today*, not by effort. Execution stays document order
+(§0.1.1a); this is the packet's identity, not its schedule.
+
+1. **Context Firewall + egress ledger** (§2.6.1, §7.8) — the headline. Nothing
+   else in the local market offers it.
+2. **Sweep** (§2.6.2) — the workhorse; turns abundance into output.
+3. **Loop with local execution seats** (§2.6.3) — the proof that the thesis
+   needs no new architecture.
+
+Everything else in §2.6 is real but follows these.
+
+### 2.8 Horizon — why this survives the inversion
+
+Today: local is cheap and weak, frontier is sharp and scarce. That is closing
+fast — open-weight coding models now sit within single-digit points of frontier
+on SWE-Bench-Verified-class evals and near parity on simpler coding evals, and
+V4-Pro-class weights already fit the largest Studios. Assume the capability gap
+substantially closes inside this horizon rather than betting against it.
+
+When it does, the asymmetry inverts: local becomes **sharp and abundant**, paid
+becomes marginally sharper and still scarce. At that point:
+
+- A **router** loses its reason to exist — there is less to route around.
+- A **bridge** loses value as the banks converge.
+- **Provenance, honesty, the write lock, and the egress ledger do not.** The
+  question stops being *which model* and becomes *did the work actually happen,
+  and can I prove what crossed which boundary.*
+
+Allnighter is a bench, not a bridge. Build the parts that outlive the gap:
+attribution, completion truth, one mutating worker per root, and a record of
+every crossing. Those are the same items already sitting in §0.5 as blockers —
+which is the argument for doing them regardless of how local capability lands.
+
+Market note (external, non-binding): 256/512 GB Studios went refurbished-only in
+March 2026 on memory supply; large-memory Macs are expected to reopen with M5
+Ultra late 2026. The ICP is supply-constrained *right now* and widens later —
+another reason the durable half is the right thing to build first.
 
 ---
 
@@ -432,6 +703,17 @@ seat that never shows up to work.
   Ollama state.
 - Reporting Anthropic-shaped meters (`costUSD`, fake 200k context, “firstParty”)
   as truth for `ollama_local` seats.
+- **Model-vs-model benchmarking.** No tokens/sec, no "local vs Claude" verdicts,
+  no leaderboard (§0.1.13). It is theater, it returns a screenshot, and it
+  collides with *alln never rates itself* and the no-projections law. Only the
+  user's own observed G0–G3 pass/fail is recorded, and only for their own tags
+  (§2.6.6).
+- **Claiming sanitisation.** The Context Firewall promises an *auditable* egress
+  record, never that sensitive content was removed (§2.6.1). Copy implying
+  redaction or a guarantee is a defect.
+- A mechanical read-only overlay of the user's repo for the non-local seat.
+  Forbidden by `scripts/check_architecture_policy.sh`; the firewall is
+  dispatch-level (§2.6.1).
 
 ---
 
@@ -551,6 +833,33 @@ The user (or team seat config) selects the agent body. Allnighter does not
 auto-prefer Claude-local or OpenCode-local. No scarcity router invents a
 standing rule (§3 of Scarcity packet).
 
+### 7.8 Egress policy (Context Firewall) — candidate law
+
+1. **Policy is per project/root, set by the user.** Three values only:
+   `open` (default, today's behaviour) · `abstracted` · `local_only`.
+2. **Under `abstracted`, only local-provenance seats are dispatched against the
+   repo root.** A non-local seat receives a prompt composed solely of text a
+   local seat emitted in this run. Enforcement is dispatch-level; no read-only
+   overlay of the real tree ever exists (§4).
+3. **Every crossing is recorded verbatim** in the run journal and addressable
+   from `alln show <id>` — the **egress ledger**. A crossing that is not
+   recorded is a bug, not an optimisation.
+4. **Fail closed.** Local seat unavailable under `abstracted` ⇒ the run fails
+   with a classified reason. Never a silent promotion of the frontier seat to
+   repo access, and never a substitution.
+5. **This refusal is user intent, not a sensor veto.** It sits with the per-root
+   write lock and parked drivers, not with readiness — `readiness informs, never
+   blocks` is untouched.
+6. **The claim is auditability, never sanitisation.** Product copy, help text,
+   and `doctor` output must say what left, not that nothing sensitive left
+   (§2.6.1).
+7. **`local_only` refuses paid seats in that root outright** — including a Team
+   whose seats would otherwise resolve to a vendor. The refusal names the policy
+   as the reason.
+8. **The policy never travels.** It is a property of the root, not of a model,
+   a team, or the user's global config; it cannot be inferred from provenance
+   or silently inherited by another root.
+
 ---
 
 ## 8. Module sketch (candidate owners — not an allowlist)
@@ -564,6 +873,10 @@ standing rule (§3 of Scarcity packet).
 | Dispatch | Existing `opencode` / `claude_code` drivers |
 | Readiness surface | `alln models` / `doctor` — three states only |
 | Capacity strip row | **Cancelled for v1** |
+| Egress policy on a root; refusal path | `RunService` dispatch + write-lock neighbourhood — same class as the lock, not a readiness gate |
+| Egress ledger (verbatim crossings) | Run journal + `alln show` projection — code SSOT `RemoteRunEventJournal` / `TeamRunJSONMapper` |
+| Root-less dispatch for the frontier seat | **Undesigned** — new run shape, see §13.5. Blocks Context Firewall code. |
+| Sweep queue: N targets, checkpoint, resume | Run/artifact layer; reuses run ids + `ArtifactProjector` |
 
 ---
 
@@ -572,8 +885,8 @@ standing rule (§3 of Scarcity packet).
 | | |
 | --- | --- |
 | **Truth owner** | Ollama `/api/tags` + `/api/ps` for local runtime; agent-body turn outcome for run truth; `ModelCatalog` for seat identity and provenance |
-| **Lie-prone** | Advertised context as served; G0 pass sold as Code-ready; text-fake tools treated as harness bugs; OpenCode serve busy as model failure; Claude-local `costUSD` / 200k context / firstParty; `enabled_providers` clobber; 0.5b plumbing sold as Studio capability; ambient dirty / concurrent commits misread as the local seat’s `repoDelta` |
-| **Missing proof** | G3 honest mutate on OpenCode-local after serve-attach fix; G2/G3 Claude-local as an alln seat; mid-tier (`7b`) G1+G2; Studio-class §11 B |
+| **Lie-prone** | Advertised context as served; G0 pass sold as Code-ready; text-fake tools treated as harness bugs; OpenCode serve busy as model failure; Claude-local `costUSD` / 200k context / firstParty; `enabled_providers` clobber; 0.5b plumbing sold as Studio capability; ambient dirty / concurrent commits misread as the local seat’s `repoDelta`; **an egress ledger that silently omits a crossing**; **"firewall" read as sanitisation**; **a sweep that skips targets and reports done** |
+| **Missing proof** | G3 honest mutate on OpenCode-local after serve-attach fix; G2/G3 Claude-local as an alln seat; mid-tier (`7b`) G1+G2; Studio-class §11 B; **negative proof that nothing reaches a non-local seat under `abstracted`**; **sweep resume correctness after a mid-run kill** |
 
 ---
 
@@ -592,11 +905,26 @@ Not an implementation allowlist. No slice starts without a founder ruling.
 | **OCL-S04** | Readiness surface in `alln models` / `doctor` — three states only | Core/CLI |
 | **OCL-S05** | Turn timing for slow local loads — **only if measured** | AgentOS |
 | ~~**OCL-S06**~~ | ~~Capacity strip row~~ — **cancelled for v1** | — |
+| **OCL-S07a** | **Context Firewall — design.** Root-less dispatch shape (§13.5), egress ledger schema, refusal copy. Design artifact, no code. | None |
+| **OCL-S07b** | **Context Firewall — `abstracted` + egress ledger.** Policy on a root; local-only repo access; verbatim crossings in the journal and `alln show`; fail-closed refusal; negative proof (§11 D). **Headline (§2.7).** | Core/CLI |
+| **OCL-S07c** | `local_only` policy: paid seats refused in that root, policy named as the reason | Core/CLI |
+| **OCL-S08** | **Sweep:** one order × N targets, checkpointed and **resumable**, one artifact; honest per-target outcome (no skipped-but-done) | Core/CLI |
+| **OCL-S09** | Loop with a local execution seat end to end — frontier lead plans, local seat mutates under the write lock (§2.6.3) | Core |
+
+Appended per §0.1.1a — ladder position is not priority. §2.7 states the
+headline; the packet still executes end to end.
 
 Depends on sibling packets: Ambient Dirty honesty; OpenCode Serve Attach.
+OCL-S07b additionally depends on **S07a design** and on outcome honesty — an
+egress ledger on top of a lying outcome meter is worse than none.
 
 Out of ladder: scarcity auto-routing, remote `OLLAMA_HOST`, Ollama Cloud,
-multi-host, crowning one body.
+multi-host, crowning one body, model-vs-model benchmarking (§4).
+
+Not slices, recorded so they are not lost: continuity across the boundary
+(§2.6.4) falls out of the existing thread model; standing orders (§2.6.5) are an
+`alln serve` question, not a local one; `alln models gate` (§2.6.6) is a
+productisation of §0.4.2 and should follow one real gated local repair.
 
 ---
 
@@ -630,8 +958,36 @@ Then:  local work stands on the gate — not on its own report
 **C — Model gate regression (dogfood):** G0→G1 scripted on each pulled tag
 before filing “alln local is broken.”
 
+**D — Context Firewall (the headline; owner-visible):**
+
+```text
+Given: a root set egress: abstracted; one local seat; one paid seat
+When:  alln run "<question that requires reading the repo>" --json
+Then:  the paid seat is dispatched with no repo root and receives only text the
+       local seat emitted;
+       alln show <id> prints the egress ledger — every crossing, verbatim;
+       the answer is grounded back onto real files by the local seat;
+       any write happened under the per-root write lock
+
+Negative (mandatory, this is the whole product):
+  - kill the local seat  ⇒ the run FAILS with a classified reason;
+    the paid seat is never promoted to repo access, never substituted
+  - diff the paid seat's actual dispatched payload against the ledger
+    ⇒ byte-identical, or the slice is not shippable
+  - set egress: local_only ⇒ a Team whose seat resolves to a vendor is
+    refused, and the refusal names the policy
+```
+
+The ledger diff is the load-bearing test. A firewall whose record can drift from
+what was actually sent is a **compliance liability**, not a feature — see the
+overclaim bound in §2.6.1.
+
+**E — Sweep (OCL-S08):** N targets, kill the run mid-sweep, resume; every target
+ends `done | failed | not-attempted`, never silently skipped-and-reported-done.
+
 **Negative tests:** Ollama stopped ⇒ Go seats and paid Claude unchanged; no
-park/substitution mentions Ollama.
+park/substitution mentions Ollama; `egress: open` roots behave exactly as before
+the firewall existed.
 
 Proof waiver: none claimed. Nothing here is shipped as product.
 
@@ -652,6 +1008,12 @@ Proof waiver: none claimed. Nothing here is shipped as product.
 | Served context &lt; 64k | §7.4; warn-and-allow on explicit pin. |
 | Scope creep Cloud / LAN / model manager | §4. |
 | Building both body ladders before one Works Test | §0.1.8 — serialize adapters; share detect/readiness. |
+| **Egress ledger drifts from what was actually sent** | Ledger is written at the dispatch boundary, not reconstructed after. Byte-identical diff is a mandatory test (§11 D). |
+| **"Firewall" marketed as sanitisation** | §2.6.1 bound + §4 non-goal. Copy review before any public surface; the promise is *you can see what left*. |
+| **Firewall refusal mistaken for a readiness veto** | §7.8.5 — it is user intent, same class as the write lock; never reported as a sensor reading. |
+| **Sweep reports done with targets skipped** | Per-target outcome is `done \| failed \| not-attempted`; §11 E resume test. |
+| **Frontier-PM automation amplifies a weak local seat** | Delegation multiplies whatever the execution seat is. G1 gate stays mandatory before a seat is offered for Code work (§7.3). |
+| **Betting against the capability gap closing** | §2.8 — build the durable half (provenance, honesty, lock, ledger) rather than router value. |
 
 ---
 
@@ -672,6 +1034,27 @@ Still open (Spec Review may recommend; founder decides):
    **S02a (OpenCode)** in parallel design with **S02b (Claude)**; ship whichever
    isolation story is ready — do not block Claude on OpenCode serve-attach or
    vice versa beyond shared detect.
+4. **The two-machine tension (founder call).** Every segment in §2.5 has the
+   same shape: the big-memory Mac is rarely the machine you type on. LAN /
+   multi-host is explicitly shelved (§4,
+   [`Mac_Studio_LAN_Bench.md`](../archive/phases/Mac_Studio_LAN_Bench.md)) and
+   v6 does **not** propose unshelving it. Recorded rather than left silent
+   because the segment read puts real pressure on that non-goal. Note the
+   narrower door already named in §4: a remote `OLLAMA_HOST` as an *inference
+   URL only* — no remote mutator, no multi-host execution — is a strictly
+   smaller question than the shelved fabric. Founder decides whether that door
+   opens; no agent opens it mid-slice.
+5. **Root-less dispatch (blocks OCL-S07b).** A run today is *an agent in the
+   repo root* (`RunService.swift`). The Context Firewall needs the non-local
+   seat dispatched with **no** project root — prompt in, prose out, no tree.
+   Open: is that a new run shape, a dispatch flag, or a scratch root? It must
+   not become a mechanical read-only overlay (§4) and it must not weaken the
+   per-root write lock. **Design in OCL-S07a before any S07b code.**
+6. Egress ledger surface: a distinct `alln show` section, or an artifact? Lean:
+   both — journal is truth, artifact is the thing a regulated buyer keeps.
+7. Does `abstracted` need a per-run override for the moment a user knowingly
+   wants a paid seat to see one file? Lean: **no in v1** — an override that is
+   easy to reach is a firewall that does not hold. Revisit only on real demand.
 
 ---
 
@@ -686,6 +1069,17 @@ Still open (Spec Review may recommend; founder decides):
 - [ ] OpenCode setup additive/reversible; Claude-local env per-run only
 - [ ] Ollama Cloud remains out of product
 - [ ] Help + doctor teach detect → choose body → seat → run; G0–G3 for dogfood
+- [ ] **A frontier seat plans and a local seat executes, end to end, under the
+      per-root write lock — the delegation asymmetry demonstrated, not argued
+      (§2.4, §11 A + OCL-S09)**
+- [ ] **`egress: abstracted` holds: the paid seat never receives source, the
+      egress ledger matches the dispatched payload byte-for-byte, and the run
+      fails closed when the local seat dies (§11 D)**
+- [ ] **Every user-visible word about the firewall says *auditable*, never
+      *sanitised* (§2.6.1)**
+- [ ] **A sweep survives a mid-run kill and resumes with no target silently
+      skipped (§11 E)**
+- [ ] No leaderboard, tok/s figure, or model-vs-model verdict ships (§4)
 - [ ] Promote keepable law; archive this packet
 
 ---
@@ -704,6 +1098,10 @@ Still open (Spec Review may recommend; founder decides):
 | Task | Read first |
 | --- | --- |
 | Local / Ollama seats (Claude Code and/or OpenCode) | This packet + `ModelCatalog` / `ModelDiscoveryProvider` |
+| Context Firewall, egress policy/ledger, "keep the frontier model away from my source" | This packet §2.6.1 + §7.8 + §11 D — headline claim; **§13.5 root-less dispatch is undesigned and blocks code** |
+| Frontier seat delegating to a local seat; "why not just use the model directly" | This packet §2.4 (delegation asymmetry) — and `alln loop`, which already has the shape |
+| Bulk / batch / sweep over many targets | This packet §2.6.2 + OCL-S08; resumability is the feature |
+| Anyone proposing a local-vs-cloud benchmark, tok/s figure, or model ranking | §4 non-goals + §0.1.13 — refuse; only the user's own G0–G3 pass/fail is recorded |
 | OpenCode driver / serve lifecycle | AgentOS `OpenCodeServeClient.swift` + [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) |
 | Claude-local isolation / env | This packet §0.4 / §4 / §7.6 — code SSOT TBD |
 | OpenCode Go subscription meter | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) |
