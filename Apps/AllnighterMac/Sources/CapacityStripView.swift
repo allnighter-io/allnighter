@@ -630,6 +630,7 @@ private struct CapacityStripMeterRowView: View {
             switch window.source {
             case "codex": return "on-disk log · ~/.codex/…"
             case "grok": return "on-disk log · ~/.grok/logs/…"
+            case "claude_code": return "on-disk cache · ~/.claude.json"
             default: return "on-disk log"
             }
         case .tuiProbe: return "TUI probe · /usage"

@@ -507,6 +507,19 @@ public enum CapacityProbe {
             return [unknown(source: source, reason: .neverSampled, now: now)]
         }
 
+        // claude_code's own on-disk cache is the primary acquisition path —
+        // a pure file read, no spawn, no PTY, no executable resolution at
+        // all (Capacity_Native_Channels.md §2). Tried before `executable` is
+        // even resolved, because unlike every other source this channel does
+        // not need the vendor binary to exist. Any missing/unreadable file,
+        // malformed JSON, absent cache key, stale fetch, or unrecognized
+        // bucket produces no observation (`probeClaudeNative` returns nil)
+        // and falls through untouched to the existing `/usage` TUI scrape as
+        // claude_code's fallback.
+        if source == "claude_code", let native = probeClaudeNative(homeDirectory: homeDirectory, now: now) {
+            return native
+        }
+
         let executable: String
         if let executableOverride {
             executable = executableOverride
@@ -638,6 +651,16 @@ public enum CapacityProbe {
     /// reads a credential: codex owns its own auth and refresh in-process.
     private static func probeCodexNative(executable: String, now: Date) -> [CapacityWindow]? {
         CodexNativeCapacityProbe.fetch(executable: executable, now: now)
+    }
+
+    /// Try claude_code's native on-disk cache channel. Every failure path —
+    /// missing file, unreadable file, malformed JSON, absent
+    /// `cachedUsageUtilization`, a stale `fetchedAtMs`, or an unrecognized
+    /// bucket — returns `nil`, so the caller falls through to the `/usage`
+    /// TUI scrape unchanged. Never reads a credential: this is the CLI's own
+    /// cache file, read-only, and `accountUuid` inside it is never touched.
+    private static func probeClaudeNative(homeDirectory: URL, now: Date) -> [CapacityWindow]? {
+        ClaudeNativeCapacityProbe.fetch(homeDirectory: homeDirectory, now: now)
     }
 
     /// Best-effort write of a failed capture for parser re-fixturing.

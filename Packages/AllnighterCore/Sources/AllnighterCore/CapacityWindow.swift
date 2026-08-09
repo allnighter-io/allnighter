@@ -24,7 +24,8 @@ public enum CapacityResetPrecision: String, Sendable, Equatable, Codable, CaseIt
 
 /// Acquisition ladder tier that produced the sample (product §Acquisition ladder).
 public enum CapacityAcquisitionTier: Int, Sendable, Equatable, Codable, CaseIterable {
-    /// Vendor session/rollout log already on disk (Codex, Grok).
+    /// Vendor session/rollout log or cache already on disk (Codex, Grok,
+    /// Claude Code's `~/.claude.json` `cachedUsageUtilization`).
     case onDisk = 1
     /// Structured stream piggyback on a real run.
     case streamPiggyback = 2
