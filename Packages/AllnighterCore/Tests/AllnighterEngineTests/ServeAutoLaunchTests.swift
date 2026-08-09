@@ -178,6 +178,43 @@ final class ServeAutoLaunchTests: XCTestCase {
         XCTAssertEqual(launchCount, 0, "an unresolved executable must never invoke the launcher")
     }
 
+    // MARK: - SC-S03 demand heal: `alln run` dispatch wiring
+
+    private func runCLISource() throws -> String {
+        // #filePath = .../Packages/AllnighterCore/Tests/AllnighterEngineTests/<this>.swift
+        let here = URL(fileURLWithPath: #filePath)
+        let packageRoot = here.deletingLastPathComponent()   // AllnighterEngineTests
+            .deletingLastPathComponent()                     // Tests
+            .deletingLastPathComponent()                     // AllnighterCore
+        return try String(
+            contentsOf: packageRoot.appendingPathComponent("Sources/AllnighterCLI/RunCLI.swift"),
+            encoding: .utf8
+        )
+    }
+
+    /// SC-S03: `alln run` (the default mutating dispatch) must attempt
+    /// `ensureRunning` — after the dry-run soft path returns (a dry run
+    /// dispatches nothing) and before any real `service.run(` dispatch. The
+    /// opt-outs are delegated to ServeAutoLaunchCLI; this locks the call site.
+    func testRunCLIDispatchEnsuresServeBeforeWork() throws {
+        let source = try runCLISource()
+        guard let heal = source.range(of: "ServeAutoLaunchCLI.ensureRunning(opts)") else {
+            return XCTFail("alln run must call ServeAutoLaunchCLI.ensureRunning (SC-S03 demand heal)")
+        }
+        guard let dryRun = source.range(of: #"opts.flag("dry-run")"#) else {
+            return XCTFail("RunCLI dry-run gate not found — recheck the heal placement")
+        }
+        guard let dispatch = source.range(of: "service.run(") else {
+            return XCTFail("RunCLI dispatch site not found — recheck the heal placement")
+        }
+        XCTAssertLessThan(
+            dryRun.lowerBound, heal.lowerBound,
+            "a dry run dispatches nothing — the heal belongs after the dry-run early return")
+        XCTAssertLessThan(
+            heal.lowerBound, dispatch.lowerBound,
+            "the heal must run before the run starts dispatching work")
+    }
+
     // MARK: - executable resolution order (mirrors PilotCLI.detachedHandoffLaunch)
 
     func testEnsureRunningPrefersCurrentExecutablePathOverPathFallback() {

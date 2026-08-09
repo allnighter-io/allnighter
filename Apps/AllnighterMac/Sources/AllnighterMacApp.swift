@@ -106,6 +106,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // other always-wired trigger (one coalesced refresh, no catch-up).
         let capacityEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
         Task { await CapacityResidentService.shared.setEnabled(capacityEnabled) }
+        // SC-S03 demand heal: app open also ensures a live `alln serve`
+        // (probe → detached start), in addition to the resident capacity
+        // service. Fire-and-forget off the main actor — it never blocks UI,
+        // and a launch failure is swallowed by the ServeAutoLaunch contract.
+        Task.detached(priority: .utility) {
+            ServeAutoLaunch.ensureRunning(optedOut: false)
+        }
         capacityWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: nil
         ) { _ in

@@ -166,6 +166,13 @@ enum RunCLI {
             return
         }
 
+        // SC-S03 demand heal: an ordinary dispatch guarantees a live `alln
+        // serve` (probe → detached start) before work begins. Opt-outs
+        // (`--no-auto-serve` / `ALLN_NO_AUTO_SERVE`) are honored inside
+        // ServeAutoLaunchCLI; a `.failed` outcome is reported on stderr but
+        // never changes this run's exit code (ServeAutoLaunch contract).
+        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
+
         let idleParsed = parsePositiveTimeoutSeconds(opts.value("idle-timeout"), flag: "--idle-timeout")
         if let message = idleParsed.error {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: message)
