@@ -280,10 +280,23 @@ public enum BailianTokenPlanCapacityProbe {
     }
 
     static func number(_ value: Any?) -> Double? {
+        // `case let n as NSNumber` must come BEFORE `case let n as Double`/
+        // `case let n as Int` below — Swift tries switch cases in order, and
+        // those two also match a CFBoolean-backed NSNumber (JSON `true`/
+        // `false` bridges to one), coercing it into `1.0`/`0.0` before this
+        // case is ever reached. Do NOT "fix" this with `case is Bool`
+        // instead: Swift's NSNumber/Bool bridging has its own trap the other
+        // way — `(0 as NSNumber) is Bool` and `(1 as NSNumber) is Bool` are
+        // BOTH `true` on Darwin, so that shortcut would silently refuse a
+        // legitimate 0%/1% percentage too. `CFGetTypeID` against
+        // `CFBooleanGetTypeID()` is the only discriminator that gets both
+        // directions right.
         switch value {
+        case let n as NSNumber:
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
+            return n.doubleValue
         case let n as Double: return n
         case let n as Int: return Double(n)
-        case let n as NSNumber: return n.doubleValue
         case let s as String: return Double(s)
         default: return nil
         }

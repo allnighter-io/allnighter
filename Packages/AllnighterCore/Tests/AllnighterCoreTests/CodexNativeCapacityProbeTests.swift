@@ -111,6 +111,44 @@ final class CodexNativeCapacityProbeTests: XCTestCase {
         )
     }
 
+    /// `doubleValue`/`intValue`/`unixDate` all check `any as? Double`/`any as?
+    /// Int` before their `CFBoolean` guard — Swift's dynamic cast coerces a
+    /// JSON `true`/`false` straight through those casts into `1.0`/`1`/etc,
+    /// so an unfixed helper would silently turn a boolean `usedPercent` into
+    /// a valid-looking 1% instead of refusing the whole slot. Same bug shape
+    /// `ClaudeNativeCapacityProbe` fixed in 335d96a1; this is the untested
+    /// sibling `335d96a1` flagged and left for a follow-up.
+    func testBooleanUsedPercentIsRefusedNotCoerced() {
+        let payload = #"""
+        {"id":2,"result":{"rateLimits":{"planType":"plus","primary":\#
+        {"usedPercent":true,"windowDurationMins":10080,"resetsAt":1786825938},"secondary":null}}}
+        """#
+        XCTAssertTrue(
+            CodexNativeCapacityProbe.capacityWindows(fromResponseLine: payload, observedAt: fixedObservedAt).isEmpty,
+            "a boolean usedPercent must be refused, never coerced into 1.0/0.0"
+        )
+    }
+
+    /// Regression for a real trap in the naive fix: `(0 as NSNumber) is Bool`
+    /// and `(1 as NSNumber) is Bool` are BOTH `true` on Darwin — a helper
+    /// "fixed" with a blanket `any is Bool` pre-check (rather than checking
+    /// `CFGetTypeID` on the `NSNumber` branch first) would silently refuse a
+    /// legitimate `usedPercent: 0` or `usedPercent: 1`, which are completely
+    /// ordinary real values. Both must parse normally.
+    func testZeroAndOneUsedPercentAreNotRefusedAsBooleans() throws {
+        let payload = #"""
+        {"id":2,"result":{"rateLimits":{"planType":"plus","primary":\#
+        {"usedPercent":0,"windowDurationMins":10080,"resetsAt":1786825938},\#
+        "secondary":{"usedPercent":1,"windowDurationMins":300,"resetsAt":1786800000}}}}
+        """#
+        let windows = CodexNativeCapacityProbe.capacityWindows(fromResponseLine: payload, observedAt: fixedObservedAt)
+        XCTAssertEqual(windows.count, 2, "usedPercent: 0 and 1 must both parse, never refused as booleans")
+        let weekly = try XCTUnwrap(windows.first { $0.scope == .weekly })
+        XCTAssertEqual(weekly.usedPercent ?? -1, 0.0, accuracy: 1e-9)
+        let fiveHour = try XCTUnwrap(windows.first { $0.scope == .fiveHour })
+        XCTAssertEqual(fiveHour.usedPercent ?? -1, 1.0, accuracy: 1e-9)
+    }
+
     func testBothWindowsPresentWhenSecondaryIsNotNull() throws {
         // Not observed live on this host (plan has no short window), but the
         // parser must not special-case "secondary is always null" — a

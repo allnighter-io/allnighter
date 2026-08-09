@@ -88,4 +88,41 @@ final class GrokCapacityLogTests: XCTestCase {
         let got = GrokCapacityLog.latestWeeklyWindow(fromLogContent: missingPercent)
         XCTAssertNil(got, "missing creditUsagePercent must be absent, never defaulted to 0")
     }
+
+    /// `doubleValue`/`intValue` check `any as? Double`/`any as? Int` before
+    /// their `CFBoolean` guard — Swift's dynamic cast coerces a JSON
+    /// `true`/`false` straight through those casts into `1.0`/`1`/etc, so an
+    /// unfixed helper would silently turn a boolean `creditUsagePercent` into
+    /// a valid-looking 1% instead of refusing the whole record. Same bug
+    /// shape `ClaudeNativeCapacityProbe` fixed in 335d96a1; this is the
+    /// untested sibling `335d96a1` flagged and left for a follow-up.
+    func testBooleanCreditUsagePercentIsRefusedNotCoerced() {
+        let booleanPercent = #"""
+        {"ts":"2026-07-30T00:48:39.329Z","src":"shell","pid":1,"ver":"0.2.114","lvl":"info","msg":"billing: fetched credits config","ctx":{"config":{"creditUsagePercent":true,"currentPeriod":{"type":"USAGE_PERIOD_TYPE_WEEKLY","start":"2026-07-24T18:11:40.374130+00:00","end":"2026-07-31T18:11:40.374130+00:00"},"onDemandCap":{"val":0},"onDemandUsed":{"val":0},"prepaidBalance":{"val":0}},"subscriptionTier":"X Premium+"}}
+        """#.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let got = GrokCapacityLog.latestWeeklyWindow(fromLogContent: booleanPercent)
+        XCTAssertNil(got, "a boolean creditUsagePercent must be refused, never coerced into 1.0/0.0")
+    }
+
+    /// Regression for a real trap in the naive fix, and the exact real
+    /// fixture (`record20260730`) that caught it: `(0 as NSNumber) is Bool`
+    /// is `true` on Darwin, so a helper "fixed" with a blanket `any is Bool`
+    /// pre-check (rather than checking `CFGetTypeID` on the `NSNumber`
+    /// branch first) would silently refuse `onDemandCap`/`onDemandUsed`/
+    /// `prepaidBalance` of exactly `{"val": 0}` — an entirely ordinary real
+    /// value, present in the real 2026-07-30 fixture used elsewhere in this
+    /// file. Also proves `creditUsagePercent: 1` parses.
+    func testZeroValFieldsAndOnePercentAreNotRefusedAsBooleans() {
+        let onePercent = #"""
+        {"ts":"2026-07-30T00:48:39.329Z","src":"shell","pid":1,"ver":"0.2.114","lvl":"info","msg":"billing: fetched credits config","ctx":{"config":{"creditUsagePercent":1,"currentPeriod":{"type":"USAGE_PERIOD_TYPE_WEEKLY","start":"2026-07-24T18:11:40.374130+00:00","end":"2026-07-31T18:11:40.374130+00:00"},"onDemandCap":{"val":0},"onDemandUsed":{"val":0},"prepaidBalance":{"val":0}},"subscriptionTier":"X Premium+"}}
+        """#.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let got = GrokCapacityLog.latestWeeklyWindow(fromLogContent: onePercent)
+        XCTAssertNotNil(got, "onDemandCap/onDemandUsed/prepaidBalance val:0 and creditUsagePercent:1 must all parse")
+        XCTAssertEqual(got?.usedPercent, 1.0)
+        XCTAssertEqual(got?.onDemandCap, 0)
+        XCTAssertEqual(got?.onDemandUsed, 0)
+        XCTAssertEqual(got?.prepaidBalance, 0)
+    }
 }

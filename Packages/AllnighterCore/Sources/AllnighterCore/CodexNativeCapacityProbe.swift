@@ -170,32 +170,44 @@ public enum CodexNativeCapacityProbe {
         }
     }
 
+    // The `NSNumber`/`CFBoolean` branch is checked FIRST in every helper
+    // below, before falling back to `any as? Double`/`any as? Int` — those
+    // direct casts also succeed for a CFBoolean-backed NSNumber (JSON
+    // `true`/`false` bridges to one), coercing it into `1.0`/`1` before the
+    // CFBoolean guard ever runs. Do NOT "fix" this with a blanket `any is
+    // Bool` pre-check instead: Swift's NSNumber/Bool bridging has its own
+    // trap the other way — `(0 as NSNumber) is Bool` and `(1 as NSNumber) is
+    // Bool` are BOTH `true` on Darwin, so that shortcut would silently
+    // refuse a legitimate 0%/1% `usedPercent` too. `CFGetTypeID` against
+    // `CFBooleanGetTypeID()` is the only discriminator that gets both
+    // directions right.
+
     private static func doubleValue(_ any: Any?) -> Double? {
-        if let d = any as? Double { return d }
-        if let i = any as? Int { return Double(i) }
         if let n = any as? NSNumber {
             if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
             return n.doubleValue
         }
+        if let d = any as? Double { return d }
+        if let i = any as? Int { return Double(i) }
         return nil
     }
 
     private static func intValue(_ any: Any?) -> Int? {
-        if let i = any as? Int { return i }
         if let n = any as? NSNumber {
             if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
             return n.intValue
         }
+        if let i = any as? Int { return i }
         return nil
     }
 
     private static func unixDate(_ any: Any?) -> Date? {
-        if let i = any as? Int { return Date(timeIntervalSince1970: TimeInterval(i)) }
-        if let d = any as? Double { return Date(timeIntervalSince1970: d) }
         if let n = any as? NSNumber {
             if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
             return Date(timeIntervalSince1970: n.doubleValue)
         }
+        if let i = any as? Int { return Date(timeIntervalSince1970: TimeInterval(i)) }
+        if let d = any as? Double { return Date(timeIntervalSince1970: d) }
         return nil
     }
 

@@ -321,6 +321,29 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
         XCTAssertNil(ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow))
     }
 
+    /// Regression for a real trap in the naive fix: `(0 as NSNumber) is Bool`
+    /// and `(1 as NSNumber) is Bool` are BOTH `true` on Darwin — a helper
+    /// "fixed" with a blanket `any is Bool` pre-check (rather than checking
+    /// `CFGetTypeID` on the `NSNumber` branch first) would silently refuse a
+    /// legitimate `percent: 0` or `percent: 1` entry, which is a completely
+    /// ordinary real value (an account with 0% used, or 1% used). Both must
+    /// parse normally.
+    func testZeroAndOnePercentAreNotRefusedAsBooleans() throws {
+        let payload = #"""
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"session","percent":0,"resets_at":"2026-08-09T07:10:00+00:00"},\#
+        {"kind":"weekly_all","percent":1,"resets_at":"2026-08-11T03:00:00+00:00"}]}}}
+        """#
+        let windows = try XCTUnwrap(
+            ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow)
+        )
+        XCTAssertEqual(windows.count, 2, "percent: 0 and percent: 1 must both parse, never refused as booleans")
+        let session = try XCTUnwrap(windows.first { $0.scope == .session })
+        XCTAssertEqual(session.usedPercent ?? -1, 0.0, accuracy: 1e-9)
+        let weekly = try XCTUnwrap(windows.first { $0.scope == .weekly })
+        XCTAssertEqual(weekly.usedPercent ?? -1, 1.0, accuracy: 1e-9)
+    }
+
     func testUnparseableResetsAtDropsOnlyThatEntry() throws {
         let payload = #"""
         {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#

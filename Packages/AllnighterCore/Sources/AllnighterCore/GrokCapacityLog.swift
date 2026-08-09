@@ -156,23 +156,33 @@ public enum GrokCapacityLog {
         return intValue(dict["val"])
     }
 
+    // The `NSNumber`/`CFBoolean` branch is checked FIRST in both helpers
+    // below, before falling back to `any as? Double`/`any as? Int` — those
+    // direct casts also succeed for a CFBoolean-backed NSNumber (JSON
+    // `true`/`false` bridges to one), coercing it into `1.0`/`1` before the
+    // CFBoolean guard ever runs. Do NOT "fix" this with a blanket `any is
+    // Bool` pre-check instead: Swift's NSNumber/Bool bridging has its own
+    // trap the other way — `(0 as NSNumber) is Bool` and `(1 as NSNumber) is
+    // Bool` are BOTH `true` on Darwin, so that shortcut would silently
+    // refuse a legitimate 0%/1% value too. `CFGetTypeID` against
+    // `CFBooleanGetTypeID()` is the only discriminator that gets both
+    // directions right.
     private static func doubleValue(_ any: Any?) -> Double? {
-        if let d = any as? Double { return d }
-        if let i = any as? Int { return Double(i) }
         if let n = any as? NSNumber {
-            // Reject bool masquerading as number (JSON true/false → NSNumber).
             if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
             return n.doubleValue
         }
+        if let d = any as? Double { return d }
+        if let i = any as? Int { return Double(i) }
         return nil
     }
 
     private static func intValue(_ any: Any?) -> Int? {
-        if let i = any as? Int { return i }
         if let n = any as? NSNumber {
             if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
             return n.intValue
         }
+        if let i = any as? Int { return i }
         return nil
     }
 

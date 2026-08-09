@@ -129,6 +129,46 @@ final class AgyNativeCapacityProbeTests: XCTestCase {
             AgyNativeCapacityProbe.capacityWindows(fromOutput: payload, observedAt: fixedObservedAt).isEmpty)
     }
 
+    /// The `doubleValue` helper checks `any as? Double` before its
+    /// `CFBoolean` guard on the `NSNumber` branch — Swift's dynamic cast
+    /// coerces a JSON `true`/`false` straight through that first cast into
+    /// `1.0`/`0.0`, so an unfixed helper would silently turn a boolean
+    /// `remaining_fraction` into a valid-looking 100%/0% window instead of
+    /// refusing it. Same bug shape `ClaudeNativeCapacityProbe` fixed in
+    /// 335d96a1; this is the untested sibling `335d96a1` flagged and left
+    /// for a follow-up.
+    func testBooleanRemainingFractionIsRefusedNotCoerced() {
+        let payload = #"""
+        {"status":"SUCCESS","command":{"data":{"groups":[{"name":"Gemini Models","buckets":[\#
+        {"window":"weekly","remaining_fraction":true,"reset_time":"2026-08-12T19:59:49Z"}]}]}}}
+        """#
+        XCTAssertTrue(
+            AgyNativeCapacityProbe.capacityWindows(fromOutput: payload, observedAt: fixedObservedAt).isEmpty,
+            "a boolean remaining_fraction must be refused, never coerced into 1.0/0.0"
+        )
+    }
+
+    /// Regression for a real trap in the naive fix: `(0 as NSNumber) is Bool`
+    /// and `(1 as NSNumber) is Bool` are BOTH `true` on Darwin — a helper
+    /// "fixed" with a blanket `any is Bool` pre-check (rather than checking
+    /// `CFGetTypeID` on the `NSNumber` branch first) would silently refuse a
+    /// legitimate `remaining_fraction: 0` or `remaining_fraction: 1`, which
+    /// are completely ordinary real values (a pool exhausted, or a pool
+    /// completely fresh). Both must parse normally.
+    func testZeroAndOneRemainingFractionAreNotRefusedAsBooleans() throws {
+        let payload = #"""
+        {"status":"SUCCESS","command":{"data":{"groups":[{"name":"Gemini Models","buckets":[\#
+        {"window":"weekly","remaining_fraction":0,"reset_time":"2026-08-12T19:59:49Z"},\#
+        {"window":"5h","remaining_fraction":1,"reset_time":"2026-08-09T10:09:10Z"}]}]}}}
+        """#
+        let windows = AgyNativeCapacityProbe.capacityWindows(fromOutput: payload, observedAt: fixedObservedAt)
+        XCTAssertEqual(windows.count, 2, "remaining_fraction: 0 and 1 must both parse, never refused as booleans")
+        let weekly = try XCTUnwrap(windows.first { $0.scope == .weekly })
+        XCTAssertEqual(weekly.remainingPercent ?? -1, 0.0, accuracy: 1e-9)
+        let fiveHour = try XCTUnwrap(windows.first { $0.scope == .fiveHour })
+        XCTAssertEqual(fiveHour.remainingPercent ?? -1, 100.0, accuracy: 1e-9)
+    }
+
     // MARK: - Fallback still engages
 
     /// A native probe against a missing binary must fail closed to `nil`

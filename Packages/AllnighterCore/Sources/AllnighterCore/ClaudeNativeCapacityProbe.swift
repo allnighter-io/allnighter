@@ -176,22 +176,26 @@ public enum ClaudeNativeCapacityProbe {
         )
     }
 
+    // The `NSNumber`/`CFBoolean` branch is checked FIRST, before falling
+    // back to `any as? Double`/`any as? Int` — those direct casts also
+    // succeed for a CFBoolean-backed NSNumber (JSON `true`/`false` bridges
+    // to one), coercing it into `1.0` before the CFBoolean guard ever runs.
+    // An earlier version of this helper "fixed" that with a blanket `any is
+    // Bool` pre-check instead — which is itself wrong: Swift's NSNumber/Bool
+    // bridging has its own trap the other way, `(0 as NSNumber) is Bool` and
+    // `(1 as NSNumber) is Bool` are BOTH `true` on Darwin, so that pre-check
+    // silently refused a legitimate `percent: 0` or `percent: 1` entry —
+    // caught live while auditing the identical pattern elsewhere in the
+    // capacity surface (`testZeroAndOnePercentAreNotRefusedAsBooleans`).
+    // `CFGetTypeID` against `CFBooleanGetTypeID()` is the only discriminator
+    // that gets both directions right.
     private static func doubleValue(_ any: Any?) -> Double? {
-        // Must be checked BEFORE `any as? Double` / `any as? Int` — Swift's
-        // dynamic cast happily coerces a JSON `true`/`false` (bridged as
-        // NSNumber/CFBoolean) into `1.0`/`0.0` through those casts, so the
-        // later CFBoolean guard on the NSNumber branch below is never
-        // reached and a bool silently becomes a number. Caught by
-        // `testBooleanUtilizationIsRefusedNotCoerced` — the same
-        // `as? Double` ordering in the agy/codex precedent parsers has this
-        // same latent gap, just never exercised by a bool fixture there.
-        if any is Bool { return nil }
-        if let d = any as? Double { return d }
-        if let i = any as? Int { return Double(i) }
         if let n = any as? NSNumber {
             if CFGetTypeID(n) == CFBooleanGetTypeID() { return nil }
             return n.doubleValue
         }
+        if let d = any as? Double { return d }
+        if let i = any as? Int { return Double(i) }
         return nil
     }
 

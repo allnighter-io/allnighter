@@ -227,4 +227,40 @@ final class CodexCapacityLogTests: XCTestCase {
         XCTAssertTrue(pro.allSatisfy { $0.sourceTier == .onDisk })
         XCTAssertTrue(pro.allSatisfy { $0.resetPrecision == .exact })
     }
+
+    // MARK: - Boolean coercion
+
+    /// `doubleValue`/`intValue`/`unixDate` all check `any as? Double`/`any as?
+    /// Int` before their `CFBoolean` guard — Swift's dynamic cast coerces a
+    /// JSON `true`/`false` straight through those casts into `1.0`/`1`/etc,
+    /// so an unfixed helper would silently turn a boolean `used_percent` into
+    /// a valid-looking 1% instead of refusing the whole slot. Same bug shape
+    /// `ClaudeNativeCapacityProbe` fixed in 335d96a1; this file was not in
+    /// its named follow-up list but carries the identical ordering, found by
+    /// grepping the whole capacity surface.
+    func testBooleanUsedPercentIsRefusedNotCoerced() {
+        let bad = #"""
+        {"timestamp":"2026-07-28T12:09:28.472Z","type":"event_msg","payload":{"type":"token_count","info":{"model_context_window":258400},"rate_limits":{"primary":{"used_percent":true,"window_minutes":10080,"resets_at":1785904336},"secondary":null,"credits":{"has_credits":false,"unlimited":false,"balance":"0"},"plan_type":"plus"}}}
+        """#.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let got = CodexCapacityLog.latestWindows(fromLogContent: bad)
+        XCTAssertTrue(got.isEmpty, "a boolean used_percent must be refused, never coerced into 1.0/0.0")
+    }
+
+    /// Regression for a real trap in the naive fix: `(0 as NSNumber) is Bool`
+    /// and `(1 as NSNumber) is Bool` are BOTH `true` on Darwin — a helper
+    /// "fixed" with a blanket `any is Bool` pre-check (rather than checking
+    /// `CFGetTypeID` on the `NSNumber` branch first) would silently refuse a
+    /// legitimate `used_percent: 0` or `used_percent: 1`, which are
+    /// completely ordinary real values. Both must parse normally.
+    func testZeroAndOneUsedPercentAreNotRefusedAsBooleans() {
+        let zeroAndOne = #"""
+        {"timestamp":"2026-07-28T12:09:28.472Z","type":"event_msg","payload":{"type":"token_count","info":{"model_context_window":258400},"rate_limits":{"primary":{"used_percent":0,"window_minutes":10080,"resets_at":1785904336},"secondary":{"used_percent":1,"window_minutes":300,"resets_at":1785904336},"credits":{"has_credits":false,"unlimited":false,"balance":"0"},"plan_type":"plus"}}}
+        """#.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let got = CodexCapacityLog.latestWindows(fromLogContent: zeroAndOne)
+        XCTAssertEqual(got.count, 2, "used_percent: 0 and 1 must both parse, never refused as booleans")
+        XCTAssertEqual(got.first { $0.scope == .weekly }?.usedPercent, 0.0)
+        XCTAssertEqual(got.first { $0.scope == .fiveHour }?.usedPercent, 1.0)
+    }
 }
