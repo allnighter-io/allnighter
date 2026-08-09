@@ -10,7 +10,7 @@ Parent dogfood: CRS Pro mutating slices (`78C6514D`, `33E4E984`, `E01E1514`,
 `C495ABFE`) + GLM `2CEEDE81` + commit harness
 `docs/qa/opencode-mutating-commit/`
 Related: archived OCH `OpenCode_Turn_Capture_Hardening.md` (capture races);
-archive-ready `OpenCode_Long_Run_Continuity.md` (stream/stall)
+archive-ready `../../phases/OpenCode_Long_Run_Continuity.md` (stream/stall)
 
 ---
 
