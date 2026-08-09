@@ -4434,6 +4434,76 @@
     },
     {
       "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "always",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured enable report (outcome enabled|failed).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "serve enable",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Opt-in start-at-login: registers the product-owned LaunchAgent (com.allnighter.resident-coordinator) running the staged stable `alln serve` binary (KeepAlive, RunAtLoad); stages the binary when missing and migrates any leftover CODE_RED registration. Disable with `alln serve disable`.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "always",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured removal report (outcome removed|absent|failed).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "serve disable",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Unregister the serve LaunchAgent: boots it out of launchd and deletes the product plist, leaving no orphan. No-op success when nothing is installed.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
         {
           "name" : "prompt",
           "required" : false,
@@ -6116,7 +6186,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.15.0",
+  "contractVersion" : "9.16.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.15.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.16.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1192,6 +1192,20 @@ Remove the unsupported CODE_RED LaunchAgent (com.allnighter.resident-coordinator
 
 Flags:
 - `--json` — Structured repair report (outcome removed|absent|failed).
+
+### `alln serve enable`
+
+Opt-in start-at-login: registers the product-owned LaunchAgent (com.allnighter.resident-coordinator) running the staged stable `alln serve` binary (KeepAlive, RunAtLoad); stages the binary when missing and migrates any leftover CODE_RED registration. Disable with `alln serve disable`.
+
+Flags:
+- `--json` — Structured enable report (outcome enabled|failed).
+
+### `alln serve disable`
+
+Unregister the serve LaunchAgent: boots it out of launchd and deletes the product plist, leaving no orphan. No-op success when nothing is installed.
+
+Flags:
+- `--json` — Structured removal report (outcome removed|absent|failed).
 
 ### `alln pending add`
 

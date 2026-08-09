@@ -6,11 +6,13 @@ import Foundation
 /// thrashes (spawn scheduled / EX_CONFIG 78 / LWCR) instead of supervising;
 /// `remove` boots the label out of launchd and deletes the plist.
 ///
-/// Removal only. This type never registers, enables, or re-installs an agent —
-/// supported enablement (SMAppService) is SC-S04 and founder-gated. The wedge
-/// rule itself is not duplicated here; callers observe with
-/// `ServeLaunchAgentStatus` (SC-S00) and call `remove` when the observation is
-/// not `.absent`.
+/// SC-S04b adds product-owned **enable/disable**: `enable` writes a
+/// product-owned LaunchAgent plist aimed at the **staged stable binary**
+/// (`ServeStableBinary` destination — never the `~/.local/bin` adhoc debug
+/// symlink), booting out any leftover CODE_RED registration first;
+/// `disable` is removal (bootout + plist delete), leaving no orphan. Enable
+/// is explicit opt-in. Callers observe with `ServeLaunchAgentStatus`
+/// (SC-S00); `remove`/`repair` stay for orphan cleanup.
 public struct ServeLifecycle: Sendable {
     public static let label = ServeLaunchAgentStatus.label
 
@@ -47,6 +49,68 @@ public struct ServeLifecycle: Sendable {
         }
     }
 
+    /// `launchctl bootstrap` refused the plist.
+    public struct BootstrapError: Error, Equatable, Sendable {
+        public let terminationStatus: Int32
+        public let message: String
+        public init(terminationStatus: Int32, message: String) {
+            self.terminationStatus = terminationStatus
+            self.message = message
+        }
+    }
+
+    // MARK: - SC-S04b enable / disable
+
+    /// The product-owned LaunchAgent plist shape (SC-S04b). Keys match
+    /// launchd's expected plist keys via the coding keys.
+    public struct AgentPlist: Codable, Equatable, Sendable {
+        public var label: String
+        public var programArguments: [String]
+        public var keepAlive: Bool
+        public var runAtLoad: Bool
+
+        public init(label: String, programArguments: [String], keepAlive: Bool, runAtLoad: Bool) {
+            self.label = label
+            self.programArguments = programArguments
+            self.keepAlive = keepAlive
+            self.runAtLoad = runAtLoad
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case label = "Label"
+            case programArguments = "ProgramArguments"
+            case keepAlive = "KeepAlive"
+            case runAtLoad = "RunAtLoad"
+        }
+    }
+
+    public enum EnableOutcome: String, Codable, Sendable {
+        /// Staged binary present, plist written, agent bootstrapped.
+        case enabled
+        /// Staging, bootout, plist write, or bootstrap failed; the agent is
+        /// not supervised (a partially written plist may still be on disk).
+        case failed
+    }
+
+    public struct EnableResult: Codable, Equatable, Sendable {
+        public var outcome: EnableOutcome
+        public var stagedBinaryPath: String
+        public var stagedBytesReplaced: Bool
+        public var plistWritten: Bool
+        public var bootstrapped: Bool
+        public var detail: String
+
+        public init(outcome: EnableOutcome, stagedBinaryPath: String, stagedBytesReplaced: Bool,
+                    plistWritten: Bool, bootstrapped: Bool, detail: String) {
+            self.outcome = outcome
+            self.stagedBinaryPath = stagedBinaryPath
+            self.stagedBytesReplaced = stagedBytesReplaced
+            self.plistWritten = plistWritten
+            self.bootstrapped = bootstrapped
+            self.detail = detail
+        }
+    }
+
     public let plistURL: URL
     /// Boots the label out of `gui/<uid>`. "Not loaded / no such service" is
     /// success for removal; any other failure throws. Injectable — unit tests
@@ -55,17 +119,51 @@ public struct ServeLifecycle: Sendable {
     public let plistExists: @Sendable (URL) -> Bool
     public let removePlist: @Sendable (URL) throws -> Void
 
+    /// Where the stable copy lives (SC-S04a destination). The agent's
+    /// `ProgramArguments` always points here — never at the `~/.local/bin`
+    /// adhoc debug symlink.
+    public let stagedBinaryURL: URL
+    /// The running executable to stage from when no staged copy exists yet.
+    public let currentExecutableURL: URL
+    public let stagedBinaryExists: @Sendable (URL) -> Bool
+    /// `(source, destination) -> staging result`; default is
+    /// `ServeStableBinary.stage`. Injectable for tests.
+    public let stage: @Sendable (URL, URL) -> Result<ServeStableBinary.StagingResult, ServeStableBinary.Failure>
+    /// Writes the agent plist (creating the LaunchAgents directory).
+    /// Injectable — unit tests capture the plist instead of touching the host.
+    public let writePlist: @Sendable (URL, AgentPlist) throws -> Void
+    /// `launchctl bootstrap gui/<uid> <plist-path>`. Injectable — unit tests
+    /// must never run a live bootstrap against the host.
+    public let bootstrap: @Sendable (String) throws -> Void
+
     public init(
         plistURL: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/\(ServeLifecycle.label).plist"),
         bootout: (@Sendable (String) throws -> Void)? = nil,
         plistExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) },
-        removePlist: @escaping @Sendable (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) }
+        removePlist: @escaping @Sendable (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) },
+        stagedBinaryURL: URL = ServeStableBinary.defaultDestinationURL(),
+        currentExecutableURL: URL = Bundle.main.executableURL
+            ?? URL(fileURLWithPath: CommandLine.arguments.first ?? "alln"),
+        stagedBinaryExists: @escaping @Sendable (URL) -> Bool = {
+            FileManager.default.isExecutableFile(atPath: $0.path)
+        },
+        stage: @escaping @Sendable (URL, URL) -> Result<ServeStableBinary.StagingResult, ServeStableBinary.Failure> = {
+            ServeStableBinary.stage(from: $0, to: $1)
+        },
+        writePlist: (@Sendable (URL, AgentPlist) throws -> Void)? = nil,
+        bootstrap: (@Sendable (String) throws -> Void)? = nil
     ) {
         self.plistURL = plistURL
         self.bootout = bootout ?? Self.liveBootout
         self.plistExists = plistExists
         self.removePlist = removePlist
+        self.stagedBinaryURL = stagedBinaryURL
+        self.currentExecutableURL = currentExecutableURL
+        self.stagedBinaryExists = stagedBinaryExists
+        self.stage = stage
+        self.writePlist = writePlist ?? Self.liveWritePlist
+        self.bootstrap = bootstrap ?? Self.liveBootstrap
     }
 
     /// Full `alln serve repair` orchestration, testable with fixtures: absent
@@ -95,6 +193,69 @@ public struct ServeLifecycle: Sendable {
             self.observedDetail = observedDetail
             self.removal = removal
         }
+    }
+
+    /// `alln serve enable` (SC-S04b, opt-in): ensure the staged stable binary
+    /// exists (staging from the running executable when missing), boot out any
+    /// leftover CODE_RED registration, write the product plist with
+    /// `ProgramArguments = [stagedPath, "serve"]`, and bootstrap it into
+    /// `gui/<uid>`. Structured outcome; a real staging/bootout/write/bootstrap
+    /// failure reads `failed`, never `enabled`.
+    public func enable() -> EnableResult {
+        // The login helper must never supervise the adhoc debug symlink — its
+        // cdhash changes every rebuild and is exactly the CODE_RED landmine.
+        guard !stagedBinaryURL.path.contains("/.local/bin/") else {
+            return EnableResult(outcome: .failed, stagedBinaryPath: stagedBinaryURL.path,
+                                stagedBytesReplaced: false, plistWritten: false, bootstrapped: false,
+                                detail: "refusing to supervise the debug symlink path \(stagedBinaryURL.path) — staged binary must live under Application Support")
+        }
+        var stagedPath = stagedBinaryURL.path
+        var bytesReplaced = false
+        if !stagedBinaryExists(stagedBinaryURL) {
+            switch stage(currentExecutableURL, stagedBinaryURL) {
+            case .failure(let failure):
+                return EnableResult(outcome: .failed, stagedBinaryPath: stagedPath,
+                                    stagedBytesReplaced: false, plistWritten: false, bootstrapped: false,
+                                    detail: "\(Self.label) enable failed: could not stage stable binary: \(failure)")
+            case .success(let staging):
+                stagedPath = staging.url.path
+                bytesReplaced = staging.bytesWereReplaced
+            }
+        }
+        // Migrate/replace any leftover CODE_RED registration for this label
+        // before writing the product plist — never leave two registrations.
+        do {
+            try bootout(Self.label)
+        } catch {
+            return EnableResult(outcome: .failed, stagedBinaryPath: stagedPath,
+                                stagedBytesReplaced: bytesReplaced, plistWritten: false, bootstrapped: false,
+                                detail: "\(Self.label) enable failed: bootout of prior registration failed: \(error)")
+        }
+        let plist = AgentPlist(label: Self.label, programArguments: [stagedPath, "serve"],
+                               keepAlive: true, runAtLoad: true)
+        do {
+            try writePlist(plistURL, plist)
+        } catch {
+            return EnableResult(outcome: .failed, stagedBinaryPath: stagedPath,
+                                stagedBytesReplaced: bytesReplaced, plistWritten: false, bootstrapped: false,
+                                detail: "\(Self.label) enable failed: plist write failed: \(error)")
+        }
+        do {
+            try bootstrap(plistURL.path)
+        } catch {
+            return EnableResult(outcome: .failed, stagedBinaryPath: stagedPath,
+                                stagedBytesReplaced: bytesReplaced, plistWritten: true, bootstrapped: false,
+                                detail: "\(Self.label) enable failed: bootstrap failed: \(error)")
+        }
+        return EnableResult(outcome: .enabled, stagedBinaryPath: stagedPath,
+                            stagedBytesReplaced: bytesReplaced, plistWritten: true, bootstrapped: true,
+                            detail: "\(Self.label) enabled: LaunchAgent runs staged binary \(stagedPath) serve (KeepAlive, RunAtLoad)")
+    }
+
+    /// `alln serve disable` (SC-S04b): boot out the agent and delete the
+    /// plist — plain removal, leaving no orphan. Reuses `remove()`.
+    public func disable() -> RemovalResult {
+        remove()
     }
 
     /// Boot out the label (ignoring not-loaded) and delete the plist if one is
@@ -150,5 +311,33 @@ public struct ServeLifecycle: Sendable {
             return
         }
         throw BootoutError(terminationStatus: process.terminationStatus, message: message)
+    }
+
+    /// Live plist writer: XML property list, LaunchAgents directory created,
+    /// atomic write. Never called from unit tests — tests inject `writePlist`.
+    private static func liveWritePlist(url: URL, plist: AgentPlist) throws {
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .xml
+        let data = try encoder.encode(plist)
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        try data.write(to: url, options: .atomic)
+    }
+
+    /// Live `launchctl bootstrap gui/<uid> <plist-path>`. Never called from
+    /// unit tests — tests inject `bootstrap` fixtures.
+    private static func liveBootstrap(plistPath: String) throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = ["bootstrap", "gui/\(getuid())", plistPath]
+        let pipe = Pipe()
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = pipe
+        try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus != 0 else { return }
+        let message = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        throw BootstrapError(terminationStatus: process.terminationStatus, message: message)
     }
 }

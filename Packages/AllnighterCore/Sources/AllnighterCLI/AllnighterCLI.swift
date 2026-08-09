@@ -629,14 +629,23 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln serve [--health --json]` / `alln serve repair [--json]` — the
-    /// optional background scheduler (Pending wake, Boost seeding,
-    /// vendor-backoff continuation, cloud relay). It owns no run semantics:
-    /// `alln run` never needs it. `--health` is read-only and never starts it.
+    /// `alln serve [--health --json]` / `alln serve repair|enable|disable
+    /// [--json]` — the optional background scheduler (Pending wake, Boost
+    /// seeding, vendor-backoff continuation, cloud relay). It owns no run
+    /// semantics: `alln run` never needs it. `--health` is read-only and
+    /// never starts it.
     static func runServe(_ args: [String]) async {
         let opts = Options(args)
         if opts.positional.first == "repair" {
             runServeRepair(opts)
+            return
+        }
+        if opts.positional.first == "enable" {
+            runServeEnable(opts)
+            return
+        }
+        if opts.positional.first == "disable" {
+            runServeDisable(opts)
             return
         }
         if opts.flag("health") {
@@ -652,7 +661,7 @@ struct AllnighterCLI {
             return
         }
         if !opts.positional.isEmpty || !opts.values.isEmpty {
-            FileHandle.standardError.write(Data("usage: alln serve [--health --json] | alln serve repair [--json]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln serve [--health --json] | alln serve repair|enable|disable [--json]\n".utf8)); exit(2)
         }
         // Singleton + takeover. Four daemons were found running on the dogfood
         // host (oldest nine days), each executing a different build — so every
@@ -776,6 +785,36 @@ struct AllnighterCLI {
             }
         }
         if report.outcome == .failed { exit(1) }
+    }
+
+    /// `alln serve enable [--json]` — SC-S04b product-owned LaunchAgent
+    /// (opt-in start-at-login). Stages the stable binary when missing, boots
+    /// out any leftover CODE_RED registration, writes the product plist aimed
+    /// at the staged binary, and bootstraps it. Exit 0 on enabled, non-zero
+    /// on failed.
+    private static func runServeEnable(_ opts: Options) {
+        let result = ServeLifecycle().enable()
+        if opts.flag("json") {
+            print(jsonString(result))
+        } else {
+            let stream = result.outcome == .failed ? FileHandle.standardError : FileHandle.standardOutput
+            stream.write(Data("serve enable \(result.outcome.rawValue): \(result.detail)\n".utf8))
+        }
+        if result.outcome == .failed { exit(1) }
+    }
+
+    /// `alln serve disable [--json]` — SC-S04b unregisters the LaunchAgent:
+    /// bootout + plist delete, leaving no orphan. Exit 0 on removed/absent,
+    /// non-zero on failed.
+    private static func runServeDisable(_ opts: Options) {
+        let result = ServeLifecycle().disable()
+        if opts.flag("json") {
+            print(jsonString(result))
+        } else {
+            let stream = result.outcome == .failed ? FileHandle.standardError : FileHandle.standardOutput
+            stream.write(Data("serve disable \(result.outcome.rawValue): \(result.detail)\n".utf8))
+        }
+        if result.outcome == .failed { exit(1) }
     }
 
     private static func printDoctorHuman(_ r: DoctorResult, full: Bool) {

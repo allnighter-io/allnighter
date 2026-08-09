@@ -37,7 +37,9 @@ public extension ContractRegistry {
     // payload. Driver rows' `freshness` is unchanged.
     // SC-S01: minor — `serve repair` removes the unsupported CODE_RED
     // LaunchAgent orphan (bootout + plist delete); never registers/enables.
-    static let contractVersion = "9.15.0"
+    // SC-S04b: minor — `serve enable` / `serve disable` own the LaunchAgent
+    // lifecycle against the staged stable binary (opt-in start-at-login).
+    static let contractVersion = "9.16.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -980,6 +982,24 @@ public extension ContractRegistry {
             outputSchema: .none,
             // Boots the label out of launchd and deletes the plist whenever the
             // orphan exists — that removal is the verb's whole job.
+            effects: EffectProfile(destructive: .always)
+        ),
+        CommandSpec(
+            "serve enable", summary: "Opt-in start-at-login: registers the product-owned LaunchAgent (com.allnighter.resident-coordinator) running the staged stable `alln serve` binary (KeepAlive, RunAtLoad); stages the binary when missing and migrates any leftover CODE_RED registration. Disable with `alln serve disable`.", milestone: .m1,
+            flags: [
+                FlagSpec("json", summary: "Structured enable report (outcome enabled|failed)."),
+            ],
+            outputSchema: .none,
+            // Replaces any existing registration for the label.
+            effects: EffectProfile(destructive: .always)
+        ),
+        CommandSpec(
+            "serve disable", summary: "Unregister the serve LaunchAgent: boots it out of launchd and deletes the product plist, leaving no orphan. No-op success when nothing is installed.", milestone: .m1,
+            flags: [
+                FlagSpec("json", summary: "Structured removal report (outcome removed|absent|failed)."),
+            ],
+            outputSchema: .none,
+            // Bootout + plist delete whenever the agent exists.
             effects: EffectProfile(destructive: .always)
         ),
         CommandSpec(
