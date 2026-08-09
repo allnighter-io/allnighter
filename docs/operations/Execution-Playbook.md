@@ -149,6 +149,20 @@ Binding rules:
   `scripts/commit-handoff-hooks/*`, `.cursor/hooks/*commit*`) are dormant and may
   be removed; `.cursor/hooks.json` no longer registers them.
 
+### OpenCode mutating (OMH)
+
+- Mutating OpenCode seats must `git commit` run-owned paths unless `--no-commit`
+  was explicit. Help: `opencode_mutating_commit_contract`.
+- **Works Test gate:** if DeepSeek V4 Pro (or any OpenCode mutator) answers
+  “deferred” / “follow-up” / “TODO” for an in-slice Works Test, the **host
+  completes that Works Test before the next slice** (CRS-S04 incident:
+  mid-probe cancel deferred → host `8a0e7306`). Paste
+  `docs/qa/opencode-mutating-commit/SLICE_TEMPLATE.md` into Pro prompts.
+- **Slice bounds for OpenCode Pro mutating:** ≤3 production files + ≤1 test
+  file **or** ≤1 behavioral theme; ≤3 named Works Tests; wall target ≤15m. If
+  exceeded, `alln kill <id>`, split the remainder, and log the overrun in
+  `docs/qa/opencode-mutating-commit/OPENCODE_BUG_LOG.md`.
+
 ## Closeout
 
 Closeout is complete when all are true:

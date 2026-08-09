@@ -251,6 +251,18 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("report"), "artifact")
     }
 
+    /// OMH-S01 — mutating OpenCode commit contract owns `incomplete_uncommitted`
+    /// search (moved off headless-completion so operators find the commit rule).
+    func testSearchRoutesOpenCodeMutatingCommitContract() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("incomplete_uncommitted"), "opencode_mutating_commit_contract")
+        XCTAssertEqual(top("opencode commit"), "opencode_mutating_commit_contract")
+        XCTAssertEqual(
+            top("incomplete_uncommitted opencode commit"),
+            "opencode_mutating_commit_contract")
+        XCTAssertNotNil(HelpTopicRegistry.topic(id: "opencode_mutating_commit_contract"))
+    }
+
     /// ADP-S04: task-verb team-authoring queries must resolve to the
     /// `teams_agents_and_skills` topic (which teaches `teams duplicate` / `teams new`)
     /// rather than losing the ranking tie to `team_run_loop` (running a team) —

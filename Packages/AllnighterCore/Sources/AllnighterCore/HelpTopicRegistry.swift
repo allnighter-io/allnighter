@@ -435,10 +435,55 @@ public enum HelpTopicRegistry {
             aliases: [
                 "opencode", "opencode serve", "session.idle", "headless opencode",
                 "opencode completion", "prompt echo", "external_directory",
-                "incomplete_uncommitted", "deepseek v4 pro",
+                "deepseek v4 pro",
                 "reconcile failed", "stalled_no_progress", "incomplete_no_final_message",
             ],
             relatedCommandNames: ["run", "show", "drivers"],
+            needsLiveCheck: false),
+
+        HelpTopic(
+            id: "opencode_mutating_commit_contract",
+            title: "OpenCode Mutating Commit Contract",
+            audience: .both,
+            summary: "Mutating OpenCode seats must git commit run-owned paths; dirty tree + zero commits is incomplete_uncommitted, not a green answer.",
+            bodyMarkdown: """
+            OpenCode (DeepSeek, GLM, Qwen via OpenCode, …) can edit the repo. A \
+            mutating `alln run` is **not done** until run-owned changes are \
+            committed — or you opted out with `--no-commit`.
+
+            ## Required on mutating work
+
+            1. Edit only the paths the slice names.
+            2. `git add` those explicit paths (never `git add -A` that sweeps \
+               ambient dirty).
+            3. `git commit` with a clear message.
+            4. Prove: `git status` clean for those paths; `alln show` reports \
+               `committed: true`.
+
+            ## What `incomplete_uncommitted` means
+
+            The seat produced an answer (and maybe files) but left **run-owned** \
+            dirty paths with no new commit. Pre-existing WIP in your checkout \
+            does not count (ADR-S01). A delivered answer is kept — the run still \
+            failed the commit contract.
+
+            ## Flags
+
+            - Default `alln run` / named model: **mutating** → commit expected.
+            - `--read-only --model`: feedback without the write lock; no commit.
+            - `--no-commit`: intentional dirty handoff for PM review — still \
+              mutating and still takes the write lock.
+
+            Orchestrators must not tell the seat “leave uncommitted” unless \
+            `--no-commit` is on the command. That prompt alone turns a good \
+            edit into a failed run.
+            """,
+            aliases: [
+                "opencode commit", "mutating commit", "opencode mutating",
+                "incomplete_uncommitted", "commit contract", "must commit",
+                "deepseek commit", "glm commit",
+            ],
+            relatedCommandNames: ["run", "show"],
             needsLiveCheck: false),
 
         HelpTopic(
