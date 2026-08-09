@@ -262,15 +262,28 @@ public enum ContractSchema {
                 "available": bool, "detail": str,
                 "coordinatorId": nullable("string"), "pid": nullable("integer"),
                 "startedAt": nullable("string"),
+                "launchAgent": nullableRef("LaunchAgent"),
             ], required: ["state", "available", "detail"]),
             "ModelInfo": obj([
                 "id": str, "displayName": str, "sourceId": str,
                 "sourceName": nullable("string"), "status": enumStr(["ready", "unavailable", "unknown"]),
             ], required: ["id", "displayName", "sourceId", "status"]),
+            "LaunchAgent": launchAgentDef(),
             "ErrorEnvelope": errorEnvelopeDef(),
             "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
         ]
         return schema
+    }
+
+    /// Shared def for the observed resident LaunchAgent (SC-S00) — used by
+    /// both the DoctorResult and CoordinatorHealth schemas.
+    private static func launchAgentDef() -> [String: Any] {
+        obj([
+            "state": enumStr(["running", "wedged", "unknown"]),
+            "pid": nullable("integer"),
+            "lastExitCode": nullable("integer"),
+            "detail": str,
+        ], required: ["state", "detail"])
     }
 
     private static func errorEnvelopeDef() -> [String: Any] {
@@ -312,6 +325,7 @@ public enum ContractSchema {
             "journal": ref("Journal"),
             "loopback": ref("Loopback"),
             "activeObligationCount": int,
+            "launchAgent": nullableRef("LaunchAgent"),
         ], required: [
             "schemaVersion", "state", "contractVersion", "binaryVersion", "binaryGitSha",
             "journal", "loopback", "activeObligationCount",
@@ -324,6 +338,7 @@ public enum ContractSchema {
             "Loopback": obj([
                 "listening": bool, "host": str, "port": nullable("integer"),
             ], required: ["listening", "host"]),
+            "LaunchAgent": launchAgentDef(),
         ]
         return schema
     }

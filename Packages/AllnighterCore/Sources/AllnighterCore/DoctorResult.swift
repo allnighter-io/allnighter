@@ -82,13 +82,16 @@ public struct DoctorResult: Codable, Equatable, Sendable {
         public var coordinatorId: String?
         public var pid: Int32?
         public var startedAt: Date?
+        /// Observed resident LaunchAgent state (SC-S00); omitted when no plist.
+        public var launchAgent: CoordinatorHealth.LaunchAgent?
 
         public init(
             state: CoordinatorState,
             detail: String,
             coordinatorId: String? = nil,
             pid: Int32? = nil,
-            startedAt: Date? = nil
+            startedAt: Date? = nil,
+            launchAgent: CoordinatorHealth.LaunchAgent? = nil
         ) {
             self.state = state
             self.available = state == .available
@@ -96,6 +99,7 @@ public struct DoctorResult: Codable, Equatable, Sendable {
             self.coordinatorId = coordinatorId
             self.pid = pid
             self.startedAt = startedAt
+            self.launchAgent = launchAgent
         }
     }
 

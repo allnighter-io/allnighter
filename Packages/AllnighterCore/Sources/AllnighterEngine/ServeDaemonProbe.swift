@@ -12,19 +12,24 @@ public struct ServeDaemonProbe: Sendable {
     public let processAlive: @Sendable (Int32) -> Bool
     public let currentPID: @Sendable () -> Int32
     public let activeObligationCount: @Sendable () -> Int
+    /// Observed resident LaunchAgent (SC-S00). Live by default; tests inject
+    /// fixture-backed `ServeLaunchAgentStatus` — never launchctl in unit tests.
+    public let launchAgent: ServeLaunchAgentStatus
 
     public init(
         store: ServeDaemonStore = ServeDaemonStore(),
         runsDirectory: URL? = nil,
         processAlive: @escaping @Sendable (Int32) -> Bool = { RunStore.processAlive($0) },
         currentPID: @escaping @Sendable () -> Int32 = { ProcessInfo.processInfo.processIdentifier },
-        activeObligationCount: (@Sendable () -> Int)? = nil
+        activeObligationCount: (@Sendable () -> Int)? = nil,
+        launchAgent: ServeLaunchAgentStatus = ServeLaunchAgentStatus()
     ) {
         self.store = store
         let resolvedRunsDirectory = runsDirectory ?? AllnighterPaths.runs
         self.runsDirectory = resolvedRunsDirectory
         self.processAlive = processAlive
         self.currentPID = currentPID
+        self.launchAgent = launchAgent
         if let activeObligationCount {
             self.activeObligationCount = activeObligationCount
         } else {
@@ -46,6 +51,7 @@ public struct ServeDaemonProbe: Sendable {
             runsDirWritable: runsWritable
         )
         let activeObligations = activeObligationCount()
+        let launchAgentHealth = Self.launchAgentHealth(launchAgent.observe())
         guard let record = store.load() else {
             return CoordinatorHealth(
                 state: .foregroundOnly,
@@ -54,7 +60,8 @@ public struct ServeDaemonProbe: Sendable {
                 binaryGitSha: binaryGitSha,
                 journal: journal,
                 loopback: .init(listening: false),
-                activeObligationCount: activeObligations
+                activeObligationCount: activeObligations,
+                launchAgent: launchAgentHealth
             )
         }
         guard processAlive(record.pid) else {
@@ -68,7 +75,8 @@ public struct ServeDaemonProbe: Sendable {
                 binaryGitSha: record.binaryGitSha,
                 journal: journal,
                 loopback: .init(listening: false, host: record.loopbackHost, port: Int(record.loopbackPort)),
-                activeObligationCount: activeObligations
+                activeObligationCount: activeObligations,
+                launchAgent: launchAgentHealth
             )
         }
         return CoordinatorHealth(
@@ -81,23 +89,42 @@ public struct ServeDaemonProbe: Sendable {
             binaryGitSha: record.binaryGitSha,
             journal: journal,
             loopback: .init(listening: true, host: record.loopbackHost, port: Int(record.loopbackPort)),
-            activeObligationCount: activeObligations
+            activeObligationCount: activeObligations,
+            launchAgent: launchAgentHealth
         )
+    }
+
+    /// Maps the LaunchAgent observation onto the health contract; an absent
+    /// plist omits the field (foreground-only stays OK).
+    private static func launchAgentHealth(_ observation: ServeLaunchAgentStatus.Observation) -> CoordinatorHealth.LaunchAgent? {
+        switch observation.state {
+        case .absent:
+            return nil
+        case .running:
+            return .init(state: .running, pid: observation.pid, lastExitCode: observation.lastExitCode, detail: observation.detail)
+        case .wedged:
+            return .init(state: .wedged, pid: observation.pid, lastExitCode: observation.lastExitCode, detail: observation.detail)
+        case .unknown:
+            return .init(state: .unknown, pid: observation.pid, lastExitCode: observation.lastExitCode, detail: observation.detail)
+        }
     }
 
     public func doctorCoordinator() -> DoctorResult.Coordinator {
         let h = health(binaryVersion: "", binaryGitSha: AllnighterBuildInfo.gitSha, contractVersion: ContractRegistry.contractVersion)
         switch h.state {
         case .foregroundOnly:
-            return .init(state: .foregroundOnly, detail: "foreground CLI only; background scheduler not running")
+            return .init(state: .foregroundOnly, detail: "foreground CLI only; background scheduler not running",
+                         launchAgent: h.launchAgent)
         case .available:
             let pid = h.pid.map { "pid \($0)" } ?? "running"
             return .init(state: .available, detail: "background scheduler running (\(pid))",
-                         coordinatorId: h.daemonId, pid: h.pid, startedAt: h.startedAt)
+                         coordinatorId: h.daemonId, pid: h.pid, startedAt: h.startedAt,
+                         launchAgent: h.launchAgent)
         case .unavailable:
             return .init(state: .unavailable,
                          detail: "stale serve state; prior background scheduler is gone",
-                         coordinatorId: h.daemonId, pid: h.pid, startedAt: h.startedAt)
+                         coordinatorId: h.daemonId, pid: h.pid, startedAt: h.startedAt,
+                         launchAgent: h.launchAgent)
         }
     }
 

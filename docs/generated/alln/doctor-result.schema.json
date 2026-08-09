@@ -71,6 +71,16 @@
         "detail" : {
           "type" : "string"
         },
+        "launchAgent" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/LaunchAgent"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
         "pid" : {
           "type" : [
             "integer",
@@ -209,6 +219,39 @@
         "message",
         "requiresManual",
         "retryable"
+      ],
+      "type" : "object"
+    },
+    "LaunchAgent" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "detail" : {
+          "type" : "string"
+        },
+        "lastExitCode" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "pid" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "state" : {
+          "enum" : [
+            "running",
+            "wedged",
+            "unknown"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "state",
+        "detail"
       ],
       "type" : "object"
     },

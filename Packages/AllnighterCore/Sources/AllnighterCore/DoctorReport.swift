@@ -185,6 +185,7 @@ public enum DoctorReport {
             detail: "foreground CLI only; background scheduler not running"
         )
         checks.append(coordinatorCheck(coordinator))
+        checks.append(serveLaunchAgentCheck(coordinator.launchAgent))
         if let pilot = inputs.pilot {
             checks.append(pilotCheck(pilot, inputs: inputs))
         }
@@ -388,6 +389,25 @@ public enum DoctorReport {
         }
     }
 
+    /// SC-S00 — the resident LaunchAgent is never painted healthy when launchd
+    /// reports it wedged. `fixCommand` is `alln serve` for now; lifecycle
+    /// register/repair is SC-S01.
+    private static func serveLaunchAgentCheck(_ launchAgent: CoordinatorHealth.LaunchAgent?) -> DoctorResult.Check {
+        guard let launchAgent else {
+            return .init(name: "serve.launchAgent", status: .ok,
+                         detail: "no resident LaunchAgent installed; foreground CLI only")
+        }
+        switch launchAgent.state {
+        case .running:
+            return .init(name: "serve.launchAgent", status: .ok, detail: launchAgent.detail)
+        case .unknown:
+            return .init(name: "serve.launchAgent", status: .notChecked, detail: launchAgent.detail)
+        case .wedged:
+            return .init(name: "serve.launchAgent", status: .critical, detail: launchAgent.detail,
+                         fixCommand: "alln serve", requiresManual: false)
+        }
+    }
+
     private static func pilotCheck(_ pilot: PilotContext, inputs: Inputs) -> DoctorResult.Check {
         let seat = pilot.devWorkerLabel ?? pilot.devModelId ?? "(none remembered)"
         let project = pilot.projectLabel ?? "(project not found)"
@@ -488,6 +508,10 @@ public enum DoctorReport {
         }
         if inputs.full && records.allSatisfy({ !$0.status.isSmokeReady }) && !records.isEmpty {
             return .critical   // probed and nothing is ready
+        }
+        // SC-S00: a wedged resident LaunchAgent can never read as "all fine".
+        if inputs.coordinator?.launchAgent?.state == .wedged {
+            return .degraded
         }
         let problem = !inputs.docsVersionMatchesBinary || shellAllowlistRestrictive || binaryOffPath || records.contains {
             switch $0.status {

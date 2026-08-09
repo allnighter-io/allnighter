@@ -20,6 +20,39 @@
       ],
       "type" : "object"
     },
+    "LaunchAgent" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "detail" : {
+          "type" : "string"
+        },
+        "lastExitCode" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "pid" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "state" : {
+          "enum" : [
+            "running",
+            "wedged",
+            "unknown"
+          ],
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "state",
+        "detail"
+      ],
+      "type" : "object"
+    },
     "Loopback" : {
       "additionalProperties" : false,
       "properties" : {
@@ -67,6 +100,16 @@
     },
     "journal" : {
       "$ref" : "#\/$defs\/Journal"
+    },
+    "launchAgent" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/LaunchAgent"
+        },
+        {
+          "type" : "null"
+        }
+      ]
     },
     "loopback" : {
       "$ref" : "#\/$defs\/Loopback"
