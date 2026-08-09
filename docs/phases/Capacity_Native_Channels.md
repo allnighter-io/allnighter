@@ -1,6 +1,19 @@
 # Capacity Native Channels — stop scraping a repainting terminal
 
-Status: **v4 — Keychain CLOSED permanently (§4); model-read of a captured pane
+Status: **v5 — four native channels SHIPPED; kimi RULED OUT; cursor stays a screen.**
+
+| Source | Channel | Commit |
+| --- | --- | --- |
+| `agy` | `--print "/usage" --output-format json` | `c82520ac` |
+| `codex` | `app-server` JSON-RPC `account/rateLimits/read` | `275b737f` + `2a96de2f` |
+| `claude_code` | `cachedUsageUtilization.utilization.limits[]` | `335d96a1` + `90bd2690` |
+| `grok` | newest `billing: fetched credits config` in `unified.jsonl` | `7fd1d18f` |
+| `kimi` | **none — ruled out, see §4c** | — |
+| `cursor_agent` | **none — permanent screen** | — |
+
+Cross-cutting correctness fix from the same batch: `220b4f35`.
+
+Keychain CLOSED permanently (§4); model-read of a captured pane
 SHIPPED (§4b, `e2c5cc76` + `f6658005`). Per-source native-channel slices are
 next and unstarted.** Five of six sources move with zero credentials; only
 `cursor_agent` keeps the PTY scrape, and it now has a model reader behind it.
@@ -177,6 +190,41 @@ that opens a Keychain prompt about their Cursor account on first run.
 **Consequence: cursor_agent is the one permanent screen-scraping seat**, which
 settles the scope of the LLM-fallback idea — it has exactly one customer, now
 and after the migration.
+
+### 4c. kimi — RULED OUT 2026-08-08, do not implement
+
+The packet listed `kimi web --no-open --port <p>` → `GET /api/v1/oauth/usage` as one
+of the five credential-free moves. Measured before building it, that turned out to
+be wrong on all three counts that matter.
+
+**There is nothing to gain.** kimi's PTY parse already publishes
+`dashboardResetAt: 2026-08-14T19:14:38Z` — full vendor seconds, not the
+minute-truncated value that gave codex and grok their improvement — plus both
+windows (`shortWindowNone: false`). Unlike agy (which was silently dropping two 5h
+windows) or codex (which was publishing a reset 7 hours early), kimi's screen scrape
+is already correct and complete.
+
+**The credential boundary does not hold.** `~/.kimi-code/server.token` exists on
+this host right now, mode `600`, written the previous day — it predates any server
+we would launch. §4 permits reading a token that a process **we launched** wrote for
+its own loopback server **in this run**; it forbids reading a secret the vendor
+stored. A pre-existing 600-mode token file is the second thing, not the first, and
+§4 already says that if the distinction needs stretching to justify a channel, the
+channel is forbidden. It needs stretching here.
+
+**It inverts the point of the packet.** Every channel that shipped *removed* a
+spawned process. kimi's would *add* a long-lived HTTP server to the refresh path —
+the same process-lifecycle class that leaked 103 orphaned vendor CLIs on
+2026-08-08, loaded the machine to 12.75, and caused the "flaky" capacity this whole
+packet exists to fix.
+
+No gain, a credential posture that only works if the rule is bent, and new orphan
+risk on the exact path we just cleaned. **kimi keeps the PTY scrape.** Reopening
+this needs a founder ruling and a reason that is not "the endpoint is nicer."
+
+Consequence: **two** sources stay on the screen, not one — `cursor_agent` because no
+structured channel exists, `kimi` because the one that exists is not worth its cost.
+Both keep the model reader behind them.
 
 ### grok — investigated 2026-08-08, and it generalises
 
