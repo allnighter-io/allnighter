@@ -1,5 +1,20 @@
 # Debug Log
 
+## 2026-08-09 — SC-S00a rebuild experiment (Serve Continuity)
+
+Tier: T3 investigation (no product fix)
+
+Symptom / repro: Bug Hunt H1 — rebuild retires adhoc codesign identity and
+wedges managed LaunchAgent to EX_CONFIG 78.
+
+Result: **H1 REFUTED** on the post-`bootout`+`bootstrap` agent (no managed LWCR
+flags). Identifier rotated (`…120f9e82…` → `…760d8158…`); KeepAlive restarted
+serve after kill (34158 → 75453), health available. Log:
+`docs/qa/serve-continuity/SC-S00a-rebuild-experiment.md`.
+Logout/login BTM re-adoption still unproven. Proceed SC-S00 honesty.
+
+---
+
 ## 2026-08-09 — `alln serve` LaunchAgent dead (LWCR / EX_CONFIG)
 
 Tier: T3 Critical (background continuity / capacity with app closed)
