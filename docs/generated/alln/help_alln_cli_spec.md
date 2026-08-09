@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.14.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.15.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1185,6 +1185,13 @@ Flags:
 Output schema: `coordinatorHealth`.
 
 Examples: `serve_health_json`.
+
+### `alln serve repair`
+
+Remove the unsupported CODE_RED LaunchAgent (com.allnighter.resident-coordinator): boots it out of launchd and deletes the hand-dropped plist, stopping wedge/thrash loops. No-op success when nothing is installed. Never starts serve and never registers a replacement agent.
+
+Flags:
+- `--json` — Structured repair report (outcome removed|absent|failed).
 
 ### `alln pending add`
 

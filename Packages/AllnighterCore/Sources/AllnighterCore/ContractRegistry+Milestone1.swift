@@ -35,7 +35,9 @@ public extension ContractRegistry {
     // row (`alln drivers --json`), reachable via the model row's existing
     // `driverId`. Normalization, not field-dropping — nothing left the
     // payload. Driver rows' `freshness` is unchanged.
-    static let contractVersion = "9.14.0"
+    // SC-S01: minor — `serve repair` removes the unsupported CODE_RED
+    // LaunchAgent orphan (bootout + plist delete); never registers/enables.
+    static let contractVersion = "9.15.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -969,6 +971,16 @@ public extension ContractRegistry {
             ],
             outputSchema: .coordinatorHealth,
             exampleIds: ["serve_health_json"]
+        ),
+        CommandSpec(
+            "serve repair", summary: "Remove the unsupported CODE_RED LaunchAgent (com.allnighter.resident-coordinator): boots it out of launchd and deletes the hand-dropped plist, stopping wedge/thrash loops. No-op success when nothing is installed. Never starts serve and never registers a replacement agent.", milestone: .m1,
+            flags: [
+                FlagSpec("json", summary: "Structured repair report (outcome removed|absent|failed)."),
+            ],
+            outputSchema: .none,
+            // Boots the label out of launchd and deletes the plist whenever the
+            // orphan exists — that removal is the verb's whole job.
+            effects: EffectProfile(destructive: .always)
         ),
         CommandSpec(
             "pending add", summary: "Create a Draft Pending item.", milestone: .m1,

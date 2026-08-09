@@ -629,12 +629,16 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln serve [--health --json]` — the optional background scheduler
-    /// (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay).
-    /// It owns no run semantics: `alln run` never needs it. `--health` is
-    /// read-only and never starts it.
+    /// `alln serve [--health --json]` / `alln serve repair [--json]` — the
+    /// optional background scheduler (Pending wake, Boost seeding,
+    /// vendor-backoff continuation, cloud relay). It owns no run semantics:
+    /// `alln run` never needs it. `--health` is read-only and never starts it.
     static func runServe(_ args: [String]) async {
         let opts = Options(args)
+        if opts.positional.first == "repair" {
+            runServeRepair(opts)
+            return
+        }
         if opts.flag("health") {
             let health = ServeDaemonProbe().health(binaryVersion: binaryVersion)
             if opts.flag("json") {
@@ -648,7 +652,7 @@ struct AllnighterCLI {
             return
         }
         if !opts.positional.isEmpty || !opts.values.isEmpty {
-            FileHandle.standardError.write(Data("usage: alln serve [--health --json]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln serve [--health --json] | alln serve repair [--json]\n".utf8)); exit(2)
         }
         // Singleton + takeover. Four daemons were found running on the dogfood
         // host (oldest nine days), each executing a different build — so every
@@ -749,6 +753,29 @@ struct AllnighterCLI {
         } catch {
             FileHandle.standardError.write(Data("serve failed: \(error)\n".utf8)); exit(1)
         }
+    }
+
+    /// `alln serve repair [--json]` — SC-S01 removal of the unsupported
+    /// CODE_RED LaunchAgent (`com.allnighter.resident-coordinator`). Observes
+    /// with SC-S00's `ServeLaunchAgentStatus` (the wedge rule lives there);
+    /// absent is a no-op success, anything else (wedged or an installed orphan
+    /// plist) is removed via `ServeLifecycle.remove` (bootout + plist delete).
+    /// Never starts serve and never registers a replacement agent (SC-S04).
+    /// Exit 0 on removed/absent, non-zero on failed.
+    private static func runServeRepair(_ opts: Options) {
+        let report = ServeLifecycle().repair(observation: ServeLaunchAgentStatus().observe())
+        let detail = report.removal?.detail
+            ?? "no \(ServeLaunchAgentStatus.label) LaunchAgent installed — nothing to remove"
+        if opts.flag("json") {
+            print(jsonString(report))
+        } else {
+            let stream = report.outcome == .failed ? FileHandle.standardError : FileHandle.standardOutput
+            stream.write(Data("serve repair \(report.outcome.rawValue): \(detail)\n".utf8))
+            if report.outcome == .removed {
+                print("serve not started — run `alln serve` in a terminal to start the background scheduler.")
+            }
+        }
+        if report.outcome == .failed { exit(1) }
     }
 
     private static func printDoctorHuman(_ r: DoctorResult, full: Bool) {

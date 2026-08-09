@@ -4399,6 +4399,41 @@
     },
     {
       "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "always",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured repair report (outcome removed|absent|failed).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "serve repair",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Remove the unsupported CODE_RED LaunchAgent (com.allnighter.resident-coordinator): boots it out of launchd and deletes the hand-dropped plist, stopping wedge\/thrash loops. No-op success when nothing is installed. Never starts serve and never registers a replacement agent.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
         {
           "name" : "prompt",
           "required" : false,
@@ -6081,7 +6116,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.14.0",
+  "contractVersion" : "9.15.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
