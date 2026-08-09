@@ -62,7 +62,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
-| [`Serve_Continuity.md`](Serve_Continuity.md) | **OPEN — v2; Bug Hunt `AC9D2295` landed; founder fork on login item** | Code red: orphan LA + rebuild-retired codesign identity. Fix: `ServeLifecycle` in `install-cli` transaction + fail-closed health + demand heal. No second scheduler. |
+| [`Serve_Continuity.md`](Serve_Continuity.md) | **OPEN — v2.1; SC-S00a done (H1 refuted post-bootstrap); SC-S00 → Kimi K3** | Doctor/health fail-closed on wedged LA next. Lifecycle + install-cli + demand heal follow. |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
 
 ### Forward feature packets

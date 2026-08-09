@@ -38,7 +38,11 @@ Each sprint file must fit on **one to two screens** and include:
 
 ## Active sprints
 
-_None — CT-S04 done; archive S123 when ready._
+| Topic | Doc | Status |
+| --- | --- | --- |
+| Serve Continuity SC-S00 | [`serve-continuity/SC-S00-launchagent-honesty.md`](serve-continuity/SC-S00-launchagent-honesty.md) | **ready** — Kimi K3 |
+
+_None other — CT-S04 done; archive S123 when ready._
 
 ## Recently archived (2026-08-07)
 

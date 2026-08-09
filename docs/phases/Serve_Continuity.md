@@ -1,6 +1,6 @@
 # Serve Continuity (Background Keeper)
 
-Status: **OPEN — v2 (Bug Hunt Max `AC9D2295` landed); founder fork on login-item ownership**
+Status: **OPEN — v2.1 (SC-S00a done — H1 refuted on post-bootstrap agent; SC-S00 next)**
 Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeAutoLaunch`,
 admission, doctor, **new ServeLifecycle**) + `InstallCLI` / `rebuild_cli.sh`
 (same transaction as identity change) + Mac app (enablement / demand heal) —
@@ -139,9 +139,16 @@ Ship lifecycle verbs (names illustrative — contract owns final grammar):
 | `alln serve disable` | Unregister + stop. Leaves no orphan. |
 | `alln serve repair` | Detect wedge (EX_CONFIG / LWCR / throttle / stale registration) → supported re-bind or disable+enable → verify `serve --health` available. |
 
-`enable` is opt-in (founder ruling on default). Disabling is first-class.
-The CODE_RED orphan is **migrated away** in the same change that ships enable
-(bootout + delete, or adopt-then-replace — never leave two labels).
+**Critical wiring (Bug Hunt):** whenever `install-cli` / `rebuild_cli.sh`
+repoints the on-PATH binary, if start-at-login is enabled, **refresh the OS
+registration in the same transaction**. The rebuild is the writer that retires
+the codesign identity; leaving registration stale is how this code red
+recurs.
+
+`enable` is opt-in (founder ruling on default — High-Risk Stop: login items).
+Disabling is first-class. The CODE_RED orphan is **migrated away** in the same
+change that ships enable (bootout + delete, or adopt-then-replace — never leave
+two labels).
 
 ### 3.3 Demand heal on real fronts
 
@@ -204,7 +211,7 @@ clear; they do not exit(0) in a KeepAlive death loop.
 
 | Slice | Outcome | Proof |
 | --- | --- | --- |
-| **SC-S00a** | **Rebuild experiment (no code)** — codesign before/after `rebuild_cli.sh`, kill launchd-owned serve, `launchctl print`. Confirms H1 (identity retire → 78) vs hand-repair as one-rebuild reprieve. | Host log attached to this packet / DEBUGLOG. |
+| **SC-S00a** | **DONE 2026-08-09** — Rebuild experiment. Codesign Identifier **rotated**; KeepAlive on the *post-bootstrap* agent (no managed LWCR flags) **restarted serve successfully** after kill. **H1 REFUTED** for that registration. Log: `docs/qa/serve-continuity/SC-S00a-rebuild-experiment.md`. Logout/login BTM re-adoption still unproven. | Host log. |
 | **SC-S00** | Doctor / `--health` fail-closed on orphan or wedged LA; teaching text. | Fixture or host: wedged label ⇒ unhealthy + repair hint. |
 | **SC-S01** | `ServeLifecycle` register/refresh/remove; migrate/remove CODE_RED orphan; stop thrash. | After repair or remove: no LWCR thrash; health honest. |
 | **SC-S02** | Wire lifecycle into **`install-cli` / rebuild same transaction** as symlink repoint; stage **stable-identity** binary for OS-managed agent. | Rebuild + kill with app closed → new launchd pid, health `available`, capacity advances (sacrificial-label harness). |
@@ -212,7 +219,11 @@ clear; they do not exit(0) in a KeepAlive death loop.
 | **SC-S04** | `enable` / `disable` UX (founder-gated start-at-login) via SMAppService; logout/login Works Test. | Serve returns after login; capacity stamp advances app-closed. |
 | **SC-S05** | Admission PID identity harden (**separate** — real gap, **not** this bug's root cause). | Recycled-pid fixture cannot `refuse` forever. |
 
-S00–S02 are the **code-red floor** once S00a confirms H1 (or shrinks scope if H1 refutes). S03 is session heal without reboot. S04 is login continuity. S05 must not wear this bug's clothes.
+S00a **refuted H1** for a fresh bootstrap without managed LWCR — packet does
+**not** shrink: SC-S00+ still required (honesty, lifecycle, demand heal, founder
+login ruling). Adhoc debug symlink remains a landmine if BTM re-pins LWCR.
+S00–S02 remain the code-red floor. S03 session heal. S04 login continuity.
+S05 must not wear this bug's clothes.
 
 ---
 
