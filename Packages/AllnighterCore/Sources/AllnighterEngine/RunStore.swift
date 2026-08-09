@@ -173,13 +173,29 @@ public struct RunStore: Sendable {
     /// F-S03: when a Signal run produced a parseable typed insight, persist it as
     /// `return/insight.json` so agents can read structure without re-parsing the
     /// markdown. Derived from run.json on each save.
+    ///
+    /// ARA-S05: when an AI Readiness run produced a parseable typed report, persist
+    /// it as `return/ai-readiness-report.json` (mirror insight.json pattern).
     private func writeReturnArtifacts(_ run: TeamRun, in directory: URL) throws {
-        guard run.outputKind == .insight,
-              let insight = SignalInsightParser.parse(fromWriterOutput: run.plan) else { return }
+        var wrote = false
         let returnDir = directory.appendingPathComponent("return", isDirectory: true)
-        try FileManager.default.createDirectory(at: returnDir, withIntermediateDirectories: true)
-        try CoreJSON.encode(insight).write(
-            to: returnDir.appendingPathComponent("insight.json"), options: .atomic)
+
+        if run.outputKind == .insight,
+           let insight = SignalInsightParser.parse(fromWriterOutput: run.plan) {
+            try FileManager.default.createDirectory(at: returnDir, withIntermediateDirectories: true)
+            try CoreJSON.encode(insight).write(
+                to: returnDir.appendingPathComponent("insight.json"), options: .atomic)
+            wrote = true
+        }
+
+        if run.outputKind == .aiReadinessReport,
+           let report = AIReadinessReportParser.parse(fromWriterOutput: run.plan) {
+            if !wrote {
+                try FileManager.default.createDirectory(at: returnDir, withIntermediateDirectories: true)
+            }
+            try CoreJSON.encode(report).write(
+                to: returnDir.appendingPathComponent("ai-readiness-report.json"), options: .atomic)
+        }
     }
 
     /// F-S02: every stage that produced markdown (analysis/plan/review/final spec/

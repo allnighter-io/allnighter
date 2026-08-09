@@ -17,6 +17,20 @@ public enum ArtifactProjector {
     public var why: String
   }
 
+  /// ARA-S05: one cold-read receipt row — question, agreement count, notable miss.
+  public struct ReadinessReceipt: Equatable, Sendable {
+    public var question: String
+    public var agreedCount: Int
+    public var totalCount: Int
+    public var notableMiss: String?
+  }
+
+  /// ARA-S05: one cited strength from an AI Readiness report.
+  public struct ReadinessStrength: Equatable, Sendable {
+    public var title: String
+    public var evidence: String
+  }
+
   public struct Seat: Equatable, Sendable {
     public var agentId: String
     /// Role / skill label — primary headline on the chip.
@@ -76,6 +90,12 @@ public enum ArtifactProjector {
     public var reproduceLine: String?
     public var runIdLine: String
     public var honesty: String
+    /// ARA-S05: cold-read receipts (question + agreed N/M + notable miss).
+    public var readinessReceipts: [ReadinessReceipt]?
+    /// ARA-S05: cited strengths list.
+    public var readinessStrengths: [ReadinessStrength]?
+    /// ARA-S05: could-not-determine list.
+    public var readinessCouldNotDetermine: [String]?
   }
 
   public struct Context {
@@ -115,6 +135,8 @@ public enum ArtifactProjector {
     )
     let leadMarkdown = trj.answer?.markdown ?? run.plan
     let leadCall = LeadCallParser.parse(from: leadMarkdown)
+    let aiReadinessReport = run.outputKind == .aiReadinessReport
+      ? AIReadinessReportParser.parse(fromWriterOutput: leadMarkdown) : nil
 
     let teamLabel = run.teamDisplayName ?? run.presetId ?? "Team run"
     // VSI-S05: a failed/killed/timed-out/parked run may hoist a durable partial
@@ -124,12 +146,21 @@ public enum ArtifactProjector {
     if verdict == "Ready", trj.answer?.status != .done {
       verdict = nil
     }
-    let call = leadCall?.call
-      ?? fallbackCall(from: leadMarkdown)
-      ?? "(no synthesized output — status \(run.status.rawValue))"
-    let title = resolveTitle(leadCall: leadCall, call: call, teamLabel: teamLabel)
+    // ARA-S05: prefer typed report.call over Lead Call fallback for call/title.
+    let call: String
+    let title: String
+    if let report = aiReadinessReport {
+      call = report.call
+      title = titleAtWordBoundary(report.call, max: 72)
+    } else {
+      call = leadCall?.call
+        ?? fallbackCall(from: leadMarkdown)
+        ?? "(no synthesized output — status \(run.status.rawValue))"
+      title = resolveTitle(leadCall: leadCall, call: call, teamLabel: teamLabel)
+    }
     let asked = resolveAsked(leadCall: leadCall, prompt: run.prompt)
-    let recommendations = (leadCall?.recommendations ?? [])
+    // ARA-S05: when Lead Call recs are empty, map threeFixes → recommendations.
+    var recs = (leadCall?.recommendations ?? [])
       .compactMap { rec -> Recommendation? in
         guard let decision = rec.decision, !decision.isEmpty else { return nil }
         return Recommendation(
@@ -138,6 +169,32 @@ public enum ArtifactProjector {
           why: rec.why ?? ""
         )
       }
+    if recs.isEmpty, let report = aiReadinessReport, !report.threeFixes.isEmpty {
+      recs = report.threeFixes.map { fix in
+        Recommendation(decision: fix.title, lean: "fix", why: fix.whyItBites)
+      }
+    }
+    let recommendations = recs
+
+    // ARA-S05: populate readiness fields from the parsed report.
+    let readinessReceipts: [ReadinessReceipt]? = aiReadinessReport.map { report in
+      report.receipts.map { r in
+        ReadinessReceipt(
+          question: r.question,
+          agreedCount: r.agreedCount,
+          totalCount: r.totalCount,
+          notableMiss: r.notableMiss
+        )
+      }
+    }
+    let readinessStrengths: [ReadinessStrength]? = aiReadinessReport.map { report in
+      report.strengths.map { s in
+        ReadinessStrength(title: s.title, evidence: s.evidence)
+      }
+    }
+    let readinessCouldNotDetermine: [String]? = aiReadinessReport.map { report in
+      report.couldNotDetermine
+    }
 
     let whyItMatters = substantiveChanged(leadCall?.changed)
     let nextMove = leadCall?.nextMove.flatMap { $0.isEmpty ? nil : $0 }
@@ -183,7 +240,10 @@ public enum ArtifactProjector {
       evidence: evidence,
       reproduceLine: reproduceLine,
       runIdLine: run.id,
-      honesty: honesty
+      honesty: honesty,
+      readinessReceipts: readinessReceipts,
+      readinessStrengths: readinessStrengths,
+      readinessCouldNotDetermine: readinessCouldNotDetermine
     )
   }
 
@@ -576,6 +636,36 @@ public enum ArtifactProjector {
       parts.append("</ol></section>")
     }
 
+    // ARA-S05: AI Readiness sections (no score/grade/rating/% — substance only).
+    if let receipts = card.readinessReceipts, !receipts.isEmpty {
+      parts.append("<section class=\"readiness-receipts\"><h2>Cold-read receipts</h2>")
+      for r in receipts {
+        let miss = r.notableMiss.map { " · notable miss: \(escape($0))" } ?? ""
+        parts.append(
+          "<div class=\"receipt-row\"><p class=\"receipt-question\">\(escape(r.question))</p>"
+            + "<p class=\"receipt-tally\">agreed \(r.agreedCount)/\(r.totalCount)\(miss)</p></div>"
+        )
+      }
+      parts.append("</section>")
+    }
+    if let strengths = card.readinessStrengths, !strengths.isEmpty {
+      parts.append("<section class=\"readiness-strengths\"><h2>Already right</h2><ul>")
+      for s in strengths {
+        parts.append(
+          "<li><strong>\(escape(s.title))</strong>"
+            + " <span class=\"strength-evidence\">\(escape(s.evidence))</span></li>"
+        )
+      }
+      parts.append("</ul></section>")
+    }
+    if let cnd = card.readinessCouldNotDetermine, !cnd.isEmpty {
+      parts.append("<section class=\"readiness-unknown\"><h2>Could not determine</h2><ul>")
+      for item in cnd {
+        parts.append("<li>\(escape(item))</li>")
+      }
+      parts.append("</ul></section>")
+    }
+
     parts.append(
       "<section class=\"cta-block\(card.verdictPartial ? " cta-partial" : "")\">"
         + "<div class=\"cta-label\">Next</div>"
@@ -945,6 +1035,29 @@ public enum ArtifactProjector {
     .recommendations ol { margin: 0; padding-left: 1.2rem; }
     .recommendations li { margin-bottom: var(--space-3); }
     .rec-why { color: var(--text-muted); font-size: 0.9rem; margin-top: 2px; }
+    .readiness-receipts { max-width: var(--prose); }
+    .receipt-row {
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-3);
+      margin-bottom: var(--space-2);
+      background: var(--ink-850);
+    }
+    .receipt-question { margin: 0 0 4px; font-weight: 600; color: var(--text-primary); }
+    .receipt-tally {
+      margin: 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+    .readiness-strengths, .readiness-unknown { max-width: var(--prose); }
+    .strength-evidence {
+      display: block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.8rem;
+      color: var(--text-faint);
+      margin-top: 2px;
+    }
     .cta-block {
       border: 1px solid var(--border-default);
       border-radius: var(--radius-lg);
