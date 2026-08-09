@@ -78,7 +78,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | Plan — not started | AgentOS chat package extraction. |
 | [`Share_To_Research.md`](Share_To_Research.md) | Draft — not started | iOS share sheet → Mac Research run. |
 | [`Buzz_Harness_Spike.md`](Buzz_Harness_Spike.md) | SPIKE — deferred | Receipt prerequisite met; strategy in `docs/strategy/`. |
-| [`AI_Readiness_Audit.md`](AI_Readiness_Audit.md) | **READY FOR IMPLEMENTATION — start ARA-S01** | First-run Code Team: any repo → grade card, cold-read receipts, three paste-ready fixes, and an honest clean bill for good repos. Growth `AFAA2B6A` folded and de-slopped; three founder forks are non-blocking. Archive + promote when shipped. |
+| [`AI_Readiness.md`](AI_Readiness.md) | **READY FOR IMPLEMENTATION — start ARA-S01** | First-run Code Team: local repo → cold-read receipts, three paste-ready fixes, cited strengths, honest clean bill. **All founder forks settled 2026-08-09: no score/grade ever, local repos only (clone to audit a GitHub repo), existing artifact as the share surface, no apply path.** Archive + promote when shipped. |
 | [`Contradiction_Pass.md`](Contradiction_Pass.md) | **NOT AUTHORIZED** | Extends `docs/operations/Spec_Review.md`; do not start without founder ruling. |
 | [`Pricing_Change_Process.md`](Pricing_Change_Process.md) | Standing process | Offer SSOT: `docs/marketing/Pricing_Recommendation.md`. |
 
