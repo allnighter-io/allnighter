@@ -1,12 +1,14 @@
 # Capacity Serve Refresh Polish
 
-Status: **IN FLIGHT — S02+S01 SHIPPED; next S04 → S03.**
+Status: **IN FLIGHT — S02+S01+S04 SHIPPED; next S03 (S05 deferred).**
   Founder authorized 2026-08-09. Each slice: DeepSeek V4 Pro implement → host
   audit → focused proof → commit. OpenCode bugs →
   `docs/qa/opencode-mutating-commit/OPENCODE_BUG_LOG.md`.
-  **CRS-S02:** `70a961bd` — margin 2m + jitter 60; audit CLEAN; 10/10 then.
-  **CRS-S01:** `5e30f3f2` / Pro `33E4E984` — per-refresh `CapacityProbeScope` +
-  terminate drain; sync mid-kill still deferred to S04; audit CLEAN; 11/11.
+  **CRS-S02:** `70a961bd` — margin 2m + jitter 60; audit CLEAN.
+  **CRS-S01:** `5e30f3f2` — scope wiring; audit CLEAN.
+  **CRS-S04:** Pro `7f16c87b` (async+backoff+historyWriteFailed) + host
+  `8a0e7306` (mid-probe cancel poller Works Test). Audit: Pro deferred
+  sibling poller → host fixed. SchedulerTests 21/21.
 Owner: AllnighterEngine (`CapacityRefreshScheduler`, `ServeDaemon`,
 `CapacityFetch`, `CapacityHistoryStore`; app peer `CapacityResidentService`)
 Created: 2026-08-09 | Updated: 2026-08-09 (authorized)
