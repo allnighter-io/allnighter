@@ -1,7 +1,7 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **v6 — PF-S00, PF-S01, PF-S02 and PF-S03 all SHIPPED. One item
-  remains and it needs a founder ruling, not code (see "Still open" below).
+Status: **v7 — COMPLETE. PF-S00, PF-S01, PF-S02, PF-S03 and the final
+  capability-clock ruling all SHIPPED. Nothing open; ARCHIVE READY.
   The "capacity is a table, not a status" redesign is REFUTED (§0.4) — read it
   before proposing it again.**
 
@@ -18,21 +18,55 @@ Status: **v6 — PF-S00, PF-S01, PF-S02 and PF-S03 all SHIPPED. One item
   test cannot see it. `ProbeFreshnessJSON` hand-writes `encode(to:)` with
   `encodeNil(forKey:)`, gated by a test that inspects raw JSON keys.
 
-  **Still open — needs a founder ruling, no code authorized:** the
-  probe-record half of PF-S03. `SourceProbeService`'s cheap path persists
-  nothing, so "a new `lastProbeAt` with no smoke" is a contradiction. It needs
-  either a `lastDetectedAt` split or permission to spend smoke. PF-S01 makes this
-  *more* visible, not less: the bench now discloses the age of evidence it cannot
-  cheaply renew.
+  **RESOLVED 2026-08-09 — the last open item is closed** (`fd188308` AgentOS +
+  `12ef89c2` Allnighter, contract 9.13.0, binary 0.12.5). Option A (§521) shipped
+  *plus* the writer that was actually missing.
 
-  **Known cost, deliberately not fixed here:** freshness added 6,325 bytes
-  (+26.7%) to the menu payload, which now sits at ~29.3 KiB against a 30 KiB
-  budget. Of that, **4,130 bytes is verbatim duplication** — 29 emitted freshness
-  objects, 9 distinct values, because every model repeats its driver's. Left as
-  shipped: per-row disclosure is what the spec asked for, and de-duplicating
-  re-opens the founder-ruled `Menu_Envelope_Compression` decision
-  (*"usability > size"*). If the 4 KiB is wanted back, it is its own slice that
-  re-opens that packet on purpose — not a quiet edit riding on this one.
+  The contradiction was never about permission to spend smoke. One field was
+  carrying two facts with completely different decay rates: *is the binary there*
+  (milliseconds, no quota, decays in months) and *does it work when invoked*
+  (seconds, sometimes quota, decays in hours). `lastDetectedAt` now takes the
+  cheap fact; `lastProbeAt` narrows to capability evidence.
+
+  The real gap: `lastProbeAt` had exactly **one** writer, `CensusIngest.swift:47`,
+  the probe path. `RunService` never wrote it — a user could invoke Codex fifty
+  times while the bench "did not know" whether Codex worked, sitting on fifty
+  proofs. **A probe is a simulated run; a real run is better evidence and costs
+  nothing.** Run settlement now writes the capability clock: success confirms,
+  `missingCLI`/`authRequired` record the negative, and everything else
+  (`timedOut`, `nonzeroExit`, `emptyOutput`, `cancelled`, `permissionRequired`)
+  writes nothing, because a bad prompt says nothing about whether a seat works.
+
+  Three honest states replace two: **not detected** / **detected, never
+  exercised** / **confirmed at T**. The middle one did not exist before and is the
+  correct answer for a new user — better than a fabricated verdict or a scary
+  `notReady`. Scheduled smoke is therefore not needed and is not authorized:
+  spending a user's own paid quota to answer a question they did not ask is the
+  thing to refuse.
+
+  Verified live: a failed run (`emptyOutput`) moved **zero** clocks; a successful
+  run set `evidenceSource: "run"`; genuine pre-split records on disk correctly
+  read as capability-unknown under the fail-closed migration rule.
+
+  Known dormant: `authRequired` is implemented and unit-tested but no driver
+  emits it yet, so the "installed but logged out" state is wired and unexercised.
+
+  **Menu cost — FIXED 2026-08-09** (`2d07b303`, contract 9.14.0, binary 0.12.6),
+  founder: *"simplify, don't repeat the full diagnostics."* PF-S01 put a full
+  freshness object on every model row, costing 6,325 B (+26.7%) and leaving ~2%
+  headroom on the front door — the payload every agent reads first, every session.
+
+  It was a denormalized foreign key, not a compression problem: freshness is a
+  *driver* fact, and model rows said so themselves by emitting
+  `evidenceSource: "driver"`. So model rows now carry only the one bit an agent
+  acts on — `stale` — and reach the detail through the `driverId` they already
+  had, on driver rows already in the same payload.
+
+  30,732 B → 23,882 B. Nothing left the payload and no second call is needed, so
+  `Menu_Envelope_Compression`'s *"usability > size"* ruling is untouched and was
+  not re-opened. The byte budgets were **lowered** (30→25 KiB, 34→28 KiB) rather
+  than banked: a gate left high after the payload shrank has stopped guarding
+  anything, and that ratchet was the actual risk.
   PF-S03 shipped WITHOUT the evidence-contract decision §0.3 said it needed:
   that blocker applied to re-homing the PROBE-RECORD refresh (`cli_setup.json`,
   where "new lastProbeAt with no smoke" is a contradiction). The founder's
