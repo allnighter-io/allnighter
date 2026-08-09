@@ -1,6 +1,6 @@
 # SC-S04a — Stage stable CLI binary (copy)
 
-Status: ready  
+Status: in_progress  
 Slice: SC-S04a (tiny)  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §6 founder rulings + §4 SC-S04a  
 Executor: prefer Kimi K3 if 5h remaining ≥15%; else `model_opencode_deepseek_v4_pro`  
