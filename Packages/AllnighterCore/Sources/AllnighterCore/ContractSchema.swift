@@ -429,9 +429,10 @@ public enum ContractSchema {
                 "state": enumStr(["onBench", "available"]),
                 "capabilities": ref("ModelCapabilities"),
                 "headlessTrust": nullableRef("HeadlessTrustPolicy"),
+                "freshness": ref("ProbeFreshness"),
             ], required: [
                 "id", "displayName", "modelLabel", "driverId", "driverName", "role", "origin",
-                "enabled", "ready", "status", "state", "capabilities",
+                "enabled", "ready", "status", "state", "capabilities", "freshness",
             ]),
             "HeadlessTrustPolicy": obj([
                 "required": bool, "cliFlag": str, "disclosure": str,
@@ -443,12 +444,26 @@ public enum ContractSchema {
                 "code": str, "modelId": nullable("string"), "driverId": nullable("string"), "message": str,
             ], required: ["code", "message"]),
             "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
+            "ProbeFreshness": probeFreshnessDef(),
         ]
         return schema
     }
 
     private static func agentSurfaceNextActionDef() -> [String: Any] {
         obj(["kind": str, "label": str, "command": str], required: ["kind", "label", "command"])
+    }
+
+    /// PF-S01 — shared by `ModelEntry.freshness` and `MenuModel.freshness`.
+    /// `checkedAt`/`ageMinutes` are `null` for a never-probed row (§PF-S01:
+    /// not epoch zero, not `now`, not omitted).
+    private static func probeFreshnessDef() -> [String: Any] {
+        obj([
+            "checkedAt": nullable("string"),
+            "ageMinutes": nullable("integer"),
+            "stale": bool,
+            "evidenceSource": enumStr(["probe", "driver"]),
+            "nextAction": ref("AgentSurfaceNextAction"),
+        ], required: ["checkedAt", "ageMinutes", "stale", "evidenceSource", "nextAction"])
     }
 
     public static func versionSchema() -> [String: Any] {
@@ -900,9 +915,10 @@ public enum ContractSchema {
                 "enabled": bool, "ready": bool, "blockedReason": nullable("string"),
                 "capabilities": ref("ModelCapabilities"),
                 "runTemplate": str, "validateTemplate": str,
+                "freshness": ref("ProbeFreshness"),
             ], required: [
                 "ref", "id", "displayName", "driverId", "enabled", "ready",
-                "capabilities", "runTemplate", "validateTemplate",
+                "capabilities", "runTemplate", "validateTemplate", "freshness",
             ]),
             "MenuRecipe": obj([
                 "ref": str, "id": str, "title": str, "useWhen": str, "dontUseWhen": str,
@@ -940,6 +956,8 @@ public enum ContractSchema {
                 "available": bool, "current": str, "latest": str,
                 "binaryPath": nullable("string"), "command": str,
             ], required: ["available", "current", "latest", "command"]),
+            "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
+            "ProbeFreshness": probeFreshnessDef(),
         ]
         return schema
     }

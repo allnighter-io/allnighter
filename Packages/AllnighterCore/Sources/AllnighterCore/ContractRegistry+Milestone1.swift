@@ -22,7 +22,10 @@ public extension ContractRegistry {
     // mutually-exclusive constraint; repoWrite effect. saveEnabled throws.
     // QDR-S01: minor — show gains --answer (durable answer retrieval for
     // in-flight/killed/failed runs), showAnswer nextAction kind, RUN_NO_ANSWER.
-    static let contractVersion = "9.10.0"
+    // PF-S01: minor — driver/model rows (menu, drivers, models) gain a
+    // `freshness` object (checkedAt/ageMinutes/stale/evidenceSource/nextAction)
+    // disclosing probe-record age; disclosure only, no verdict changed.
+    static let contractVersion = "9.11.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,

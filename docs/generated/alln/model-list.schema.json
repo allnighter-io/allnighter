@@ -112,6 +112,9 @@
         "enabled" : {
           "type" : "boolean"
         },
+        "freshness" : {
+          "$ref" : "#\/$defs\/ProbeFreshness"
+        },
         "headlessTrust" : {
           "oneOf" : [
             {
@@ -171,7 +174,46 @@
         "ready",
         "status",
         "state",
-        "capabilities"
+        "capabilities",
+        "freshness"
+      ],
+      "type" : "object"
+    },
+    "ProbeFreshness" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "ageMinutes" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "checkedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "evidenceSource" : {
+          "enum" : [
+            "probe",
+            "driver"
+          ],
+          "type" : "string"
+        },
+        "nextAction" : {
+          "$ref" : "#\/$defs\/AgentSurfaceNextAction"
+        },
+        "stale" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "checkedAt",
+        "ageMinutes",
+        "stale",
+        "evidenceSource",
+        "nextAction"
       ],
       "type" : "object"
     }

@@ -98,6 +98,11 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var capabilityTags: [String]?
         public var runTemplate: String?
         public var validateTemplate: String?
+        /// PF-S01 — how old the evidence behind `ready`/`status` is, and the
+        /// command that actually refreshes it. Always inherited from the
+        /// owning driver (`freshness.evidenceSource == "driver"`) — a model is
+        /// never independently smoke-probed.
+        public var freshness: ProbeFreshnessJSON
     }
 
     /// How to invoke any seat, stated once instead of per row.

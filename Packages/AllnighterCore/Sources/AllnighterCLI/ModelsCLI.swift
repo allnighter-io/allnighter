@@ -23,7 +23,8 @@ enum ModelsCLI {
     static func modelListJSON(
         runtime: ToolRuntime,
         driverId: String? = nil,
-        benchOnly: Bool = false
+        benchOnly: Bool = false,
+        now: Date = Date()
     ) -> ModelListJSON {
         var defs = ModelCatalog.list(driverId: driverId)
         if benchOnly {
@@ -36,6 +37,7 @@ enum ModelsCLI {
             registry: runtime.registry,
             definitions: defs,
             probeRecords: records,
+            now: now,
             diagnostics: ModelCatalog.diagnostics(registry: runtime.registry),
             benchOnly: benchOnly,
             driverId: driverId,

@@ -119,7 +119,8 @@ public enum MenuCatalog {
                 status: entry.ready ? nil : entry.status,
                 capabilityTags: detailed ? entry.capabilities.capabilityTags.map(\.rawValue) : nil,
                 runTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --json" : nil,
-                validateTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --dry-run" : nil
+                validateTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --dry-run" : nil,
+                freshness: entry.freshness
             )
         }
 

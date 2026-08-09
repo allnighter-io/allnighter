@@ -1,5 +1,25 @@
 {
   "$defs" : {
+    "AgentSurfaceNextAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "kind",
+        "label",
+        "command"
+      ],
+      "type" : "object"
+    },
     "Capacity" : {
       "additionalProperties" : false,
       "properties" : {
@@ -264,6 +284,9 @@
         "enabled" : {
           "type" : "boolean"
         },
+        "freshness" : {
+          "$ref" : "#\/$defs\/ProbeFreshness"
+        },
         "id" : {
           "type" : "string"
         },
@@ -289,7 +312,8 @@
         "ready",
         "capabilities",
         "runTemplate",
-        "validateTemplate"
+        "validateTemplate",
+        "freshness"
       ],
       "type" : "object"
     },
@@ -406,6 +430,44 @@
         "laneTags",
         "capabilityTags",
         "strengthRank"
+      ],
+      "type" : "object"
+    },
+    "ProbeFreshness" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "ageMinutes" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "checkedAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "evidenceSource" : {
+          "enum" : [
+            "probe",
+            "driver"
+          ],
+          "type" : "string"
+        },
+        "nextAction" : {
+          "$ref" : "#\/$defs\/AgentSurfaceNextAction"
+        },
+        "stale" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "checkedAt",
+        "ageMinutes",
+        "stale",
+        "evidenceSource",
+        "nextAction"
       ],
       "type" : "object"
     },

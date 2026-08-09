@@ -58,7 +58,8 @@ public enum ModelListProjector {
                 status: status,
                 state: enabled ? "onBench" : "available",
                 capabilities: ModelCatalog.capabilities(def.id),
-                headlessTrust: headlessTrust
+                headlessTrust: headlessTrust,
+                freshness: ProbeFreshnessDisclosure.forModel(record, driverId: def.driverId, now: now)
             )
         }
         // Selection identity/state share MenuCatalog records (MR-S05 / Law 2).
@@ -90,7 +91,8 @@ public enum ModelListProjector {
                 status: base.status,
                 state: row.enabled ? "onBench" : "available",
                 capabilities: base.capabilities,
-                headlessTrust: base.headlessTrust
+                headlessTrust: base.headlessTrust,
+                freshness: base.freshness
             )
         }
         var payload = ModelListJSON(

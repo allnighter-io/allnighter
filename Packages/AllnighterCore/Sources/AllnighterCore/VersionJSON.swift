@@ -51,8 +51,16 @@ import Foundation
 /// **0.12.0 → 0.12.1 (ORS-P2-NULL regen).** `contractVersion` additive minor
 /// (9.2.0 → 9.3.0): Observation.required gains always-present nullable
 /// `lastActivityAt`. Not a major cut, so standard +0.0.1 batch bump.
+///
+/// **0.12.2 → 0.12.3 (PF-S01, `docs/phases/Probe_Freshness.md`).**
+/// `contractVersion` additive minor (9.10.0 → 9.11.0): `menu` / `drivers` /
+/// `models` driver and model rows gain a `freshness` object — `checkedAt`
+/// (null when never probed), `ageMinutes`, `stale`, `evidenceSource`
+/// (`"probe"` for a driver's own record, `"driver"` for a model's inherited
+/// one), and `nextAction` naming the refresh command. Disclosure only; no
+/// verdict/status/blockedReason changes. Not a major cut, standard +0.0.1.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.12.2"
+    public static let binaryVersion = "0.12.3"
 }
 
 /// `alln version` / `alln --version` machine contract.

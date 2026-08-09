@@ -25,6 +25,12 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
         public var capabilities: ModelCapabilities
         /// When the source requires headless trust/mutation flags (e.g. Cursor `--trust`).
         public var headlessTrust: HeadlessTrustPolicy?
+        /// PF-S01 — a model is never independently smoke-probed; this always
+        /// carries the OWNING DRIVER's evidence, with `evidenceSource: "driver"`
+        /// disclosing that inheritance rather than leaving it implied. Defaults
+        /// to the honest "never checked" state for call sites that predate this
+        /// field and don't compute it.
+        public var freshness: ProbeFreshnessJSON
 
         public init(
             id: ModelID,
@@ -39,7 +45,8 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             status: String,
             state: String,
             capabilities: ModelCapabilities,
-            headlessTrust: HeadlessTrustPolicy? = nil
+            headlessTrust: HeadlessTrustPolicy? = nil,
+            freshness: ProbeFreshnessJSON = ProbeFreshnessDisclosure.unknownModel
         ) {
             self.id = id
             self.displayName = displayName
@@ -54,6 +61,7 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             self.state = state
             self.capabilities = capabilities
             self.headlessTrust = headlessTrust
+            self.freshness = freshness
         }
     }
 

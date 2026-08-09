@@ -74,6 +74,7 @@ enum DriversCLI {
         return DriverListProjector.build(
             registry: runtime.registry,
             probeRecords: state.records,
+            now: now,
             models: models,
             parkedDriverIds: state.parkedSet,
             vendorResetsBySource: CapacityResetLookup.bySource(now: now)

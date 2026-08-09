@@ -218,7 +218,11 @@ final class MenuSelectionGradeTests: XCTestCase {
         // Tier-1 built-in fixture measures 32,168 B after the stage-1 slimming
         // (was 36,934 B when this gated the pre-slim payload). Tightened rather
         // than left slack: a budget above what ships stops gating growth.
-        XCTAssertLessThanOrEqual(data.count, 29696, "built-in Tier-1 MenuJSON \(data.count) exceeds 29 KiB")
+        // PF-S01 (2026-08-08): every model row gains `freshness`
+        // (checkedAt/ageMinutes/stale/evidenceSource/nextAction) — disclosure
+        // the Works Test requires on Tier-1, not `--detailed`-only. Measured
+        // 30,113 B; budget moved to 30 KiB (30,720 B), ~2% headroom.
+        XCTAssertLessThanOrEqual(data.count, 30720, "built-in Tier-1 MenuJSON \(data.count) exceeds 30 KiB")
     }
 
     func testPerRowBoundsAndRealisticCatalogWithinBudget() throws {
@@ -247,7 +251,9 @@ final class MenuSelectionGradeTests: XCTestCase {
         // covers the measured 35,027 B live bench plus the S00b capacity row
         // plus headroom for a realistic number of saved custom teams/models,
         // without being so loose it stops gating growth.
-        XCTAssertLessThanOrEqual(data.count, 33792, "realistic Tier-1 MenuJSON \(data.count) exceeds 33 KiB budget")
+        // PF-S01 (2026-08-08): `freshness` on every model row. Measured
+        // 33,964 B; budget moved to 34 KiB (34,816 B), ~2.5% headroom.
+        XCTAssertLessThanOrEqual(data.count, 34816, "realistic Tier-1 MenuJSON \(data.count) exceeds 34 KiB budget")
     }
 
     func testAuthoredBoundsRejectOversizedCustomRecord() {

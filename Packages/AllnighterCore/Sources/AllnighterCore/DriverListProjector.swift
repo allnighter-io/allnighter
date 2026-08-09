@@ -63,7 +63,8 @@ public enum DriverListProjector {
                     version: record?.version,
                     modelsOn: onCount[manifest.id] ?? 0,
                     probeDetail: detail,
-                    idleTimeoutSeconds: manifest.invoke?.timeoutSeconds
+                    idleTimeoutSeconds: manifest.invoke?.timeoutSeconds,
+                    freshness: ProbeFreshnessDisclosure.forDriver(record, driverId: manifest.id, now: now)
                 )
             }
 
