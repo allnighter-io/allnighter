@@ -35,3 +35,4 @@ mutating `alln run` lands `done` with `committed: true`, not
 
 - 2026-08-09T15:34:00Z · scaffold · harness created; awaiting first OpenCode stamp
 - 2026-08-09T15:35:10Z · run unknown · OpenCode seat appended stamp and committed
+- 2026-08-09T15:35:50Z · run unknown · OpenCode seat appended stamp and committed
