@@ -1,6 +1,23 @@
 # OpenCode Serve Attach
 
-Status: **Ready for Implementation — OSA-S00→S03; review hardened**
+Status: **CLOSED 2026-08-08 — OSA-S00→S03 shipped and dogfood-proven.**
+Archived; durable truth is the code SSOT below and the `opencode_headless_completion`
+help topic. Do not resume from this file.
+
+| Slice | Commit | Repo |
+| --- | --- | --- |
+| OSA-S00 attach healthy listener | `73ee4bb1` | AgentOS |
+| OSA-S01 remove `portOwnedByForeignProcess` | `f4530489` | AgentOS |
+| OSA-S02 stale text + dogfood | `3202ae41` | Allnighter |
+
+**Dogfood proof (2026-08-08).** Port `:4096` was *not* free at the start — a
+healthy `opencode serve` (pid `36915`, reparented to PPID 1) was already
+listening. Per CT-05 it was not killed to manufacture a clean start; it was used
+as the leftover under test, which makes the proof stronger than the scripted one
+since even the first run had to attach rather than spawn. Two sequential
+`alln run --read-only --no-wait` invocations on `model_opencode_deepseek_v4_flash`
+both completed (`errors: []`, real answer text). Listener pid was `36915` before,
+between, and after — attached twice, never torn down, never respawned, no SIGTERM.
 Owner: AgentOS (`OpenCodeServeCoordinator` / `OpenCodeRoutingWorkerRunner`)
 Created: 2026-08-08
 Last updated: 2026-08-08

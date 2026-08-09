@@ -1,7 +1,41 @@
 # Crew Understaffed Signal
 
-Status: **OPEN — hardened 2026-08-08 (DeepSeek V4 Pro `09E19604` + Kimi K3
-via kimi `62F74094`). CHS-S01/S02 Ready to authorize after this doc. Not coded.**
+Status: **CLOSED 2026-08-08 — CHS-S01 + CHS-S02 shipped and verified live.**
+Archived; durable truth is the code SSOT named below. Do not resume from this file.
+
+| Slice | Commit | Repo |
+| --- | --- | --- |
+| CHS-S01 gate wait bounded by the seat's own invoke timeout | `6c07d822` | AgentOS |
+| CHS-S02 dry-run names serialized drivers | `1ac89035` | Allnighter |
+
+**The number that makes S01 a real fix, which the slice's own test could not show.**
+The regression test uses a 1s manifest timeout against a 3s hold — that proves the
+timeout is *plumbed*, not that the incident stops. Checked against the real
+manifests: `antigravity`, `cursor_agent`, and `opencode` all carry
+`invoke.timeoutSeconds = 1800`. So a waiter's patience goes 300s → 1800s, and
+`F3B862ED` (sibling held ~482s) now sits well inside the bound. Had these
+manifests carried a timeout at or below 300s, the identical code change would have
+fixed nothing — and every test would still have passed.
+
+**S02 verified live, outside its own suite:**
+
+```
+$ alln run "x" --seat model_cursor_gpt_sol --seat custom_cursor_agent_opus_5_cursor \
+      --seat model_opus --team code_spec_review_min --dry-run --json
+canStart: True
+warnings: ["seat_driver_serialized: cursor_agent allows 1 concurrent spawn;
+           model_cursor_gpt_sol, custom_cursor_agent_opus_5_cursor will run one after another"]
+```
+
+**Correction to this packet's own teaching requirement.** §CHS-S02 said "help
+search hits `spawn gate`, `same CLI`, `serialize seats`, `concurrent seats`". That
+instruction was wrong: `alln help search` is `MenuCatalog.search` over menu cards
+and never reads `HelpTopicRegistry`, so no help topic can ever satisfy it.
+Verified — `alln help get "spawn gate" --json` returns `found: true`
+(`team_run_loop`), while `alln help search "spawn gate" --json` returns `results:
+[]`. The terms were added as aliases on `team_run_loop`, following the precedent
+`--seat` already set. **The search blindness is not this packet's to fix** — it is
+already recorded in [`Agent_Teaching_Surface.md`](Agent_Teaching_Surface.md) §431.
 Owner:
 - **CHS-S01 (AgentOS):** `GatedWorkerRunner.invoke` →
   `DriverConcurrencyGate.acquire` (default timeout is exactly **300s** today)
