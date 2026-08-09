@@ -65,6 +65,10 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
     public var explicitSeatModelIds: [String]? = nil
     /// AVQ-S04 — force read-only write policy / skip mutator lock.
     public var readOnly: Bool = false
+    /// CHS-S02 — override `DriverManifest.maxConcurrentSpawns` for this run's
+    /// spawn-serialize warning (mirrors `RunRequest.spawnConcurrencyLimit`; nil =
+    /// use the manifest limit).
+    public var spawnConcurrencyLimit: Int? = nil
 
     public init(
         projectId: String? = nil,
@@ -91,7 +95,8 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
         messageId: String? = nil,
         agent: String? = nil,
         explicitSeatModelIds: [String]? = nil,
-        readOnly: Bool = false
+        readOnly: Bool = false,
+        spawnConcurrencyLimit: Int? = nil
     ) {
         self.projectId = projectId
         self.teamId = teamId
@@ -118,6 +123,7 @@ public struct RunInvocationNormalizedFlags: Sendable, Equatable {
         self.agent = agent
         self.explicitSeatModelIds = explicitSeatModelIds
         self.readOnly = readOnly
+        self.spawnConcurrencyLimit = spawnConcurrencyLimit
     }
 }
 
@@ -171,7 +177,8 @@ public struct RunInvocationInput: Sendable, Equatable {
             threadId: request.threadId,
             agent: nil,
             explicitSeatModelIds: request.explicitSeatModelIds,
-            readOnly: request.readOnly
+            readOnly: request.readOnly,
+            spawnConcurrencyLimit: request.spawnConcurrencyLimit
         )
     }
 
@@ -215,6 +222,9 @@ public struct RunInvocationResolveContext: Sendable {
     public var writeLockHeld: Bool?
     public var governorAvailable: Bool
     public var governorBlockedReason: String?
+    /// CHS-S02 — `DriverManifest.maxConcurrentSpawns` by `driverId`, for drivers that
+    /// declare a limit. Absent key = parallel-safe (unlimited).
+    public var driverSpawnLimits: [String: Int]
 
     public init(
         models: [Model],
@@ -226,7 +236,8 @@ public struct RunInvocationResolveContext: Sendable {
         parkedDriverIds: Set<String> = [],
         writeLockHeld: Bool? = nil,
         governorAvailable: Bool = true,
-        governorBlockedReason: String? = nil
+        governorBlockedReason: String? = nil,
+        driverSpawnLimits: [String: Int] = [:]
     ) {
         self.models = models
         self.teams = teams.isEmpty ? TeamCatalog.all : teams
@@ -239,6 +250,7 @@ public struct RunInvocationResolveContext: Sendable {
         self.writeLockHeld = writeLockHeld
         self.governorAvailable = governorAvailable
         self.governorBlockedReason = governorBlockedReason
+        self.driverSpawnLimits = driverSpawnLimits
     }
 }
 
@@ -690,6 +702,15 @@ public enum RunInvocationResolver {
             warnings.append("Team governor is at capacity.")
         }
 
+        // CHS-S02: crew seats sharing a spawn-gated driver serialize FIFO instead of
+        // dropping (AgentOS CHS-S01) — name the shape at the front door before the
+        // PM spends the panel. Never refuses; `canStart` is untouched.
+        warnings.append(contentsOf: spawnSerializationWarnings(
+            seats: seats,
+            driverSpawnLimits: context.driverSpawnLimits,
+            overrideLimit: input.flags.spawnConcurrencyLimit
+        ))
+
         let sourceIds = Array(Set(seats.compactMap(\.sourceId))).sorted()
         let displayName = RunIdentity.teamDisplayName(
             presetId: preset.id,
@@ -741,6 +762,54 @@ public enum RunInvocationResolver {
     }
 
     // MARK: - Helpers
+
+    /// CHS-S02: group resolved crew seats by `driverId` and flag any driver whose
+    /// seat count exceeds the EFFECTIVE spawn limit — `overrideLimit`
+    /// (`RunService.spawnConcurrencyLimit`) when set, else that driver's manifest
+    /// `maxConcurrentSpawns` from `driverSpawnLimits`. A driver absent from
+    /// `driverSpawnLimits` (no override either) is parallel-safe and never warns.
+    /// Flat strings only — no schema field; this never touches `canStart`.
+    static func spawnSerializationWarnings(
+        seats: [ResolvedRunSeat],
+        driverSpawnLimits: [String: Int],
+        overrideLimit: Int?
+    ) -> [String] {
+        spawnSerializationWarnings(
+            driverIdsByModelId: seats.map { (driverId: $0.sourceId, modelId: $0.modelId) },
+            driverSpawnLimits: driverSpawnLimits,
+            overrideLimit: overrideLimit
+        )
+    }
+
+    /// Same rule as above, over any (driverId, modelId) crew — shared by the
+    /// dry-run/foreground resolver (`ResolvedRunSeat`) and `RunService.runAnswer`'s
+    /// real resolution (`Agent`), which carry `driverId` differently.
+    static func spawnSerializationWarnings(
+        driverIdsByModelId seats: [(driverId: String?, modelId: String)],
+        driverSpawnLimits: [String: Int],
+        overrideLimit: Int?
+    ) -> [String] {
+        var order: [String] = []
+        var modelIdsByDriver: [String: [String]] = [:]
+        for seat in seats {
+            guard let driverId = seat.driverId, !driverId.isEmpty else { continue }
+            if modelIdsByDriver[driverId] == nil { order.append(driverId) }
+            modelIdsByDriver[driverId, default: []].append(seat.modelId)
+        }
+        var warnings: [String] = []
+        for driverId in order {
+            let modelIds = modelIdsByDriver[driverId] ?? []
+            guard let limit = overrideLimit ?? driverSpawnLimits[driverId], modelIds.count > limit else {
+                continue
+            }
+            let unit = limit == 1 ? "spawn" : "spawns"
+            warnings.append(
+                "seat_driver_serialized: \(driverId) allows \(limit) concurrent \(unit); "
+                + "\(modelIds.joined(separator: ", ")) will run one after another"
+            )
+        }
+        return warnings
+    }
 
     private static func resolveExplicitModel(
         _ id: String,

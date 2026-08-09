@@ -208,10 +208,16 @@ public enum HelpTopicRegistry {
                       "timing", "queueMs", "ttftMs", "durationMs", "wallMs", "latency",
                       "stream", "ndjson", "temperature", "max tokens", "max-tokens",
                       "answer field", "canonical answer",
-                      "no-wait", "background run", "detach", "idempotency", "retry safely"],
+                      "no-wait", "background run", "detach", "idempotency", "retry safely",
+                      // CHS-S02: multiple crew seats on one spawn-gated CLI serialize, never
+                      // drop — findable by the terms an agent actually types.
+                      "spawn gate", "same CLI", "same cli", "serialize seats", "serialized seats",
+                      "concurrent seats", "concurrent spawn", "concurrent spawns", "gated driver",
+                      "seat_driver_serialized", "cursor_agent", "understaffed", "spawn gate timed out"],
             sections: [
                 .init("preflight", "Dry-run first", "Call `alln run --dry-run` before a foreground run so a bad lineup fails before quota is spent."),
                 .init("explicit-seats", "One-off crew staffing", "`alln run --team <built-in> --seat <model_id> --seat …` staffs crew seats in order without writing the catalog. Lead and scout stay on the Team. Mutating teams still use `--model`."),
+                .init("spawn-gate", "Same-CLI seats serialize, never drop", "`cursor_agent`, `opencode`, and `agy` allow only one concurrent spawn each — a real process/config race, not a policy choice. Two or more crew seats on the SAME gated CLI (`--seat` or a wide capability-staffed Team) still both run; they serialize FIFO instead of dropping. Dry-run names the shape up front: `warnings` carries a flat `seat_driver_serialized: <driverId> allows <n> concurrent spawn; <model ids> will run one after another` string, and `canStart` stays true — this never refuses a same-CLI crew. Parallel-safe drivers (claude, codex, grok — no declared limit) never warn."),
                 .init("write-policy", "Observation vs outcome", "`effects.repoWrite` means the resolved invocation may write. Research Teams are observational; terminal `repoDelta` reports whether a mutating run did write, and `researchGitObservation.changed` flags a read-only run that unexpectedly changed Git state (files are never reset)."),
                 .init("timing", "Observed timing", "`queueMs` / `ttftMs` / `durationMs` / `outcome.timing.wallMs` are recorded clocks. Null means unreported. Do not invent an orchestration tax by subtracting duration from wall."),
                 .init("stream", "NDJSON stream", "`--stream` is one JSON object per stdout line and ends with `teamRunCompleted`, `teamRunFailed`, or `error`. Mutually exclusive with `--json` / `--dry-run` on `run`."),

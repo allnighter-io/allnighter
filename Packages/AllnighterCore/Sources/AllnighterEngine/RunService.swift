@@ -323,6 +323,16 @@ public actor RunService {
 
     private func readyModels() -> [Model] { models.filter(\.enabled) }
 
+    /// CHS-S02: manifest `maxConcurrentSpawns` per `driverId`, for the resolver's
+    /// serialize-warning check (`ResolvedRunInvocation.spawnSerializationWarnings`).
+    /// Drivers with no declared limit (parallel-safe) are simply absent.
+    private func driverSpawnLimits() -> [String: Int] {
+        Dictionary(uniqueKeysWithValues: registry.all.compactMap { manifest -> (String, Int)? in
+            guard let limit = manifest.maxConcurrentSpawns else { return nil }
+            return (manifest.id, limit)
+        })
+    }
+
     /// PO-F10 / MR-S04: honor an explicit worker id or fail with `AGENT_NOT_AVAILABLE`.
     /// Never returns a substitute model. Display names fail closed via ExactIdResolver.
     ///
@@ -851,7 +861,8 @@ public actor RunService {
                 readyModelIds: sourceReadyModelIds(),
                 defaultSettings: loadDefaultSettings(),
                 probeRecords: loadProbeRecords(),
-                parkedDriverIds: SetupStore().load().parkedSet
+                parkedDriverIds: SetupStore().load().parkedSet,
+                driverSpawnLimits: driverSpawnLimits()
             )
         )
         if !invocation.canStart {
@@ -1174,7 +1185,8 @@ public actor RunService {
             origin: origin, originAgent: originAgent, runId: id, runner: runner,
             deliveries: request.deliveries, timing: timing, events: events,
             retryLinks: retryLinks,
-            clockBudgets: clockBudgets
+            clockBudgets: clockBudgets,
+            spawnConcurrencyLimit: request.spawnConcurrencyLimit
         )
         await mutationAuthority?.releaseIfHeld(endReason: "runReturned")
         return result
@@ -1244,7 +1256,8 @@ public actor RunService {
                 messageId: messageId,
                 agent: agent,
                 explicitSeatModelIds: request.explicitSeatModelIds,
-                readOnly: request.readOnly
+                readOnly: request.readOnly,
+                spawnConcurrencyLimit: request.spawnConcurrencyLimit
             )
         )
         let resolved = RunInvocationResolver.resolve(
@@ -1259,7 +1272,8 @@ public actor RunService {
                 parkedDriverIds: SetupStore().load().parkedSet,
                 writeLockHeld: writeLockHeld,
                 governorAvailable: governorAvailable,
-                governorBlockedReason: governorBlockedReason
+                governorBlockedReason: governorBlockedReason,
+                driverSpawnLimits: driverSpawnLimits()
             )
         )
         var payload = resolved.makeDryRunJSON()
@@ -2305,7 +2319,8 @@ public actor RunService {
         timing seedTiming: RunTimingReport,
         events: AsyncStream<RunEvent>.Continuation?,
         retryLinks: [RunLink]? = nil,
-        clockBudgets: RunClockBudgets? = nil
+        clockBudgets: RunClockBudgets? = nil,
+        spawnConcurrencyLimit: Int? = nil
     ) async -> Result<TeamRun, RunServiceError> {
         var timing = seedTiming
         let bench = readyModels()
@@ -2365,6 +2380,16 @@ public actor RunService {
                 TeamSourceFacts.enrich(&resolvedMut, models: models)
             }
         }
+        // CHS-S02: the real (accepted) resolution gets the same serialize warning as
+        // dry-run — "Accept/show inherit the same warnings channel." Crew seats on a
+        // spawn-gated driver still serialize FIFO (AgentOS CHS-S01); this only names it.
+        resolvedMut.warnings.append(contentsOf: RunInvocationResolver.spawnSerializationWarnings(
+            driverIdsByModelId: resolvedMut.allWorkers.map { worker in
+                (driverId: models.first { $0.id == worker.modelId }?.driverId, modelId: worker.modelId)
+            },
+            driverSpawnLimits: driverSpawnLimits(),
+            overrideLimit: spawnConcurrencyLimit
+        ))
         let resolved = resolvedMut
         timing.stamp(RunTimingKey.workerResolveEnd)
 

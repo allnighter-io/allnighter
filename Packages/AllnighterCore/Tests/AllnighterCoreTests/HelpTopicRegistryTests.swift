@@ -265,6 +265,18 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("temporary team"), "team_run_loop")
     }
 
+    /// CHS-S02 — same-CLI crew seats on a spawn-gated driver (cursor_agent /
+    /// opencode / agy) serialize instead of dropping; dry-run names it with a
+    /// `seat_driver_serialized` warning. These terms must land on the topic
+    /// that documents it (`team_run_loop`, alongside the `--seat` teaching above).
+    func testSearchRoutesSpawnGateQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("spawn gate"), "team_run_loop")
+        XCTAssertEqual(top("same CLI"), "team_run_loop")
+        XCTAssertEqual(top("serialize seats"), "team_run_loop")
+        XCTAssertEqual(top("concurrent seats"), "team_run_loop")
+    }
+
     func testSearchRoutesTeamAuthoringQueries() {
         func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
         XCTAssertEqual(top("create a team"), "teams_agents_and_skills")
