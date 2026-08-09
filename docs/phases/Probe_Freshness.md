@@ -1,9 +1,13 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **v4 — PF-S00 and PF-S02 SHIPPED. PF-S01 ready and now load-bearing.
-  PF-S03 BLOCKED on a missing evidence-contract decision (§0.3). The
-  "capacity is a table, not a status" redesign is REFUTED (§0.4) — read it
-  before proposing it again.**
+Status: **v5 — PF-S00, PF-S02 and PF-S03 SHIPPED. PF-S01 ready and now
+  load-bearing. The "capacity is a table, not a status" redesign is REFUTED
+  (§0.4) — read it before proposing it again.**
+  PF-S03 shipped WITHOUT the evidence-contract decision §0.3 said it needed:
+  that blocker applied to re-homing the PROBE-RECORD refresh (`cli_setup.json`,
+  where "new lastProbeAt with no smoke" is a contradiction). The founder's
+  actual ask was CAPACITY refresh, which is a different store with no such
+  problem — see PF-S03 below.
   Spec Review Min `FCF51DB2` Ready (§0.1). PF-S03 carries the 2026-08-08
   founder ruling that supersedes the Capacity Warm Bench Dock-only lock (§0.2),
   and the 2026-08-08 design review that found its scope named the wrong
@@ -430,8 +434,31 @@ And:   the driver is not reported notReady on that basis
 
 ### PF-S03 — Re-home scheduled refresh into `alln serve` (Scheduler 2.0)
 
-**Status: BLOCKED on a missing decision (§0.3). Do not open this slice until
-the evidence contract below is ruled.**
+**Status: SHIPPED 2026-08-08 — `CapacityRefreshScheduler` (038e27a3), plus a
+serve singleton (ddb5f748) without which it could not have taken effect.**
+
+Shipped with **no lock and no arbiter**, which was the design question §0.3
+worried about. Both the Dock app's resident and the serve scheduler already
+write durable history through `CapacityFetch.liveSnapshot`, so *history recency
+is itself the shared cross-process freshness signal*: the scheduler refreshes
+only when nothing has observed capacity inside the window. App open → history
+fresh → serve no-ops. App closed → history stale → serve refreshes. A lease or
+socket arbiter could drift; a fact both sides read cannot.
+
+That mattered more than tidiness: capacity probes are measurably load-sensitive,
+so two processes probing at once is the failure being avoided, not just waste.
+
+**The evidence-contract blocker did not apply.** §0.3 correctly found that
+`SourceProbeService`'s cheap path persists nothing, so a non-smoke refresh of
+**probe records** would be a no-op or a fresher lie. But the founder's ask —
+"so the app does not have to be open to get data" — is about **capacity**, a
+different store with a real writer. The probe-record half remains open and
+still needs the `lastDetectedAt` decision.
+
+**It also required a fix nobody had scoped.** Four `alln serve` daemons were
+running here, oldest nine days, each on a different build — so a serve-hosted
+scheduler would have been added to processes that never execute it. Shipping the
+scheduler without the singleton would have looked done and changed nothing.
 
 **Scope — corrected 2026-08-08.** v2 of this packet named
 `AppModel.refreshCapacityCooldowns()` as the thing to re-home. **That is the
