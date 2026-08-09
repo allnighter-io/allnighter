@@ -67,6 +67,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Agent_Teaching_Surface.md`](Agent_Teaching_Surface.md) | Open — sequenced after Vendor Signal Isolation | `alln bootstrap` teaching block ships retired vocabulary; narrow the paste, gate the block, add a delegation help topic. |
 | [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **ARCHIVE READY** | Dogfood + CT-08 coded; archive + promote next. |
 | [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **COMPLETE** | CT-10 deferred; archive with S123. |
+| [`OpenCode_Turn_Capture_Hardening.md`](OpenCode_Turn_Capture_Hardening.md) | **OPEN — Ready to code (v1)** | Residual after `9579bb8`: parser race + per-message accumulate (S01), harden reconcile (S02), timeout budget (S03), stall-while-child (S04 / `EE9542AD`). |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |
