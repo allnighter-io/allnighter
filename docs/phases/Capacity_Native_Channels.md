@@ -1,7 +1,8 @@
 # Capacity Native Channels — stop scraping a repainting terminal
 
-Status: **v1 — findings verified, no slice authorized.** Founder ruling needed
-on scope and on the credential posture in §4.
+Status: **v2 — findings verified; credential posture RULED (§4). Ready for
+per-source slices.** Five of six sources move with zero credentials; only
+`cursor_agent` keeps the PTY scrape.
 Owner: AllnighterCore (`CapacityProbe`, `CapacityAcquisition`, `CapacityFetch`)
 Created: 2026-08-08
 Origin: Founder, 2026-08-08, after a day of capacity outages:
@@ -88,31 +89,89 @@ Mitigation for expiry: **re-read the credential the vendor just refreshed;
 never own refresh.** Mitigation for staleness: check `fetchedAtMs`/mtime/log age
 and fail closed — absence of a declared signal yields no observation.
 
-## 4. Founder ruling needed — credential posture
+## 4. Credential posture — RULED
 
-Archetypes 1 and 3 need nothing. Archetype 2 (`cursor_agent`, and grok's
-refresh) requires reading a token the vendor already stored, from Keychain or a
-file.
+Founder 2026-08-08: *"lean whatever helps us move forward in right direction.
+Answers should be simple and obvious thinking from first principles. I want this
+to work for any user that will soon be downloading our apps."*
 
-This does **not** breach *no API keys / no BYOK* — it is the user's own existing
-CLI login, never a key they paste. But it is a posture change: Allnighter would
-read a credential it does not today, and Keychain access prompts on first use
-per calling binary.
+**Law: Allnighter never reads another vendor's stored credential to learn
+capacity. If the user is logged into the CLI, ask the CLI.**
 
-Per the standing rule that a permission prompt is fine **if** the CLI explains
-what, why, where it goes, and the decline path **before** triggering it, the
-question is not whether prompting is allowed but whether we want token-reading
-at all when two of six sources need it. Options:
+From first principles, reading a vendor's token is a strictly worse version of
+asking the vendor's CLI. It returns the *same information* and adds:
 
-| Option | Scope |
+- a Keychain prompt attributed to **our** app on first run — for someone who
+  just downloaded Allnighter, that is the difference between "it works" and a
+  scary permission dialog about another company's account;
+- token expiry as our problem, when the CLI already refreshes it;
+- a binding to unofficial endpoints that drift with no contract.
+
+There is no upside to trade against that. So archetype 2 is not a fallback we
+hold in reserve — it is off the table for capacity.
+
+### What that costs, measured
+
+`agy` proved slash commands run in print mode, so the obvious question was
+whether that generalises. Tested 2026-08-08:
+
+| Source | Credential-free channel | Verified |
+| --- | --- | --- |
+| `agy` | `--print "/usage" --output-format json` | all four buckets, ~0s |
+| `codex` | `app-server` JSON-RPC `account/rateLimits/read` | typed, CLI owns auth |
+| `kimi` | `kimi web` headless server | weekly + 5h, typed error kind |
+| `claude_code` | `cachedUsageUtilization` in `~/.claude.json` | CLI keeps it fresh |
+| `grok` | `billing: fetched credits config` in `~/.grok/logs/unified.jsonl` | **cross-validates the TUI exactly** — `creditUsagePercent: 8.0` vs TUI 92% remaining; period end `2026-08-14T18:11:40Z` vs TUI reset `18:11`. No secrets in the payload. |
+| `cursor_agent` | **none** | print mode does NOT take slash commands — `/usage` was answered as a chat prompt, costing 184 output + 21.9k cache-write tokens. `cursor-agent about --format json` gives `subscriptionTier` only, no quota. |
+
+**Five of six move with zero credentials and zero setup.** `cursor_agent` keeps
+the PTY scrape as its own last-resort fallback, which the per-source seam
+already allows — one racy source is a far better place to be than six, and it
+costs the user nothing to set up.
+
+### grok — investigated 2026-08-08, and it generalises
+
+The open question was whether a cheap non-interactive invocation could refresh
+the billing line without a TUI. Measured, watching the newest
+`billing: fetched credits config` timestamp across each invocation:
+
+| Invocation | Refreshes billing? |
 | --- | --- |
-| **A** | Archetypes 1 + 3 only. `agy`, `codex`, `kimi`, `claude_code` move; `cursor_agent` and `grok` keep the TUI scrape. Zero credential change. |
-| **B** | All six, with upfront disclosure before any Keychain read. |
-| **C** | 1 + 3 now, revisit 2 after the first four prove out. |
+| `grok --version` | no |
+| `grok models` | no |
+| `grok inspect` | no |
+| `grok agent` (documented as "run Grok without the interactive UI") | no |
+| **our existing capacity probe spawn** | **yes — fresh line within the 7s probe** |
 
-Lean: **C.** It takes four of six off the racy path immediately with no posture
-change, and lets the two credential-reading seats be judged on evidence from a
-migration that already worked.
+Only a full interactive session fetches billing; the entry carries
+`src: "shell"`. So grok cannot be refreshed headlessly.
+
+**That is a better answer than it first looks.** We already spawn grok. The
+expensive, fragile part was never the spawn — it was everything after it: typing
+`/usage`, racing the slash menu, matching markers against a repainting screen,
+and parsing ANSI. Keeping the spawn as a *trigger* and reading the *structured
+log* as the answer deletes all of that and leaves: spawn → wait for a JSON line
+to appear → kill. Waiting for a line in a JSONL file is a discrete event with a
+clear signal; waiting for a TUI to finish repainting is not.
+
+And the log is strictly richer than the screen it replaces:
+
+| | TUI scrape | log line |
+| --- | --- | --- |
+| remaining | 92% | 92.0% |
+| reset | `18:11:00` — truncated to the minute by the rendered text | `18:11:40.374130` exact |
+| tier | absent | `X Premium+` |
+| prepaid balance, on-demand cap | absent | present |
+
+**Generalised law for the migration: spawn may remain, screen-scraping must
+go.** Where a vendor writes structured state to disk, the CLI's own launch is an
+acceptable trigger — what must never remain in the loop is parsing a rendered
+terminal. That reframes `cursor_agent` too: the question for it is not "is there
+a headless endpoint" but "does it write its usage anywhere structured on
+launch", which is not yet answered.
+
+Freshness still needs honest handling: the reading carries the log entry's own
+timestamp and must fail closed when stale, never re-stamped to now.
 
 ## 5. Migration shape (not authorized)
 
