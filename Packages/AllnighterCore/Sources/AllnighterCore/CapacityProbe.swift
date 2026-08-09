@@ -520,6 +520,18 @@ public enum CapacityProbe {
             return native
         }
 
+        // grok's own on-disk log is the primary acquisition path — a pure
+        // bounded-tail file read, no spawn, no PTY, no executable resolution
+        // at all (Capacity_Native_Channels.md §2). Tried before `executable`
+        // is even resolved, same as claude_code above. Any missing/unreadable
+        // file, no billing line in the tail, malformed JSON, or a stale
+        // record produces no observation (`probeGrokNative` returns nil) and
+        // falls through untouched to the existing `/usage` TUI scrape as
+        // grok's fallback.
+        if source == "grok", let native = probeGrokNative(homeDirectory: homeDirectory, now: now) {
+            return native
+        }
+
         let executable: String
         if let executableOverride {
             executable = executableOverride
@@ -661,6 +673,15 @@ public enum CapacityProbe {
     /// cache file, read-only, and `accountUuid` inside it is never touched.
     private static func probeClaudeNative(homeDirectory: URL, now: Date) -> [CapacityWindow]? {
         ClaudeNativeCapacityProbe.fetch(homeDirectory: homeDirectory, now: now)
+    }
+
+    /// Try grok's native on-disk log channel. Every failure path — missing
+    /// file, unreadable file, no billing line in the bounded tail, malformed
+    /// JSON, or a stale record — returns `nil`, so the caller falls through
+    /// to the `/usage` TUI scrape unchanged. Never spawns grok, never reads
+    /// a credential, and never triggers grok's own billing refresh.
+    private static func probeGrokNative(homeDirectory: URL, now: Date) -> [CapacityWindow]? {
+        GrokNativeCapacityProbe.fetch(homeDirectory: homeDirectory, now: now)
     }
 
     /// Best-effort write of a failed capture for parser re-fixturing.
