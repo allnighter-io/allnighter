@@ -531,6 +531,17 @@ public enum CapacityProbe {
             return native
         }
 
+        // codex's own app-server JSON-RPC channel is the primary acquisition
+        // path — headless, sub-second measured, zero credentials (codex owns
+        // its own auth), and the vendor's epoch `resetsAt` has no timezone to
+        // misinterpret (Capacity_Native_Channels.md §2). Any spawn failure,
+        // timeout, JSON-RPC error, or unrecognized shape here produces no
+        // observation (`probeCodexNative` returns nil) and falls through
+        // untouched to the existing `/status` TUI scrape as codex's fallback.
+        if source == "codex", let native = probeCodexNative(executable: executable, now: now) {
+            return native
+        }
+
         let cwd = workingDirectory ?? Self.neutralWorkingDirectory()
         guard let cwd else {
             // Never fall back to process CWD — in Xcode/dev that is often the
@@ -618,6 +629,15 @@ public enum CapacityProbe {
         ) else { return nil }
         let windows = AgyNativeCapacityProbe.capacityWindows(fromOutput: output, observedAt: now)
         return windows.isEmpty ? nil : windows
+    }
+
+    /// Try codex's native app-server JSON-RPC channel. Every failure path —
+    /// no binary, spawn failure, timeout, unmatched/unparseable response, a
+    /// JSON-RPC error, or an unrecognized shape — returns `nil`, so the
+    /// caller falls through to the `/status` TUI scrape unchanged. Never
+    /// reads a credential: codex owns its own auth and refresh in-process.
+    private static func probeCodexNative(executable: String, now: Date) -> [CapacityWindow]? {
+        CodexNativeCapacityProbe.fetch(executable: executable, now: now)
     }
 
     /// Best-effort write of a failed capture for parser re-fixturing.
