@@ -331,6 +331,9 @@ public enum SkillCatalog {
         if skill.lane == .design, skill.purpose == .answer, outputKind == .designBoard {
             envelopes += "\n\n\(designSeatCaptureBrief)"
         }
+        if outputKind == .aiReadinessReport, skill.purpose == .answer || skill.purpose == .review {
+            envelopes += "\n\n\(AIReadinessReceipts.coldReadBrief)"
+        }
         return "\(skill.template)\n\n\(envelopes)\n\n\(founderPrompt)"
     }
 
