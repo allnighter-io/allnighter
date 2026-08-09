@@ -66,9 +66,10 @@ public struct CapacityRefreshScheduler: Sendable {
     /// Injected so tests never spawn a vendor TUI.
     /// CRS-S01: signature widened to accept the per-refresh scope so
     /// liveSnapshot can register probe children into it.
-    /// CRS-S04: async so `terminate()` interrupts an in-flight probe
-    /// (scope-kill unlocks mid-probe kill). Returns the attempt verdict for
-    /// bench-level backoff (invariant 7).
+    /// CRS-S04: async + sibling cancel poller so `scope.terminate()` can
+    /// interrupt an in-flight probe (DispatchGroup leaves; liveSnapshot
+    /// returns). Returns the attempt verdict for bench-level backoff
+    /// (invariant 7).
     public var refresh: @Sendable (CapacityProbeScope) async -> CapacityRefreshAttempt
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
@@ -103,17 +104,10 @@ public struct CapacityRefreshScheduler: Sendable {
     }
 
     /// CRS-S04: async refresh with cooperative cancellation and bench-level
-    /// exponential backoff (invariant 7). Cancellation is by pre/post-await
-    /// `isCancelled` checks + `inFlight.terminateIfHeld()`.
-    ///
-    /// Honest limitation: without a sibling cancel poller, `scope.terminate()`
-    /// still runs after `await refresh` returns (same semantics as S01 before
-    /// the await). Mid-probe scope-kill (calling `terminateIfHeld()` while the
-    /// refresh is in flight, terminating probe PIDs so `liveSnapshot` returns
-    /// promptly) requires a concurrent poller task; that is deferred to a
-    /// follow-up slice because the poller's `isCancelled()` calls eat test
-    /// ticks. The async await alone is still worth shipping — it frees the
-    /// cooperative thread pool during refresh and enables the backoff.
+    /// exponential backoff (invariant 7). While `await refresh` runs, a sibling
+    /// poller watches `isCancelled` / `Task.isCancelled` and calls
+    /// `inFlight.terminateIfHeld()` so probe PTYs die and the acquire returns
+    /// (same shape as `CapacityResidentService` supersede).
     public func run(isCancelled: @escaping @Sendable () -> Bool) async {
         let inFlight = InFlightScopeBox()
         var consecutiveBenchFailures = 0
@@ -131,10 +125,12 @@ public struct CapacityRefreshScheduler: Sendable {
                     break
                 }
                 inFlight.store(scope)
-                let result = await refresh(scope)
-                if isCancelled() {
-                    inFlight.terminateIfHeld()
-                }
+                let result = await Self.awaitRefreshUntilCancelled(
+                    scope: scope,
+                    inFlight: inFlight,
+                    isCancelled: isCancelled,
+                    refresh: refresh
+                )
                 scope.terminate()
                 inFlight.clear()
 
@@ -168,6 +164,50 @@ public struct CapacityRefreshScheduler: Sendable {
         inFlight.terminateIfHeld()
     }
 
+    /// Race the refresh against a cancel poller. On cancel, terminate the
+    /// in-flight scope (SIGTERM tracked PTYs) so a blocked `liveSnapshot`
+    /// can return; then wait for the refresh task to finish so we never
+    /// abandon an acquire mid-flight without a drain.
+    private static func awaitRefreshUntilCancelled(
+        scope: CapacityProbeScope,
+        inFlight: InFlightScopeBox,
+        isCancelled: @escaping @Sendable () -> Bool,
+        refresh: @escaping @Sendable (CapacityProbeScope) async -> CapacityRefreshAttempt
+    ) async -> CapacityRefreshAttempt {
+        await withTaskGroup(of: CapacityRefreshAttempt?.self) { group in
+            group.addTask {
+                await refresh(scope)
+            }
+            group.addTask {
+                // Sleep first so an immediately-completing refresh can
+                // cancelAll before we call `isCancelled()` — tick-counter
+                // cancel predicates in unit tests must not be eaten by the
+                // poller on the happy path.
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 50_000_000)
+                    if Task.isCancelled { return nil }
+                    if isCancelled() {
+                        inFlight.terminateIfHeld()
+                        return nil
+                    }
+                }
+                inFlight.terminateIfHeld()
+                return nil
+            }
+            var attempt: CapacityRefreshAttempt = .benchFailure
+            for await value in group {
+                if let value {
+                    attempt = value
+                    group.cancelAll()
+                    break
+                }
+            }
+            // Drain the peer (poller or still-running refresh after terminate).
+            for await _ in group {}
+            return attempt
+        }
+    }
+
     /// Exponential backoff capped at `CapacityPaintGate.gateInterval`.
     /// 5 → 10 → 20 → 30m (cap), per invariant 7.
     static func backoffDuration(failureCount: Int) -> TimeInterval {
@@ -176,11 +216,8 @@ public struct CapacityRefreshScheduler: Sendable {
         return min(CapacityPaintGate.gateInterval, raw)
     }
 
-    /// Thread-safe box so the cancel path can reach the in-flight scope.
-    /// CRS-S04: the post-await `isCancelled` check calls `terminateIfHeld()`
-    /// after `await refresh` returns. Mid-probe kill (calling terminate while
-    /// refresh is still in flight) requires a concurrent poller task, deferred
-    /// to a follow-up slice.
+    /// Thread-safe box so the cancel poller can reach the in-flight scope
+    /// while `await refresh` is blocked in `CapacityAcquisition.windows`.
     private final class InFlightScopeBox: @unchecked Sendable {
         private let lock = NSLock()
         private var scope: CapacityProbeScope?

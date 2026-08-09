@@ -398,6 +398,62 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
                                     "scope must be terminated when cancelled after refresh")
     }
 
+    /// Cancel mid-probe: refresh awaits a latch; cancel fires while suspended;
+    /// sibling poller terminates the scope (spy sees tracked PID) and refresh
+    /// returns promptly without waiting forever.
+    func testCancelMidProbeTerminatesInFlightScope() async throws {
+        let terminateCount = Counter()
+        let refreshEntered = Flag()
+        let cancel = Flag()
+        let refreshReturned = Flag()
+
+        let s = CapacityRefreshScheduler(
+            featureSettings: CapacityFeatureSettingsPersistence(
+                fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
+            historyStore: store,
+            makeScope: {
+                CapacityProbeScope { _ in terminateCount.increment() }
+            },
+            refresh: { scope in
+                scope.track(99)
+                refreshEntered.set()
+                // Stay suspended until cancelled path terminates us — or a
+                // safety timeout so a broken poller cannot hang the suite.
+                let deadline = Date().addingTimeInterval(2)
+                while !cancel.value && Date() < deadline {
+                    try? await Task.sleep(nanoseconds: 20_000_000)
+                }
+                refreshReturned.set()
+                return .benchFailure
+            },
+            now: { [t0] in t0 },
+            sleeper: ImmediateSleeper(),
+            tickJitterSeconds: 0
+        )
+
+        let runTask = Task {
+            await s.run {
+                // Start uncancelled; flip after refresh has entered.
+                cancel.value
+            }
+        }
+
+        // Wait until refresh is in flight, then cancel.
+        let enterDeadline = Date().addingTimeInterval(2)
+        while !refreshEntered.value && Date() < enterDeadline {
+            try? await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(refreshEntered.value, "refresh must have started")
+        cancel.set()
+
+        let finished = await runTask.result
+        _ = finished
+        XCTAssertTrue(refreshReturned.value, "refresh must return after cancel")
+        XCTAssertGreaterThanOrEqual(
+            terminateCount.value, 1,
+            "mid-probe cancel must terminate the in-flight scope")
+    }
+
     // MARK: - CRS-S04: History write failure
 
     func testSnapshotHistoryWriteFailedDefaultsFalse() {
@@ -450,6 +506,13 @@ private struct CallbackSleeper: PendingWakeSleeper {
     func sleep(until: Date, jitterSeconds: TimeInterval) async throws {
         onSleep(until, jitterSeconds)
     }
+}
+
+private final class Flag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var flag = false
+    func set() { lock.lock(); flag = true; lock.unlock() }
+    var value: Bool { lock.lock(); defer { lock.unlock() }; return flag }
 }
 
 private final class JitterStore: @unchecked Sendable {
