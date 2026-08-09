@@ -47,7 +47,6 @@ Root docs are the source of truth. Read the relevant one before changing that ar
   enforced by `scripts/check_architecture_policy.sh`.
 - **Built MVP foundation:** `docs/mvp/README.md` + `docs/mvp/00_MVP_Architecture.md`.
 - **Post-MVP phases:** `docs/phases/README.md` (active forward phase router).
-- **Active iOS work:** `docs/phases/ios/README.md` (future remote Project Manager).
 - **Visual design SSOT** (brand, voice, tokens, components, logo, icon):
   `docs/design-system/readme.md` + binding rules in `production.md`.
 - **GUI engineering governance** (how to build UI surfaces — *not* visual design):
@@ -72,7 +71,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Run started — what is happening, is anything needed, where is the result | `alln show <id> --json` snapshot / `alln show <id> --stream` observe + deliver. Code SSOT: `RunService.swift`, `TeamRunJSONMapper` (`observation`), `RemoteRunEventJournal` (derived history) |
 | Multi-seat / spawn-gated same-CLI crew | **Closed** — serialize, never refuse. Code SSOT: `GatedWorkerRunner` / `spawnSerializationWarnings`; archive `Crew_Understaffed_Signal.md` |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | Code SSOT: `KillSettlement.swift`, `RunClockEnforcer.swift`, `IdempotencyStore.swift`, `ProcessOwnership.swift` |
-| Capacity strip, `alln capacity`, warm pool, menu-bar resident | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) — S02 `capacity.sock` shipped (code SSOT `CapacitySocket.swift`); host lock superseded by `Probe_Freshness.md` §0.2; menu bar / warm PTY not v1 |
+| Capacity strip, `alln capacity`, warm pool, menu-bar resident | Archive `Capacity_Warm_Bench.md` — S02 `capacity.sock` (`CapacitySocket.swift`); menu bar / warm PTY not v1 |
 | Plan-time quota routing, capacity in menu/bootstrap, loop session-cap wake | Open packet: `docs/phases/Quota_Aware_Bench_Continuity.md` — runtime park/sub only; menu capacity suspended per CWB; code SSOT `VendorBackoffReconciler`, `VendorSubstitutionPolicy`, `LoopCoordinator.dispatchDevTurn` |
 | OpenCode Go plan capacity (browser `/go` scrape, encrypted credentials) | Open packet: `docs/phases/OpenCode_Go_Capacity.md` — not PTY; v1 strip only; code SSOT TBD `OpenCodeGoCapacityProbe`, `OpenCodeGoCredentialStore` |
 | OpenCode `:4096` leftover serve between runs | **Closed 2026-08-08** — attach healthy listener; never SIGTERM to clear port. Code SSOT: AgentOS `OpenCodeServeCoordinator.ensureRunning`; help `opencode_headless_completion`; archive `OpenCode_Serve_Attach.md` |
@@ -81,7 +80,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Second Mac / LAN bench / remote `OLLAMA_HOST` | Open packet **3 of 3**: `docs/phases/Second_Mac_Bench.md` — fence only; refuse cross-host mutators |
 | OpenCode long runs / `stream_drop` / `task` hang | Open: `docs/phases/OpenCode_Long_Run_Continuity.md` + `OpenCode_Completion_Truth_Followup.md`; code SSOT AgentOS `OpenCode*` + `OpenCodeOutcomeAuthority` |
 | OpenCode long mutating under-ship / commit dogfood | **Closed 2026-08-09** — help `opencode_mutating_commit_contract`; archive `OpenCode_Mutating_Long_Run_Hardening.md` |
-| OpenCode empty `incomplete_no_final_message` / stall mid-`task` / seat timeout 2× | **Closed 2026-08-09** — OCH AgentOS `65da768`. Archive `OpenCode_Turn_Capture_Hardening.md`; help `opencode_headless_completion` |
+| OpenCode empty turn / stall mid-`task` / seat timeout 2× | **Closed 2026-08-09** — OCH; archive `OpenCode_Turn_Capture_Hardening.md`; help `opencode_headless_completion` |
 | Smart / auto model routing, economy vs balanced seats, "always prefer vendor X" | Brainstorm only: `docs/phases/Scarcity_Aware_Routing.md` — read §3 rejected list first |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | Code SSOT: `VendorBackoffReconciler.swift`, `VendorSubstitutionPolicy.swift` |
 | Wrong/invented capacity verdict; cross-vendor limit detection; failed-run work missing from `alln show` | Open: `docs/phases/Vendor_Signal_Isolation.md` — parser scoped by `sourceId`. Code SSOT: AgentOS `CapacityClassifier`, `DriverManifest` |
@@ -90,7 +89,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
 | Spec Review hero loop | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope` |
-| AI Readiness (repo workable for agents; no score/grade; first recommended Code Team on empty project) | **Closed 2026-08-09** — team `code_ai_readiness`, output `aiReadinessReport`. Code SSOT: `BuiltInTeams`, `AIReadinessReport`, `AIReadinessReceipts`, `AIReadinessShape`, `AIReadinessColdStart`, `ArtifactProjector`, `RunStore`. Archived: `docs/archive/phases/AI_Readiness.md` |
+| AI Readiness (agent-workable repo; no score; cold-start Code Team) | **Closed 2026-08-09** — `code_ai_readiness` / `aiReadinessReport`. SSOT: `BuiltInTeams`, `AIReadinessReport`, `AIReadinessReceipts`, `AIReadinessShape`, `AIReadinessColdStart`, `ArtifactProjector`. Archive `AI_Readiness.md` |
 | Green suite over a real defect; a proof that could never fail; tolerance fitted until the test passed; "we measured the wrong thing" | `docs/operations/Spec_Review.md` §3 Measurement + §4 instrumentation rule — code SSOT `measurement_auditor` (Spec Review Max, Release Proof) |
 | Adding/removing a seat at a Min or Max tier | `docs/operations/Spec_Review.md` §Depth splits charters — a dropped seat's questions must be absorbed by a named pass on a seat that remains, never silently lost |
 | Execution/answer teams, mutating runs, source/write safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` |

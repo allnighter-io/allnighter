@@ -1,7 +1,7 @@
 # Tech Stack
 
-Status: MVP in progress — `AllnighterCore` and `AllnighterMac` exist; iOS scaffold
-is transitional.
+Status: MVP in progress — `AllnighterCore` and `AllnighterMac` exist; iOS is
+parked foundation under `Apps/AllnighteriOS/`.
 
 ## Stack
 
@@ -11,54 +11,63 @@ is transitional.
 | UI | SwiftUI + Observation (`@Observable`; targeted AppKit on macOS) |
 | Shared code | Swift Package `AllnighterCore` |
 | Mac app | XcodeGen project at `Apps/AllnighterMac/` |
-| iOS app | `Allnighter/` (transitional) → `Apps/AllnighteriOS/` |
-| Mac networking | Tailscale serve + loopback HTTP/WebSocket (see `docs/phases/ios/01`) |
-| iOS networking | `URLSessionWebSocketTask` over Tailscale |
-| Session/process | Foundation.Process + git worktrees (lanes) |
-| Secrets | Keychain (macOS) |
-| Remote transport | Tailscale private tailnet |
+| iOS app | `Apps/AllnighteriOS/` (parked) |
+| Mac networking | Tailscale serve + loopback HTTP/WebSocket |
+| iOS networking | `URLSessionWebSocketTask` over Tailscale / local (when unparked) |
+| Session/process | Foundation.Process; one mutating worker per registered repo root |
+| Secrets | Vendor CLI Keychain logins only — Allnighter never BYOK |
+| Remote transport | Tailscale private tailnet / local network |
 | Mac distribution | Notarized DMG/PKG, Sparkle updates |
-| iOS distribution | TestFlight → App Store |
-| CI | GitHub Actions macOS runner + `xcodebuild test` |
+| iOS distribution | TestFlight → App Store (when unparked) |
+| CI | GitHub Actions macOS runner via project wrappers (not raw runners) |
 
 ## Repo Targets
 
 **Canonical remote:** `origin` → `https://github.com/MikeReining/allnighter.git`
 
-Local worktrees: `~/Documents/GitHub/Allnighter` (primary) and
-`~/Documents/GitHub/Allnighter-iOS` (`codex/ios-foundation`). The ikiro.io
-marketing site is a separate repo: `website` remote →
+Local worktrees: `~/Documents/GitHub/Allnighter` (primary). Sibling checkout
+required: `~/Documents/GitHub/AgentOS` (path dependency from
+`Packages/AllnighterCore/Package.swift`). `scripts/rebuild_cli.sh` fails fast
+if AgentOS is missing.
+
+The ikiro.io marketing site is a separate repo: `website` remote →
 `https://github.com/Ikiro-io/website.git` (do not push Allnighter branches there).
 
 ```txt
 Packages/AllnighterCore/     # models, engine, CLI tools
-Apps/AllnighterMac/          # macOS menu-bar app + team UI
-Allnighter/                  # transitional iOS Xcode scaffold
+Apps/AllnighterMac/          # macOS Dock app + team UI
+Apps/AllnighteriOS/          # parked iOS companion
 ```
 
 ## Commands
+
+Raw `swift test` / `xcodebuild test` are blocked by a PATH shim. Use the
+wrappers — they are the only working path on agent hosts
+(`docs/operations/Execution-Playbook.md` § Green Wall).
 
 ```text
 # State-pattern gate
 bash scripts/check_swiftui_state.sh
 
-# Shared package
-swift test --package-path Packages/AllnighterCore
+# Shared package — iteration proof (filter required for speed)
+scripts/swift-test.sh --filter <TouchedTests>
 
-# Rebuild and reinstall the agent-facing CLI.
-# This is the only normal development refresh command; it keeps the executable
-# outside a checkout under ~/Documents, avoiding macOS TCC attribution prompts.
+# Rebuild and reinstall the agent-facing CLI (fails fast if AgentOS sibling missing)
 bash scripts/rebuild_cli.sh
 
-# Green wall
+# Hygiene only (no compile suites)
+bash scripts/check-fast.sh
+
+# Green wall — closeout ONLY, never mid-slice
 bash scripts/check.sh
 
-# Mac app
-xcodebuild test -scheme AllnighterMac -destination 'platform=macOS'
-
-# iOS app (simulator) — when AllnighteriOS target exists
-xcodebuild test -scheme Allnighter -destination 'platform=iOS Simulator,name=iPhone 16'
+# Emergency stale-runner cleanup
+scripts/kill-stale-tests.sh
 ```
+
+Mac / iOS app XCTest: use the project’s documented wrapper scripts under
+`scripts/` (for example `scripts/ios_unit_tests.sh`); do not teach raw
+`xcodebuild test` as the agent path.
 
 ## Agent Tooling
 
@@ -74,6 +83,6 @@ Track durable decisions in phase docs and `docs/mvp/00_MVP_Architecture.md`.
 
 | Topic | Options | Phase owner |
 | --- | --- | --- |
-| iOS project layout | root `Allnighter/` vs `Apps/AllnighteriOS/` via XcodeGen | `docs/phases/ios/02` |
+| iOS product UI | parked foundation vs active companion | `docs/phases/ios/README.md` |
 | Push notifications | none vs optional self-hosted relay | Phase 20+ |
 | Event vocabulary freeze | `synthesis.*` → `stage.*` | `docs/phases/ios/01` |

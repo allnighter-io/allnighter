@@ -6,6 +6,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PACKAGE="$ROOT/Packages/AllnighterCore"
 
+# Fail fast when the sibling AgentOS path dependency is missing. Package.swift
+# points at ../../../AgentOS; without it `swift package resolve` hangs with no
+# output — the worst cold-clone failure mode for agents.
+AGENTOS_EXPECTED="$(cd "$PACKAGE/../../.." && pwd)/AgentOS"
+if [[ ! -d "$AGENTOS_EXPECTED" ]]; then
+  cat >&2 <<EOF
+rebuild_cli: AgentOS sibling missing.
+
+  Expected: $AGENTOS_EXPECTED
+  Package.swift depends on that local path. Resolve hangs if it is absent.
+
+  Clone it next to this repo, then retry:
+    git clone <your-AgentOS-url> "$AGENTOS_EXPECTED"
+
+  (Ask the owner for the canonical remote if you do not have it.)
+EOF
+  exit 1
+fi
+
 # A checkout often lives in ~/Documents. SwiftPM's normal .build directory
 # would leave the resident executable there, which can make macOS attribute
 # later protected-folder access to Allnighter. Keep the executable image in an
