@@ -1,0 +1,15 @@
+# OpenCode bugs / dogfood log (CRS execution)
+
+Scratch log while executing `Capacity_Serve_Refresh_Polish.md` with DeepSeek V4 Pro.
+Not SSOT — promote durable lessons into help / packets on closeout.
+
+| When | Run | Seat | Symptom | Verdict |
+| --- | --- | --- | --- | --- |
+| 2026-08-09 | `2CEEDE81` | GLM-5.2 | Mutating doc edit delivered; run `failed` / `incomplete_uncommitted` | **Prompt**, not OpenCode — instructed “do not commit.” Same seat + Flash commit dogfood green (`24A8B6D3`, `4A3275D3`). |
+| 2026-08-09 | (CRS exec) | Pro | _pending_ | |
+
+## Rules for CRS Pro slices
+
+- Mutating + **must git commit** explicit paths for the slice.
+- Leave unrelated untracked dirs alone.
+- Host audits Pro’s diff before accepting the commit if Pro commits first; amend only if Pro’s commit is wrong and policy allows — prefer fixup commit from host.
