@@ -175,6 +175,50 @@ public struct CapacityHistoryStore: Sendable {
         for (sourceId, seeds) in bySource {
             try mergeAndWrite(sourceId: sourceId, seeds: seeds)
         }
+        try refreshNewestSuccessStamp(now: now)
+    }
+
+    // MARK: - CRS-S05 Newest-success stamp (O(1) serve freshness)
+
+    /// Derived freshness tip for serve `shouldRefresh` — not the SSOT for
+    /// windows (those stay per-source). One small file so a 5m tick does not
+    /// decode every source JSON just to take `max(observedAt)`.
+    public struct NewestSuccessStamp: Codable, Sendable, Equatable {
+        public var observedAt: Date
+        public var sourceIds: [String]
+
+        public init(observedAt: Date, sourceIds: [String]) {
+            self.observedAt = observedAt
+            self.sourceIds = sourceIds
+        }
+    }
+
+    public func newestSuccessStampURL() -> URL {
+        rootDirectory.appendingPathComponent("_newest_success.json")
+    }
+
+    /// Fail-soft load of the derived stamp. Missing/corrupt → nil (caller falls
+    /// back to a full decode and rewrites).
+    public func loadNewestSuccessStamp() -> NewestSuccessStamp? {
+        let url = newestSuccessStampURL()
+        guard let data = try? Data(contentsOf: url),
+              let stamp = try? CoreJSON.decode(NewestSuccessStamp.self, from: data)
+        else { return nil }
+        return stamp
+    }
+
+    /// Recompute stamp from open success windows and atomically replace.
+    public func refreshNewestSuccessStamp(now: Date) throws {
+        let windows = lastKnownWindows(now: now)
+        let successes = windows.filter { $0.unknownReason == nil }
+        guard let newest = successes.map(\.observedAt).max() else {
+            try? FileManager.default.removeItem(at: newestSuccessStampURL())
+            return
+        }
+        let sourceIds = Array(Set(successes.map(\.source))).sorted()
+        let stamp = NewestSuccessStamp(observedAt: newest, sourceIds: sourceIds)
+        try FileManager.default.createDirectory(at: rootDirectory, withIntermediateDirectories: true)
+        try CoreJSON.encode(stamp).write(to: newestSuccessStampURL(), options: .atomic)
     }
 
     // MARK: - CRS-S03 Attempt ledger

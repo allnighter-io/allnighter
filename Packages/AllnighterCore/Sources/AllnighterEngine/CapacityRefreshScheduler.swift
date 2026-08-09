@@ -262,33 +262,36 @@ public struct CapacityRefreshScheduler: Sendable {
     public func shouldRefresh(at instant: Date) -> Bool {
         guard featureSettings.loadEnabled() else { return false }
 
-        let windows = historyStore.lastKnownWindows(now: instant)
-        let successes = windows.filter { $0.unknownReason == nil }
-        let newestSuccess = successes.map(\.observedAt).max()
-
-        // Cold: no successful observation at all — refresh, that is the whole point.
-        guard let newest = newestSuccess else {
+        // CRS-S05: prefer the derived stamp (one file) over decoding every
+        // source JSON for the S02 clock. Fall back + rewrite if missing.
+        let stamp: CapacityHistoryStore.NewestSuccessStamp?
+        if let loaded = historyStore.loadNewestSuccessStamp() {
+            stamp = loaded
+        } else if let rebuilt = rebuildStampIfNeeded(at: instant) {
+            stamp = rebuilt
+        } else {
+            // Cold: no successful observation at all.
             return true
         }
+        guard let stamp else { return true }
 
         // S02: successes aged past gate+margin → full-bench refresh due.
         let gate = CapacityPaintGate.gateInterval + Self.serveFreshnessMargin
-        if instant.timeIntervalSince(newest) >= gate {
+        if instant.timeIntervalSince(stamp.observedAt) >= gate {
             return true
         }
 
         // CRS-S03: successes are still inside gate+margin, but check whether any
-        // bench source has a stale failed attempt.
+        // bench source has a stale failed attempt. Stamp.sourceIds replaces a
+        // full window decode for "which seats already have durable success."
         let retryWindow = Self.tickInterval // 5m
-        let successSources = Set(successes.map(\.source))
+        let successSources = Set(stamp.sourceIds)
         let attempts = historyStore.lastAttempts()
         let attemptBySource = Dictionary(uniqueKeysWithValues: attempts.map { ($0.sourceId, $0) })
 
         for source in CapacityAcquisition.benchSourceOrder {
             if successSources.contains(source) { continue }
-            // No durable success window for this source.
             guard let attempt = attemptBySource[source] else {
-                // Cold seat: no success and no attempt file → refresh.
                 return true
             }
             if instant.timeIntervalSince(attempt.attemptedAt) >= retryWindow {
@@ -296,18 +299,28 @@ public struct CapacityRefreshScheduler: Sendable {
             }
         }
 
-        // Successes fresh, failures recently attempted → do not refresh.
         return false
     }
 
+    /// When the stamp is missing, rebuild from full history once (heals older
+    /// trees written before CRS-S05) and return it.
+    private func rebuildStampIfNeeded(at instant: Date) -> CapacityHistoryStore.NewestSuccessStamp? {
+        let windows = historyStore.lastKnownWindows(now: instant)
+        let successes = windows.filter { $0.unknownReason == nil }
+        guard let newest = successes.map(\.observedAt).max() else { return nil }
+        try? historyStore.refreshNewestSuccessStamp(now: instant)
+        return CapacityHistoryStore.NewestSuccessStamp(
+            observedAt: newest,
+            sourceIds: Array(Set(successes.map(\.source))).sorted()
+        )
+    }
+
     /// Newest observation across every bench source, or nil when history is
-    /// empty. One clock, shared with capacity paint and probe freshness — a
-    /// second constant here would be a second thing to explain the moment the
-    /// two disagree.
+    /// empty. Prefers the CRS-S05 stamp; falls back to a full decode.
     public func newestObservation(at instant: Date) -> Date? {
-        historyStore
-            .lastKnownWindows(now: instant)
-            .map(\.observedAt)
-            .max()
+        if let stamp = historyStore.loadNewestSuccessStamp() {
+            return stamp.observedAt
+        }
+        return rebuildStampIfNeeded(at: instant)?.observedAt
     }
 }

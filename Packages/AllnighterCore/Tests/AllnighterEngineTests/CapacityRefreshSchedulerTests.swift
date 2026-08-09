@@ -686,6 +686,46 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         XCTAssertNil(store.lastAttempt(sourceId: "grok"),
                      "attempt file must be healed after durable success in the same batch")
     }
+
+    // MARK: - CRS-S05: O(1) newest-success stamp
+
+    /// After `record`, the derived stamp matches `max(observedAt)` over open
+    /// successes, and `newestObservation` reads the stamp without needing a
+    /// second full decode for the boolean path.
+    func testNewestSuccessStampMatchesMaxObservedAt() throws {
+        let older = t0.addingTimeInterval(-120)
+        let newer = t0.addingTimeInterval(-30)
+        // Stamp every bench seat so S03 cold-seat logic does not force refresh.
+        for source in CapacityAcquisition.benchSourceOrder {
+            let observed = source == "codex" ? newer : older
+            try store.record(
+                [CapacityWindow(
+                    used: 20, source: source, scope: .weekly, resetAt: resetBase,
+                    resetPrecision: .exact, observedAt: observed, sourceTier: .tuiProbe)],
+                now: t0
+            )
+        }
+
+        let stamp = store.loadNewestSuccessStamp()
+        XCTAssertEqual(stamp?.observedAt, newer)
+        XCTAssertEqual(Set(stamp?.sourceIds ?? []), Set(CapacityAcquisition.benchSourceOrder))
+
+        let s = scheduler()
+        XCTAssertEqual(s.newestObservation(at: t0), newer)
+        XCTAssertFalse(s.shouldRefresh(at: t0), "fresh stamp must not trigger serve refresh")
+    }
+
+    /// Missing stamp on an existing history tree is rebuilt on first read.
+    func testMissingStampIsRebuiltFromHistory() throws {
+        try record(used: 40, observedAt: t0.addingTimeInterval(-60))
+        // Simulate a pre-S05 tree: drop the stamp file if present.
+        try? FileManager.default.removeItem(at: store.newestSuccessStampURL())
+        XCTAssertNil(store.loadNewestSuccessStamp())
+
+        let s = scheduler()
+        XCTAssertEqual(s.newestObservation(at: t0), t0.addingTimeInterval(-60))
+        XCTAssertNotNil(store.loadNewestSuccessStamp(), "rebuild must rewrite the stamp")
+    }
 }
 
     // MARK: - Helpers
