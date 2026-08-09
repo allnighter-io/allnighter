@@ -32,11 +32,13 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
 
     private func scheduler(
         enabled: Bool = true,
-        refresh: @escaping @Sendable () -> Void = {}
+        makeScope: @escaping @Sendable () -> CapacityProbeScope = { CapacityProbeScope() },
+        refresh: @escaping @Sendable (CapacityProbeScope) -> Void = { _ in }
     ) -> CapacityRefreshScheduler {
         CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
+            makeScope: makeScope,
             refresh: refresh,
             now: { [t0] in t0 },
             tickJitterSeconds: 0
@@ -129,7 +131,7 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
             featureSettings: CapacityFeatureSettingsPersistence(
                 fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: isolated,
-            refresh: {},
+            refresh: { _ in },
             now: { [t0] in t0 },
             tickJitterSeconds: 0
         )
@@ -147,7 +149,7 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         let off = CapacityRefreshScheduler(
             featureSettings: settings,
             historyStore: store,
-            refresh: { XCTFail("must not probe while the capacity feature is off") },
+            refresh: { _ in XCTFail("must not probe while the capacity feature is off") },
             now: { [t0] in t0 }
         )
         XCTAssertFalse(off.shouldRefresh(at: t0))
@@ -182,7 +184,7 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         let stale = CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
-            refresh: { calls.increment() },
+            refresh: { _ in calls.increment() },
             now: { [t0] in t0 },
             sleeper: ImmediateSleeper()
         )
@@ -194,7 +196,7 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         let fresh = CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
-            refresh: { XCTFail("fresh history must not trigger a probe") },
+            refresh: { _ in XCTFail("fresh history must not trigger a probe") },
             now: { [t0] in t0 },
             sleeper: ImmediateSleeper()
         )
@@ -210,13 +212,15 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
             featureSettings: CapacityFeatureSettingsPersistence(
                 fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
-            refresh: {},
+            refresh: { _ in },
             now: { [t0] in t0 },
             sleeper: spy,
             tickJitterSeconds: 42
         )
         let ticks = Counter()
-        await s.run { ticks.increment(); return ticks.value > 1 }
+        // >2 not >1: the CRS-S01 post-refresh isCancelled check also
+        // increments ticks without reaching sleep.
+        await s.run { ticks.increment(); return ticks.value > 2 }
         XCTAssertEqual(spy.lastJitter, 42, "sleeper must receive configured tickJitterSeconds")
     }
 
@@ -224,6 +228,38 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
     /// `DefaultPendingWakeSleeper`'s `0...Int(jitterSeconds)`.
     func testProductionDefaultTickJitterIs60() {
         XCTAssertEqual(CapacityRefreshScheduler().tickJitterSeconds, 60)
+    }
+
+    // MARK: - CRS-S01: Probe scope wiring
+
+    /// CRS-S01 wiring: a per-refresh `CapacityProbeScope` is created, passed to
+    /// `refresh`, and `terminate()` is invoked at least once (after sync refresh
+    /// returns = drain, empty PID set).  The cancel-path's in-flight terminate is
+    /// also wired but a no-op today — mid-probe kill is unlocked by CRS-S04 async.
+    func testProbeScopeIsCreatedPerRefreshAndTerminated() async {
+        let terminateCount = Counter()
+        let scopePassedCount = Counter()
+
+        let s = CapacityRefreshScheduler(
+            featureSettings: CapacityFeatureSettingsPersistence(
+                fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
+            historyStore: store,
+            makeScope: {
+                CapacityProbeScope { _ in terminateCount.increment() }
+            },
+            refresh: { scope in
+                scopePassedCount.increment()
+                scope.track(42)
+            },
+            now: { [t0] in t0 },
+            sleeper: ImmediateSleeper(),
+            tickJitterSeconds: 0
+        )
+        let ticks = Counter()
+        await s.run { ticks.increment(); return ticks.value > 1 }
+
+        XCTAssertGreaterThanOrEqual(scopePassedCount.value, 1, "scope must be passed to refresh")
+        XCTAssertGreaterThanOrEqual(terminateCount.value, 1, "terminate() must be invoked at least once — drain after sync refresh")
     }
 }
 

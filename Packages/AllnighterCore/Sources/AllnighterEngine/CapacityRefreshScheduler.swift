@@ -51,37 +51,83 @@ public struct CapacityRefreshScheduler: Sendable {
 
     public var featureSettings: CapacityFeatureSettingsPersistence
     public var historyStore: CapacityHistoryStore
+    /// Factory for per-refresh `CapacityProbeScope` (CRS-S01). Same shape as
+    /// `CapacityResidentService.makeScope`. Tests inject a spy terminator so
+    /// scoped-kill wiring proofs stay deterministic.
+    public var makeScope: @Sendable () -> CapacityProbeScope
     /// Injected so tests never spawn a vendor TUI.
-    public var refresh: @Sendable () -> Void
+    /// CRS-S01: signature widened to accept the per-refresh scope so
+    /// liveSnapshot can register probe children into it.
+    /// Honest limitation: sync `refresh` blocks the loop, so `terminate()`
+    /// runs only after probes return (no-op for mid-probe kill). Mid-probe
+    /// kill is unlocked by CRS-S04 async.
+    public var refresh: @Sendable (CapacityProbeScope) -> Void
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
 
     public init(
         featureSettings: CapacityFeatureSettingsPersistence = CapacityFeatureSettingsPersistence(),
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
-        refresh: (@Sendable () -> Void)? = nil,
+        makeScope: @escaping @Sendable () -> CapacityProbeScope = { CapacityProbeScope() },
+        refresh: (@Sendable (CapacityProbeScope) -> Void)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
         tickJitterSeconds: TimeInterval = 60
     ) {
         self.featureSettings = featureSettings
         self.historyStore = historyStore
-        self.refresh = refresh ?? { _ = CapacityFetch.liveSnapshot() }
+        self.makeScope = makeScope
+        self.refresh = refresh ?? { scope in _ = CapacityFetch.liveSnapshot(probeScope: scope) }
         self.now = now
         self.sleeper = sleeper
         self.tickJitterSeconds = tickJitterSeconds
     }
 
     public func run(isCancelled: @escaping @Sendable () -> Bool) async {
+        let inFlight = InFlightScopeBox()
         while !isCancelled() {
             if shouldRefresh(at: now()) {
-                refresh()
+                let scope = makeScope()
+                inFlight.store(scope)
+                refresh(scope)
+                scope.terminate()
+                inFlight.clear()
+            }
+            if isCancelled() {
+                inFlight.terminateIfHeld()
+                break
             }
             do {
                 try await sleeper.sleep(
                     until: now().addingTimeInterval(Self.tickInterval),
                     jitterSeconds: tickJitterSeconds)
             } catch { break }
+        }
+        inFlight.terminateIfHeld()
+    }
+
+    /// Thread-safe box so the cancel path can reach the in-flight scope.
+    /// CRS-S01 sync wiring: the defer-drain after each refresh clears this;
+    /// the cancel-path terminate is a no-op today but unlocks mid-probe kill
+    /// once CRS-S04 makes refresh async.
+    private final class InFlightScopeBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var scope: CapacityProbeScope?
+
+        func store(_ scope: CapacityProbeScope) {
+            lock.lock(); self.scope = scope; lock.unlock()
+        }
+
+        func clear() {
+            lock.lock(); scope = nil; lock.unlock()
+        }
+
+        func terminateIfHeld() {
+            lock.lock()
+            let s = scope
+            scope = nil
+            lock.unlock()
+            s?.terminate()
         }
     }
 
