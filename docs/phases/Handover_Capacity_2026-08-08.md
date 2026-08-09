@@ -56,45 +56,67 @@ invented numbers; proven live end-to-end.
 | Rejected / ruled | Where | One-line reason |
 | --- | --- | --- |
 | "Capacity is a table, not a status" — retire `.rateLimited`, promote `CapacityHistoryStore` | `Probe_Freshness.md` §0.4 | REFUTED by two reviews. The meter and a declared vendor refusal are **different facts**; a meter cannot disprove an invocation result. |
-| Reading a vendor's stored credential (Keychain/token) for capacity | `Capacity_Native_Channels.md` §4 | Strictly worse than asking the CLI: same data, plus a Keychain prompt attributed to **our** app on a new user's first run. |
+| Reading a vendor's stored credential (Keychain/token) for capacity | `Capacity_Native_Channels.md` §4 | **PERMANENTLY CLOSED**, founder: *"Keychain is NEVER ok. Already rejected many times."* Strictly worse than asking the CLI: same data, plus a Keychain prompt attributed to **our** app on a new user's first run. Not a posture, not a fallback, not an advanced setting. If you find a clean authenticated endpoint, you have found the thing that rule exists to refuse. |
 | A local model for pane reading | founder, this session | Most users have neither the plan nor the hardware. Use the vendor's own cheapest seat. |
 | Bounding probe fan-out concurrency | `Probe_Freshness` task notes | Measured: no reliability gain, +50% wall-clock. The leak was the cause. |
 | `--disable plugins` for codex | `48ac9acb` | Measured, changed nothing. `codex_apps` is built in and has no disable flag. |
 
 ---
 
-## 4. Next work, in order
+## 4. Next work, in order — re-ordered by founder 2026-08-08
 
-1. **`Capacity_Native_Channels.md` per-source slices.** Five of six sources have
+The original draft of this section led with capacity. That was wrong, and the
+reason is worth keeping: **capacity is a sensor, and sensors inform but never
+block** (project law). A wrong capacity number misinforms selection; it cannot
+stop a run. A colliding `:4096` port stops the bench outright. Fifty-one commits
+went into the gauge in one session while the thing the gauge measures was
+failing to start. Run-completion work outranks sensor work until the runs
+complete.
+
+1. **`OpenCode_Serve_Attach.md`** — hit **4 times on 2026-08-08**, killed two
+   review runs. Ready, OSA-S00→S03. Unblocks every OpenCode seat, including the
+   DeepSeek seat this repo's own fixes are routed to.
+2. **`Crew_Understaffed_Signal.md`** — serialize-don't-drop. Also
+   run-completion, also ready to code, already hardened by two reviews.
+3. **`Capacity_Native_Channels.md` per-source slices.** Five of six sources have
    a verified credential-free structured channel (agy print mode, codex
    app-server, kimi web, claude's `~/.claude.json`, grok's JSONL). Each moves
    independently; the PTY scrape stays as that source's fallback. **Cursor is the
-   only permanent screen** — verified four ways, it writes no usage state.
-2. **PF-S01** — disclose `checkedAt` / `ageMinutes` / `stale` on `menu`,
+   only permanent screen** — verified four ways, it writes no usage state, and
+   its one structured endpoint is Keychain-gated and therefore forbidden.
+4. **PF-S01** — disclose `checkedAt` / `ageMinutes` / `stale` on `menu`,
    `drivers`, `models`. Ready; it is a contract change so regenerate artifacts.
-3. **Shadow-mode the model reader** (proposed, unauthorised). Run it alongside
-   the parser and log disagreements before making it the only path. Not because
-   accuracy is doubted — it is settled — but because a wrong argv is
+5. **Shadow-mode the model reader** — APPROVED (§5). Run it alongside the parser
+   and log disagreements before making it the only path. Not because accuracy is
+   doubted — it is settled at 10/10 — but because a wrong argv is
    indistinguishable from an unavailable vendor (see §6).
-4. **`Crew_Understaffed_Signal.md`** — untouched today, ready to code.
-5. **`OpenCode_Serve_Attach.md`** — hit **4 times today**, blocked two reviews.
-   Practically higher priority than its board position.
-6. **Ollama** — founder gate: *do not start*. Dev builds only when it does.
+6. **Ollama — STOP.** Founder gate holds: *do not start*. The queue ends at 5.
 
 ---
 
-## 5. Open questions for the founder
+## 5. Founder rulings — 2026-08-08 PM handover
 
-- **Shadow mode, or cut straight over** to model-read as the only path? Founder
-  leans "only path"; §4.3 is the safer sequencing.
-- **The probe-record half of PF-S03 is still blocked**: `SourceProbeService`'s
-  cheap path persists nothing, so "new `lastProbeAt` with no smoke" is a
-  contradiction. Needs a `lastDetectedAt` split or permission to spend smoke.
-  (The *capacity* half shipped — different store, no such problem.)
-- **grok's original root cause was never established.** It works, but the budget
-  hypothesis was disproven by control test. No regression test exists, so it can
-  silently return. Failing capture preserved at
-  `Capacity/debug/grok-parseFailed.txt`.
+All three §5 questions are now answered. Do not re-ask them.
+
+- **Shadow mode: APPROVED.** Run the model reader alongside the parser and log
+  disagreements; do not make it the only path yet. Founder's standing bet,
+  recorded so it can be checked later: *"It will show it is not needed. Insurance
+  will break first."* If the shadow path becomes the thing that breaks capacity,
+  that is the ruling being right — delete it rather than repair it.
+- **grok's unestablished root cause: DROPPED.** It works. The budget hypothesis
+  was disproven by control test and no further investigation is authorised. The
+  failing capture stays at `Capacity/debug/grok-parseFailed.txt` as evidence if it
+  ever returns; nobody is to chase it before then.
+- **Keychain: NEVER**, permanently — see §3. `Capacity_Native_Channels.md` was
+  rewritten to v4 to stop leaking it as a fallback (the archetype list, the
+  failure-mode table, and the grok refresh path all still assumed a token read).
+
+### Still genuinely open
+
+- **The probe-record half of PF-S03**: `SourceProbeService`'s cheap path persists
+  nothing, so "new `lastProbeAt` with no smoke" is a contradiction. Needs a
+  `lastDetectedAt` split or permission to spend smoke. (The *capacity* half
+  shipped — different store, no such problem.)
 
 ---
 

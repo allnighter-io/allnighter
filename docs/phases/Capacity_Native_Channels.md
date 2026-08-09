@@ -1,6 +1,6 @@
 # Capacity Native Channels — stop scraping a repainting terminal
 
-Status: **v3 — credential posture RULED (§4); model-read of a captured pane
+Status: **v4 — Keychain CLOSED permanently (§4); model-read of a captured pane
 SHIPPED (§4b, `e2c5cc76` + `f6658005`). Per-source native-channel slices are
 next and unstarted.** Five of six sources move with zero credentials; only
 `cursor_agent` keeps the PTY scrape, and it now has a model reader behind it.
@@ -39,33 +39,40 @@ deterministic by fixing individual matchers.
 ## 2. Finding — every source has a better channel
 
 Investigated 2026-08-08 by K3 (run `088DFB73`), read-only, **verified by
-execution** on the dogfood host unless marked otherwise. Three archetypes, in
-order of preference:
+execution** on the dogfood host unless marked otherwise. Two permitted
+archetypes, and one that is forbidden:
 
 1. **CLI-owned local JSON** — a headless command or local server where the vendor
    binary does auth and refresh internally and emits typed JSON. Race-free,
    credential-free.
-2. **Vendor HTTP endpoint on the existing session** — typed JSON, no spawn, but
-   Allnighter must read a token the vendor already stored.
-3. **On-disk cache/log the CLI already writes** — zero cost, zero credentials;
+2. **On-disk cache/log the CLI already writes** — zero cost, zero credentials;
    freshness bounded by last CLI activity, so it must fail closed on staleness.
+
+**Forbidden — do not propose it again:** a vendor HTTP endpoint reached by
+reading a credential the vendor stored (Keychain item, token file we did not
+cause to exist). Typed JSON and no spawn make it *look* like the best archetype,
+which is exactly why it keeps coming back. It is ruled out permanently — see §4.
+The two archetypes above are the whole option space.
 
 | Source | Best channel | Archetype | Credentials |
 | --- | --- | --- | --- |
 | `agy` | `agy --print "/usage" --output-format json --print-timeout 25s` — ~1s, **zero model tokens**, structured `groups[].buckets[]` with `remaining_fraction` + `reset_time` for all four buckets | 1 | none — CLI refreshes in-process |
 | `codex` | `codex app-server --listen stdio://` → JSON-RPC `initialize` / `account/rateLimits/read` → typed `rateLimits.{primary.usedPercent, resetsAt, credits, planType}`; also `unix://`, a durable `daemon` mode, and a push `account/rateLimits/updated` | 1 | none — CLI owns auth |
-| `kimi` | `kimi web --no-open --port <p>` → `GET /api/v1/oauth/usage` with `~/.kimi-code/server.token` → weekly + 5h windows, absolute `reset_at`, typed error kind | 1 | vendor-written local token |
-| `claude_code` | `cachedUsageUtilization` in `~/.claude.json` — five_hour/seven_day utilization, reset times, spend; `fetchedAtMs` observed ~5 min old under active use | 3 | none |
-| `cursor_agent` | Connect-RPC `POST api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage` → `planUsage.{totalPercentUsed, limit}`, cycle bounds, spend limits | 2 | Keychain `cursor-access-token` |
-| `grok` | newest `billing: fetched credits config` line in `~/.grok/logs/unified.jsonl` (weekly period, `creditUsagePercent`, prepaid balance, tier), refreshed by `GET cli-chat-proxy.grok.com/v1/billing` | 3 + 2 | vendor-written token for the refresh |
+| `kimi` | `kimi web --no-open --port <p>` → `GET /api/v1/oauth/usage` with `~/.kimi-code/server.token` → weekly + 5h windows, absolute `reset_at`, typed error kind | 1 | none — the token belongs to the loopback server **we launched**, in the process we own; it is not a stored vendor credential (see §4) |
+| `claude_code` | `cachedUsageUtilization` in `~/.claude.json` — five_hour/seven_day utilization, reset times, spend; `fetchedAtMs` observed ~5 min old under active use | 2 | none |
+| `cursor_agent` | **none.** The Connect-RPC `DashboardService/GetCurrentPeriodUsage` endpoint exists and returns exactly what we want, but reaching it means reading the Keychain item `cursor-access-token` — forbidden. PTY scrape stays, with the model reader behind it. | — | forbidden channel; no permitted one exists |
+| `grok` | newest `billing: fetched credits config` line in `~/.grok/logs/unified.jsonl` (weekly period, `creditUsagePercent`, prepaid balance, tier) | 2 | none — read-only on a log the CLI already writes |
 
 **`agy` is the headline.** Slash commands run in **print mode** — one second,
 no model tokens, structured JSON, no PTY. If that pattern generalizes to other
 CLIs it removes the TUI entirely for those seats; nobody had tried it.
 
 **`grok` is the weakest** — no headless quota method exists (`x.ai/billing` over
-ACP stdio returns `-32601`, verified), so it needs two channels to cover the
-full picture.
+ACP stdio returns `-32601`, verified), so the log read is all we get. We do not
+trigger the `GET cli-chat-proxy.grok.com/v1/billing` refresh ourselves; that
+would need grok's stored token. We read what the CLI last wrote and **fail
+closed when it is stale**, which is the honest version: a log line is evidence of
+what was true when grok last checked, never evidence of now.
 
 ## 3. Why this deletes the bug class
 
@@ -81,23 +88,37 @@ that fail loudly:
 
 | Old | New |
 | --- | --- |
-| repaint races, load sensitivity | token expiry |
-| generic marker false positives | endpoint schema drift |
-| TUI hangs (MCP boot, splash screens) | Keychain ACL prompt on first access |
-| orphaned PTY children | process lifecycle for `kimi web` |
+| repaint races, load sensitivity | on-disk staleness (`claude_code`, `grok`) |
+| generic marker false positives | output schema drift in a vendor's own JSON |
+| TUI hangs (MCP boot, splash screens) | process lifecycle for `kimi web`, `codex app-server` |
+| orphaned PTY children | a headless command that hangs instead of printing |
 
-Mitigation for expiry: **re-read the credential the vendor just refreshed;
-never own refresh.** Mitigation for staleness: check `fetchedAtMs`/mtime/log age
-and fail closed — absence of a declared signal yields no observation.
+Token expiry and Keychain prompts are **absent from this table on purpose** —
+they were the cost of the forbidden archetype, and it is not on the table (§4).
+Nothing here requires us to hold, refresh, or prompt for a secret.
 
-## 4. Credential posture — RULED
+Mitigation for staleness: check `fetchedAtMs`/mtime/log age and fail closed —
+absence of a declared signal yields no observation. A stale reading presented as
+current is the expensive failure; no reading at all is the cheap one.
 
-Founder 2026-08-08: *"lean whatever helps us move forward in right direction.
-Answers should be simple and obvious thinking from first principles. I want this
-to work for any user that will soon be downloading our apps."*
+## 4. Credential posture — SETTLED, NOT OPEN
 
 **Law: Allnighter never reads another vendor's stored credential to learn
 capacity. If the user is logged into the CLI, ask the CLI.**
+
+Founder ruling, restated 2026-08-08 — *"Keychain is NEVER ok. Already rejected
+many times."* This has now been proposed and rejected repeatedly. It is not a
+lean, a default, or a posture pending review: **the Keychain is closed.** An
+agent that finds a beautiful authenticated endpoint has found the thing this
+section exists to refuse. Do not reopen it; do not add it as a fallback, an
+opt-in, an advanced setting, or a "power user" path.
+
+Scope of the law, precisely: it forbids reading a secret **the vendor stored**
+— Keychain items, token files, session cookies we did not cause to exist. It
+does not forbid reading a token that a process **we launched** wrote for its own
+loopback server in this run (`kimi web`), because that is our own process's
+handle, not the user's vendor credential. If that distinction ever needs
+stretching to justify a channel, the channel is forbidden.
 
 From first principles, reading a vendor's token is a strictly worse version of
 asking the vendor's CLI. It returns the *same information* and adds:
@@ -108,8 +129,9 @@ asking the vendor's CLI. It returns the *same information* and adds:
 - token expiry as our problem, when the CLI already refreshes it;
 - a binding to unofficial endpoints that drift with no contract.
 
-There is no upside to trade against that. So archetype 2 is not a fallback we
-hold in reserve — it is off the table for capacity.
+There is no upside to trade against that. So the authenticated-endpoint
+archetype is not a fallback we hold in reserve — it is off the table for
+capacity, permanently.
 
 ### What that costs, measured
 

@@ -34,9 +34,13 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 ### Active priorities (founder-ordered)
 
-> **Founder-ordered queue (2026-08-08)** — work in this order:
-> ~~**0.** Run readout~~ · ~~**0.5** Ambient dirty~~ (both CLOSED 2026-08-08) ·
-> **1.** Scheduler 2.0 · **2.** Seat assignments · **3.** OpenCode attach · **4.** Ollama.
+> **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
+> **1.** OpenCode attach · **2.** Seat assignments · **3.** Native capacity channels ·
+> **4.** PF-S01 freshness disclosure · **5.** Shadow-mode the model reader · **STOP**.
+> Run-completion work outranks sensor work: capacity informs selection but never
+> blocks a run, while `:4096` collisions stop the bench outright.
+> ~~**0.** Run readout~~ · ~~**0.5** Ambient dirty~~ closed 2026-08-08.
+> **Ollama is NOT authorised** — the queue ends at 5.
 > Everything below the queue is unordered backlog.
 
 | Doc | Status | Next action |
