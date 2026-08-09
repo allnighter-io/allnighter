@@ -630,6 +630,45 @@ struct AllnighterCLI {
         if !opts.positional.isEmpty || !opts.values.isEmpty {
             FileHandle.standardError.write(Data("usage: alln serve [--health --json]\n".utf8)); exit(2)
         }
+        // Singleton + takeover. Four daemons were found running on the dogfood
+        // host (oldest nine days), each executing a different build — so every
+        // serve-hosted fix silently failed to take effect after a rebuild.
+        // A newer build supersedes an older one: stale code must not win by
+        // seniority.
+        let daemonStore = ServeDaemonStore()
+        switch ServeDaemonAdmission.decide(
+            existing: daemonStore.load(), isAlive: ServeDaemonAdmission.processIsAlive
+        ) {
+        case .refuse(let pid, let version):
+            FileHandle.standardError.write(Data(
+                ("alln serve: already running (pid \(pid), \(version), same build) — nothing to do.\n"
+                 + "Stop it with `kill \(pid)` if you want a fresh one.\n").utf8))
+            exit(0)
+        case .supersede(let pid, let version, let sha):
+            FileHandle.standardError.write(Data(
+                "alln serve: superseding older daemon (pid \(pid), \(version), \(sha.prefix(12)))\n".utf8))
+            guard ServeDaemonAdmission.stop(pid: pid) else {
+                FileHandle.standardError.write(Data(
+                    "alln serve: pid \(pid) survived TERM and KILL — refusing to start a second daemon.\n".utf8))
+                exit(1)
+            }
+            daemonStore.clear()
+        case .start:
+            daemonStore.clear()
+        }
+        // The record is not the only truth. Three daemons were found running
+        // with NO record at all: one shared record file means the last process
+        // to exit clears it for everyone, and daemons started before this
+        // admission existed never wrote one. Sweep the process table too.
+        for pid in ServeDaemonAdmission.runningServePIDs() {
+            FileHandle.standardError.write(Data(
+                "alln serve: stopping unrecorded daemon (pid \(pid))\n".utf8))
+            guard ServeDaemonAdmission.stop(pid: pid) else {
+                FileHandle.standardError.write(Data(
+                    "alln serve: pid \(pid) survived TERM and KILL — refusing to start a second daemon.\n".utf8))
+                exit(1)
+            }
+        }
         FileHandle.standardError.write(Data("alln serve — background scheduler (Ctrl+C to stop)\n".utf8))
         do {
             let runtime = ToolRuntime()
