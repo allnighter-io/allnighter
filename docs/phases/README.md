@@ -42,7 +42,9 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 > Run-completion work outranks sensor work: capacity informs selection but never
 > blocks a run, while `:4096` collisions stop the bench outright.
 > ~~**0.** Run readout~~ · ~~**0.5** Ambient dirty~~ closed 2026-08-08.
-> **Ollama is NOT authorised** — the queue ends at 5.
+> **Ollama is NOT authorised** — the queue ends at 5. The 2026-08-09 local-work
+> split (Ollama seats → Context Firewall → Second Mac) is **document work only**;
+> none of the three packets is authorised for code.
 > Everything below the queue is unordered backlog.
 
 | Doc | Status | Next action |
@@ -50,7 +52,9 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Handover_Capacity_2026-08-08.md`](Handover_Capacity_2026-08-08.md) | **START HERE — PM handover** | State of capacity/serve after 51 commits, decisions already ruled (do not relitigate), landmines, and the next work in order. Read before picking anything up. |
 | [`Probe_Freshness.md`](Probe_Freshness.md) | **v6 — S00/S01/S02/S03 ALL SHIPPED; one founder ruling remains** | `alln menu` hid Grok + Kimi as `notReady` while both answered live prompts. PF-S00 expire-at-projection + PF-S02 un-invent the verdict stop the lie; PF-S01 discloses age; **PF-S03 re-homes refresh into `alln serve`** — founder ruling §0.2 supersedes the CWB Dock-only host lock. Spec Review Min `FCF51DB2` Ready. |
 | [`Capacity_Native_Channels.md`](Capacity_Native_Channels.md) | **v6 — 4 native channels SHIPPED; kimi RULED OUT; shadow mode SHIPPED** | Every one of the six PTY-scraped sources has a VERIFIED better channel; four need no credentials at all. `agy --print "/usage" --output-format json` returns structured JSON in ~1s with zero model tokens; codex `app-server` exposes typed `account/rateLimits/read`. Deletes the whole 2026-08-08 bug class (generic markers, misspelled guards, repaint races, load sensitivity) by construction. **Founder ruling needed** on §4 credential posture (2 of 6 need a vendor-stored token). |
-| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **4 · Ollama — v5 both bodies; OCL-S00 pipe PASS; code unauthorized** | **Dev builds only until fully ready** (founder). Doc v5: Claude Code + OpenCode agnostic; bakeoff §0.4; G0–G3 model gates. Still blocked on `--no-commit` honesty, serve attach, Claude-local isolation design, mid-tier capability proof. |
+| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **4 · Ollama — v7 (packet 1 of 3); OCL-S00 pipe PASS; code unauthorized** | **Dev builds only until fully ready** (founder). Headline: *a frontier seat plans; local seats execute* (§2.4 delegation asymmetry). Split 2026-08-09 — firewall and second-Mac moved out, scope back to detect · seat · honest run · both bodies. Still blocked on `--no-commit` honesty, serve attach, Claude-local isolation design, mid-tier capability proof. |
+| [`Context_Firewall.md`](Context_Firewall.md) | **SPEC — packet 2 of 3; no code authorized** | Per-root `egress: open\|abstracted\|local_only` + verbatim egress ledger. Claim is **auditable, never sanitised** (§4.1) — copy review is a blocking test. Blocked on root-less dispatch design (§6) and packet 1's outcome-honesty bug. Regulated tier is bottom-up optionality, not roadmap (§3.3). |
+| [`Second_Mac_Bench.md`](Second_Mac_Bench.md) | **V2 STUB — packet 3 of 3; not started** | Scope fence for the two-machine problem. Shelved LAN architecture stays shelved; three narrow doors recorded (D1 remote inference URL only). Cannot open until packets 1 and 2 land + a founder ruling names the door. |
 | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then scheduler** | One 30m freshness clock; scoped kill before timer. ⚠ Its **Dock-only host lock is superseded** by `Probe_Freshness.md` §0.2 — reconcile. |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete; one dogfood proof remains** | Wall-crossing resume half blocked on Codex real reset (2026-08-04). Code SSOT: `CapacityDisplayAcquisition`, `MenuCatalog`, `LoopCoordinator`, `VendorBackoffReconciler`. |
@@ -176,7 +180,9 @@ Open questions:
 | Capacity strip, `alln capacity`, warm pool, stale % | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) — Spec Review Min Ready; S00a scoped kill → Dock 30m silent schedule |
 | `alln run` fails from Codex, handoff host missing, stale handoff work | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) |
 | Plan-time quota routing, loop park-yield, cross-vendor arbitrage | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) |
-| Ollama local seats (Claude Code and/or OpenCode; pipe on mini, sell to Studio; Idle/Busy readiness) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — v5 both bodies + bakeoff; code unauthorized; ignore Ollama Cloud |
+| Ollama local seats (Claude Code and/or OpenCode; pipe on mini, sell to Studio; Idle/Busy readiness) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — v7, packet 1 of 3; both bodies + bakeoff; code unauthorized; ignore Ollama Cloud |
+| Context firewall / egress policy / "keep the frontier model away from my source" | [`Context_Firewall.md`](Context_Firewall.md) — packet 2 of 3; *auditable, never sanitised*; root-less dispatch undesigned |
+| Second Mac, Studio in the office, LAN, remote `OLLAMA_HOST` | [`Second_Mac_Bench.md`](Second_Mac_Bench.md) — packet 3 of 3; fence, not a plan |
 | OpenCode serve busy / leftover :4096 after `alln run` | Core execution broken, team research/execution lies | Code SSOT: `RunService.swift`, `TeamCatalog`, `RunWriteLockRegistry` |
 | Cold start — no `alln` on PATH | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) |
 | Composer `@` file references | [`Composer_File_References.md`](Composer_File_References.md) |
