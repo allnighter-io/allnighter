@@ -90,7 +90,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
 | Spec Review hero loop | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope` |
-| AI Readiness (is this repo workable by agents; first recommended Code Team; scoring is banned — see §3) | Open packet: `docs/phases/AI_Readiness.md` — not built; archive + promote on ship |
+| AI Readiness (repo workable for agents; no score/grade; first recommended Code Team on empty project) | **Closed 2026-08-09** — team `code_ai_readiness`, output `aiReadinessReport`. Code SSOT: `BuiltInTeams`, `AIReadinessReport`, `AIReadinessReceipts`, `AIReadinessShape`, `AIReadinessColdStart`, `ArtifactProjector`, `RunStore`. Archived: `docs/archive/phases/AI_Readiness.md` |
 | Green suite over a real defect; a proof that could never fail; tolerance fitted until the test passed; "we measured the wrong thing" | `docs/operations/Spec_Review.md` §3 Measurement + §4 instrumentation rule — code SSOT `measurement_auditor` (Spec Review Max, Release Proof) |
 | Adding/removing a seat at a Min or Max tier | `docs/operations/Spec_Review.md` §Depth splits charters — a dropped seat's questions must be absorbed by a named pass on a seat that remains, never silently lost |
 | Execution/answer teams, mutating runs, source/write safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` |

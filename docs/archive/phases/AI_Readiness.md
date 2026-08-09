@@ -1,12 +1,13 @@
 # AI Readiness
 
-Status: **IN FLIGHT — ARA-S01…S05 done; ARA-S06 next.**
-  Founder forks settled 2026-08-09.
-  PM routes slices to DeepSeek V4 Pro (OpenCode); host audits + completes gaps.
-  OpenCode dogfood: `docs/qa/opencode-mutating-commit/ARA_OPENCODE_LOG.md`.
-Owner: `BuiltInTeams` + `TeamOutputKind` + artifact projector (code SSOT on ship).
-Home: `docs/phases/` — execution packet.
-Created: 2026-08-09 | Updated: 2026-08-09 (ARA-S05 shipped)
+Status: **COMPLETE — ARA-S01…S06 shipped 2026-08-09.** ARCHIVED.
+  Code SSOT: `BuiltInTeams.code_ai_readiness`, `TeamOutputKind.aiReadinessReport`,
+  `AIReadinessReport` / `AIReadinessReceipts` / `AIReadinessShape` / `AIReadinessColdStart`,
+  `ArtifactProjector` readiness sections, `RunStore` `return/ai-readiness-report.json`.
+  OpenCode dogfood (no product follow-up): `docs/qa/opencode-mutating-commit/ARA_OPENCODE_LOG.md`.
+Owner: code SSOT above (not this archive).
+Home: was `docs/phases/` — archived after ship.
+Created: 2026-08-09 | Updated: 2026-08-09 (closeout)
 
 **Doc lifecycle.** On closeout: promote durable behavior into code SSOT, then archive to
 `docs/archive/phases/`. Never a standing pseudo-SSOT here or in `docs/strategy/`.
