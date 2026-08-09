@@ -17,10 +17,14 @@ import AgentOSCLI
 final class ProbeFreshnessDisclosureTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
 
+    /// A NEW-STYLE, genuinely-confirmed record: `lastDetectedAt` set alongside
+    /// `lastProbeAt` (Probe_Freshness Option A) so it discloses as real
+    /// capability evidence, not the "predates the split" migration case.
     private func freshRecord(driverId: String, ageSeconds: TimeInterval) -> ToolProbeRecord {
-        ToolProbeRecord(
+        let at = now.addingTimeInterval(-ageSeconds)
+        return ToolProbeRecord(
             driverId: driverId, status: .ready(version: "1.0"),
-            lastProbeAt: now.addingTimeInterval(-ageSeconds))
+            lastProbeAt: at, lastDetectedAt: at)
     }
 
     // MARK: - alln drivers --json
@@ -243,5 +247,110 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
         XCTAssertNil(row.freshness.checkedAt)
         XCTAssertNil(row.freshness.ageMinutes)
         XCTAssertTrue(row.freshness.stale)
+    }
+
+    // MARK: - Three states (Probe_Freshness Option A — lastDetectedAt split)
+
+    /// Migration rule: a record written before this split has no
+    /// `lastDetectedAt` at all. Its `lastProbeAt` may have been stamped by a
+    /// non-smoke check (the exact overclaim this packet exists to stop), so a
+    /// reader must not trust it as capability evidence — `checkedAt` reports
+    /// `nil` (unknown) even though the record's status is `.ready` and its
+    /// raw `lastProbeAt` looks perfectly fresh. `detectedAt` still surfaces
+    /// that same timestamp, reinterpreted as detection-only evidence.
+    func testOldRecordWithNoLastDetectedAtReportsCapabilityUnknown() {
+        let registry = DriverRegistry([
+            DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
+        ])
+        let record = ToolProbeRecord(
+            driverId: "kimi", status: .ready(version: "1.0"),
+            lastProbeAt: now.addingTimeInterval(-300))
+        XCTAssertNil(record.lastDetectedAt, "fixture must be the pre-split shape")
+        let list = DriverListProjector.build(
+            registry: registry, probeRecords: [record], now: now, models: [], parkedDriverIds: [])
+        let row = try! XCTUnwrap(list.drivers.first)
+        XCTAssertNil(row.freshness.checkedAt, "an old record's capability is unknown, not confirmed")
+        XCTAssertNil(row.freshness.ageMinutes)
+        XCTAssertTrue(row.freshness.stale)
+        XCTAssertEqual(row.freshness.detectedAt, record.lastProbeAt,
+                        "the old lastProbeAt is still honest detection evidence")
+    }
+
+    /// A new-style record whose status is `.installedNotProbed` — a cheap
+    /// check ran (so `lastDetectedAt` is set) but no smoke ever did — is
+    /// "detected, never exercised": `detectedAt` is real, `checkedAt` stays
+    /// `nil`. This is the state that does not exist pre-split.
+    func testDetectedButNeverExercisedReportsNullCheckedAtWithRealDetectedAt() {
+        let registry = DriverRegistry([
+            DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
+        ])
+        let detectedAt = now.addingTimeInterval(-120)
+        let record = ToolProbeRecord(
+            driverId: "kimi", status: .installedNotProbed(version: "1.0"),
+            invocation: .direct(path: "/usr/local/bin/kimi"), version: "1.0",
+            lastProbeAt: detectedAt, lastDetectedAt: detectedAt)
+        let list = DriverListProjector.build(
+            registry: registry, probeRecords: [record], now: now, models: [], parkedDriverIds: [])
+        let row = try! XCTUnwrap(list.drivers.first)
+        XCTAssertNil(row.freshness.checkedAt, "never smoke-tested — capability genuinely unknown")
+        XCTAssertNil(row.freshness.ageMinutes)
+        XCTAssertTrue(row.freshness.stale)
+        XCTAssertEqual(row.freshness.detectedAt, detectedAt, "presence WAS just checked")
+    }
+
+    /// A run-sourced write (`RunCapabilityClock.resolvedBy`) must be labeled
+    /// distinctly from an explicit probe — never presented as one or the
+    /// other's evidence by accident.
+    func testDriverRowFromARunReportsEvidenceSourceRun() {
+        let registry = DriverRegistry([
+            DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
+        ])
+        let at = now.addingTimeInterval(-60)
+        let record = ToolProbeRecord(
+            driverId: "kimi", status: .ready(version: "1.0"),
+            lastProbeAt: at, lastDetectedAt: at, resolvedBy: "RunService")
+        let list = DriverListProjector.build(
+            registry: registry, probeRecords: [record], now: now, models: [], parkedDriverIds: [])
+        let row = try! XCTUnwrap(list.drivers.first)
+        XCTAssertEqual(row.freshness.checkedAt, at)
+        XCTAssertEqual(row.freshness.evidenceSource, "run")
+    }
+
+    /// A model row inherits run-sourced evidence but never re-labels it as
+    /// its OWN probe — `evidenceSource` stays `"driver"` regardless of what
+    /// produced the underlying driver record.
+    func testModelRowFromARunStillReportsEvidenceSourceDriver() {
+        let registry = DriverRegistry([
+            DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
+        ])
+        let at = now.addingTimeInterval(-60)
+        let record = ToolProbeRecord(
+            driverId: "kimi", status: .ready(version: "1.0"),
+            lastProbeAt: at, lastDetectedAt: at, resolvedBy: "RunService")
+        let definitions = [
+            ModelDefinition(
+                id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-k3",
+                driverId: "kimi", role: .both, origin: .builtIn, defaultEnabled: true,
+                capabilities: ModelCapabilities()),
+        ]
+        let list = ModelListProjector.build(
+            registry: registry, definitions: definitions, probeRecords: [record], now: now,
+            diagnostics: [])
+        let row = try! XCTUnwrap(list.models.first { $0.id == "model_kimi_k3" })
+        XCTAssertEqual(row.freshness.checkedAt, at)
+        XCTAssertEqual(row.freshness.evidenceSource, "driver")
+    }
+
+    /// A source that has never been detected at all (no record) reports
+    /// BOTH clocks null — "not detected", the free-est of the three states.
+    func testNeverDetectedDriverReportsBothClocksNull() {
+        let registry = DriverRegistry([
+            DriverManifest(id: "opencode", displayName: "OpenCode", kind: .headlessCLI),
+        ])
+        let list = DriverListProjector.build(
+            registry: registry, probeRecords: [], now: now, models: [], parkedDriverIds: [])
+        let row = try! XCTUnwrap(list.drivers.first)
+        XCTAssertNil(row.freshness.checkedAt)
+        XCTAssertNil(row.freshness.detectedAt)
     }
 }

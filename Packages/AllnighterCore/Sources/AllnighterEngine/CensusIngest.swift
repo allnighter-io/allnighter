@@ -44,7 +44,8 @@ public enum CensusIngest {
                 chosen ?? ToolProbeRecord(
                     driverId: manifest.id,
                     status: .notInstalled,
-                    lastProbeAt: now
+                    lastProbeAt: now,
+                    lastDetectedAt: now
                 )
             )
         }

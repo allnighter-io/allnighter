@@ -66,8 +66,21 @@ import Foundation
 /// only — never reachable from `alln serve`'s scheduler or the Mac resident's
 /// periodic refresh, never changes a published capacity value. Not a major
 /// cut, standard +0.0.1.
+///
+/// **0.12.4 → 0.12.5 (PF-S03b, `docs/phases/Probe_Freshness.md`).**
+/// `contractVersion` additive minor (9.12.0 → 9.13.0): `ToolProbeRecord`
+/// splits its one timestamp into `lastDetectedAt` (cheap presence, any check)
+/// and a narrowed `lastProbeAt` (capability evidence only — a real smoke or a
+/// real completed run). `RunService`'s settlement now writes `lastProbeAt` too
+/// (previously the probe path was the only writer), using the same
+/// `WorkerAnswerErrorKind` taxonomy: success confirms, `missingCLI`/
+/// `authRequired` record a negative, everything else writes nothing.
+/// `freshness` (menu/drivers/models) gains `detectedAt` and `evidenceSource`
+/// gains `"run"`. Disclosure only — no verdict/status/blockedReason changed;
+/// an old record with no `lastDetectedAt` reports capability unknown until
+/// its first new-style write. Not a major cut, standard +0.0.1.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.12.4"
+    public static let binaryVersion = "0.12.5"
 }
 
 /// `alln version` / `alln --version` machine contract.

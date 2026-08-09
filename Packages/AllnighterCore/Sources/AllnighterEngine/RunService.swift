@@ -414,6 +414,30 @@ public actor RunService {
         try runStore.save(run, models: models)
     }
 
+    /// PF-S03b (`Probe_Freshness.md` — "the writer that was missing"): a
+    /// completed run is the strongest possible proof a seat works. Writes the
+    /// SAME `cli_setup.json` probe cache `SourceProbeService`/`CensusIngest`
+    /// write, so `alln drivers`/`alln menu` reflect real dogfood use instead of
+    /// staying frozen at whatever the last explicit probe said.
+    ///
+    /// Best-effort and terminal-only: called after the run's own result is
+    /// already decided, and its own failure is swallowed (`try?`) so a
+    /// probe-cache write can never slow, block, or fail the run that produced
+    /// the evidence (constraint from the packet).
+    private func recordRunCapabilityEvidence(
+        driverId: String, manifest: DriverManifest?, result: WorkerRunResult?
+    ) {
+        guard let result else { return }
+        let store = SetupStore()
+        let state = store.load()
+        guard let merged = RunCapabilityClock.apply(
+            driverId: driverId, manifest: manifest, result: result, now: now(), records: state.records
+        ) else { return }
+        var next = state
+        next.records = merged.sorted { $0.driverId < $1.driverId }
+        try? store.save(next)
+    }
+
     private func writePMTurn(for run: TeamRun) throws {
         guard run.status.isTerminal else { return }
         if try pmTurnStore.load(kind: .run, subjectId: run.id) != nil {
@@ -2294,6 +2318,8 @@ public actor RunService {
         } catch {
             return .failure(.journalUnavailable("terminal execution result: \(error)"))
         }
+        recordRunCapabilityEvidence(
+            driverId: manifest.id, manifest: manifest, result: run.answers.first?.result)
         return .success(run)
     }
 
@@ -2481,6 +2507,16 @@ public actor RunService {
             try persistTerminalRun(run)
         } catch {
             return .failure(.journalUnavailable("terminal research result: \(error)"))
+        }
+        // PF-S03b: every seat in a Team answer real run — not just execution's
+        // single mutating worker — is capability evidence for its own driver.
+        for teamAnswer in run.answers {
+            guard let model = models.first(where: { $0.id == teamAnswer.modelId }) else { continue }
+            recordRunCapabilityEvidence(
+                driverId: model.driverId,
+                manifest: registry.manifest(id: model.driverId),
+                result: teamAnswer.result
+            )
         }
         return .success(run)
     }

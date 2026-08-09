@@ -25,7 +25,11 @@ public extension ContractRegistry {
     // PF-S01: minor — driver/model rows (menu, drivers, models) gain a
     // `freshness` object (checkedAt/ageMinutes/stale/evidenceSource/nextAction)
     // disclosing probe-record age; disclosure only, no verdict changed.
-    static let contractVersion = "9.12.0"
+    // PF-S03b: minor — `freshness` gains `detectedAt` (cheap presence clock,
+    // distinct from `checkedAt`'s capability clock); `evidenceSource` gains
+    // `"run"` (a completed real run, not just an explicit probe). Disclosure
+    // only — no verdict/status/blockedReason changed.
+    static let contractVersion = "9.13.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
