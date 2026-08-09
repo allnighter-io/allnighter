@@ -38,6 +38,17 @@ public struct CapacityRefreshScheduler: Sendable {
     /// a full window later.
     public static let tickInterval: TimeInterval = 5 * 60
 
+    /// Serve-side only — paint/CLI freshness disclosure still uses
+    /// `CapacityPaintGate.gateInterval` alone (invariant 3). This margin
+    /// gives the app's in-flight probe time to commit history before serve
+    /// treats the window as unclaimed.
+    public static let serveFreshnessMargin: TimeInterval = 2 * 60
+
+    /// Positive-only jitter dephases the serve tick from the app's 30m
+    /// deadline over a few cycles. Same semantics as
+    /// `DefaultPendingWakeSleeper.sleep`.
+    public var tickJitterSeconds: TimeInterval
+
     public var featureSettings: CapacityFeatureSettingsPersistence
     public var historyStore: CapacityHistoryStore
     /// Injected so tests never spawn a vendor TUI.
@@ -50,13 +61,15 @@ public struct CapacityRefreshScheduler: Sendable {
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
         refresh: (@Sendable () -> Void)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
-        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper()
+        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
+        tickJitterSeconds: TimeInterval = 60
     ) {
         self.featureSettings = featureSettings
         self.historyStore = historyStore
         self.refresh = refresh ?? { _ = CapacityFetch.liveSnapshot() }
         self.now = now
         self.sleeper = sleeper
+        self.tickJitterSeconds = tickJitterSeconds
     }
 
     public func run(isCancelled: @escaping @Sendable () -> Bool) async {
@@ -66,7 +79,8 @@ public struct CapacityRefreshScheduler: Sendable {
             }
             do {
                 try await sleeper.sleep(
-                    until: now().addingTimeInterval(Self.tickInterval), jitterSeconds: 0)
+                    until: now().addingTimeInterval(Self.tickInterval),
+                    jitterSeconds: tickJitterSeconds)
             } catch { break }
         }
     }
@@ -82,7 +96,8 @@ public struct CapacityRefreshScheduler: Sendable {
             // Never sampled at all — refresh, that is the whole point.
             return true
         }
-        return instant.timeIntervalSince(newest) >= CapacityPaintGate.gateInterval
+        return instant.timeIntervalSince(newest)
+            >= CapacityPaintGate.gateInterval + Self.serveFreshnessMargin
     }
 
     /// Newest observation across every bench source, or nil when history is

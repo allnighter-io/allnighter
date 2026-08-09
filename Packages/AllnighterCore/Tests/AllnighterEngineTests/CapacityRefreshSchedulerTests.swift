@@ -38,7 +38,8 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
             featureSettings: CapacityFeatureSettingsPersistence(fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
             refresh: refresh,
-            now: { [t0] in t0 }
+            now: { [t0] in t0 },
+            tickJitterSeconds: 0
         )
     }
 
@@ -71,17 +72,18 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         XCTAssertFalse(scheduler().shouldRefresh(at: t0))
     }
 
-    /// The app quit (or never opened) and the reading aged out — this is the
-    /// whole point of the slice.
+    /// The app quit (or never opened) and the reading aged past the serve
+    /// freshness window (gateInterval + margin) — this is the whole point of
+    /// the slice.
     func testRefreshesOnceHistoryAgesPastTheFreshnessWindow() throws {
         try record(
             used: 40,
-            observedAt: t0.addingTimeInterval(-CapacityPaintGate.gateInterval - 60))
+            observedAt: t0.addingTimeInterval(
+                -CapacityPaintGate.gateInterval - CapacityRefreshScheduler.serveFreshnessMargin - 60))
         XCTAssertTrue(scheduler().shouldRefresh(at: t0))
     }
 
-    /// Boundary, both sides — a window that expires "sometime around 30 minutes"
-    /// is not a window.
+    /// Boundary, both sides — serve uses gateInterval + margin (invariant 3).
     ///
     /// Each case needs its OWN store: history merges and `newestObservation`
     /// takes the max, so recording both samples into one store leaves the
@@ -89,13 +91,26 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
     /// nothing. (It did, and failed loudly — which is the correct outcome for a
     /// test that was measuring the wrong thing.)
     func testFreshnessBoundaryIsExactAndShared() throws {
+        let gate = CapacityPaintGate.gateInterval
+        let margin = CapacityRefreshScheduler.serveFreshnessMargin
+
         let justInside = try isolatedScheduler(
-            observedAt: t0.addingTimeInterval(-CapacityPaintGate.gateInterval + 1))
-        XCTAssertFalse(justInside.shouldRefresh(at: t0), "just inside must not refresh")
+            observedAt: t0.addingTimeInterval(-gate - margin + 1))
+        XCTAssertFalse(justInside.shouldRefresh(at: t0), "just inside gate+margin must not refresh")
 
         let exactlyAt = try isolatedScheduler(
-            observedAt: t0.addingTimeInterval(-CapacityPaintGate.gateInterval))
-        XCTAssertTrue(exactlyAt.shouldRefresh(at: t0), "exactly at the window must refresh")
+            observedAt: t0.addingTimeInterval(-gate - margin))
+        XCTAssertTrue(exactlyAt.shouldRefresh(at: t0), "exactly at gate+margin must refresh")
+    }
+
+    /// Age is past bare gateInterval but still inside the serveFreshnessMargin
+    /// — serve must NOT refresh because the app's in-flight probe may still be
+    /// committing history.
+    func testDoesNotRefreshWhenAgeIsWithinMargin() throws {
+        let gate = CapacityPaintGate.gateInterval
+        try record(used: 40, observedAt: t0.addingTimeInterval(-gate - 30))
+        // 30s past gate but well within the 2m margin.
+        XCTAssertFalse(scheduler().shouldRefresh(at: t0))
     }
 
     /// A scheduler over a private store holding exactly one observation.
@@ -115,7 +130,8 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
                 fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: isolated,
             refresh: {},
-            now: { [t0] in t0 }
+            now: { [t0] in t0 },
+            tickJitterSeconds: 0
         )
     }
 
@@ -185,6 +201,30 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         let freshTicks = Counter()
         await fresh.run { freshTicks.increment(); return freshTicks.value > 1 }
     }
+
+    /// `run` passes the configured `tickJitterSeconds` to the sleeper, not a
+    /// hardcoded 0. A spy records the last jitter value.
+    func testRunPassesConfiguredTickJitterToSleeper() async throws {
+        let spy = JitterSpySleeper()
+        let s = CapacityRefreshScheduler(
+            featureSettings: CapacityFeatureSettingsPersistence(
+                fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
+            historyStore: store,
+            refresh: {},
+            now: { [t0] in t0 },
+            sleeper: spy,
+            tickJitterSeconds: 42
+        )
+        let ticks = Counter()
+        await s.run { ticks.increment(); return ticks.value > 1 }
+        XCTAssertEqual(spy.lastJitter, 42, "sleeper must receive configured tickJitterSeconds")
+    }
+
+    /// Production default is 60s positive-only jitter — same semantics as
+    /// `DefaultPendingWakeSleeper`'s `0...Int(jitterSeconds)`.
+    func testProductionDefaultTickJitterIs60() {
+        XCTAssertEqual(CapacityRefreshScheduler().tickJitterSeconds, 60)
+    }
 }
 
 // MARK: - Helpers
@@ -198,4 +238,11 @@ private final class Counter: @unchecked Sendable {
 
 private struct ImmediateSleeper: PendingWakeSleeper {
     func sleep(until: Date, jitterSeconds: Double) async throws {}
+}
+
+private final class JitterSpySleeper: PendingWakeSleeper, @unchecked Sendable {
+    var lastJitter: TimeInterval?
+    func sleep(until: Date, jitterSeconds: TimeInterval) async throws {
+        lastJitter = jitterSeconds
+    }
 }
