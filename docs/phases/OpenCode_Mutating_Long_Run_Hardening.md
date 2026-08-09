@@ -86,6 +86,7 @@ Log: `docs/qa/opencode-mutating-commit/OPENCODE_BUG_LOG.md`
 | Blame only the model | Harness + teaching + Works Test gate are ours |
 | Defer an in-slice Works Test to a future slice without a named follow-up commit | Breaks invariant 2; silent deferral is the bug |
 | Run unbounded multi-theme slices and hope Pro “figures it out” | Caused the 27m under-ship; S04 bounds are mandatory |
+| Auto-commit on behalf of Pro when Pro forgets | Hides the teaching gap; the seat must learn to commit or the host must say `--no-commit` explicitly |
 
 ---
 
@@ -98,15 +99,18 @@ write “leave dirty / do not commit,” which makes OpenCode look broken.
 
 ### Fix
 
-1. Help topic / teaching alias: mutating OpenCode → commit run-owned paths;
-   `--no-commit` is the only intentional dirty exit.
+1. Add help topic `opencode_mutating_commit_contract` to `HelpTopicRegistry`:
+   mutating OpenCode → commit run-owned paths; `--no-commit` is the only
+   intentional dirty exit. Alias `incomplete_uncommitted` → that topic.
 2. `alln bootstrap` / menu selection copy: one line pointing at that topic.
 3. Extend `OPENCODE_BUG_LOG` / harness README with the rule.
 
 ### Works Test
 
-Unit or help-search: query `incomplete_uncommitted` + `opencode` + `commit` finds
-the contract. Manual: Flash or GLM stamp harness still green.
+`alln help search "incomplete_uncommitted opencode commit"` returns
+`opencode_mutating_commit_contract` as the top hit. Unit:
+`HelpTopicRegistryTests` asserts the topic exists and the alias resolves.
+Manual: Flash or GLM stamp harness still green.
 
 ---
 
@@ -160,17 +164,22 @@ tests in one Pro run → 27m and under-ship.
 Standing bound for OpenCode Pro mutating:
 
 - ≤3 production files + ≤1 test file per slice, **or**
-- ≤1 behavioral theme (e.g. “backoff only” separate from “mid-probe cancel”)
+- ≤1 behavioral theme (e.g. "backoff only" separate from "mid-probe cancel")
 - ≤3 named Works Tests per slice
-- Wall budget target ≤15m; if exceeded, **host aborts the current run and
-  redispatches the remainder** — the seat must not keep going.
+- Wall budget target ≤15m; if exceeded, host runs `alln kill <id>` and
+   redispatches the remainder as a new slice — the seat must not keep going.
+   Overruns are recorded in `OPENCODE_BUG_LOG` with the slice id, wall time,
+   and the reason for the overrun (oversized prompt, model thrash, or
+   legitimate complexity that should have been split).
 
-Document in this packet + one playbook bullet. No code required unless a
-linter/script later enforces (out of v1).
+Document in this packet + one playbook bullet under Execution Playbook § Commits.
+No code required unless a linter/script later enforces (out of v1).
 
 ### Works Test
 
-Packet + playbook text. Next OMH code slice follows the bound.
+Packet + playbook text. Next OMH code slice follows the bound. If any OMH
+slice exceeds the bound, the overrun is recorded in the bug log with the
+slice id, wall time, and reason.
 
 ---
 
@@ -185,16 +194,19 @@ cannot distinguish healthy edit loops from near-stall without streaming noise.
 
 1. Ensure OpenCode tool activity continues to bump `lastActivityAt` (verify;
    fix if gaps > ~60s during active tools).
-2. Optional: surface `observation.activityKind` / last tool name on
-   `alln show --json` if not already (no new parallel schema — extend existing
-   observation).
-3. Help: how to read activity during long mutating OpenCode runs.
+2. Surface `observation.activityKind` / last tool name on `alln show --json`
+   (extend existing observation schema — no new parallel schema). During tool
+   storms, `activityKind` = `"tool"` + last tool name (e.g. `"edit"`,
+   `"bash"`, `"read"`). During thinking, `activityKind` = `"thinking"`.
+3. Help: how to read activity during long mutating OpenCode runs (amend
+   `opencode_headless_completion` or new topic if the surface grows).
 
 ### Works Test
 
-Focused test or live dogfood: during a multi-minute Flash/Pro tool run,
-`lastActivityAt` advances at least every 60s while tools are active. If already
-true, prove and close with evidence only.
+Live dogfood: during a multi-minute Pro tool run (real edit loop, not
+synthetic), `lastActivityAt` advances at least every 60s while tools are
+active, and `observation.activityKind` reflects the current tool or thinking
+state. If already true, prove and close with evidence only.
 
 ---
 
@@ -206,14 +218,20 @@ true, prove and close with evidence only.
 
 ### Fix
 
-Add `docs/qa/opencode-mutating-commit/MULTI.md` (+ tiny second file) with
-instructions: edit both, run a named noop test or touch a `.swift` fixture
-under `Tests/` that is harness-only, commit. Document Pro prompt.
+Add `docs/qa/opencode-mutating-commit/MULTI.md` + a second file
+`docs/qa/opencode-mutating-commit/MULTI_AUX.md` (tiny, ~5 lines) with
+instructions: edit both, run a named noop test (e.g.
+`testMultiFileMutatingHarnessNoop` in `AllnighterCoreTests`) or touch a
+`.swift` fixture under `Tests/AllnighterCoreTests/Fixtures/` that is
+harness-only, commit. Document the Pro prompt used in `MULTI.md` § "Prompt
+used" so the harness is reproducible.
 
 ### Works Test
 
-Live Flash or Pro: `committed: true`, both paths in `repoDelta.files`, and the
-named noop test / fixture verification passes.
+Live Flash or Pro: `committed: true`, both `MULTI.md` and `MULTI_AUX.md` (or
+the fixture) in `repoDelta.files`, and the named noop test / fixture
+verification passes. The harness README (`MULTI.md`) documents the Pro prompt
+used.
 
 ---
 
@@ -223,6 +241,10 @@ named noop test / fixture verification passes.
 OMH-S01 (teaching) → OMH-S02 (under-ship gate) → OMH-S04 (slice bounds)
   → OMH-S03 (heartbeat) → OMH-S05 (multi-file harness)
 ```
+
+**Dependencies:** S02 depends on S01 (the gate references the help topic). S04
+is independent but ships after S02 so the playbook bullet lands in the same
+section. S03 and S05 are independent of each other and of S01–S04.
 
 S01 and S02 change how we instruct and check Pro before any new code is
 written. S04 prevents the next oversized prompt. S03 and S05 are proof and
