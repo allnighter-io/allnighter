@@ -199,6 +199,61 @@ launch", which is not yet answered.
 Freshness still needs honest handling: the reading carries the log entry's own
 timestamp and must fail closed when stale, never re-stamped to now.
 
+## 4b. Measured: a cheap model reads the captured text — 10/10
+
+Founder, 2026-08-08: *"trust the agent. Your fear it will invent shit is not
+supported by data... if we ALWAYS have the text this should be our fallback
+everywhere. Use the cheapest model of the CLI. My gut 10x simpler and dead
+accurate. You can test it."*
+
+Tested rather than argued. Real captures taken from live probes (the probe was
+temporarily made to dump successful panes too), fed to
+`model_cursor_composer_25` — the cheapest Cursor seat — and scored against what
+the deterministic parser reported for the *same* refresh.
+
+| Case | Truth | Model | Verdict |
+| --- | --- | --- | --- |
+| agy success | 93.19 | 93.19 | correct |
+| claude_code success | 26 | 26 | correct |
+| codex success | 97 | 97 | correct |
+| grok success | 92 | 92 | correct |
+| kimi success | 51 | 51 | correct |
+| cursor success | 52 | 52 | correct *(see below)* |
+| claude_code splash/boot | unknown | `null`, `confident: false` | correct |
+| codex boot chrome | unknown | `null`, `confident: false` | correct |
+| cursor composer | unknown | `null`, `confident: false` | correct |
+| grok splash animation | unknown | `null`, `confident: false` | correct |
+
+**Zero hallucinations across four negative cases.** Each returned null with
+`confident: false` and an honest reason ("Splash screen only, no quota data").
+The lead's stated fear that a model would invent a number was not supported.
+
+The only initial miss was cursor, reported as 57 against a parser value of 52 —
+and it was **not** a model error. Cursor's pane lists three pools:
+
+```
+Included  43% used → 57 remaining
+Auto      42% used → 58 remaining
+API       48% used → 52 remaining   ← parser's "effective"
+```
+
+The model read `Included`, a real row, correctly converted. The prompt simply
+never said which pool wins when there are several. Re-asked with that specified,
+it returned all three pools and `mostConstrainedRemaining: 52` — exact. It also
+surfaced the `Included` pool, **which our regex parser does not track at all**.
+
+### Why this is the stronger design, not just an equal one
+
+One generic prompt read **six different vendors' screen formats**. The
+deterministic path needs, per source: a readiness predicate, a marker list, a
+usage-pane detector, and a parser — every one of which broke today.
+
+Untested, and honest about it: per-call cost and latency at a real cadence;
+behaviour on a genuinely rate-limited vendor (the "if it fails to run, that IS
+the unavailability answer" claim); run-to-run consistency (one sample each); and
+half-painted panes, since the negatives here were splash and boot chrome rather
+than partial renders.
+
 ## 5. Migration shape (not authorized)
 
 The TUI scrape does not have to die at once. It is already a per-source
