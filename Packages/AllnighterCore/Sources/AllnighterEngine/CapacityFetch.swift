@@ -89,6 +89,13 @@ public enum CapacityFetch {
             historyWriteFailed = true
             fputs("alln serve: capacity history write failed — \(error)\n", stderr)
         }
+        // CRS-S03: persist per-source attempt facts so partial bench success
+        // cannot silence failed seats for a full gate window.
+        do {
+            try historyStore.recordAttempts(allWindows, now: now)
+        } catch {
+            fputs("alln serve: capacity attempt write failed — \(error)\n", stderr)
+        }
         let rows = CapacityBenchProjection.rows(from: allWindows, now: now)
         return Snapshot(now: now, windows: allWindows, rows: rows,
                         historyWriteFailed: historyWriteFailed)

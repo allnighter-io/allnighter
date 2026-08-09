@@ -70,7 +70,17 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
     /// of the way — two processes probing at once means two waves of vendor TUIs
     /// competing for the machine, and probes are measurably load-sensitive.
     func testDoesNotRefreshWhileHistoryIsFresh() throws {
-        try record(used: 40, observedAt: t0.addingTimeInterval(-60))
+        for source in CapacityAcquisition.benchSourceOrder {
+            try store.record(
+                [CapacityWindow(
+                    used: 40, source: source, scope: .weekly, resetAt: resetBase,
+                    resetPrecision: .exact,
+                    observedAt: t0.addingTimeInterval(-60),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0
+            )
+        }
         XCTAssertFalse(scheduler().shouldRefresh(at: t0))
     }
 
@@ -110,23 +120,35 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
     /// committing history.
     func testDoesNotRefreshWhenAgeIsWithinMargin() throws {
         let gate = CapacityPaintGate.gateInterval
-        try record(used: 40, observedAt: t0.addingTimeInterval(-gate - 30))
+        for source in CapacityAcquisition.benchSourceOrder {
+            try store.record(
+                [CapacityWindow(
+                    used: 40, source: source, scope: .weekly, resetAt: resetBase,
+                    resetPrecision: .exact,
+                    observedAt: t0.addingTimeInterval(-gate - 30),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0
+            )
+        }
         // 30s past gate but well within the 2m margin.
         XCTAssertFalse(scheduler().shouldRefresh(at: t0))
     }
 
-    /// A scheduler over a private store holding exactly one observation.
+    /// A scheduler over a private store holding one observation per bench source.
     private func isolatedScheduler(observedAt: Date) throws -> CapacityRefreshScheduler {
         let root = tempRoot.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let isolated = CapacityHistoryStore(rootDirectory: root)
-        try isolated.record(
-            [CapacityWindow(
-                used: 40, source: "grok", scope: .weekly, resetAt: resetBase,
-                resetPrecision: .exact, observedAt: observedAt, sourceTier: .tuiProbe
-            )],
-            now: observedAt
-        )
+        for source in CapacityAcquisition.benchSourceOrder {
+            try isolated.record(
+                [CapacityWindow(
+                    used: 40, source: source, scope: .weekly, resetAt: resetBase,
+                    resetPrecision: .exact, observedAt: observedAt, sourceTier: .tuiProbe
+                )],
+                now: observedAt
+            )
+        }
         return CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(
                 fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
@@ -160,20 +182,18 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
     /// re-probing on the strength of a single stale seat would spend quota on
     /// every other seat too.
     func testRecencyIsTheNewestObservationAcrossSources() throws {
-        try store.record(
-            [
-                CapacityWindow(used: 10, source: "grok", scope: .weekly, resetAt: resetBase,
-                               resetPrecision: .exact,
-                               observedAt: t0.addingTimeInterval(-48 * 3600),
-                               sourceTier: .tuiProbe),
-                CapacityWindow(used: 20, source: "codex", scope: .weekly, resetAt: resetBase,
-                               resetPrecision: .exact,
-                               observedAt: t0.addingTimeInterval(-60),
-                               sourceTier: .tuiProbe),
-            ],
-            now: t0
-        )
-        XCTAssertEqual(scheduler().newestObservation(at: t0), t0.addingTimeInterval(-60))
+        let oldTime = t0.addingTimeInterval(-48 * 3600)
+        let recentTime = t0.addingTimeInterval(-60)
+        for source in CapacityAcquisition.benchSourceOrder {
+            try store.record(
+                [CapacityWindow(used: 10, source: source, scope: .weekly, resetAt: resetBase,
+                                resetPrecision: .exact,
+                                observedAt: source == "codex" ? recentTime : oldTime,
+                                sourceTier: .tuiProbe)],
+                now: t0
+            )
+        }
+        XCTAssertEqual(scheduler().newestObservation(at: t0), recentTime)
         XCTAssertFalse(scheduler().shouldRefresh(at: t0))
     }
 
@@ -193,6 +213,17 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         XCTAssertEqual(calls.value, 1, "empty history is stale — must refresh once")
 
         try record(used: 40, observedAt: t0.addingTimeInterval(-60))
+        for source in CapacityAcquisition.benchSourceOrder where source != "grok" {
+            try store.record(
+                [CapacityWindow(
+                    used: 40, source: source, scope: .weekly, resetAt: resetBase,
+                    resetPrecision: .exact,
+                    observedAt: t0.addingTimeInterval(-60),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0
+            )
+        }
         let fresh = CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
@@ -485,9 +516,179 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         XCTAssertEqual(t(4), min(gate, 40 * 60), "n=4 → capped at gate")
         XCTAssertEqual(t(10), gate, "n=10 → capped at gate")
     }
+
+    // MARK: - CRS-S03: Partial retry ledger
+
+    /// 4 success + 2 failure attempts aged past 5m → `shouldRefresh` true while
+    /// successes are still inside gate+margin.
+    func testPartialRetryWhenFailedAttemptsStale() throws {
+        let gate = CapacityPaintGate.gateInterval
+        let successAge = gate - 60 // Fresh — well inside gate+margin.
+
+        for source in CapacityAcquisition.benchSourceOrder.prefix(6) {
+            try store.record(
+                [CapacityWindow(
+                    used: 40, source: source, scope: .weekly,
+                    resetAt: resetBase, resetPrecision: .exact,
+                    observedAt: t0.addingTimeInterval(-successAge),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0
+            )
+        }
+
+        let attemptAge = CapacityRefreshScheduler.tickInterval + 10 // 5m + 10s
+        let failedSources = Array(CapacityAcquisition.benchSourceOrder.suffix(2))
+        for source in failedSources {
+            try store.recordAttempts(
+                [CapacityWindow.unknown(
+                    reason: .spawnFailed(observedAt: t0.addingTimeInterval(-attemptAge)),
+                    source: source,
+                    scope: .weekly,
+                    observedAt: t0.addingTimeInterval(-attemptAge),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0.addingTimeInterval(-attemptAge)
+            )
+        }
+
+        XCTAssertTrue(scheduler().shouldRefresh(at: t0),
+                      "stale failed attempts must trigger partial retry while successes are fresh")
+    }
+
+    /// Same as above but attempts are newer than 5m → `shouldRefresh` false
+    /// (backoff guard holds for this turn).
+    func testNoRefreshWhenFailedAttemptsAreNew() throws {
+        let gate = CapacityPaintGate.gateInterval
+        let successAge = gate - 60
+
+        for source in CapacityAcquisition.benchSourceOrder.prefix(6) {
+            try store.record(
+                [CapacityWindow(
+                    used: 40, source: source, scope: .weekly,
+                    resetAt: resetBase, resetPrecision: .exact,
+                    observedAt: t0.addingTimeInterval(-successAge),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0
+            )
+        }
+
+        let attemptAge: TimeInterval = 120 // 2m — inside retryWindow.
+        let failedSources = Array(CapacityAcquisition.benchSourceOrder.suffix(2))
+        for source in failedSources {
+            try store.recordAttempts(
+                [CapacityWindow.unknown(
+                    reason: .spawnFailed(observedAt: t0.addingTimeInterval(-attemptAge)),
+                    source: source,
+                    scope: .weekly,
+                    observedAt: t0.addingTimeInterval(-attemptAge),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0.addingTimeInterval(-attemptAge)
+            )
+        }
+
+        XCTAssertFalse(scheduler().shouldRefresh(at: t0),
+                       "fresh failed attempts must not trigger refresh")
+    }
+
+    /// All-success fresh history → false (no regression from S02).
+    func testAllSuccessFreshNoPartialRetry() throws {
+        let successAge = CapacityPaintGate.gateInterval - 60
+
+        for source in CapacityAcquisition.benchSourceOrder {
+            try store.record(
+                [CapacityWindow(
+                    used: 40, source: source, scope: .weekly,
+                    resetAt: resetBase, resetPrecision: .exact,
+                    observedAt: t0.addingTimeInterval(-successAge),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0
+            )
+        }
+
+        XCTAssertFalse(scheduler().shouldRefresh(at: t0))
+    }
+
+    /// A source in benchSourceOrder with neither success nor attempt file → true
+    /// (cold seat, preserved from the original cold case).
+    func testColdSeatNoSuccessNoAttemptTriggersRefresh() throws {
+        let successAge = CapacityPaintGate.gateInterval - 60
+
+        for source in CapacityAcquisition.benchSourceOrder.dropLast() {
+            try store.record(
+                [CapacityWindow(
+                    used: 40, source: source, scope: .weekly,
+                    resetAt: resetBase, resetPrecision: .exact,
+                    observedAt: t0.addingTimeInterval(-successAge),
+                    sourceTier: .tuiProbe
+                )],
+                now: t0
+            )
+        }
+
+        XCTAssertTrue(scheduler().shouldRefresh(at: t0),
+                      "seat with no success and no attempt is cold — must refresh")
+    }
+
+    /// An attempt record is NOT a capacity window — it must never project as
+    /// usedPercent / resetAt in lastKnownWindows.
+    func testAttemptRecordDoesNotProjectAsWindowValues() throws {
+        try store.recordAttempts(
+            [CapacityWindow.unknown(
+                reason: .spawnFailed(observedAt: t0),
+                source: "grok",
+                scope: .weekly,
+                observedAt: t0,
+                sourceTier: .tuiProbe
+            )],
+            now: t0
+        )
+
+        let attempt = store.lastAttempt(sourceId: "grok")
+        XCTAssertNotNil(attempt)
+        XCTAssertEqual(attempt?.sourceId, "grok")
+        XCTAssertEqual(attempt?.unknownReasonKind, "spawnFailed")
+
+        let windows = store.lastKnownWindows(sourceIds: ["grok"], now: t0)
+        XCTAssertTrue(windows.isEmpty,
+                      "attempt records must not hydrate as capacity windows")
+    }
+
+    /// When a source previously had a failed attempt but now records a durable
+    /// success, the attempt file is healed (deleted).
+    func testDurableSuccessHealsAttemptFile() throws {
+        try store.recordAttempts(
+            [CapacityWindow.unknown(
+                reason: .spawnFailed(observedAt: t0),
+                source: "grok",
+                scope: .weekly,
+                observedAt: t0,
+                sourceTier: .tuiProbe
+            )],
+            now: t0
+        )
+        XCTAssertNotNil(store.lastAttempt(sourceId: "grok"),
+                        "attempt file must exist after failed probe")
+
+        try store.recordAttempts(
+            [CapacityWindow(
+                used: 40, source: "grok", scope: .weekly,
+                resetAt: resetBase, resetPrecision: .exact,
+                observedAt: t0.addingTimeInterval(60),
+                sourceTier: .tuiProbe
+            )],
+            now: t0.addingTimeInterval(60)
+        )
+
+        XCTAssertNil(store.lastAttempt(sourceId: "grok"),
+                     "attempt file must be healed after durable success in the same batch")
+    }
 }
 
-// MARK: - Helpers
+    // MARK: - Helpers
 
 private final class Counter: @unchecked Sendable {
     private let lock = NSLock()

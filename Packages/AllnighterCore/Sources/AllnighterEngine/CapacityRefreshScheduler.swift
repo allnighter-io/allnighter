@@ -239,19 +239,65 @@ public struct CapacityRefreshScheduler: Sendable {
         }
     }
 
-    /// True when nothing has observed capacity within the freshness window.
+    /// True when nothing has observed capacity within the freshness window, or
+    /// when any bench source has a stale failed attempt.
     ///
     /// Feature OFF means zero probes from every trigger (CWB-S01b) — a
     /// background scheduler is not an exception to that, and must not spend the
     /// user's quota while the feature is switched off.
+    ///
+    /// ## CRS-S03 partial retry
+    ///
+    /// When 4/6 seats succeed under load, `record` marks history fresh and the
+    /// 2 failed seats previously waited a full 30m gate. Now:
+    ///
+    /// - Success still dominates the primary freshness clock (S02).
+    /// - Each failed source gets a durable attempt record (written by
+    ///   `liveSnapshot` → `recordAttempts`). `shouldRefresh` checks those
+    ///   records on the 5m retry window: a stale attempt triggers refresh even
+    ///   when successes are inside gate+margin.
+    /// - A failed attempt newer than the retry window is the backoff guard —
+    ///   don't retry it yet.
+    /// - A source with neither success nor attempt is cold → refresh.
     public func shouldRefresh(at instant: Date) -> Bool {
         guard featureSettings.loadEnabled() else { return false }
-        guard let newest = newestObservation(at: instant) else {
-            // Never sampled at all — refresh, that is the whole point.
+
+        let windows = historyStore.lastKnownWindows(now: instant)
+        let successes = windows.filter { $0.unknownReason == nil }
+        let newestSuccess = successes.map(\.observedAt).max()
+
+        // Cold: no successful observation at all — refresh, that is the whole point.
+        guard let newest = newestSuccess else {
             return true
         }
-        return instant.timeIntervalSince(newest)
-            >= CapacityPaintGate.gateInterval + Self.serveFreshnessMargin
+
+        // S02: successes aged past gate+margin → full-bench refresh due.
+        let gate = CapacityPaintGate.gateInterval + Self.serveFreshnessMargin
+        if instant.timeIntervalSince(newest) >= gate {
+            return true
+        }
+
+        // CRS-S03: successes are still inside gate+margin, but check whether any
+        // bench source has a stale failed attempt.
+        let retryWindow = Self.tickInterval // 5m
+        let successSources = Set(successes.map(\.source))
+        let attempts = historyStore.lastAttempts()
+        let attemptBySource = Dictionary(uniqueKeysWithValues: attempts.map { ($0.sourceId, $0) })
+
+        for source in CapacityAcquisition.benchSourceOrder {
+            if successSources.contains(source) { continue }
+            // No durable success window for this source.
+            guard let attempt = attemptBySource[source] else {
+                // Cold seat: no success and no attempt file → refresh.
+                return true
+            }
+            if instant.timeIntervalSince(attempt.attemptedAt) >= retryWindow {
+                return true
+            }
+        }
+
+        // Successes fresh, failures recently attempted → do not refresh.
+        return false
     }
 
     /// Newest observation across every bench source, or nil when history is

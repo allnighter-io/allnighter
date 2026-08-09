@@ -76,6 +76,22 @@ public struct CapacityWindowRecord: Codable, Sendable, Equatable {
     }
 }
 
+// MARK: - CapacityProbeAttemptRecord
+
+/// Per-source failed-probe ledger — a durable shared fact both the Dock resident
+/// and serve can read (invariant 1). One file per source beside the history
+/// window file, e.g. `codex.attempt.json`. Atomic temp+rename write, no
+/// cross-process lock (invariant 6). Heal-on-next: when a source records a
+/// durable success, its attempt file is deleted.
+///
+/// Stores only a timestamp and a stable reason-kind string — no capacity values
+/// (used%, resetAt). A failed attempt is proof we tried, not a vendor fact.
+public struct CapacityProbeAttemptRecord: Codable, Sendable, Equatable {
+    public let sourceId: String
+    public let attemptedAt: Date
+    public let unknownReasonKind: String?
+}
+
 // MARK: - CapacityHistoryStore
 
 /// Durable per-window capacity history under `AllnighterPaths.capacity`.
@@ -158,6 +174,91 @@ public struct CapacityHistoryStore: Sendable {
         let bySource = Dictionary(grouping: recordable, by: \.sourceId)
         for (sourceId, seeds) in bySource {
             try mergeAndWrite(sourceId: sourceId, seeds: seeds)
+        }
+    }
+
+    // MARK: - CRS-S03 Attempt ledger
+
+    /// Attempt file for one source. Same root directory as window files, distinct
+    /// `*.attempt.json` suffix so concurrent writers on different sources or
+    /// different file types stay on disjoint files (invariant 6).
+    public func attemptFileURL(sourceId: String) -> URL {
+        rootDirectory.appendingPathComponent("\(Self.safeFileStem(sourceId)).attempt.json")
+    }
+
+    /// Persist per-source probe attempts. For each window with `unknownReason`,
+    /// write/overwrite that source's attempt file with `attemptedAt = now`.
+    /// Sources with ≥1 durable success in the same batch and zero failures:
+    /// **delete** their attempt file (heal — seat recovered).
+    ///
+    /// Call after `record` so durable windows are already persisted. Failing to
+    /// write an attempt is a separate error path — it must not clear
+    /// `historyWriteFailed` in `CapacityFetch.liveSnapshot`.
+    public func recordAttempts(_ windows: [CapacityWindow], now: Date) throws {
+        let failedSources = Set(windows.filter { $0.unknownReason != nil }.map(\.source))
+        let successSources = Set(
+            windows.filter { $0.unknownReason == nil && $0.usedPercent != nil }.map(\.source)
+        )
+
+        for source in failedSources {
+            let kind = windows
+                .first(where: { $0.source == source && $0.unknownReason != nil })?
+                .unknownReason
+                .map(Self.reasonKind)
+            let record = CapacityProbeAttemptRecord(
+                sourceId: source,
+                attemptedAt: now,
+                unknownReasonKind: kind
+            )
+            try writeAttempt(sourceId: source, record: record)
+        }
+
+        for source in successSources.subtracting(failedSources) {
+            deleteAttempt(sourceId: source)
+        }
+    }
+
+    /// Load the last attempt for one source. Missing / corrupt / unreadable → nil.
+    public func lastAttempt(sourceId: String) -> CapacityProbeAttemptRecord? {
+        let url = attemptFileURL(sourceId: sourceId)
+        guard let data = try? Data(contentsOf: url),
+              let record = try? CoreJSON.decode(CapacityProbeAttemptRecord.self, from: data)
+        else { return nil }
+        return record
+    }
+
+    /// Load last attempts for a set of sources (default: full bench order).
+    public func lastAttempts(
+        sourceIds: [String] = CapacityAcquisition.benchSourceOrder
+    ) -> [CapacityProbeAttemptRecord] {
+        sourceIds.compactMap { lastAttempt(sourceId: $0) }
+    }
+
+    // MARK: - Attempt file I/O
+
+    private func writeAttempt(sourceId: String, record: CapacityProbeAttemptRecord) throws {
+        try FileManager.default.createDirectory(at: rootDirectory, withIntermediateDirectories: true)
+        let data = try CoreJSON.encode(record)
+        try data.write(to: attemptFileURL(sourceId: sourceId), options: .atomic)
+    }
+
+    private func deleteAttempt(sourceId: String) {
+        try? FileManager.default.removeItem(at: attemptFileURL(sourceId: sourceId))
+    }
+
+    /// Stable string key for `CapacityUnknownReason` — enough to prove a
+    /// specific failure kind without inventing capacity values (used%, resetAt).
+    private static func reasonKind(_ reason: CapacityUnknownReason) -> String {
+        switch reason {
+        case .vendorExposesNothing: return "vendorExposesNothing"
+        case .parserFailed: return "parserFailed"
+        case .neverSampled: return "neverSampled"
+        case .spawnFailed: return "spawnFailed"
+        case .probeTimeout: return "probeTimeout"
+        case .emptyCapture: return "emptyCapture"
+        case .expired: return "expired"
+        case .disabled: return "disabled"
+        case .authRequired: return "authRequired"
         }
     }
 
