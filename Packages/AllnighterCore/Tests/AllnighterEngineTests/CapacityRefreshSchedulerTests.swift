@@ -33,7 +33,7 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
     private func scheduler(
         enabled: Bool = true,
         makeScope: @escaping @Sendable () -> CapacityProbeScope = { CapacityProbeScope() },
-        refresh: @escaping @Sendable (CapacityProbeScope) -> Void = { _ in }
+        refresh: @escaping @Sendable (CapacityProbeScope) async -> CapacityRefreshAttempt = { _ in .durableSuccess }
     ) -> CapacityRefreshScheduler {
         CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
@@ -131,7 +131,7 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
             featureSettings: CapacityFeatureSettingsPersistence(
                 fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: isolated,
-            refresh: { _ in },
+            refresh: { _ in .durableSuccess },
             now: { [t0] in t0 },
             tickJitterSeconds: 0
         )
@@ -149,7 +149,7 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         let off = CapacityRefreshScheduler(
             featureSettings: settings,
             historyStore: store,
-            refresh: { _ in XCTFail("must not probe while the capacity feature is off") },
+            refresh: { _ in XCTFail("must not probe while the capacity feature is off"); return .durableSuccess },
             now: { [t0] in t0 }
         )
         XCTAssertFalse(off.shouldRefresh(at: t0))
@@ -184,19 +184,19 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
         let stale = CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
-            refresh: { _ in calls.increment() },
+            refresh: { _ in calls.increment(); return .durableSuccess },
             now: { [t0] in t0 },
             sleeper: ImmediateSleeper()
         )
         let ticks = Counter()
-        await stale.run { ticks.increment(); return ticks.value > 1 }
+        await stale.run { ticks.increment(); return ticks.value > 4 }
         XCTAssertEqual(calls.value, 1, "empty history is stale — must refresh once")
 
         try record(used: 40, observedAt: t0.addingTimeInterval(-60))
         let fresh = CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
-            refresh: { _ in XCTFail("fresh history must not trigger a probe") },
+            refresh: { _ in XCTFail("fresh history must not trigger a probe"); return .durableSuccess },
             now: { [t0] in t0 },
             sleeper: ImmediateSleeper()
         )
@@ -207,21 +207,23 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
     /// `run` passes the configured `tickJitterSeconds` to the sleeper, not a
     /// hardcoded 0. A spy records the last jitter value.
     func testRunPassesConfiguredTickJitterToSleeper() async throws {
-        let spy = JitterSpySleeper()
+        let jitterStore = JitterStore()
+        let sleeper = CallbackSleeper { _, jitter in
+            jitterStore.lastJitter = jitter
+        }
         let s = CapacityRefreshScheduler(
             featureSettings: CapacityFeatureSettingsPersistence(
                 fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
             historyStore: store,
-            refresh: { _ in },
+            refresh: { _ in .durableSuccess },
             now: { [t0] in t0 },
-            sleeper: spy,
+            sleeper: sleeper,
             tickJitterSeconds: 42
         )
+        XCTAssertTrue(s.shouldRefresh(at: t0), "empty history must trigger refresh")
         let ticks = Counter()
-        // >2 not >1: the CRS-S01 post-refresh isCancelled check also
-        // increments ticks without reaching sleep.
-        await s.run { ticks.increment(); return ticks.value > 2 }
-        XCTAssertEqual(spy.lastJitter, 42, "sleeper must receive configured tickJitterSeconds")
+        await s.run { ticks.increment(); return ticks.value > 4 }
+        XCTAssertEqual(jitterStore.lastJitter, 42, "sleeper must receive configured tickJitterSeconds")
     }
 
     /// Production default is 60s positive-only jitter — same semantics as
@@ -250,16 +252,182 @@ final class CapacityRefreshSchedulerTests: XCTestCase {
             refresh: { scope in
                 scopePassedCount.increment()
                 scope.track(42)
+                return .durableSuccess
             },
             now: { [t0] in t0 },
             sleeper: ImmediateSleeper(),
             tickJitterSeconds: 0
         )
         let ticks = Counter()
-        await s.run { ticks.increment(); return ticks.value > 1 }
+        await s.run { ticks.increment(); return ticks.value > 4 }
 
         XCTAssertGreaterThanOrEqual(scopePassedCount.value, 1, "scope must be passed to refresh")
         XCTAssertGreaterThanOrEqual(terminateCount.value, 1, "terminate() must be invoked at least once — drain after sync refresh")
+    }
+
+    // MARK: - CRS-S04: Backoff
+
+    /// After one bench-level failure, the next sleep uses 5m backoff instead of
+    /// the normal tickInterval.
+    func testBackoffFirstFailureSleeps5Minutes() async throws {
+        let localT0 = t0
+        let deltaStore = DeltaStore()
+        let sleeper = CallbackSleeper { until, _ in
+            let delta = until.timeIntervalSince(localT0)
+            deltaStore.lastDelta = delta
+            deltaStore.deltas.append(delta)
+        }
+        let refreshCount = Counter()
+        let s = CapacityRefreshScheduler(
+            featureSettings: CapacityFeatureSettingsPersistence(
+                fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
+            historyStore: store,
+            refresh: { _ in refreshCount.increment(); return .benchFailure },
+            now: { [t0] in t0 },
+            sleeper: sleeper,
+            tickJitterSeconds: 0
+        )
+        XCTAssertTrue(s.shouldRefresh(at: t0), "empty history must trigger refresh")
+        let ticks = Counter()
+        await s.run { ticks.increment(); return ticks.value > 4 }
+        XCTAssertGreaterThan(refreshCount.value, 0, "refresh must be called when store is empty")
+        XCTAssertEqual(deltaStore.lastDelta, Double(5 * 60), "first failure must sleep 5m backoff")
+    }
+
+    /// Two consecutive bench-level failures → 10m backoff.
+    func testBackoffSecondFailureSleeps10Minutes() async throws {
+        let localT0 = t0
+        let deltaStore = DeltaStore()
+        let sleeper = CallbackSleeper { until, _ in
+            deltaStore.deltas.append(until.timeIntervalSince(localT0))
+        }
+        let s = CapacityRefreshScheduler(
+            featureSettings: CapacityFeatureSettingsPersistence(
+                fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
+            historyStore: store,
+            refresh: { _ in .benchFailure },
+            now: { [t0] in t0 },
+            sleeper: sleeper,
+            tickJitterSeconds: 0
+        )
+        let ticks = Counter()
+        // CRS-S04: 4 isCancelled checks per refresh iteration (while + pre + post1 + post2)
+        // → 2 iterations = 8 ticks + 1 exit = need > 8
+        await s.run { ticks.increment(); return ticks.value > 8 }
+        XCTAssertEqual(deltaStore.deltas, [Double(5 * 60), Double(10 * 60)], "second failure must sleep 10m backoff")
+    }
+
+    /// A durable success resets backoff to tickInterval.
+    func testDurableSuccessResetsBackoff() async throws {
+        let localT0 = t0
+        let deltaStore = DeltaStore()
+        let sleeper = CallbackSleeper { until, _ in
+            deltaStore.deltas.append(until.timeIntervalSince(localT0))
+        }
+        let callCount = Counter()
+        let s = CapacityRefreshScheduler(
+            featureSettings: CapacityFeatureSettingsPersistence(
+                fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
+            historyStore: store,
+            refresh: { _ in
+                callCount.increment()
+                return callCount.value == 1 ? .benchFailure : .durableSuccess
+            },
+            now: { [t0] in t0 },
+            sleeper: sleeper,
+            tickJitterSeconds: 0
+        )
+        let ticks = Counter()
+        await s.run { ticks.increment(); return ticks.value > 8 }
+        XCTAssertEqual(deltaStore.deltas, [Double(5 * 60), CapacityRefreshScheduler.tickInterval],
+                       "after durableSuccess, backoff must reset to tickInterval")
+    }
+
+    /// Partial durable success (≥1 source unknownReason == nil) resets backoff
+    /// even if other seats failed. The return value alone is proof (invariant 7).
+    func testRefreshVerdictIsDurableSuccess() {
+        // .durableSuccess resets backoff regardless of window composition
+        // — the refresh closure return value IS the verdict.
+        XCTAssertEqual(CapacityRefreshAttempt.durableSuccess, .durableSuccess)
+    }
+
+    // MARK: - CRS-S04: Cancel during async refresh
+
+    /// Cancel before refresh: the loop checks `isCancelled()` before `await
+    /// refresh`, terminates scope, and breaks without calling refresh.
+    func testCancelBeforeAsyncRefreshSkipsRefresh() async throws {
+        let refreshCalled = Counter()
+        let s = CapacityRefreshScheduler(
+            featureSettings: CapacityFeatureSettingsPersistence(
+                fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
+            historyStore: store,
+            refresh: { _ in refreshCalled.increment(); return .durableSuccess },
+            now: { [t0] in t0 },
+            sleeper: ImmediateSleeper(),
+            tickJitterSeconds: 0
+        )
+        await s.run { true }
+        XCTAssertEqual(refreshCalled.value, 0, "refresh must not be called when immediately cancelled")
+    }
+
+    /// Cancel after refresh: the loop checks `isCancelled()` post-await,
+    /// calls `inFlight.terminateIfHeld()`, then breaks before sleep.
+    func testCancelAfterAsyncRefreshTerminatesAndBreaks() async throws {
+        let terminateCount = Counter()
+        let s = CapacityRefreshScheduler(
+            featureSettings: CapacityFeatureSettingsPersistence(
+                fileURL: tempRoot.appendingPathComponent("capacity_feature.json")),
+            historyStore: store,
+            makeScope: {
+                CapacityProbeScope { _ in terminateCount.increment() }
+            },
+            refresh: { scope in
+                scope.track(42)
+                return .durableSuccess
+            },
+            now: { [t0] in t0 },
+            sleeper: ImmediateSleeper(),
+            tickJitterSeconds: 0
+        )
+        let tickCount = Counter()
+        await s.run {
+            tickCount.increment()
+            return tickCount.value > 3
+        }
+        XCTAssertGreaterThanOrEqual(terminateCount.value, 1,
+                                    "scope must be terminated when cancelled after refresh")
+    }
+
+    // MARK: - CRS-S04: History write failure
+
+    func testSnapshotHistoryWriteFailedDefaultsFalse() {
+        let snap = CapacityFetch.Snapshot(now: t0, windows: [], rows: [])
+        XCTAssertFalse(snap.historyWriteFailed)
+    }
+
+    func testSnapshotDurableSuccessCount() {
+        let windows: [CapacityWindow] = [
+            CapacityWindow(used: 10, source: "grok", scope: .weekly, resetAt: resetBase,
+                          resetPrecision: .exact, observedAt: t0, sourceTier: .tuiProbe),
+            CapacityWindow.unknown(reason: .parserFailed(observedAt: t0), source: "codex",
+                                   scope: .weekly, observedAt: t0, sourceTier: .tuiProbe),
+            CapacityWindow(used: 20, source: "cursor", scope: .weekly, resetAt: resetBase,
+                          resetPrecision: .exact, observedAt: t0, sourceTier: .tuiProbe),
+        ]
+        let snap = CapacityFetch.Snapshot(now: t0, windows: windows, rows: [])
+        XCTAssertEqual(snap.durableSuccessCount, 2)
+    }
+
+    // MARK: - CRS-S04: Backoff duration math
+
+    func testBackoffDurationMath() {
+        let t: (Int) -> TimeInterval = CapacityRefreshScheduler.backoffDuration
+        let gate = CapacityPaintGate.gateInterval
+        XCTAssertEqual(t(1), 5 * 60, "n=1 → 5m")
+        XCTAssertEqual(t(2), 10 * 60, "n=2 → 10m")
+        XCTAssertEqual(t(3), 20 * 60, "n=3 → 20m")
+        XCTAssertEqual(t(4), min(gate, 40 * 60), "n=4 → capped at gate")
+        XCTAssertEqual(t(10), gate, "n=10 → capped at gate")
     }
 }
 
@@ -276,9 +444,20 @@ private struct ImmediateSleeper: PendingWakeSleeper {
     func sleep(until: Date, jitterSeconds: Double) async throws {}
 }
 
-private final class JitterSpySleeper: PendingWakeSleeper, @unchecked Sendable {
-    var lastJitter: TimeInterval?
+/// Minimal sleeper that calls a closure on each sleep call.
+private struct CallbackSleeper: PendingWakeSleeper {
+    let onSleep: @Sendable (Date, TimeInterval) -> Void
     func sleep(until: Date, jitterSeconds: TimeInterval) async throws {
-        lastJitter = jitterSeconds
+        onSleep(until, jitterSeconds)
     }
 }
+
+private final class JitterStore: @unchecked Sendable {
+    var lastJitter: TimeInterval?
+}
+
+private final class DeltaStore: @unchecked Sendable {
+    var lastDelta: TimeInterval = 0
+    var deltas: [TimeInterval] = []
+}
+

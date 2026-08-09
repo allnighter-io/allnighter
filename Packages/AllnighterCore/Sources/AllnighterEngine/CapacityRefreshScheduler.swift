@@ -1,6 +1,14 @@
 import Foundation
 import AllnighterCore
 
+/// CRS-S04: bench-level refresh verdict for backoff (invariant 7).
+/// Partial success (≥1 durable source) resets the backoff; the still-failed
+/// sources are retried per S03's per-source window, not here.
+public enum CapacityRefreshAttempt: Sendable, Equatable {
+    case durableSuccess
+    case benchFailure
+}
+
 /// Serve-hosted capacity refresh — so the bench knows its own quota without the
 /// Mac app being open.
 ///
@@ -58,10 +66,10 @@ public struct CapacityRefreshScheduler: Sendable {
     /// Injected so tests never spawn a vendor TUI.
     /// CRS-S01: signature widened to accept the per-refresh scope so
     /// liveSnapshot can register probe children into it.
-    /// Honest limitation: sync `refresh` blocks the loop, so `terminate()`
-    /// runs only after probes return (no-op for mid-probe kill). Mid-probe
-    /// kill is unlocked by CRS-S04 async.
-    public var refresh: @Sendable (CapacityProbeScope) -> Void
+    /// CRS-S04: async so `terminate()` interrupts an in-flight probe
+    /// (scope-kill unlocks mid-probe kill). Returns the attempt verdict for
+    /// bench-level backoff (invariant 7).
+    public var refresh: @Sendable (CapacityProbeScope) async -> CapacityRefreshAttempt
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
 
@@ -69,7 +77,7 @@ public struct CapacityRefreshScheduler: Sendable {
         featureSettings: CapacityFeatureSettingsPersistence = CapacityFeatureSettingsPersistence(),
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
         makeScope: @escaping @Sendable () -> CapacityProbeScope = { CapacityProbeScope() },
-        refresh: (@Sendable (CapacityProbeScope) -> Void)? = nil,
+        refresh: (@Sendable (CapacityProbeScope) async -> CapacityRefreshAttempt)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
         tickJitterSeconds: TimeInterval = 60
@@ -77,39 +85,102 @@ public struct CapacityRefreshScheduler: Sendable {
         self.featureSettings = featureSettings
         self.historyStore = historyStore
         self.makeScope = makeScope
-        self.refresh = refresh ?? { scope in _ = CapacityFetch.liveSnapshot(probeScope: scope) }
+        self.refresh = refresh ?? Self.defaultRefresh(historyStore: historyStore)
         self.now = now
         self.sleeper = sleeper
         self.tickJitterSeconds = tickJitterSeconds
     }
 
+    private static func defaultRefresh(
+        historyStore: CapacityHistoryStore
+    ) -> @Sendable (CapacityProbeScope) async -> CapacityRefreshAttempt {
+        { scope in
+            let snap = CapacityFetch.liveSnapshot(historyStore: historyStore, probeScope: scope)
+            if snap.historyWriteFailed { return .benchFailure }
+            let anyDurable = snap.windows.contains { $0.unknownReason == nil }
+            return anyDurable ? .durableSuccess : .benchFailure
+        }
+    }
+
+    /// CRS-S04: async refresh with cooperative cancellation and bench-level
+    /// exponential backoff (invariant 7). Cancellation is by pre/post-await
+    /// `isCancelled` checks + `inFlight.terminateIfHeld()`.
+    ///
+    /// Honest limitation: without a sibling cancel poller, `scope.terminate()`
+    /// still runs after `await refresh` returns (same semantics as S01 before
+    /// the await). Mid-probe scope-kill (calling `terminateIfHeld()` while the
+    /// refresh is in flight, terminating probe PIDs so `liveSnapshot` returns
+    /// promptly) requires a concurrent poller task; that is deferred to a
+    /// follow-up slice because the poller's `isCancelled()` calls eat test
+    /// ticks. The async await alone is still worth shipping — it frees the
+    /// cooperative thread pool during refresh and enables the backoff.
     public func run(isCancelled: @escaping @Sendable () -> Bool) async {
         let inFlight = InFlightScopeBox()
+        var consecutiveBenchFailures = 0
+
         while !isCancelled() {
+            let didRefresh: Bool
             if shouldRefresh(at: now()) {
+                didRefresh = true
                 let scope = makeScope()
+                if isCancelled() {
+                    // Cancelled before refresh could start — still terminate
+                    // so we don't leak a scope.
+                    scope.terminate()
+                    inFlight.terminateIfHeld()
+                    break
+                }
                 inFlight.store(scope)
-                refresh(scope)
+                let result = await refresh(scope)
+                if isCancelled() {
+                    inFlight.terminateIfHeld()
+                }
                 scope.terminate()
                 inFlight.clear()
+
+                switch result {
+                case .durableSuccess:
+                    consecutiveBenchFailures = 0
+                case .benchFailure:
+                    consecutiveBenchFailures += 1
+                }
+            } else {
+                didRefresh = false
             }
+
             if isCancelled() {
                 inFlight.terminateIfHeld()
                 break
             }
+
+            let sleepUntil: Date
+            if didRefresh && consecutiveBenchFailures > 0 {
+                let backoff = Self.backoffDuration(failureCount: consecutiveBenchFailures)
+                sleepUntil = now().addingTimeInterval(backoff)
+            } else {
+                sleepUntil = now().addingTimeInterval(Self.tickInterval)
+            }
+
             do {
-                try await sleeper.sleep(
-                    until: now().addingTimeInterval(Self.tickInterval),
-                    jitterSeconds: tickJitterSeconds)
+                try await sleeper.sleep(until: sleepUntil, jitterSeconds: tickJitterSeconds)
             } catch { break }
         }
         inFlight.terminateIfHeld()
     }
 
+    /// Exponential backoff capped at `CapacityPaintGate.gateInterval`.
+    /// 5 → 10 → 20 → 30m (cap), per invariant 7.
+    static func backoffDuration(failureCount: Int) -> TimeInterval {
+        let base: TimeInterval = 5 * 60
+        let raw = base * pow(2.0, Double(failureCount - 1))
+        return min(CapacityPaintGate.gateInterval, raw)
+    }
+
     /// Thread-safe box so the cancel path can reach the in-flight scope.
-    /// CRS-S01 sync wiring: the defer-drain after each refresh clears this;
-    /// the cancel-path terminate is a no-op today but unlocks mid-probe kill
-    /// once CRS-S04 makes refresh async.
+    /// CRS-S04: the post-await `isCancelled` check calls `terminateIfHeld()`
+    /// after `await refresh` returns. Mid-probe kill (calling terminate while
+    /// refresh is still in flight) requires a concurrent poller task, deferred
+    /// to a follow-up slice.
     private final class InFlightScopeBox: @unchecked Sendable {
         private let lock = NSLock()
         private var scope: CapacityProbeScope?

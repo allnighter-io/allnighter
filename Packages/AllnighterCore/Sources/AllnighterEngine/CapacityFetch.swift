@@ -15,11 +15,18 @@ public enum CapacityFetch {
         public let now: Date
         public let windows: [CapacityWindow]
         public let rows: [CapacityBenchRow]
+        public let historyWriteFailed: Bool
 
-        public init(now: Date, windows: [CapacityWindow], rows: [CapacityBenchRow]) {
+        public var durableSuccessCount: Int {
+            windows.filter { $0.unknownReason == nil }.count
+        }
+
+        public init(now: Date, windows: [CapacityWindow], rows: [CapacityBenchRow],
+                    historyWriteFailed: Bool = false) {
             self.now = now
             self.windows = windows
             self.rows = rows
+            self.historyWriteFailed = historyWriteFailed
         }
     }
 
@@ -75,9 +82,16 @@ public enum CapacityFetch {
         let allWindows = dashboardWindows.isEmpty
             ? windows
             : windows.filter { $0.source != CapacityAcquisition.dogfoodSourceId } + dashboardWindows
-        try? historyStore.record(allWindows, now: now)
+        var historyWriteFailed = false
+        do {
+            try historyStore.record(allWindows, now: now)
+        } catch {
+            historyWriteFailed = true
+            fputs("alln serve: capacity history write failed — \(error)\n", stderr)
+        }
         let rows = CapacityBenchProjection.rows(from: allWindows, now: now)
-        return Snapshot(now: now, windows: allWindows, rows: rows)
+        return Snapshot(now: now, windows: allWindows, rows: rows,
+                        historyWriteFailed: historyWriteFailed)
     }
 
     /// Mac launch: six never-sampled placeholders. Fresh truth lives in the
