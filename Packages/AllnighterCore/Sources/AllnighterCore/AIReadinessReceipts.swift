@@ -54,10 +54,12 @@ public enum AIReadinessReceipts {
         }
     }
 
-    public static func tally(question: String, answers: [AIReadinessReport.BlindAnswer])
-        -> AIReadinessReport.ColdReadReceipt {
-        let totalCount = answers.count
-        let normalPairs: [(String, String)] = answers.compactMap { ba in
+    public static func tally(
+        question: String,
+        seatAnswers: [AIReadinessReport.BlindAnswer]
+    ) -> AIReadinessReport.ColdReadReceipt {
+        let totalCount = seatAnswers.count
+        let normalPairs: [(String, String)] = seatAnswers.compactMap { ba in
             isCouldNotDetermine(ba.answer) ? nil : (ba.seatId, normalize(ba.answer))
         }
         var clusterSizes: [String: Int] = [:]
@@ -65,13 +67,13 @@ public enum AIReadinessReceipts {
             clusterSizes[norm, default: 0] += 1
         }
         let agreedCount = clusterSizes.values.max() ?? 0
-        let hasCND = answers.contains { isCouldNotDetermine($0.answer) }
+        let hasCND = seatAnswers.contains { isCouldNotDetermine($0.answer) }
         let uniqueNormal = Set(normalPairs.map(\.1))
         let hasDisagreement = uniqueNormal.count > 1
         let notableMiss = buildNotableMiss(hasCND: hasCND, hasDisagreement: hasDisagreement)
         return AIReadinessReport.ColdReadReceipt(
             question: question,
-            answers: answers,
+            answers: seatAnswers,
             agreedCount: agreedCount,
             totalCount: totalCount,
             notableMiss: notableMiss
@@ -83,7 +85,7 @@ public enum AIReadinessReceipts {
         let blind = answers.enumerated().map { idx, answer in
             AIReadinessReport.BlindAnswer(seatId: "seat_\(idx)", answer: answer)
         }
-        return tally(question: question, answers: blind)
+        return tally(question: question, seatAnswers: blind)
     }
 
     private static func normalize(_ s: String) -> String {

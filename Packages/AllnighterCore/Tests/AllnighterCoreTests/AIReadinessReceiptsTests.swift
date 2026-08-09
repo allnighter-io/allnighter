@@ -96,7 +96,7 @@ final class AIReadinessReceiptsTests: XCTestCase {
     func testTallyPreservesSeatIds() {
         let receipt = AIReadinessReceipts.tally(
             question: "How do I run the tests here?",
-            answers: [
+            seatAnswers: [
                 AIReadinessReport.BlindAnswer(seatId: "readiness_setup_scout", answer: "npm test"),
                 AIReadinessReport.BlindAnswer(seatId: "readiness_test_infra_scout", answer: "npm test"),
                 AIReadinessReport.BlindAnswer(seatId: "readiness_measurement_auditor", answer: "could not determine")
