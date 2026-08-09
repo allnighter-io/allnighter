@@ -4,11 +4,19 @@ import Foundation
 ///
 /// Codex expresses quota as **remaining** capacity ("X% left"), which is the
 /// inverse of the used-polarity reported by most other CLIs.
-/// Reset time is an absolute `HH:MM on D Mon` string interpreted as UTC.
+/// Reset time is an absolute `HH:MM on D Mon` string. Codex's TUI renders this
+/// in the **host's local timezone** — confirmed against `account/rateLimits/read`
+/// (`resetsAt` unix epoch) and `~/.codex/sessions/…/rollout-*.jsonl`
+/// (`resets_at` epoch), both of which agree with each other and disagree with a
+/// UTC interpretation of the rendered string by exactly the host's UTC offset.
+/// Do not copy this to another vendor's parser — `GrokCapacityProbe` renders
+/// the same `HH:MM on D Mon` shape genuinely in UTC and must stay UTC
+/// (`Capacity_Native_Channels.md`, 2026-08-08 finding).
 public struct CodexProbeWindow: Sendable, Equatable {
     /// Remaining capacity percentage (0…100). `0%` means fully exhausted.
     public let remainingPercent: Double
-    /// Absolute reset timestamp (UTC), derived from "resets HH:MM on D Mon".
+    /// Absolute reset timestamp, derived from "resets HH:MM on D Mon" as
+    /// rendered in the host's local timezone (see type doc).
     public let resetAt: Date
     /// Plan tier extracted from the Account line (e.g. `"Plus"`, `"Pro"`). Nil when absent.
     public let planTier: String?
@@ -62,13 +70,27 @@ public enum CodexCapacityProbe {
 
     /// Parse then normalize into shared `CapacityWindow` values.
     /// Returns `[]` when the render yields no valid quota data.
-    public static func capacityWindows(fromRender renderText: String, observedAt: Date) -> [CapacityWindow] {
-        guard let w = parse(renderText: renderText, observedAt: observedAt) else { return [] }
+    ///
+    /// - Parameter timeZone: The zone the rendered `HH:MM on D Mon` string is
+    ///   in. Defaults to the host's local zone, because that is what codex's
+    ///   TUI actually renders — see the type doc. Callers never need to pass
+    ///   this in production; it exists so a regression test can pin a fixed,
+    ///   non-UTC zone rather than depending on the host running the test suite.
+    public static func capacityWindows(
+        fromRender renderText: String,
+        observedAt: Date,
+        timeZone: TimeZone = .current
+    ) -> [CapacityWindow] {
+        guard let w = parse(renderText: renderText, observedAt: observedAt, timeZone: timeZone) else { return [] }
         return [w.asCapacityWindow()]
     }
 
     /// Parse a Codex `/status` TUI render. Returns `nil` when no valid data found.
-    public static func parse(renderText: String, observedAt: Date) -> CodexProbeWindow? {
+    public static func parse(
+        renderText: String,
+        observedAt: Date,
+        timeZone: TimeZone = .current
+    ) -> CodexProbeWindow? {
         let clean = stripANSI(renderText)
         let lines = clean.components(separatedBy: .newlines)
 
@@ -89,7 +111,7 @@ public enum CodexCapacityProbe {
 
             // "(resets 21:32 on 4 Aug)" — may appear on a separate continuation line
             if lower.contains("resets") {
-                if let date = parseResetDateHHMM(from: stripped, observedAt: observedAt) {
+                if let date = parseResetDateHHMM(from: stripped, observedAt: observedAt, timeZone: timeZone) {
                     resetAt = date
                 }
             }
@@ -123,8 +145,10 @@ public enum CodexCapacityProbe {
         return Double(ns.substring(with: match.range(at: 1)))
     }
 
-    /// Parses "resets HH:MM on D Mon" (or with parentheses) → absolute UTC `Date`.
-    static func parseResetDateHHMM(from line: String, observedAt: Date) -> Date? {
+    /// Parses "resets HH:MM on D Mon" (or with parentheses) → absolute `Date`,
+    /// interpreting `HH:MM` in `timeZone` (the host's local zone by default —
+    /// see the type doc for why that, and not UTC, is correct for codex).
+    static func parseResetDateHHMM(from line: String, observedAt: Date, timeZone: TimeZone = .current) -> Date? {
         let pattern = #"resets\s+(\d{1,2}):(\d{2})\s+on\s+(\d{1,2})\s+([A-Za-z]+)"#
         guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return nil }
         let ns = line as NSString
@@ -134,7 +158,7 @@ public enum CodexCapacityProbe {
               let minute = Int(ns.substring(with: match.range(at: 2))),
               let day = Int(ns.substring(with: match.range(at: 3))) else { return nil }
         let monthStr = ns.substring(with: match.range(at: 4))
-        return resolveUTCDate(hour: hour, minute: minute, day: day, monthStr: monthStr, observedAt: observedAt)
+        return resolveDate(hour: hour, minute: minute, day: day, monthStr: monthStr, observedAt: observedAt, timeZone: timeZone)
     }
 
     /// Extracts plan tier from "Account: user@example.com (Plus)" → `"Plus"`.
@@ -151,18 +175,25 @@ public enum CodexCapacityProbe {
 
     // MARK: - Date resolution
 
-    /// Resolve an absolute UTC date from parsed HH:MM + day + month.
-    /// If the resolved date is already in the past relative to `observedAt`, advance one year.
-    private static func resolveUTCDate(
-        hour: Int, minute: Int, day: Int, monthStr: String, observedAt: Date
+    /// Resolve an absolute date from parsed HH:MM + day + month, interpreted
+    /// in `timeZone`. If the resolved date is already in the past relative to
+    /// `observedAt`, advance one year.
+    ///
+    /// `timeZone` is used only to interpret the wall-clock components read
+    /// off the screen — the returned `Date` is the normal timezone-agnostic
+    /// absolute instant. The year is still read off `observedAt` using the
+    /// SAME zone, so a render captured just after local midnight cannot roll
+    /// to the wrong year relative to what the screen actually showed.
+    private static func resolveDate(
+        hour: Int, minute: Int, day: Int, monthStr: String, observedAt: Date, timeZone: TimeZone
     ) -> Date? {
         guard let monthInt = monthNumber(monthStr) else { return nil }
         var cal = Calendar(identifier: .gregorian)
-        cal.timeZone = TimeZone(identifier: "UTC")!
+        cal.timeZone = timeZone
         let year = cal.component(.year, from: observedAt)
 
         var comps = DateComponents()
-        comps.timeZone = TimeZone(identifier: "UTC")
+        comps.timeZone = timeZone
         comps.year = year
         comps.month = monthInt
         comps.day = day

@@ -46,19 +46,83 @@ final class CodexCapacityProbeTests: XCTestCase {
         XCTAssertNil(w.unknownReason)
     }
 
+    /// Pins the parse mechanics (month/day/hour/minute extraction) with an
+    /// explicit UTC zone, independent of whatever zone the default parameter
+    /// would resolve to on the machine running this suite.
     func testCodexStatusRenderParsesResetDateAug4UTC() throws {
         let windows = CodexCapacityProbe.capacityWindows(
-            fromRender: codexStatusRender, observedAt: observedAt
+            fromRender: codexStatusRender, observedAt: observedAt, timeZone: TimeZone(identifier: "UTC")!
         )
         let w = try XCTUnwrap(windows.first)
         let reset = try XCTUnwrap(w.resetAt)
-        // "resets 21:32 on 4 Aug" → UTC August 4 at 21:32
+        // "resets 21:32 on 4 Aug" interpreted as UTC → August 4 at 21:32 UTC
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "UTC")!
         XCTAssertEqual(cal.component(.month, from: reset), 8)    // August
         XCTAssertEqual(cal.component(.day, from: reset), 4)
         XCTAssertEqual(cal.component(.hour, from: reset), 21)
         XCTAssertEqual(cal.component(.minute, from: reset), 32)
+    }
+
+    /// **Regression for the live 7-hour lie**: codex's TUI renders "resets
+    /// HH:MM on D Mon" in the HOST'S LOCAL timezone, not UTC — confirmed
+    /// against `account/rateLimits/read`'s `resetsAt` epoch and the on-disk
+    /// rollout log's `resets_at` epoch, which agree with each other. The old
+    /// implementation hardcoded `TimeZone(identifier: "UTC")`, which was
+    /// silently correct only on a UTC machine (error == host's UTC offset).
+    ///
+    /// This pins a FIXED non-UTC zone (`America/Los_Angeles`, PDT = UTC-7 in
+    /// August) explicitly — never `TimeZone.current` — so the assertion means
+    /// the same thing on every CI host, including a UTC one, where the old bug
+    /// would have been invisible.
+    ///
+    /// Mirrors the real capture from `Capacity_Native_Channels.md`: codex's own
+    /// `resetsAt: 1786825938` is `2026-08-15T20:32:18Z`, i.e. `13:32:18 PDT`.
+    func testCodexTUIResetInterpretedInHostLocalTimeNotUTC() throws {
+        let pdt = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let render = """
+        │  Weekly limit:         [░░░░░░░░░░░░░░░░░░░░] 87% left               │
+        │                        (resets 13:32 on 15 Aug)                      │
+          Account:              user@example.com (Plus)                       │
+        """
+        let windows = CodexCapacityProbe.capacityWindows(
+            fromRender: render, observedAt: observedAt, timeZone: pdt
+        )
+        let w = try XCTUnwrap(windows.first)
+        let reset = try XCTUnwrap(w.resetAt)
+
+        // 13:32 PDT (UTC-7) == 20:32 UTC the same day — NOT 13:32 UTC, which is
+        // what the pre-fix `TimeZone(identifier: "UTC")` code would have
+        // produced (year is deliberately not asserted here — it is whichever
+        // year `resolveDate` rolls forward to from `observedAt`, and is not
+        // the point of this regression; the offset is).
+        var utcCal = Calendar(identifier: .gregorian)
+        utcCal.timeZone = TimeZone(identifier: "UTC")!
+        XCTAssertEqual(utcCal.component(.month, from: reset), 8)
+        XCTAssertEqual(utcCal.component(.day, from: reset), 15)
+        XCTAssertEqual(utcCal.component(.hour, from: reset), 20)
+        XCTAssertEqual(utcCal.component(.minute, from: reset), 32)
+
+        // Directly contradicts the old bug: interpreting "13:32" as UTC
+        // (rather than PDT) would have landed on hour 13, not 20.
+        XCTAssertNotEqual(utcCal.component(.hour, from: reset), 13)
+    }
+
+    /// Sanity check that the default parameter is genuinely `.current`, not a
+    /// zone smuggled in as a default that happens to equal UTC.
+    func testCapacityWindowsDefaultsToHostLocalTimeZone() throws {
+        let render = """
+        Weekly limit: 50% left
+        (resets 10:00 on 20 Aug)
+        Account: user@x.com (Plus)
+        """
+        let explicitCurrent = CodexCapacityProbe.capacityWindows(
+            fromRender: render, observedAt: observedAt, timeZone: .current
+        )
+        let defaulted = CodexCapacityProbe.capacityWindows(
+            fromRender: render, observedAt: observedAt
+        )
+        XCTAssertEqual(explicitCurrent.first?.resetAt, defaulted.first?.resetAt)
     }
 
     // MARK: - parseLeftPercent
@@ -82,9 +146,10 @@ final class CodexCapacityProbeTests: XCTestCase {
     // MARK: - parseResetDateHHMM
 
     func testParseResetDate4Aug() {
-        // "(resets 21:32 on 4 Aug)"
+        // "(resets 21:32 on 4 Aug)" interpreted as UTC (explicit zone — pinned,
+        // not defaulted, so this stays meaningful on any CI host).
         let got = CodexCapacityProbe.parseResetDateHHMM(
-            from: "(resets 21:32 on 4 Aug)", observedAt: observedAt
+            from: "(resets 21:32 on 4 Aug)", observedAt: observedAt, timeZone: TimeZone(identifier: "UTC")!
         )
         XCTAssertNotNil(got)
         var cal = Calendar(identifier: .gregorian)
@@ -97,7 +162,7 @@ final class CodexCapacityProbeTests: XCTestCase {
 
     func testParseResetDateWithoutParentheses() {
         let got = CodexCapacityProbe.parseResetDateHHMM(
-            from: "resets 09:00 on 1 Jan", observedAt: observedAt
+            from: "resets 09:00 on 1 Jan", observedAt: observedAt, timeZone: TimeZone(identifier: "UTC")!
         )
         XCTAssertNotNil(got)
     }
