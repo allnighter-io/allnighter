@@ -74,13 +74,30 @@ final class DetachedSpawnMechanismTests: XCTestCase {
             .map { String($0.dropFirst(name.count + 1)) }
     }
 
-    private func waitForFile(_ url: URL, timeout: TimeInterval = 10) -> String? {
+    /// Wait for the probe's report to be COMPLETE, not merely present.
+    ///
+    /// Returning on "non-empty" was a race: the probe writes four lines, and a
+    /// read landing between them yielded a file with `null=` but no `stdin=`,
+    /// so the assertion compared against `<missing>` and failed. It passed in
+    /// isolation and failed under full-wall load, which is the signature of a
+    /// timing bug in the proof rather than in the thing being proved.
+    private func waitForFile(
+        _ url: URL,
+        requiring keys: [String] = [],
+        timeout: TimeInterval = 10
+    ) -> String? {
         let deadline = Date().addingTimeInterval(timeout)
+        var last: String?
         while Date() < deadline {
-            if let s = try? String(contentsOf: url, encoding: .utf8), !s.isEmpty { return s }
+            if let text = try? String(contentsOf: url, encoding: .utf8), !text.isEmpty {
+                last = text
+                if keys.allSatisfy({ text.contains($0 + "=") }) { return text }
+            }
             usleep(50_000)
         }
-        return nil
+        // Return whatever arrived so the failure message shows the partial
+        // report instead of a bare nil.
+        return last
     }
 
     /// The child must not inherit the launcher's descriptors. This is the
@@ -96,7 +113,7 @@ final class DetachedSpawnMechanismTests: XCTestCase {
         )
 
         let observed = try XCTUnwrap(
-            waitForFile(out),
+            waitForFile(out, requiring: ["null", "stdin", "stdout", "stderr"]),
             "detached child never ran — DetachedDispatch.launch did not start the probe"
         )
         let nullId = try XCTUnwrap(field("null", in: observed), "probe did not report /dev/null identity")
