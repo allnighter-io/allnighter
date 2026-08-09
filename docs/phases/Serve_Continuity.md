@@ -214,7 +214,8 @@ clear; they do not exit(0) in a KeepAlive death loop.
 | **SC-S00a** | **DONE 2026-08-09** — Rebuild experiment. Codesign Identifier **rotated**; KeepAlive on the *post-bootstrap* agent (no managed LWCR flags) **restarted serve successfully** after kill. **H1 REFUTED** for that registration. Log: `docs/qa/serve-continuity/SC-S00a-rebuild-experiment.md`. Logout/login BTM re-adoption still unproven. | Host log. |
 | **SC-S00** | **DONE 2026-08-09** (`05afee05`) — `ServeLaunchAgentStatus` + doctor `serve.launchAgent` critical on wedge; `serve --health` additive `launchAgent`. Works Test 14/14. | `scripts/swift-test.sh --filter ServeLaunchAgentStatusTests` |
 | **SC-S01** | **DONE 2026-08-09** (`867d72e3`) — `ServeLifecycle` removal + `alln serve repair`. No register/enable. | `scripts/swift-test.sh --filter ServeLifecycleTests` |
-| **SC-S04a** | Stage stable CLI binary under Application Support (copy, not debug symlink). Pure + tests. | `scripts/swift-test.sh --filter ServeStableBinaryTests` |
+| **SC-S03** | **DONE 2026-08-09** (`861578aa`) — `alln run` + Mac app launch call `ServeAutoLaunch.ensureRunning`. | `scripts/swift-test.sh --filter ServeAutoLaunchTests` |
+| **SC-S04a** | **DONE 2026-08-09** (`ef75ec50`) — `ServeStableBinary` stages copy under Application Support/Allnighter/CLI/alln. | `scripts/swift-test.sh --filter ServeStableBinaryTests` |
 | **SC-S04b** | Product-owned LaunchAgent enable/disable pointing at staged binary (`serve enable` / `disable`). Migrate leftover CODE_RED label. | Filtered lifecycle tests + host enable/disable smoke |
 | **SC-S02** | `install-cli` + `rebuild_cli` refresh staged binary **and** re-bind agent when enabled (same transaction). | Rebuild → kill → agent returns with new staged binary |
 | **SC-S04** | ~~monolith~~ → split into S04a/S04b; logout/login Works Test after S02. | Serve returns after login |

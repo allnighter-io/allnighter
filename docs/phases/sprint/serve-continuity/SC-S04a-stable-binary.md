@@ -1,7 +1,8 @@
 # SC-S04a — Stage stable CLI binary (copy)
 
-Status: in_progress  
+Status: **done** (2026-08-09) — commit `ef75ec50`; Works Test 7/7  
 Slice: SC-S04a (tiny)  
+Run: `7072A0A3-65EB-4736-A638-4B749167E207` (DeepSeek V4 Pro — capacity gate false-fail on None; Kimi was actually ~31%)  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §6 founder rulings + §4 SC-S04a  
 Executor: prefer Kimi K3 if 5h remaining ≥15%; else `model_opencode_deepseek_v4_pro`  
 (Note: menu has no DeepSeek V5 Pro — V4 Pro is the fallback.)
