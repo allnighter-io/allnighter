@@ -71,6 +71,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) | **Live — 3 of 5 slices shipped** | Capacity signals must be owned per source. S01/S02 + S03-AgentOS shipped (AgentOS `6f66bdd`, `1d0f64f`); S05 shipped (`bc2311ea`). Open: label separation, S04 manifest signals, S06 AGY scoping. S03 persisted parks blocked on a founder ruling (§10.1). |
 | [`Agent_Teaching_Surface.md`](Agent_Teaching_Surface.md) | Open — sequenced after Vendor Signal Isolation | `alln bootstrap` teaching block ships retired vocabulary; narrow the paste, gate the block, add a delegation help topic. |
 | [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **ARCHIVE READY** | Dogfood + CT-08 coded; archive + promote next. |
+| [`OpenCode_Mutating_Long_Run_Hardening.md`](OpenCode_Mutating_Long_Run_Hardening.md) | **OPEN — Ready** | Long OpenCode Pro mutating under-ships / commit contract; OMH-S01…S05. Dogfood from CRS Pro runs. |
 | [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **COMPLETE** | CT-10 deferred; archive with S123. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |

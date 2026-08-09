@@ -80,6 +80,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Context Firewall / egress ledger / root-less dispatch; privacy buyers | Open packet **2 of 3**: `docs/phases/Context_Firewall.md` — auditable egress, never sanitisation; root-less dispatch undesigned |
 | Second Mac / LAN bench / remote `OLLAMA_HOST` | Open packet **3 of 3**: `docs/phases/Second_Mac_Bench.md` — fence only; refuse cross-host mutators |
 | OpenCode long runs / `stream_drop` / `task` hang | Open: `docs/phases/OpenCode_Long_Run_Continuity.md` + `OpenCode_Completion_Truth_Followup.md`; code SSOT AgentOS `OpenCode*` + `OpenCodeOutcomeAuthority` |
+| OpenCode long mutating under-ship / commit dogfood | Open: `docs/phases/OpenCode_Mutating_Long_Run_Hardening.md` |
 | OpenCode empty `incomplete_no_final_message` / stall mid-`task` / seat timeout 2× | **Closed 2026-08-09** — OCH AgentOS `65da768`. Archive `OpenCode_Turn_Capture_Hardening.md`; help `opencode_headless_completion` |
 | Smart / auto model routing, economy vs balanced seats, "always prefer vendor X" | Brainstorm only: `docs/phases/Scarcity_Aware_Routing.md` — read §3 rejected list first |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | Code SSOT: `VendorBackoffReconciler.swift`, `VendorSubstitutionPolicy.swift` |
