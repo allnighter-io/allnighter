@@ -1,6 +1,6 @@
 # Capacity Serve Refresh Polish
 
-Status: **COMPLETE — CRS-S02/S01/S04/S03 shipped 2026-08-09. S05 deferred.**
+Status: **COMPLETE — CRS-S02/S01/S04/S03/S05 shipped 2026-08-09.**
   Archive copy — durable SSOT is code below. OpenCode dogfood log:
   `docs/qa/opencode-mutating-commit/OPENCODE_BUG_LOG.md`.
 
@@ -10,7 +10,7 @@ Status: **COMPLETE — CRS-S02/S01/S04/S03 shipped 2026-08-09. S05 deferred.**
   | S01 | `5e30f3f2` | per-refresh CapacityProbeScope + terminate drain |
   | S04 | `7f16c87b` + host `8a0e7306` | async refresh, bench backoff, historyWriteFailed; mid-probe cancel poller |
   | S03 | `3e917b08` | attempt ledger + partial retry on 5m window |
-  | S05 | deferred | O(1) stamp — only if profiled |
+  | S05 | host (this closeout) | `_newest_success.json` O(1) stamp |
 
   Host Code Audit: CLEAN. Deslop: CLEAN. Targeted per-source refresh left as
   full-bench (packet-allowed v1).
