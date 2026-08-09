@@ -117,6 +117,14 @@ public actor CatalogRunCoordinator {
             persist?(run)
         }
 
+        // ARA-S04: detect repo shape once, append brief so every AI Readiness seat
+        // (answer, review, writer) gets shape-specific questions. Detection runs
+        // once per run, not per seat — shape is a repo-level fingerprint.
+        if resolved.outputKind == .aiReadinessReport, let repoRoot {
+            let fp = AIReadinessShape.detect(at: URL(fileURLWithPath: repoRoot))
+            downstreamPrompt += "\n\n" + AIReadinessShape.brief(for: fp)
+        }
+
         // Stage 1 — answer workers, blind and parallel, over the distilled source.
         // Each seat gets its own founder prompt when `workerPrompts[worker.id]` is set
         // (Panel); otherwise the shared downstream prompt (existing answer teams).
