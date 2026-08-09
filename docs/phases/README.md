@@ -35,8 +35,10 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 ### Active priorities (founder-ordered)
 
 > **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
-> ~~**1.** OpenCode attach~~ (CLOSED 2026-08-08, archived) · ~~**2.** Seat assignments~~ (CLOSED 2026-08-08, archived) · **3.** Native capacity channels ·
-> **4.** PF-S01 freshness disclosure · **5.** Shadow-mode the model reader · **STOP**.
+> **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
+> assignments~~ (both closed + archived) · ~~**3.** Native capacity channels~~
+> (4 shipped, kimi ruled out) · ~~**4.** PF-S01 freshness disclosure~~ ·
+> ~~**5.** Shadow-mode the model reader~~. Stopped at 5 as instructed.
 > Run-completion work outranks sensor work: capacity informs selection but never
 > blocks a run, while `:4096` collisions stop the bench outright.
 > ~~**0.** Run readout~~ · ~~**0.5** Ambient dirty~~ closed 2026-08-08.
@@ -46,8 +48,8 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | Doc | Status | Next action |
 | --- | --- | --- |
 | [`Handover_Capacity_2026-08-08.md`](Handover_Capacity_2026-08-08.md) | **START HERE — PM handover** | State of capacity/serve after 51 commits, decisions already ruled (do not relitigate), landmines, and the next work in order. Read before picking anything up. |
-| [`Probe_Freshness.md`](Probe_Freshness.md) | **1 · Scheduler 2.0 — v5, S00/S02/S03 SHIPPED; S01 remains** | `alln menu` hid Grok + Kimi as `notReady` while both answered live prompts. PF-S00 expire-at-projection + PF-S02 un-invent the verdict stop the lie; PF-S01 discloses age; **PF-S03 re-homes refresh into `alln serve`** — founder ruling §0.2 supersedes the CWB Dock-only host lock. Spec Review Min `FCF51DB2` Ready. |
-| [`Capacity_Native_Channels.md`](Capacity_Native_Channels.md) | **1.5 · Stop scraping the TUI — v3; credential posture RULED, model-read SHIPPED** | Every one of the six PTY-scraped sources has a VERIFIED better channel; four need no credentials at all. `agy --print "/usage" --output-format json` returns structured JSON in ~1s with zero model tokens; codex `app-server` exposes typed `account/rateLimits/read`. Deletes the whole 2026-08-08 bug class (generic markers, misspelled guards, repaint races, load sensitivity) by construction. **Founder ruling needed** on §4 credential posture (2 of 6 need a vendor-stored token). |
+| [`Probe_Freshness.md`](Probe_Freshness.md) | **v6 — S00/S01/S02/S03 ALL SHIPPED; one founder ruling remains** | `alln menu` hid Grok + Kimi as `notReady` while both answered live prompts. PF-S00 expire-at-projection + PF-S02 un-invent the verdict stop the lie; PF-S01 discloses age; **PF-S03 re-homes refresh into `alln serve`** — founder ruling §0.2 supersedes the CWB Dock-only host lock. Spec Review Min `FCF51DB2` Ready. |
+| [`Capacity_Native_Channels.md`](Capacity_Native_Channels.md) | **v6 — 4 native channels SHIPPED; kimi RULED OUT; shadow mode SHIPPED** | Every one of the six PTY-scraped sources has a VERIFIED better channel; four need no credentials at all. `agy --print "/usage" --output-format json` returns structured JSON in ~1s with zero model tokens; codex `app-server` exposes typed `account/rateLimits/read`. Deletes the whole 2026-08-08 bug class (generic markers, misspelled guards, repaint races, load sensitivity) by construction. **Founder ruling needed** on §4 credential posture (2 of 6 need a vendor-stored token). |
 | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **4 · Ollama — v5 both bodies; OCL-S00 pipe PASS; code unauthorized** | **Dev builds only until fully ready** (founder). Doc v5: Claude Code + OpenCode agnostic; bakeoff §0.4; G0–G3 model gates. Still blocked on `--no-commit` honesty, serve attach, Claude-local isolation design, mid-tier capability proof. |
 | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then scheduler** | One 30m freshness clock; scoped kill before timer. ⚠ Its **Dock-only host lock is superseded** by `Probe_Freshness.md` §0.2 — reconcile. |
 | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |

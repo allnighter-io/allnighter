@@ -1,6 +1,6 @@
 # Capacity Native Channels — stop scraping a repainting terminal
 
-Status: **v5 — four native channels SHIPPED; kimi RULED OUT; cursor stays a screen.**
+Status: **v6 — four native channels SHIPPED; kimi RULED OUT; cursor stays a screen; model-read shadow mode SHIPPED.**
 
 | Source | Channel | Commit |
 | --- | --- | --- |
@@ -12,6 +12,26 @@ Status: **v5 — four native channels SHIPPED; kimi RULED OUT; cursor stays a sc
 | `cursor_agent` | **none — permanent screen** | — |
 
 Cross-cutting correctness fix from the same batch: `220b4f35`.
+
+**Model-read shadow mode SHIPPED 2026-08-09 (`5c191432`)**, founder-approved.
+`alln capacity --refresh --source <id> --shadow-pane-reader` runs the model
+reader alongside the deterministic parser and logs disagreements to
+`Capacity/shadow/disagreements.jsonl`. It never changes a published number and
+never introduces a failure. **Explicit CLI flag only** — `CapacityRefreshScheduler`
+(serve's background tick) and `CapacityResidentService` structurally cannot reach
+it, so it cannot become recurring background spend, and there is no persisted
+setting to leave on by accident. Contract 9.11.0 → 9.12.0, binary 0.12.3 → 0.12.4.
+
+It exists for one reason, and it is not doubt about accuracy — that is settled at
+10/10. **A wrong argv is indistinguishable from an unavailable vendor**, because
+every failure path in the reader returns nil by design. Shadow mode makes that
+silence visible. Reproducing the known `-m` vs `--model` landmine produced a
+`kind: "modelSilent"` entry while the published value held at 52.
+
+First live result, recorded for the founder's standing bet (*"it will show it is
+not needed; insurance will break first"*): on a real refresh, parser and model
+**agreed**, and agreement is not logged. One data point, in the direction of the
+bet.
 
 Keychain CLOSED permanently (§4); model-read of a captured pane
 SHIPPED (§4b, `e2c5cc76` + `f6658005`). Per-source native-channel slices are

@@ -1,8 +1,38 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **v5 — PF-S00, PF-S02 and PF-S03 SHIPPED. PF-S01 ready and now
-  load-bearing. The "capacity is a table, not a status" redesign is REFUTED
-  (§0.4) — read it before proposing it again.**
+Status: **v6 — PF-S00, PF-S01, PF-S02 and PF-S03 all SHIPPED. One item
+  remains and it needs a founder ruling, not code (see "Still open" below).
+  The "capacity is a table, not a status" redesign is REFUTED (§0.4) — read it
+  before proposing it again.**
+
+  **PF-S01 shipped 2026-08-09 (`4a150fd3`).** `checkedAt` / `ageMinutes` /
+  `stale` / `evidenceSource` / `nextAction` on every driver and model row across
+  `menu`, `drivers`, `models`. Contract 9.10.0 → 9.11.0, binary 0.12.2 → 0.12.3.
+  A model row carries `evidenceSource: "driver"` so inherited evidence is stated
+  rather than implied.
+
+  Worth keeping from that slice: Swift's synthesized `Encodable` emits
+  `encodeIfPresent` for optionals, which **omits** the key instead of writing
+  `null`. The Works Test's insistence on `checkedAt: null` — "not epoch, not now"
+  — is exactly the corner the default synthesis gets wrong, and a decoded-value
+  test cannot see it. `ProbeFreshnessJSON` hand-writes `encode(to:)` with
+  `encodeNil(forKey:)`, gated by a test that inspects raw JSON keys.
+
+  **Still open — needs a founder ruling, no code authorized:** the
+  probe-record half of PF-S03. `SourceProbeService`'s cheap path persists
+  nothing, so "a new `lastProbeAt` with no smoke" is a contradiction. It needs
+  either a `lastDetectedAt` split or permission to spend smoke. PF-S01 makes this
+  *more* visible, not less: the bench now discloses the age of evidence it cannot
+  cheaply renew.
+
+  **Known cost, deliberately not fixed here:** freshness added 6,325 bytes
+  (+26.7%) to the menu payload, which now sits at ~29.3 KiB against a 30 KiB
+  budget. Of that, **4,130 bytes is verbatim duplication** — 29 emitted freshness
+  objects, 9 distinct values, because every model repeats its driver's. Left as
+  shipped: per-row disclosure is what the spec asked for, and de-duplicating
+  re-opens the founder-ruled `Menu_Envelope_Compression` decision
+  (*"usability > size"*). If the 4 KiB is wanted back, it is its own slice that
+  re-opens that packet on purpose — not a quiet edit riding on this one.
   PF-S03 shipped WITHOUT the evidence-contract decision §0.3 said it needed:
   that blocker applied to re-homing the PROBE-RECORD refresh (`cli_setup.json`,
   where "new lastProbeAt with no smoke" is a contradiction). The founder's
