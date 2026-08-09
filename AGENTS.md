@@ -105,6 +105,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
 | Forward Mac app shell, Dock app, background scheduler | `alln serve` is a background SCHEDULER only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay, probe/capacity refresh). It owns no run semantics; adding an operation to it is a new feature packet. |
+| `alln serve` dead / orphan LaunchAgent / capacity stale with app closed / no restart after kill | Open packet: `docs/phases/Serve_Continuity.md` — notice + heal required; no second scheduler. Debugger: `2026-08-09-serve-launchagent-lwcr-PACKET.md` |
 | Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |

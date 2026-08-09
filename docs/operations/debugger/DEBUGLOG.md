@@ -1,5 +1,34 @@
 # Debug Log
 
+## 2026-08-09 — `alln serve` LaunchAgent dead (LWCR / EX_CONFIG)
+
+Tier: T3 Critical (background continuity / capacity with app closed)
+
+Symptom / repro: App closed; capacity refreshed until ~10:45am PDT then
+stopped. LaunchAgent `com.allnighter.resident-coordinator` KeepAlive never
+restarts serve — exit 78, 6700+ runs. Manual `alln serve` works.
+
+Bug fingerprint: orphan LaunchAgent + macOS LWCR/BTM refuse before exec +
+ServeAutoLaunch not on `alln run`/app launch
+
+Truth owner: BTM/LWCR admission (`Unable to get updated LWCR … smd: 3`).
+Lie-prone layer: plist+KeepAlive looks like crash/reboot recovery; product
+deleted `serve install` and left the agent (CODE_RED).
+
+RCA: xpcproxy never execs `alln`; EX_CONFIG is launchd reporting LWCR failure.
+Morning refreshes were a detached serve that later died — not the LA.
+Recovery today: Loop `ServeAutoLaunch` or manual `alln serve` only.
+`alln run`, app launch, reboot/login do **not** revive serve (app only
+runs in-process capacity while open).
+
+Packet: `docs/operations/debugger/2026-08-09-serve-launchagent-lwcr-PACKET.md`
+Bug Hunt: `AC9D2295-329F-4417-A5EC-FA65D010EB1C`
+
+What must never be allowed again: orphan KeepAlive LaunchAgent with no
+installer, no doctor signal, and no honest recovery path for weekly-reboot users.
+
+---
+
 ## 2026-08-02 — capacity strip beach ball + stale 82% + refresh crash
 
 Tier: T3 Critical (TCC / launch trust + SSOT lie + main-thread stall)
