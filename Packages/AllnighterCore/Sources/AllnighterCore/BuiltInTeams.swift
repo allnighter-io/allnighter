@@ -460,16 +460,29 @@ public enum BuiltInTeams {
         id: "code_ai_readiness", name: "AI Readiness", lane: .code,
         output: .aiReadinessReport, defaultEffort: .high,
         description: "Audit a repo for agent workability: setup, docs, tests, loop, automation, and shape. One report with three fixes, cold-read receipts, and what is already right.",
-        rows: needRows([
-            ("readiness_setup_scout", .answer),
-            ("readiness_context_cartographer", .answer),
-            ("readiness_measurement_auditor", .answer),
-            ("readiness_test_infra_scout", .answer),
-            ("readiness_loop_scout", .answer),
-            ("readiness_automation_mapper", .answer),
-            ("readiness_shape_specialist", .answer),
-            ("readiness_strength_scout", .answer)
-        ], tags: [.code]),
+        rows: {
+            // Loop scout prefers non-OpenCode seats (dogfood AB1CCB53: OpenCode
+            // quota emptied the maintenance bucket while status stayed done).
+            var rows = needRows([
+                ("readiness_setup_scout", .answer),
+                ("readiness_context_cartographer", .answer),
+                ("readiness_measurement_auditor", .answer),
+                ("readiness_test_infra_scout", .answer),
+                ("readiness_loop_scout", .answer),
+                ("readiness_automation_mapper", .answer),
+                ("readiness_shape_specialist", .answer),
+                ("readiness_strength_scout", .answer)
+            ], tags: [.code])
+            if let idx = rows.firstIndex(where: { $0.skillId == "readiness_loop_scout" }) {
+                rows[idx] = row(
+                    "readiness_loop_scout", .answer,
+                    preferred: gptSol,
+                    fallbacks: [sonnet, opus, cursorGrok, kimi, gemini],
+                    fallback: .anyReady
+                )
+            }
+            return rows
+        }(),
         writer: "ai_readiness_writer", dissent: .compareOptions,
         mutating: false,
         typeTags: ["ai-readiness", "audit", "agent", "code-health", "setup"],

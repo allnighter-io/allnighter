@@ -191,6 +191,29 @@ final class AIReadinessShapeTests: XCTestCase {
         let brief = AIReadinessShape.brief(for: .unclear)
         XCTAssertTrue(brief.contains("unclear"))
         XCTAssertTrue(brief.contains("universal questions"))
+        XCTAssertTrue(brief.contains("Packages/*/Package.swift") || brief.contains("nested"))
+    }
+
+    func testNestedPackagesMonorepoIsSwiftAppleApp() throws {
+        let tmp = try tempDir()
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let pkg = tmp.appendingPathComponent("Packages/AllnighterCore", isDirectory: true)
+        try FileManager.default.createDirectory(at: pkg, withIntermediateDirectories: true)
+        try "// swift-tools-version:5.9\n.executableTarget(".write(
+            to: pkg.appendingPathComponent("Package.swift"), atomically: true, encoding: .utf8)
+        let app = tmp.appendingPathComponent("Apps/AllnighterMac/AllnighterMac.xcodeproj", isDirectory: true)
+        try FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
+        XCTAssertEqual(AIReadinessShape.detect(at: tmp), .swiftAppleApp)
+    }
+
+    func testInjectableNestedPackageSwiftPath() {
+        let fp = AIReadinessShape.detect(
+            at: URL(fileURLWithPath: "/tmp/unused"),
+            fileExists: { $0 == "Packages/Core/Package.swift" },
+            fileContents: { _ in "// swift-tools-version:5.9" },
+            entryNames: { ["Packages", "Apps"] }
+        )
+        XCTAssertEqual(fp, .swiftAppleApp)
     }
 
     // MARK: - Helpers

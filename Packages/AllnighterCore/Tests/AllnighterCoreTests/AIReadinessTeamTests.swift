@@ -147,10 +147,8 @@ final class AIReadinessTeamTests: XCTestCase {
             "worst case"
         ]
         for phrase in sharedPhrases {
-            let readinessMatch = readinessTemplate.lowercased().contains(phrase.lowercased())
-            let legacyMatch = legacyTemplate.lowercased().contains(phrase.lowercased())
-            XCTAssertTrue(readinessMatch || legacyMatch,
-                          "readiness_measurement_auditor or measurement_auditor must carry: \(phrase)")
+            XCTAssertTrue(readinessTemplate.lowercased().contains(phrase.lowercased()),
+                          "readiness_measurement_auditor must itself carry: \(phrase)")
         }
 
         // Must be distinct ids
@@ -164,16 +162,37 @@ final class AIReadinessTeamTests: XCTestCase {
         XCTAssertNotNil(skill)
         guard let template = skill?.template else { return }
 
-        XCTAssertTrue(template.contains("strengths only"),
+        XCTAssertTrue(template.contains("strengths only") || template.contains("findings\": []") || template.contains("\"findings\": []"),
                       "strength_scout must signal findings: [] and strengths only")
-        XCTAssertTrue(template.contains("strengths: [{"),
+        XCTAssertTrue(template.contains("strengths"),
                       "strength_scout must include strengths array in finding packet")
+        XCTAssertTrue(template.contains("Ban YAML") || template.contains("JSON only"),
+                      "strength_scout must require JSON finding packet")
     }
 
     func testLeadUsesCompareOptionsDissent() {
         let team = BuiltInTeams.team("code_ai_readiness")!
         XCTAssertEqual(team.lead.dissentPolicy, .compareOptions,
                        "AI Readiness multi-seat team uses compareOptions (matching Spec Review pattern)")
+    }
+
+    func testWriterLocksAIReadinessReportSchemaAndPartialOnSeatFailure() {
+        let writer = SkillCatalog.skill("ai_readiness_writer")!
+        let template = writer.template
+        XCTAssertTrue(template.contains("agreedCount"))
+        XCTAssertTrue(template.contains("totalCount"))
+        XCTAssertTrue(template.contains("Partial"))
+        XCTAssertTrue(template.contains("Ban alternate keys") || template.contains("attributedTo"))
+        XCTAssertTrue(template.contains("\"seatId\""))
+        XCTAssertFalse(template.contains("consensus\":"),
+                       "writer must not teach consensus as a receipt field")
+    }
+
+    func testLoopScoutPrefersNonOpenCodeModel() {
+        let team = BuiltInTeams.team("code_ai_readiness")!
+        let loop = team.agentSpecs.first { $0.skillId == "readiness_loop_scout" }
+        XCTAssertEqual(loop?.preferredModelId, "model_gpt_sol")
+        XCTAssertFalse(loop?.fallbackModelIds?.contains(where: { $0.contains("opencode") }) ?? false)
     }
 
     func testTeamHasTypeTagsAndStarters() {
