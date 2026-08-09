@@ -520,6 +520,17 @@ public enum CapacityProbe {
             return [unknown(source: source, reason: .spawnFailed(observedAt: now), now: now)]
         }
 
+        // agy's own print-mode JSON channel is the primary acquisition path —
+        // headless, ~1-8s measured, zero model tokens, structured
+        // `groups[].buckets[]` carrying BOTH the weekly and 5h windows the PTY
+        // scrape below drops entirely (Capacity_Native_Channels.md §2). Any
+        // error, timeout, non-SUCCESS status, or unrecognized shape here
+        // produces no observation (`probeAgyNative` returns nil) and falls
+        // through untouched to the existing PTY scrape as agy's fallback.
+        if source == "agy", let native = probeAgyNative(executable: executable, now: now) {
+            return native
+        }
+
         let cwd = workingDirectory ?? Self.neutralWorkingDirectory()
         guard let cwd else {
             // Never fall back to process CWD — in Xcode/dev that is often the
@@ -589,6 +600,24 @@ public enum CapacityProbe {
         // iOS / non-macOS: no PTY vendor CLIs. Fail closed, never invent.
         return [unknown(source: source, reason: .neverSampled, now: now)]
         #endif
+    }
+
+    /// Try agy's native print-mode JSON channel. A plain headless pipe, not a
+    /// PTY — print mode is non-interactive by definition, and a PTY here would
+    /// reintroduce the repaint behavior this channel exists to escape.
+    ///
+    /// Every failure path returns `nil` — no binary, non-zero exit, timeout,
+    /// unparseable output, `status != "SUCCESS"`, or an unrecognized shape —
+    /// so the caller falls through to the PTY scrape unchanged. Never reads a
+    /// credential: the vendor CLI owns its own auth and refresh in-process.
+    private static func probeAgyNative(executable: String, now: Date) -> [CapacityWindow]? {
+        guard let output = CapacityPaneReader.runHeadless(
+            executable: executable,
+            argv: AgyNativeCapacityProbe.argv(),
+            timeout: AgyNativeCapacityProbe.processTimeout
+        ) else { return nil }
+        let windows = AgyNativeCapacityProbe.capacityWindows(fromOutput: output, observedAt: now)
+        return windows.isEmpty ? nil : windows
     }
 
     /// Best-effort write of a failed capture for parser re-fixturing.

@@ -636,6 +636,7 @@ private struct CapacityStripMeterRowView: View {
         case .streamPiggyback: return "stream piggyback"
         case .failureClassification: return "failure classification"
         case .dashboardScrape: return "dashboard scrape"
+        case .headlessJSON: return "native · agy --print /usage"
         }
     }
 

@@ -34,6 +34,11 @@ public enum CapacityAcquisitionTier: Int, Sendable, Equatable, Codable, CaseIter
     case failureClassification = 4
     /// Browser dashboard HTTP scrape (OpenCode Go `/go` — dogfood only until promotion).
     case dashboardScrape = 5
+    /// Headless vendor command emitting typed JSON directly — no PTY, no
+    /// rendered screen (agy `--print "/usage" --output-format json`,
+    /// `Capacity_Native_Channels.md` §2). Not exported in any contract JSON —
+    /// internal acquisition-provenance metadata only.
+    case headlessJSON = 6
 }
 
 /// Routing bucket. Decisions consume the bucket, never the raw percentage —
