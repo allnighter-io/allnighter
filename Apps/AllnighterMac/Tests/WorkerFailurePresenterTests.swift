@@ -44,6 +44,13 @@ final class WorkerFailurePresenterTests: XCTestCase {
         XCTAssertEqual(c, "Rate limited — claude_code")
     }
 
+    func testPermissionRequiredClassified() {
+        let c = WorkerFailurePresenter.cause(
+            status: .failed, errorKind: .permissionRequired,
+            errorReason: "blockedOn: permission", capacity: nil)
+        XCTAssertEqual(c, "Permission required — approve to continue")
+    }
+
     func testDoneHasNoCause() {
         XCTAssertNil(WorkerFailurePresenter.cause(status: .done, errorKind: nil, errorReason: nil, capacity: nil))
     }

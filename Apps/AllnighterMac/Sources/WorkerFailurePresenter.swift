@@ -32,6 +32,7 @@ enum WorkerFailurePresenter {
             case .timedOut: return "Timed out (no output)"
             case .nonzeroExit: return errorReason ?? "Exited with an error"
             case .cancelled: return "Cancelled"
+            case .permissionRequired: return "Permission required — approve to continue"
             case .none: return errorReason
             }
         case .cancelled:
