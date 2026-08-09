@@ -1,6 +1,6 @@
 # SC-S01 — ServeLifecycle: migrate orphan LaunchAgent
 
-Status: in_progress  
+Status: **done** (2026-08-09) — commit `867d72e3`; Works Test 8/8  
 Slice: SC-S01  
 Run: `19045F88-081F-4CBE-B252-9353B7CA6621`  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §3.2 + §4  
