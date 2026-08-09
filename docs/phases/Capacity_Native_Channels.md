@@ -1,8 +1,9 @@
 # Capacity Native Channels — stop scraping a repainting terminal
 
-Status: **v2 — findings verified; credential posture RULED (§4). Ready for
-per-source slices.** Five of six sources move with zero credentials; only
-`cursor_agent` keeps the PTY scrape.
+Status: **v3 — credential posture RULED (§4); model-read of a captured pane
+SHIPPED (§4b, `e2c5cc76` + `f6658005`). Per-source native-channel slices are
+next and unstarted.** Five of six sources move with zero credentials; only
+`cursor_agent` keeps the PTY scrape, and it now has a model reader behind it.
 Owner: AllnighterCore (`CapacityProbe`, `CapacityAcquisition`, `CapacityFetch`)
 Created: 2026-08-08
 Origin: Founder, 2026-08-08, after a day of capacity outages:
