@@ -25,7 +25,7 @@ public extension ContractRegistry {
     // PF-S01: minor — driver/model rows (menu, drivers, models) gain a
     // `freshness` object (checkedAt/ageMinutes/stale/evidenceSource/nextAction)
     // disclosing probe-record age; disclosure only, no verdict changed.
-    static let contractVersion = "9.11.0"
+    static let contractVersion = "9.12.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -131,6 +131,7 @@ public extension ContractRegistry {
                 FlagSpec("enable", summary: "Turn the capacity feature ON and exit. Writes a setting; probes nothing. Default for a new install is already ON."),
                 FlagSpec("disable", summary: "Turn the capacity feature OFF and exit. Writes a setting; probes nothing. While OFF no seat is probed from any trigger."),
                 FlagSpec("dogfood", summary: "Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it."),
+                FlagSpec("shadow-pane-reader", summary: "Developer-only diagnostic (shadow mode, Handover_Capacity_2026-08-08.md §5). Forces a live probe and, for whichever seat(s) this refresh reaches the PTY-scrape path (currently cursor_agent / kimi only), runs the source's own cheapest model alongside the deterministic parser and logs any disagreement — never changes the published number. Spends a small amount of that source's own quota when it fires. Not for routine use."),
             ],
             mutuallyExclusiveFlags: [["enable", "disable"]],
             outputSchema: .capacityStripJSON,

@@ -315,6 +315,227 @@ public enum CapacityPaneReader {
         #endif
     }
 
+    // MARK: - Shadow mode (Handover_Capacity_2026-08-08.md §5, approved)
+    //
+    // Run this reader ALONGSIDE a deterministic parse that already succeeded,
+    // and record whether they agree — never let the model's answer change
+    // what ships. Founder's standing bet: *"It will show it is not needed.
+    // Insurance will break first."* This exists to make that checkable rather
+    // than argued, and to make the failure named in §6 visible: every failure
+    // path in `read` above returns nil by design, so a typo'd argv and a
+    // logged-out vendor look identical from the outside. A shadow read that
+    // goes silent while the deterministic parser just succeeded is the one
+    // signal that tells those two apart — which is why `modelSilent` below is
+    // itself a logged disagreement, not a discarded nil.
+
+    /// One recorded disagreement between the deterministic parser and the
+    /// shadow model read, for the SAME capture. Never a counter — a source,
+    /// a timestamp, both answers, and enough of the pane to adjudicate later.
+    public struct Disagreement: Equatable, Sendable, Codable {
+        /// What kind of disagreement this is, so a reviewer does not have to
+        /// re-derive it from the raw fields every time.
+        public enum Kind: String, Equatable, Sendable, Codable {
+            /// Both produced a confident number; they differ beyond tolerance.
+            case valueMismatch
+            /// The model answered but declined to be confident, or gave no
+            /// number, while the parser read a real value from the same text.
+            case modelUnconfident
+            /// The shadow spawn produced nothing at all — no binary, timeout,
+            /// non-zero exit, or unparseable output — while the parser
+            /// succeeded on the same capture. The case §6 warns about: this is
+            /// indistinguishable from "vendor unavailable" without shadow mode.
+            case modelSilent
+        }
+
+        public var source: String
+        public var observedAt: Date
+        public var kind: Kind
+        public var parserRemainingPercent: Double
+        public var parserResetAt: Date?
+        public var modelRemainingPercent: Double?
+        /// Nil only for `modelSilent`, where there was no reading to ask.
+        public var modelConfident: Bool?
+        public var modelReason: String?
+        /// Truncated, bounded-length. This is the captured USAGE PANE only
+        /// (never a full session transcript), but still capped and never
+        /// includes account ids or credentials — the pane text itself never
+        /// carries them (Capacity_Native_Channels.md never reads a credential).
+        public var captureExcerpt: String
+
+        public init(
+            source: String,
+            observedAt: Date,
+            kind: Kind,
+            parserRemainingPercent: Double,
+            parserResetAt: Date?,
+            modelRemainingPercent: Double?,
+            modelConfident: Bool?,
+            modelReason: String?,
+            captureExcerpt: String
+        ) {
+            self.source = source
+            self.observedAt = observedAt
+            self.kind = kind
+            self.parserRemainingPercent = parserRemainingPercent
+            self.parserResetAt = parserResetAt
+            self.modelRemainingPercent = modelRemainingPercent
+            self.modelConfident = modelConfident
+            self.modelReason = modelReason
+            self.captureExcerpt = captureExcerpt
+        }
+    }
+
+    /// Longest capture excerpt kept in a logged disagreement.
+    static let captureExcerptLimit = 4000
+
+    /// Pure comparison — no spawn, no IO. `reading` is nil for a shadow read
+    /// that produced nothing (missing binary, timeout, non-zero exit, or
+    /// unparseable output); every other nil path already collapsed to this by
+    /// the time it reaches here.
+    ///
+    /// Returns nil on agreement — an agreement is not logged, by design (the
+    /// log exists to be reviewable, and a file of "agreed" lines is noise).
+    public static func compareToParser(
+        parsed: [CapacityWindow],
+        reading: Reading?,
+        source: String,
+        capture: String,
+        now: Date,
+        tolerancePercent: Double = 1.0
+    ) -> Disagreement? {
+        // The parser's own "most constrained" pool, same rule as the prompt
+        // asks the model for — the two numbers are only comparable if they
+        // answer the same question.
+        guard let parserRemaining = parsed.compactMap(\.remainingPercent).min() else { return nil }
+        let parserWindow = parsed.first { $0.remainingPercent == parserRemaining }
+        let excerpt = String(capture.prefix(captureExcerptLimit))
+
+        guard let reading else {
+            return Disagreement(
+                source: source, observedAt: now, kind: .modelSilent,
+                parserRemainingPercent: parserRemaining, parserResetAt: parserWindow?.resetAt,
+                modelRemainingPercent: nil, modelConfident: nil, modelReason: nil,
+                captureExcerpt: excerpt
+            )
+        }
+        guard reading.confident, let modelRemaining = reading.mostConstrainedRemaining else {
+            return Disagreement(
+                source: source, observedAt: now, kind: .modelUnconfident,
+                parserRemainingPercent: parserRemaining, parserResetAt: parserWindow?.resetAt,
+                modelRemainingPercent: reading.mostConstrainedRemaining, modelConfident: reading.confident,
+                modelReason: reading.reason, captureExcerpt: excerpt
+            )
+        }
+        guard abs(modelRemaining - parserRemaining) <= tolerancePercent else {
+            return Disagreement(
+                source: source, observedAt: now, kind: .valueMismatch,
+                parserRemainingPercent: parserRemaining, parserResetAt: parserWindow?.resetAt,
+                modelRemainingPercent: modelRemaining, modelConfident: true,
+                modelReason: reading.reason, captureExcerpt: excerpt
+            )
+        }
+        return nil
+    }
+
+    /// Spawn + extract only — no comparison, no logging. Same shape as
+    /// `read`, minus building `CapacityWindow`s, because shadow mode wants
+    /// the raw `Reading` (including an unconfident one) to compare and log,
+    /// not just a pass/fail window.
+    static func shadowRead(
+        source: String,
+        capture: String,
+        executable: String,
+        timeout: TimeInterval
+    ) -> Reading? {
+        guard let argv = readerArgv(for: source, prompt: prompt + capture) else { return nil }
+        guard let output = runHeadless(executable: executable, argv: argv, timeout: timeout) else { return nil }
+        return extractReading(from: output)
+    }
+
+    /// Run the shadow read against a capture the deterministic parser already
+    /// read successfully, and return a `Disagreement` when the two do not
+    /// agree — nil on agreement, and nil for a source with no declared reader
+    /// argv (fail closed rather than inventing a "not wired" signal).
+    public static func runShadowComparison(
+        source: String,
+        capture: String,
+        executable: String,
+        parsed: [CapacityWindow],
+        timeout: TimeInterval = 90,
+        now: Date = Date()
+    ) -> Disagreement? {
+        guard readerArgv(for: source, prompt: "") != nil else { return nil }
+        let reading = shadowRead(source: source, capture: capture, executable: executable, timeout: timeout)
+        return compareToParser(parsed: parsed, reading: reading, source: source, capture: capture, now: now)
+    }
+
+    // MARK: - Shadow log
+
+    /// Where a caller writes a shadow disagreement, injectable so production
+    /// code and tests never share a sink.
+    public protocol ShadowDisagreementSink: Sendable {
+        func append(_ disagreement: Disagreement)
+    }
+
+    /// One append-only JSONL file, one line per disagreement.
+    public struct FileShadowDisagreementSink: ShadowDisagreementSink {
+        public let url: URL
+
+        public init(url: URL = CapacityPaneReader.defaultShadowLogURL) {
+            self.url = url
+        }
+
+        public func append(_ disagreement: Disagreement) {
+            // Backstop, deliberately redundant with sink injection — the same
+            // shape as `CapacityAccuracyLedger.FileSink`, which exists
+            // because a forgotten injection once wrote 45 fake rows into the
+            // founder's real evidence file. Do not delete this as redundant.
+            guard !CapacityPaneReader.isRunningUnderTestRunner else { return }
+            CapacityPaneReader.write(disagreement, to: url)
+        }
+    }
+
+    public static var defaultShadowLogURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(
+                "Library/Application Support/Allnighter/Capacity/shadow/disagreements.jsonl",
+                isDirectory: false
+            )
+    }
+
+    static var isRunningUnderTestRunner: Bool {
+        let env = ProcessInfo.processInfo.environment
+        if env["XCTestConfigurationFilePath"] != nil { return true }
+        if env["XCTestSessionIdentifier"] != nil { return true }
+        if env["SWIFT_TESTING_ENABLED"] != nil { return true }
+        if Bundle.main.bundlePath.contains(".xctest") { return true }
+        if ProcessInfo.processInfo.arguments.first?.contains(".xctest") == true { return true }
+        return false
+    }
+
+    /// Append one JSONL line. Best-effort: a write failure never propagates —
+    /// shadow logging must not be able to break capacity.
+    static func write(_ disagreement: Disagreement, to url: URL) {
+        do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            var line = try encoder.encode(disagreement)
+            line.append(0x0A)
+            if FileManager.default.fileExists(atPath: url.path) {
+                let handle = try FileHandle(forWritingTo: url)
+                defer { try? handle.close() }
+                try handle.seekToEnd()
+                try handle.write(contentsOf: line)
+            } else {
+                try line.write(to: url)
+            }
+        } catch {
+            // Best-effort log — never blocks or fails the capacity strip.
+        }
+    }
+
     static func parseISO8601(_ text: String) -> Date? {
         let withFraction = ISO8601DateFormatter()
         withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]

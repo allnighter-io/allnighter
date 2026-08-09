@@ -390,6 +390,11 @@
           "name" : "dogfood",
           "summary" : "Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it.",
           "takesValue" : false
+        },
+        {
+          "name" : "shadow-pane-reader",
+          "summary" : "Developer-only diagnostic (shadow mode, Handover_Capacity_2026-08-08.md §5). Forces a live probe and, for whichever seat(s) this refresh reaches the PTY-scrape path (currently cursor_agent \/ kimi only), runs the source's own cheapest model alongside the deterministic parser and logs any disagreement — never changes the published number. Spends a small amount of that source's own quota when it fires. Not for routine use.",
+          "takesValue" : false
         }
       ],
       "menuAction" : false,
@@ -6076,7 +6081,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.11.0",
+  "contractVersion" : "9.12.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -78,17 +78,25 @@ public struct CapacityProbeRequest: Sendable, Equatable {
     /// Acquisition scope this probe registers its child into (CWB-S00a).
     /// Nil for standalone probes outside an acquisition wave.
     public let scope: CapacityProbeScope?
+    /// Shadow-mode opt-in (Handover_Capacity_2026-08-08.md §5). Defaults to
+    /// `false` everywhere in this codebase — only the CLI's own
+    /// `--shadow-pane-reader` flag ever sets it, so the background scheduler
+    /// and the Mac resident's periodic refresh cannot reach it no matter what
+    /// is persisted, because they never pass it at all. See `CapacityProbe.windows`.
+    public let shadowPaneReader: Bool
 
     public init(
         source: String,
         now: Date,
         timeout: TimeInterval = CapacityProbe.defaultTimeout,
-        scope: CapacityProbeScope? = nil
+        scope: CapacityProbeScope? = nil,
+        shadowPaneReader: Bool = false
     ) {
         self.source = source
         self.now = now
         self.timeout = timeout
         self.scope = scope
+        self.shadowPaneReader = shadowPaneReader
     }
 }
 
@@ -113,7 +121,8 @@ public struct LiveCapacityProbeExecutor: CapacityProbeExecuting, Sendable {
             source: request.source,
             now: request.now,
             timeout: budget,
-            scope: request.scope
+            scope: request.scope,
+            shadowPaneReader: request.shadowPaneReader
         )
     }
 }
@@ -498,7 +507,8 @@ public enum CapacityProbe {
         homeDirectory: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
         executableOverride: String? = nil,
         dumpDirectory: URL? = nil,
-        scope: CapacityProbeScope? = nil
+        scope: CapacityProbeScope? = nil,
+        shadowPaneReader: Bool = false
     ) -> [CapacityWindow] {
         #if os(macOS)
         let budget = timeout ?? Self.timeout(for: source)
@@ -630,6 +640,19 @@ public enum CapacityProbe {
                 )
                 return [unknown(source: source, reason: reason, now: now)]
             }
+            // Shadow mode: the deterministic parse already succeeded, so
+            // `parsed` is the published value no matter what happens next —
+            // `maybeRunShadow` returns Void and cannot touch it. Off unless
+            // `shadowPaneReader` was explicitly set (see its doc comment for
+            // why the background scheduler cannot reach this).
+            maybeRunShadow(
+                shadowPaneReader: shadowPaneReader,
+                source: source,
+                capture: text,
+                executable: executable,
+                parsed: parsed,
+                now: now
+            )
             return parsed
         }
         #else
@@ -682,6 +705,51 @@ public enum CapacityProbe {
     /// a credential, and never triggers grok's own billing refresh.
     private static func probeGrokNative(homeDirectory: URL, now: Date) -> [CapacityWindow]? {
         GrokNativeCapacityProbe.fetch(homeDirectory: homeDirectory, now: now)
+    }
+
+    /// Shadow-mode gate for the model reader (Handover_Capacity_2026-08-08.md
+    /// §5 — approved; standing bet recorded there: *"It will show it is not
+    /// needed. Insurance will break first."*). Runs the reader ALONGSIDE a
+    /// deterministic parse that already succeeded and logs a disagreement;
+    /// `parsed` is a `let` at the call site and this function returns `Void`,
+    /// so there is no path here that can change what ships.
+    ///
+    /// Trigger: explicit only. `shadowPaneReader` defaults to `false` on
+    /// every function between here and the CLI, and only `alln capacity
+    /// --shadow-pane-reader` ever sets it to `true` — `CapacityRefreshScheduler`
+    /// (the `alln serve` background tick) and `CapacityResidentService` (the
+    /// Mac app's periodic refresh) call `CapacityFetch.liveSnapshot` /
+    /// `CapacityAcquisition.windows` with the parameter simply omitted, so
+    /// there is no persisted setting for a user to leave on by accident and
+    /// no way for a recurring background refresh to reach this branch. Cost
+    /// when it does fire: one extra headless spawn of the source's own
+    /// cheapest seat, for the single CLI invocation that asked for it.
+    ///
+    /// Wrapped so a shadow failure — no binary, timeout, unparseable output —
+    /// cannot introduce a capacity failure: `runShadowComparison` already
+    /// returns nil on every one of those paths (same fail-closed contract as
+    /// `CapacityPaneReader.read`), and this function has nothing left to do
+    /// but skip the log write.
+    static func maybeRunShadow(
+        shadowPaneReader: Bool,
+        source: String,
+        capture: String,
+        executable: String,
+        parsed: [CapacityWindow],
+        now: Date,
+        timeout: TimeInterval = 90,
+        sink: any CapacityPaneReader.ShadowDisagreementSink = CapacityPaneReader.FileShadowDisagreementSink()
+    ) {
+        guard shadowPaneReader else { return }
+        guard let disagreement = CapacityPaneReader.runShadowComparison(
+            source: source,
+            capture: capture,
+            executable: executable,
+            parsed: parsed,
+            timeout: timeout,
+            now: now
+        ) else { return }
+        sink.append(disagreement)
     }
 
     /// Best-effort write of a failed capture for parser re-fixturing.

@@ -125,7 +125,11 @@ public enum CapacityAcquisition {
         refreshSource: String? = nil,
         probeExecutor: (any CapacityProbeExecuting)? = nil,
         probeTimeout: TimeInterval = CapacityProbe.defaultTimeout,
-        probeScope: CapacityProbeScope? = nil
+        probeScope: CapacityProbeScope? = nil,
+        /// Shadow-mode opt-in (Handover_Capacity_2026-08-08.md §5). Defaults
+        /// `false`; only `alln capacity --shadow-pane-reader` ever sets it —
+        /// see `CapacityProbe.maybeRunShadow`.
+        shadowPaneReader: Bool = false
     ) -> [CapacityWindow] {
         _ = homeRoot // reserved for warm-pool / resident cache (CWB-S01+)
         let sourcesToProbe = Set(sourcesProbed(refresh: refresh, refreshSource: refreshSource))
@@ -157,7 +161,10 @@ public enum CapacityAcquisition {
                 defer { group.leave() }
                 let seatTimeout = resolveProbeTimeout(for: source, override: probeTimeout)
                 let windows = executor.execute(
-                    CapacityProbeRequest(source: source, now: now, timeout: seatTimeout, scope: scope)
+                    CapacityProbeRequest(
+                        source: source, now: now, timeout: seatTimeout, scope: scope,
+                        shadowPaneReader: shadowPaneReader
+                    )
                 )
                 let safe: [CapacityWindow]
                 if windows.isEmpty {

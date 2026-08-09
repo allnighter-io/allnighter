@@ -174,4 +174,217 @@ final class CapacityPaneReaderTests: XCTestCase {
         XCTAssertTrue(CapacityPaneReader.prompt.contains("Do NOT guess"))
         XCTAssertTrue(CapacityPaneReader.prompt.contains("confident: false"))
     }
+
+    // MARK: - Shadow mode: compareToParser (pure, no spawn)
+
+    private func parsedWindow(remaining: Double, resetAt: Date? = nil) -> CapacityWindow {
+        CapacityWindow(
+            remaining: remaining, source: "cursor_agent", scope: .weekly,
+            resetAt: resetAt, resetPrecision: .day, observedAt: now, sourceTier: .tuiProbe
+        )
+    }
+
+    /// Agreement within tolerance is not logged — a file of "agreed" lines is
+    /// noise, and the whole point of the log is to be reviewable.
+    func testAgreementProducesNoDisagreement() {
+        let reading = CapacityPaneReader.Reading(
+            pools: [], mostConstrainedRemaining: 52.4, resetAt: nil, planTier: nil,
+            confident: true, reason: "matches"
+        )
+        let result = CapacityPaneReader.compareToParser(
+            parsed: [parsedWindow(remaining: 52)], reading: reading,
+            source: "cursor_agent", capture: "irrelevant", now: now
+        )
+        XCTAssertNil(result, "within tolerance must not be logged as a disagreement")
+    }
+
+    /// Beyond tolerance, with both sides confident, is the classic case: two
+    /// real numbers that disagree.
+    func testValueMismatchBeyondToleranceIsLogged() throws {
+        let reading = CapacityPaneReader.Reading(
+            pools: [], mostConstrainedRemaining: 40, resetAt: nil, planTier: nil,
+            confident: true, reason: "model saw a different pool"
+        )
+        let result = CapacityPaneReader.compareToParser(
+            parsed: [parsedWindow(remaining: 52)], reading: reading,
+            source: "cursor_agent", capture: "pane text", now: now
+        )
+        let disagreement = try XCTUnwrap(result)
+        XCTAssertEqual(disagreement.kind, .valueMismatch)
+        XCTAssertEqual(disagreement.parserRemainingPercent, 52)
+        XCTAssertEqual(disagreement.modelRemainingPercent, 40)
+        XCTAssertEqual(disagreement.modelConfident, true)
+    }
+
+    /// The model answering `confident: false` while the parser found a real
+    /// number on the SAME text is worth flagging — it means the two disagree
+    /// about whether the pane was even readable.
+    func testUnconfidentModelDespiteParserSuccessIsLogged() throws {
+        let reading = CapacityPaneReader.Reading(
+            pools: [], mostConstrainedRemaining: nil, resetAt: nil, planTier: nil,
+            confident: false, reason: "half-painted"
+        )
+        let result = CapacityPaneReader.compareToParser(
+            parsed: [parsedWindow(remaining: 52)], reading: reading,
+            source: "kimi", capture: "pane text", now: now
+        )
+        let disagreement = try XCTUnwrap(result)
+        XCTAssertEqual(disagreement.kind, .modelUnconfident)
+        XCTAssertEqual(disagreement.modelConfident, false)
+    }
+
+    /// A `nil` reading (spawn failure, timeout, unparseable output) despite a
+    /// successful parse is the load-bearing case named in §6: a wrong argv
+    /// is otherwise indistinguishable from an unavailable vendor. Shadow mode
+    /// exists to make this one visible.
+    func testNilReadingDespiteParserSuccessIsLoggedAsModelSilent() throws {
+        let result = CapacityPaneReader.compareToParser(
+            parsed: [parsedWindow(remaining: 52)], reading: nil,
+            source: "cursor_agent", capture: "pane text", now: now
+        )
+        let disagreement = try XCTUnwrap(result)
+        XCTAssertEqual(disagreement.kind, .modelSilent)
+        XCTAssertNil(disagreement.modelConfident)
+        XCTAssertNil(disagreement.modelRemainingPercent)
+        XCTAssertEqual(disagreement.parserRemainingPercent, 52)
+    }
+
+    /// The excerpt is bounded — a reviewable log, not an unbounded dump of
+    /// full session content.
+    func testCaptureExcerptIsTruncated() throws {
+        let huge = String(repeating: "x", count: 20_000)
+        let result = CapacityPaneReader.compareToParser(
+            parsed: [parsedWindow(remaining: 52)], reading: nil,
+            source: "cursor_agent", capture: huge, now: now
+        )
+        let disagreement = try XCTUnwrap(result)
+        XCTAssertLessThan(disagreement.captureExcerpt.count, huge.count)
+        XCTAssertEqual(disagreement.captureExcerpt.count, CapacityPaneReader.captureExcerptLimit)
+    }
+
+    // MARK: - Shadow mode: runShadowComparison (real spawn, fixture "vendor CLI")
+
+    #if os(macOS)
+
+    private func writeScript(_ body: String, name: String) throws -> String {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-shadow-tests-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let script = dir.appendingPathComponent(name)
+        try body.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+        return script.path
+    }
+
+    /// End-to-end agreement: the fixture "vendor CLI" answers with the SAME
+    /// number the parser already has — no disagreement is produced.
+    func testRunShadowComparisonReturnsNilOnRealAgreement() throws {
+        let script = try writeScript("""
+        #!/bin/sh
+        printf '%s' '{"pools":[],"mostConstrainedRemaining":52,"resetAt":null,"planTier":null,"confident":true,"reason":"ok"}'
+        """, name: "fake-agree.sh")
+        let result = CapacityPaneReader.runShadowComparison(
+            source: "cursor_agent", capture: "pane", executable: script,
+            parsed: [parsedWindow(remaining: 52)], timeout: 5, now: now
+        )
+        XCTAssertNil(result)
+    }
+
+    /// End-to-end mismatch through a real spawn — proves extraction,
+    /// comparison, and classification all compose, not just the pure pieces.
+    func testRunShadowComparisonReturnsValueMismatchOnRealDisagreement() throws {
+        let script = try writeScript("""
+        #!/bin/sh
+        printf '%s' '{"pools":[],"mostConstrainedRemaining":9,"resetAt":null,"planTier":null,"confident":true,"reason":"different pool"}'
+        """, name: "fake-disagree.sh")
+        let result = CapacityPaneReader.runShadowComparison(
+            source: "cursor_agent", capture: "pane", executable: script,
+            parsed: [parsedWindow(remaining: 52)], timeout: 5, now: now
+        )
+        let disagreement = try XCTUnwrap(result)
+        XCTAssertEqual(disagreement.kind, .valueMismatch)
+        XCTAssertEqual(disagreement.modelRemainingPercent, 9)
+    }
+
+    /// **The load-bearing regression.** This exact failure shape — a real
+    /// process, a nonzero exit, nothing extractable — is what a mistyped
+    /// argv looks like (cursor's flag is `--model`, not `-m`; landmine §6).
+    /// Shadow mode's whole reason to exist is making this loggable instead of
+    /// silently indistinguishable from "vendor logged out".
+    func testRunShadowComparisonLogsModelSilentOnNonZeroExit() throws {
+        let script = try writeScript("""
+        #!/bin/sh
+        exit 1
+        """, name: "fake-fail.sh")
+        let result = CapacityPaneReader.runShadowComparison(
+            source: "cursor_agent", capture: "pane", executable: script,
+            parsed: [parsedWindow(remaining: 52)], timeout: 5, now: now
+        )
+        let disagreement = try XCTUnwrap(result)
+        XCTAssertEqual(disagreement.kind, .modelSilent)
+    }
+
+    /// Missing binary — the ordinary "vendor CLI not installed" shape — must
+    /// still fail closed to a logged `modelSilent`, never a crash or hang.
+    func testRunShadowComparisonHandlesMissingBinary() throws {
+        let result = CapacityPaneReader.runShadowComparison(
+            source: "cursor_agent", capture: "pane",
+            executable: "/tmp/alln-shadow-missing-\(UUID().uuidString)",
+            parsed: [parsedWindow(remaining: 52)], timeout: 5, now: now
+        )
+        let disagreement = try XCTUnwrap(result)
+        XCTAssertEqual(disagreement.kind, .modelSilent)
+    }
+
+    // MARK: - Shadow log
+
+    func testWriteAppendsJSONLLinesInOrder() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-shadow-log-\(UUID().uuidString)", isDirectory: true)
+        let url = dir.appendingPathComponent("disagreements.jsonl")
+        let first = CapacityPaneReader.Disagreement(
+            source: "cursor_agent", observedAt: now, kind: .valueMismatch,
+            parserRemainingPercent: 52, parserResetAt: nil, modelRemainingPercent: 9,
+            modelConfident: true, modelReason: "r1", captureExcerpt: "one"
+        )
+        let second = CapacityPaneReader.Disagreement(
+            source: "kimi", observedAt: now.addingTimeInterval(60), kind: .modelSilent,
+            parserRemainingPercent: 30, parserResetAt: nil, modelRemainingPercent: nil,
+            modelConfident: nil, modelReason: nil, captureExcerpt: "two"
+        )
+        CapacityPaneReader.write(first, to: url)
+        CapacityPaneReader.write(second, to: url)
+
+        let contents = try String(contentsOf: url, encoding: .utf8)
+        let lines = contents.split(separator: "\n", omittingEmptySubsequences: true)
+        XCTAssertEqual(lines.count, 2)
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decodedFirst = try decoder.decode(CapacityPaneReader.Disagreement.self, from: Data(lines[0].utf8))
+        let decodedSecond = try decoder.decode(CapacityPaneReader.Disagreement.self, from: Data(lines[1].utf8))
+        XCTAssertEqual(decodedFirst, first)
+        XCTAssertEqual(decodedSecond, second)
+    }
+
+    /// The production sink is a no-op under the test runner — same backstop
+    /// as `CapacityAccuracyLedger.FileSink`, so a forgotten injection cannot
+    /// write fake rows into the founder's real evidence file.
+    func testFileSinkNoOpsUnderTestRunner() {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("alln-shadow-sink-\(UUID().uuidString)", isDirectory: true)
+        let url = dir.appendingPathComponent("disagreements.jsonl")
+        let sink = CapacityPaneReader.FileShadowDisagreementSink(url: url)
+        sink.append(CapacityPaneReader.Disagreement(
+            source: "cursor_agent", observedAt: now, kind: .modelSilent,
+            parserRemainingPercent: 52, parserResetAt: nil, modelRemainingPercent: nil,
+            modelConfident: nil, modelReason: nil, captureExcerpt: "x"
+        ))
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: url.path),
+            "FileShadowDisagreementSink must no-op under the test runner"
+        )
+    }
+
+    #endif
 }

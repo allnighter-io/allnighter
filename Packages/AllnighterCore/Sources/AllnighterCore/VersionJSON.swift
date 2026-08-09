@@ -59,8 +59,15 @@ import Foundation
 /// (`"probe"` for a driver's own record, `"driver"` for a model's inherited
 /// one), and `nextAction` naming the refresh command. Disclosure only; no
 /// verdict/status/blockedReason changes. Not a major cut, standard +0.0.1.
+///
+/// **0.12.3 → 0.12.4 (shadow-mode pane reader, `Handover_Capacity_2026-08-08.md`
+/// §5).** `contractVersion` additive minor (9.11.0 → 9.12.0): `capacity`
+/// gains developer-only `--shadow-pane-reader` `FlagSpec`. Diagnostic opt-in
+/// only — never reachable from `alln serve`'s scheduler or the Mac resident's
+/// periodic refresh, never changes a published capacity value. Not a major
+/// cut, standard +0.0.1.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.12.3"
+    public static let binaryVersion = "0.12.4"
 }
 
 /// `alln version` / `alln --version` machine contract.

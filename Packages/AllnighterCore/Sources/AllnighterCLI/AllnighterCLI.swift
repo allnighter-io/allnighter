@@ -364,6 +364,15 @@ struct AllnighterCLI {
     /// scrape (shows only the opencode_go row, not the full bench). Omit
     /// `--dogfood` for normal use — opencode_go is a regular bench member.
     ///
+    /// **`--shadow-pane-reader`**: developer-only diagnostic (not a product
+    /// surface). Forces a live probe and runs the model reader alongside the
+    /// deterministic parser for whichever seats reach that branch this call —
+    /// today that is only `cursor_agent` / `kimi`, the two without a native
+    /// channel — logging any disagreement to
+    /// `~/Library/Application Support/Allnighter/Capacity/shadow/disagreements.jsonl`.
+    /// Never published as a capacity value (Handover_Capacity_2026-08-08.md
+    /// §5); never reachable from `alln serve`'s background refresh.
+    ///
     /// Unknown / disabled / expired are loud, never blocks (exit 0). Non-TTY
     /// path is plain ASCII, zero ANSI.
     static func runCapacity(_ args: [String]) {
@@ -377,6 +386,16 @@ struct AllnighterCLI {
         let now = Date()
         let refreshFlag = opts.flag("refresh")
         let dogfood = opts.flag("dogfood")
+        // Diagnostic-only opt-in (Handover_Capacity_2026-08-08.md §5): runs
+        // the model reader alongside the deterministic parser for whichever
+        // sources reach that branch this invocation (in practice cursor_agent
+        // / kimi — the two without a native channel, Capacity_Native_Channels
+        // §v5) and logs disagreements. Never wired into `alln serve`'s
+        // scheduler or the Mac resident's periodic refresh — see
+        // `CapacityProbe.maybeRunShadow`. Forces a live probe (below), since
+        // there is no capture text to shadow-compare against a cached socket
+        // answer.
+        let shadowPaneReader = opts.flag("shadow-pane-reader")
         let refreshSource = opts.value("source")
         if let refreshSource, let message = CapacityAcquisition.validateRefreshSourceId(refreshSource, dogfood: dogfood) {
             fail(code: "CLI_USAGE_ERROR", message: message)
@@ -428,7 +447,7 @@ struct AllnighterCLI {
         // CWB-S02 fast path: one read of the resident snapshot over
         // capacity.sock. Any failure (app quit, stale socket, hang, foreign
         // schema version) → nil → one cold live acquire — never a retry.
-        let socketAnswer: CapacitySocketSnapshot? = (featureEnabled && refreshSource == nil)
+        let socketAnswer: CapacitySocketSnapshot? = (featureEnabled && refreshSource == nil && !shadowPaneReader)
             ? CapacitySocketClient.read()
             : nil
 
@@ -452,7 +471,8 @@ struct AllnighterCLI {
             }
             return CapacityFetch.liveSnapshot(
                 now: now,
-                refreshSource: refreshSource
+                refreshSource: refreshSource,
+                shadowPaneReader: shadowPaneReader
             )
         }()
 

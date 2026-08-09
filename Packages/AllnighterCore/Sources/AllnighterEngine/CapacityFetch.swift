@@ -37,7 +37,14 @@ public enum CapacityFetch {
         historyStore: CapacityHistoryStore = CapacityHistoryStore(),
         probeExecutor: (any CapacityProbeExecuting)? = nil,
         probeTimeout: TimeInterval = CapacityProbe.defaultTimeout,
-        probeScope: CapacityProbeScope? = nil
+        probeScope: CapacityProbeScope? = nil,
+        /// Shadow-mode opt-in (Handover_Capacity_2026-08-08.md §5). Defaults
+        /// `false` — omitted by `CapacityRefreshScheduler` (serve's
+        /// background tick) and `CapacityResidentService` (the Mac resident's
+        /// periodic refresh), so only the CLI's explicit
+        /// `--shadow-pane-reader` flag ever sets it. See
+        /// `CapacityProbe.maybeRunShadow`.
+        shadowPaneReader: Bool = false
     ) -> Snapshot {
         let windows = CapacityAcquisition.windows(
             homeRoot: homeRoot,
@@ -46,7 +53,8 @@ public enum CapacityFetch {
             refreshSource: refreshSource,
             probeExecutor: probeExecutor,
             probeTimeout: probeTimeout,
-            probeScope: probeScope
+            probeScope: probeScope,
+            shadowPaneReader: shadowPaneReader
         )
         // Dashboard wave. Runs whenever the bench as a whole is refreshed, or
         // when the Go seat is the explicit target — but never when some other

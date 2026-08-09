@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.11.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.12.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -107,6 +107,7 @@ Flags:
 - `--enable` — Turn the capacity feature ON and exit. Writes a setting; probes nothing. Default for a new install is already ON.
 - `--disable` — Turn the capacity feature OFF and exit. Writes a setting; probes nothing. While OFF no seat is probed from any trigger.
 - `--dogfood` — Developer-only direct OpenCode Go dashboard scrape (bypasses the normal bench; requires --source opencode_go). Omit for normal use — opencode_go is a regular bench member without it.
+- `--shadow-pane-reader` — Developer-only diagnostic (shadow mode, Handover_Capacity_2026-08-08.md §5). Forces a live probe and, for whichever seat(s) this refresh reaches the PTY-scrape path (currently cursor_agent / kimi only), runs the source's own cheapest model alongside the deterministic parser and logs any disagreement — never changes the published number. Spends a small amount of that source's own quota when it fires. Not for routine use.
 
 Mutually exclusive: `--enable`, `--disable`.
 
