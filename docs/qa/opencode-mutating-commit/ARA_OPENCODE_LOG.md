@@ -9,7 +9,8 @@ Harness: `docs/qa/opencode-mutating-commit/SLICE_TEMPLATE.md`.
 | 2026-08-09 | `B6D64D7D` | ARA-S01 | Clean commit `378a47a` in ~208s; Works Tests green | **PASS** — host added `Finding.id` (`aab85fa7`) Pro omitted from §8 |
 | 2026-08-09 | `55A8AE94` | ARA-S02 | Clean commit `6598dd0` in ~311s; 10+1 tests green | **PASS** — full nine seats + strong charter tests |
 | 2026-08-09 | `49F85A6B` | ARA-S03 | Clean commit `5c832b6` in ~333s; 27 receipts + SkillCatalog green | **PASS** — host polish: `seatAnswers:` tally (`01d8c0de`/`103d75ec`) so BlindAnswer seat ids survive |
-| 2026-08-09 | (pending) | ARA-S04 | — | — |
+| 2026-08-09 | `814CA26D` | ARA-S04 | Clean commit `34f19a1` in ~371s; 23 shape tests green | **PASS** |
+| 2026-08-09 | (pending) | ARA-S05 | — | — |
 
 ## Standing rules
 
