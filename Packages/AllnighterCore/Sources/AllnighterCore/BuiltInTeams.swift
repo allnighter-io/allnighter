@@ -9,6 +9,7 @@ public enum BuiltInTeams {
     public static let all: [TeamPreset] = [
         buildCore, buildBugHuntMin, buildBugHunt, buildBugHuntMax, buildGUIBugHunt, buildSecurityReview,
         buildSpecReviewMin, buildDocReview, buildSpecReview, buildSpecReviewMax, buildReleaseProof,
+        buildAIReadiness,
         buildGrowthMin, buildGrowth, buildGrowthMax, buildFusion,
         defaultChat, executionPlaybook,
         designMin, designCore, designMax, designPremiumPolish, designUsabilityTriage,
@@ -450,6 +451,32 @@ public enum BuiltInTeams {
         writer: "proof_packet_writer", dissent: .riskRegister,
         typeTags: ["proof", "release", "done", "verify", "acceptance"],
         starters: ["Prove this slice is actually done before I believe it."])
+
+    /// AI Readiness — eight parallel blind answer seats + one Lead writer.
+    /// Read-only advisory; never writes to the repo. Team output is a typed
+    /// AIReadinessReport (no score/grade/rating — substance only).
+    /// docs/phases/AI_Readiness.md §8
+    static let buildAIReadiness = make(
+        id: "code_ai_readiness", name: "AI Readiness", lane: .code,
+        output: .aiReadinessReport, defaultEffort: .high,
+        description: "Audit a repo for agent workability: setup, docs, tests, loop, automation, and shape. One report with three fixes, cold-read receipts, and what is already right.",
+        rows: needRows([
+            ("readiness_setup_scout", .answer),
+            ("readiness_context_cartographer", .answer),
+            ("readiness_measurement_auditor", .answer),
+            ("readiness_test_infra_scout", .answer),
+            ("readiness_loop_scout", .answer),
+            ("readiness_automation_mapper", .answer),
+            ("readiness_shape_specialist", .answer),
+            ("readiness_strength_scout", .answer)
+        ], tags: [.code]),
+        writer: "ai_readiness_writer", dissent: .compareOptions,
+        mutating: false,
+        typeTags: ["ai-readiness", "audit", "agent", "code-health", "setup"],
+        starters: [
+            "Audit this repo for AI readiness.",
+            "How workable is this repo for an agent? Give me the three fixes that would help most."
+        ])
 
     // MARK: - Unified run model teams
 
