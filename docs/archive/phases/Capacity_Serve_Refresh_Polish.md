@@ -1,20 +1,25 @@
 # Capacity Serve Refresh Polish
 
-Status: **IN FLIGHT — S02+S01+S04 SHIPPED; next S03 (S05 deferred).**
-  Founder authorized 2026-08-09. Each slice: DeepSeek V4 Pro implement → host
-  audit → focused proof → commit. OpenCode bugs →
+Status: **COMPLETE — CRS-S02/S01/S04/S03 shipped 2026-08-09. S05 deferred.**
+  Archive copy — durable SSOT is code below. OpenCode dogfood log:
   `docs/qa/opencode-mutating-commit/OPENCODE_BUG_LOG.md`.
-  **CRS-S02:** `70a961bd` — margin 2m + jitter 60; audit CLEAN.
-  **CRS-S01:** `5e30f3f2` — scope wiring; audit CLEAN.
-  **CRS-S04:** Pro `7f16c87b` (async+backoff+historyWriteFailed) + host
-  `8a0e7306` (mid-probe cancel poller Works Test). Audit: Pro deferred
-  sibling poller → host fixed. SchedulerTests 21/21.
+
+  | Slice | Commit(s) | Notes |
+  | --- | --- | --- |
+  | S02 | `70a961bd` | serveFreshnessMargin 2m + tickJitterSeconds 60 |
+  | S01 | `5e30f3f2` | per-refresh CapacityProbeScope + terminate drain |
+  | S04 | `7f16c87b` + host `8a0e7306` | async refresh, bench backoff, historyWriteFailed; mid-probe cancel poller |
+  | S03 | `3e917b08` | attempt ledger + partial retry on 5m window |
+  | S05 | deferred | O(1) stamp — only if profiled |
+
+  Host Code Audit: CLEAN. Deslop: CLEAN. Targeted per-source refresh left as
+  full-bench (packet-allowed v1).
 Owner: AllnighterEngine (`CapacityRefreshScheduler`, `ServeDaemon`,
 `CapacityFetch`, `CapacityHistoryStore`; app peer `CapacityResidentService`)
 Created: 2026-08-09 | Updated: 2026-08-09 (authorized)
-Parent: [`Probe_Freshness.md`](Probe_Freshness.md) PF-S03 (SHIPPED —
+Parent: [`Probe_Freshness.md`](../../phases/Probe_Freshness.md) PF-S03 (SHIPPED —
 `CapacityRefreshScheduler`) · supersedes Dock-only host lock per §0.2
-Related: [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) (host lock still
+Related: [`Capacity_Warm_Bench.md`](../../phases/Capacity_Warm_Bench.md) (host lock still
 stale vs §0.2 — not this packet's job)
 Audits (read-only OpenCode dogfood 2026-08-09): DeepSeek V4 Pro `A655F640` ·
 Qwen 3.7 Plus `5DD71ADC`
@@ -105,7 +110,7 @@ ruling and the no-lock design.
 | Lengthen `tickInterval` alone as the S02 fix | Masks S02 alignment; slows "app just quit" catch-up. Prefer margin + positive jitter (invariant 3). |
 | Soften history merge locking / file locks for concurrent writers | Store already documents unlocked concurrent writers + heal-on-next; S03 adds attempt facts, not file locks. |
 | Targeted per-seat refresh as v1 of this packet | Nice; fold into S03's "retry failed only" if natural, else defer. Full-bench remains OK for empty history. |
-| Native-channel migration (no PTY) as the fix | Owned by [`Capacity_Native_Channels.md`](Capacity_Native_Channels.md); orthogonal. |
+| Native-channel migration (no PTY) as the fix | Owned by [`Capacity_Native_Channels.md`](../../phases/Capacity_Native_Channels.md); orthogonal. |
 
 ---
 

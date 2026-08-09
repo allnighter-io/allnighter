@@ -9,7 +9,8 @@ Not SSOT — promote durable lessons into help / packets on closeout.
 | 2026-08-09 | `78C6514D` | DeepSeek V4 Pro | CRS-S02 implement+commit | **Green** — `70a961bd`, 10/10 tests, host audit CLEAN. |
 | 2026-08-09 | `33E4E984` | DeepSeek V4 Pro | CRS-S01 implement+commit | **Green** — `5e30f3f2`, 11/11 tests, host audit CLEAN. Note: post-refresh `isCancelled` check makes tick-counter cancel predicates need `>2` to reach sleep (test comment); not a product bug. |
 | 2026-08-09 | `E01E1514` | DeepSeek V4 Pro | CRS-S04 implement+commit (~27m) | **Partial** — `7f16c87b` async+backoff+`historyWriteFailed` green, but **deferred mid-probe cancel poller** (packet Works Test). Host follow-up `8a0e7306` added TaskGroup poller + `testCancelMidProbeTerminatesInFlightScope`; 21/21. Log: long Pro wall OK; watch for under-shipping critical cancel paths. |
-| 2026-08-09 | (CRS-S03…) | Pro | _pending_ | |
+| 2026-08-09 | `C495ABFE` | DeepSeek V4 Pro | CRS-S03 implement+commit (~10m) | **Green** — `3e917b08`, 27/27 tests, host audit CLEAN. Full-bench refresh kept (v1); cold-seat rule intentional. |
+| 2026-08-09 | — | — | CRS packet archived | Closeout after S02→S01→S04→S03. |
 
 ## Rules for CRS Pro slices
 

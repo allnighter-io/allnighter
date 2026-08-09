@@ -4,9 +4,9 @@ Status: **v7 — COMPLETE. PF-S00, PF-S01, PF-S02, PF-S03 and the final
   capability-clock ruling all SHIPPED. Nothing open; ARCHIVE READY.
   The "capacity is a table, not a status" redesign is REFUTED (§0.4) — read it
   before proposing it again.**
-  **Follow-on (not this packet):** serve-scheduler residuals after PF-S03 →
-  [`Capacity_Serve_Refresh_Polish.md`](Capacity_Serve_Refresh_Polish.md)
-  (CRS-S01…S05); code unauthorized there until Ready.
+  **Follow-on (closed 2026-08-09):** serve-scheduler polish archived →
+  [`../archive/phases/Capacity_Serve_Refresh_Polish.md`](../archive/phases/Capacity_Serve_Refresh_Polish.md)
+  (CRS-S02/S01/S04/S03 shipped; S05 deferred).
 
   **PF-S01 shipped 2026-08-09 (`4a150fd3`).** `checkedAt` / `ageMinutes` /
   `stale` / `evidenceSource` / `nextAction` on every driver and model row across
