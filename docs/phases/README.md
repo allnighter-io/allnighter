@@ -62,7 +62,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
-| [`Serve_Continuity.md`](Serve_Continuity.md) | **OPEN — v2.3; S00a/S00/S01 done; SC-S03 → Kimi** | Demand heal next. S02/S04 await founder (login item + stable binary). Do not dogfood `serve repair` on a healthy agent until S03 lands. |
+| [`Serve_Continuity.md`](Serve_Continuity.md) | **OPEN — v2.4; S00a/S00/S01/S03 done; S02/S04 need founder** | Code-red floor shipped: honesty + repair + demand heal. Remaining: stable-binary install-cli transaction + SMAppService enable (High-Risk Stop). |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
 
 ### Forward feature packets

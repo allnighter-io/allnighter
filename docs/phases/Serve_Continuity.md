@@ -1,6 +1,6 @@
 # Serve Continuity (Background Keeper)
 
-Status: **OPEN — v2.3 (SC-S00a/S00/S01 done; SC-S03 demand heal next — S02/S04 await founder)**
+Status: **OPEN — v2.4 (code-red floor landed: S00a/S00/S01/S03); S02/S04 blocked on founder rulings)**
 Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeAutoLaunch`,
 admission, doctor, **new ServeLifecycle**) + `InstallCLI` / `rebuild_cli.sh`
 (same transaction as identity change) + Mac app (enablement / demand heal) —
@@ -215,7 +215,7 @@ clear; they do not exit(0) in a KeepAlive death loop.
 | **SC-S00** | **DONE 2026-08-09** (`05afee05`) — `ServeLaunchAgentStatus` + doctor `serve.launchAgent` critical on wedge; `serve --health` additive `launchAgent`. Works Test 14/14. | `scripts/swift-test.sh --filter ServeLaunchAgentStatusTests` |
 | **SC-S01** | **DONE 2026-08-09** (`867d72e3`) — `ServeLifecycle` removal + `alln serve repair`. No register/enable. | `scripts/swift-test.sh --filter ServeLifecycleTests` |
 | **SC-S02** | Wire lifecycle into **`install-cli` / rebuild same transaction** as symlink repoint; stage **stable-identity** binary for OS-managed agent. | Rebuild + kill with app closed → new launchd pid, health `available`, capacity advances (sacrificial-label harness). |
-| **SC-S03** | Demand heal: app launch + `alln run` call `ensureRunning` (opt-out preserved); prefer delegating spawn through ServeLifecycle when enablement is on. | Kill serve → ordinary run/app open → health `available` without reboot. |
+| **SC-S03** | **DONE 2026-08-09** (`861578aa`) — `alln run` + Mac app launch call `ServeAutoLaunch.ensureRunning`. | `scripts/swift-test.sh --filter ServeAutoLaunchTests` |
 | **SC-S04** | `enable` / `disable` UX (founder-gated start-at-login) via SMAppService; logout/login Works Test. | Serve returns after login; capacity stamp advances app-closed. |
 | **SC-S05** | Admission PID identity harden (**separate** — real gap, **not** this bug's root cause). | Recycled-pid fixture cannot `refuse` forever. |
 
