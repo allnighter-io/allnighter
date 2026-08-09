@@ -29,7 +29,13 @@ public extension ContractRegistry {
     // distinct from `checkedAt`'s capability clock); `evidenceSource` gains
     // `"run"` (a completed real run, not just an explicit probe). Disclosure
     // only — no verdict/status/blockedReason changed.
-    static let contractVersion = "9.13.0"
+    // PF-S04: minor — `menu`/`models` model rows shed their duplicated
+    // `freshness` object down to one inline `stale` boolean (the only
+    // decision it fed); the full disclosure now lives once, on the driver
+    // row (`alln drivers --json`), reachable via the model row's existing
+    // `driverId`. Normalization, not field-dropping — nothing left the
+    // payload. Driver rows' `freshness` is unchanged.
+    static let contractVersion = "9.14.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,

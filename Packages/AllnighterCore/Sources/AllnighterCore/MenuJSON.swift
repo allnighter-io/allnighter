@@ -98,11 +98,14 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var capabilityTags: [String]?
         public var runTemplate: String?
         public var validateTemplate: String?
-        /// PF-S01 — how old the evidence behind `ready`/`status` is, and the
-        /// command that actually refreshes it. Always inherited from the
-        /// owning driver (`freshness.evidenceSource == "driver"`) — a model is
-        /// never independently smoke-probed.
-        public var freshness: ProbeFreshnessJSON
+        /// PF-S04 — the one decision an agent makes from a model row's
+        /// evidence: trust `ready`/`status` or not. A model is never
+        /// independently smoke-probed, so the full disclosure (`checkedAt`,
+        /// `ageMinutes`, `evidenceSource`, `nextAction`) lives once on the
+        /// owning driver row (`alln drivers --json`, via this row's own
+        /// `driverId`) instead of being copied onto every model that shares
+        /// it — see `ModelListJSON.Entry.stale` for the full rationale.
+        public var stale: Bool
     }
 
     /// How to invoke any seat, stated once instead of per row.

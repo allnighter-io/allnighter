@@ -429,10 +429,10 @@ public enum ContractSchema {
                 "state": enumStr(["onBench", "available"]),
                 "capabilities": ref("ModelCapabilities"),
                 "headlessTrust": nullableRef("HeadlessTrustPolicy"),
-                "freshness": ref("ProbeFreshness"),
+                "stale": bool,
             ], required: [
                 "id", "displayName", "modelLabel", "driverId", "driverName", "role", "origin",
-                "enabled", "ready", "status", "state", "capabilities", "freshness",
+                "enabled", "ready", "status", "state", "capabilities", "stale",
             ]),
             "HeadlessTrustPolicy": obj([
                 "required": bool, "cliFlag": str, "disclosure": str,
@@ -444,7 +444,6 @@ public enum ContractSchema {
                 "code": str, "modelId": nullable("string"), "driverId": nullable("string"), "message": str,
             ], required: ["code", "message"]),
             "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
-            "ProbeFreshness": probeFreshnessDef(),
         ]
         return schema
     }
@@ -453,18 +452,13 @@ public enum ContractSchema {
         obj(["kind": str, "label": str, "command": str], required: ["kind", "label", "command"])
     }
 
-    /// PF-S01 — shared by `ModelEntry.freshness` and `MenuModel.freshness`.
-    /// `checkedAt`/`ageMinutes` are `null` for a never-probed row (§PF-S01:
-    /// not epoch zero, not `now`, not omitted).
-    private static func probeFreshnessDef() -> [String: Any] {
-        obj([
-            "checkedAt": nullable("string"),
-            "ageMinutes": nullable("integer"),
-            "stale": bool,
-            "evidenceSource": enumStr(["probe", "driver"]),
-            "nextAction": ref("AgentSurfaceNextAction"),
-        ], required: ["checkedAt", "ageMinutes", "stale", "evidenceSource", "nextAction"])
-    }
+    /// PF-S01 shared this def between `ModelEntry.freshness` and
+    /// `MenuModel.freshness`. PF-S04 narrows both rows to a plain `stale`
+    /// boolean — the full disclosure now lives once, on `DriverListJSON.
+    /// Entry.freshness`, which is not schema-registered here — so this
+    /// shared def has no remaining reference and was removed rather than
+    /// left as dead `$defs`. See `ProbeFreshnessJSON` for the still-live
+    /// full shape.
 
     public static func versionSchema() -> [String: Any] {
         var schema: [String: Any] = [
@@ -915,10 +909,10 @@ public enum ContractSchema {
                 "enabled": bool, "ready": bool, "blockedReason": nullable("string"),
                 "capabilities": ref("ModelCapabilities"),
                 "runTemplate": str, "validateTemplate": str,
-                "freshness": ref("ProbeFreshness"),
+                "stale": bool,
             ], required: [
                 "ref", "id", "displayName", "driverId", "enabled", "ready",
-                "capabilities", "runTemplate", "validateTemplate", "freshness",
+                "capabilities", "runTemplate", "validateTemplate", "stale",
             ]),
             "MenuRecipe": obj([
                 "ref": str, "id": str, "title": str, "useWhen": str, "dontUseWhen": str,
@@ -956,8 +950,6 @@ public enum ContractSchema {
                 "available": bool, "current": str, "latest": str,
                 "binaryPath": nullable("string"), "command": str,
             ], required: ["available", "current", "latest", "command"]),
-            "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
-            "ProbeFreshness": probeFreshnessDef(),
         ]
         return schema
     }

@@ -79,8 +79,24 @@ import Foundation
 /// gains `"run"`. Disclosure only — no verdict/status/blockedReason changed;
 /// an old record with no `lastDetectedAt` reports capability unknown until
 /// its first new-style write. Not a major cut, standard +0.0.1.
+///
+/// **0.12.5 → 0.12.6 (PF-S04, Menu Freshness Normalization).**
+/// `contractVersion` additive minor (9.13.0 → 9.14.0): PF-S01 gave every
+/// driver AND model row a full `freshness` object, but a model is never
+/// independently probed — every model row was copying its driver's object
+/// verbatim (measured: 29 objects, 9 distinct values, 4,130 of 6,325 added
+/// bytes were exact duplicates, ~2% headroom left against the 30 KiB `menu`
+/// budget). The only thing an agent does with freshness on a model row is
+/// decide whether to trust the readiness verdict — one boolean. `menu` and
+/// `models` model rows now carry only `stale`; the full disclosure
+/// (`checkedAt`/`ageMinutes`/`detectedAt`/`evidenceSource`/`nextAction`)
+/// stays exactly where it already lived in full on `alln drivers --json`,
+/// reachable via the model row's existing `driverId` — no new pointer field,
+/// no second call, nothing removed from the payload. Driver rows are
+/// unchanged. Normalization, not the field-dropping
+/// `Menu_Envelope_Compression` rejected. Not a major cut, standard +0.0.1.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.12.5"
+    public static let binaryVersion = "0.12.6"
 }
 
 /// `alln version` / `alln --version` machine contract.

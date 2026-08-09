@@ -129,8 +129,12 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
     // MARK: - alln models --json
 
     /// A model row must never present the driver's checkedAt as if the MODEL
-    /// itself were probed — `evidenceSource: "driver"` makes the inheritance
-    /// explicit rather than implied.
+    /// itself were probed — `ProbeFreshnessDisclosure.forModel`'s
+    /// `evidenceSource: "driver"` makes the inheritance explicit rather than
+    /// implied. PF-S04: the projected ROW itself carries only the decision
+    /// bit (`stale`) inline; the full disclosure this test still exercises
+    /// directly now lives on the owning driver row (`alln drivers --json`),
+    /// reachable via this row's own `driverId`.
     func testModelRowInheritsDriverEvidenceAndDisclosesIt() {
         let registry = DriverRegistry([
             DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
@@ -146,11 +150,14 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
             registry: registry, definitions: definitions, probeRecords: [record], now: now,
             diagnostics: [])
         let row = try! XCTUnwrap(list.models.first { $0.id == "model_kimi_k3" })
-        XCTAssertEqual(row.freshness.checkedAt, record.lastProbeAt)
-        XCTAssertEqual(row.freshness.ageMinutes, 38 * 60)
-        XCTAssertTrue(row.freshness.stale)
-        XCTAssertEqual(row.freshness.evidenceSource, "driver", "a model is never independently probed")
-        XCTAssertEqual(row.freshness.nextAction.command, "alln doctor --full --agent kimi")
+        let disclosure = ProbeFreshnessDisclosure.forModel(record, driverId: "kimi", now: now)
+        XCTAssertEqual(disclosure.checkedAt, record.lastProbeAt)
+        XCTAssertEqual(disclosure.ageMinutes, 38 * 60)
+        XCTAssertTrue(disclosure.stale)
+        XCTAssertEqual(disclosure.evidenceSource, "driver", "a model is never independently probed")
+        XCTAssertEqual(disclosure.nextAction.command, "alln doctor --full --agent kimi")
+        XCTAssertEqual(row.stale, disclosure.stale, "the row's inline bit must match the full disclosure")
+        XCTAssertEqual(row.driverId, "kimi", "the full detail is reachable via this existing field")
     }
 
     /// Control: a never-probed driver's model reports `checkedAt: nil` too —
@@ -169,10 +176,12 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
             registry: registry, definitions: definitions, probeRecords: [], now: now,
             diagnostics: [])
         let row = try! XCTUnwrap(list.models.first { $0.id == "model_oc" })
-        XCTAssertNil(row.freshness.checkedAt)
-        XCTAssertNil(row.freshness.ageMinutes)
-        XCTAssertTrue(row.freshness.stale)
-        XCTAssertEqual(row.freshness.evidenceSource, "driver")
+        let disclosure = ProbeFreshnessDisclosure.forModel(nil, driverId: "opencode", now: now)
+        XCTAssertNil(disclosure.checkedAt)
+        XCTAssertNil(disclosure.ageMinutes)
+        XCTAssertTrue(disclosure.stale)
+        XCTAssertEqual(disclosure.evidenceSource, "driver")
+        XCTAssertTrue(row.stale)
     }
 
     /// Control: a fresh driver's model is disclosed as not stale.
@@ -191,17 +200,20 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
             registry: registry, definitions: definitions, probeRecords: [record], now: now,
             diagnostics: [])
         let row = try! XCTUnwrap(list.models.first { $0.id == "model_grok" })
-        XCTAssertEqual(row.freshness.ageMinutes, 5)
-        XCTAssertFalse(row.freshness.stale)
+        let disclosure = ProbeFreshnessDisclosure.forModel(record, driverId: "grok", now: now)
+        XCTAssertEqual(disclosure.ageMinutes, 5)
+        XCTAssertFalse(disclosure.stale)
+        XCTAssertFalse(row.stale)
     }
 
     // MARK: - alln menu --json (Tier-1 front door)
 
     /// The menu is the primary agent front door named by the Works Test.
     /// `MenuCatalog.project` is fed `ModelListJSON.Entry` rows built by
-    /// `ModelListProjector`, so freshness must survive that hand-off into
-    /// `MenuJSON.Model.freshness` unchanged — never re-derived, never dropped.
-    func testMenuModelRowCarriesTheSameFreshnessAsTheModelListEntry() {
+    /// `ModelListProjector`, so PF-S04's `stale` bit must survive that
+    /// hand-off into `MenuJSON.Model.stale` unchanged — never re-derived,
+    /// never dropped.
+    func testMenuModelRowCarriesTheSameStaleBitAsTheModelListEntry() {
         let registry = DriverRegistry([
             DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
         ])
@@ -217,18 +229,16 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
             diagnostics: [])
         let menu = MenuCatalog.project(
             modelEntries: modelList.models, detailed: true)
+        let entry = try! XCTUnwrap(modelList.models.first { $0.id == "model_kimi_k3" })
         let row = try! XCTUnwrap(menu.models.first { $0.id == "model_kimi_k3" })
-        XCTAssertEqual(row.freshness.checkedAt, record.lastProbeAt)
-        XCTAssertEqual(row.freshness.ageMinutes, 38 * 60)
-        XCTAssertTrue(row.freshness.stale)
-        XCTAssertEqual(row.freshness.evidenceSource, "driver")
-        XCTAssertEqual(row.freshness.nextAction.command, "alln doctor --full --agent kimi")
+        XCTAssertTrue(entry.stale)
+        XCTAssertEqual(row.stale, entry.stale)
     }
 
     /// Control inside the menu surface: a never-probed model's row still
-    /// reports `checkedAt: nil` after the hand-off through `MenuCatalog`,
-    /// not a timestamp fabricated somewhere along the way.
-    func testMenuModelRowForNeverProbedDriverReportsNullCheckedAt() {
+    /// reports `stale: true` after the hand-off through `MenuCatalog`, not a
+    /// fabricated positive slipped in somewhere along the way.
+    func testMenuModelRowForNeverProbedDriverIsStale() {
         let registry = DriverRegistry([
             DriverManifest(id: "opencode", displayName: "OpenCode", kind: .headlessCLI),
         ])
@@ -244,9 +254,81 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
         let menu = MenuCatalog.project(
             modelEntries: modelList.models, detailed: true)
         let row = try! XCTUnwrap(menu.models.first { $0.id == "model_oc" })
-        XCTAssertNil(row.freshness.checkedAt)
-        XCTAssertNil(row.freshness.ageMinutes)
-        XCTAssertTrue(row.freshness.stale)
+        XCTAssertTrue(row.stale)
+    }
+
+    // MARK: - PF-S04 — model rows normalize `freshness` down to `stale`
+
+    /// The wire proof the slice exists for: a model row's JSON must carry a
+    /// plain `stale` boolean, and must NEVER carry a `freshness` key — the
+    /// duplicated object this slice removes. Against pre-fix code this fails
+    /// because `models[n]` still has a `freshness` object instead of `stale`.
+    func testModelListRowEncodesStaleNotFreshnessObject() throws {
+        let registry = DriverRegistry([
+            DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
+        ])
+        let record = freshRecord(driverId: "kimi", ageSeconds: 300)
+        let definitions = [
+            ModelDefinition(
+                id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-k3",
+                driverId: "kimi", role: .both, origin: .builtIn, defaultEnabled: true,
+                capabilities: ModelCapabilities()),
+        ]
+        let list = ModelListProjector.build(
+            registry: registry, definitions: definitions, probeRecords: [record], now: now,
+            diagnostics: [])
+        let data = try CoreJSON.encode(list)
+        let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let models = try XCTUnwrap(obj["models"] as? [[String: Any]])
+        let row = try XCTUnwrap(models.first { $0["id"] as? String == "model_kimi_k3" })
+        XCTAssertTrue(row["stale"] is Bool, "model row must carry a plain stale boolean")
+        XCTAssertNil(row["freshness"], "model row must never carry the driver's full freshness object")
+    }
+
+    /// Same wire proof on the menu (Tier-1 front door) surface — the row this
+    /// slice was actually measured against.
+    func testMenuModelRowEncodesStaleNotFreshnessObject() throws {
+        let registry = DriverRegistry([
+            DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
+        ])
+        let record = freshRecord(driverId: "kimi", ageSeconds: 300)
+        let definitions = [
+            ModelDefinition(
+                id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-k3",
+                driverId: "kimi", role: .both, origin: .builtIn, defaultEnabled: true,
+                capabilities: ModelCapabilities()),
+        ]
+        let modelList = ModelListProjector.build(
+            registry: registry, definitions: definitions, probeRecords: [record], now: now,
+            diagnostics: [])
+        let menu = MenuCatalog.project(modelEntries: modelList.models, detailed: true)
+        let data = try CoreJSON.encode(menu)
+        let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let models = try XCTUnwrap(obj["models"] as? [[String: Any]])
+        let row = try XCTUnwrap(models.first { $0["id"] as? String == "model_kimi_k3" })
+        XCTAssertTrue(row["stale"] is Bool, "menu model row must carry a plain stale boolean")
+        XCTAssertNil(row["freshness"], "menu model row must never carry the driver's full freshness object")
+    }
+
+    /// The other half of the same proof: the DRIVER row is untouched by this
+    /// slice — it is the single remaining home for the full disclosure, so
+    /// it must still carry every field, including the literal-null
+    /// `checkedAt` a never-probed driver reports.
+    func testDriverRowStillEncodesTheFullFreshnessObject() throws {
+        let registry = DriverRegistry([
+            DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
+        ])
+        let record = freshRecord(driverId: "kimi", ageSeconds: 300)
+        let list = DriverListProjector.build(
+            registry: registry, probeRecords: [record], now: now, models: [], parkedDriverIds: [])
+        let data = try CoreJSON.encode(list)
+        let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let drivers = try XCTUnwrap(obj["drivers"] as? [[String: Any]])
+        let row = try XCTUnwrap(drivers.first { $0["driverId"] as? String == "kimi" })
+        let freshness = try XCTUnwrap(row["freshness"] as? [String: Any])
+        for key in ["checkedAt", "ageMinutes", "detectedAt", "stale", "evidenceSource", "nextAction"] {
+            XCTAssertTrue(freshness.keys.contains(key), "driver row must still carry \(key)")
+        }
     }
 
     // MARK: - Three states (Probe_Freshness Option A — lastDetectedAt split)
@@ -317,8 +399,11 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
     }
 
     /// A model row inherits run-sourced evidence but never re-labels it as
-    /// its OWN probe — `evidenceSource` stays `"driver"` regardless of what
-    /// produced the underlying driver record.
+    /// its OWN probe — `ProbeFreshnessDisclosure.forModel`'s `evidenceSource`
+    /// stays `"driver"` regardless of what produced the underlying driver
+    /// record. PF-S04: the projected row itself only carries `stale`; the
+    /// labeling this test guards lives on the full disclosure, still
+    /// exercised directly here.
     func testModelRowFromARunStillReportsEvidenceSourceDriver() {
         let registry = DriverRegistry([
             DriverManifest(id: "kimi", displayName: "Kimi", kind: .headlessCLI),
@@ -337,8 +422,10 @@ final class ProbeFreshnessDisclosureTests: XCTestCase {
             registry: registry, definitions: definitions, probeRecords: [record], now: now,
             diagnostics: [])
         let row = try! XCTUnwrap(list.models.first { $0.id == "model_kimi_k3" })
-        XCTAssertEqual(row.freshness.checkedAt, at)
-        XCTAssertEqual(row.freshness.evidenceSource, "driver")
+        let disclosure = ProbeFreshnessDisclosure.forModel(record, driverId: "kimi", now: now)
+        XCTAssertEqual(disclosure.checkedAt, at)
+        XCTAssertEqual(disclosure.evidenceSource, "driver")
+        XCTAssertEqual(row.stale, disclosure.stale)
     }
 
     /// A source that has never been detected at all (no record) reports

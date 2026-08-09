@@ -183,7 +183,7 @@ final class MenuSelectionGradeTests: XCTestCase {
         return MenuCatalog.project(teams: teams, modelEntries: modelEntries, detailed: detailed)
     }
 
-    func testPerRowBoundsAndBuiltInFixtureStillWithin30KiB() throws {
+    func testPerRowBoundsAndBuiltInFixtureStillWithin25KiB() throws {
         let m = menu
         for action in m.actions {
             try MenuSelectionCopy.validateBounds(
@@ -218,11 +218,18 @@ final class MenuSelectionGradeTests: XCTestCase {
         // Tier-1 built-in fixture measures 32,168 B after the stage-1 slimming
         // (was 36,934 B when this gated the pre-slim payload). Tightened rather
         // than left slack: a budget above what ships stops gating growth.
-        // PF-S01 (2026-08-08): every model row gains `freshness`
+        // PF-S01 (2026-08-08): every model row gained `freshness`
         // (checkedAt/ageMinutes/stale/evidenceSource/nextAction) — disclosure
         // the Works Test requires on Tier-1, not `--detailed`-only. Measured
         // 30,113 B; budget moved to 30 KiB (30,720 B), ~2% headroom.
-        XCTAssertLessThanOrEqual(data.count, 30720, "built-in Tier-1 MenuJSON \(data.count) exceeds 30 KiB")
+        // PF-S04 (2026-08-09): a model is never independently probed, so every
+        // model row was copying its driver's `freshness` object verbatim —
+        // measured 29 objects, only 9 distinct values. Model rows now carry
+        // only the decision bit (`stale`); the full disclosure stays once, on
+        // the driver row, reachable via the model row's existing `driverId`.
+        // Measured 25,183 B; budget lowered to 25 KiB (25,600 B), ~1.7%
+        // headroom — a budget left at the old value would stop gating growth.
+        XCTAssertLessThanOrEqual(data.count, 25600, "built-in Tier-1 MenuJSON \(data.count) exceeds 25 KiB")
     }
 
     func testPerRowBoundsAndRealisticCatalogWithinBudget() throws {
@@ -241,7 +248,7 @@ final class MenuSelectionGradeTests: XCTestCase {
         // No authored model copy left to bound-check (stage 3).
         let data = try MenuCatalog.encodeCompact(realisticMenu())
         // Budget derivation (QABC-S00a, 2026-07-31): the built-in-only fixture
-        // that `testPerRowBoundsAndBuiltInFixtureStillWithin30KiB` gates does
+        // that `testPerRowBoundsAndBuiltInFixtureStillWithin25KiB` gates does
         // NOT protect the real agent-facing surface — live `alln menu --json`
         // on this bench compacts to 35,027 B, above the old 32 KiB gate, and
         // that weight is legitimate: runTemplate+validateTemplate across every
@@ -253,7 +260,12 @@ final class MenuSelectionGradeTests: XCTestCase {
         // without being so loose it stops gating growth.
         // PF-S01 (2026-08-08): `freshness` on every model row. Measured
         // 33,964 B; budget moved to 34 KiB (34,816 B), ~2.5% headroom.
-        XCTAssertLessThanOrEqual(data.count, 34816, "realistic Tier-1 MenuJSON \(data.count) exceeds 34 KiB budget")
+        // PF-S04 (2026-08-09): model rows normalize `freshness` down to a
+        // single inline `stale` boolean (see the sibling test above for the
+        // measured duplication this removes); driver rows are unchanged.
+        // Measured 28,014 B; budget lowered to 28 KiB (28,672 B), ~2.3%
+        // headroom.
+        XCTAssertLessThanOrEqual(data.count, 28672, "realistic Tier-1 MenuJSON \(data.count) exceeds 28 KiB budget")
     }
 
     func testAuthoredBoundsRejectOversizedCustomRecord() {

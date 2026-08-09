@@ -33,9 +33,11 @@ final class VersionIdentityTests: XCTestCase {
     /// `pair pilot*` retire behind one `alln loop` verb and the `PMMode` wire
     /// enum is deleted. Pin the value so an accidental revert is caught here,
     /// not discovered downstream. PF-S03b: 0.12.4 → 0.12.5 (additive minor
+    /// contract bump; see `VersionJSON.swift` release note). PF-S04:
+    /// 0.12.5 → 0.12.6 (menu/model freshness normalization, additive minor
     /// contract bump; see `VersionJSON.swift` release note).
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.12.5")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.12.6")
     }
 
     /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at

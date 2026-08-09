@@ -25,12 +25,19 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
         public var capabilities: ModelCapabilities
         /// When the source requires headless trust/mutation flags (e.g. Cursor `--trust`).
         public var headlessTrust: HeadlessTrustPolicy?
-        /// PF-S01 — a model is never independently smoke-probed; this always
-        /// carries the OWNING DRIVER's evidence, with `evidenceSource: "driver"`
-        /// disclosing that inheritance rather than leaving it implied. Defaults
-        /// to the honest "never checked" state for call sites that predate this
-        /// field and don't compute it.
-        public var freshness: ProbeFreshnessJSON
+        /// PF-S04 — a model is never independently smoke-probed; it always
+        /// inherits the OWNING DRIVER's evidence. The only decision an agent
+        /// makes from a model row is "trust this readiness verdict or not",
+        /// which is exactly this one boolean — `checkedAt`/`ageMinutes`/
+        /// `evidenceSource`/`nextAction` stay on the driver row (`alln drivers
+        /// --json`, reachable via this row's own `driverId`), which every
+        /// model row was already duplicating verbatim (Menu_Envelope_
+        /// Compression measured 4,130 of 6,325 added bytes as exact copies).
+        /// This is a normalization, not the field-dropping that packet
+        /// rejected: nothing left the payload, it moved to the row that
+        /// actually owns it. Defaults to the honest "never checked" state
+        /// for call sites that predate this field and don't compute it.
+        public var stale: Bool
 
         public init(
             id: ModelID,
@@ -46,7 +53,7 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             state: String,
             capabilities: ModelCapabilities,
             headlessTrust: HeadlessTrustPolicy? = nil,
-            freshness: ProbeFreshnessJSON = ProbeFreshnessDisclosure.unknownModel
+            stale: Bool = ProbeFreshnessDisclosure.unknownModel.stale
         ) {
             self.id = id
             self.displayName = displayName
@@ -61,7 +68,7 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             self.state = state
             self.capabilities = capabilities
             self.headlessTrust = headlessTrust
-            self.freshness = freshness
+            self.stale = stale
         }
     }
 
