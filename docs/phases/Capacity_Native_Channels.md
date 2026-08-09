@@ -122,12 +122,38 @@ whether that generalises. Tested 2026-08-08:
 | `kimi` | `kimi web` headless server | weekly + 5h, typed error kind |
 | `claude_code` | `cachedUsageUtilization` in `~/.claude.json` | CLI keeps it fresh |
 | `grok` | `billing: fetched credits config` in `~/.grok/logs/unified.jsonl` | **cross-validates the TUI exactly** — `creditUsagePercent: 8.0` vs TUI 92% remaining; period end `2026-08-14T18:11:40Z` vs TUI reset `18:11`. No secrets in the payload. |
-| `cursor_agent` | **none** | print mode does NOT take slash commands — `/usage` was answered as a chat prompt, costing 184 output + 21.9k cache-write tokens. `cursor-agent about --format json` gives `subscriptionTier` only, no quota. |
+| `cursor_agent` | **none — verified exhaustively, see below** | the only source with no credential-free structured channel |
 
 **Five of six move with zero credentials and zero setup.** `cursor_agent` keeps
 the PTY scrape as its own last-resort fallback, which the per-source seam
 already allows — one racy source is a far better place to be than six, and it
 costs the user nothing to set up.
+
+### cursor_agent — investigated 2026-08-08, no structured channel exists
+
+Checked whether cursor writes usage state on launch the way grok does. It does
+not, verified four ways:
+
+| Probe | Result |
+| --- | --- |
+| Diffed **32,578** files under `~/.cursor` and `~/.local/share/cursor-agent` across one probe | exactly 4 changed — `cli-config.json`, `skills-cursor/.sync-manifest.json`, `statsig-cache.json`, `projects/.../worker.log`. **None contains quota data.** |
+| `cursor-agent about --format json` | `subscriptionTier` only, no numbers |
+| `cursor-agent status` | auth only — "Logged in as …" |
+| `cursor-agent -p "/usage"` | answered as a CHAT PROMPT: 184 output + 21.9k cache-write tokens |
+
+`statsig-cache.json` is 672KB and matches "usage" many times, but every hit is UI
+copy ("Analyze usage", "Additional usage beyond limits consumes on-demand
+spend") — feature-flag and prompt config, not quota. `worker.log` is LSP
+indexing.
+
+So cursor's only quota sources are the rendered TUI pane, or the authenticated
+Connect-RPC endpoint that §4 rules out. **The ruling stands**: for a user who
+just downloaded the app, a scrape that needs no setup beats a reliable endpoint
+that opens a Keychain prompt about their Cursor account on first run.
+
+**Consequence: cursor_agent is the one permanent screen-scraping seat**, which
+settles the scope of the LLM-fallback idea — it has exactly one customer, now
+and after the migration.
 
 ### grok — investigated 2026-08-08, and it generalises
 
