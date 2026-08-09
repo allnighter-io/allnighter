@@ -238,6 +238,9 @@ enum ProjectCLI {
         if rootState != .available { warnings.append("root \(rootState.rawValue): \(project.localRootPath)") }
         if let dirty = obs.dirtySummary { warnings.append("dirty tree: \(dirty)") }
         for summary in blocked { warnings.append("worker blocked — \(summary.sourceId): \(summary.status.rawValue)") }
+        if recentThreadSummaries.isEmpty, let counsel = AIReadinessColdStart.counsel(threadCount: 0) {
+            warnings.append(counsel)
+        }
         return ProjectContextPacket(
             id: "pkt_" + UUID().uuidString.prefix(8).lowercased(),
             projectId: project.id,

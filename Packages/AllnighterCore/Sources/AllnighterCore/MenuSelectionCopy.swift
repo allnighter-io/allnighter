@@ -285,6 +285,10 @@ public enum MenuSelectionCopy {
             useWhen: "Outside scan; next direction",
             dontUseWhen: "Not implementing; signal only"
         ),
+        "code_ai_readiness": Pair(
+            useWhen: "First Code Team: audit how workable your repo is for agents",
+            dontUseWhen: "Not a mutating fixer; it reports gaps, you decide what to fix"
+        ),
     ]
 
     private static let models: [String: Pair] = [
