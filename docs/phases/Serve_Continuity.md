@@ -1,11 +1,12 @@
 # Serve Continuity (Background Keeper)
 
-Status: **OPEN — v1 proposal (2026-08-09); Bug Hunt Max `AC9D2295` in flight —
-synthesis section reserved for landing update**
+Status: **OPEN — v2 (Bug Hunt Max `AC9D2295` landed); founder fork on login-item ownership**
 Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeAutoLaunch`,
-admission, doctor) + Mac app (enablement / launch heal) — **not** a second
-capacity scheduler
+admission, doctor, **new ServeLifecycle**) + `InstallCLI` / `rebuild_cli.sh`
+(same transaction as identity change) + Mac app (enablement / demand heal) —
+**not** a second capacity scheduler
 Created: 2026-08-09
+Revised: 2026-08-09 (v2 — Bug Hunt synthesis + v1→hunt delta)
 Origin: Dogfood code red — with the Mac app closed, capacity / Pending wake /
 Boost / vendor-backoff / OS notifications depend on `alln serve`. Serve can
 die; on this host the orphan LaunchAgent did **not** bring it back (exit 78 /
@@ -203,15 +204,15 @@ clear; they do not exit(0) in a KeepAlive death loop.
 
 | Slice | Outcome | Proof |
 | --- | --- | --- |
-| **SC-S00** | Doctor / `--health` fail-closed on orphan or wedged LA; teaching text. No behavior change to start yet. | Fixture or host: wedged label ⇒ unhealthy + repair hint. |
-| **SC-S01** | `ServeLifecycle` status/repair; migrate/remove CODE_RED orphan; stop 10s thrash. | After repair or remove: no LWCR thrash; health honest. |
-| **SC-S02** | Demand heal: app launch + `alln run` call `ensureRunning` (opt-out preserved). | Kill serve → `alln run` or open app → health `available` without reboot. |
-| **SC-S03** | `enable` / `disable` via SMAppService against stable binary; rebuild refreshes registration when enablement is on. | Reboot/login Works Test (founder host): serve comes back; capacity stamp advances app-closed. |
-| **SC-S04** | Admission PID identity harden (if still open after S01). | Recycled-pid fixture cannot `refuse` forever. |
+| **SC-S00a** | **Rebuild experiment (no code)** — codesign before/after `rebuild_cli.sh`, kill launchd-owned serve, `launchctl print`. Confirms H1 (identity retire → 78) vs hand-repair as one-rebuild reprieve. | Host log attached to this packet / DEBUGLOG. |
+| **SC-S00** | Doctor / `--health` fail-closed on orphan or wedged LA; teaching text. | Fixture or host: wedged label ⇒ unhealthy + repair hint. |
+| **SC-S01** | `ServeLifecycle` register/refresh/remove; migrate/remove CODE_RED orphan; stop thrash. | After repair or remove: no LWCR thrash; health honest. |
+| **SC-S02** | Wire lifecycle into **`install-cli` / rebuild same transaction** as symlink repoint; stage **stable-identity** binary for OS-managed agent. | Rebuild + kill with app closed → new launchd pid, health `available`, capacity advances (sacrificial-label harness). |
+| **SC-S03** | Demand heal: app launch + `alln run` call `ensureRunning` (opt-out preserved); prefer delegating spawn through ServeLifecycle when enablement is on. | Kill serve → ordinary run/app open → health `available` without reboot. |
+| **SC-S04** | `enable` / `disable` UX (founder-gated start-at-login) via SMAppService; logout/login Works Test. | Serve returns after login; capacity stamp advances app-closed. |
+| **SC-S05** | Admission PID identity harden (**separate** — real gap, **not** this bug's root cause). | Recycled-pid fixture cannot `refuse` forever. |
 
-S00–S02 are the **code-red floor** (notice + heal without reboot). S03 is
-login continuity (founder opt-in). S04 closes a lie class if Bug Hunt’s
-admission hypothesis survives.
+S00–S02 are the **code-red floor** once S00a confirms H1 (or shrinks scope if H1 refutes). S03 is session heal without reboot. S04 is login continuity. S05 must not wear this bug's clothes.
 
 ---
 
@@ -237,29 +238,63 @@ admission hypothesis survives.
 
 ---
 
-## 7. Bug Hunt synthesis (placeholder — update on land)
+## 7. Bug Hunt synthesis (`AC9D2295` — done 2026-08-09)
 
-Bug Hunt Max `AC9D2295` still running as of v1 commit. Early seat agreement:
+Lead call (Partial — one human fork):
 
-- Orphan KeepAlive is a lie-prone layer; demand heal is too narrow; do not add
-  a second scheduler.
-- Host evidence for LWCR / EX_CONFIG thrash is real.
+> Leftover login helper blocked by macOS; own its lifecycle in code.  
+> Registration is pinned to a binary identity every CLI rebuild retires; nothing
+> in product repairs it. Fix: one code-owned register/refresh/remove lifecycle
+> invoked by `install-cli` against a stable-identity staged binary — not a
+> second scheduler and not an admission-logic patch.
 
-Early dissent (to reconcile on land — do not pick winners in v1):
+### 7.1 What Bug Hunt confirmed (matches v1)
 
-- Whether LWCR “never hands off” vs launchd throttle after rapid exits (one
-  seat claimed `bootout`+`bootstrap` cleared the wedge on this host).
-- Whether `ServeDaemonAdmission` recycled-PID refuse is a contributing death
-  loop (needs a kill-test, not assertion alone).
+- Orphan KeepAlive is the lie-prone “looks supervised” layer; product has **zero**
+  LaunchAgent/SMAppService owners in tree.
+- Pre-exec refuse (console LWCR + crash report `CODESIGNING 4 — Launch Constraint
+  Violation` at `_dyld_start`) — our Swift never ran on failing spawns.
+- `ServeDaemonProbe` stayed honest (`foregroundOnly` when dead).
+- No second capacity scheduler.
+- Demand heal today is Loop-engine-only; `alln run` and app launch do not revive serve.
+- Fail-closed doctor / `--health` on wedged/orphan agent.
 
-**This section will be replaced** when the team artifact / lead answer lands,
-with an explicit **v1 → Bug Hunt delta** list.
+### 7.2 What Bug Hunt added or corrected (v1 → hunt delta)
+
+| Topic | v1 | After Bug Hunt |
+| --- | --- | --- |
+| Root mechanism | LWCR/BTM refuse; “xpcproxy never hands off” | Same seam, sharper: **rebuild/install retires ad-hoc code identity** while BTM LWCR stays pinned (`InstallCLI` / `rebuild_cli.sh` is the silent writer). Crash IPS proves Launch Constraint Violation before `main`. |
+| Is refusal permanent? | Implied stuck until product fix | **Refuted as permanent ban** — State Skeptic `bootout`+`bootstrap` on same plist cleared LWCR flags and started serve (pid 34158 mid-hunt). Wedge is per-registration-identity. |
+| First next step | Start SC-S00 doctor honesty | **SC-S00a rebuild experiment first** (2 min) before code — decides if today’s hand-repair dies on next rebuild. |
+| Lifecycle hook | enable/disable/repair verbs | **Same owner, but must run in the same transaction as `install-cli` symlink repoint** — identity change and registration refresh are one write. |
+| `ServeAutoLaunch` | Widen call sites as Must v1 | Still valuable (**companion**); lead scopes first build to lifecycle + install-cli + health. Widening remains in this packet as SC-S03. |
+| Admission recycled-PID | Possible SC-S04 if hunt confirms | **Exonerated for this bug** (refuse exits 0 + banner; no product exit 78; death pre-main). File as **separate** hardening (SC-S05), do not wear this bug’s clothes. |
+| Reboot recovery | Claimed “reboot cannot” | Softened: **unproven** — do not claim either way until someone reboots; BTM persistence makes “RunAtLoad saves you” unsafe to assert. |
+| Loop verbs that heal | step/start/resume/pm | Precise: only three `ensureRunning` sites in `LoopEngineCLI` — **not** `loop step` / caller-chair start. |
+| Founder fork | enablement defaults | Same, louder: **High-Risk Stop** — owning a login item changes macOS permission posture; lean **own it** given Probe_Freshness, but human must approve. |
+
+### 7.3 Hypothesis ladder (from hunt — do not re-litigate ruled-out)
+
+1. **H1 (top):** Rebuild-retired code identity wedges managed registration.
+2. **H2:** Rapid-death thrash desyncs registration (fratricide / rebuild kill) —
+   ignition of the 6700 storm still open; fix shape still “own lifecycle +
+   stable identity.”
+3. **Ruled out:** recycled-PID admission loop as *this* bug; plist syntax;
+   permanent binary ban; kickstart as recovery; user-disabled login item.
+
+### 7.4 Host caveat
+
+Mid-hunt a seat re-registered the agent; serve may be healthy **now**. That is
+not a product fix — it is evidence re-register heals and that the next rebuild
+experiment matters before declaring green.
 
 ---
 
 ## 8. Routing
 
-While open: this packet.  
+While open: this packet + debugger
+`docs/operations/debugger/2026-08-09-serve-launchagent-lwcr-PACKET.md`.  
+Bug Hunt run: `AC9D2295-329F-4417-A5EC-FA65D010EB1C`.  
 After ship: code SSOT `ServeLifecycle` (name TBD) + `ServeDaemon*` +
-`ServeAutoLaunch`; help topics; doctor; AGENTS row for “serve dead / capacity
-stale with app closed.”
+`ServeAutoLaunch` + `InstallCLI`; help topics; doctor; AGENTS row for “serve
+dead / capacity stale with app closed.”
