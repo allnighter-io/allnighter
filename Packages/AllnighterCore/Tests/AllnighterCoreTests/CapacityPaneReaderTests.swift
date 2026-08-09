@@ -150,15 +150,21 @@ final class CapacityPaneReaderTests: XCTestCase {
     /// Cheapest seat per vendor: this is telemetry, and spending a premium model
     /// to measure how much of that model is left would be self-defeating.
     func testReaderUsesTheCheapestSeatAndFailsClosedOnUnknownSources() {
-        let cursor = CapacityPaneReader.readerArguments(for: "cursor_agent")
+        let cursor = try? XCTUnwrap(CapacityPaneReader.readerArgv(for: "cursor_agent", prompt: "P"))
         XCTAssertEqual(cursor?.contains("composer-2.5"), true)
-        XCTAssertEqual(CapacityPaneReader.readerArguments(for: "claude_code")?.contains("haiku"), true)
+        XCTAssertEqual(cursor?.contains("P"), true, "the prompt must reach the CLI")
+        XCTAssertEqual(
+            CapacityPaneReader.readerArgv(for: "claude_code", prompt: "P")?.contains("haiku"), true)
+        // agy takes the prompt immediately after --print, not last.
+        let agy = CapacityPaneReader.readerArgv(for: "agy", prompt: "P")
+        XCTAssertEqual(agy?.firstIndex(of: "P"), 1)
         for source in CapacityProbe.probeableSources {
             XCTAssertNotNil(
-                CapacityPaneReader.readerArguments(for: source),
+                CapacityPaneReader.readerArgv(for: source, prompt: "P"),
                 "\(source) is probeable, so it needs a reader invocation")
+            XCTAssertNotNil(CapacityPaneReader.readerSeat(for: source))
         }
-        XCTAssertNil(CapacityPaneReader.readerArguments(for: "not_a_vendor"))
+        XCTAssertNil(CapacityPaneReader.readerArgv(for: "not_a_vendor", prompt: "P"))
     }
 
     /// The pool rule has to survive prompt edits — it is what turned the one

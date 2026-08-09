@@ -83,28 +83,47 @@ public enum CapacityPaneReader {
 
     """
 
-    /// Headless argv for a source's own cheapest model.
+    /// Full headless argv for a source's own cheapest model, prompt included.
     ///
-    /// Cheapest, because this is telemetry — spending a premium seat to measure
-    /// how much of that seat is left would be self-defeating. Returns nil for a
-    /// source with no known headless print mode, which fails closed: no reading
-    /// rather than a guess.
-    public static func readerArguments(for source: String) -> [String]? {
+    /// Returns the WHOLE command line rather than a flag list, because prompt
+    /// placement is not uniform — `agy --print "<prompt>" --output-format json`
+    /// wants it immediately after the flag, while cursor and grok take it last.
+    /// Encoding that per vendor here keeps it in one visible table instead of
+    /// scattered across a caller.
+    ///
+    /// Cheapest seat, because this is telemetry: spending a premium model to
+    /// measure how much of that model is left would be self-defeating.
+    ///
+    /// nil for a source with no known headless print mode — which fails closed,
+    /// producing no reading rather than a guess.
+    public static func readerArgv(for source: String, prompt: String) -> [String]? {
         switch source {
         case "cursor_agent":
-            return ["-p", "--output-format", "json", "-m", "composer-2.5"]
+            return ["-p", prompt, "--output-format", "json", "--model", "composer-2.5"]
         case "agy":
-            return ["--print", "--output-format", "json", "--print-timeout", "60s"]
+            return ["--print", prompt, "--output-format", "json", "--print-timeout", "90s"]
         case "claude_code":
-            return ["-p", "--output-format", "json", "--model", "haiku"]
+            return ["-p", prompt, "--output-format", "json", "--model", "haiku"]
         case "grok":
-            return ["-p", "--output-format", "json"]
+            return ["-p", prompt, "--output-format", "json"]
         case "kimi":
-            return ["-p"]
+            return ["-p", prompt]
         case "codex":
-            return ["exec", "--json"]
+            return ["exec", "--json", prompt]
         default:
             return nil
+        }
+    }
+
+    /// Which seat each source reads with, for disclosure and for tests. The
+    /// model id is part of the product surface — a user turning this off should
+    /// be able to see what it was going to spend.
+    public static func readerSeat(for source: String) -> String? {
+        switch source {
+        case "cursor_agent": return "composer-2.5"
+        case "claude_code": return "haiku"
+        case "agy", "grok", "kimi", "codex": return "default (cheapest configured)"
+        default: return nil
         }
     }
 
@@ -218,6 +237,82 @@ public enum CapacityPaneReader {
                 planTier: reading.planTier
             ),
         ]
+    }
+
+    /// Spawn the source's own cheapest seat to read `capture`, and return
+    /// windows if it answered confidently.
+    ///
+    /// A plain pipe, not a PTY: print mode is non-interactive by definition, and
+    /// a PTY here would reintroduce the repaint behaviour this exists to escape.
+    ///
+    /// Every failure path returns nil — no binary, no print mode, non-zero exit,
+    /// timeout, unparseable output, or an unconfident reading. That is the
+    /// design, not defensiveness: when the vendor's own model cannot answer,
+    /// that seat is not usable right now, which is the capacity question. There
+    /// is no error state to disambiguate.
+    public static func read(
+        source: String,
+        capture: String,
+        executable: String,
+        timeout: TimeInterval = 90,
+        now: Date = Date()
+    ) -> [CapacityWindow]? {
+        guard let argv = readerArgv(for: source, prompt: prompt + capture) else { return nil }
+        guard let output = runHeadless(executable: executable, argv: argv, timeout: timeout)
+        else { return nil }
+        guard let reading = extractReading(from: output) else { return nil }
+        return windows(from: reading, source: source, now: now)
+    }
+
+    /// Non-interactive capture of a child's stdout. Kills the whole process
+    /// group on timeout — a reader that leaks children would recreate the leak
+    /// that loaded this machine badly enough to break the probes in the first
+    /// place.
+    static func runHeadless(executable: String, argv: [String], timeout: TimeInterval) -> String? {
+        #if canImport(Darwin)
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = argv
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = Pipe()
+        process.standardInput = FileHandle.nullDevice
+        var environment = ProcessInfo.processInfo.environment
+        environment["TERM"] = "dumb"
+        environment.removeValue(forKey: "NO_COLOR")
+        process.environment = environment
+        do { try process.run() } catch { return nil }
+
+        // Drain concurrently: a full pipe buffer would deadlock a child that is
+        // still writing while we wait for exit.
+        var data = Data()
+        let lock = NSLock()
+        let drain = Thread {
+            let chunk = pipe.fileHandleForReading.readDataToEndOfFile()
+            lock.lock(); data.append(chunk); lock.unlock()
+        }
+        drain.start()
+
+        let deadline = Date().addingTimeInterval(timeout)
+        while process.isRunning, Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.05)
+        }
+        if process.isRunning {
+            kill(-process.processIdentifier, SIGKILL)
+            process.terminate()
+            return nil
+        }
+        // Let the drain settle now that the writer is gone.
+        let settle = Date().addingTimeInterval(2)
+        while drain.isExecuting, Date() < settle {
+            Thread.sleep(forTimeInterval: 0.02)
+        }
+        guard process.terminationStatus == 0 else { return nil }
+        lock.lock(); let out = String(data: data, encoding: .utf8); lock.unlock()
+        return out
+        #else
+        return nil
+        #endif
     }
 
     static func parseISO8601(_ text: String) -> Date? {

@@ -554,6 +554,24 @@ public enum CapacityProbe {
                 // This cost real hours on 2026-08-08: codex and grok both read
                 // `parserFailed` while their parsers were fine — codex never got
                 // past MCP startup, grok never got past its splash animation.
+                // The deterministic parser could not read this capture. Before
+                // reporting unknown, let the source's OWN cheapest model read
+                // it — measured 10/10 across six vendors' formats, with
+                // `confident: false` on every capture that had no usage data
+                // (packet §4b). It answers or it declines; it does not invent.
+                //
+                // Fallback rather than primary for now: the deterministic path
+                // is free and already correct on the common case. The trigger is
+                // exactly the attribution added earlier today — before that,
+                // "could not read it" and "there was nothing to read" printed
+                // the same word and this branch could not have existed.
+                if CapacityPaneSettings().loadEnabled(),
+                   let executable = executable as String?,
+                   let read = CapacityPaneReader.read(
+                       source: source, capture: text, executable: executable, now: now),
+                   !read.isEmpty {
+                    return read
+                }
                 let reason = emptyParseReason(sawUsagePane: sawUsagePane, observedAt: now)
                 // Keep the capture either way — the dump is how both of those
                 // were actually diagnosed. The tag says which question to ask.
