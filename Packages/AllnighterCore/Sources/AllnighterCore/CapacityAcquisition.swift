@@ -134,6 +134,12 @@ public enum CapacityAcquisition {
             return orderedBenchWindows([:], now: now)
         }
 
+        // Reap anything a previous alln left behind before adding more.
+        // Bounded damage is the point: 103 orphans accumulated over six days
+        // here, loaded the machine to 12.75, and broke capacity by starving the
+        // probes — with no signal until the numbers went missing.
+        _ = CapacityProbeLedger().sweep()
+
         let executor = probeExecutor ?? LiveCapacityProbeExecutor()
         // One scope per acquisition wave — its probes, its kill set (CWB-S00a).
         let scope = probeScope ?? CapacityProbeScope()

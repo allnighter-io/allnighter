@@ -758,10 +758,19 @@ public enum CapacityProbe {
 
         trackActiveProbe(pid)
         scope?.track(pid)
+        // Durable note that WE spawned this child, so a later run can prove
+        // ownership before signalling anything. In-memory tracking dies with the
+        // process, which is exactly the case that left 103 orphans unreapable.
+        let owner = CapacityProbeLedger.currentOwner()
+        let ledger = CapacityProbeLedger()
+        ledger.record(.init(
+            childPID: pid, childPGID: pid, ownerPID: owner.pid,
+            ownerStartTicks: owner.startTicks, source: source, spawnedAt: Date()))
         defer {
             terminateProcessGroup(pid)
             untrackActiveProbe(pid)
             scope?.untrack(pid)
+            ledger.forget(childPID: pid)
             close(master)
         }
 
