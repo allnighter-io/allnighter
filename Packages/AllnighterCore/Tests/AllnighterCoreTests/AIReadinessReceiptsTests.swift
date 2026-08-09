@@ -93,6 +93,23 @@ final class AIReadinessReceiptsTests: XCTestCase {
         XCTAssertEqual(result?[0].couldNotDetermine, false)
     }
 
+    func testTallyPreservesSeatIds() {
+        let receipt = AIReadinessReceipts.tally(
+            question: "How do I run the tests here?",
+            answers: [
+                AIReadinessReport.BlindAnswer(seatId: "readiness_setup_scout", answer: "npm test"),
+                AIReadinessReport.BlindAnswer(seatId: "readiness_test_infra_scout", answer: "npm test"),
+                AIReadinessReport.BlindAnswer(seatId: "readiness_measurement_auditor", answer: "could not determine")
+            ]
+        )
+        XCTAssertEqual(receipt.agreedCount, 2)
+        XCTAssertEqual(receipt.totalCount, 3)
+        XCTAssertEqual(receipt.answers.map(\.seatId), [
+            "readiness_setup_scout", "readiness_test_infra_scout", "readiness_measurement_auditor"
+        ])
+        XCTAssertEqual(receipt.notableMiss, "Some seats could not determine")
+    }
+
     func testTallyFullAgreement() {
         let receipt = AIReadinessReceipts.tally(
             question: "How do I run the tests here?",

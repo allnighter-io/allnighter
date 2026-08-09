@@ -54,30 +54,36 @@ public enum AIReadinessReceipts {
         }
     }
 
-    public static func tally(question: String, answers: [String]) -> AIReadinessReport.ColdReadReceipt {
-        let blindAnswers: [AIReadinessReport.BlindAnswer] = answers.enumerated().map { idx, answer in
-            AIReadinessReport.BlindAnswer(seatId: "seat_\(idx)", answer: answer)
-        }
+    public static func tally(question: String, answers: [AIReadinessReport.BlindAnswer])
+        -> AIReadinessReport.ColdReadReceipt {
         let totalCount = answers.count
-        let normalPairs = answers.enumerated().compactMap { (idx, raw) -> (Int, String)? in
-            isCouldNotDetermine(raw) ? nil : (idx, normalize(raw))
+        let normalPairs: [(String, String)] = answers.compactMap { ba in
+            isCouldNotDetermine(ba.answer) ? nil : (ba.seatId, normalize(ba.answer))
         }
         var clusterSizes: [String: Int] = [:]
         for (_, norm) in normalPairs {
             clusterSizes[norm, default: 0] += 1
         }
         let agreedCount = clusterSizes.values.max() ?? 0
-        let hasCND = answers.contains(where: isCouldNotDetermine(_:))
-        let uniqueNormal: Set<String> = Set(normalPairs.map { $0.1 })
+        let hasCND = answers.contains { isCouldNotDetermine($0.answer) }
+        let uniqueNormal = Set(normalPairs.map(\.1))
         let hasDisagreement = uniqueNormal.count > 1
-        let notableMiss: String? = buildNotableMiss(hasCND: hasCND, hasDisagreement: hasDisagreement)
+        let notableMiss = buildNotableMiss(hasCND: hasCND, hasDisagreement: hasDisagreement)
         return AIReadinessReport.ColdReadReceipt(
             question: question,
-            answers: blindAnswers,
+            answers: answers,
             agreedCount: agreedCount,
             totalCount: totalCount,
             notableMiss: notableMiss
         )
+    }
+
+    /// Convenience for tests and callers that only have raw answer strings.
+    public static func tally(question: String, answers: [String]) -> AIReadinessReport.ColdReadReceipt {
+        let blind = answers.enumerated().map { idx, answer in
+            AIReadinessReport.BlindAnswer(seatId: "seat_\(idx)", answer: answer)
+        }
+        return tally(question: question, answers: blind)
     }
 
     private static func normalize(_ s: String) -> String {
