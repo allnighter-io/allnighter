@@ -359,13 +359,16 @@ Remaining before archive: CT-08 lock-gated sibling `external_directory` code sli
 help topic amendment (`opencode_headless_completion`). Follow-up:
 [`OpenCode_Completion_Truth_Followup.md`](../OpenCode_Completion_Truth_Followup.md).
 
-**Dogfood prereq:** port `:4096` must be **free** — let `alln` spawn the serve.
-Manual or orphan `opencode serve` → `portOwnedByForeignProcess` (CT-05).
+**Serve reuse (`OpenCode_Serve_Attach.md`, OSA-S00/S01 shipped):** port `:4096`
+does **not** need to be free. A healthy `opencode serve` — ours or a leftover
+from a prior run — is attached and reused; only a dead/zombie listener or a
+non-OpenCode process on the port refuses (health-check timeout, never SIGTERM).
 
 ## Open Questions
 
 - Setup glyph (neutral terminal chip per design system).
-- Port collision if user already runs `opencode serve` manually.
+- ~~Port collision if user already runs `opencode serve` manually.~~ Resolved —
+  attach reuses it (`OpenCode_Serve_Attach.md`).
 - HTTP `serve` API as V2 alternative to CLI attach (same coordinator).
 
 ## Routing

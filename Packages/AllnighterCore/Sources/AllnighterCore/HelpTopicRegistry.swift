@@ -412,8 +412,11 @@ public enum HelpTopicRegistry {
             - Sibling-repo `external_directory` auto-approve only when this run holds \
               that root's write lock (run root always allowed for its own tree)
 
-            **Dogfood prereq:** port `4096` must be free — let `alln` spawn \
-            `opencode serve`. A manual orphan serve fails with `portOwnedByForeignProcess`.
+            **Serve reuse:** a healthy `opencode serve` left on port `4096` by a \
+            prior run is attached and reused, not refused — identity is port + \
+            health, never who spawned it. A dead/zombie listener or a non-OpenCode \
+            process on the port refuses with a health-check timeout; either way \
+            the listener is never SIGTERM'd to clear the port.
 
             Do **not** demote DeepSeek V4 Pro or treat Flash as the fix — the bug was \
             completion honesty, not the model.

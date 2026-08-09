@@ -229,7 +229,7 @@ re-enabling parallel or trusting status alone:
 | Undrained serve pipes / silent timeouts | CR-05 | OC-S02 | **shipped** |
 | Full env → check subprocess | CR-04 | CHECK-S01 | **shipped** |
 | Empty output before check (advisory) | CR-02 | CLASS-S03 | **shipped** |
-| Foreign port on :4096 | CR-05 | OC-S02 | **shipped** — external `opencode serve` may block spawn |
+| Foreign port on :4096 | CR-05 | OC-S02 → OSA-S00/S01 | **shipped** — a healthy external `opencode serve` is attached and reused, never blocked or killed |
 | Tool-only completion vs empty stream | OpenCode path | CR-14 | Phase 2 |
 
 Use a prebuilt `alln` (not `swift run` per review) to avoid SwiftPM lock contention.
