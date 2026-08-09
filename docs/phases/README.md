@@ -78,6 +78,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Chat_Module_Extraction.md`](Chat_Module_Extraction.md) | Plan — not started | AgentOS chat package extraction. |
 | [`Share_To_Research.md`](Share_To_Research.md) | Draft — not started | iOS share sheet → Mac Research run. |
 | [`Buzz_Harness_Spike.md`](Buzz_Harness_Spike.md) | SPIKE — deferred | Receipt prerequisite met; strategy in `docs/strategy/`. |
+| [`AI_Readiness_Audit.md`](AI_Readiness_Audit.md) | **OPEN — build packet** | First-run Code Team: any repo → shareable grade card + Top 3 gift unlocks; Growth `AFAA2B6A` folded. Archive + promote when shipped. |
 | [`Contradiction_Pass.md`](Contradiction_Pass.md) | **NOT AUTHORIZED** | Extends `docs/operations/Spec_Review.md`; do not start without founder ruling. |
 | [`Pricing_Change_Process.md`](Pricing_Change_Process.md) | Standing process | Offer SSOT: `docs/marketing/Pricing_Recommendation.md`. |
 
