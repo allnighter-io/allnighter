@@ -7,7 +7,8 @@ Harness: `docs/qa/opencode-mutating-commit/SLICE_TEMPLATE.md`.
 | When | Run | Slice | Symptom | Verdict |
 | --- | --- | --- | --- | --- |
 | 2026-08-09 | `B6D64D7D` | ARA-S01 | Clean commit `378a47a` in ~208s; Works Tests green | **PASS** — host added `Finding.id` (`aab85fa7`) Pro omitted from §8 |
-| 2026-08-09 | (pending) | ARA-S02 | — | — |
+| 2026-08-09 | `55A8AE94` | ARA-S02 | Clean commit `6598dd0` in ~311s; 10+1 tests green | **PASS** — full nine seats + strong charter tests |
+| 2026-08-09 | (pending) | ARA-S03 | — | — |
 
 ## Standing rules
 
@@ -19,4 +20,5 @@ Harness: `docs/qa/opencode-mutating-commit/SLICE_TEMPLATE.md`.
 ## Host notes
 
 - S01 Pro quality was high (schema + parser + banned-key scan). Only gap: finding `id`.
-- Prefer ≤3 prod + ≤1 test; S02 = SkillCatalog + BuiltInTeams + one test file.
+- S02 excellent — measurement auditor spirit carry-over + strength-scout-only charter tested.
+- Prefer ≤3 prod + ≤1 test.
