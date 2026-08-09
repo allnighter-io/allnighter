@@ -1,7 +1,8 @@
 # SC-S01 — ServeLifecycle: migrate orphan LaunchAgent
 
-Status: ready  
+Status: in_progress  
 Slice: SC-S01  
+Run: `19045F88-081F-4CBE-B252-9353B7CA6621`  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §3.2 + §4  
 Executor: Kimi K3 via `alln run --team build_slice --model model_kimi_k3`
 
