@@ -43,6 +43,7 @@ Each sprint file must fit on **one to two screens** and include:
 | Serve Continuity SC-S00 | [`serve-continuity/SC-S00-launchagent-honesty.md`](serve-continuity/SC-S00-launchagent-honesty.md) | **done** — `05afee05` |
 | Serve Continuity SC-S01 | [`serve-continuity/SC-S01-lifecycle-migrate-orphan.md`](serve-continuity/SC-S01-lifecycle-migrate-orphan.md) | **done** — `867d72e3` |
 | Serve Continuity SC-S03 | [`serve-continuity/SC-S03-demand-heal.md`](serve-continuity/SC-S03-demand-heal.md) | **done** — `861578aa` |
+| Serve Continuity SC-S04a | [`serve-continuity/SC-S04a-stable-binary.md`](serve-continuity/SC-S04a-stable-binary.md) | **ready** — stable binary stage |
 
 _None other — CT-S04 done; archive S123 when ready._
 

@@ -1,6 +1,6 @@
 # Serve Continuity (Background Keeper)
 
-Status: **OPEN — v2.4 (code-red floor landed: S00a/S00/S01/S03); S02/S04 blocked on founder rulings)**
+Status: **OPEN — v2.5 (founder: login helper YES + stable binary YES; next SC-S04a)**
 Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeAutoLaunch`,
 admission, doctor, **new ServeLifecycle**) + `InstallCLI` / `rebuild_cli.sh`
 (same transaction as identity change) + Mac app (enablement / demand heal) —
@@ -214,10 +214,11 @@ clear; they do not exit(0) in a KeepAlive death loop.
 | **SC-S00a** | **DONE 2026-08-09** — Rebuild experiment. Codesign Identifier **rotated**; KeepAlive on the *post-bootstrap* agent (no managed LWCR flags) **restarted serve successfully** after kill. **H1 REFUTED** for that registration. Log: `docs/qa/serve-continuity/SC-S00a-rebuild-experiment.md`. Logout/login BTM re-adoption still unproven. | Host log. |
 | **SC-S00** | **DONE 2026-08-09** (`05afee05`) — `ServeLaunchAgentStatus` + doctor `serve.launchAgent` critical on wedge; `serve --health` additive `launchAgent`. Works Test 14/14. | `scripts/swift-test.sh --filter ServeLaunchAgentStatusTests` |
 | **SC-S01** | **DONE 2026-08-09** (`867d72e3`) — `ServeLifecycle` removal + `alln serve repair`. No register/enable. | `scripts/swift-test.sh --filter ServeLifecycleTests` |
-| **SC-S02** | Wire lifecycle into **`install-cli` / rebuild same transaction** as symlink repoint; stage **stable-identity** binary for OS-managed agent. | Rebuild + kill with app closed → new launchd pid, health `available`, capacity advances (sacrificial-label harness). |
-| **SC-S03** | **DONE 2026-08-09** (`861578aa`) — `alln run` + Mac app launch call `ServeAutoLaunch.ensureRunning`. | `scripts/swift-test.sh --filter ServeAutoLaunchTests` |
-| **SC-S04** | `enable` / `disable` UX (founder-gated start-at-login) via SMAppService; logout/login Works Test. | Serve returns after login; capacity stamp advances app-closed. |
-| **SC-S05** | Admission PID identity harden (**separate** — real gap, **not** this bug's root cause). | Recycled-pid fixture cannot `refuse` forever. |
+| **SC-S04a** | Stage stable CLI binary under Application Support (copy, not debug symlink). Pure + tests. | `scripts/swift-test.sh --filter ServeStableBinaryTests` |
+| **SC-S04b** | Product-owned LaunchAgent enable/disable pointing at staged binary (`serve enable` / `disable`). Migrate leftover CODE_RED label. | Filtered lifecycle tests + host enable/disable smoke |
+| **SC-S02** | `install-cli` + `rebuild_cli` refresh staged binary **and** re-bind agent when enabled (same transaction). | Rebuild → kill → agent returns with new staged binary |
+| **SC-S04** | ~~monolith~~ → split into S04a/S04b; logout/login Works Test after S02. | Serve returns after login |
+| **SC-S05** | Admission PID identity harden (**separate**). | Recycled-pid fixture |
 
 S00a **refuted H1** for a fresh bootstrap without managed LWCR — packet does
 **not** shrink: SC-S00+ still required (honesty, lifecycle, demand heal, founder
@@ -237,15 +238,23 @@ S05 must not wear this bug's clothes.
 
 ---
 
-## 6. Founder rulings needed
+## 6. Founder rulings
 
-1. **Default enablement:** start-at-login off until explicit `serve enable`
-   (recommended), vs on after first successful install.
-2. **Stable binary for OS agent:** require app-bundled / notarized CLI for
-   enablement, vs allow debug with mandatory re-register on every rebuild
-   (dogfood-hostile but possible).
-3. **`alln run` auto-serve:** yes (recommended for hero all-day Teams) vs
-   loop-only (status quo — proven insufficient).
+**Ruled 2026-08-09 (founder):**
+
+1. **Login helper: YES.** Product owns start-at-login for `alln serve` (not an
+   orphan hand-dropped plist). Enablement is product-owned; tied to CLI
+   install/rebuild so the helper always tracks the latest installed CLI.
+2. **Stable binary: YES.** The login helper runs a **staged stable copy** of the
+   CLI (refreshed on `install-cli` / `rebuild_cli`), not the day-to-day adhoc
+   debug symlink identity. Dogfood terminal use may still be the debug build;
+   login continuity uses the staged binary.
+3. **`alln run` auto-serve: YES** — already shipped in SC-S03.
+
+**Still open (defaults until ruled):**
+
+- Default: start-at-login **off** until explicit `alln serve enable`, vs on after
+  first install. **PM lean: off until enable** (opt-in; quieter for new users).
 
 ---
 
