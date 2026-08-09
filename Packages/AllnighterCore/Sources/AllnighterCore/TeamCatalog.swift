@@ -46,6 +46,9 @@ public enum TeamOutputKind: String, Codable, Sendable, CaseIterable {
     /// with source receipts, freshness, skeptic pass, and recommended next actions
     /// (the typed `SignalInsight`, not a generic plan).
     case insight
+    /// An AI Readiness report: typed findings, cold-read receipts, three fixes,
+    /// strengths, and could-not-determine — all substance, no score.
+    case aiReadinessReport
 }
 
 /// Stage a worker row runs in. Answer workers run blind in parallel; review
