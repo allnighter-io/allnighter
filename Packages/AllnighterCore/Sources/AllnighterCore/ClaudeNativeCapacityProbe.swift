@@ -10,21 +10,42 @@ import Foundation
 /// ~5 minutes old under active use). A pure file read: no spawn, no PTY, no
 /// rendered screen, zero credentials. The sibling `accountUuid` field sits
 /// next to it in the same object; this reader never reads, stores, or logs
-/// it — only the two usage windows and their two timestamps are needed.
+/// it — only `utilization.limits[]` and the one shared fetch timestamp are
+/// needed.
+///
+/// Source of truth is `utilization.limits[]`, not the sibling `five_hour` /
+/// `seven_day` keys — a prior version of this reader used those two names
+/// and silently dropped the model-scoped weekly pool (`weekly_scoped`,
+/// `scope.model.display_name`) that `limits[]` also carries, a real,
+/// observed regression versus the old TUI scrape. `limits[]` entries seen
+/// live: `session` (the ~5h rolling window), `weekly_all` (the primary/
+/// dashboard weekly window), and `weekly_scoped` (a secondary weekly window
+/// tied to one model, e.g. `display_name: "Fable"`). Every entry's `percent`
+/// is the vendor's own USED percent, never remaining, never inverted twice.
 ///
 /// Attribution: this parser answers only for `sourceId == "claude_code"` — it
 /// is never applied to another vendor's payload and never influences one.
 ///
 /// Fail closed, always. Never throws. Missing/unreadable file, malformed
 /// JSON, an absent `cachedUsageUtilization`, an unjudgeable or stale fetch
-/// time, or a known bucket with a non-numeric `utilization` / unparseable
-/// `resets_at` drops just that bucket (matching `AgyNativeCapacityProbe` /
+/// time, or a `limits[]` entry with a non-numeric `percent` / unparseable
+/// `resets_at` drops just that entry (matching `AgyNativeCapacityProbe` /
 /// `CodexNativeCapacityProbe`'s per-bucket fail-closed shape); zero
-/// surviving buckets is no observation at all. Unknown/null sibling keys in
-/// `utilization` (`nimbus_quill`, `tangelo`, `iguana_necktie`, `limits`,
-/// `spend`, …) are ignored by construction — only `five_hour` and
-/// `seven_day` are ever read by name, and the object is known to grow more
-/// such keys without warning.
+/// surviving entries is no observation at all. An entry whose `kind` is not
+/// one of the three known values is ignored silently, never guessed at and
+/// never allowed to block the known ones — `limits[]` is documented to grow
+/// more kinds without warning. `scope` is read only for `weekly_scoped`, and
+/// only `scope.model.display_name` — a missing/null scope yields `poolLabel
+/// == nil`, never a fabricated label. `is_active` is not surfaced: nothing in
+/// `CapacityWindow` claims that meaning today, and inventing one the vendor
+/// never documented is worse than omitting it.
+///
+/// Known accepted loss: the old TUI scrape also reported `planTier: "Max"`,
+/// read from Claude Code's boot banner text. That string does not exist
+/// anywhere in `~/.claude.json` — reading it would require a credential or
+/// the TUI itself, and guessing a tier from utilization numbers would be a
+/// locally computed value presented as vendor-stated fact. `planTier` stays
+/// absent on this channel; this is accepted, not a bug to chase here.
 public enum ClaudeNativeCapacityProbe {
 
     /// How old `fetchedAtMs` may be before the cache is refused as stale.
@@ -90,46 +111,58 @@ public enum ClaudeNativeCapacityProbe {
         guard now.timeIntervalSince(fetchedAt) <= maxAge else { return nil }
 
         guard let utilization = cache["utilization"] as? [String: Any] else { return nil }
+        guard let limits = utilization["limits"] as? [Any] else { return nil }
 
-        var windows: [CapacityWindow] = []
-        // Only these two names are read by construction. Every other key in
-        // `utilization` — `nimbus_quill`, `tangelo`, `iguana_necktie`,
-        // `limits`, `spend`, whatever appears next — is never iterated and
-        // never guessed at.
-        //
-        // Scope choice matches `ClaudeCapacityLog` (the existing TUI
-        // fallback for this same source): the ~5h rolling window is
-        // `.session`, weekly is `.weekly`, so a source can move between the
-        // native and TUI tiers without its scope identity shifting under it.
-        if let window = parseBucket(utilization["five_hour"], scope: .session, observedAt: now) {
-            windows.append(window)
-        }
-        if let window = parseBucket(utilization["seven_day"], scope: .weekly, observedAt: now) {
-            windows.append(window)
-        }
+        // Every entry is attempted independently — one malformed/unknown
+        // entry never blocks the others.
+        let windows = limits.compactMap { parseLimit($0, observedAt: now) }
         return windows.isEmpty ? nil : windows
     }
 
-    /// One known bucket → one window, or `nil` if anything about it is not
-    /// trustworthy. Never throws, never defaults a missing percentage to 0.
-    private static func parseBucket(
-        _ any: Any?,
-        scope: CapacityWindowScope,
-        observedAt: Date
-    ) -> CapacityWindow? {
-        guard let bucket = any as? [String: Any] else { return nil }
+    /// `kind` → scope, for the only three values ever observed live. Any
+    /// other `kind` (including one this array grows tomorrow) is not in this
+    /// map and is dropped by the caller — never guessed into the nearest
+    /// scope.
+    private static let knownKindScopes: [String: CapacityWindowScope] = [
+        "session": .session,
+        "weekly_all": .weekly,
+        "weekly_scoped": .weekly,
+    ]
 
-        // `utilization` is the vendor's own USED percent (verified live
-        // against what alln already publishes: seven_day 76 ↔ 24% remaining
-        // shown today) — never remaining, never inverted twice. Non-numeric,
+    /// One `limits[]` entry → one window, or `nil` if the `kind` is unknown
+    /// or anything about the entry is not trustworthy. Never throws, never
+    /// defaults a missing percentage to 0.
+    private static func parseLimit(_ any: Any, observedAt: Date) -> CapacityWindow? {
+        guard let item = any as? [String: Any] else { return nil }
+
+        // Unknown kind → silently ignored, not guessed at. Matches the
+        // vendor's own future-growth warning on this array.
+        guard let kind = item["kind"] as? String,
+              let scope = knownKindScopes[kind]
+        else { return nil }
+
+        // `percent` is the vendor's own USED percent (verified live against
+        // what alln already publishes: weekly_all 77 ↔ 23% remaining shown
+        // today) — never remaining, never inverted twice. Non-numeric,
         // including JSON `true`/`false`, is refused rather than coerced.
-        guard let usedPercent = doubleValue(bucket["utilization"]) else { return nil }
+        guard let usedPercent = doubleValue(item["percent"]) else { return nil }
 
         // `resets_at` carries its own explicit UTC offset on this channel
         // (`…+00:00`) — parsed as written, never assumed to be UTC or local.
-        guard let resetsAtRaw = bucket["resets_at"] as? String,
+        guard let resetsAtRaw = item["resets_at"] as? String,
               let resetAt = parseISO8601(resetsAtRaw)
         else { return nil }
+
+        // Only `weekly_scoped` ever carries a pool label, and only when the
+        // vendor actually names a model — a null/missing `scope` yields
+        // `nil`, never a fabricated label. The vendor's `display_name` is
+        // used verbatim, never reformatted.
+        var poolLabel: String?
+        if kind == "weekly_scoped" {
+            let scopeObject = item["scope"] as? [String: Any]
+            let modelObject = scopeObject?["model"] as? [String: Any]
+            poolLabel = modelObject?["display_name"] as? String
+        }
 
         return CapacityWindow(
             used: usedPercent,
@@ -139,7 +172,7 @@ public enum ClaudeNativeCapacityProbe {
             resetPrecision: .exact,
             observedAt: observedAt,
             sourceTier: .onDisk,
-            poolLabel: nil
+            poolLabel: poolLabel
         )
     }
 

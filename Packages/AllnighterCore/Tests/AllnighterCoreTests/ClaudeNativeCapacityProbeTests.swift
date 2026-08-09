@@ -15,7 +15,12 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
     /// the real file carries — proof the parser reads nothing but the one
     /// key it names. `nimbus_quill` (non-null, unfamiliar) and the run of
     /// `null` siblings (`tangelo`, `iguana_necktie`, …) are the real observed
-    /// shape: unrecognized/growing keys the parser must ignore by construction.
+    /// shape: unrecognized/growing keys the parser must ignore by
+    /// construction. `limits[]` is the real 3-entry array — `session`,
+    /// `weekly_all`, and `weekly_scoped` (a model-scoped secondary weekly
+    /// pool, `display_name: "Fable"`) — the source of truth this parser
+    /// reads; `five_hour`/`seven_day` are left in the fixture too, unread,
+    /// proving the parser no longer keys off them.
     private let realPayload = #"""
     {
       "numStartups": 42,
@@ -62,7 +67,33 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
             "currency": null
           },
           "limits": [
-            {"kind": "session", "group": "session", "percent": 26, "severity": "normal"}
+            {
+              "kind": "session",
+              "group": "session",
+              "percent": 26,
+              "severity": "normal",
+              "resets_at": "2026-08-09T07:10:00.674350+00:00",
+              "scope": null,
+              "is_active": false
+            },
+            {
+              "kind": "weekly_all",
+              "group": "weekly",
+              "percent": 76,
+              "severity": "warning",
+              "resets_at": "2026-08-11T03:00:00.674374+00:00",
+              "scope": null,
+              "is_active": true
+            },
+            {
+              "kind": "weekly_scoped",
+              "group": "weekly",
+              "percent": 18,
+              "severity": "normal",
+              "resets_at": "2026-08-11T03:00:00.674600+00:00",
+              "scope": {"model": {"id": null, "display_name": "Fable"}, "surface": null},
+              "is_active": false
+            }
           ],
           "spend": {"used": {"amount_minor": 0, "currency": "USD", "exponent": 2}, "percent": 0}
         }
@@ -78,34 +109,46 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
 
     // MARK: - The real payload
 
-    func testRealPayloadParsesBothWindowsWithCorrectUsedToRemainingPolarity() throws {
+    func testRealPayloadParsesAllThreeLimitsIncludingTheModelScopedPool() throws {
         let windows = try XCTUnwrap(
             ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: realPayload, now: freshNow)
         )
-        XCTAssertEqual(windows.count, 2, "exactly five_hour + seven_day — every other key ignored")
+        XCTAssertEqual(windows.count, 3, "session + weekly_all + weekly_scoped — the regression this repairs")
 
         let short = try XCTUnwrap(windows.first { $0.scope == .session })
-        // seven_day/five_hour utilization is USED percent, never remaining —
-        // 26% used ↔ 74% remaining, matching what alln already publishes
-        // (verified live against the running host: short=74).
+        // percent is USED, never remaining — 26% used ↔ 74% remaining.
         XCTAssertEqual(short.usedPercent ?? -1, 26.0, accuracy: 1e-9)
         XCTAssertEqual(short.remainingPercent ?? -1, 74.0, accuracy: 1e-9)
         XCTAssertEqual(short.resetPrecision, .exact)
         XCTAssertEqual(short.sourceTier, .onDisk)
         XCTAssertEqual(short.source, "claude_code")
         XCTAssertNil(short.unknownReason)
-        let shortReset = try XCTUnwrap(short.resetAt)
-        XCTAssertEqual(
-            ISO8601DateFormatter().string(from: shortReset).prefix(19),
-            "2026-08-09T07:10:00"
-        )
+        XCTAssertNil(short.poolLabel, "session carries no scope — no label to show")
 
-        let weekly = try XCTUnwrap(windows.first { $0.scope == .weekly })
-        // 76% used ↔ 24% remaining (verified live: rem=24).
-        XCTAssertEqual(weekly.usedPercent ?? -1, 76.0, accuracy: 1e-9)
-        XCTAssertEqual(weekly.remainingPercent ?? -1, 24.0, accuracy: 1e-9)
-        XCTAssertEqual(weekly.sourceTier, .onDisk)
-        XCTAssertNil(weekly.unknownReason)
+        // The two weekly pools: primary/dashboard (weekly_all) and the
+        // model-scoped secondary (weekly_scoped) that the five_hour/seven_day
+        // keyed reader lost.
+        let weeklyWindows = windows.filter { $0.scope == .weekly }
+        XCTAssertEqual(weeklyWindows.count, 2, "both weekly pools must survive — this is the restored pool")
+
+        let primaryWeekly = try XCTUnwrap(weeklyWindows.first { $0.poolLabel == nil })
+        // 76% used ↔ 24% remaining — matches what alln already publishes.
+        XCTAssertEqual(primaryWeekly.usedPercent ?? -1, 76.0, accuracy: 1e-9)
+        XCTAssertEqual(primaryWeekly.remainingPercent ?? -1, 24.0, accuracy: 1e-9)
+        XCTAssertEqual(primaryWeekly.sourceTier, .onDisk)
+        XCTAssertNil(primaryWeekly.unknownReason)
+
+        let scopedWeekly = try XCTUnwrap(weeklyWindows.first { $0.poolLabel == "Fable" })
+        // 18% used ↔ 82% remaining — THE lost pool this commit restores.
+        XCTAssertEqual(scopedWeekly.usedPercent ?? -1, 18.0, accuracy: 1e-9)
+        XCTAssertEqual(scopedWeekly.remainingPercent ?? -1, 82.0, accuracy: 1e-9)
+        XCTAssertEqual(scopedWeekly.poolLabel, "Fable", "vendor's display_name used verbatim, never reformatted")
+        XCTAssertNil(scopedWeekly.unknownReason)
+
+        // No window ever carries a planTier — the accepted, documented loss.
+        for window in windows {
+            XCTAssertNil(window.planTier)
+        }
     }
 
     /// `resets_at` carries an explicit `+00:00` offset — must parse to that
@@ -114,16 +157,70 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
     /// a rendered time was UTC when it was local, a 7h lie) — here there is
     /// no ambiguity to begin with, and the test proves the parser does not
     /// introduce one.
-    func testResetsAtOffsetIsParsedExactlyNotShifted() throws {
+    func testResetsAtOffsetIsParsedExactlyNotShiftedForEachKind() throws {
         let windows = try XCTUnwrap(
             ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: realPayload, now: freshNow)
         )
-        let weekly = try XCTUnwrap(windows.first { $0.scope == .weekly })
-        let reset = try XCTUnwrap(weekly.resetAt)
+        let primaryWeekly = try XCTUnwrap(windows.first { $0.scope == .weekly && $0.poolLabel == nil })
+        let reset = try XCTUnwrap(primaryWeekly.resetAt)
         let expected = ISO8601DateFormatter().date(from: "2026-08-11T03:00:00Z")
         // Allow for the fractional seconds our formatter keeps; compare to
         // the whole-second instant the offset unambiguously names.
         XCTAssertEqual(reset.timeIntervalSince1970, expected!.timeIntervalSince1970, accuracy: 1.0)
+    }
+
+    // MARK: - Unknown `kind` is ignored, never blocks the known ones
+
+    func testUnknownKindIsIgnoredSilentlyAndDoesNotBlockKnownEntries() throws {
+        let payload = #"""
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"session","percent":26,"resets_at":"2026-08-09T07:10:00+00:00"},\#
+        {"kind":"some_future_bucket","percent":50,"resets_at":"2026-08-11T03:00:00+00:00"},\#
+        {"kind":"weekly_all","percent":76,"resets_at":"2026-08-11T03:00:00+00:00"}]}}}
+        """#
+        let windows = try XCTUnwrap(
+            ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow)
+        )
+        XCTAssertEqual(windows.count, 2, "unknown kind dropped, known siblings still parse")
+        XCTAssertEqual(Set(windows.map(\.scope)), [.session, .weekly])
+    }
+
+    func testOnlyUnknownKindsYieldsNoObservation() {
+        let payload = #"""
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"nimbus_quill_bucket","percent":5,"resets_at":"2026-08-09T07:10:00+00:00"}]}}}
+        """#
+        XCTAssertNil(ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow))
+    }
+
+    // MARK: - poolLabel never fabricated
+
+    func testWeeklyScopedWithNullScopeYieldsNoLabelNotAFabricatedOne() throws {
+        let payload = #"""
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"weekly_scoped","percent":18,"resets_at":"2026-08-11T03:00:00+00:00","scope":null}]}}}
+        """#
+        let windows = try XCTUnwrap(
+            ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow)
+        )
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertNil(windows[0].poolLabel)
+    }
+
+    func testSessionAndWeeklyAllNeverCarryAPoolLabelEvenIfScopePresent() throws {
+        // Not observed live, but the reader must key the label read off
+        // `kind`, not off "scope happens to be present" — a future vendor
+        // change adding scope to weekly_all must not suddenly invent a label
+        // for a pool that has never shown one.
+        let payload = #"""
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"weekly_all","percent":76,"resets_at":"2026-08-11T03:00:00+00:00","scope":{"model":{"display_name":"Should Not Appear"}}}]}}}
+        """#
+        let windows = try XCTUnwrap(
+            ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow)
+        )
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertNil(windows[0].poolLabel)
     }
 
     // MARK: - Fail closed: missing / malformed
@@ -150,6 +247,13 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
         XCTAssertNil(ClaudeNativeCapacityProbe.fetch(homeDirectory: emptyHome, now: freshNow))
     }
 
+    func testMissingLimitsArrayYieldsNoObservation() {
+        let payload = #"""
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"five_hour":{"utilization":26,"resets_at":"2026-08-09T07:10:00+00:00"}}}}
+        """#
+        XCTAssertNil(ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow))
+    }
+
     // MARK: - Fail closed: staleness
 
     func testPayloadOlderThanStalenessBoundYieldsNoObservation() {
@@ -167,23 +271,27 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
 
     func testMissingFetchedAtMsYieldsNoObservation() {
         let payload = #"""
-        {"cachedUsageUtilization":{"utilization":{"seven_day":{"utilization":76,"resets_at":"2026-08-11T03:00:00+00:00"}}}}
+        {"cachedUsageUtilization":{"utilization":{"limits":[{"kind":"weekly_all","percent":76,"resets_at":"2026-08-11T03:00:00+00:00"}]}}}
         """#
         XCTAssertNil(ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow))
     }
 
-    // MARK: - Fail closed: per-bucket shape
+    // MARK: - Fail closed: per-entry shape
 
-    func testBothKnownBucketsAbsentYieldsNoObservation() {
+    func testAllEntriesUnparseableYieldsNoObservation() {
         let payload = #"""
-        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"five_hour":null,"seven_day":null,"nimbus_quill":{"utilization":5,"resets_at":"2026-08-09T07:10:00+00:00"}}}}
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"session","percent":"a lot","resets_at":"2026-08-09T07:10:00+00:00"},\#
+        {"kind":"weekly_all","resets_at":"2026-08-11T03:00:00+00:00"}]}}}
         """#
         XCTAssertNil(ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow))
     }
 
-    func testOneNullBucketStillYieldsTheOtherWindow() throws {
+    func testOneUnparseableEntryStillYieldsTheOtherWindow() throws {
         let payload = #"""
-        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"five_hour":null,"seven_day":{"utilization":76,"resets_at":"2026-08-11T03:00:00+00:00"}}}}
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"session","percent":"a lot","resets_at":"2026-08-09T07:10:00+00:00"},\#
+        {"kind":"weekly_all","percent":76,"resets_at":"2026-08-11T03:00:00+00:00"}]}}}
         """#
         let windows = try XCTUnwrap(
             ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow)
@@ -192,11 +300,11 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
         XCTAssertEqual(windows[0].scope, .weekly)
     }
 
-    func testNonNumericUtilizationOnOneBucketDropsOnlyThatBucket() throws {
+    func testNonNumericPercentOnOneEntryDropsOnlyThatEntry() throws {
         let payload = #"""
-        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{\#
-        "five_hour":{"utilization":"a lot","resets_at":"2026-08-09T07:10:00+00:00"},\#
-        "seven_day":{"utilization":76,"resets_at":"2026-08-11T03:00:00+00:00"}}}}
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"session","percent":"a lot","resets_at":"2026-08-09T07:10:00+00:00"},\#
+        {"kind":"weekly_all","percent":76,"resets_at":"2026-08-11T03:00:00+00:00"}]}}}
         """#
         let windows = try XCTUnwrap(
             ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow)
@@ -205,18 +313,19 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
         XCTAssertEqual(windows[0].scope, .weekly)
     }
 
-    func testBooleanUtilizationIsRefusedNotCoerced() {
+    func testBooleanPercentIsRefusedNotCoerced() {
         let payload = #"""
-        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"seven_day":{"utilization":true,"resets_at":"2026-08-11T03:00:00+00:00"}}}}
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"weekly_all","percent":true,"resets_at":"2026-08-11T03:00:00+00:00"}]}}}
         """#
         XCTAssertNil(ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow))
     }
 
-    func testUnparseableResetsAtDropsOnlyThatBucket() throws {
+    func testUnparseableResetsAtDropsOnlyThatEntry() throws {
         let payload = #"""
-        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{\#
-        "five_hour":{"utilization":26,"resets_at":"not a date"},\#
-        "seven_day":{"utilization":76,"resets_at":"2026-08-11T03:00:00+00:00"}}}}
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"session","percent":26,"resets_at":"not a date"},\#
+        {"kind":"weekly_all","percent":76,"resets_at":"2026-08-11T03:00:00+00:00"}]}}}
         """#
         let windows = try XCTUnwrap(
             ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow)
@@ -225,11 +334,11 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
         XCTAssertEqual(windows[0].scope, .weekly)
     }
 
-    func testMissingResetsAtDropsOnlyThatBucket() throws {
+    func testMissingResetsAtDropsOnlyThatEntry() throws {
         let payload = #"""
-        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{\#
-        "five_hour":{"utilization":26},\#
-        "seven_day":{"utilization":76,"resets_at":"2026-08-11T03:00:00+00:00"}}}}
+        {"cachedUsageUtilization":{"fetchedAtMs":1786254343761,"utilization":{"limits":[\#
+        {"kind":"session","percent":26},\#
+        {"kind":"weekly_all","percent":76,"resets_at":"2026-08-11T03:00:00+00:00"}]}}}
         """#
         let windows = try XCTUnwrap(
             ClaudeNativeCapacityProbe.capacityWindows(fromFileContent: payload, now: freshNow)
@@ -293,7 +402,7 @@ final class ClaudeNativeCapacityProbeTests: XCTestCase {
             homeDirectory: home,
             executableOverride: "/tmp/alln-claude-native-unused-\(UUID().uuidString)"
         )
-        XCTAssertEqual(windows.count, 2)
+        XCTAssertEqual(windows.count, 3)
         XCTAssertTrue(windows.allSatisfy { $0.sourceTier == .onDisk })
         XCTAssertTrue(windows.allSatisfy { $0.unknownReason == nil })
         #else
