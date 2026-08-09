@@ -5,3 +5,4 @@ Append the same stamp line the seat writes to `MULTI.md`.
 ## Log
 
 - 2026-08-09T16:50:00Z · scaffold · aux file created
+- 2026-08-09T16:55:05Z · seat · run id unknown
