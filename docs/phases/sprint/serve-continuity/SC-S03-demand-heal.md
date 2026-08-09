@@ -1,7 +1,8 @@
 # SC-S03 — Demand heal: ensure serve on `alln run` + Mac app launch
 
-Status: ready  
+Status: in_progress  
 Slice: SC-S03  
+Run: `723B7A89-63A3-4800-AE63-8E0AF4EA11B3`  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §3.3 + §4  
 Executor: Kimi K3 via `alln run --team build_slice --model model_kimi_k3`
 
