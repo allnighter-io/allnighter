@@ -49,6 +49,9 @@ public struct AIReadinessReport: Codable, Sendable, Equatable {
 
     /// One finding from a single seat — attributed, bucketed, with evidence and a fix.
     public struct Finding: Codable, Sendable, Equatable {
+        /// Stable slug for the finding (packet §8); optional on decode so older
+        /// writer blocks still parse.
+        public var id: String?
         public var seatId: String
         public var bucket: String
         public var severity: String
@@ -58,12 +61,13 @@ public struct AIReadinessReport: Codable, Sendable, Equatable {
         public var whyItBites: String
         public var fix: String
         public var doneWhen: String
-        public init(seatId: String, bucket: String, severity: String, title: String,
-                    evidence: String, nugget: String? = nil, whyItBites: String,
-                    fix: String, doneWhen: String) {
-            self.seatId = seatId; self.bucket = bucket; self.severity = severity
-            self.title = title; self.evidence = evidence; self.nugget = nugget
-            self.whyItBites = whyItBites; self.fix = fix; self.doneWhen = doneWhen
+        public init(id: String? = nil, seatId: String, bucket: String, severity: String,
+                    title: String, evidence: String, nugget: String? = nil,
+                    whyItBites: String, fix: String, doneWhen: String) {
+            self.id = id; self.seatId = seatId; self.bucket = bucket
+            self.severity = severity; self.title = title; self.evidence = evidence
+            self.nugget = nugget; self.whyItBites = whyItBites; self.fix = fix
+            self.doneWhen = doneWhen
         }
     }
 

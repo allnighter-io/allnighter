@@ -34,6 +34,7 @@ final class AIReadinessReportTests: XCTestCase {
             ],
             findings: [
                 AIReadinessReport.Finding(
+                    id: "default-test-is-watcher",
                     seatId: "test_infra_scout",
                     bucket: "tests",
                     severity: "material",
@@ -65,6 +66,7 @@ final class AIReadinessReportTests: XCTestCase {
         XCTAssertEqual(back.threeFixes.count, 1)
         XCTAssertEqual(back.threeFixes.first?.title, "Add a fast test subset")
         XCTAssertEqual(back.findings.count, 1)
+        XCTAssertEqual(back.findings.first?.id, "default-test-is-watcher")
         XCTAssertEqual(back.findings.first?.severity, "material")
         XCTAssertEqual(back.strengths.count, 1)
         XCTAssertEqual(back.couldNotDetermine.count, 1)
