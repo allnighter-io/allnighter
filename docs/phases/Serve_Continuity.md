@@ -1,6 +1,6 @@
 # Serve Continuity (Background Keeper)
 
-Status: **OPEN — v2.1 (SC-S00a done — H1 refuted on post-bootstrap agent; SC-S00 next)**
+Status: **OPEN — v2.2 (SC-S00a + SC-S00 done; SC-S01 next)**
 Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeAutoLaunch`,
 admission, doctor, **new ServeLifecycle**) + `InstallCLI` / `rebuild_cli.sh`
 (same transaction as identity change) + Mac app (enablement / demand heal) —
@@ -212,7 +212,7 @@ clear; they do not exit(0) in a KeepAlive death loop.
 | Slice | Outcome | Proof |
 | --- | --- | --- |
 | **SC-S00a** | **DONE 2026-08-09** — Rebuild experiment. Codesign Identifier **rotated**; KeepAlive on the *post-bootstrap* agent (no managed LWCR flags) **restarted serve successfully** after kill. **H1 REFUTED** for that registration. Log: `docs/qa/serve-continuity/SC-S00a-rebuild-experiment.md`. Logout/login BTM re-adoption still unproven. | Host log. |
-| **SC-S00** | Doctor / `--health` fail-closed on orphan or wedged LA; teaching text. | Fixture or host: wedged label ⇒ unhealthy + repair hint. |
+| **SC-S00** | **DONE 2026-08-09** (`05afee05`) — `ServeLaunchAgentStatus` + doctor `serve.launchAgent` critical on wedge; `serve --health` additive `launchAgent`. Works Test 14/14. | `scripts/swift-test.sh --filter ServeLaunchAgentStatusTests` |
 | **SC-S01** | `ServeLifecycle` register/refresh/remove; migrate/remove CODE_RED orphan; stop thrash. | After repair or remove: no LWCR thrash; health honest. |
 | **SC-S02** | Wire lifecycle into **`install-cli` / rebuild same transaction** as symlink repoint; stage **stable-identity** binary for OS-managed agent. | Rebuild + kill with app closed → new launchd pid, health `available`, capacity advances (sacrificial-label harness). |
 | **SC-S03** | Demand heal: app launch + `alln run` call `ensureRunning` (opt-out preserved); prefer delegating spawn through ServeLifecycle when enablement is on. | Kill serve → ordinary run/app open → health `available` without reboot. |
