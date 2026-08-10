@@ -865,7 +865,17 @@ struct AllnighterCLI {
             case .shimmedNeedsConfirm(let res):
                 print("\(r.driverId)\tNEEDS PATH\t\(res.rawCommandV)")
             case .notInstalled:
-                print("\(r.driverId)\tNOT INSTALLED\t(no binary on PATH or known paths)")
+                let detail: String
+                if let manifest = runtime.registry.manifest(id: r.driverId) {
+                    detail = SetupRecoveryCopy.notInstalledDetail(for: manifest)
+                } else {
+                    detail = "(no binary on PATH or known paths)"
+                }
+                print("\(r.driverId)\tNOT INSTALLED\t\(detail)")
+                if let manifest = runtime.registry.manifest(id: r.driverId),
+                   let docs = SetupRecoveryCopy.notInstalledFixCommand(for: manifest) {
+                    print("  → \(docs)")
+                }
             }
         }
         let tally = BenchTallyProjector.tally(

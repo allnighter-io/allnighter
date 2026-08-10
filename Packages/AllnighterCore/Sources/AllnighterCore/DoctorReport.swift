@@ -138,7 +138,7 @@ public enum DoctorReport {
         for r in records.sorted(by: { $0.driverId < $1.driverId }) {
             let name = sourceName(r.driverId)
             let manifest = manifests.first { $0.id == r.driverId }
-            checks.append(installedCheck(r, name: name))
+            checks.append(installedCheck(r, name: name, manifest: manifest))
             checks.append(authCheck(r, name: name, full: inputs.full))
             if let trust = manifest?.setup?.headlessTrust, trust.required {
                 checks.append(headlessTrustCheck(r.driverId, trust: trust))
@@ -296,7 +296,11 @@ public enum DoctorReport {
         )
     }
 
-    private static func installedCheck(_ r: ToolProbeRecord, name: String) -> DoctorResult.Check {
+    private static func installedCheck(
+        _ r: ToolProbeRecord,
+        name: String,
+        manifest: DriverManifest?
+    ) -> DoctorResult.Check {
         switch r.status {
         case .ready, .installedNotProbed, .installedNotSignedIn, .probeFailed, .rateLimited:
             // rateLimited = healthy install + smoke hit a vendor quota wall (not missing).
@@ -304,7 +308,22 @@ public enum DoctorReport {
         case .shimmedNeedsConfirm:
             return .init(name: "source.\(r.driverId).installed", status: .degraded, detail: "\(name) needs a one-click path confirmation", requiresManual: true)
         case .notInstalled:
-            return .init(name: "source.\(r.driverId).installed", status: .degraded, detail: "\(name) not found on PATH or known paths", requiresManual: true)
+            let detail: String
+            let fix: String?
+            if let manifest {
+                detail = SetupRecoveryCopy.notInstalledDetail(for: manifest)
+                fix = SetupRecoveryCopy.notInstalledFixCommand(for: manifest)
+            } else {
+                detail = "\(name) not found on PATH or known paths"
+                fix = nil
+            }
+            return .init(
+                name: "source.\(r.driverId).installed",
+                status: .degraded,
+                detail: detail,
+                fixCommand: fix,
+                requiresManual: true
+            )
         }
     }
 

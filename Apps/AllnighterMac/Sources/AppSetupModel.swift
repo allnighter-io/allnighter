@@ -65,6 +65,7 @@ enum AppSetupModel {
                 state: state, workers: seats,
                 loginCommand: manifest.setup?.loginFlow?.interactiveCommand,
                 installHint: manifest.setup?.installHint, docsURL: manifest.setup?.docsURL,
+                loginDocsURL: manifest.setup?.loginFlow?.docsURL,
                 shimCommand: shim, probeReason: reason,
                 headlessTrust: manifest.setup?.headlessTrust)
         }

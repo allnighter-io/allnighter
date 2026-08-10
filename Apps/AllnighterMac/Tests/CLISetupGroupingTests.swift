@@ -7,7 +7,7 @@ final class CLISetupGroupingTests: XCTestCase {
     private func card(_ id: String, state: SetupCardState) -> SetupCardModel {
         SetupCardModel(
             driverId: id, name: id, route: "via \(id)", version: nil, state: state, workers: [],
-            loginCommand: nil, installHint: nil, docsURL: nil, shimCommand: nil, probeReason: nil,
+            loginCommand: nil, installHint: nil, docsURL: nil, loginDocsURL: nil, shimCommand: nil, probeReason: nil,
             headlessTrust: nil)
     }
 

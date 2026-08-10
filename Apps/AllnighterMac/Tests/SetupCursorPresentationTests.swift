@@ -1,4 +1,5 @@
 import XCTest
+import AgentOSCLI
 import AllnighterCore
 import AllnighterEngine
 @testable import AllnighterMac
@@ -18,6 +19,20 @@ final class SetupCursorPresentationTests: XCTestCase {
         XCTAssertEqual(card?.headlessTrust?.cliFlag, "--trust")
         XCTAssertTrue(card?.headlessTrust?.required ?? false)
         XCTAssertTrue(card?.headlessTrust?.disclosure.contains("--trust") ?? false)
+        XCTAssertEqual(card?.docsURL, "https://cursor.com/docs/cli/installation")
+        XCTAssertEqual(card?.loginDocsURL, "https://cursor.com/docs/cli/using")
+        XCTAssertTrue(card?.installHint?.contains("agent") ?? false)
+    }
+
+    func testSetupRecoveryCopyNeverEquatesCursorAppWithSeat() throws {
+        let manifest = BundledDefaults.cursorManifest
+        let detail = SetupRecoveryCopy.notInstalledDetail(for: manifest)
+        XCTAssertTrue(detail.contains("Cursor app is not the seat"))
+        XCTAssertFalse(detail.lowercased().contains("cursor.app is the seat"))
+        XCTAssertEqual(
+            SetupRecoveryCopy.loginDocsURL(for: manifest),
+            "https://cursor.com/docs/cli/using"
+        )
     }
 
     func testCursorReadyFixtureShowsComposerOnBenchNotFast() {

@@ -87,6 +87,8 @@ struct SetupCardModel: Identifiable {
     let loginCommand: String?      // loginFlow.interactiveCommand
     let installHint: String?
     let docsURL: String?
+    /// From `loginFlow.docsURL` when distinct from install docs.
+    let loginDocsURL: String?
     let shimCommand: String?       // raw `command -v` for needsPath
     let probeReason: String?
     /// Headless mutation/trust posture from the driver manifest (e.g. Cursor `--trust`).
@@ -287,7 +289,10 @@ struct SetupCardView: View {
     var showFixIt: Bool = true
     var onAction: (SetupAction) -> Void = { _ in }
 
-    enum SetupAction { case openTerminal(String), copy(String), openURL(String), rescan, locate, useAnyway }
+    enum SetupAction {
+        case openTerminal(String), copy(String), openURL(String)
+        case rescan(driverId: String?), locate, useAnyway
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -436,6 +441,11 @@ struct SetupCardView: View {
                         Button { onAction(.copy(card.loginCommand ?? card.driverId)) } label: {
                             Label("Copy steps", systemImage: "doc.on.doc")
                         }.buttonStyle(.alGhost)
+                        if let loginDocs = card.loginDocsURL, !loginDocs.isEmpty {
+                            Button { onAction(.openURL(loginDocs)) } label: {
+                                Label("CLI docs", systemImage: "book")
+                            }.buttonStyle(.alGhost)
+                        }
                     }
                 }
                 note(card.state == .waiting ? "Flips to ready the moment the probe passes — no restart, no app focus needed."
@@ -454,12 +464,23 @@ struct SetupCardView: View {
             }
         case .notInstalled:
             fixItBody {
-                fixLine("You don’t have \(card.name) yet. Install it, then re-scan.")
+                if card.driverId == "cursor_agent" {
+                    fixLine("Cursor Agent CLI not found — the Cursor app is not the seat.")
+                } else {
+                    fixLine("You don’t have \(card.name) yet. Install it, then re-scan.")
+                }
                 CmdRow(text: card.installHint ?? "see docs")
+                if let trust = card.headlessTrust, trust.required {
+                    note(trust.disclosure, systemImage: "lock.shield")
+                }
                 HStack(spacing: 8) {
                     Button { onAction(.openURL(card.docsURL ?? "")) } label: { Label("Open install page", systemImage: "arrow.up.right.square") }
                         .buttonStyle(.alSecondary).disabled((card.docsURL ?? "").isEmpty)
-                    Button { onAction(.rescan) } label: { Label("Re-scan", systemImage: "arrow.clockwise") }.buttonStyle(.alGhost)
+                    if let loginDocs = card.loginDocsURL, !loginDocs.isEmpty {
+                        Button { onAction(.openURL(loginDocs)) } label: { Label("CLI docs", systemImage: "book") }
+                            .buttonStyle(.alGhost)
+                    }
+                    Button { onAction(.rescan(driverId: card.driverId)) } label: { Label("Re-check", systemImage: "arrow.clockwise") }.buttonStyle(.alGhost)
                 }
             }
         case .probeFailed:
@@ -467,7 +488,7 @@ struct SetupCardView: View {
                 fixLine("Detected \(card.version ?? card.name), but the smoke run failed.")
                 CmdRow(prompt: "!", text: card.probeReason ?? "smoke failed", error: true)
                 HStack(spacing: 8) {
-                    Button { onAction(.rescan) } label: { Label("Re-try probe", systemImage: "arrow.clockwise") }.buttonStyle(.alSecondary)
+                    Button { onAction(.rescan(driverId: card.driverId)) } label: { Label("Re-try probe", systemImage: "arrow.clockwise") }.buttonStyle(.alSecondary)
                 }
                 note("Detect passed, smoke didn’t — this is not a sign-in problem.", systemImage: "exclamationmark.triangle", tint: ALPalette.red400)
             }
@@ -966,7 +987,13 @@ enum SetupActions {
         case .openTerminal(let cmd): openTerminal(cmd)
         case .copy(let text): copyToPasteboard(text)
         case .openURL(let url): if let u = URL(string: url) { NSWorkspace.shared.open(u) }
-        case .rescan, .useAnyway: model.runFullSetupProbe(userInitiated: true)
+        case .rescan(let driverId):
+            if let driverId {
+                model.runSetupProbe(userInitiated: true, onlyDriverId: driverId)
+            } else {
+                model.runFullSetupProbe(userInitiated: true)
+            }
+        case .useAnyway: model.runFullSetupProbe(userInitiated: true)
         case .locate: locateBinary()
         }
     }
@@ -980,7 +1007,7 @@ enum SetupActions {
         SetupCardModel(driverId: id, name: name, route: "via \(id.replacingOccurrences(of: "_", with: "-"))",
                        version: version, state: state, workers: workers,
                        loginCommand: "codex", installHint: "brew install grok",
-                       docsURL: "https://x.ai/cli", shimCommand: shim, probeReason: reason,
+                       docsURL: "https://x.ai/cli", loginDocsURL: nil, shimCommand: shim, probeReason: reason,
                        headlessTrust: nil)
     }
     let claude = m("claude_code", "Claude Code", .ready, version: "claude 1.2.4", workers: [
