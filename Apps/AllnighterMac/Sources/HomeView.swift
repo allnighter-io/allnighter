@@ -778,7 +778,7 @@ private struct HomeMarketingEmptyState: View {
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(ALColor.textPrimary)
                     .lineLimit(1)
-                HomeMarketingCLIStrip.statusDot(for: card.state)
+                HomeMarketingCLIStrip.statusDot(for: card)
             }
             .padding(.horizontal, 11)
             .frame(height: 34)
@@ -787,15 +787,15 @@ private struct HomeMarketingEmptyState: View {
         }
         .buttonStyle(.plain)
         .help("Open \(card.name) setup")
-        .accessibilityLabel("\(label), \(accessibilityStatus(card.state))")
+        .accessibilityLabel("\(label), \(accessibilityStatus(for: card))")
     }
 
     private func shortName(for card: SetupCardModel) -> String {
         appModel.registry.all.first { $0.id == card.driverId }?.shortName ?? card.name
     }
 
-    private func accessibilityStatus(_ state: SetupCardState) -> String {
-        switch HomeMarketingCLIStrip.dotKind(for: state) {
+    private func accessibilityStatus(for card: SetupCardModel) -> String {
+        switch HomeMarketingCLIStrip.dotKind(for: card) {
         case .ready: return "ready"
         case .attention: return "needs attention"
         case .dormant: return "not ready"

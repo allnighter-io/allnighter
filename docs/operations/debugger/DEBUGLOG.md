@@ -1,5 +1,33 @@
 # Debug Log
 
+
+## 2026-08-10 — Cursor missing from home strip after Find my team
+
+Tier: T2 SSOT
+
+Symptom / repro: Reinstall Allnighter → Find my team → home chips show Claude /
+Codex / Grok / OpenCode; Cursor absent despite Cursor.app installed.
+
+Bug fingerprint:
+`HomeMarketingCLIStrip.visibleCards + drop .notInstalled when any .ready + Cursor.app present`
+
+Truth owner: `HomeMarketingCLIStrip.visibleCards` / `CLISetupGrouping.cursorInstallPromptCards`.
+
+Lie-prone layer: Independent `.notInstalled` filter on the Find-my-team chip row
+(and BenchHealthPopover) while only TeamReadinessView got the fe8acf5e Cursor
+install-prompt merge.
+
+RCA: Once any CLI is ready, home strip hides all notInstalled cards — including
+Cursor when only the Agent CLI is missing.
+
+Fix: Keep `cursorInstallPromptCards` in home strip + amber attention dot; same
+merge in BenchHealthPopover. Packet:
+`docs/operations/debugger/2026-08-10-cursor-missing-home-strip-PACKET.md`.
+Proof: `HomeMarketingCLIStripTests.testCursorAppPresentKeepsNotInstalledWhenOthersReady`.
+
+---
+
+
 ## 2026-08-10 — Mac first launch + many TCC / Dock popups (capacity + ServeAutoLaunch + relay)
 
 Tier: T3 Critical (permission regression, repeated Launch Authority leak)

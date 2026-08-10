@@ -226,6 +226,7 @@ struct BenchRepairPanel: View {
     @State private var newModelName = ""
     @State private var newModelLabel = ""
     @State private var logCopied = false
+    @State private var loginCommandCopied = false
 
     /// Every model this CLI can run (on-bench + available), A→Z. Drives the editable
     /// bench roster — toggling a row writes `Model.enabled` via the catalog.
@@ -236,6 +237,47 @@ struct BenchRepairPanel: View {
     }
 
     private var isParked: Bool { card.state == .parked }
+
+    /// Model toggles are for a working, signed-in CLI — never for install/login/repair.
+    private var showsModelRoster: Bool {
+        switch card.state {
+        case .ready, .rateLimited:
+            return !modelDefs.isEmpty
+        default:
+            return false
+        }
+    }
+
+    /// Parking only after the CLI is on the machine and past the install gate.
+    private var showsParkControl: Bool {
+        switch card.state {
+        case .notInstalled, .notChecked, .needsLogin, .waiting,
+             .detecting, .reprobing, .queued, .installedNotProbed:
+            return false
+        default:
+            return true
+        }
+    }
+
+    /// Trust applies to headless runs — show only when the seat can actually run.
+    private var showsTrustNotice: Bool {
+        !isParked
+            && card.showsHeadlessTrustDisclosure
+            && card.headlessTrust != nil
+            && (card.state == .ready || card.state == .rateLimited)
+    }
+
+    /// Last-proof is repair telemetry — hide during the one-job install/login screens.
+    private var showsLastProof: Bool {
+        switch card.state {
+        case .notInstalled, .notChecked, .needsLogin, .waiting:
+            return false
+        case .reprobing, .detecting, .queued, .installedNotProbed:
+            return false
+        default:
+            return true
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -261,34 +303,38 @@ struct BenchRepairPanel: View {
             .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
 
             VStack(alignment: .leading, spacing: 0) {
-                if !modelDefs.isEmpty {
-                    detailModels
-                        .padding(.top, 4).padding(.bottom, 12)
-                        .opacity(isParked ? 0.45 : 1)
-                        .allowsHitTesting(!isParked)
-                }
-
+                // One job first: copy → primary action. Models/trust only after ready.
                 Text(lead)
                     .font(.system(size: 12.5))
                     .foregroundStyle(ALColor.textSecondary)
                     .lineSpacing(3)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, card.workers.isEmpty ? 9 : 0).padding(.bottom, 13)
-
-                if !isParked, card.showsHeadlessTrustDisclosure, let trust = card.headlessTrust {
-                    HeadlessTrustNotice(policy: trust)
-                        .padding(.bottom, 13)
-                }
+                    .padding(.top, 12).padding(.bottom, 14)
 
                 if !isParked {
                     ForEach(Array(actions.enumerated()), id: \.offset) { idx, act in
                         repairActionRow(act, first: idx == 0)
                     }
+                }
+
+                if showsTrustNotice, let trust = card.headlessTrust {
+                    HeadlessTrustNotice(policy: trust)
+                        .padding(.top, 14)
+                }
+
+                if showsModelRoster {
+                    detailModels
+                        .padding(.top, 16)
+                }
+
+                if showsLastProof {
                     lastProof
                 }
 
-                parkControl
-                    .padding(.top, 14)
+                if showsParkControl {
+                    parkControl
+                        .padding(.top, 14)
+                }
             }
             .padding(.horizontal, 16).padding(.bottom, 16)
         }
@@ -444,7 +490,10 @@ struct BenchRepairPanel: View {
             }
             return "Running detect and smoke test for \(card.name)…"
         case .needsLogin, .waiting:
-            return "Installed but not signed in. It prompts for sign-in on first run — fix it here and it goes green in place."
+            if card.driverId == CursorAgentCLIInstall.driverId {
+                return "Copy `cursor-agent login`, open a new Terminal window (don’t reuse a Grok session), paste, press Return. Finish browser sign-in if asked — then tap Re-check."
+            }
+            return "Copy the sign-in command, open a new Terminal window, paste, press Return. Then tap Re-check."
         case .needsPath:
             return "Found as a shell function, not a plain command. Point us at the binary, or run it through your login shell."
         case .probeFailed:
@@ -489,12 +538,42 @@ struct BenchRepairPanel: View {
     private var actions: [RepairAction] {
         switch card.state {
         case .needsLogin, .waiting:
+            let loginCmd = resolvedLoginCommand
             return [
-                RepairAction(icon: "terminal", title: "Open login flow", subtitle: "Launches the source's sign-in in Terminal", button: "Open", primary: true, secondary: false) {
-                    SetupActions.openTerminal(card.loginCommand ?? card.driverId)
+                RepairAction(
+                    icon: "doc.on.doc",
+                    title: "Copy sign-in command",
+                    subtitle: loginCmd,
+                    button: loginCommandCopied ? "Copied" : "Copy",
+                    primary: true,
+                    secondary: false
+                ) {
+                    SetupActions.copyToPasteboard(loginCmd)
+                    loginCommandCopied = true
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(2))
+                        loginCommandCopied = false
+                    }
                 },
-                RepairAction(icon: "arrow.clockwise", title: "Re-check", subtitle: "Re-probes every few seconds until it passes", button: "Run", primary: false, secondary: false) {
-                    model.runFullSetupProbe(userInitiated: true)
+                RepairAction(
+                    icon: "terminal",
+                    title: "Open Terminal",
+                    subtitle: "Opens Terminal.app — paste into a new window, then press Return",
+                    button: "Open",
+                    primary: false,
+                    secondary: true
+                ) {
+                    SetupActions.openTerminalApp()
+                },
+                RepairAction(
+                    icon: "arrow.clockwise",
+                    title: "Re-check",
+                    subtitle: "After sign-in finishes, confirm Cursor Agent is ready",
+                    button: isProbingThisCard ? "Checking…" : "Run",
+                    primary: false,
+                    secondary: false
+                ) {
+                    model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
                 },
             ]
         case .needsPath:
@@ -535,6 +614,7 @@ struct BenchRepairPanel: View {
         case .notInstalled:
             if card.driverId == CursorAgentCLIInstall.driverId {
                 let installing = model.isInstallingCursorAgentCLI
+                // Missing CLI: Install is the only job. Docs/re-check are noise until it exists.
                 return [
                     RepairAction(
                         icon: "arrow.down.circle",
@@ -547,12 +627,6 @@ struct BenchRepairPanel: View {
                         secondary: false
                     ) {
                         model.installCursorAgentCLI()
-                    },
-                    RepairAction(icon: "arrow.up.right.square", title: "Open install page", subtitle: "Opens Cursor’s CLI install docs", button: "Open", primary: false, secondary: true) {
-                        if let url = card.docsURL, let u = URL(string: url) { NSWorkspace.shared.open(u) }
-                    },
-                    RepairAction(icon: "arrow.clockwise", title: "Re-check", subtitle: "Look again once it’s installed", button: "Run", primary: false, secondary: false) {
-                        model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
                     },
                 ]
             }
@@ -581,6 +655,17 @@ struct BenchRepairPanel: View {
         card.driverId == "opencode"
             ? "Smoke via Featherless — may take 1–3 min on first run"
             : "Run the smoke test again"
+    }
+
+    /// Prefer catalog login command; Cursor falls back to unambiguous `cursor-agent login`.
+    private var resolvedLoginCommand: String {
+        if let cmd = card.loginCommand?.trimmingCharacters(in: .whitespacesAndNewlines), !cmd.isEmpty {
+            return cmd
+        }
+        if card.driverId == CursorAgentCLIInstall.driverId {
+            return "cursor-agent login"
+        }
+        return card.driverId
     }
 
     private func repairActionRow(_ act: RepairAction, first: Bool) -> some View {

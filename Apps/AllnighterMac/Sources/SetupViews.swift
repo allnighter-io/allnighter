@@ -293,6 +293,10 @@ struct SetupCardView: View {
         case openTerminal(String), copy(String), openURL(String)
         case rescan(driverId: String?), locate, useAnyway
         case installCursorAgentCLI
+        /// Copy paste-ready login command (and optionally open Terminal.app).
+        case signIn(command: String, driverId: String)
+        /// Open Terminal.app only — no AppleScript command injection.
+        case openTerminalApp
     }
 
     var body: some View {
@@ -424,11 +428,14 @@ struct SetupCardView: View {
             }
         case .needsLogin, .waiting:
             fixItBody {
-                fixLine("\(card.name) is installed but not signed in. It prompts for sign-in on first run.")
-                if card.showsHeadlessTrustDisclosure, let trust = card.headlessTrust {
-                    HeadlessTrustNotice(policy: trust).padding(.bottom, 10)
+                let loginCmd = card.loginCommand
+                    ?? (card.driverId == CursorAgentCLIInstall.driverId ? "cursor-agent login" : card.driverId)
+                if card.driverId == CursorAgentCLIInstall.driverId {
+                    fixLine("Copy the command, open a new Terminal window (don’t paste into a Grok session), paste, press Return. Finish browser sign-in if asked.")
+                } else {
+                    fixLine("\(card.name) is installed but not signed in. Copy → new Terminal → paste → Return.")
                 }
-                CmdRow(text: card.loginCommand ?? card.driverId)
+                CmdRow(text: loginCmd)
                 if card.state == .waiting {
                     HStack(spacing: 10) {
                         SetupPill(kind: .check, label: "Waiting for sign-in…")
@@ -436,21 +443,19 @@ struct SetupCardView: View {
                     }
                 } else {
                     HStack(spacing: 8) {
-                        Button { onAction(.openTerminal(card.loginCommand ?? card.driverId)) } label: {
-                            Label("Open Terminal & sign in", systemImage: "terminal")
+                        Button { onAction(.copy(loginCmd)) } label: {
+                            Label("Copy command", systemImage: "doc.on.doc")
                         }.buttonStyle(.alPrimary(small: true))
-                        Button { onAction(.copy(card.loginCommand ?? card.driverId)) } label: {
-                            Label("Copy steps", systemImage: "doc.on.doc")
+                        Button { onAction(.openTerminalApp) } label: {
+                            Label("Open Terminal", systemImage: "terminal")
+                        }.buttonStyle(.alSecondary(small: true))
+                        Button { onAction(.rescan(driverId: card.driverId)) } label: {
+                            Label("Re-check", systemImage: "arrow.clockwise")
                         }.buttonStyle(.alGhost)
-                        if let loginDocs = card.loginDocsURL, !loginDocs.isEmpty {
-                            Button { onAction(.openURL(loginDocs)) } label: {
-                                Label("CLI docs", systemImage: "book")
-                            }.buttonStyle(.alGhost)
-                        }
                     }
                 }
-                note(card.state == .waiting ? "Flips to ready the moment the probe passes — no restart, no app focus needed."
-                                             : "Sign in in Terminal — we’ll detect when you’re done.",
+                note(card.state == .waiting ? "Flips to ready when sign-in succeeds — no restart needed."
+                                             : "After you finish in Terminal, tap Re-check.",
                      systemImage: card.state == .waiting ? "arrow.triangle.2.circlepath" : "info.circle")
             }
         case .needsPath:
@@ -471,33 +476,27 @@ struct SetupCardView: View {
                     } else {
                         fixLine("Install the Cursor Agent CLI to use Composer. Prefer cursor-agent — bare agent may be Grok Build.")
                     }
-                } else {
-                    fixLine("You don’t have \(card.name) yet. Install it, then re-scan.")
-                }
-                CmdRow(text: card.driverId == CursorAgentCLIInstall.driverId
-                       ? CursorAgentCLIInstall.shellCommand
-                       : (card.installHint ?? "see docs"))
-                if let trust = card.headlessTrust, trust.required {
-                    note(trust.disclosure, systemImage: "lock.shield")
-                }
-                HStack(spacing: 8) {
-                    if card.driverId == CursorAgentCLIInstall.driverId {
+                    HStack(spacing: 8) {
                         Button { onAction(.installCursorAgentCLI) } label: {
                             Label("Install Cursor Agent CLI", systemImage: "arrow.down.circle")
                         }
                         .buttonStyle(.alPrimary)
                     }
-                    Button { onAction(.openURL(card.docsURL ?? "")) } label: {
-                        Label(card.driverId == CursorAgentCLIInstall.driverId ? "Install page" : "Open install page",
-                              systemImage: "arrow.up.right.square")
+                } else {
+                    fixLine("You don’t have \(card.name) yet. Install it, then re-scan.")
+                    CmdRow(text: card.installHint ?? "see docs")
+                    HStack(spacing: 8) {
+                        Button { onAction(.openURL(card.docsURL ?? "")) } label: {
+                            Label("Open install page", systemImage: "arrow.up.right.square")
+                        }
+                        .buttonStyle(.alSecondary)
+                        .disabled((card.docsURL ?? "").isEmpty)
+                        if let loginDocs = card.loginDocsURL, !loginDocs.isEmpty {
+                            Button { onAction(.openURL(loginDocs)) } label: { Label("CLI docs", systemImage: "book") }
+                                .buttonStyle(.alGhost)
+                        }
+                        Button { onAction(.rescan(driverId: card.driverId)) } label: { Label("Re-check", systemImage: "arrow.clockwise") }.buttonStyle(.alGhost)
                     }
-                    .buttonStyle(.alSecondary)
-                    .disabled((card.docsURL ?? "").isEmpty)
-                    if let loginDocs = card.loginDocsURL, !loginDocs.isEmpty {
-                        Button { onAction(.openURL(loginDocs)) } label: { Label("CLI docs", systemImage: "book") }
-                            .buttonStyle(.alGhost)
-                    }
-                    Button { onAction(.rescan(driverId: card.driverId)) } label: { Label("Re-check", systemImage: "arrow.clockwise") }.buttonStyle(.alGhost)
                 }
             }
         case .probeFailed:
@@ -626,11 +625,17 @@ struct BenchHealthPopover: View {
 
     // CLI-setup redesign §2: grouped CLI rows — Needs attention → Ready → Dormant → Parked.
     // Machine-recognized only — `.notInstalled` / `.notChecked` stay out of this panel
-    // (catalog absences; full setup lists "Not installed" separately).
+    // (catalog absences; full setup lists "Not installed" separately) — except Cursor
+    // when Cursor.app is present (one-click Agent CLI install).
     // Ready = installed + signed in + ≥1 model ON; Dormant = ready CLI with 0 models on;
     // Needs attention = sign-in / path / probe failure on a found CLI; Parked last.
     private var attentionCards: [SetupCardModel] {
-        CLISetupGrouping.attentionCards(from: cards, onModelNames: onModelNames(for:))
+        let base = CLISetupGrouping.attentionCards(from: cards, onModelNames: onModelNames(for:))
+        let cursorInstall = CLISetupGrouping.cursorInstallPromptCards(from: model.setupCards)
+        var seen = Set(base.map(\.driverId))
+        var merged = cursorInstall.filter { seen.insert($0.driverId).inserted }
+        merged.append(contentsOf: base)
+        return merged
     }
     private var readyCards: [SetupCardModel] {
         CLISetupGrouping.readyCards(from: cards, onModelNames: onModelNames(for:))
@@ -1032,11 +1037,23 @@ struct BenchHealthBadge: View {
 // MARK: - Shared actions
 
 enum SetupActions {
+    /// Inject a command into a new Terminal tab via AppleScript. Prefer
+    /// copy + `openTerminalApp()` when injection is unreliable (busy sessions).
     static func openTerminal(_ command: String) {
         let safe = command.replacingOccurrences(of: "\"", with: "\\\"")
         let src = "tell application \"Terminal\"\nactivate\ndo script \"\(safe)\"\nend tell"
         if let script = NSAppleScript(source: src) { script.executeAndReturnError(nil) }
     }
+
+    /// Bring Terminal.app forward only — no script injection into an existing session.
+    static func openTerminalApp() {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.Terminal") {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        } else if let url = URL(string: "file:///System/Applications/Utilities/Terminal.app") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     @discardableResult static func locateBinary() -> URL? {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
@@ -1061,6 +1078,12 @@ enum SetupActions {
         case .useAnyway: model.runFullSetupProbe(userInitiated: true)
         case .locate: locateBinary()
         case .installCursorAgentCLI: model.installCursorAgentCLI()
+        case .openTerminalApp: openTerminalApp()
+        case .signIn(let command, let driverId):
+            // Reliable path: copy paste-ready command + open Terminal.app (no inject).
+            copyToPasteboard(command)
+            openTerminalApp()
+            model.runSetupProbe(userInitiated: true, onlyDriverId: driverId)
         }
     }
 }

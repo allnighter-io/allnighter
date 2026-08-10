@@ -26,7 +26,8 @@ final class HomeMarketingCLIStripTests: XCTestCase {
             card("codex", state: .needsLogin),
             card("missing_cli", state: .notInstalled),
         ]
-        let visible = HomeMarketingCLIStrip.visibleCards(from: cards, showsFindTeamFrame: false)
+        let visible = HomeMarketingCLIStrip.visibleCards(
+            from: cards, showsFindTeamFrame: false, cursorAppPresent: false)
         XCTAssertEqual(visible?.map(\.driverId), ["claude_code", "codex"])
     }
 
@@ -35,8 +36,35 @@ final class HomeMarketingCLIStripTests: XCTestCase {
             card("codex", state: .needsLogin),
             card("missing_cli", state: .notInstalled),
         ]
-        let visible = HomeMarketingCLIStrip.visibleCards(from: cards, showsFindTeamFrame: false)
+        let visible = HomeMarketingCLIStrip.visibleCards(
+            from: cards, showsFindTeamFrame: false, cursorAppPresent: false)
         XCTAssertEqual(visible?.map(\.driverId), ["codex", "missing_cli"])
+    }
+
+    /// Debugger 2026-08-10: after Find my team, ready peers must not hide Cursor
+    /// when Cursor.app is on the Mac and only the Agent CLI is missing.
+    func testCursorAppPresentKeepsNotInstalledWhenOthersReady() {
+        let cards = [
+            card("claude_code", state: .needsLogin),
+            card("codex", state: .ready),
+            card("grok", state: .ready),
+            card("opencode", state: .needsLogin),
+            card("cursor_agent", state: .notInstalled),
+            card("agy", state: .notInstalled),
+        ]
+        let visible = HomeMarketingCLIStrip.visibleCards(
+            from: cards, showsFindTeamFrame: false, cursorAppPresent: true)
+        XCTAssertEqual(
+            visible?.map(\.driverId),
+            ["claude_code", "codex", "grok", "opencode", "cursor_agent"])
+        XCTAssertEqual(
+            HomeMarketingCLIStrip.dotKind(for: cards[4], cursorAppPresent: true),
+            .attention)
+        let withoutApp = HomeMarketingCLIStrip.visibleCards(
+            from: cards, showsFindTeamFrame: false, cursorAppPresent: false)
+        XCTAssertEqual(
+            withoutApp?.map(\.driverId),
+            ["claude_code", "codex", "grok", "opencode"])
     }
 
     func testDotFoldMatchesPacketTable() {
