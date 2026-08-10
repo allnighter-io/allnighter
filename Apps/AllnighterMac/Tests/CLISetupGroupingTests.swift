@@ -31,6 +31,17 @@ final class CLISetupGroupingTests: XCTestCase {
             ["agy"])
     }
 
+    func testCursorAppPresentSurfacesInstallPrompt() {
+        let cards = [
+            card("cursor_agent", state: .notInstalled),
+            card("agy", state: .notInstalled),
+        ]
+        let prompted = CLISetupGrouping.cursorInstallPromptCards(from: cards, cursorAppPresent: true)
+        XCTAssertEqual(prompted.map(\.driverId), ["cursor_agent"])
+        let hidden = CLISetupGrouping.cursorInstallPromptCards(from: cards, cursorAppPresent: false)
+        XCTAssertTrue(hidden.isEmpty)
+    }
+
     func testProbeFailedAndNeedsLoginAreAttention() {
         let cards = [
             card("cursor_agent", state: .probeFailed),

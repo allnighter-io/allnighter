@@ -21,14 +21,18 @@ final class SetupCursorPresentationTests: XCTestCase {
         XCTAssertTrue(card?.headlessTrust?.disclosure.contains("--trust") ?? false)
         XCTAssertEqual(card?.docsURL, "https://cursor.com/docs/cli/installation")
         XCTAssertEqual(card?.loginDocsURL, "https://cursor.com/docs/cli/using")
-        XCTAssertTrue(card?.installHint?.contains("agent") ?? false)
+        XCTAssertTrue(card?.installHint?.contains("cursor-agent") ?? false
+                      || card?.installHint?.contains("agent") ?? false)
     }
 
     func testSetupRecoveryCopyNeverEquatesCursorAppWithSeat() throws {
         let manifest = BundledDefaults.cursorManifest
-        let detail = SetupRecoveryCopy.notInstalledDetail(for: manifest)
+        let detail = SetupRecoveryCopy.notInstalledDetail(for: manifest, cursorAppPresent: false)
         XCTAssertTrue(detail.contains("Cursor app is not the seat"))
         XCTAssertFalse(detail.lowercased().contains("cursor.app is the seat"))
+        let withApp = SetupRecoveryCopy.notInstalledDetail(for: manifest, cursorAppPresent: true)
+        XCTAssertTrue(withApp.contains("You have Cursor"), withApp)
+        XCTAssertTrue(withApp.contains("app is not the seat"), withApp)
         XCTAssertEqual(
             SetupRecoveryCopy.loginDocsURL(for: manifest),
             "https://cursor.com/docs/cli/using"

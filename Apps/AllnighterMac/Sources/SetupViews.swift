@@ -292,6 +292,7 @@ struct SetupCardView: View {
     enum SetupAction {
         case openTerminal(String), copy(String), openURL(String)
         case rescan(driverId: String?), locate, useAnyway
+        case installCursorAgentCLI
     }
 
     var body: some View {
@@ -464,18 +465,34 @@ struct SetupCardView: View {
             }
         case .notInstalled:
             fixItBody {
-                if card.driverId == "cursor_agent" {
-                    fixLine("Cursor Agent CLI not found — the Cursor app is not the seat.")
+                if card.driverId == CursorAgentCLIInstall.driverId {
+                    if CursorAgentCLIInstall.isCursorAppInstalled() {
+                        fixLine("You have Cursor. Alln needs the Agent CLI (the app is not the seat) — install once and Composer can join the bench.")
+                    } else {
+                        fixLine("Install the Cursor Agent CLI to use Composer. Prefer cursor-agent — bare agent may be Grok Build.")
+                    }
                 } else {
                     fixLine("You don’t have \(card.name) yet. Install it, then re-scan.")
                 }
-                CmdRow(text: card.installHint ?? "see docs")
+                CmdRow(text: card.driverId == CursorAgentCLIInstall.driverId
+                       ? CursorAgentCLIInstall.shellCommand
+                       : (card.installHint ?? "see docs"))
                 if let trust = card.headlessTrust, trust.required {
                     note(trust.disclosure, systemImage: "lock.shield")
                 }
                 HStack(spacing: 8) {
-                    Button { onAction(.openURL(card.docsURL ?? "")) } label: { Label("Open install page", systemImage: "arrow.up.right.square") }
-                        .buttonStyle(.alSecondary).disabled((card.docsURL ?? "").isEmpty)
+                    if card.driverId == CursorAgentCLIInstall.driverId {
+                        Button { onAction(.installCursorAgentCLI) } label: {
+                            Label("Install Cursor Agent CLI", systemImage: "arrow.down.circle")
+                        }
+                        .buttonStyle(.alPrimary)
+                    }
+                    Button { onAction(.openURL(card.docsURL ?? "")) } label: {
+                        Label(card.driverId == CursorAgentCLIInstall.driverId ? "Install page" : "Open install page",
+                              systemImage: "arrow.up.right.square")
+                    }
+                    .buttonStyle(.alSecondary)
+                    .disabled((card.docsURL ?? "").isEmpty)
                     if let loginDocs = card.loginDocsURL, !loginDocs.isEmpty {
                         Button { onAction(.openURL(loginDocs)) } label: { Label("CLI docs", systemImage: "book") }
                             .buttonStyle(.alGhost)
@@ -775,9 +792,26 @@ enum CLISetupGrouping {
     }
 
     /// Supported but not found on this machine — discovery elsewhere (Add CLI /
-    /// census); never Needs attention / Ready / Dormant lists.
+    /// census); never Needs attention / Ready / Dormant lists — **except**
+    /// Cursor when Cursor.app is present (one-click Agent CLI install).
     static func notInstalledCards(from cards: [SetupCardModel]) -> [SetupCardModel] {
         cards.filter { $0.state == .notInstalled }
+    }
+
+    /// Cursor.app present + Agent CLI missing/unchecked → surface in Needs attention
+    /// with one-click install (not a silent catalog absence).
+    static func cursorInstallPromptCards(
+        from cards: [SetupCardModel],
+        cursorAppPresent: Bool = CursorAgentCLIInstall.isCursorAppInstalled()
+    ) -> [SetupCardModel] {
+        cards.filter { card in
+            guard card.driverId == CursorAgentCLIInstall.driverId else { return false }
+            let absent = card.state == .notInstalled || card.state == .notChecked
+            return CursorAgentCLIInstall.shouldPromptInstall(
+                cliAbsentOrUnchecked: absent,
+                cursorAppPresent: cursorAppPresent
+            )
+        }
     }
 }
 
@@ -895,7 +929,13 @@ struct CLIStatusRow: View {
         }
         if let mapped {
             return SetupRecoveryCopy.attentionDetail(
-                driverId: card.driverId, state: mapped, probeReason: card.probeReason)
+                driverId: card.driverId,
+                state: mapped,
+                probeReason: card.probeReason,
+                cursorAppPresent: card.driverId == CursorAgentCLIInstall.driverId
+                    ? CursorAgentCLIInstall.isCursorAppInstalled()
+                    : nil
+            )
         }
         return "Needs a step."
     }
@@ -1020,6 +1060,7 @@ enum SetupActions {
             }
         case .useAnyway: model.runFullSetupProbe(userInitiated: true)
         case .locate: locateBinary()
+        case .installCursorAgentCLI: model.installCursorAgentCLI()
         }
     }
 }

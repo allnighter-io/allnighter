@@ -128,7 +128,13 @@ struct TeamReadinessView: View {
         model.models.filter { $0.enabled && $0.driverId == driverId }.map(\.displayName)
     }
     private var attentionCards: [SetupCardModel] {
-        CLISetupGrouping.attentionCards(from: rosterCards, onModelNames: onModelNames(for:))
+        let base = CLISetupGrouping.attentionCards(from: rosterCards, onModelNames: onModelNames(for:))
+        let cursorInstall = CLISetupGrouping.cursorInstallPromptCards(from: cards)
+        // Prefer Cursor install at the top when the app is present but CLI is missing.
+        var seen = Set(base.map(\.driverId))
+        var merged = cursorInstall.filter { seen.insert($0.driverId).inserted }
+        merged.append(contentsOf: base)
+        return merged
     }
     private var readyCards: [SetupCardModel] {
         CLISetupGrouping.readyCards(from: rosterCards, onModelNames: onModelNames(for:))
@@ -430,6 +436,9 @@ struct BenchRepairPanel: View {
         case .parked:
             return "Parked — won’t alert, won’t offer models, and won’t re-check until you put it back on the bench."
         case .reprobing:
+            if card.driverId == CursorAgentCLIInstall.driverId, model.isInstallingCursorAgentCLI {
+                return "Installing Cursor Agent CLI with Cursor’s official installer, then re-checking automatically."
+            }
             if card.driverId == "opencode" {
                 return "Starting OpenCode's local server, then running a smoke test through Featherless. First run can take 1–3 minutes — nothing else to install or start manually."
             }
@@ -446,6 +455,15 @@ struct BenchRepairPanel: View {
         case .rateLimited:
             return card.probeReason ?? "Installed and healthy, but the vendor quota wall blocked the smoke run. It should clear on its own — re-check after the reset time."
         case .notInstalled:
+            if card.driverId == CursorAgentCLIInstall.driverId {
+                if let err = model.cursorAgentInstallError, !err.isEmpty {
+                    return err
+                }
+                if CursorAgentCLIInstall.isCursorAppInstalled() {
+                    return "You have Cursor. Alln needs the Agent CLI (the app is not the seat) — install once and Composer can join the bench."
+                }
+                return "Install the Cursor Agent CLI to use Composer. Prefer cursor-agent — bare agent may be Grok Build."
+            }
             return "No binary resolved on PATH or known locations. Install it, then re-scan — it joins the bench automatically."
         case .notChecked:
             return "Not checked yet on this machine. Run a scan to detect it — most CLIs resolve with no further action."
@@ -515,6 +533,29 @@ struct BenchRepairPanel: View {
                 },
             ]
         case .notInstalled:
+            if card.driverId == CursorAgentCLIInstall.driverId {
+                let installing = model.isInstallingCursorAgentCLI
+                return [
+                    RepairAction(
+                        icon: "arrow.down.circle",
+                        title: "Install Cursor Agent CLI",
+                        subtitle: CursorAgentCLIInstall.isCursorAppInstalled()
+                            ? "Runs Cursor’s official installer, then re-checks"
+                            : "Downloads Cursor’s Agent CLI, then re-checks",
+                        button: installing ? "Installing…" : "Install",
+                        primary: true,
+                        secondary: false
+                    ) {
+                        model.installCursorAgentCLI()
+                    },
+                    RepairAction(icon: "arrow.up.right.square", title: "Open install page", subtitle: "Opens Cursor’s CLI install docs", button: "Open", primary: false, secondary: true) {
+                        if let url = card.docsURL, let u = URL(string: url) { NSWorkspace.shared.open(u) }
+                    },
+                    RepairAction(icon: "arrow.clockwise", title: "Re-check", subtitle: "Look again once it’s installed", button: "Run", primary: false, secondary: false) {
+                        model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
+                    },
+                ]
+            }
             return [
                 RepairAction(icon: "arrow.up.right.square", title: "Open install page", subtitle: "Opens the source's install docs", button: "Open", primary: true, secondary: false) {
                     if let url = card.docsURL, let u = URL(string: url) { NSWorkspace.shared.open(u) }
@@ -543,7 +584,7 @@ struct BenchRepairPanel: View {
     }
 
     private func repairActionRow(_ act: RepairAction, first: Bool) -> some View {
-        let probing = isProbingThisCard && act.title == "Re-try probe"
+        let probing = isProbingThisCard && (act.title == "Re-try probe" || act.title == "Install Cursor Agent CLI")
         return HStack(spacing: 12) {
             RoundedRectangle(cornerRadius: 7)
                 .fill(ALColor.active)
@@ -558,7 +599,7 @@ struct BenchRepairPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             Button(action: act.handler) { Text(act.button) }
                 .buttonStyle(act.primary ? .alPrimary(small: true) : act.secondary ? .alSecondary(small: true) : .alGhost)
-                .disabled(probing)
+                .disabled(probing || (act.title == "Install Cursor Agent CLI" && model.isInstallingCursorAgentCLI))
         }
         .padding(.vertical, 11)
         .overlay(alignment: .top) {
@@ -592,6 +633,11 @@ struct BenchRepairPanel: View {
     private var proofLines: [[ProofSegment]] {
         switch card.state {
         case .reprobing:
+            if card.driverId == CursorAgentCLIInstall.driverId {
+                return [
+                    [.init(text: "… ", tone: .prompt), .init(text: "Installing Cursor Agent CLI + re-check", tone: .normal)],
+                ]
+            }
             if card.driverId == "opencode" {
                 return [
                     [.init(text: "… ", tone: .prompt), .init(text: "Starting local OpenCode server", tone: .normal)],
@@ -622,6 +668,12 @@ struct BenchRepairPanel: View {
                 [.init(text: "detected: ", tone: .normal), .init(text: card.version ?? card.name, tone: .normal), .init(text: " · install ", tone: .normal), .init(text: "ok", tone: .ok)],
             ]
         case .notInstalled:
+            if card.driverId == CursorAgentCLIInstall.driverId {
+                return [
+                    [.init(text: "$ ", tone: .prompt), .init(text: CursorAgentCLIInstall.shellCommand, tone: .normal)],
+                    [.init(text: "status: ", tone: .normal), .init(text: "not found", tone: .err)],
+                ]
+            }
             return [
                 [.init(text: "$ ", tone: .prompt), .init(text: card.installHint ?? "see docs", tone: .normal)],
                 [.init(text: "status: ", tone: .normal), .init(text: "not found", tone: .err)],

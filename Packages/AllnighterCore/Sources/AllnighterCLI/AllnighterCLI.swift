@@ -872,9 +872,13 @@ struct AllnighterCLI {
                     detail = "(no binary on PATH or known paths)"
                 }
                 print("\(r.driverId)\tNOT INSTALLED\t\(detail)")
-                if let manifest = runtime.registry.manifest(id: r.driverId),
-                   let docs = SetupRecoveryCopy.notInstalledFixCommand(for: manifest) {
-                    print("  → \(docs)")
+                if let manifest = runtime.registry.manifest(id: r.driverId) {
+                    if let install = SetupRecoveryCopy.notInstalledInstallShellCommand(for: manifest) {
+                        print("  → \(install)")
+                    }
+                    if let docs = SetupRecoveryCopy.notInstalledFixCommand(for: manifest) {
+                        print("  → \(docs)")
+                    }
                 }
             }
         }

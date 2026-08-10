@@ -6,12 +6,21 @@ import Foundation
 public enum SetupRecoveryCopy {
 
     /// One-line detail when a supported driver has an explicit `.notInstalled` record.
-    public static func notInstalledDetail(for manifest: DriverManifest) -> String {
-        if manifest.id == "cursor_agent" {
+    public static func notInstalledDetail(
+        for manifest: DriverManifest,
+        cursorAppPresent: Bool? = nil
+    ) -> String {
+        if manifest.id == CursorAgentCLIInstall.driverId {
+            let appPresent = cursorAppPresent ?? CursorAgentCLIInstall.isCursorAppInstalled()
             let hint = manifest.setup?.installHint?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if appPresent {
+                let base = "You have Cursor. Alln needs the Agent CLI (the app is not the seat) — install once, then Composer can join the bench."
+                if let hint, !hint.isEmpty { return "\(base) \(hint)" }
+                return "\(base) \(CursorAgentCLIInstall.shellCommand)"
+            }
             let base = "Cursor Agent CLI not found — the Cursor app is not the seat."
             if let hint, !hint.isEmpty { return "\(base) \(hint)" }
-            return base
+            return "\(base) \(CursorAgentCLIInstall.shellCommand)"
         }
         let name = manifest.displayName
         if let hint = manifest.setup?.installHint?.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -25,7 +34,8 @@ public enum SetupRecoveryCopy {
     public static func attentionDetail(
         driverId: String,
         state: AttentionState,
-        probeReason: String?
+        probeReason: String?,
+        cursorAppPresent: Bool? = nil
     ) -> String {
         switch state {
         case .needsLogin:
@@ -33,7 +43,11 @@ public enum SetupRecoveryCopy {
         case .needsPath:
             return "Installed but not on PATH — locate it to use its models."
         case .notInstalled:
-            if driverId == "cursor_agent" {
+            if driverId == CursorAgentCLIInstall.driverId {
+                let appPresent = cursorAppPresent ?? CursorAgentCLIInstall.isCursorAppInstalled()
+                if appPresent {
+                    return "You have Cursor — install the Agent CLI to use Composer."
+                }
                 return "Cursor Agent CLI not installed — install it to use Composer."
             }
             return "Not installed."
@@ -60,7 +74,7 @@ public enum SetupRecoveryCopy {
     private static func probeFailedAttention(driverId: String, reason: String?) -> String {
         let raw = reason?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let lower = raw.lowercased()
-        if driverId == "cursor_agent",
+        if driverId == CursorAgentCLIInstall.driverId,
            lower.contains("grok") || lower.contains("--single") {
             return "Cursor Agent CLI not installed — Grok’s `agent` is not Cursor."
         }
@@ -79,6 +93,14 @@ public enum SetupRecoveryCopy {
     public static func notInstalledFixCommand(for manifest: DriverManifest) -> String? {
         let docs = manifest.setup?.docsURL?.trimmingCharacters(in: .whitespacesAndNewlines)
         if let docs, !docs.isEmpty { return docs }
+        return nil
+    }
+
+    /// Shell one-liner for one-click / Terminal install when the driver supports it.
+    public static func notInstalledInstallShellCommand(for manifest: DriverManifest) -> String? {
+        if manifest.id == CursorAgentCLIInstall.driverId {
+            return CursorAgentCLIInstall.shellCommand
+        }
         return nil
     }
 

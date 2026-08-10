@@ -141,20 +141,20 @@ dedupe_list() {
   printf '%s\n' "$@" | awk 'NF && !seen[$0]++'
 }
 
-TMP_PLAN=("${PLAN[@]}")
+TMP_PLAN=("${PLAN[@]+"${PLAN[@]}"}")
 PLAN=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && PLAN+=("$line")
 done <<EOF
-$(dedupe_list "${TMP_PLAN[@]}")
+$(dedupe_list ${TMP_PLAN[@]+"${TMP_PLAN[@]}"})
 EOF
 
-TMP_LINKS=("${ALLN_SYMLINKS[@]}")
+TMP_LINKS=("${ALLN_SYMLINKS[@]+"${ALLN_SYMLINKS[@]}"}")
 ALLN_SYMLINKS=()
 while IFS= read -r line; do
   [[ -n "$line" ]] && ALLN_SYMLINKS+=("$line")
 done <<EOF
-$(dedupe_list "${TMP_LINKS[@]}")
+$(dedupe_list ${TMP_LINKS[@]+"${TMP_LINKS[@]}"})
 EOF
 
 # --- confirm -----------------------------------------------------------------
@@ -176,11 +176,11 @@ fi
 echo
 if [[ ${#PLAN[@]} -gt 0 ]]; then
   echo "Paths:"
-  printf '  - %s\n' "${PLAN[@]}"
+  printf '  - %s\n' ${PLAN[@]+"${PLAN[@]}"}
 fi
 if [[ ${#ALLN_SYMLINKS[@]} -gt 0 ]]; then
   echo "CLI symlinks / binaries:"
-  printf '  - %s\n' "${ALLN_SYMLINKS[@]}"
+  printf '  - %s\n' ${ALLN_SYMLINKS[@]+"${ALLN_SYMLINKS[@]}"}
 fi
 echo
 
@@ -236,11 +236,11 @@ remove_item() {
   fi
 }
 
-for item in "${PLAN[@]}"; do
+for item in ${PLAN[@]+"${PLAN[@]}"}; do
   remove_item "$item"
 done
 
-for link in "${ALLN_SYMLINKS[@]}"; do
+for link in ${ALLN_SYMLINKS[@]+"${ALLN_SYMLINKS[@]}"}; do
   remove_item "$link"
 done
 

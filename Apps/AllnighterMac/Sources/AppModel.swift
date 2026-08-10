@@ -42,6 +42,10 @@ final class AppModel {
     private(set) var isDetecting = false
     /// When set, a live probe is running for this driver only (`nil` = all CLIs).
     private(set) var probingDriverId: String?
+    /// One-click Cursor Agent CLI install in flight (official curl installer).
+    private(set) var isInstallingCursorAgentCLI = false
+    /// Last install failure detail for the Cursor repair panel (cleared on retry/success).
+    private(set) var cursorAgentInstallError: String?
     /// Parked driver ids — mirrored from SetupStore so @Observable views refresh on park/unpark.
     private(set) var parkedDriverIds: Set<String> = []
     private let setupStore: SetupStore
@@ -500,10 +504,12 @@ final class AppModel {
     /// `.notChecked` instead of vanishing, which is what made the cold first-run
     /// page render blank.
     var setupCards: [SetupCardModel] {
-        AppSetupModel.setupCards(
+        let detecting = isDetecting || isInstallingCursorAgentCLI
+        let only = isInstallingCursorAgentCLI ? CursorAgentCLIInstall.driverId : probingDriverId
+        return AppSetupModel.setupCards(
             registry: registry, toolStatuses: toolStatuses, models: models,
             parkedDriverIds: parkedDriverIds,
-            isDetecting: isDetecting, probingDriverId: probingDriverId)
+            isDetecting: detecting, probingDriverId: only)
     }
 
     // MARK: - Source capacity cooldowns (pre-dispatch availability)
@@ -745,7 +751,7 @@ final class AppModel {
     /// that one CLI (so Unpark → Run works).
     func runSetupProbe(userInitiated: Bool, onlyDriverId: String? = nil) {
         guard userInitiated else { loadCachedSetupState(); return }
-        guard !isDetecting else { return }
+        guard !isDetecting, !isInstallingCursorAgentCLI else { return }
         LoginShell.applyToProcessEnvironment()
         let cached = setupStore.load()
         if !cached.records.isEmpty { toolStatuses = cached.records }
@@ -797,6 +803,27 @@ final class AppModel {
             self.parkedDriverIds = parked
             self.isDetecting = false
             self.probingDriverId = nil
+        }
+    }
+
+    /// One-click Cursor Agent CLI install (official Cursor installer), then re-probe.
+    /// User-initiated only — runs network install; never from launch/onAppear.
+    func installCursorAgentCLI() {
+        guard !isDetecting, !isInstallingCursorAgentCLI else { return }
+        LoginShell.applyToProcessEnvironment()
+        isInstallingCursorAgentCLI = true
+        cursorAgentInstallError = nil
+        Task { @MainActor [weak self] in
+            let runner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
+            let outcome = await CursorAgentCLIInstall.run(commandRunner: runner)
+            guard let self else { return }
+            self.isInstallingCursorAgentCLI = false
+            if outcome.succeeded {
+                self.cursorAgentInstallError = nil
+                self.runSetupProbe(userInitiated: true, onlyDriverId: CursorAgentCLIInstall.driverId)
+            } else {
+                self.cursorAgentInstallError = outcome.detail
+            }
         }
     }
 
