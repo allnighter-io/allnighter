@@ -368,4 +368,76 @@ final class InstallCLITests: XCTestCase {
         XCTAssertEqual(ctx.binaryPath, binary)
         XCTAssertTrue(ctx.onPath)
     }
+
+    func testResolvedHomeDirectoryWithExistingAbsDirWins() throws {
+        let workHome = tempRoot.appendingPathComponent("work-home")
+        try fm.createDirectory(at: workHome, withIntermediateDirectories: true)
+        let result = InstallCLI.resolvedHomeDirectory(
+            environment: ["HOME": workHome.path],
+            fileManager: fm
+        )
+        XCTAssertEqual(result.path, workHome.path)
+    }
+
+    func testResolvedHomeDirectoryUnsetFallsBack() throws {
+        let result = InstallCLI.resolvedHomeDirectory(
+            environment: [:],
+            fileManager: fm
+        )
+        XCTAssertEqual(result.path, fm.homeDirectoryForCurrentUser.path)
+    }
+
+    func testResolvedHomeDirectoryEmptyFallsBack() throws {
+        let result = InstallCLI.resolvedHomeDirectory(
+            environment: ["HOME": ""],
+            fileManager: fm
+        )
+        XCTAssertEqual(result.path, fm.homeDirectoryForCurrentUser.path)
+    }
+
+    func testResolvedHomeDirectoryRelativeFallsBack() throws {
+        let relativeHome = tempRoot.appendingPathComponent("rel-home")
+        try fm.createDirectory(at: relativeHome, withIntermediateDirectories: true)
+        let result = InstallCLI.resolvedHomeDirectory(
+            environment: ["HOME": "rel-home"],
+            fileManager: fm
+        )
+        XCTAssertEqual(result.path, fm.homeDirectoryForCurrentUser.path)
+    }
+
+    func testResolvedHomeDirectoryNonexistentFallsBack() throws {
+        let result = InstallCLI.resolvedHomeDirectory(
+            environment: ["HOME": "/nonexistent/deadbeef"],
+            fileManager: fm
+        )
+        XCTAssertEqual(result.path, fm.homeDirectoryForCurrentUser.path)
+    }
+
+    func testInstallWithScratchHomePlacesCanonicalUnderScratch() throws {
+        let scratchHome = tempRoot.appendingPathComponent("scratch-home")
+        try fm.createDirectory(at: scratchHome, withIntermediateDirectories: true)
+
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+
+        let request = InstallCLI.Request(
+            argv0: binary,
+            pathOverride: installDir,
+            printOnly: false,
+            pathEnvironment: nil,
+            homeDirectory: URL(fileURLWithPath: scratchHome.path),
+            fileManager: fm,
+            canonicalInstall: defaultCanonicalInstall(homeDirectory: URL(fileURLWithPath: scratchHome.path), fileManager: fm)
+        )
+
+        let outcome = InstallCLI.run(request)
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        XCTAssertEqual(json.action, .installed)
+
+        let expectedCanonical = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: URL(fileURLWithPath: scratchHome.path)).path
+        XCTAssertEqual(json.target, expectedCanonical)
+        XCTAssertTrue(fm.fileExists(atPath: expectedCanonical), "canonical binary must exist at \(expectedCanonical)")
+    }
 }

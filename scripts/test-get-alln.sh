@@ -191,6 +191,20 @@ with open("$CANARY_BEFORE", "w") as f:
     json.dump(rows, f, indent=2, sort_keys=True)
 PY
 
+REAL_CANONICAL_BIN="$REAL_HOME/.local/share/allnighter/bin/alln"
+REAL_CANONICAL_SNAPSHOT="$WORK/real-canonical-before.txt"
+python3 - <<PY
+import os
+path = "$REAL_CANONICAL_BIN"
+if os.path.exists(path):
+    st = os.stat(path)
+    with open("$REAL_CANONICAL_SNAPSHOT", "w") as f:
+        f.write(f"{st.st_ino} {st.st_size} {st.st_mtime_ns}\n")
+else:
+    with open("$REAL_CANONICAL_SNAPSHOT", "w") as f:
+        f.write("ABSENT\n")
+PY
+
 log "starting fixture HTTP server on $BASE_URL (root $PUBLISH)"
 python3 - <<PY &
 import http.server, socketserver, os, sys
@@ -293,6 +307,20 @@ if [[ -L "$LINK_A/alln" ]]; then
   pass "PATH link is a symlink (not a copy)"
 else
   fail "expected symlink at $LINK_A/alln"
+fi
+
+# Canonical binary at scratch home (ASR-S01d)
+EXPECTED_CANONICAL="$HOME_A/.local/share/allnighter/bin/alln"
+if [[ -x "$EXPECTED_CANONICAL" ]]; then
+  pass "canonical binary exists at scratch home: $EXPECTED_CANONICAL"
+else
+  fail "canonical binary missing at $EXPECTED_CANONICAL"
+fi
+LINK_TARGET="$(readlink "$LINK_A/alln" 2>/dev/null || true)"
+if [[ "$LINK_TARGET" == "$EXPECTED_CANONICAL" ]]; then
+  pass "symlink points to canonical path"
+else
+  fail "expected symlink target $EXPECTED_CANONICAL, got $LINK_TARGET"
 fi
 
 # =============================================================================
@@ -519,6 +547,36 @@ if [[ "$CANARY_STATUS" -eq 0 ]]; then
   pass "host-config canary mtimes unchanged"
 else
   fail "host-config canary files were modified"
+fi
+
+# =============================================================================
+# Negative proof: no file appeared in real home during scratch installs (ASR-S01d)
+# =============================================================================
+log "negative proof: no file appeared in real home"
+SNAPSHOT_BEFORE="$(cat "$REAL_CANONICAL_SNAPSHOT")"
+if [[ -e "$REAL_CANONICAL_BIN" ]]; then
+  REAL_STAT="$(python3 - "$REAL_CANONICAL_BIN" <<'PY'
+import os, sys
+path = sys.argv[1]
+st = os.stat(path)
+print(f"{st.st_ino} {st.st_size} {st.st_mtime_ns}")
+PY
+  )"
+else
+  REAL_STAT="ABSENT"
+fi
+if [[ "$SNAPSHOT_BEFORE" == "ABSENT" ]]; then
+  if [[ "$REAL_STAT" == "ABSENT" ]]; then
+    pass "no file appeared in real home during scratch installs"
+  else
+    fail "file appeared at $REAL_CANONICAL_BIN during scratch installs — HOME was not honored"
+  fi
+else
+  if [[ "$SNAPSHOT_BEFORE" == "$REAL_STAT" ]]; then
+    pass "real canonical binary untouched by scratch installs"
+  else
+    fail "real canonical binary changed during scratch installs: was $SNAPSHOT_BEFORE, now $REAL_STAT"
+  fi
 fi
 
 # =============================================================================

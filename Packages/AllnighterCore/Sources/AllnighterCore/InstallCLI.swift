@@ -104,6 +104,21 @@ public enum InstallCLI {
         return URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
     }
 
+    public static func resolvedHomeDirectory(
+        environment: [String: String],
+        fileManager: FileManager = .default
+    ) -> URL {
+        if let home = environment["HOME"],
+           !home.isEmpty,
+           home.hasPrefix("/") {
+            var isDirectory: ObjCBool = false
+            if fileManager.fileExists(atPath: home, isDirectory: &isDirectory), isDirectory.boolValue {
+                return URL(fileURLWithPath: home)
+            }
+        }
+        return fileManager.homeDirectoryForCurrentUser
+    }
+
     /// Default install dir: `~/.local/bin` unconditionally.
     /// `/usr/local/bin` is reachable only through an explicit `--path`.
     public static func defaultInstallDirectory(

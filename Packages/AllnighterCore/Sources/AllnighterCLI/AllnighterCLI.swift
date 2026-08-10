@@ -2605,11 +2605,13 @@ struct AllnighterCLI {
 
     static func runInstallCLI(_ args: [String]) {
         let opts = Options(args)
+        let env = ProcessInfo.processInfo.environment
         let request = InstallCLI.Request(
             argv0: CommandLine.arguments.first,
             pathOverride: opts.value("path"),
             printOnly: opts.flag("print"),
-            pathEnvironment: ProcessInfo.processInfo.environment["PATH"]
+            pathEnvironment: env["PATH"],
+            homeDirectory: InstallCLI.resolvedHomeDirectory(environment: env)
         )
         switch InstallCLI.run(request) {
         case .printed(let json):
