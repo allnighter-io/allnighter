@@ -35,9 +35,11 @@ final class VersionIdentityTests: XCTestCase {
     /// not discovered downstream. PF-S03b: 0.12.4 → 0.12.5 (additive minor
     /// contract bump; see `VersionJSON.swift` release note). PF-S04:
     /// 0.12.5 → 0.12.6 (menu/model freshness normalization, additive minor
-    /// contract bump; see `VersionJSON.swift` release note).
+    /// contract bump; see `VersionJSON.swift` release note). Launch:
+    /// 0.12.6 → 1.0.0 (first public release identity; see `VersionJSON.swift`
+    /// release note).
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "0.12.6")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.0.0")
     }
 
     /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at

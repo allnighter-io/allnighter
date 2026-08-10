@@ -95,8 +95,12 @@ import Foundation
 /// no second call, nothing removed from the payload. Driver rows are
 /// unchanged. Normalization, not the field-dropping
 /// `Menu_Envelope_Compression` rejected. Not a major cut, standard +0.0.1.
+///
+/// **0.12.6 → 1.0.0 (launch).** Public semver for the shipped CLI — no
+/// `contractVersion` major cut in this batch. The 0.x train was pre-launch
+/// dogfood; 1.0.0 is the first customer-facing release identity.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "0.12.6"
+    public static let binaryVersion = "1.0.0"
 }
 
 /// `alln version` / `alln --version` machine contract.
