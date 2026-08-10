@@ -509,7 +509,8 @@ struct RootView: View {
     }
 
     /// Settings shell → CLIs page. Optional focus selects that driver in the repair panel.
-    /// Opening CLIs is explicit user intent — re-probe so seats heal without a separate detect ceremony.
+    /// Opening CLIs is navigation — not a detect ceremony. Only re-probe seats that still
+    /// need healing; a green CLI must stay green when you tap it.
     private func openCLISetup(focus driverId: String? = nil) {
         showTeamDropdown = false
         showDoctor = false
@@ -520,8 +521,13 @@ struct RootView: View {
         studioInitialRoute = .clis
         showTeamStudio = true
         if let driverId {
-            model.runSetupProbe(userInitiated: true, onlyDriverId: driverId)
-        } else {
+            let state = model.setupCards.first { $0.driverId == driverId }?.state
+            if CLISetupGrouping.needsHealingProbe(state: state, includeCatalogAbsence: true) {
+                model.runSetupProbe(userInitiated: true, onlyDriverId: driverId)
+            }
+        } else if model.setupCards.contains(where: {
+            CLISetupGrouping.needsHealingProbe(state: $0.state, includeCatalogAbsence: false)
+        }) {
             model.runFullSetupProbe(userInitiated: true)
         }
     }

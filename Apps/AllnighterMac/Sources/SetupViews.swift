@@ -818,6 +818,26 @@ enum CLISetupGrouping {
             )
         }
     }
+
+    /// Whether opening CLI setup should fire a live smoke for this seat.
+    /// Green / parked / rate-limited stay cached — tapping a ready CLI must not
+    /// flip it to “Re-checking…”. Catalog absences only heal when that seat is
+    /// the focused tap (`includeCatalogAbsence`), never as an excuse to
+    /// re-smoke every green CLI on “open CLIs”.
+    static func needsHealingProbe(
+        state: SetupCardState?,
+        includeCatalogAbsence: Bool = false
+    ) -> Bool {
+        guard let state else { return true }
+        switch state {
+        case .ready, .parked, .rateLimited, .reprobing, .detecting, .queued:
+            return false
+        case .notInstalled, .notChecked:
+            return includeCatalogAbsence
+        case .needsLogin, .needsPath, .probeFailed, .waiting, .installedNotProbed:
+            return true
+        }
+    }
 }
 
 /// Which redesign group a CLI row belongs to — drives the status dot, content, and

@@ -803,6 +803,8 @@ final class AppModel {
             self.parkedDriverIds = parked
             self.isDetecting = false
             self.probingDriverId = nil
+            // OpenCode Go unlock reads auth.json — refresh bench roster after probe.
+            self.reloadModelsFromCatalog()
         }
     }
 

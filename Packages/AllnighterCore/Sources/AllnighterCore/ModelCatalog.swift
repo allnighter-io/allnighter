@@ -260,16 +260,18 @@ public enum ModelCatalog {
 
     public static func isEnabled(_ id: ModelID) -> Bool {
         guard let def = get(id) else { return false }
-        // Fictional `opencode-go/…` inventory stays off until serve proves real Go seats.
-        if OpenCodeModelGate.isGoCatalogSeat(def) { return false }
+        // Fictional-until-connected Go inventory stays off until OpenCode auth has Go.
+        if OpenCodeModelGate.isGoCatalogSeat(def), !OpenCodeModelGate.isGoConnected() {
+            return false
+        }
         return enabledModelIDs(definitions: mergedDefinitions())[id] ?? def.defaultEnabled
     }
 
     public static func setEnabled(_ id: ModelID, _ enabled: Bool) throws {
         guard let def = get(id) else { throw ModelCatalogError.notFound(id) }
-        if enabled, OpenCodeModelGate.isGoCatalogSeat(def) {
+        if enabled, OpenCodeModelGate.isGoCatalogSeat(def), !OpenCodeModelGate.isGoConnected() {
             throw ModelCatalogError.invalid(
-                "OpenCode Go catalog seats stay off until the local serve advertises real Go models — opencode-go/* is not a provider id")
+                "OpenCode Go seats stay off until OpenCode has an opencode-go API key — subscribe, /connect, then Re-check")
         }
         if enabled, def.origin == .custom,
            let status = def.modelSmokeStatus, status != ModelSmokeStatus.recognized.rawValue {
@@ -460,7 +462,7 @@ public enum ModelCatalog {
             .sorted { $0.id < $1.id }
             .map { def in
                 let onBench: Bool
-                if OpenCodeModelGate.isGoCatalogSeat(def) {
+                if OpenCodeModelGate.isGoCatalogSeat(def), !OpenCodeModelGate.isGoConnected() {
                     onBench = false
                 } else {
                     onBench = enabled[def.id] ?? def.defaultEnabled
@@ -495,12 +497,14 @@ public enum ModelCatalog {
         var roster = rosterPersistence().load() ?? defaultRosterState(definitions: definitions)
         var changed = false
 
-        // Go inventory shipped default-on with fictional labels — strip from enabled.
-        let goIds = Set(definitions.filter(OpenCodeModelGate.isGoCatalogSeat).map(\.id))
-        let withoutGo = roster.enabledModelIds.filter { !goIds.contains($0) }
-        if withoutGo.count != roster.enabledModelIds.count {
-            roster.enabledModelIds = withoutGo
-            changed = true
+        // Go inventory stays off until OpenCode auth has opencode-go — strip while locked.
+        if !OpenCodeModelGate.isGoConnected() {
+            let goIds = Set(definitions.filter(OpenCodeModelGate.isGoCatalogSeat).map(\.id))
+            let withoutGo = roster.enabledModelIds.filter { !goIds.contains($0) }
+            if withoutGo.count != roster.enabledModelIds.count {
+                roster.enabledModelIds = withoutGo
+                changed = true
+            }
         }
 
         if roster.catalogSeenModelIds == nil {

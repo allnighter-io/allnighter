@@ -226,7 +226,6 @@ struct BenchRepairPanel: View {
     @State private var newModelName = ""
     @State private var newModelLabel = ""
     @State private var logCopied = false
-    @State private var goSetupCopied = false
     @State private var loginCommandCopied = false
 
     /// Every model this CLI can honestly run (on-bench + available), A→Z. OpenCode
@@ -408,33 +407,35 @@ struct BenchRepairPanel: View {
         }
     }
 
+    @ViewBuilder
     private var openCodeGoRecommend: some View {
+        let connected = OpenCodeModelGate.isGoConnected()
         VStack(alignment: .leading, spacing: 8) {
-            Text("OpenCode Go")
+            Text(connected ? "OpenCode Go · connected" : "OpenCode Go")
                 .font(.system(size: 10, weight: .semibold)).tracking(0.8)
                 .textCase(.uppercase)
                 .foregroundStyle(ALColor.textFaint)
-            Text(OpenCodeModelGate.goRecommendDetail)
-                .font(.system(size: 12))
-                .foregroundStyle(ALColor.textSecondary)
-                .lineSpacing(2)
+            Text(connected ? OpenCodeModelGate.goConnectedDetail : OpenCodeModelGate.goRecommendDetail)
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(ALColor.textPrimary)
+                .lineSpacing(3)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
-                Button("Learn more") {
-                    NSWorkspace.shared.open(OpenCodeModelGate.goPlanURL)
+                if connected {
+                    Button(OpenCodeModelGate.goConnectedPrimaryTitle) {
+                        NSWorkspace.shared.open(OpenCodeModelGate.goPlanURL)
+                    }
+                    .buttonStyle(.alSecondary(small: true))
+                } else {
+                    Button(OpenCodeModelGate.goRecommendPrimaryTitle) {
+                        NSWorkspace.shared.open(OpenCodeModelGate.goPlanURL)
+                    }
+                    .buttonStyle(.alPrimary(small: true))
+                }
+                Button("See the math") {
+                    NSWorkspace.shared.open(OpenCodeModelGate.goDocsURL)
                 }
                 .buttonStyle(.alSecondary(small: true))
-                Button(goSetupCopied ? "Copied" : "Copy capacity setup") {
-                    SetupActions.copyToPasteboard("alln opencode-go configure --from-chrome")
-                    goSetupCopied = true
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .seconds(2))
-                        goSetupCopied = false
-                    }
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(ALColor.accentText)
-                .font(.system(size: 12, weight: .medium))
             }
         }
         .padding(.top, 6)
@@ -556,9 +557,9 @@ struct BenchRepairPanel: View {
             return "Not checked yet on this machine. Run a scan to detect it — most CLIs resolve with no further action."
         case .ready:
             if card.driverId == OpenCodeModelGate.driverId {
-                return card.workers.isEmpty
-                    ? "OpenCode Zen is ready. Go seats stay hidden until that plan is on this machine."
-                    : "OpenCode Zen is ready — Go inventory stays off until OpenCode advertises those models here."
+                return OpenCodeModelGate.isGoConnected()
+                    ? "Go is connected — turn on seats below. Re-check reloads the local serve if it started before you subscribed."
+                    : "OpenCode Zen is ready — subscribe to Go, connect the key in OpenCode, then Re-check to unlock seats here."
             }
             return card.workers.isEmpty
                 ? "This CLI passed its last check and is ready."
@@ -717,6 +718,22 @@ struct BenchRepairPanel: View {
                 },
             ]
         case .ready:
+            if card.driverId == OpenCodeModelGate.driverId {
+                return [
+                    RepairAction(
+                        icon: "arrow.clockwise",
+                        title: "Re-check OpenCode",
+                        subtitle: OpenCodeModelGate.isGoConnected()
+                            ? "Reloads local serve if Go was connected after it started, then re-smokes Zen"
+                            : "Re-smoke Zen — after you subscribe to Go and /connect, tap again to unlock seats",
+                        button: isProbingThisCard ? "Checking…" : "Run",
+                        primary: true,
+                        secondary: false
+                    ) {
+                        model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
+                    },
+                ]
+            }
             return []
         default:
             return []

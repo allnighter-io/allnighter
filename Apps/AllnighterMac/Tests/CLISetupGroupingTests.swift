@@ -69,4 +69,15 @@ final class CLISetupGroupingTests: XCTestCase {
         XCTAssertEqual(CLISetupGrouping.attentionCards(from: cards, onModelNames: onBench).map(\.driverId), ["muse"])
         XCTAssertTrue(CLISetupGrouping.dormantCards(from: cards, onModelNames: onBench).isEmpty)
     }
+
+    func testReadySeatDoesNotNeedHealingProbe() {
+        XCTAssertFalse(CLISetupGrouping.needsHealingProbe(state: .ready))
+        XCTAssertFalse(CLISetupGrouping.needsHealingProbe(state: .parked))
+        XCTAssertFalse(CLISetupGrouping.needsHealingProbe(state: .rateLimited))
+        XCTAssertTrue(CLISetupGrouping.needsHealingProbe(state: .probeFailed))
+        XCTAssertTrue(CLISetupGrouping.needsHealingProbe(state: .needsLogin))
+        XCTAssertFalse(CLISetupGrouping.needsHealingProbe(state: .notInstalled))
+        XCTAssertTrue(
+            CLISetupGrouping.needsHealingProbe(state: .notInstalled, includeCatalogAbsence: true))
+    }
 }

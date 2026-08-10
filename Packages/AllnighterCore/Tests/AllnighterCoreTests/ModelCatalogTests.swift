@@ -23,6 +23,7 @@ final class ModelCatalogTests: XCTestCase {
     }
 
     override func tearDown() {
+        OpenCodeModelGate.overrideGoConnectedForTesting(nil)
         CatalogRoots.resetTestingOverrides()
         ModelCatalog.resetTestingOverrides()
         try? FileManager.default.removeItem(at: modelsRoot.deletingLastPathComponent())
@@ -30,6 +31,7 @@ final class ModelCatalogTests: XCTestCase {
     }
 
     func testBuiltInsDefaultEnabledOnFreshInstall() {
+        OpenCodeModelGate.overrideGoConnectedForTesting(false)
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
         // Fable, Opus, Sonnet 5, GPT-5.6 Sol, GPT-5.6 Terra,
@@ -122,6 +124,8 @@ final class ModelCatalogTests: XCTestCase {
     }
 
     func testOpenCodeGoInventoryHiddenAndRefusesEnable() throws {
+        OpenCodeModelGate.overrideGoConnectedForTesting(false)
+        defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
         let glm = try XCTUnwrap(ModelCatalog.get("model_opencode_glm_5_2"))
         XCTAssertTrue(OpenCodeModelGate.isGoCatalogSeat(glm))
         XCTAssertFalse(OpenCodeModelGate.visibleInCLIRoster(glm))
@@ -131,7 +135,32 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertThrowsError(try ModelCatalog.setEnabled("model_opencode_glm_5_2", true))
     }
 
+    func testOpenCodeGoInventoryUnlocksWhenAuthConnected() throws {
+        OpenCodeModelGate.overrideGoConnectedForTesting(true)
+        defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
+        let glm = try XCTUnwrap(ModelCatalog.get("model_opencode_glm_5_2"))
+        XCTAssertTrue(OpenCodeModelGate.visibleInCLIRoster(glm))
+        try ModelCatalog.setEnabled("model_opencode_glm_5_2", true)
+        XCTAssertTrue(ModelCatalog.isEnabled("model_opencode_glm_5_2"))
+        try ModelCatalog.setEnabled("model_opencode_glm_5_2", false)
+    }
+
+    func testOpenCodeGoConnectedReadsAuthProviderKeyOnly() throws {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("opencode-auth-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let auth = dir.appendingPathComponent("auth.json")
+        try Data(#"{"opencode-go":{"type":"api","key":"secret-should-not-matter"}}"#.utf8)
+            .write(to: auth)
+        XCTAssertTrue(OpenCodeModelGate.isGoConnected(authFileURL: auth))
+        try Data(#"{"opencode":{"type":"api","key":"zen-only"}}"#.utf8).write(to: auth)
+        XCTAssertFalse(OpenCodeModelGate.isGoConnected(authFileURL: auth))
+    }
+
     func testReconcileScrubsOpenCodeGoFromExistingRoster() throws {
+        OpenCodeModelGate.overrideGoConnectedForTesting(false)
+        defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
         let rosterURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("opencode-go-scrub-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: rosterURL) }
