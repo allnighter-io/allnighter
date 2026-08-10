@@ -15,6 +15,11 @@ struct TeamReadinessView: View {
 
     private var cards: [SetupCardModel] { model.setupCards }
 
+    /// Machine-recognized seats only — catalog absences never enter the roster.
+    private var rosterCards: [SetupCardModel] {
+        CLISetupGrouping.recognizedCards(from: cards)
+    }
+
     private var selectedCard: SetupCardModel? {
         cards.first { $0.driverId == selectedId }
     }
@@ -94,14 +99,20 @@ struct TeamReadinessView: View {
     // MARK: - Summary line (replaces the old 4 stat cards)
 
     private var summaryLine: some View {
-        HStack(spacing: 8) {
+        let tally = model.benchTally
+        return HStack(spacing: 8) {
             StatusDot(color: ALPalette.green500, halo: ALPalette.green500.opacity(0.15))
-            (Text("\(model.availableModelCLICount)").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
-                + Text(" CLIs").foregroundStyle(ALColor.textMuted)
+            Group {
+                Text("\(tally.ready)").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
+                + Text(" ready").foregroundStyle(ALColor.textMuted)
+                + Text("  ·  ").foregroundStyle(ALColor.textFaint)
+                + Text("\(tally.needsStep)").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
+                + Text(" need a step").foregroundStyle(ALColor.textMuted)
                 + Text("  ·  ").foregroundStyle(ALColor.textFaint)
                 + Text("\(model.availableModels.count)").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
-                + Text(" models available").foregroundStyle(ALColor.textMuted))
-                .font(.system(size: 12.5, design: .monospaced))
+                + Text(" models available").foregroundStyle(ALColor.textMuted)
+            }
+            .font(.system(size: 12.5, design: .monospaced))
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 28).padding(.top, 16).padding(.bottom, 16)
@@ -112,23 +123,24 @@ struct TeamReadinessView: View {
 
     // Grouped CLI list (CLI-setup redesign §1): Needs attention → Ready → Dormant,
     // sharing CLIStatusRow with the CLI dropdown. Selectable (amber focus ring).
+    // Roster is machine-recognized only — never catalog notInstalled/notChecked.
     private func onModelNames(for driverId: String) -> [String] {
         model.models.filter { $0.enabled && $0.driverId == driverId }.map(\.displayName)
     }
     private var attentionCards: [SetupCardModel] {
-        CLISetupGrouping.attentionCards(from: cards, onModelNames: onModelNames(for:))
+        CLISetupGrouping.attentionCards(from: rosterCards, onModelNames: onModelNames(for:))
     }
     private var readyCards: [SetupCardModel] {
-        CLISetupGrouping.readyCards(from: cards, onModelNames: onModelNames(for:))
+        CLISetupGrouping.readyCards(from: rosterCards, onModelNames: onModelNames(for:))
     }
     private var dormantCards: [SetupCardModel] {
-        CLISetupGrouping.dormantCards(from: cards, onModelNames: onModelNames(for:))
+        CLISetupGrouping.dormantCards(from: rosterCards, onModelNames: onModelNames(for:))
     }
     private var parkedCards: [SetupCardModel] {
-        CLISetupGrouping.parkedCards(from: cards)
+        CLISetupGrouping.parkedCards(from: rosterCards)
     }
     private var rateLimitedCards: [SetupCardModel] {
-        CLISetupGrouping.rateLimitedCards(from: cards)
+        CLISetupGrouping.rateLimitedCards(from: rosterCards)
     }
 
     private var bodyColumns: some View {

@@ -20,9 +20,11 @@ final class CLISetupGroupingTests: XCTestCase {
             card("muse", state: .notChecked),
             card("claude_code", state: .probeFailed),
         ]
+        let recognized = CLISetupGrouping.recognizedCards(from: cards)
+        XCTAssertEqual(recognized.map(\.driverId), ["claude_code"])
         let onBench: (String) -> [String] = { _ in [] }
         XCTAssertEqual(
-            CLISetupGrouping.attentionCards(from: cards, onModelNames: onBench).map(\.driverId),
+            CLISetupGrouping.attentionCards(from: recognized, onModelNames: onBench).map(\.driverId),
             ["claude_code"])
         XCTAssertEqual(
             CLISetupGrouping.notInstalledCards(from: cards).map(\.driverId),

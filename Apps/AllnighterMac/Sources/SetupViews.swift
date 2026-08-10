@@ -603,7 +603,9 @@ struct BenchHealthPopover: View {
     /// Cap scroll body so the panel stays on-screen below the title-bar anchor.
     var maxBodyHeight: CGFloat = 420
 
-    private var cards: [SetupCardModel] { model.setupCards }
+    private var cards: [SetupCardModel] {
+        CLISetupGrouping.recognizedCards(from: model.setupCards)
+    }
 
     // CLI-setup redesign §2: grouped CLI rows — Needs attention → Ready → Dormant → Parked.
     // Machine-recognized only — `.notInstalled` / `.notChecked` stay out of this panel
@@ -767,8 +769,13 @@ enum CLISetupGrouping {
         cards.filter { $0.state == .rateLimited }
     }
 
-    /// Supported but not found on this machine — setup-page discovery only;
-    /// never the CLIs dropdown (that surface is machine-recognized seats).
+    /// Drop catalog absences before any roster grouping (dropdown + CLI setup).
+    static func recognizedCards(from cards: [SetupCardModel]) -> [SetupCardModel] {
+        cards.filter { $0.state != .notInstalled && $0.state != .notChecked }
+    }
+
+    /// Supported but not found on this machine — discovery elsewhere (Add CLI /
+    /// census); never Needs attention / Ready / Dormant lists.
     static func notInstalledCards(from cards: [SetupCardModel]) -> [SetupCardModel] {
         cards.filter { $0.state == .notInstalled }
     }
