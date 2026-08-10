@@ -352,6 +352,10 @@ public enum MenuSelectionCopy {
             useWhen: "Muse Spark 1.2 Contributor, lower-cost Meta seat",
             dontUseWhen: "Pin seat; model_muse_spark_12_contributor"
         ),
+        "model_opencode_big_pickle": Pair(
+            useWhen: "OpenCode Zen Big Pickle, free smoke/default",
+            dontUseWhen: "Not Go; prefer Go seats when subscribed"
+        ),
         "model_opencode_qwen_38_max": Pair(
             useWhen: "Qwen 3.8 Max, OpenCode Go",
             dontUseWhen: "OpenCode Go required"

@@ -260,11 +260,17 @@ public enum ModelCatalog {
 
     public static func isEnabled(_ id: ModelID) -> Bool {
         guard let def = get(id) else { return false }
+        // Fictional `opencode-go/…` inventory stays off until serve proves real Go seats.
+        if OpenCodeModelGate.isGoCatalogSeat(def) { return false }
         return enabledModelIDs(definitions: mergedDefinitions())[id] ?? def.defaultEnabled
     }
 
     public static func setEnabled(_ id: ModelID, _ enabled: Bool) throws {
         guard let def = get(id) else { throw ModelCatalogError.notFound(id) }
+        if enabled, OpenCodeModelGate.isGoCatalogSeat(def) {
+            throw ModelCatalogError.invalid(
+                "OpenCode Go catalog seats stay off until the local serve advertises real Go models — opencode-go/* is not a provider id")
+        }
         if enabled, def.origin == .custom,
            let status = def.modelSmokeStatus, status != ModelSmokeStatus.recognized.rawValue {
             throw ModelCatalogError.invalid(
@@ -453,13 +459,19 @@ public enum ModelCatalog {
             .filter { manifestIDs.contains($0.driverId) || $0.origin == .builtIn }
             .sorted { $0.id < $1.id }
             .map { def in
-                Model(
+                let onBench: Bool
+                if OpenCodeModelGate.isGoCatalogSeat(def) {
+                    onBench = false
+                } else {
+                    onBench = enabled[def.id] ?? def.defaultEnabled
+                }
+                return Model(
                     id: def.id,
                     displayName: def.displayName,
                     modelLabel: def.modelLabel,
                     driverId: def.driverId,
                     role: def.role,
-                    enabled: enabled[def.id] ?? def.defaultEnabled,
+                    enabled: onBench,
                     effortVariants: def.effortVariants)
             }
     }
@@ -483,6 +495,14 @@ public enum ModelCatalog {
         var roster = rosterPersistence().load() ?? defaultRosterState(definitions: definitions)
         var changed = false
 
+        // Go inventory shipped default-on with fictional labels — strip from enabled.
+        let goIds = Set(definitions.filter(OpenCodeModelGate.isGoCatalogSeat).map(\.id))
+        let withoutGo = roster.enabledModelIds.filter { !goIds.contains($0) }
+        if withoutGo.count != roster.enabledModelIds.count {
+            roster.enabledModelIds = withoutGo
+            changed = true
+        }
+
         if roster.catalogSeenModelIds == nil {
             roster.catalogSeenModelIds = Array(catalogIds)
             // Legacy backfill only for pre-tracking rosters that still have seats on
@@ -504,7 +524,10 @@ public enum ModelCatalog {
 
         let seen = Set(roster.catalogSeenModelIds ?? [])
         let newcomers = catalogIds.subtracting(seen).sorted()
-        guard !newcomers.isEmpty else { return }
+        if newcomers.isEmpty {
+            if changed { try rosterPersistence().save(roster) }
+            return
+        }
         for id in newcomers {
             guard let def = builtIns.first(where: { $0.id == id }),
                   def.defaultEnabled,

@@ -226,13 +226,15 @@ struct BenchRepairPanel: View {
     @State private var newModelName = ""
     @State private var newModelLabel = ""
     @State private var logCopied = false
+    @State private var goSetupCopied = false
     @State private var loginCommandCopied = false
 
-    /// Every model this CLI can run (on-bench + available), A→Z. Drives the editable
-    /// bench roster — toggling a row writes `Model.enabled` via the catalog.
+    /// Every model this CLI can honestly run (on-bench + available), A→Z. OpenCode
+    /// hides fictional Go inventory rows — those are not serve provider ids.
     private var modelDefs: [ModelDefinition] {
         _ = model.models   // observe roster changes so the list refreshes after a toggle
         return ModelCatalog.list(driverId: card.driverId)
+            .filter(OpenCodeModelGate.visibleInCLIRoster)
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }
 
@@ -399,8 +401,44 @@ struct BenchRepairPanel: View {
                     .foregroundStyle(ALColor.textFaint)
             }
             ForEach(modelDefs) { def in modelRow(def) }
+            if card.driverId == OpenCodeModelGate.driverId {
+                openCodeGoRecommend
+            }
             addModelControl
         }
+    }
+
+    private var openCodeGoRecommend: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("OpenCode Go")
+                .font(.system(size: 10, weight: .semibold)).tracking(0.8)
+                .textCase(.uppercase)
+                .foregroundStyle(ALColor.textFaint)
+            Text(OpenCodeModelGate.goRecommendDetail)
+                .font(.system(size: 12))
+                .foregroundStyle(ALColor.textSecondary)
+                .lineSpacing(2)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 8) {
+                Button("Learn more") {
+                    NSWorkspace.shared.open(OpenCodeModelGate.goPlanURL)
+                }
+                .buttonStyle(.alSecondary(small: true))
+                Button(goSetupCopied ? "Copied" : "Copy capacity setup") {
+                    SetupActions.copyToPasteboard("alln opencode-go configure --from-chrome")
+                    goSetupCopied = true
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(2))
+                        goSetupCopied = false
+                    }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(ALColor.accentText)
+                .font(.system(size: 12, weight: .medium))
+            }
+        }
+        .padding(.top, 6)
+        .padding(.bottom, 2)
     }
 
     private func modelRow(_ def: ModelDefinition) -> some View {
@@ -517,6 +555,11 @@ struct BenchRepairPanel: View {
         case .notChecked:
             return "Not checked yet on this machine. Run a scan to detect it — most CLIs resolve with no further action."
         case .ready:
+            if card.driverId == OpenCodeModelGate.driverId {
+                return card.workers.isEmpty
+                    ? "OpenCode Zen is ready. Go seats stay hidden until that plan is on this machine."
+                    : "OpenCode Zen is ready — Go inventory stays off until OpenCode advertises those models here."
+            }
             return card.workers.isEmpty
                 ? "This CLI passed its last check and is ready."
                 : "This CLI is ready."

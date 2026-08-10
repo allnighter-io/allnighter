@@ -534,7 +534,7 @@
         ],
         "strengthRank": 90
       },
-      "defaultOn": true
+      "defaultOn": false
     },
     "model_qwen_38_max": {
       "caliber": {
@@ -568,7 +568,7 @@
         ],
         "strengthRank": 89
       },
-      "defaultOn": true
+      "defaultOn": false
     },
     "model_opencode_glm_5_2": {
       "caliber": {
@@ -585,7 +585,7 @@
         ],
         "strengthRank": 91
       },
-      "defaultOn": true
+      "defaultOn": false
     },
     "model_opencode_qwen_37_max": {
       "caliber": {
@@ -602,7 +602,7 @@
         ],
         "strengthRank": 82
       },
-      "defaultOn": true
+      "defaultOn": false
     },
     "model_opencode_minimax_m3": {
       "caliber": {
@@ -619,7 +619,7 @@
         ],
         "strengthRank": 78
       },
-      "defaultOn": true
+      "defaultOn": false
     },
     "model_opencode_deepseek_v4_flash": {
       "caliber": {
@@ -634,7 +634,7 @@
         ],
         "strengthRank": 55
       },
-      "defaultOn": true
+      "defaultOn": false
     },
     "model_opencode_qwen_37_plus": {
       "caliber": {
@@ -649,7 +649,7 @@
         ],
         "strengthRank": 65
       },
-      "defaultOn": true
+      "defaultOn": false
     }
   },
   "schemaVersion": 1
