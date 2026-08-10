@@ -69,7 +69,13 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S01c | [`alln-serve/ASR-S01c-installer-scripts-converge.md`](alln-serve/ASR-S01c-installer-scripts-converge.md) | **done** — `fa8dc145` (16 assertions) |
 | ASR-S01d | [`alln-serve/ASR-S01d-honor-home-env.md`](alln-serve/ASR-S01d-honor-home-env.md) | **done** — `1f3e1add` (50 unit + installer proof) |
 
-| ASR-S02a | [`alln-serve/ASR-S02a-desired-state-store.md`](alln-serve/ASR-S02a-desired-state-store.md) | **ready** |
+| ASR-S02a | [`alln-serve/ASR-S02a-desired-state-store.md`](alln-serve/ASR-S02a-desired-state-store.md) | **done** — `aa67241f` + `e9c1b195` (20 tests) |
+
+**Carry into ASR-S02c:** `ServeDesiredState.Reading.unreadable` currently reports
+`effectiveState == .enabled`. That is safe only because the reading stays
+distinguishable — S02c must treat `.unreadable` as *do not converge*, report
+`degraded`, and never bootstrap off it. Converging on a corrupt file would
+re-enable a service the user disabled (§7 `user disable -> repair`).
 
 **ASR-S01 is complete.** PATH and canonical bytes have one owner. Next: ASR-S02
 convergent supervisor lifecycle — it owns the live-host rebind off the
