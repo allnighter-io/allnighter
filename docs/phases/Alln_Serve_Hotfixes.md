@@ -704,6 +704,23 @@ canonical plist, bootstraps it, and only then removes the staged bytes. That
 migration belongs here, not in ASR-S05, so no commit leaves two executable
 identities on a real host.
 
+**Inherited from ASR-S01b (`91cad2de`):** `runInstallCLI` no longer calls
+`ServeLifecycle().refreshAfterInstall()`, so that method now has **no production
+caller** — only `ServeInstallRefreshTests`. This was the right removal (it was
+the path that re-staged a Documents debug build into the agent's executable
+path, the §3 TCC/identity seam), but it leaves a real intermediate state: between
+S01b and this slice, `install-cli` updates the canonical binary and PATH while
+the live daemon keeps running whatever bytes are already staged, so the daemon's
+build goes stale and no longer tracks installs. ASR-S02 must close that gap —
+converge the agent onto the canonical path — and either delete
+`refreshAfterInstall` with its tests or fold it into the new owner. Do not
+reintroduce staging.
+
+`CanonicalCLIInstall` exposes an injected `beforeBytesChange` hook, called after
+the rollback is preserved and immediately before the canonical rename. That is
+the designated seam for §4.3 step 4's bootout; this slice plugs launchd into it
+rather than adding a second ordering mechanism.
+
 Proof:
 
 ```text

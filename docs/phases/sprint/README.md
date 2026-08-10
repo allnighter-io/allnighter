@@ -65,7 +65,8 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | --- | --- | --- |
 | ASR-S00 | [`alln-serve/ASR-S00-launchd-isolation-harness.md`](alln-serve/ASR-S00-launchd-isolation-harness.md) | **done** — `e775d586`; matrix in [`docs/qa/alln-serve/`](../../qa/alln-serve/ASR-S00-code-identity-matrix.md) |
 | ASR-S01a | [`alln-serve/ASR-S01a-canonical-binary-owner.md`](alln-serve/ASR-S01a-canonical-binary-owner.md) | **done** — `d60efa8a` (39 tests) |
-| ASR-S01b | [`alln-serve/ASR-S01b-install-onto-canonical.md`](alln-serve/ASR-S01b-install-onto-canonical.md) | **ready** |
+| ASR-S01b | [`alln-serve/ASR-S01b-install-onto-canonical.md`](alln-serve/ASR-S01b-install-onto-canonical.md) | **done** — `91cad2de` (44 tests) |
+| ASR-S01c | [`alln-serve/ASR-S01c-installer-scripts-converge.md`](alln-serve/ASR-S01c-installer-scripts-converge.md) | **ready** |
 
 ASR-S01 is cut into three sub-slices: **S01a** canonical binary owner (this),
 **S01b** rewire `InstallCLI.run` + CLI JSON onto the canonical path, **S01c**
