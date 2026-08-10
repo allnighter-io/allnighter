@@ -73,7 +73,7 @@ public enum SetupRecoveryCopy {
     }
 
     /// Needs-sign-in copy. Prefer catalog `instructions` (names the real command), then
-    /// `loginCommand`, then a generic line — never invent a shell login for Claude.
+    /// `loginCommand`, then a generic line — never invent a shell login for Claude/Qwen.
     public static func needsLoginDetail(
         driverId: String,
         loginCommand: String? = nil,
@@ -81,6 +81,11 @@ public enum SetupRecoveryCopy {
     ) -> String {
         if driverId == "claude_code" {
             return "Login expired — open Claude Code, type `/login`, finish browser sign-in, then re-check."
+        }
+        if driverId == "qwen" {
+            let instructions = loginInstructions?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if !instructions.isEmpty { return instructions }
+            return "Open Qwen Code (run `qwen`), type `/auth`, connect a provider, then re-check."
         }
         let instructions = loginInstructions?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if !instructions.isEmpty {
@@ -145,6 +150,8 @@ public enum SetupRecoveryCopy {
             let next: AgentSurfaceNextAction?
             if record.driverId == "claude_code" {
                 next = claudeHumanSignInNextAction
+            } else if record.driverId == "qwen" {
+                next = qwenHumanAuthNextAction
             } else if let fix {
                 next = AgentSurfaceNextAction(
                     kind: "signInCLI",
@@ -229,15 +236,60 @@ public enum SetupRecoveryCopy {
         }
     }
 
-    /// Prefer finishing installed CLIs (sign-in / repair) over installing more seats.
+    /// Prefer finishing installed CLIs (sign-in / path / repair) before installing
+    /// missing ones. Concrete `installCLI` still beats meta detect/doctor when the
+    /// disease is “not on this Mac.”
     public static func nextActionPriority(kind: String) -> Int {
         switch kind {
-        case "signInClaude", "signInCLI": return 0
-        case "repairProbe", "runDoctorFull", "confirmPath": return 1
-        case "detectCLIs": return 2
-        case "installCLI": return 3
-        default: return 4
+        case "signInClaude", "signInCLI":
+            return 0 // installed, needs auth
+        case "repairProbe", "confirmPath", "runDoctorFull":
+            return 1 // installed, needs a step
+        case "installCLI":
+            return 2 // not installed / not detected
+        case "detectCLIs":
+            return 3
+        default:
+            return 4
         }
+    }
+
+    /// Shell one-liner for Terminal install when the driver supports it.
+    public static func notInstalledInstallShellCommand(for manifest: DriverManifest) -> String? {
+        if manifest.id == CursorAgentCLIInstall.driverId {
+            return CursorAgentCLIInstall.shellCommand
+        }
+        if let explicit = manifest.setup?.installCommand?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+           !explicit.isEmpty {
+            return explicit
+        }
+        return installShellCommand(fromInstallHint: manifest.setup?.installHint)
+    }
+
+    /// Pull a `curl … | bash` (or `| sh`) one-liner out of catalog install prose.
+    public static func installShellCommand(fromInstallHint hint: String?) -> String? {
+        let raw = hint?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !raw.isEmpty else { return nil }
+        // Prefer an explicit curl|bash / curl|sh pipeline (common vendor installers).
+        if let match = raw.range(
+            of: #"curl[^\n|;]*\|\s*(bash|sh)\b"#,
+            options: .regularExpression
+        ) {
+            return String(raw[match]).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        // Whole hint is already a single shell command.
+        if raw.hasPrefix("curl ") || raw.hasPrefix("brew ") {
+            return raw
+        }
+        return nil
+    }
+
+    /// Prefer install docs URL for “open this page”; login docs stay separate.
+    public static func notInstalledFixCommand(for manifest: DriverManifest) -> String? {
+        let docs = manifest.setup?.docsURL?.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let docs, !docs.isEmpty { return docs }
+        return nil
     }
 
     /// Claude `/login` is human-only. Never point `command` at `alln detect` —
@@ -246,6 +298,13 @@ public enum SetupRecoveryCopy {
     public static let claudeHumanSignInNextAction = AgentSurfaceNextAction(
         kind: "signInClaude",
         label: "Open Claude Code, type /login, finish browser sign-in, then run alln detect",
+        command: "alln help get setup_and_auth"
+    )
+
+    /// Qwen auth is in-session `/auth` after opening `qwen` — not a shell login command.
+    public static let qwenHumanAuthNextAction = AgentSurfaceNextAction(
+        kind: "signInCLI",
+        label: "Open Qwen Code, type /auth, connect a provider, then run alln detect",
         command: "alln help get setup_and_auth"
     )
 
@@ -298,21 +357,6 @@ public enum SetupRecoveryCopy {
         return "Health check failed — re-check this CLI."
     }
 
-    /// Prefer install docs URL for “open this page”; login docs stay separate.
-    public static func notInstalledFixCommand(for manifest: DriverManifest) -> String? {
-        let docs = manifest.setup?.docsURL?.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let docs, !docs.isEmpty { return docs }
-        return nil
-    }
-
-    /// Shell one-liner for one-click / Terminal install when the driver supports it.
-    public static func notInstalledInstallShellCommand(for manifest: DriverManifest) -> String? {
-        if manifest.id == CursorAgentCLIInstall.driverId {
-            return CursorAgentCLIInstall.shellCommand
-        }
-        return nil
-    }
-
     /// Doctor/detect `fixCommand`: prefer a runnable shell fix; never treat Claude `/login` as a shell command.
     public static func doctorFixCommand(
         driverId: String,
@@ -322,6 +366,7 @@ public enum SetupRecoveryCopy {
         switch state {
         case .needsLogin:
             if driverId == "claude_code" { return nil }
+            if driverId == "qwen" { return nil } // in-session `/auth`, not a shell login
             if driverId == CursorAgentCLIInstall.driverId {
                 let cmd = loginInteractiveCommand?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 if cmd == "agent" || cmd == "agent login" { return "cursor-agent login" }
@@ -332,7 +377,7 @@ public enum SetupRecoveryCopy {
         case .notInstalled:
             return nil // caller supplies install shell / docs
         case .probeFailed:
-            if driverId == "claude_code" { return nil }
+            if driverId == "claude_code" || driverId == "qwen" { return nil }
             if driverId == CursorAgentCLIInstall.driverId { return "cursor-agent login" }
             if driverId == "opencode" { return "alln detect" }
             return "alln doctor --full"

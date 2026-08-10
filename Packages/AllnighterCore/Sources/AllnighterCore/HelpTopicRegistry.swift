@@ -656,6 +656,10 @@ public enum HelpTopicRegistry {
             Code, type `/login` (in-session — not a shell `claude` login), finish the browser \
             flow, then `alln detect`.
 
+            Qwen Code: after install, open `qwen` and type `/auth` (in-session) to connect a \
+            provider — not a shell login. Antigravity (`agy`): install via the catalog curl, \
+            then run `agy` (Keychain / browser Google sign-in).
+
             OpenCode: Zen (`opencode/*`) can be ready while Go seats stay gated until \
             `opencode-go` is connected (`/connect` after https://opencode.ai/go). \
             `alln doctor --full --json` reports `source.opencode.goConnected` as an upsell, \
@@ -676,6 +680,7 @@ public enum HelpTopicRegistry {
                 .init("source-auth-expired", "Source auth expired", "Re-authenticate the named source via its own login flow, then re-probe with `alln doctor --full` / `alln detect`."),
                 .init("cursor-ide-vs-agent", "Cursor IDE ≠ Agent CLI", "The Cursor app is not a seat. Install/sign in `cursor-agent`, then `alln detect`."),
                 .init("claude-slash-login", "Claude `/login`", "Open Claude Code and type `/login` — not a shell login command. Then `alln detect`."),
+                .init("qwen-slash-auth", "Qwen `/auth`", "Open Qwen Code (`qwen`) and type `/auth` — not a shell login. Then `alln detect`."),
                 .init("opencode-go", "OpenCode Go", "Zen ready ≠ Go seats. Subscribe at opencode.ai/go, `/connect` the key, then `alln detect`."),
             ],
             relatedCommandNames: ["doctor", "doctor explain", "detect"],

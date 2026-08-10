@@ -227,6 +227,7 @@ struct BenchRepairPanel: View {
     @State private var newModelLabel = ""
     @State private var logCopied = false
     @State private var loginCommandCopied = false
+    @State private var installCommandCopied = false
 
     /// Every model this CLI can honestly run (on-bench + available), A→Z. OpenCode
     /// hides fictional Go inventory rows — those are not serve provider ids.
@@ -535,6 +536,13 @@ struct BenchRepairPanel: View {
             if card.driverId == "claude_code" {
                 return "Login expired — open Terminal, start Claude Code with `claude`, then type `/login` inside Claude Code and finish browser sign-in. Then tap Re-check. `claude` alone is not the login command."
             }
+            if card.driverId == "qwen" {
+                return SetupRecoveryCopy.needsLoginDetail(
+                    driverId: card.driverId,
+                    loginCommand: resolvedLoginCommand,
+                    loginInstructions: card.loginInstructions
+                ) + " Then tap Re-check."
+            }
             let named = SetupRecoveryCopy.needsLoginDetail(
                 driverId: card.driverId,
                 loginCommand: resolvedLoginCommand,
@@ -624,6 +632,45 @@ struct BenchRepairPanel: View {
                         icon: "arrow.clockwise",
                         title: "Re-check",
                         subtitle: "After browser sign-in finishes, confirm Claude Code is ready",
+                        button: isProbingThisCard ? "Checking…" : "Run",
+                        primary: false,
+                        secondary: false
+                    ) {
+                        model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
+                    },
+                ]
+            }
+            if card.driverId == "qwen" {
+                return [
+                    RepairAction(
+                        icon: "doc.on.doc",
+                        title: "Copy `/auth`",
+                        subtitle: "Type this inside Qwen Code after it opens — not a shell login",
+                        button: loginCommandCopied ? "Copied" : "Copy",
+                        primary: true,
+                        secondary: false
+                    ) {
+                        SetupActions.copyToPasteboard("/auth")
+                        loginCommandCopied = true
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(2))
+                            loginCommandCopied = false
+                        }
+                    },
+                    RepairAction(
+                        icon: "terminal",
+                        title: "Open Terminal",
+                        subtitle: "Run `qwen` to open Qwen Code, then paste `/auth`",
+                        button: "Open",
+                        primary: false,
+                        secondary: true
+                    ) {
+                        SetupActions.openTerminalApp()
+                    },
+                    RepairAction(
+                        icon: "arrow.clockwise",
+                        title: "Re-check",
+                        subtitle: "After provider connect finishes, confirm Qwen Code is ready",
                         button: isProbingThisCard ? "Checking…" : "Run",
                         primary: false,
                         secondary: false
@@ -756,7 +803,29 @@ struct BenchRepairPanel: View {
                 ]
             }
             return [
-                RepairAction(icon: "arrow.up.right.square", title: "Open install page", subtitle: "Opens the source's install docs", button: "Open", primary: true, secondary: false) {
+                RepairAction(
+                    icon: "doc.on.doc",
+                    title: "Copy install command",
+                    subtitle: SetupRecoveryCopy.installShellCommand(fromInstallHint: card.installHint)
+                        ?? card.installHint
+                        ?? "Install via the vendor docs",
+                    button: installCommandCopied ? "Copied" : "Copy",
+                    primary: true,
+                    secondary: false
+                ) {
+                    let payload = SetupRecoveryCopy.installShellCommand(fromInstallHint: card.installHint)
+                        ?? card.installHint
+                        ?? card.docsURL
+                        ?? ""
+                    guard !payload.isEmpty else { return }
+                    SetupActions.copyToPasteboard(payload)
+                    installCommandCopied = true
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .seconds(2))
+                        installCommandCopied = false
+                    }
+                },
+                RepairAction(icon: "arrow.up.right.square", title: "Open install page", subtitle: "Opens the source's install docs", button: "Open", primary: false, secondary: true) {
                     if let url = card.docsURL, let u = URL(string: url) { NSWorkspace.shared.open(u) }
                 },
                 RepairAction(icon: "arrow.clockwise", title: "Re-scan", subtitle: "Look again once it's installed", button: "Run", primary: false, secondary: false) {

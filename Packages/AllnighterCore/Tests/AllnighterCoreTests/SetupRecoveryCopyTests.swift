@@ -192,7 +192,11 @@ final class SetupRecoveryCopyTests: XCTestCase {
             id: "antigravity",
             displayName: "Antigravity",
             kind: .headlessCLI,
-            setup: SetupBlock(bins: ["agy"], docsURL: "https://example.com/install")
+            setup: SetupBlock(
+                bins: ["agy"],
+                installHint: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+                docsURL: "https://antigravity.google/docs/cli-install"
+            )
         )
         let report = DetectReport.build(
             records: [
@@ -213,9 +217,99 @@ final class SetupRecoveryCopyTests: XCTestCase {
             registry: DriverRegistry([anti, kimi]),
             assembled: .init(benchModelIds: [], planWriterModelId: nil)
         )
-        XCTAssertEqual(report.nextActions.first?.kind, "signInCLI")
+        XCTAssertEqual(report.nextActions.first?.kind, "signInCLI", "installed sign-in beats missing install")
         XCTAssertEqual(report.nextActions.first?.command, "kimi login")
-        XCTAssertTrue(report.nextActions.contains { $0.kind == "installCLI" })
+        let install = report.nextActions.first { $0.kind == "installCLI" }
+        XCTAssertEqual(
+            install?.command,
+            "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+        )
+    }
+
+    func testNotInstalledOnlyPrefersInstallCurlForAgyAndQwen() throws {
+        let agy = DriverManifest(
+            id: "antigravity",
+            displayName: "Antigravity",
+            kind: .headlessCLI,
+            setup: SetupBlock(
+                bins: ["agy"],
+                installHint: "curl -fsSL https://antigravity.google/cli/install.sh | bash",
+                docsURL: "https://antigravity.google/docs/cli-install",
+                loginFlow: LoginFlow(
+                    interactiveCommand: "agy",
+                    instructions: "Run `agy`. It tries silent auth via the Apple Keychain."
+                )
+            )
+        )
+        let qwen = DriverManifest(
+            id: "qwen",
+            displayName: "Qwen Code",
+            kind: .headlessCLI,
+            setup: SetupBlock(
+                bins: ["qwen"],
+                installHint: "Install with: curl -fsSL https://example.com/install-qwen.sh | bash",
+                docsURL: "https://qwenlm.github.io/qwen-code-docs/en/users/overview/",
+                loginFlow: LoginFlow(
+                    interactiveCommand: "qwen",
+                    instructions: "Run `qwen`, then use `/auth` to connect a provider."
+                )
+            )
+        )
+        XCTAssertEqual(
+            SetupRecoveryCopy.notInstalledInstallShellCommand(for: agy),
+            "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+        )
+        XCTAssertEqual(
+            SetupRecoveryCopy.notInstalledInstallShellCommand(for: qwen),
+            "curl -fsSL https://example.com/install-qwen.sh | bash"
+        )
+
+        let report = DetectReport.build(
+            records: [
+                ToolProbeRecord(driverId: "antigravity", status: .notInstalled, lastProbeAt: .distantPast),
+                ToolProbeRecord(driverId: "qwen", status: .notInstalled, lastProbeAt: .distantPast),
+            ],
+            registry: DriverRegistry([agy, qwen]),
+            assembled: .init(benchModelIds: [], planWriterModelId: nil)
+        )
+        XCTAssertTrue(report.nextActions.allSatisfy { $0.kind == "installCLI" })
+        XCTAssertTrue(report.nextActions.contains { $0.command.contains("antigravity.google") })
+        XCTAssertTrue(report.nextActions.contains { $0.command.contains("install-qwen") })
+        XCTAssertFalse(report.nextActions.contains { $0.command.hasPrefix("https://") })
+
+        let qwenSignedOut = SetupRecoveryCopy.recovery(
+            for: ToolProbeRecord(
+                driverId: "qwen",
+                status: .installedNotSignedIn(
+                    LoginFlow(
+                        interactiveCommand: "qwen",
+                        instructions: "Run `qwen`, then use `/auth` to connect a provider."
+                    )
+                ),
+                lastProbeAt: .distantPast
+            ),
+            manifest: qwen
+        )
+        XCTAssertEqual(qwenSignedOut.statusKind, "needsSignIn")
+        XCTAssertNil(qwenSignedOut.fixCommand, "Qwen /auth is not a shell login")
+        XCTAssertTrue(qwenSignedOut.detail?.contains("/auth") == true, qwenSignedOut.detail ?? "")
+        XCTAssertEqual(qwenSignedOut.nextAction?.command, "alln help get setup_and_auth")
+
+        let agySignedOut = SetupRecoveryCopy.recovery(
+            for: ToolProbeRecord(
+                driverId: "antigravity",
+                status: .installedNotSignedIn(
+                    LoginFlow(
+                        interactiveCommand: "agy",
+                        instructions: "Run `agy`. It tries silent auth via the Apple Keychain."
+                    )
+                ),
+                lastProbeAt: .distantPast
+            ),
+            manifest: agy
+        )
+        XCTAssertEqual(agySignedOut.fixCommand, "agy")
+        XCTAssertTrue(agySignedOut.detail?.contains("agy") == true, agySignedOut.detail ?? "")
     }
 
     func testDriversNotReadySurfacesLoginFixInFreshness() throws {

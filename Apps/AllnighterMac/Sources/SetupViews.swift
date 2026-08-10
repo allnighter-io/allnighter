@@ -479,6 +479,26 @@ struct SetupCardView: View {
                         }.buttonStyle(.alGhost)
                     }
                     note("Run `claude` first to open Claude Code — then paste `/login` there.", systemImage: "info.circle")
+                } else if card.driverId == "qwen" {
+                    let loginCopy = SetupRecoveryCopy.needsLoginDetail(
+                        driverId: card.driverId,
+                        loginCommand: loginCmd,
+                        loginInstructions: card.loginInstructions
+                    )
+                    fixLine(loginCopy)
+                    CmdRow(text: "/auth")
+                    HStack(spacing: 8) {
+                        Button { onAction(.copy("/auth")) } label: {
+                            Label("Copy /auth", systemImage: "doc.on.doc")
+                        }.buttonStyle(.alPrimary(small: true))
+                        Button { onAction(.openTerminalApp) } label: {
+                            Label("Open Terminal", systemImage: "terminal")
+                        }.buttonStyle(.alSecondary(small: true))
+                        Button { onAction(.rescan(driverId: card.driverId)) } label: {
+                            Label("Re-check", systemImage: "arrow.clockwise")
+                        }.buttonStyle(.alGhost)
+                    }
+                    note("Run `qwen` first to open Qwen Code — then paste `/auth` there.", systemImage: "info.circle")
                 } else if card.driverId == CursorAgentCLIInstall.driverId {
                     fixLine("Copy the command, open a new Terminal window (don’t paste into a Grok session), paste, press Return. Finish browser sign-in if asked.")
                     CmdRow(text: loginCmd)
@@ -559,20 +579,37 @@ struct SetupCardView: View {
                         .buttonStyle(.alPrimary)
                     }
                 } else {
-                    fixLine("You don’t have \(card.name) yet. Install it, then re-scan.")
-                    CmdRow(text: card.installHint ?? "see docs")
+                    let detail: String = {
+                        if let hint = card.installHint?.trimmingCharacters(in: .whitespacesAndNewlines), !hint.isEmpty {
+                            return "\(card.name) not found on PATH or known paths. \(hint)"
+                        }
+                        return "You don’t have \(card.name) yet. Install it, then re-scan."
+                    }()
+                    let installShell = SetupRecoveryCopy.installShellCommand(fromInstallHint: card.installHint)
+                    fixLine(detail)
+                    CmdRow(text: installShell ?? card.installHint ?? "see docs")
                     HStack(spacing: 8) {
-                        Button { onAction(.openURL(card.docsURL ?? "")) } label: {
-                            Label("Open install page", systemImage: "arrow.up.right.square")
+                        if let installShell {
+                            Button { onAction(.copy(installShell)) } label: {
+                                Label("Copy install command", systemImage: "doc.on.doc")
+                            }.buttonStyle(.alPrimary(small: true))
+                            Button { onAction(.openURL(card.docsURL ?? "")) } label: {
+                                Label("Open install page", systemImage: "arrow.up.right.square")
+                            }
+                            .buttonStyle(.alSecondary(small: true))
+                            .disabled((card.docsURL ?? "").isEmpty)
+                        } else {
+                            Button { onAction(.openURL(card.docsURL ?? "")) } label: {
+                                Label("Open install page", systemImage: "arrow.up.right.square")
+                            }
+                            .buttonStyle(.alPrimary(small: true))
+                            .disabled((card.docsURL ?? "").isEmpty)
                         }
-                        .buttonStyle(.alSecondary)
-                        .disabled((card.docsURL ?? "").isEmpty)
-                        if let loginDocs = card.loginDocsURL, !loginDocs.isEmpty {
-                            Button { onAction(.openURL(loginDocs)) } label: { Label("CLI docs", systemImage: "book") }
-                                .buttonStyle(.alGhost)
-                        }
-                        Button { onAction(.rescan(driverId: card.driverId)) } label: { Label("Re-check", systemImage: "arrow.clockwise") }.buttonStyle(.alGhost)
+                        Button { onAction(.rescan(driverId: card.driverId)) } label: {
+                            Label("Re-check", systemImage: "arrow.clockwise")
+                        }.buttonStyle(.alGhost)
                     }
+                    note("Paste the install command in Terminal, then Re-check.", systemImage: "info.circle")
                 }
             }
         case .probeFailed:
