@@ -128,6 +128,59 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(model.isDetecting, "a non-user-initiated full probe must not spawn")
     }
 
+    /// 2026-08-10 Launch Authority re-open: capacity strip first paint and remote
+    /// bootstrap must not spawn children. Source gates — the green H0–H6 tests
+    /// missed these later launch-time spawners.
+    func testCapacityStripLoadLiveDoesNotCallRefreshAll() throws {
+        let here = URL(fileURLWithPath: #filePath)
+        let sources = here
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources")
+        let strip = try String(
+            contentsOf: sources.appendingPathComponent("CapacityStripModel.swift"),
+            encoding: .utf8
+        )
+        guard let loadLive = strip.range(of: "func loadLive(notReadyOrParked") else {
+            return XCTFail("loadLive not found")
+        }
+        guard let enableFeature = strip.range(of: "func enableFeature()") else {
+            return XCTFail("enableFeature not found")
+        }
+        let body = strip[loadLive.lowerBound..<enableFeature.lowerBound]
+        XCTAssertFalse(
+            body.contains("refreshAll()"),
+            "loadLive must paint placeholders only — Refresh/Enable own acquire"
+        )
+    }
+
+    func testRemoteBootstrapDoesNotEnsureRelayRunning() throws {
+        let here = URL(fileURLWithPath: #filePath)
+        let sources = here
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources")
+        let remote = try String(
+            contentsOf: sources.appendingPathComponent("RemoteAccountModel.swift"),
+            encoding: .utf8
+        )
+        guard let bootstrap = remote.range(of: "func bootstrap() async") else {
+            return XCTFail("bootstrap not found")
+        }
+        guard let signIn = remote.range(of: "func signInWithApple() async") else {
+            return XCTFail("signInWithApple not found")
+        }
+        let body = remote[bootstrap.lowerBound..<signIn.lowerBound]
+        XCTAssertFalse(
+            body.contains("ensureRelayRunning()"),
+            "persisted session is not consent to spawn relay on every launch"
+        )
+        XCTAssertTrue(
+            body.contains("refreshPendingPairingRequests()"),
+            "bootstrap still refreshes pairing state without spawning"
+        )
+    }
+
     // MARK: - Census merge policy (C3)
 
     private func record(_ driver: String, ready: Bool, path: String? = nil) -> ToolProbeRecord {

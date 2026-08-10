@@ -586,12 +586,17 @@ final class CapacityPaintGateTests: XCTestCase {
 /// fake sleep, activity spy, fire/persist recorders, and a zero acquire floor
 /// (the floor is proven by `CapacitySingleFlightTests`; scheduler tests budget
 /// fake time instead).
+///
+/// Defaults to `initiallyEnabled: false` so `setEnabled(true)` is an explicit
+/// OFF→ON Enable (fires silent `.launch`). Pass `true` to exercise cold-launch
+/// re-arm (scheduler only, no immediate probe wave).
 private func makeSchedulerResident(
     clock: FakeClock,
     fakeSleep: FakeSleep,
     activity: ActivitySpy,
     fires: FireRecorder,
     persisted: PersistRecorder,
+    initiallyEnabled: Bool = false,
     fetch: @escaping CapacityResidentService.Fetch
 ) -> CapacityResidentService {
     CapacityResidentService(
@@ -600,6 +605,7 @@ private func makeSchedulerResident(
         monotonicNow: { clock.monotonicNow() },
         activities: activity.controller,
         acquireFloor: 0,
+        initiallyEnabled: initiallyEnabled,
         persistEnabled: { enabled in persisted.record(enabled) },
         onSchedulerFire: { reason in fires.record(reason) },
         fetch: fetch
@@ -707,7 +713,7 @@ final class CapacityResidentDeadlineTests: XCTestCase {
         try await Task.sleep(nanoseconds: 150_000_000)
         XCTAssertEqual(recorder.startCount, 1)
         XCTAssertTrue(fires.fires.isEmpty)
-        XCTAssertEqual(persisted.writes, [false], "initially-ON resident persists only the OFF flip")
+        XCTAssertEqual(persisted.writes, [true, false], "Enable then OFF both persist")
     }
 }
 
@@ -865,6 +871,7 @@ final class CapacityFeatureOffTests: XCTestCase {
         let resident = makeSchedulerResident(
             clock: clock, fakeSleep: fakeSleep, activity: activity,
             fires: fires, persisted: persisted,
+            initiallyEnabled: true,
             fetch: instantFullBenchFetch(clock: clock, recorder: recorder)
         )
 
@@ -891,9 +898,10 @@ final class CapacityFeatureOffTests: XCTestCase {
     }
 
     /// Startup when ON: `setEnabled(true)` on an already-enabled resident
-    /// wires the scheduler if it was never started, and fires one silent
-    /// full-bench `.launch` — no persisted write for an unchanged flag.
-    func testStartupWhenONWiresSchedulerAndFiresSilentLaunch() async throws {
+    /// wires the scheduler if it was never started, and does **not** fire an
+    /// immediate vendor-CLI `.launch` wave — cold launch stays process-quiet
+    /// (Launch Authority TCC). Explicit OFF→ON still fires (see re-enable test).
+    func testStartupWhenONWiresSchedulerWithoutSilentLaunch() async throws {
         let clock = FakeClock(t0)
         let fakeSleep = FakeSleep(clock: clock)
         let recorder = FetchRecorder()
@@ -903,13 +911,17 @@ final class CapacityFeatureOffTests: XCTestCase {
         let resident = makeSchedulerResident(
             clock: clock, fakeSleep: fakeSleep, activity: activity,
             fires: fires, persisted: persisted,
+            initiallyEnabled: true,
             fetch: instantFullBenchFetch(clock: clock, recorder: recorder)
         )
 
         XCTAssertEqual(recorder.startCount, 0, "nothing fires before the feature is wired")
         await resident.setEnabled(true)
-        try await waitUntil("immediate silent launch") { recorder.startCount == 1 }
-        XCTAssertNil(recorder.starts[0].source, "startup acquire is the full-bench silent launch")
+        // Scheduler must be armed without a probe wave.
+        let freshness = await resident.currentFreshness()
+        XCTAssertTrue(freshness.armed, "idempotent re-arm wires the deadline scheduler")
+        try await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(recorder.startCount, 0, "cold-launch re-arm must not spawn vendor CLIs")
         XCTAssertTrue(persisted.writes.isEmpty, "unchanged flag is not re-persisted")
 
         await resident.setEnabled(false)

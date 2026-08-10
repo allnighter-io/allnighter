@@ -273,6 +273,11 @@ public enum CapacityPaneReader {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = argv
+        // Never inherit the parent CWD — Dock app / Xcode hosts often sit under
+        // ~/Documents; a child CLI that stats cwd trips TCC as "Allnighter".
+        if let scratch = CapacityProbe.neutralWorkingDirectory() {
+            process.currentDirectoryURL = URL(fileURLWithPath: scratch, isDirectory: true)
+        }
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()

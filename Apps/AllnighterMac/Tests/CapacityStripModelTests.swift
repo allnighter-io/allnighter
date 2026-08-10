@@ -129,14 +129,14 @@ final class CapacityStripModelTests: XCTestCase {
         let model = makeModel(historyStore: store, probeExecutor: executor)
         await model.loadLive()
         XCTAssertEqual(executor.callCount, 0)
-        for _ in 0..<400 where model.isRefreshingAll {
+        for _ in 0..<40 where model.isRefreshingAll {
             try await Task.sleep(nanoseconds: 25_000_000)
         }
         XCTAssertFalse(model.isRefreshingAll)
-        // The silent launch acquire settles before the polling loop above
-        // exits, and a settled acquire paints live truth — needsLiveRefresh
-        // stays true only while placeholders are still on screen.
-        XCTAssertFalse(model.needsLiveRefresh)
+        // Cold launch paints placeholders only — no silent acquire, no Refresh
+        // coalesce. Live numbers require explicit Refresh / Enable.
+        XCTAssertTrue(model.needsLiveRefresh)
+        XCTAssertEqual(executor.callCount, 0, "loadLive must stay process-quiet")
     }
 
     func testLoadLivePaintsResidentSnapshotWhenPresent() async throws {

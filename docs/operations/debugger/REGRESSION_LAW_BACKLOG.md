@@ -74,7 +74,17 @@ meta-gates exist.
   (GUI-Visible Bugs + Forbidden Moves + DoD). Proof: `bash scripts/check.sh`.
 
 - `Mac app launch is process-quiet before explicit setup/recheck/run`: CLOSED
-  2026-06-16 by the Launch Authority TCC hotfix (H0–H6). Wall-reachable gates:
+  2026-06-16 by the Launch Authority TCC hotfix (H0–H6); **re-opened and
+  re-closed 2026-08-10** when capacity silent acquire, strip `loadLive→refreshAll`,
+  ServeAutoLaunch demand-heal, and remote relay bootstrap walked past the
+  CLIDetector-only gates. Wall-reachable gates now also include
+  `CapacityFeatureOffTests.testStartupWhenONWiresSchedulerWithoutSilentLaunch`,
+  `CapacityStripModelTests.testLoadLiveDoesNotProbe`,
+  `ServeAutoLaunchTests.testMacAppLaunchDoesNotDemandHealServe`,
+  `AppModelTests.testCapacityStripLoadLiveDoesNotCallRefreshAll`,
+  `AppModelTests.testRemoteBootstrapDoesNotEnsureRelayRunning`. Packet:
+  `docs/operations/debugger/2026-08-10-first-launch-tcc-popups-PACKET.md`.
+  Original H0–H6 gates:
   `AppModelTests.testLoadCachedSetupStateDoesNotStartDetection` /
   `testFullSetupProbeWithoutUserIntentDoesNotDetect` (cold launch + non-user
   full probe never start detection),

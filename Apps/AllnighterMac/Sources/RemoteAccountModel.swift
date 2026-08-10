@@ -25,10 +25,13 @@ final class RemoteAccountModel {
     private var relayTask: Task<Void, Never>?
 
     func bootstrap() async {
+        // Process-quiet launch (Launch Authority TCC): a persisted session is
+        // prior intent, not consent to spawn a bash/swift/serve tree under the
+        // Dock app's TCC identity on every open. Refresh account + pairing
+        // state only; relay start is explicit (sign-in or Settings).
         refreshSignedInState()
         guard isSignedIn else { return }
         await refreshPendingPairingRequests()
-        await ensureRelayRunning()
     }
 
     func signInWithApple() async {

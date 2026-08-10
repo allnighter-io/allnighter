@@ -170,6 +170,9 @@ final class ServeAutoLaunchTests: XCTestCase {
             argv0: "alln",
             pathEnvironment: nil,
             currentExecutablePath: { nil },
+            stagedBinaryPath: { nil },
+            resolveOnPath: { _, _ in nil },
+            resolveArgv0: { _, _ in nil },
             homeDirectory: root,
             launch: { _, _ in launchCount += 1; return 1 }
         )
@@ -251,5 +254,100 @@ final class ServeAutoLaunchTests: XCTestCase {
         )
 
         XCTAssertEqual(launchedCwd, root)
+    }
+
+    // MARK: - macOS .app re-exec refuse (2026-08-10 fork bomb)
+
+    func testIsMacAppBundleExecutableDetectsContentsMacOS() {
+        XCTAssertTrue(ServeAutoLaunch.isMacAppBundleExecutable(
+            "/Users/x/Build/Products/Debug/Allnighter.app/Contents/MacOS/Allnighter"))
+        XCTAssertTrue(ServeAutoLaunch.isMacAppBundleExecutable(
+            "/Applications/Allnighter.app/Contents/MacOS/Allnighter"))
+        XCTAssertFalse(ServeAutoLaunch.isMacAppBundleExecutable("/usr/local/bin/alln"))
+        XCTAssertFalse(ServeAutoLaunch.isMacAppBundleExecutable(
+            "/Users/x/Library/Application Support/Allnighter/CLI/alln"))
+    }
+
+    func testIsServeArgvDetectsDetachedServe() {
+        XCTAssertTrue(ServeAutoLaunch.isServeArgv(["/path/Allnighter", "serve"]))
+        XCTAssertTrue(ServeAutoLaunch.isServeArgv(["alln", "serve", "--health"]))
+        XCTAssertFalse(ServeAutoLaunch.isServeArgv(["/path/Allnighter"]))
+        XCTAssertFalse(ServeAutoLaunch.isServeArgv(["alln", "run", "hi"]))
+    }
+
+    func testEnsureRunningRefusesMacAppBundleExecutableWithoutLaunching() {
+        let (root, _, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        var launchCount = 0
+
+        let result = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            argv0: "alln",
+            pathEnvironment: nil,
+            currentExecutablePath: {
+                "/Users/x/Build/Products/Debug/Allnighter.app/Contents/MacOS/Allnighter"
+            },
+            stagedBinaryPath: { nil },
+            homeDirectory: root,
+            launch: { _, _ in launchCount += 1; return 1 }
+        )
+
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertEqual(launchCount, 0, "must never spawn Allnighter.app as serve")
+    }
+
+    func testEnsureRunningSkipsAppBundleAndUsesStagedCLI() {
+        let (root, _, probe) = tempDirs()
+        defer { removeIfPresent(root) }
+        var launchedURL: URL?
+
+        let result = ServeAutoLaunch.ensureRunning(
+            optedOut: false,
+            probe: probe,
+            binaryVersion: "0.1.0",
+            argv0: "alln",
+            pathEnvironment: nil,
+            currentExecutablePath: {
+                "/Users/x/Build/Products/Debug/Allnighter.app/Contents/MacOS/Allnighter"
+            },
+            stagedBinaryPath: { "/tmp/Allnighter/CLI/alln" },
+            homeDirectory: root,
+            launch: { url, _ in launchedURL = url; return 99 }
+        )
+
+        XCTAssertEqual(result.outcome, .launched)
+        XCTAssertEqual(result.pid, 99)
+        XCTAssertEqual(launchedURL?.path, "/tmp/Allnighter/CLI/alln")
+    }
+
+    /// Mac Dock app must not call ServeAutoLaunch.ensureRunning (TCC + fork bomb),
+    /// and must circuit-break argv `serve` before activating as another Dock icon.
+    func testMacAppLaunchDoesNotDemandHealServe() throws {
+        let here = URL(fileURLWithPath: #filePath)
+        // …/Packages/AllnighterCore/Tests/AllnighterEngineTests → repo root
+        let repoRoot = here.deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let macApp = try String(
+            contentsOf: repoRoot.appendingPathComponent(
+                "Apps/AllnighterMac/Sources/AllnighterMacApp.swift"),
+            encoding: .utf8
+        )
+        XCTAssertFalse(
+            macApp.contains("ServeAutoLaunch.ensureRunning"),
+            "Dock app must not demand-heal-spawn serve (fork bomb + TCC identity)"
+        )
+        XCTAssertTrue(
+            macApp.contains("ServeAutoLaunch.isServeArgv"),
+            "Dock app must circuit-break argv `serve` before activating"
+        )
+        XCTAssertTrue(
+            macApp.contains("CapacityResidentService.shared.setEnabled"),
+            "capacity re-arm on launch remains; it must stay process-quiet"
+        )
     }
 }

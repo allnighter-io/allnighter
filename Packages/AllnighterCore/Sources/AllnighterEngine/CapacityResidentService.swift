@@ -92,8 +92,10 @@ public struct CapacityActivityController: Sendable {
 ///   jump past the deadline fires `.wake` **once** — no catch-up burst.
 /// - **Feature ON/OFF:** OFF scoped-cancels the in-flight generation, stops
 ///   the scheduler, zeroes probes from every trigger, and drops the snapshot
-///   (no memo-as-live). Enabling starts the scheduler with an immediate
-///   silent `.launch` acquire.
+///   (no memo-as-live). Explicit Enable (OFF→ON) starts the scheduler with an
+///   immediate silent `.launch` acquire. App-launch re-arm of an already-ON
+///   feature wires the scheduler only — never an immediate vendor-CLI wave
+///   (Launch Authority TCC: cold launch is process-quiet).
 public actor CapacityResidentService {
 
     /// Shared instance for the Dock app host. Tests always inject their own.
@@ -104,7 +106,7 @@ public actor CapacityResidentService {
     /// Exhaustive trigger vocabulary (scheduler contract). `.deadline` / `.wake`
     /// are fired only by the S01b scheduler; the rest come from UI / app wiring.
     public enum RefreshReason: Sendable, Equatable {
-        /// App up + feature ON → immediate silent acquire.
+        /// Explicit Enable (OFF→ON) → immediate silent acquire. Not cold launch.
         case launch
         /// Strip Refresh control (full bench).
         case userRefresh
@@ -305,15 +307,22 @@ public actor CapacityResidentService {
     /// The only ON/OFF write path. Persisted write-through by injection.
     /// Every call (including the idempotent re-arm at app launch) republishes
     /// the S02 socket answer so `capacity.sock` never serves a void or a lie.
+    ///
+    /// - Idempotent re-arm (already ON at app launch): wire the 30m scheduler
+    ///   only — **no** immediate vendor-CLI acquire. Cold launch must stay
+    ///   process-quiet (Launch Authority TCC).
+    /// - Explicit OFF→ON (Enable CTA / `alln capacity --enable`): wire the
+    ///   scheduler **and** fire one silent `.launch` acquire — the user asked.
     public func setEnabled(_ newValue: Bool) {
         if newValue == enabled {
-            // Idempotent re-arm: startup when ON wires the scheduler if needed.
-            if newValue { startSchedulerIfNeeded() }
+            // Idempotent re-arm: startup when ON wires the scheduler if needed,
+            // without an immediate probe wave under the Dock app's TCC identity.
+            if newValue { startSchedulerIfNeeded(fireImmediateLaunch: false) }
         } else {
             enabled = newValue
             persistEnabled(newValue)
             if newValue {
-                startSchedulerIfNeeded()
+                startSchedulerIfNeeded(fireImmediateLaunch: true)
             } else {
                 stopForFeatureOff()
             }
@@ -332,9 +341,10 @@ public actor CapacityResidentService {
 
     // MARK: Scheduler (S01b)
 
-    /// Startup when ON: wire the one deadline scheduler and fire the immediate
-    /// silent `.launch` acquire. Idempotent — never a second timer.
-    private func startSchedulerIfNeeded() {
+    /// Wire the one deadline scheduler. Idempotent — never a second timer.
+    /// Immediate `.launch` acquire is opt-in for explicit Enable only; app-launch
+    /// re-arm must not spawn vendor CLIs before the user asks.
+    private func startSchedulerIfNeeded(fireImmediateLaunch: Bool) {
         guard enabled, scheduler == nil else { return }
         let startWall = now()
         let startMonotonic = monotonicNow()
@@ -342,7 +352,9 @@ public actor CapacityResidentService {
             await self.schedulerLoop(startWall: startWall, startMonotonic: startMonotonic)
         }
         scheduler = Scheduler(task: task, startWall: startWall, startMonotonic: startMonotonic)
-        Task { [self] in _ = await self.requestRefresh(reason: .launch) }
+        if fireImmediateLaunch {
+            Task { [self] in _ = await self.requestRefresh(reason: .launch) }
+        }
     }
 
     /// Feature OFF: stop the scheduler, scoped-cancel the in-flight generation

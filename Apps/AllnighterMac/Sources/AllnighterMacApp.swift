@@ -79,6 +79,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isTesting else { return }   // stay accessory under XCTest
+        // Circuit breaker: `…/Allnighter.app/…/Allnighter serve` must never become
+        // another Dock app (2026-08-10 mac-serve-fork-bomb). Serve is CLI-only.
+        if ServeAutoLaunch.isServeArgv() {
+            FileHandle.standardError.write(Data(
+                "Allnighter.app cannot run `serve`; use the `alln` CLI binary.\n".utf8
+            ))
+            Darwin.exit(EX_USAGE)
+        }
         // The handoff host is a process-level service, not window work — it must
         // start here, at application launch, BEFORE anything that can block or
         // hang: a hung or slow `bootstrap()` used to leave an open, visible app
@@ -100,19 +108,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // ONB-S02b: keep Application Support/Recipes in sync with the bundled cards
         // so Finder / agents find them without opening Settings.
         RecipeInstallMirror.sync()
-        // CWB-S01b: capacity feature — apply persisted ON/OFF. ON wires the
-        // resident's deadline scheduler and fires the immediate silent launch
-        // acquire; OFF means zero probes and a disabled snapshot. Wake is the
-        // other always-wired trigger (one coalesced refresh, no catch-up).
+        // CWB-S01b: capacity feature — apply persisted ON/OFF. ON re-arms the
+        // 30m deadline scheduler without an immediate vendor-CLI wave (Launch
+        // Authority TCC: cold launch is process-quiet). OFF means zero probes
+        // and a disabled snapshot. Wake remains the other always-wired trigger.
+        //
+        // Do NOT ServeAutoLaunch `alln serve` from the Dock app here: a Process
+        // child inherits Allnighter's TCC identity, so serve-hosted capacity
+        // probes paint Documents/Downloads/network dialogs as "Allnighter" on
+        // first open. Demand heal stays on `alln run` / Loop; continuity across
+        // logout is ServeLifecycle LaunchAgent (explicit enable), not app spawn.
         let capacityEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
         Task { await CapacityResidentService.shared.setEnabled(capacityEnabled) }
-        // SC-S03 demand heal: app open also ensures a live `alln serve`
-        // (probe → detached start), in addition to the resident capacity
-        // service. Fire-and-forget off the main actor — it never blocks UI,
-        // and a launch failure is swallowed by the ServeAutoLaunch contract.
-        Task.detached(priority: .utility) {
-            ServeAutoLaunch.ensureRunning(optedOut: false)
-        }
         capacityWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification, object: nil, queue: nil
         ) { _ in

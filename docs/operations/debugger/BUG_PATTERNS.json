@@ -2,6 +2,20 @@
   "version": 1,
   "patterns": [
     {
+      "id": "mac-cold-launch-must-stay-process-quiet",
+      "surface": "Apps/AllnighterMac/Sources/AllnighterMacApp.swift + CapacityResidentService + CapacityStripModel + RemoteAccountModel",
+      "seam": "AppDelegate / capacity re-arm / strip loadLive / remote bootstrap → vendor CLI or bash spawn under Dock TCC identity",
+      "law": "Mac cold launch is process-quiet before explicit Setup / Refresh / Enable / Run / sign-in. Capacity default-ON re-arms the 30m scheduler only (no immediate `.launch` wave). Strip `loadLive` paints placeholders only. Dock app must not ServeAutoLaunch. Persisted remote session is not consent to spawn relay. Native capacity headless spawns use ProbeScratch CWD.",
+      "proof": "scripts/swift-test.sh --filter 'CapacityFeatureOffTests|ServeAutoLaunchTests/testMacAppLaunchDoesNotDemandHealServe'; Mac AppModelTests capacity/remote source gates"
+    },
+    {
+      "id": "serve-autolaunch-must-not-reexec-mac-app-bundle",
+      "surface": "Packages/AllnighterCore/Sources/AllnighterEngine/ServeAutoLaunch.swift + Apps/AllnighterMac/Sources/AllnighterMacApp.swift",
+      "seam": "ServeAutoLaunch executable resolution → Process spawn → Mac @main",
+      "law": "ServeAutoLaunch must never exec a path under `.app/Contents/MacOS/`. Prefer the running CLI binary, then staged ServeStableBinary, then `alln` on PATH; fail closed otherwise. The Dock app must not call ensureRunning on launch, and must exit without activating when argv is `serve`.",
+      "proof": "scripts/swift-test.sh --filter ServeAutoLaunchTests"
+    },
+    {
       "id": "mac-composer-paste-owned-by-text-view",
       "surface": "Apps/AllnighterMac/Sources/AllnighterTextEditor.swift",
       "seam": "AppKit NSTextView pasteboard handling below the SwiftUI composer bridge",

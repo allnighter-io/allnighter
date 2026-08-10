@@ -1,5 +1,91 @@
 # Debug Log
 
+## 2026-08-10 — Mac first launch + many TCC / Dock popups (capacity + ServeAutoLaunch + relay)
+
+Tier: T3 Critical (permission regression, repeated Launch Authority leak)
+
+Symptom / repro: First open of Allnighter shows many macOS prompts
+(Documents / Downloads / network-volume class) attributed to Allnighter.
+Same-day fork-bomb packet covers Dock icons when demand-heal re-execs the
+`.app` as `serve`.
+
+Bug fingerprint:
+`AllnighterMac cold launch + capacity default-ON silent acquire + strip loadLive→refreshAll + ServeAutoLaunch under GUI TCC + remote relay bootstrap / Launch Authority process-quiet law bypassed`
+
+Truth owner: `CapacityResidentService.setEnabled` launch re-arm,
+`CapacityStripModel.loadLive`, `AppDelegate.applicationDidFinishLaunching`,
+`RemoteAccountModel.bootstrap`. macOS TCC owns final attribution.
+
+Lie-prone layer: H0–H6 / `LaunchAuthorityProbeTests` / `AppModelTests` cache
+gates stayed green while later launch-time spawners (capacity CWB, SC-S03
+ServeAutoLaunch, remote relay `.task`) walked past them.
+
+RCA: Capacity defaults ON and app launch re-armed with an immediate full-bench
+vendor-CLI wave; Home strip `loadLive` also called `refreshAll()` when no
+snapshot; SC-S03 spawned `ServeAutoLaunch` as a Dock-app child (TCC + fork-bomb
+when resolution returned the `.app` binary); remote bootstrap treated a
+persisted session as consent to spawn bash/swift under repo CWD. Native agy/
+codex capacity spawns also inherited ambient CWD (Documents in Xcode/dev).
+
+Fix boundary: Cold-launch re-arm wires the 30m scheduler only (no immediate
+`.launch`); explicit Enable (OFF→ON) still fires silent acquire;
+`loadLive` paints placeholders only; remove ServeAutoLaunch from AppDelegate;
+bootstrap refreshes pairing without relay spawn; ProbeScratch CWD on native
+agy/codex headless spawns. Do not add FDA.
+
+Proof:
+`scripts/swift-test.sh --filter 'CapacityResidentServiceTests|CapacityResidentDeadlineTests|CapacityWakeCoalesceTests|CapacityStripModelTests|ServeAutoLaunchTests|AppModelTests'`
+Kill tests:
+`testStartupWhenONWiresSchedulerWithoutSilentLaunch`,
+`testLoadLiveDoesNotProbe`,
+`testMacAppLaunchDoesNotDemandHealServe`,
+`testCapacityStripLoadLiveDoesNotCallRefreshAll`,
+`testRemoteBootstrapDoesNotEnsureRelayRunning`.
+
+Founder test: `tccutil reset All com.allnighter.mac` (or equivalent), open
+Allnighter, touch nothing → one Dock icon, zero Documents/Downloads/network
+dialogs before Refresh / Enable / Setup / Run.
+
+What was the agent allowed to do that must never be allowed again: Treat
+"feature ON at launch" or "persisted remote session" as consent to spawn
+vendor CLIs / serve / relay under the Dock app's TCC identity, while leaving
+Launch Authority gates scoped only to CLIDetector.
+
+Packet: `docs/operations/debugger/2026-08-10-first-launch-tcc-popups-PACKET.md`
+Related: `docs/operations/debugger/2026-08-10-mac-serve-fork-bomb-PACKET.md`
+
+---
+
+## 2026-08-10 — Mac app demand-heal Dock fork bomb
+
+Tier: T3 Critical
+
+Symptom / repro: Opening Debug `Allnighter.app` flooded the Dock with identical
+running icons; process table was mostly
+`…/Allnighter.app/Contents/MacOS/Allnighter serve`.
+
+Bug fingerprint: Mac app launch + ServeAutoLaunch.ensureRunning + re-exec of
+`.app/Contents/MacOS` as `serve` + GUI `@main` ignores CLI → infinite Dock
+instances
+
+Truth owner: `ServeAutoLaunch.resolveServeExecutablePath` / `ensureRunning`
+(CLI-only). Lie-prone layer: "same running binary" self-relaunch.
+
+RCA: SC-S03 demand heal from the Dock app spawned the app binary with argv
+`serve`. Children painted Dock icons and demand-healed again. Probe never
+became `.available`.
+
+Fix: refuse `.app/Contents/MacOS/` in ServeAutoLaunch; resolve staged/`alln` on
+PATH instead; Mac app circuit-breaks `serve` argv and does not call
+`ensureRunning` on launch (TCC + fork bomb).
+
+Packet: `docs/operations/debugger/2026-08-10-mac-serve-fork-bomb-PACKET.md`
+Proof: `scripts/swift-test.sh --filter ServeAutoLaunchTests`
+What must never be allowed again: ServeAutoLaunch must never exec a path under
+`.app/Contents/MacOS/`.
+
+---
+
 ## 2026-08-09 — SC-S00a rebuild experiment (Serve Continuity)
 
 Tier: T3 investigation (no product fix)

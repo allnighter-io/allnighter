@@ -234,6 +234,11 @@ public enum CodexNativeCapacityProbe {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = argv
+        // Same ProbeScratch rule as CapacityProbe / CapacityPaneReader.runHeadless —
+        // never inherit Documents/Xcode CWD under the Dock app's TCC identity.
+        if let scratch = CapacityProbe.neutralWorkingDirectory() {
+            process.currentDirectoryURL = URL(fileURLWithPath: scratch, isDirectory: true)
+        }
         let stdinPipe = Pipe()
         let stdoutPipe = Pipe()
         process.standardInput = stdinPipe

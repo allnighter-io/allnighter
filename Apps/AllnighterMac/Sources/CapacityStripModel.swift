@@ -267,14 +267,13 @@ final class CapacityStripModel {
             )
             needsLiveRefresh = false
         } else {
+            // Process-quiet launch (Launch Authority TCC): paint placeholders
+            // only. Never start a vendor-CLI wave from first paint — Refresh /
+            // Enable / serve-hosted refresh own live acquire.
             let bench = CapacityFetch.launchSnapshot()
             now = bench.now
             windows = bench.windows
             needsLiveRefresh = true
-            // Startup when ON fires a silent .launch through the resident;
-            // coalesce on it so the strip paints as soon as it settles
-            // (launch may show warming — timer ticks never do).
-            refreshAll()
         }
     }
 
