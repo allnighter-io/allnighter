@@ -63,7 +63,13 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 
 | Order | Doc | Status |
 | --- | --- | --- |
-| ASR-S00 | [`alln-serve/ASR-S00-launchd-isolation-harness.md`](alln-serve/ASR-S00-launchd-isolation-harness.md) | **ready** |
+| ASR-S00 | [`alln-serve/ASR-S00-launchd-isolation-harness.md`](alln-serve/ASR-S00-launchd-isolation-harness.md) | **done** — `e775d586`; matrix in [`docs/qa/alln-serve/`](../../qa/alln-serve/ASR-S00-code-identity-matrix.md) |
+| ASR-S01a | [`alln-serve/ASR-S01a-canonical-binary-owner.md`](alln-serve/ASR-S01a-canonical-binary-owner.md) | **ready** |
+
+ASR-S01 is cut into three sub-slices: **S01a** canonical binary owner (this),
+**S01b** rewire `InstallCLI.run` + CLI JSON onto the canonical path, **S01c**
+`get-alln.sh` / `rebuild_cli.sh` converge on `install-cli`. `ServeStableBinary`
+is deleted in ASR-S02/S04 once its callers move, never in S01.
 
 _None other code work orders active — CT-S04 done; archive S123 when ready._
 

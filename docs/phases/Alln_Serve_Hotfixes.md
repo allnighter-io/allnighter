@@ -350,6 +350,23 @@ re-reads deadlines is an implementation choice for ASR-S03; the bound is not.
 
 ### 4.5 Code identity across replacement — the load-bearing assumption
 
+> **SETTLED 2026-08-10 by ASR-S00.** The assumption below is **confirmed**, and
+> the branch that would have required a signing slice did **not** fire. Measured
+> record: [`docs/qa/alln-serve/ASR-S00-code-identity-matrix.md`](../qa/alln-serve/ASR-S00-code-identity-matrix.md).
+> Case (a) — bootout → atomic rename → bootstrap — passed on all three signing
+> tracks including ad-hoc, with an image-derived `buildTag` proving the
+> replacement binary was loaded. §4.3's ordering stands as the invariant.
+>
+> Case (b) — atomic rename underneath a loaded KeepAlive job, no rebind — also
+> passed on all three tracks: launchd re-exec'd the new bytes with no LWCR
+> refusal and no `exit 78`. **Changing an ad-hoc binary's cdhash under a loaded
+> agent does not, by itself, reproduce the 2026-08-09 wedge.** The incident's
+> root cause is therefore still unidentified and is not what §4.5 originally
+> assumed. Keep the bootout bracketing as the conservative posture — it is
+> proven sufficient — but do not treat it as a fix for the original incident.
+> The residual LWCR cause is tracked as a separate investigation, not a
+> prerequisite for ASR-S01.
+
 This is the seam that opened the incident and it must be named, not implied.
 
 The 2026-08-09 failure was launchd refusing to exec before Swift `main` ran, with
@@ -405,6 +422,18 @@ ASR-S00 therefore tests the signed arm too. If team-signed replacement survives
 where ad-hoc does not, signing is **promoted from a distribution nicety to a
 prerequisite of §2.5**, and a signing slice lands before ASR-S01 rather than
 after the packet closes.
+
+> **MEASURED 2026-08-10 by ASR-S00: signing is NOT a prerequisite.** All three
+> tracks — ad-hoc, `Apple Development (7RU34H8XPD)`, and
+> `Developer ID Application: Happy Moose Apps Inc. (LP5YNK7A36)` — behaved
+> identically across both replacement cases. Ad-hoc did not fail where a signed
+> track succeeded, so signing stays a distribution question and ASR-S01 proceeds
+> on the ad-hoc track unchanged.
+>
+> Correction to the bullet below: the **Developer ID Application certificate is
+> already present on the build host** (Happy Moose Apps Inc., LP5YNK7A36) and was
+> used in the ASR-S00 matrix. The remaining distribution gap is notarization and
+> the choice of publishing identity, not certificate acquisition.
 
 Facts this packet does not overstate:
 
@@ -884,9 +913,11 @@ Dock app, reboot, `kickstart`, or agent intervention.
 
 ## 10. Done when
 
-- [ ] ASR-S00 settled the §4.5 code-identity assumption on a real host across
+- [x] ASR-S00 settled the §4.5 code-identity assumption on a real host across
   both signing tracks, and the bootout-before-replacement invariant is either
-  confirmed or replaced by the §4.6 signing slice.
+  confirmed or replaced by the §4.6 signing slice. — **done 2026-08-10**
+  (`e775d586`); confirmed on three tracks, no signing slice required; residual
+  LWCR root cause remains open as a separate investigation.
 - [ ] CLI-only install enables and actively verifies one supervised serve by
   default, with a disclosed opt-out.
 - [ ] PATH, launchd, health, and update name one canonical installed binary, and
