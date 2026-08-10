@@ -1,16 +1,17 @@
 # Phase 123 — OpenCode Long-Run & Concurrent Continuity
 
-Status: **ARCHIVE READY — CT-08 coded; doc closeout + archive remain**
-Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`, `OpenCodeRoutingWorkerRunner`,
-`OpenCodeServeCoordinator`, `OpenCodeSpawnLock`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
-`observation`, outcome gates)
+Status: **COMPLETE — S123 shipped 2026-08-07; CT-08 (CT-S04) coded; ARCHIVED 2026-08-09.**
+  Code SSOT: AgentOS `OpenCodeServeClient`, `OpenCodeSSEParser`,
+  `OpenCodeRoutingWorkerRunner`, `OpenCodeServeCoordinator`, `OpenCodeSpawnLock`;
+  Allnighter `OpenCodeOutcomeAuthority`, `RunService`. Help: `opencode_headless_completion`.
+Owner: code SSOT above (not this archive).
+Home: was `docs/phases/` — archived after ship.
 Created: 2026-08-07
-Updated: 2026-08-07 (live dogfood gates 1–3)
+Updated: 2026-08-09 (closeout)
 
-**Follow-up (implementation status):**
+**Follow-up (archived with parent):**
 [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md)
-— CT-01…07,09,11–13 coded with unit proofs. **Dogfood green** (2026-08-07).
-Remaining: CT-08 lock-gated sibling code slice; CT-10 deferred.
+— CT-01…09,11–13 coded; CT-10 deferred.
 
 **Successor to archived**
 [`OpenCode_Headless_Completion_And_Session_Scoping.md`](../archive/phases/OpenCode_Headless_Completion_And_Session_Scoping.md)

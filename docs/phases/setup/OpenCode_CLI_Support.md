@@ -357,7 +357,7 @@ Historical packet: archived
 **Forward:** long-run / concurrent continuity — **dogfood green** (2026-08-07).
 Remaining before archive: CT-08 lock-gated sibling `external_directory` code slice;
 help topic amendment (`opencode_headless_completion`). Follow-up:
-[`OpenCode_Completion_Truth_Followup.md`](../OpenCode_Completion_Truth_Followup.md).
+[`OpenCode_Completion_Truth_Followup.md`](../archive/phases/OpenCode_Completion_Truth_Followup.md).
 
 **Serve reuse (`OpenCode_Serve_Attach.md`, OSA-S00/S01 shipped):** port `:4096`
 does **not** need to be free. A healthy `opencode serve` — ours or a leftover
@@ -377,8 +377,8 @@ non-OpenCode process on the port refuses (health-check timeout, never SIGTERM).
 | --- | --- |
 | Driver implementation | This doc → `antigravity.json` → `docs/archive/phases/CLI_Implementation_Contract.md` |
 | Completion honesty | Archived `OpenCode_Headless_Completion_And_Session_Scoping.md` → code SSOT above |
-| Long runs / concurrency / subagent hang | [`OpenCode_Long_Run_Continuity.md`](../OpenCode_Long_Run_Continuity.md) — dogfood green; CT-08 code slice open |
-| CT follow-up / completion-truth defects | [`OpenCode_Completion_Truth_Followup.md`](../OpenCode_Completion_Truth_Followup.md) |
+| Long runs / concurrency / subagent hang | Archived [`OpenCode_Long_Run_Continuity.md`](../archive/phases/OpenCode_Long_Run_Continuity.md) — dogfood green; shipped |
+| CT follow-up / completion-truth defects | Archived [`OpenCode_Completion_Truth_Followup.md`](../archive/phases/OpenCode_Completion_Truth_Followup.md) |
 | Streaming posture | `threads/03_Mac_Streaming.md` (OpenCode = final-output V1) |
 | Background coordinator | `Mac_Standalone_App_And_Background_Coordinator.md` |
 | Setup/detect | `01_CLI_Detection_Auth_And_Bench.md` |

@@ -40,8 +40,8 @@ blocks all OpenCode seats including local),
 read its §3 rejected list before proposing any auto-routing),
 [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) (a signal answers
 only for the source that produced it),
-[`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) /
-[`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md)
+[`OpenCode_Long_Run_Continuity.md`](../archive/phases/OpenCode_Long_Run_Continuity.md) /
+[`OpenCode_Completion_Truth_Followup.md`](../archive/phases/OpenCode_Completion_Truth_Followup.md)
 (OpenCode completion honesty — local models stress it harder, see §12),
 [`Ambient_Dirty_Run_Outcome.md`](../archive/phases/Ambient_Dirty_Run_Outcome.md) (`--no-commit` /
 dirty-tree outcome honesty — shared ship blocker).

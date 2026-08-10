@@ -79,7 +79,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | OpenCode local / Ollama seats; frontier→local labor; local-vs-cloud benchmark proposals | Open packet **1 of 3**: `docs/phases/OpenCode_Local_Ollama_Seats.md` — frontier plans, local executes; code unauthorized until ready |
 | Context Firewall / egress ledger / root-less dispatch; privacy buyers | Open packet **2 of 3**: `docs/phases/Context_Firewall.md` — auditable egress, never sanitisation; root-less dispatch undesigned |
 | Second Mac / LAN bench / remote `OLLAMA_HOST` | Open packet **3 of 3**: `docs/phases/Second_Mac_Bench.md` — fence only; refuse cross-host mutators |
-| OpenCode long runs / `stream_drop` / `task` hang | Open: `docs/phases/OpenCode_Long_Run_Continuity.md` + `OpenCode_Completion_Truth_Followup.md`; code SSOT AgentOS `OpenCode*` + `OpenCodeOutcomeAuthority` |
+| OpenCode long runs / `stream_drop` / `task` hang | Archived `docs/archive/phases/OpenCode_Long_Run_Continuity.md` + `OpenCode_Completion_Truth_Followup.md`; code SSOT AgentOS `OpenCode*` + `OpenCodeOutcomeAuthority`; help `opencode_headless_completion` |
 | OpenCode long mutating under-ship / commit dogfood | **Closed 2026-08-09** — help `opencode_mutating_commit_contract`; archive `OpenCode_Mutating_Long_Run_Hardening.md` |
 | OpenCode empty turn / stall mid-`task` / seat timeout 2× | **Closed 2026-08-09** — OCH; archive `OpenCode_Turn_Capture_Hardening.md`; help `opencode_headless_completion` |
 | Smart / auto model routing, economy vs balanced seats, "always prefer vendor X" | Brainstorm only: `docs/phases/Scarcity_Aware_Routing.md` — read §3 rejected list first |

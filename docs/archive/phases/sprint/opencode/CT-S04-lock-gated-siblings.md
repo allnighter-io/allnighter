@@ -1,7 +1,7 @@
 # CT-S04 — Lock-gated sibling `external_directory`
 
 Status: **done** (Grok 4.5 run `C1404143`, commits AgentOS `d82b070` + Allnighter `99aa2c70`)
-SSOT: [`OpenCode_Completion_Truth_Followup.md`](../../OpenCode_Completion_Truth_Followup.md) CT-08
+SSOT: [`OpenCode_Completion_Truth_Followup.md`](../../../OpenCode_Completion_Truth_Followup.md) CT-08
 Model: **Grok 4.5** (`model_cursor_grok_45`)
 
 ## Goal

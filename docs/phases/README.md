@@ -43,9 +43,10 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 > Run-completion work outranks sensor work: capacity informs selection but never
 > blocks a run, while `:4096` collisions stop the bench outright.
 > ~~**0.** Run readout~~ · ~~**0.5** Ambient dirty~~ closed 2026-08-08.
-> **Ollama is NOT authorised** — the queue ends at 5. The 2026-08-09 local-work
-> split (Ollama seats → Context Firewall → Second Mac) is **document work only**;
-> none of the three packets is authorised for code.
+> **Ollama is NOT authorised for code** — the founder queue ended at item 6 (Probe
+> Freshness archived). The 2026-08-09 local-work split (Ollama seats → Context
+> Firewall → Second Mac) is **document work only**; none of the three packets is
+> authorised for code.
 > Everything below the queue is unordered backlog.
 
 | Doc | Status | Next action |
@@ -56,8 +57,6 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Context_Firewall.md`](Context_Firewall.md) | **SPEC — packet 2 of 3; no code authorized** | Per-root `egress: open\|abstracted\|local_only` + verbatim egress ledger. Claim is **auditable, never sanitised** (§4.1) — copy review is a blocking test. Blocked on root-less dispatch design (§6) and packet 1's outcome-honesty bug. Regulated tier is bottom-up optionality, not roadmap (§3.3). |
 | [`Second_Mac_Bench.md`](Second_Mac_Bench.md) | **V2 STUB — packet 3 of 3; not started** | Scope fence for the two-machine problem. Shelved LAN architecture stays shelved; three narrow doors recorded (D1 remote inference URL only). Cannot open until packets 1 and 2 land + a founder ruling names the door. |
 | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then scheduler** | One 30m freshness clock; scoped kill before timer. Background schedulers on `alln serve` (reconciled 2026-08-09). |
-| [`Capacity_Serve_Refresh_Polish.md`](../archive/phases/Capacity_Serve_Refresh_Polish.md) | **COMPLETE — archived 2026-08-09** | CRS-S02/S01/S04/S03 shipped (S05 deferred). Code SSOT `CapacityRefreshScheduler` + attempt ledger. |
-| [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) | **READY — T3 diagnosis complete** | Code red: prove Codex → LaunchServices authority, then make one `alln run` self-starting with no stale queued work. |
 | [`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) | **OPEN — code-complete; one dogfood proof remains** | Wall-crossing resume half blocked on Codex real reset (2026-08-04). Code SSOT: `CapacityDisplayAcquisition`, `MenuCatalog`, `LoopCoordinator`, `VendorBackoffReconciler`. |
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
@@ -71,9 +70,6 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | --- | --- | --- |
 | [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) | **Live — 3 of 5 slices shipped** | Capacity signals must be owned per source. S01/S02 + S03-AgentOS shipped (AgentOS `6f66bdd`, `1d0f64f`); S05 shipped (`bc2311ea`). Open: label separation, S04 manifest signals, S06 AGY scoping. S03 persisted parks blocked on a founder ruling (§10.1). |
 | [`Agent_Teaching_Surface.md`](Agent_Teaching_Surface.md) | Open — sequenced after Vendor Signal Isolation | `alln bootstrap` teaching block ships retired vocabulary; narrow the paste, gate the block, add a delegation help topic. |
-| [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) | **ARCHIVE READY** | Dogfood + CT-08 coded; archive + promote next. |
-| [`OpenCode_Mutating_Long_Run_Hardening.md`](../archive/phases/OpenCode_Mutating_Long_Run_Hardening.md) | **COMPLETE — archived 2026-08-09** | OMH-S01…S05 shipped; help + playbook + multi-file harness. |
-| [`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md) | **COMPLETE** | CT-10 deferred; archive with S123. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
 | [`CLI_Product_Spine.md`](CLI_Product_Spine.md) | Open naming spine | Archive when no forward CLI naming work remains. |
@@ -107,6 +103,7 @@ Verified against code/commits; full index:
 | Packet | Why archived | Successor |
 | --- | --- | --- |
 | [`Probe_Freshness.md`](../archive/phases/Probe_Freshness.md) | **CLOSED (2026-08-09)** — PF-S00…S03b: expire-at-projection, disclosure, vendor-signal sibling, serve capacity refresh, `lastDetectedAt` split + run capability clock, founder B periodic full probe smoke (`ProbeRecordRefreshScheduler`). | Code SSOT: `ProbeFreshnessGate`, `ProbeFreshnessDisclosure`, `SourceProbeService`, `CensusIngest`, `ProbeRecordRefreshScheduler`, `RunService`; vocabulary: `Product_Vocabulary.md` §Probe freshness |
+| [`OpenCode_Long_Run_Continuity.md`](../archive/phases/OpenCode_Long_Run_Continuity.md) | **CLOSED (2026-08-09)** — S123 long-run/concurrent continuity; CT follow-up archived with parent. CT-10 deferred. | Help `opencode_headless_completion`; code SSOT AgentOS `OpenCodeServeClient` / `OpenCodeSSEParser` / `OpenCodeRoutingWorkerRunner` |
 | [`OpenCode_Turn_Capture_Hardening.md`](../archive/phases/OpenCode_Turn_Capture_Hardening.md) | **CLOSED (2026-08-09)** — OCH-S01…S04: actor parser last-assistant-only, harden post-idle reconcile, busy/idle-defer + clock injection, shared seat timeout budget. AgentOS `65da768`. | Help `opencode_headless_completion`; code SSOT AgentOS `OpenCodeSSEParser` / `OpenCodeServeClient` / `OpenCodeRoutingWorkerRunner` |
 | [`Ambient_Dirty_Run_Outcome.md`](../archive/phases/Ambient_Dirty_Run_Outcome.md) | **CLOSED (2026-08-08)** — S122.3 blamed the seat for the user's pre-existing WIP, failing honest zero-edit answers as `incomplete_uncommitted`, and stamped `empty_output` on delivered text. S01 dirty-vs-start, S02 delivered≠empty, S03 help. | Help `opencode_headless_completion`; code SSOT `RunService` (`startDirtyPaths`, S122.3 gate, `applyIncompleteUncommitted`) |
 | [`Run_Readout_Truth.md`](../archive/phases/Run_Readout_Truth.md) | **CLOSED (2026-08-08)** — a completed Spec Review carrying a Ready verdict read as a crashed run. S02 teaching v11, S03 honest `outcome.headline`, S04 wired `errors` (was a hardcoded `[]`). S01 dropped: `outcome.status` already answers did-it-work, and nothing was affordable to delete for a new field. Cold-agent gate passed on three real runs. | `One_Run_Surface.md` §"What the terminal snapshot must say"; code SSOT `TeamRunJSONMapper` (`runErrors`, `outcomeHeadline`), `LeadCallParser`, `TeachingSnippet` |

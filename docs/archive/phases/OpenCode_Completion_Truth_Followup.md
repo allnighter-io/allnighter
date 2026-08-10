@@ -1,11 +1,13 @@
 # OpenCode Completion-Truth Follow-up
 
-Status: **COMPLETE — CT-10 deferred; archive S123 next**
-Owner: AgentOS (`OpenCodeServeClient`, `OpenCodeSSEParser`, `OpenCodeServeCoordinator`,
-`OpenCodePermissionPolicy`, `DriverConcurrencyGate`) + Allnighter (`RunService`,
-`OpenCodeOutcomeAuthority`)
+Status: **COMPLETE — CT-01…09,11–13 shipped; CT-10 deferred; ARCHIVED 2026-08-09.**
+  Code SSOT: AgentOS `OpenCodeServeClient`, `OpenCodeSSEParser`,
+  `OpenCodeServeCoordinator`, `OpenCodePermissionPolicy`, `DriverConcurrencyGate`;
+  Allnighter `OpenCodeOutcomeAuthority`, `RunService`. Help: `opencode_headless_completion`.
+Owner: code SSOT above (not this archive).
+Home: was `docs/phases/` — archived with parent S123.
 Created: 2026-08-07
-Updated: 2026-08-07 (live dogfood gates 1–3)
+Updated: 2026-08-09 (closeout)
 Parent: [`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) (S123)
 Origin audit: `alln` run `7E8E0930-FA7E-4345-8760-A2D386798B95`
 (DeepSeek V4 Pro via `--team code_plan --model model_opencode_deepseek_v4_pro`)
