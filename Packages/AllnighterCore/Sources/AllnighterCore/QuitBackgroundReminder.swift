@@ -1,10 +1,11 @@
 import Foundation
 
-/// Quit-time teaching for background features that outlive (or die with) the
-/// Dock app. Pure evaluation — AppKit presents; this type never shows UI.
+/// Quit-time teaching for background features the Dock app does not own.
+/// Pure evaluation — AppKit presents; this type never shows UI.
 ///
-/// Capacity needs the Dock process. Boost needs the Mac awake at seed time
-/// (`alln serve`), not the app — do not teach "leave the app open for Boost."
+/// Capacity refresh lives in `alln serve` — do not teach "leave the app open
+/// for capacity." Boost needs the Mac awake at seed time (`alln serve`), not
+/// the app — do not teach "leave the app open for Boost."
 public struct QuitBackgroundReminder: Equatable, Sendable {
     public let bullets: [String]
 
@@ -12,21 +13,15 @@ public struct QuitBackgroundReminder: Equatable, Sendable {
         self.bullets = bullets
     }
 
-    /// Returns a reminder when Capacity and/or Boost is ON and the user has not
-    /// suppressed the sheet. Empty / irrelevant → `nil` (quit immediately).
+    /// Returns a reminder when Boost is ON and the user has not suppressed the
+    /// sheet. Empty / irrelevant → `nil` (quit immediately).
     public static func evaluate(
-        capacityEnabled: Bool,
         boostEnabled: Bool,
         boostWindowStart: Int,
         suppressed: Bool
     ) -> QuitBackgroundReminder? {
         guard !suppressed else { return nil }
         var bullets: [String] = []
-        if capacityEnabled {
-            bullets.append(
-                "Capacity stays warm for alln only while this app is open."
-            )
-        }
         if boostEnabled {
             let seed = BoostWindowTiming.seedFiresAt(boostWindowStart)
             let time = BoostWindowTiming.formatMinutes(seed)

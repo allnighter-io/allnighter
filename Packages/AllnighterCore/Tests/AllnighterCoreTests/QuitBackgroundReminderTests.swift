@@ -3,41 +3,24 @@ import XCTest
 import AllnighterCore
 
 final class QuitBackgroundReminderTests: XCTestCase {
-    func testBothOffReturnsNil() {
+    func testBoostOffReturnsNil() {
         XCTAssertNil(QuitBackgroundReminder.evaluate(
-            capacityEnabled: false,
             boostEnabled: false,
             boostWindowStart: 8 * 60,
             suppressed: false
         ))
     }
 
-    func testSuppressedReturnsNilEvenWhenFeaturesOn() {
+    func testSuppressedReturnsNilEvenWhenBoostOn() {
         XCTAssertNil(QuitBackgroundReminder.evaluate(
-            capacityEnabled: true,
             boostEnabled: true,
             boostWindowStart: 8 * 60,
             suppressed: true
         ))
     }
 
-    func testCapacityOnly() {
+    func testBoostOnIncludesSeedTime() throws {
         let reminder = QuitBackgroundReminder.evaluate(
-            capacityEnabled: true,
-            boostEnabled: false,
-            boostWindowStart: 8 * 60,
-            suppressed: false
-        )
-        XCTAssertEqual(reminder?.bullets.count, 1)
-        XCTAssertEqual(
-            reminder?.bullets.first,
-            "Capacity stays warm for alln only while this app is open."
-        )
-    }
-
-    func testBoostOnlyIncludesSeedTime() throws {
-        let reminder = QuitBackgroundReminder.evaluate(
-            capacityEnabled: false,
             boostEnabled: true,
             boostWindowStart: 8 * 60,
             suppressed: false
@@ -52,19 +35,6 @@ final class QuitBackgroundReminderTests: XCTestCase {
         XCTAssertTrue(bullet.contains("Mac awake"))
         XCTAssertFalse(bullet.lowercased().contains("app is open"),
                        "Boost must not teach leaving the app open")
-    }
-
-    func testBothFeaturesTwoBullets() throws {
-        let reminder = QuitBackgroundReminder.evaluate(
-            capacityEnabled: true,
-            boostEnabled: true,
-            boostWindowStart: 8 * 60,
-            suppressed: false
-        )
-        XCTAssertEqual(reminder?.bullets.count, 2)
-        let text = try XCTUnwrap(reminder?.informativeText)
-        XCTAssertTrue(text.contains("• Capacity"))
-        XCTAssertTrue(text.contains("• Boost"))
     }
 
     func testPersistenceRoundTrip() throws {

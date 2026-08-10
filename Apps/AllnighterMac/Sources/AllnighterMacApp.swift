@@ -40,13 +40,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         capacitySocketServer = nil
     }
 
-    /// Capacity / Boost quit teaching. Logic SSOT: `QuitBackgroundReminder`.
+    /// Boost quit teaching. Logic SSOT: `QuitBackgroundReminder`.
     private func presentQuitBackgroundReminderIfNeeded() -> NSApplication.TerminateReply {
-        let capacityEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
         let boost = BoostWindowSettingsPersistence().load()
         let suppressStore = QuitBackgroundReminderPersistence()
         guard let reminder = QuitBackgroundReminder.evaluate(
-            capacityEnabled: capacityEnabled,
             boostEnabled: boost.enabled,
             boostWindowStart: boost.windowStart,
             suppressed: suppressStore.loadSuppressed()
