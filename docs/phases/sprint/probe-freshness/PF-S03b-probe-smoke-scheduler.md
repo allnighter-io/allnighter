@@ -1,6 +1,7 @@
 # PF-S03b — Serve-hosted periodic probe smoke (founder B)
 
-Status: ready  
+Run: `28A5D3B3-A034-45E8-83A3-888108EFF270` (DeepSeek V4 Pro)
+Status: in_progress  
 Slice: PF-S03b (small)  
 SSOT: [`docs/phases/Probe_Freshness.md`](../../Probe_Freshness.md) §PF-S03 missing decision + founder B (2026-08-09)  
 Executor: `model_opencode_deepseek_v4_pro` (founder-routed)
