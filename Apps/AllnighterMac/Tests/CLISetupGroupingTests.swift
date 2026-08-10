@@ -11,13 +11,33 @@ final class CLISetupGroupingTests: XCTestCase {
             headlessTrust: nil)
     }
 
-    func testNotCheckedWithModelsOnBenchIsAttentionNotDormant() {
-        let cards = [card("muse", state: .notChecked)]
-        let onBench: (String) -> [String] = { $0 == "muse" ? ["Muse Spark 1.2"] : [] }
+    func testCatalogAbsencesAreNotNeedsAttention() {
+        // Dropdown / chrome: notInstalled and notChecked are catalog, not "need a step".
+        XCTAssertFalse(CLIStatusGroup.isAttention(.notInstalled))
+        XCTAssertFalse(CLIStatusGroup.isAttention(.notChecked))
+        let cards = [
+            card("agy", state: .notInstalled),
+            card("muse", state: .notChecked),
+            card("claude_code", state: .probeFailed),
+        ]
+        let onBench: (String) -> [String] = { _ in [] }
+        XCTAssertEqual(
+            CLISetupGrouping.attentionCards(from: cards, onModelNames: onBench).map(\.driverId),
+            ["claude_code"])
+        XCTAssertEqual(
+            CLISetupGrouping.notInstalledCards(from: cards).map(\.driverId),
+            ["agy"])
+    }
 
-        XCTAssertEqual(CLISetupGrouping.attentionCards(from: cards, onModelNames: onBench).map(\.driverId), ["muse"])
-        XCTAssertTrue(CLISetupGrouping.dormantCards(from: cards, onModelNames: onBench).isEmpty)
-        XCTAssertTrue(CLIStatusGroup.isAttention(.notChecked))
+    func testProbeFailedAndNeedsLoginAreAttention() {
+        let cards = [
+            card("cursor_agent", state: .probeFailed),
+            card("codex", state: .needsLogin),
+        ]
+        let onBench: (String) -> [String] = { _ in [] }
+        XCTAssertEqual(
+            CLISetupGrouping.attentionCards(from: cards, onModelNames: onBench).map(\.driverId),
+            ["cursor_agent", "codex"])
     }
 
     func testReadyWithNoModelsOnBenchIsDormant() {

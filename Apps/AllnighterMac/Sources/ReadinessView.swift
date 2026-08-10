@@ -41,8 +41,10 @@ struct TeamReadinessView: View {
     private func seedSelection() {
         if let focus = focusDriverId, cards.contains(where: { $0.driverId == focus }) {
             selectedId = focus
-        } else if let first = (attentionCards.first ?? rateLimitedCards.first ?? readyCards.first ?? dormantCards.first ?? parkedCards.first ?? cards.first)?.driverId {
+        } else if let first = (attentionCards.first ?? rateLimitedCards.first ?? readyCards.first ?? dormantCards.first ?? parkedCards.first)?.driverId {
             selectedId = first
+        } else {
+            selectedId = nil
         }
     }
 

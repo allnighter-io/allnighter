@@ -606,9 +606,10 @@ struct BenchHealthPopover: View {
     private var cards: [SetupCardModel] { model.setupCards }
 
     // CLI-setup redesign §2: grouped CLI rows — Needs attention → Ready → Dormant → Parked.
-    // Rows are tappable (opens CLI setup for that driver); no in-popover selection ring.
+    // Machine-recognized only — `.notInstalled` / `.notChecked` stay out of this panel
+    // (catalog absences; full setup lists "Not installed" separately).
     // Ready = installed + signed in + ≥1 model ON; Dormant = ready CLI with 0 models on;
-    // Needs attention = sign-in, probe, not-checked, etc.; Parked = user ignored (listed last).
+    // Needs attention = sign-in / path / probe failure on a found CLI; Parked last.
     private var attentionCards: [SetupCardModel] {
         CLISetupGrouping.attentionCards(from: cards, onModelNames: onModelNames(for:))
     }
@@ -731,6 +732,11 @@ struct BenchHealthPopover: View {
 /// Partitions setup cards into the CLI-setup redesign groups (Needs attention → Ready
 /// → Dormant → Parked). Dormant means ready with zero models on bench — not
 /// "unchecked" or "needs sign-in".
+///
+/// **Machine-recognized only in Needs attention / Ready / Dormant / Parked /
+/// Rate limited.** `.notInstalled` and `.notChecked` are catalog absences — they
+/// are not "needs a step" on this Mac (chrome `BenchTally.needsStep` already
+/// excludes them). Full CLI setup may still list absences separately.
 enum CLISetupGrouping {
     static func attentionCards(
         from cards: [SetupCardModel],
@@ -760,6 +766,12 @@ enum CLISetupGrouping {
     static func rateLimitedCards(from cards: [SetupCardModel]) -> [SetupCardModel] {
         cards.filter { $0.state == .rateLimited }
     }
+
+    /// Supported but not found on this machine — setup-page discovery only;
+    /// never the CLIs dropdown (that surface is machine-recognized seats).
+    static func notInstalledCards(from cards: [SetupCardModel]) -> [SetupCardModel] {
+        cards.filter { $0.state == .notInstalled }
+    }
 }
 
 /// Which redesign group a CLI row belongs to — drives the status dot, content, and
@@ -768,13 +780,14 @@ enum CLISetupGrouping {
 enum CLIStatusGroup {
     case attention, rateLimited, ready, dormant, parked
 
-    /// Needs a setup step or in-progress check (vs. dormant = ready with 0 models on).
+    /// Needs a setup step or in-progress check on a CLI **recognized on this
+    /// machine** (vs. dormant = ready with 0 models on; vs. catalog absence).
     static func isAttention(_ state: SetupCardState) -> Bool {
         switch state {
-        case .needsLogin, .needsPath, .notInstalled, .probeFailed, .waiting,
-             .notChecked, .installedNotProbed, .detecting, .reprobing, .queued:
+        case .needsLogin, .needsPath, .probeFailed, .waiting,
+             .installedNotProbed, .detecting, .reprobing, .queued:
             return true
-        case .ready, .parked, .rateLimited:
+        case .ready, .parked, .rateLimited, .notInstalled, .notChecked:
             return false
         }
     }
