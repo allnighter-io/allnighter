@@ -216,8 +216,8 @@ clear; they do not exit(0) in a KeepAlive death loop.
 | **SC-S01** | **DONE 2026-08-09** (`867d72e3`) — `ServeLifecycle` removal + `alln serve repair`. No register/enable. | `scripts/swift-test.sh --filter ServeLifecycleTests` |
 | **SC-S03** | **DONE 2026-08-09** (`861578aa`) — `alln run` + Mac app launch call `ServeAutoLaunch.ensureRunning`. | `scripts/swift-test.sh --filter ServeAutoLaunchTests` |
 | **SC-S04a** | **DONE 2026-08-09** (`ef75ec50`) — `ServeStableBinary` stages copy under Application Support/Allnighter/CLI/alln. | `scripts/swift-test.sh --filter ServeStableBinaryTests` |
-| **SC-S04b** | Product-owned LaunchAgent enable/disable pointing at staged binary (`serve enable` / `disable`). Migrate leftover CODE_RED label. | Filtered lifecycle tests + host enable/disable smoke |
-| **SC-S02** | `install-cli` + `rebuild_cli` refresh staged binary **and** re-bind agent when enabled (same transaction). | Rebuild → kill → agent returns with new staged binary |
+| **SC-S04b** | **DONE 2026-08-09** (`b7eecd78`) — `serve enable`/`disable` own LaunchAgent on staged binary. Works Test 11/11. | `scripts/swift-test.sh --filter ServeLifecycleEnableTests` |
+| **SC-S02** | **DONE 2026-08-09** (`5de87193`) — install-cli refreshes staged binary; rebinds LaunchAgent when enabled. Works Test 9/9. | `scripts/swift-test.sh --filter ServeInstallRefreshTests` |
 | **SC-S04** | ~~monolith~~ → split into S04a/S04b; logout/login Works Test after S02. | Serve returns after login |
 | **SC-S05** | Admission PID identity harden (**separate**). | Recycled-pid fixture |
 

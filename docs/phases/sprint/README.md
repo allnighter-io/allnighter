@@ -45,7 +45,7 @@ Each sprint file must fit on **one to two screens** and include:
 | Serve Continuity SC-S03 | [`serve-continuity/SC-S03-demand-heal.md`](serve-continuity/SC-S03-demand-heal.md) | **done** — `861578aa` |
 | Serve Continuity SC-S04a | [`serve-continuity/SC-S04a-stable-binary.md`](serve-continuity/SC-S04a-stable-binary.md) | **done** — `ef75ec50` |
 | Serve Continuity SC-S04b | [`serve-continuity/SC-S04b-enable-disable.md`](serve-continuity/SC-S04b-enable-disable.md) | **done** — `b7eecd78` |
-| Serve Continuity SC-S02 | [`serve-continuity/SC-S02-install-refresh.md`](serve-continuity/SC-S02-install-refresh.md) | **ready** — install-cli stage+rebind |
+| Serve Continuity SC-S02 | [`serve-continuity/SC-S02-install-refresh.md`](serve-continuity/SC-S02-install-refresh.md) | **done** — `5de87193` |
 
 _None other — CT-S04 done; archive S123 when ready._
 

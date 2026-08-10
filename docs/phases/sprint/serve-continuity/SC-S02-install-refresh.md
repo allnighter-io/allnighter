@@ -1,7 +1,7 @@
 # SC-S02 — install-cli / rebuild refresh staged binary + rebind when enabled
 
 Run: `C9C3159E-0439-4A1A-8DC9-90DB8E176673` (model_opencode_deepseek_v4_pro)
-Status: in_progress  
+Status: **done** (2026-08-09) — commit `5de87193`; Works Test 9/9  
 Slice: SC-S02 (small)  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §6 + §4 SC-S02  
 Executor: Kimi K3 if 5h remaining ≥15%; else DeepSeek V4 Pro
