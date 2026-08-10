@@ -239,7 +239,7 @@ extension MenuJSON {
     /// Lean plan-time capacity decision row (QABC-S00b) — narrowed from the
     /// display-oriented `CapacityStripJSON` so `alln menu` and `alln capacity`
     /// share one derivation path and never disagree. See
-    /// docs/phases/Quota_Aware_Bench_Continuity.md "Corrections against live
+    /// docs/archive/phases/Quota_Aware_Bench_Continuity.md "Corrections against live
     /// code" item 3 for the byte-budget rationale.
     public struct Capacity: Sendable, Equatable, Codable {
         public let generatedAt: Date

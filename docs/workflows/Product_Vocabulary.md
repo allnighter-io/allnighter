@@ -48,6 +48,26 @@ already known, they never go and ask. Code SSOT: `CapacityWindow`,
 `CapacityAcquisition`, `CapacityBenchProjection`, `CapacityStripRenderer`,
 `CapacityHistoryStore`, and the five `*CapacityLog` parsers.
 
+## Quota-aware bench vocabulary (promoted from QABC, 2026-08-09)
+
+**Moat:** Anthropic can only see Anthropic's meter. Cross-vendor arbitrage is
+impossible from inside any one vendor. Allnighter sees the whole bench and acts
+on it at plan time and at the wall.
+
+| Term | Meaning |
+| --- | --- |
+| **Plan-time quota** | `alln menu --json` and bootstrap carry a lean `capacity` block (decision rows, not the full strip). Injected from CLI with `refresh: false` — zero probes on read. |
+| **Capacity park** | A vendor session cap mid-turn: run is `queued` + `waitingForVendor` with `blocker.wakeAfter`. A parked turn is **still in progress**, not a terminal outcome. |
+| **Claim-or-adopt** | At wake, the loop claims the parked run lease or adopts the settled run if `alln serve` won the race — never escalates on a lost claim. |
+
+Standing laws: check `vendorPark` **before** `LoopTurnClassifier` in both turn
+dispatchers; never mint a competing `runId` while parked; parked loops stay
+`status == .running` with facts in `capacityPark` (side-field, not a new status).
+Capacity is injected into Core, never acquired there. Code SSOT:
+`CapacityDisplayAcquisition`, `MenuCatalog`/`Bootstrap` injection,
+`LoopCoordinator.resolveCapacityPark`, `VendorBackoffReconciler`,
+`VendorSubstitutionPolicy`.
+
 ## Probe freshness vocabulary (promoted from Probe Freshness, 2026-08-09)
 
 | Term | Meaning |

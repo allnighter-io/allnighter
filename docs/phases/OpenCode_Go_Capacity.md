@@ -19,7 +19,7 @@ PTY; Go is the seventh seat with the **same per-source module shape**, but
 acquisition is **browser HTTP scrape**, never `CapacityProbe` PTY.
 
 Related shipped substrate (reuse, do not re-build):
-[`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md),
+[`Quota_Aware_Bench_Continuity.md`](../archive/phases/Quota_Aware_Bench_Continuity.md),
 [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md),
 `CapacityWindow`, `CapacityBenchProjection`, `CapacityStripRenderer`,
 `VendorBackoffPolicy`, OpenCode **driver** (`OpenCodeServeClient` — dispatch
@@ -943,4 +943,4 @@ Legacy OCG-S04 checklist moved to CLI beta + Mac sections above.
 | --- | --- |
 | OpenCode Go capacity | This packet + `CapacityAcquisition.swift` |
 | OpenCode driver / serve | `OpenCodeServeClient.swift` (dispatch — separate concern) |
-| Park / menu capacity | `Quota_Aware_Bench_Continuity.md` (phase 2) |
+| Park / menu capacity | Archived [`Quota_Aware_Bench_Continuity.md`](../archive/phases/Quota_Aware_Bench_Continuity.md) |

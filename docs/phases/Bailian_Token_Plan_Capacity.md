@@ -10,7 +10,7 @@ the Model Studio console, not in the inference API. Mirrors the OpenCode Go
 capacity spike shape with a JSON gateway instead of HTML SSR.
 
 Related: [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md),
-[`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md)
+[`Quota_Aware_Bench_Continuity.md`](../archive/phases/Quota_Aware_Bench_Continuity.md)
 
 Prior art: [CodexBar Alibaba Token Plan](https://github.com/steipete/CodexBar/blob/main/docs/alibaba-token-plan.md) (Personal/Solo rolling-window API on `bailian-singapore-cs.alibabacloud.com`).
 

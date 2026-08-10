@@ -337,5 +337,5 @@ it.
 | --- | --- |
 | Smart routing, economy vs balanced, auto model pick | This packet + rejected list §3 |
 | Front door / who chooses a model | `Menu_Not_Router.md` — caller LLM chooses; router is dead |
-| Capacity as a routing input | `OpenCode_Go_Capacity.md` (unqualified) + `Quota_Aware_Bench_Continuity.md` |
+| Capacity as a routing input | `OpenCode_Go_Capacity.md` (unqualified) + archived [`Quota_Aware_Bench_Continuity.md`](../archive/phases/Quota_Aware_Bench_Continuity.md) |
 | Substitution when a seat is parked | Code SSOT `VendorSubstitutionPolicy.swift` |

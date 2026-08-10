@@ -22,8 +22,8 @@ settlements; `CapacityPostRunGate` tests cover allowed vs each cut reason).
 Supersedes: archived [`Capacity_Phase1_Recovery.md`](../archive/phases/Capacity_Phase1_Recovery.md)
 
 **Cross-doc:** Plan-time menu capacity stays **OFF** until **Resident trust gate**
-(suspends QABC-S00d). Runtime park/substitute from
-[`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md) **unchanged**.
+(suspends QABC-S00d). Runtime park/substitute from archived
+[`Quota_Aware_Bench_Continuity.md`](../archive/phases/Quota_Aware_Bench_Continuity.md) **unchanged**.
 
 ---
 

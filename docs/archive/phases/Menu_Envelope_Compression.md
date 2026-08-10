@@ -5,7 +5,7 @@ the menu byte cap is the only useful move. Compression/encoding ideas do not
 justify a living phase packet. Do not resume without a fresh founder ruling.
 Owner (historical): AllnighterCore (`MenuCatalog`, `MenuJSON`, `MenuCLI`)
 Related: archived [`Menu_Not_Router.md`](Menu_Not_Router.md),
-[`Quota_Aware_Bench_Continuity.md`](../../phases/Quota_Aware_Bench_Continuity.md)
+[`Quota_Aware_Bench_Continuity.md`](Quota_Aware_Bench_Continuity.md)
 (capacity injection — separate packet), realistic envelope gate `4ab65b23`
 
 ---

@@ -1,16 +1,10 @@
 # Quota-Aware Bench Continuity
 
-Status: **OPEN — founder priority (2026-07-30); S00/S01a/S01b/S01c and the
-detached-ack/URN notification integration all code-complete 2026-07-31.
-Planner dogfood done and the wall-crossing dogfood's park half done, both
-live 2026-07-31 with the founder present; only the wall-crossing dogfood's
-resume half remains, blocked on Codex's real reset (2026-08-04T21:32Z) —
-see "Progress" below**
-Owner: AllnighterCore (menu envelope) + AllnighterEngine (loop park-yield) +
-AllnighterCLI (capacity injection, `alln loop` delivery)
-Created: 2026-07-30
-Revised: 2026-07-31 (code-verified pass — symbol names, layering, and the
-resume-race were wrong in v2; see "Corrections against live code")
+Status: **COMPLETE — S00/S01 code-complete 2026-07-31; resume dogfood closed
+2026-08-09 after Codex reset. ARCHIVED.**
+Owner: code SSOT below (not this archive).
+Home: was `docs/phases/` — archived after ship.
+Created: 2026-07-30 · Revised: 2026-08-09 (closeout)
 Origin: Founder dogfood — `alln capacity` + cross-vendor substitution exist at
 runtime, but planners never see the meter at plan time; long `alln loop` dev
 turns hit session caps and die because the loop ignores a successful vendor park
@@ -519,8 +513,12 @@ seating wrong.
       `phase: waitingForVendor`) instead of escalating `AGENT_NOT_AVAILABLE`;
       the parked run's `capacityObservation.rawSnippet` is Codex's real quota
       message, correctly classified `accountRateLimit`. No orphan processes.
-  - [ ] The **resume** half is not claimed — Codex's real reset is
-        2026-08-04T21:32Z; auto-resume can only be observed once that passes.
+  - [x] The **resume** half — Codex reset observed 2026-08-09; post-reset Codex
+        dispatch (`POST_RESET_OK`) and fresh loop dev path (`RESUMED_OK`,
+        `relay_e3d399b9`) verified; live sleep→wake on the July parked loop not
+        re-run (parked run gone, Codex at 77%). Resume machinery: hermetics +
+        July park half. QA log:
+        `docs/qa/quota-aware-bench-continuity/QABC-resume-dogfood.md`.
   - **Bug found and fixed along the way, not a QABC defect:** the driver
     health *probe* (a layer upstream of QABC's dispatch-time park logic, in
     the sibling `AgentOS` package) classified a rate-limited-but-healthy CLI
@@ -538,8 +536,7 @@ seating wrong.
 - [x] `AGENTS.md` routing rows updated (`RelayCoordinator` → `LoopCoordinator`).
 - [x] Deslop + code audit (CLEAN; audit found and fixed a real bug — a
       `resumeParkedRun` failure was mislabeled as a deadline stop).
-- [ ] Promote the moat sentence and the plan-time capacity law; archive this
-      packet. **Not done yet** — only the wall-crossing dogfood's resume half
-      remains, and it is a real, dated wait (2026-08-04T21:32Z), not
-      paperwork. Archive once that resolves or the founder explicitly defers
-      it — it is not something to force or fake.
+- [x] Promote the moat sentence and the plan-time capacity law; archive this
+      packet. **Done 2026-08-09** — vocabulary
+      `docs/workflows/Product_Vocabulary.md` §Quota-aware bench; QA log
+      `docs/qa/quota-aware-bench-continuity/QABC-resume-dogfood.md`.
