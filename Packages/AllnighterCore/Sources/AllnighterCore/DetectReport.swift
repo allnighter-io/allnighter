@@ -75,6 +75,13 @@ public enum DetectReport {
             }
         }
 
+        nextActions.sort {
+            let p0 = SetupRecoveryCopy.nextActionPriority(kind: $0.kind)
+            let p1 = SetupRecoveryCopy.nextActionPriority(kind: $1.kind)
+            if p0 != p1 { return p0 < p1 }
+            return $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending
+        }
+
         if nextActions.isEmpty, tally.headline == .neverScanned {
             nextActions = [
                 AgentSurfaceNextAction(

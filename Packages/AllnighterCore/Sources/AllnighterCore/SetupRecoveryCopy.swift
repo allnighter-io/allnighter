@@ -208,6 +208,17 @@ public enum SetupRecoveryCopy {
         }
     }
 
+    /// Prefer finishing installed CLIs (sign-in / repair) over installing more seats.
+    public static func nextActionPriority(kind: String) -> Int {
+        switch kind {
+        case "signInClaude", "signInCLI": return 0
+        case "repairProbe", "runDoctorFull", "confirmPath": return 1
+        case "detectCLIs": return 2
+        case "installCLI": return 3
+        default: return 4
+        }
+    }
+
     /// Claude `/login` is human-only. Never point `command` at `alln detect` —
     /// agents that run nextAction blindly would loop forever on the same disease.
     /// Teach the step via help; re-check is in the label after the human finishes.

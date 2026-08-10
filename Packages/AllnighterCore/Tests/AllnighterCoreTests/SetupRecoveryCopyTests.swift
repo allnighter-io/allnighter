@@ -156,4 +156,75 @@ final class SetupRecoveryCopyTests: XCTestCase {
         XCTAssertEqual(source.fixCommand, CursorAgentCLIInstall.shellCommand)
         XCTAssertEqual(report.nextActions.first?.kind, "installCLI")
     }
+
+    func testDetectNextActionsPreferSignInOverInstall() {
+        let kimi = DriverManifest(
+            id: "kimi",
+            displayName: "Kimi",
+            kind: .headlessCLI,
+            setup: SetupBlock(
+                bins: ["kimi"],
+                loginFlow: LoginFlow(interactiveCommand: "kimi login", instructions: "Run `kimi login`.")
+            )
+        )
+        let anti = DriverManifest(
+            id: "antigravity",
+            displayName: "Antigravity",
+            kind: .headlessCLI,
+            setup: SetupBlock(bins: ["agy"], docsURL: "https://example.com/install")
+        )
+        let report = DetectReport.build(
+            records: [
+                ToolProbeRecord(
+                    driverId: "antigravity",
+                    status: .notInstalled,
+                    lastProbeAt: .distantPast
+                ),
+                ToolProbeRecord(
+                    driverId: "kimi",
+                    status: .installedNotSignedIn(
+                        LoginFlow(interactiveCommand: "kimi login", instructions: "Run `kimi login`.")
+                    ),
+                    version: "1",
+                    lastProbeAt: .distantPast
+                ),
+            ],
+            registry: DriverRegistry([anti, kimi]),
+            assembled: .init(benchModelIds: [], planWriterModelId: nil)
+        )
+        XCTAssertEqual(report.nextActions.first?.kind, "signInCLI")
+        XCTAssertEqual(report.nextActions.first?.command, "kimi login")
+        XCTAssertTrue(report.nextActions.contains { $0.kind == "installCLI" })
+    }
+
+    func testDriversNotReadySurfacesLoginFixInFreshness() throws {
+        let kimi = DriverManifest(
+            id: "kimi",
+            displayName: "Kimi",
+            kind: .headlessCLI,
+            setup: SetupBlock(
+                bins: ["kimi"],
+                loginFlow: LoginFlow(interactiveCommand: "kimi login", instructions: "Run `kimi login`.")
+            )
+        )
+        let list = DriverListProjector.build(
+            registry: DriverRegistry([kimi]),
+            probeRecords: [
+                ToolProbeRecord(
+                    driverId: "kimi",
+                    status: .installedNotSignedIn(
+                        LoginFlow(interactiveCommand: "kimi login", instructions: "Run `kimi login`.")
+                    ),
+                    version: "0.34.0",
+                    lastProbeAt: Date()
+                ),
+            ],
+            models: [],
+            parkedDriverIds: []
+        )
+        let row = try XCTUnwrap(list.drivers.first)
+        XCTAssertEqual(row.status, "notReady")
+        XCTAssertTrue(row.probeDetail?.contains("kimi login") == true, row.probeDetail ?? "")
+        XCTAssertEqual(row.freshness.nextAction.command, "kimi login")
+    }
 }

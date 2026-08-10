@@ -250,6 +250,12 @@ public enum DoctorReport {
                 if !inputs.full, recovery.statusKind != "notInstalled" { continue }
                 nextActions.append(next)
             }
+            nextActions.sort {
+                let p0 = SetupRecoveryCopy.nextActionPriority(kind: $0.kind)
+                let p1 = SetupRecoveryCopy.nextActionPriority(kind: $1.kind)
+                if p0 != p1 { return p0 < p1 }
+                return $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending
+            }
             if nextActions.isEmpty,
                tally.headline == .partial
                  || tally.headline == .noneReady

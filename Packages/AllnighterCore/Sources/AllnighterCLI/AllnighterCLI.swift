@@ -895,7 +895,7 @@ struct AllnighterCLI {
             "\nBench: \(tally.headline) — \(tally.ready) ready · \(tally.needsStep) need a step · \(tally.notInstalled) not installed · \(tally.needsCheck) need check (of \(tally.supported) supported)"
         )
         print("Assembled team: \(report.assembledTeam.readyModelCount) ready model(s); plan writer: \(report.assembledTeam.planWriterModelId ?? "—") · saved")
-        if let next = report.nextActions.first {
+        for next in report.nextActions {
             print("Next: \(next.label) → \(next.command)")
         }
     }

@@ -28,6 +28,7 @@ public enum DriverListProjector {
                 let record = recordsByDriver[manifest.id]
                 let status: String
                 let detail: String?
+                var recoveryNext: AgentSurfaceNextAction?
                 if parked {
                     status = "parked"
                     detail = nil
@@ -49,11 +50,23 @@ public enum DriverListProjector {
                         }
                     } else {
                         status = "notReady"
-                        detail = shortProbeDetail(record.status, vendorReset: vendorResetsBySource[manifest.id], driverId: manifest.id)
+                        let recovery = SetupRecoveryCopy.recovery(for: record, manifest: manifest)
+                        detail = recovery.detail
+                            ?? shortProbeDetail(
+                                record.status,
+                                vendorReset: vendorResetsBySource[manifest.id],
+                                driverId: manifest.id
+                            )
+                        recoveryNext = recovery.nextAction
                     }
                 } else {
                     status = "notChecked"
                     detail = nil
+                }
+                var freshness = ProbeFreshnessDisclosure.forDriver(record, driverId: manifest.id, now: now)
+                // Prefer disease fix (e.g. `kimi login`) over a generic re-probe.
+                if let recoveryNext {
+                    freshness.nextAction = recoveryNext
                 }
                 return DriverListJSON.Entry(
                     driverId: manifest.id,
@@ -64,7 +77,7 @@ public enum DriverListProjector {
                     modelsOn: onCount[manifest.id] ?? 0,
                     probeDetail: detail,
                     idleTimeoutSeconds: manifest.invoke?.timeoutSeconds,
-                    freshness: ProbeFreshnessDisclosure.forDriver(record, driverId: manifest.id, now: now)
+                    freshness: freshness
                 )
             }
 
