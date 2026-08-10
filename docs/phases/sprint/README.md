@@ -46,7 +46,7 @@ Each sprint file must fit on **one to two screens** and include:
 | Serve Continuity SC-S04a | [`serve-continuity/SC-S04a-stable-binary.md`](serve-continuity/SC-S04a-stable-binary.md) | **done** — `ef75ec50` |
 | Serve Continuity SC-S04b | [`serve-continuity/SC-S04b-enable-disable.md`](serve-continuity/SC-S04b-enable-disable.md) | **done** — `b7eecd78` |
 | Serve Continuity SC-S02 | [`serve-continuity/SC-S02-install-refresh.md`](serve-continuity/SC-S02-install-refresh.md) | **done** — `5de87193` |
-| Serve Continuity SC-S04 | [`serve-continuity/SC-S04-logout-login.md`](serve-continuity/SC-S04-logout-login.md) | **ready** — logout/login host proof |
+| Serve Continuity SC-S04 | [`serve-continuity/SC-S04-logout-login.md`](serve-continuity/SC-S04-logout-login.md) | **partial** — same-session PASS; logout deferred |
 
 **Serve Continuity next (host, not a code slice):** logout/login Works Test after
 `alln serve enable` — see [`SC-S04-logout-login.md`](serve-continuity/SC-S04-logout-login.md).

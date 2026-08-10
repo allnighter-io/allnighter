@@ -1,12 +1,12 @@
 # Serve Continuity (Background Keeper)
 
-Status: **OPEN — v2.8 (code floor shipped SC-S00…S04b+S02; next = logout/login host proof)**
+Status: **OPEN — v2.8 (code floor + same-session KeepAlive PASS; logout/login deferred)**
 Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeAutoLaunch`,
 admission, doctor, `ServeLifecycle`, `ServeStableBinary`) + `InstallCLI` /
 `rebuild_cli.sh` (same transaction as identity change) + Mac app (demand heal) —
 **not** a second capacity scheduler
 Created: 2026-08-09
-Revised: 2026-08-09 (v2.8 — enable/disable + install refresh landed; host proof remains)
+Revised: 2026-08-09 (v2.8.1 — same-session KeepAlive PASS; logout deferred)
 Origin: Dogfood code red — with the Mac app closed, capacity / Pending wake /
 Boost / vendor-backoff / OS notifications depend on `alln serve`. Serve can
 die; on this host the orphan LaunchAgent did **not** bring it back (exit 78 /
@@ -218,7 +218,7 @@ clear; they do not exit(0) in a KeepAlive death loop.
 | **SC-S04a** | **DONE 2026-08-09** (`ef75ec50`) — `ServeStableBinary` stages copy under Application Support/Allnighter/CLI/alln. | `scripts/swift-test.sh --filter ServeStableBinaryTests` |
 | **SC-S04b** | **DONE 2026-08-09** (`b7eecd78`) — `serve enable`/`disable` own LaunchAgent on staged binary. Works Test 11/11. | `scripts/swift-test.sh --filter ServeLifecycleEnableTests` |
 | **SC-S02** | **DONE 2026-08-09** (`5de87193`) — install-cli refreshes staged binary; rebinds LaunchAgent when enabled. Works Test 9/9. | `scripts/swift-test.sh --filter ServeInstallRefreshTests` |
-| **SC-S04** | **NEXT** — logout/login Works Test on product `serve enable` (staged binary). S04a/S04b code done; this row is the host proof only. | Serve returns after login; health available; capacity advances app-closed |
+| **SC-S04** | **PARTIAL** — same-session KeepAlive PASS 2026-08-09 (`docs/qa/serve-continuity/SC-S04-same-session-keepalive.md`). Logout/login BTM proof **deferred** (founder cannot restart session while work is in flight). | Same-session: enable → kill → restart on staged binary. Full: serve returns after login |
 | **SC-S05** | Admission PID identity harden (**separate** — not this bug). | Recycled-pid fixture |
 
 **Code floor (2026-08-09):** SC-S00a…S01, S03, S04a, S04b, S02 are committed.
@@ -262,7 +262,11 @@ staged Application Support binary.
 
 **Next proof (blocks archive):** logout → login with `serve enable` active →
 `alln serve --health` available without manual restart; capacity history advances
-with Dock app quit. Script/log under `docs/qa/serve-continuity/`.
+with Dock app quit. **Deferred** until a clean logout is possible.
+
+**Partial proof (2026-08-09):** same-session enable + kill → KeepAlive restart on
+staged binary — PASS. Log:
+`docs/qa/serve-continuity/SC-S04-same-session-keepalive.md`.
 
 ---
 

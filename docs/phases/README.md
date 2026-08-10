@@ -62,7 +62,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
-| [`Serve_Continuity.md`](Serve_Continuity.md) | **OPEN — v2.8; code floor done; logout/login host proof next** | SC-S00…S04b+S02 shipped. Next: host logout/login after `serve enable`. SC-S05 admission separate. Sprint: [`sprint/serve-continuity/`](sprint/serve-continuity/). |
+| [`Serve_Continuity.md`](Serve_Continuity.md) | **OPEN — v2.8; same-session KeepAlive PASS; logout deferred** | Code floor + same-session proof done (`docs/qa/serve-continuity/SC-S04-same-session-keepalive.md`). Full logout/login still owed before archive. SC-S05 separate. |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
 
 ### Forward feature packets
@@ -96,7 +96,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`copy/`](copy/README.md) | Draft — unbuilt | Copy lane work orders. |
 | [`ios/`](ios/README.md) | **Parked** | Future remote PM; must not block Mac delivery. |
 | [`parked/`](parked/README.md) | **Parked** | Premature scheduler ideas (e.g. utilization admission). |
-| [`sprint/`](sprint/README.md) | **Serve Continuity code slices done** — host proof remains | Active topic: [`sprint/serve-continuity/`](sprint/serve-continuity/) (SC-S00…S04b+S02 done; logout/login next). |
+| [`sprint/`](sprint/README.md) | **Serve Continuity: code + same-session done; logout deferred** | [`sprint/serve-continuity/`](sprint/serve-continuity/) — SC-S04 logout still owed. |
 | `wiring/`, `mockups/` | Design-handoff assets | Pixel reference for composer/setup/send-to-team surfaces. |
 
 ## Recently archived
