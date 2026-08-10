@@ -258,6 +258,89 @@ public struct ServeLifecycle: Sendable {
         remove()
     }
 
+    // MARK: - SC-S02 install-cli refresh
+
+    public enum RefreshOutcome: String, Codable, Sendable {
+        case refreshed
+        case refreshedAndRebound
+        case failed
+    }
+
+    public struct RefreshResult: Codable, Equatable, Sendable {
+        public var outcome: RefreshOutcome
+        public var staged: Bool
+        public var bytesReplaced: Bool
+        public var rebound: Bool
+        public var detail: String
+
+        public init(outcome: RefreshOutcome, staged: Bool, bytesReplaced: Bool,
+                    rebound: Bool, detail: String) {
+            self.outcome = outcome
+            self.staged = staged
+            self.bytesReplaced = bytesReplaced
+            self.rebound = rebound
+            self.detail = detail
+        }
+    }
+
+    /// SC-S02 — called after `install-cli` succeeds: always stages the current
+    /// executable to the stable binary path (even if a prior copy exists). If a
+    /// product LaunchAgent plist is already installed (opt-in), rebinds it
+    /// (bootout + rewrite ProgramArguments=[stagedPath,"serve"] + bootstrap) so
+    /// KeepAlive starts the fresh image. If no plist is present, no agent is
+    /// created — opt-in stays opt-in. Refuses `/.local/bin/`.
+    public func refreshAfterInstall() -> RefreshResult {
+        guard !stagedBinaryURL.path.contains("/.local/bin/") else {
+            return RefreshResult(outcome: .failed, staged: false, bytesReplaced: false,
+                                 rebound: false,
+                                 detail: "\(Self.label) refresh refused: staged path \(stagedBinaryURL.path) is under /.local/bin/")
+        }
+        let staging: ServeStableBinary.StagingResult
+        switch stage(currentExecutableURL, stagedBinaryURL) {
+        case .failure(let failure):
+            return RefreshResult(outcome: .failed, staged: false, bytesReplaced: false,
+                                 rebound: false,
+                                 detail: "\(Self.label) refresh failed: could not stage stable binary: \(failure)")
+        case .success(let result):
+            staging = result
+        }
+        guard plistExists(plistURL) else {
+            return RefreshResult(outcome: .refreshed, staged: true,
+                                 bytesReplaced: staging.bytesWereReplaced,
+                                 rebound: false,
+                                 detail: "\(Self.label) staged binary refreshed; no LaunchAgent installed — nothing to rebind")
+        }
+        do {
+            try bootout(Self.label)
+        } catch {
+            return RefreshResult(outcome: .failed, staged: true,
+                                 bytesReplaced: staging.bytesWereReplaced,
+                                 rebound: false,
+                                 detail: "\(Self.label) refresh failed: bootout of prior registration failed: \(error)")
+        }
+        let plist = AgentPlist(label: Self.label, programArguments: [staging.url.path, "serve"],
+                                keepAlive: true, runAtLoad: true)
+        do {
+            try writePlist(plistURL, plist)
+        } catch {
+            return RefreshResult(outcome: .failed, staged: true,
+                                 bytesReplaced: staging.bytesWereReplaced,
+                                 rebound: false,
+                                 detail: "\(Self.label) refresh failed: plist rewrite failed: \(error)")
+        }
+        do {
+            try bootstrap(plistURL.path)
+        } catch {
+            return RefreshResult(outcome: .failed, staged: true,
+                                 bytesReplaced: staging.bytesWereReplaced,
+                                 rebound: false,
+                                 detail: "\(Self.label) refresh failed: bootstrap failed: \(error)")
+        }
+        return RefreshResult(outcome: .refreshedAndRebound, staged: true,
+                             bytesReplaced: staging.bytesWereReplaced, rebound: true,
+                             detail: "\(Self.label) staged binary refreshed and LaunchAgent rebound to \(staging.url.path)")
+    }
+
     /// Boot out the label (ignoring not-loaded) and delete the plist if one is
     /// installed. Structured outcome; never fakes success — a real bootout or
     /// delete failure reads `failed`, not `removed`.

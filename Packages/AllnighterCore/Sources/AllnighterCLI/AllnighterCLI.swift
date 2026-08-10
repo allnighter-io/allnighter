@@ -2593,10 +2593,14 @@ struct AllnighterCLI {
                 print(InstallCLI.printInstructions(target: target, installDir: installDir))
             }
         case .installed(let json):
+            let refresh = ServeLifecycle().refreshAfterInstall()
             if opts.flag("json") {
                 print(jsonString(json))
             } else {
                 print(InstallCLI.humanLine(json))
+            }
+            if refresh.outcome == .failed {
+                FileHandle.standardError.write(Data("install-cli: \(refresh.detail)\n".utf8))
             }
         case .failed(let code, let message):
             fail(code: code, message: message)
