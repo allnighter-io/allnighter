@@ -13,17 +13,21 @@ final class DefaultModelSettingsTests: XCTestCase {
         // Frontier: Fable + Codex Sol + Kimi K3. Cursor Sol is never seeded.
         XCTAssertEqual(s.tiers.frontier, [
             "model_fable", "model_gpt_sol", "model_kimi_k3", "model_qwen_38_max",
+            "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
         ])
         XCTAssertFalse(s.tiers.frontier.contains("model_cursor_gpt_sol"))
         XCTAssertEqual(s.tiers.balanced, [
             "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini",
             "model_muse_spark_12", "model_muse_spark_12_contributor",
+            "model_opencode_qwen_37_max", "model_opencode_deepseek_v4_pro", "model_opencode_minimax_m3",
         ])
         XCTAssertEqual(s.tiers.economy, [
             "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_qwen_38_max",
             "model_cursor_composer_25", "model_cursor_auto", "model_gemini",
             "model_opencode_big_pickle",
+            "model_opencode_minimax_m3", "model_opencode_deepseek_v4_flash",
+            "model_opencode_qwen_37_plus",
         ])
         for fastId in ["model_cursor_composer_25_fast", "model_grok_composer_25_fast"] {
             XCTAssertTrue(s.tiers.isUnassigned(fastId), "\(fastId) must stay unassigned in fresh seed")
@@ -328,6 +332,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(reset.defaultTier, .frontier)
         XCTAssertEqual(reset.tiers.frontier, [
             "model_fable", "model_gpt_sol", "model_kimi_k3", "model_qwen_38_max",
+            "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
         ])
     }
 }

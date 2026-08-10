@@ -69,17 +69,22 @@ public struct ModelRosterState: Codable, Sendable, Equatable {
     /// Built-in catalog ids reconciled at least once — used to default-on newcomers
     /// without re-enabling models the user turned off.
     public var catalogSeenModelIds: [ModelID]?
+    /// Once true, default-on OpenCode Go seats were seeded after Go auth connected.
+    /// Further reconciles must not re-enable seats the user turned off.
+    public var openCodeGoDefaultsSeeded: Bool?
     public var updatedAt: Date?
 
     public init(
         schemaVersion: Int = 1,
         enabledModelIds: [ModelID] = [],
         catalogSeenModelIds: [ModelID]? = nil,
+        openCodeGoDefaultsSeeded: Bool? = nil,
         updatedAt: Date? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.enabledModelIds = enabledModelIds
         self.catalogSeenModelIds = catalogSeenModelIds
+        self.openCodeGoDefaultsSeeded = openCodeGoDefaultsSeeded
         self.updatedAt = updatedAt
     }
 }

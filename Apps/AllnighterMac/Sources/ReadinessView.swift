@@ -558,7 +558,7 @@ struct BenchRepairPanel: View {
         case .ready:
             if card.driverId == OpenCodeModelGate.driverId {
                 return OpenCodeModelGate.isGoConnected()
-                    ? "Go is connected — turn on seats below. Re-check reloads the local serve if it started before you subscribed."
+                    ? "Go is connected — default Go seats are on the bench. Re-check reloads the local serve if it started before you subscribed."
                     : "OpenCode Zen is ready — subscribe to Go, connect the key in OpenCode, then Re-check to unlock seats here."
             }
             return card.workers.isEmpty

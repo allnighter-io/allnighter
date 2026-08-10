@@ -233,8 +233,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// everyday seats including Antigravity Opus 4.6 (separate Claude quota pool)
     /// and Composer 2.5 (not the vendor "Fast" SKUs) spans Balanced + Economy.
     /// Economy: Antigravity Sonnet 4.6, GPT-5.6 Luna, K2.7, Composer 2.5, Auto,
-    /// Gemini, and OpenCode Zen Big Pickle. OpenCode Go inventory seats stay out of
-    /// the fresh seed until the local serve advertises real Go provider labels.
+    /// Gemini, OpenCode Zen Big Pickle, and OpenCode Go economy seats.
     /// Vendor *Fast* model ids stay Unassigned — never tiered by default.
     /// Seed only — fully user-overridable.
     public static let fresh = DefaultModelSettings(
@@ -243,16 +242,20 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         tiers: TierMembership(
             frontier: [
                 "model_fable", "model_gpt_sol", "model_kimi_k3", "model_qwen_38_max",
+                "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
             ],
             balanced: [
                 "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini",
                 "model_muse_spark_12", "model_muse_spark_12_contributor",
+                "model_opencode_qwen_37_max", "model_opencode_deepseek_v4_pro", "model_opencode_minimax_m3",
             ],
             economy: [
                 "model_gpt_luna", "model_agy_sonnet", "model_kimi_k27", "model_qwen_38_max",
                 "model_cursor_composer_25", "model_cursor_auto", "model_gemini",
                 "model_opencode_big_pickle",
+                "model_opencode_minimax_m3", "model_opencode_deepseek_v4_flash",
+                "model_opencode_qwen_37_plus",
             ]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.

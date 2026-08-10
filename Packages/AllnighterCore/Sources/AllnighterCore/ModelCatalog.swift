@@ -479,10 +479,18 @@ public enum ModelCatalog {
     }
 
     private static func defaultRosterState(definitions: [ModelDefinition]) -> ModelRosterState {
-        let ids = definitions.filter(\.defaultEnabled).map(\.id)
+        let ids = definitions.filter { def in
+            guard def.defaultEnabled else { return false }
+            // Go seats only seed onto a fresh roster when OpenCode auth already has Go.
+            if OpenCodeModelGate.isGoCatalogSeat(def) {
+                return OpenCodeModelGate.isGoConnected()
+            }
+            return true
+        }.map(\.id)
         return ModelRosterState(
             enabledModelIds: ids,
-            catalogSeenModelIds: definitions.map(\.id))
+            catalogSeenModelIds: definitions.map(\.id),
+            openCodeGoDefaultsSeeded: OpenCodeModelGate.isGoConnected() ? true : nil)
     }
 
     /// Built-ins that shipped default-on before roster newcomer tracking existed.
@@ -505,6 +513,20 @@ public enum ModelCatalog {
                 roster.enabledModelIds = withoutGo
                 changed = true
             }
+            if roster.openCodeGoDefaultsSeeded == true {
+                roster.openCodeGoDefaultsSeeded = false
+                changed = true
+            }
+        } else if roster.openCodeGoDefaultsSeeded != true {
+            // First unlock after Go connect: seed every default-on Go seat onto the bench.
+            for def in definitions where OpenCodeModelGate.isGoCatalogSeat(def) && def.defaultEnabled {
+                if !roster.enabledModelIds.contains(def.id) {
+                    roster.enabledModelIds.append(def.id)
+                    changed = true
+                }
+            }
+            roster.openCodeGoDefaultsSeeded = true
+            changed = true
         }
 
         if roster.catalogSeenModelIds == nil {

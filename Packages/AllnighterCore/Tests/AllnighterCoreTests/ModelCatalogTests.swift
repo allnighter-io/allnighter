@@ -47,12 +47,12 @@ final class ModelCatalogTests: XCTestCase {
         // OpenCode Go seats added default-on 2026-08-05 (20 → 27).
         // Qwen Code CLI seat added default-on 2026-08-06 (27 → 28).
         // OpenCode Zen Big Pickle smoke seat added default-on 2026-08-10 (28 → 29).
-        // OpenCode Go inventory seats default-off 2026-08-10 (29 → 22) — fictional
-        // opencode-go/* labels must not sit on-bench until serve proves them.
+        // OpenCode Go inventory seats default-off while locked (29 → 22). When Go
+        // auth connects, reconcile seeds all seven default-on Go seats (22 → 29).
         XCTAssertEqual(models.filter(\.enabled).count, 22)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_opencode_glm_5_2" }?.enabled ?? true,
-                       "OpenCode Go inventory stays off by default")
+                       "OpenCode Go inventory stays off until Go auth connects")
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
         XCTAssertEqual(models.first { $0.id == "model_agy_sonnet" }?.displayName, "Sonnet 4.6 (Antigravity)")
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.modelLabel, "Claude Opus 4.6 (Thinking)")
@@ -143,6 +143,39 @@ final class ModelCatalogTests: XCTestCase {
         try ModelCatalog.setEnabled("model_opencode_glm_5_2", true)
         XCTAssertTrue(ModelCatalog.isEnabled("model_opencode_glm_5_2"))
         try ModelCatalog.setEnabled("model_opencode_glm_5_2", false)
+    }
+
+    func testOpenCodeGoConnectSeedsDefaultOnSeats() throws {
+        OpenCodeModelGate.overrideGoConnectedForTesting(false)
+        let rosterURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("opencode-go-seed-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: rosterURL) }
+        ModelCatalog.overrideRosterForTesting(fileURL: rosterURL)
+        defer { ModelCatalog.resetTestingOverrides() }
+        try ModelRosterPersistence(fileURL: rosterURL).save(
+            ModelRosterState(
+                enabledModelIds: ["model_opus", "model_opencode_big_pickle"],
+                catalogSeenModelIds: ModelCatalog.builtIns.map(\.id),
+                openCodeGoDefaultsSeeded: false))
+        _ = ModelCatalog.resolvedModels(registry: testRegistry())
+        XCTAssertFalse(ModelCatalog.isEnabled("model_opencode_glm_5_2"))
+
+        OpenCodeModelGate.overrideGoConnectedForTesting(true)
+        let models = ModelCatalog.resolvedModels(registry: testRegistry())
+        for id in [
+            "model_opencode_glm_5_2",
+            "model_opencode_deepseek_v4_pro",
+            "model_opencode_deepseek_v4_flash",
+        ] {
+            XCTAssertTrue(models.contains { $0.id == id && $0.enabled }, "\(id) should seed on")
+        }
+        let roster = try XCTUnwrap(ModelRosterPersistence(fileURL: rosterURL).load())
+        XCTAssertEqual(roster.openCodeGoDefaultsSeeded, true)
+
+        // User off sticks across reconcile.
+        try ModelCatalog.setEnabled("model_opencode_glm_5_2", false)
+        _ = ModelCatalog.resolvedModels(registry: testRegistry())
+        XCTAssertFalse(ModelCatalog.isEnabled("model_opencode_glm_5_2"))
     }
 
     func testOpenCodeGoConnectedReadsAuthProviderKeyOnly() throws {
