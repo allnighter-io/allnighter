@@ -88,13 +88,12 @@ public enum InstallCLI {
         return URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
     }
 
-    /// Default install dir: `/usr/local/bin` when writable, else `~/.local/bin`.
+    /// Default install dir: `~/.local/bin` unconditionally.
+    /// `/usr/local/bin` is reachable only through an explicit `--path`.
     public static func defaultInstallDirectory(
         homeDirectory: URL,
         fileManager: FileManager = .default
     ) -> String {
-        let usrLocal = "/usr/local/bin"
-        if fileManager.isWritableFile(atPath: usrLocal) { return usrLocal }
         return homeDirectory.appendingPathComponent(".local/bin").path
     }
 

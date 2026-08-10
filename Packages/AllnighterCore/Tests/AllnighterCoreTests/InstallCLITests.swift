@@ -178,6 +178,20 @@ final class InstallCLITests: XCTestCase {
         XCTAssertNil(resolved, "bare name must not resolve to cwd/alln when PATH misses")
     }
 
+    func testDefaultInstallDirectoryReturnsLocalBin() throws {
+        let fm = FileManager.default
+        let dir = InstallCLI.defaultInstallDirectory(homeDirectory: tempRoot, fileManager: fm)
+        XCTAssertTrue(dir.hasSuffix(".local/bin"), "default must be ~/.local/bin, got '\(dir)'")
+    }
+
+    func testDefaultInstallDirectoryIgnoresUsrLocalBinWritability() throws {
+        let homeDir = tempRoot.appendingPathComponent("home")
+        try fm.createDirectory(at: homeDir, withIntermediateDirectories: true)
+        let dir = InstallCLI.defaultInstallDirectory(homeDirectory: homeDir, fileManager: fm)
+        XCTAssertFalse(dir.contains("/usr/local/bin"), "must not return /usr/local/bin even if writable")
+        XCTAssertEqual(dir, homeDir.appendingPathComponent(".local/bin").path)
+    }
+
     func testBootstrapLiveContextBareNameOnPATH() throws {
         let binary = try makeBinary()
         let binDir = tempRoot.appendingPathComponent("bin")
