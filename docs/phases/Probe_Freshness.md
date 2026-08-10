@@ -1,7 +1,7 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **v8 — PF-S00…S03 + Option A capability clock SHIPPED; founder B (2026-08-09)
-  authorizes serve-hosted periodic full probe smoke (PF-S03b).**
+Status: **v8.1 — PF-S03b SHIPPED (`fed8f447`, 2026-08-09). Founder B serve-hosted
+  periodic full probe smoke is live. ARCHIVE READY after promote + CWB reconcile.**
   Prior “scheduled smoke not authorized” line is **superseded** by founder B:
   tiny quota spend is approved; inventing `lastProbeAt` without smoke is not.
   Option A (`lastDetectedAt` split + run capability clock) remains shipped and
