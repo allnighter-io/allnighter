@@ -220,7 +220,11 @@ if [[ -f "$MAC_APP/project.yml" ]] && command -v xcodegen >/dev/null 2>&1; then
   # against sources that SPM already accepts. Isolate the wall from the IDE
   # cache, and wipe only when Core/Engine sources outrun the cached modules
   # (or modules disagree with each other) — warm incremental stays cheap.
-  MAC_DD="${ALLNIGHTER_MAC_DERIVED_DATA:-$ROOT/.build/DerivedData-AllnighterMac}"
+  MAC_DD="${ALLNIGHTER_MAC_DERIVED_DATA:-$HOME/Library/Developer/Allnighter/DerivedData-AllnighterMac}"
+  # Never default under the repo: checkouts often live in ~/Documents and a
+  # test-host .app there raises macOS Documents TCC dialogs attributed to
+  # Allnighter (same reason scripts/dev.sh builds under ~/Library). Override
+  # with ALLNIGHTER_MAC_DERIVED_DATA if you need an alternate wall cache.
   CORE_SOURCES="$ROOT/Packages/AllnighterCore/Sources"
   if [[ -d "$MAC_DD" ]]; then
     # Exit 0 = stale/skewed (wipe); exit 1 = warm cache is fine.

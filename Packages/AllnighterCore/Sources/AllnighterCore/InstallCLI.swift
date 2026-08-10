@@ -207,15 +207,25 @@ public enum InstallCLI {
     }
 
     public static func humanLine(_ json: JSON) -> String {
+        let pathLine: String
         switch json.action {
         case .printed:
-            return "Print-only install-cli instructions (use without --print to perform the install)."
+            pathLine = "Print-only install-cli instructions (use without --print to perform the install)."
         case .alreadyInstalled:
-            return "already installed: \(json.path ?? "") → \(json.target ?? "")"
+            pathLine = "already installed: \(json.path ?? "") → \(json.target ?? "")"
         case .installed:
-            return "installed: \(json.path ?? "") → \(json.target ?? "")"
+            pathLine = "installed: \(json.path ?? "") → \(json.target ?? "")"
         case .repaired:
-            return "repaired stale symlink: \(json.path ?? "") → \(json.target ?? "")"
+            pathLine = "repaired stale symlink: \(json.path ?? "") → \(json.target ?? "")"
+        }
+        // FCS-L7: after any install-cli outcome that leaves `alln` on PATH, teach
+        // find-CLIs before spend (agents read this line; humans do too).
+        switch json.action {
+        case .installed, .repaired, .alreadyInstalled:
+            return pathLine
+                + "\nNext: run `alln menu --json`; if benchTally.nextAction is set, run that command once."
+        case .printed:
+            return pathLine
         }
     }
 

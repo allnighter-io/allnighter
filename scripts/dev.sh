@@ -31,6 +31,17 @@ APP="$DERIVED/Build/Products/Debug/Allnighter.app"
 LOG="$DERIVED/last-build.log"
 LOCK="$DERIVED/.allapp-build.lock"
 
+# xcodebuild needs the full Xcode app, not Command Line Tools alone. Respect an
+# explicit DEVELOPER_DIR; otherwise auto-point at /Applications/Xcode.app when
+# xcode-select is still on CLT (common on fresh Macs).
+if [ -z "${DEVELOPER_DIR:-}" ]; then
+  if ! xcodebuild -version >/dev/null 2>&1; then
+    if [ -d /Applications/Xcode.app/Contents/Developer ]; then
+      export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+    fi
+  fi
+fi
+
 # --- teardown: nothing this script starts survives it ---------------------------
 BUILD_PID=""
 # Drop the build lock, but only if WE still own it (a stealer may have taken over).

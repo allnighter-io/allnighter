@@ -100,4 +100,16 @@ final class HelpProjectorTests: XCTestCase {
         let j = HelpProjector.search("asdfqwerty-no-such-topic-999", limit: 5, contractVersion: "2.1.0")
         XCTAssertTrue(j.results.isEmpty, "nonsense must not fuzzy-hijack a card")
     }
+
+    /// FCS: exact help aliases must beat Cursor model-card noise in `help search`.
+    func testSearchExactTopicAliasSurfacesGuideCardFirst() {
+        let cursor = HelpProjector.search("cursor ide", limit: 5, contractVersion: "2.1.0")
+        XCTAssertEqual(cursor.results.first?.kind, "topic")
+        XCTAssertEqual(cursor.results.first?.id, "setup_and_auth")
+        XCTAssertTrue(cursor.results.first?.example?.contains("help get") ?? false)
+
+        let detect = HelpProjector.search("detect", limit: 5, contractVersion: "2.1.0")
+        XCTAssertEqual(detect.results.first?.kind, "topic")
+        XCTAssertEqual(detect.results.first?.id, "current_setup")
+    }
 }

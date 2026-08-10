@@ -61,6 +61,10 @@ final class InstallCLITests: XCTestCase {
             return XCTFail("expected installed, got \(outcome)")
         }
         XCTAssertEqual(json.action, .alreadyInstalled)
+        let line = InstallCLI.humanLine(json)
+        XCTAssertTrue(line.contains("already installed"))
+        XCTAssertTrue(line.contains("alln menu --json"))
+        XCTAssertTrue(line.contains("benchTally.nextAction"))
     }
 
     func testRepairsStaleSymlink() throws {

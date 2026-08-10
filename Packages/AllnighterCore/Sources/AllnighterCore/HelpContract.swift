@@ -100,8 +100,9 @@ public enum ErrorHelpBridge {
     }
 }
 
-/// Pure builder of the help contract envelopes. Search projects `MenuCatalog`;
-/// get/topics project `HelpTopicRegistry`. No IO.
+/// Pure builder of the help contract envelopes. Search projects `MenuCatalog`
+/// plus exact HelpTopicRegistry alias hits (so "cursor ide" / "detect" land on
+/// teaching topics, not only Cursor model cards). get/topics project the topic registry.
 public enum HelpProjector {
     public static func search(
         _ query: String,
@@ -109,12 +110,35 @@ public enum HelpProjector {
         contractVersion: String,
         menu: MenuJSON? = nil
     ) -> HelpSearchJSON {
-        let r = MenuCatalog.search(query, limit: limit, menu: menu)
+        let phrase = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let menuHits = MenuCatalog.search(query, limit: limit, menu: menu)
+        var results = menuHits.results
+
+        // Exact topic/alias phrase → surface the guide card ahead of model noise.
+        if let topicId = HelpTopicRegistry.canonicalTopicId(for: phrase),
+           let topic = HelpTopicRegistry.topic(id: topicId) {
+            let topicHit = MenuSearchHit(
+                kind: "topic",
+                ref: "help:\(topic.id)",
+                id: topic.id,
+                title: topic.title,
+                useWhen: topic.summary,
+                dontUseWhen: "Guide truth — call menu/doctor for this machine's live state",
+                example: "alln help get \(topic.id)",
+                validateExample: "alln help get \(topic.id) --json"
+            )
+            results.removeAll { $0.kind == "topic" && $0.id == topic.id }
+            results.insert(topicHit, at: 0)
+            if results.count > max(1, limit) {
+                results = Array(results.prefix(max(1, limit)))
+            }
+        }
+
         return HelpSearchJSON(
             contractVersion: contractVersion,
-            catalogRevision: r.catalogRevision,
-            query: r.query,
-            results: r.results
+            catalogRevision: menuHits.catalogRevision,
+            query: menuHits.query,
+            results: results
         )
     }
 

@@ -279,20 +279,22 @@ public enum DesignBoardCapture: Sendable {
             snapshotConfig.afterScreenUpdates = true
         }
 
-        let image: NSImage = try await withCheckedThrowingContinuation { cont in
+        // Encode on the snapshot callback thread so we resume with Sendable `Data`
+        // (NSImage is not Sendable under Swift 6; crossing the continuation with
+        // the image trips "sending 'image' risks causing data races").
+        let png: Data = try await withCheckedThrowingContinuation { cont in
             webView.takeSnapshot(with: snapshotConfig) { image, error in
-                if let image {
-                    cont.resume(returning: image)
-                } else {
-                    cont.resume(throwing: CaptureError.renderFailed(error?.localizedDescription ?? "nil snapshot"))
+                guard let image,
+                      let tiff = image.tiffRepresentation,
+                      let rep = NSBitmapImageRep(data: tiff),
+                      let png = rep.representation(using: .png, properties: [:]) else {
+                    cont.resume(throwing: CaptureError.renderFailed(
+                        error?.localizedDescription ?? "nil snapshot / PNG encode failed"
+                    ))
+                    return
                 }
+                cont.resume(returning: png)
             }
-        }
-
-        guard let tiff = image.tiffRepresentation,
-              let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else {
-            throw CaptureError.renderFailed("PNG encode failed")
         }
         try png.write(to: destinationPNG, options: .atomic)
     }
