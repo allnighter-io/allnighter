@@ -38,7 +38,8 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 > **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
 > assignments~~ (both closed + archived) · ~~**3.** Native capacity channels~~
 > (4 shipped, kimi ruled out) · ~~**4.** PF-S01 freshness disclosure~~ ·
-> ~~**5.** Shadow-mode the model reader~~. Stopped at 5 as instructed.
+> ~~**5.** Shadow-mode the model reader~~ · ~~**6.** Probe Freshness (PF-S03b)~~.
+> Stopped at 6 as instructed.
 > Run-completion work outranks sensor work: capacity informs selection but never
 > blocks a run, while `:4096` collisions stop the bench outright.
 > ~~**0.** Run readout~~ · ~~**0.5** Ambient dirty~~ closed 2026-08-08.

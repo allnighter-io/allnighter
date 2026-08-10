@@ -3,13 +3,21 @@
 For the next PM. Read this, run §1, then pick from §4. Everything below is
 committed; nothing is in flight.
 
+**Addendum 2026-08-09 PM:** Probe Freshness **archived** (`db773eca`) — laws in
+`Product_Vocabulary.md` §Probe freshness; code SSOT
+`ProbeRecordRefreshScheduler` + `ProbeFreshnessGate`. Serve Continuity code
+floor shipped; SC-S04 same-session KeepAlive PASS, logout deferred. CLI binary
+**1.0.0** (`eeddbf28`). Next board priorities: Capacity Native Channels
+credential posture, Serve logout proof when possible, One Run Surface two-host
+Works Test.
+
 ---
 
 ## 1. Verify state first (2 minutes)
 
 ```bash
 alln menu --json | head -c 400        # front door, always first
-alln version                          # must match `git log -1 --format=%h`
+alln version                          # expect alln 1.0.0; gitSha must match `git log -1 --format=%h`
 alln capacity --refresh --json | sed -n '/^{/,$p'   # expect 7 sources with numbers
 alln serve --health --json            # expect state: available, ONE pid
 ps -eo pid,etime,command | grep "[a]lln serve"      # expect exactly one line
