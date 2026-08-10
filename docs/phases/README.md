@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-08-08
+Updated: 2026-08-09
 
 ## Purpose
 
@@ -62,7 +62,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
-| [`Serve_Continuity.md`](Serve_Continuity.md) | **OPEN — v2.8; SC-S02 done; logout/login host proof next** | Host Works Test after enable; SC-S05 admission separate. |
+| [`Serve_Continuity.md`](Serve_Continuity.md) | **OPEN — v2.8; code floor done; logout/login host proof next** | SC-S00…S04b+S02 shipped. Next: host logout/login after `serve enable`. SC-S05 admission separate. Sprint: [`sprint/serve-continuity/`](sprint/serve-continuity/). |
 | [`One_Run_Surface.md`](One_Run_Surface.md) | **IN FLIGHT — code/docs cutover shipped; ORS-S04 two-host Works Test remains** | One single-run read surface: `alln show --json|--stream`. Public `team status` / `team result`, old waiter, and parallel status schema deleted. |
 
 ### Forward feature packets
@@ -96,7 +96,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`copy/`](copy/README.md) | Draft — unbuilt | Copy lane work orders. |
 | [`ios/`](ios/README.md) | **Parked** | Future remote PM; must not block Mac delivery. |
 | [`parked/`](parked/README.md) | **Parked** | Premature scheduler ideas (e.g. utilization admission). |
-| [`sprint/`](sprint/README.md) | **No active work orders** | All sprint docs archived; open new ones here when slicing. |
+| [`sprint/`](sprint/README.md) | **Serve Continuity code slices done** — host proof remains | Active topic: [`sprint/serve-continuity/`](sprint/serve-continuity/) (SC-S00…S04b+S02 done; logout/login next). |
 | `wiring/`, `mockups/` | Design-handoff assets | Pixel reference for composer/setup/send-to-team surfaces. |
 
 ## Recently archived
@@ -193,7 +193,8 @@ Open questions:
 | Send to team / delegation surface | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) + `docs/gui/surfaces/send-to-team/brief.md` |
 | Persistent chat / thread backend | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) |
 | First-run setup, CLI detection | [`setup/README.md`](setup/README.md) |
-| Sprint work orders (one-slice agents) | [`sprint/README.md`](sprint/README.md) — none active; create new when slicing |
+| `alln serve` dead / orphan LaunchAgent / capacity stale with app closed | [`Serve_Continuity.md`](Serve_Continuity.md) + debugger `2026-08-09-serve-launchagent-lwcr-PACKET.md` |
+| Sprint work orders (one-slice agents) | [`sprint/README.md`](sprint/README.md) — serve-continuity code done; host proof next |
 | Built MVP / run model law | `docs/mvp/README.md` + code `RunService.swift` |
 | Sprint execution and closeout | `docs/operations/Execution-Playbook.md` |
 | **Anything shipped & archived** | [`docs/archive/phases/README.md`](../archive/phases/README.md) |

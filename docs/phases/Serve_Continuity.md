@@ -1,12 +1,12 @@
 # Serve Continuity (Background Keeper)
 
-Status: **OPEN — v2.5 (founder: login helper YES + stable binary YES; next SC-S04a)**
+Status: **OPEN — v2.8 (code floor shipped SC-S00…S04b+S02; next = logout/login host proof)**
 Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeAutoLaunch`,
-admission, doctor, **new ServeLifecycle**) + `InstallCLI` / `rebuild_cli.sh`
-(same transaction as identity change) + Mac app (enablement / demand heal) —
+admission, doctor, `ServeLifecycle`, `ServeStableBinary`) + `InstallCLI` /
+`rebuild_cli.sh` (same transaction as identity change) + Mac app (demand heal) —
 **not** a second capacity scheduler
 Created: 2026-08-09
-Revised: 2026-08-09 (v2 — Bug Hunt synthesis + v1→hunt delta)
+Revised: 2026-08-09 (v2.8 — enable/disable + install refresh landed; host proof remains)
 Origin: Dogfood code red — with the Mac app closed, capacity / Pending wake /
 Boost / vendor-backoff / OS notifications depend on `alln serve`. Serve can
 die; on this host the orphan LaunchAgent did **not** bring it back (exit 78 /
@@ -218,14 +218,16 @@ clear; they do not exit(0) in a KeepAlive death loop.
 | **SC-S04a** | **DONE 2026-08-09** (`ef75ec50`) — `ServeStableBinary` stages copy under Application Support/Allnighter/CLI/alln. | `scripts/swift-test.sh --filter ServeStableBinaryTests` |
 | **SC-S04b** | **DONE 2026-08-09** (`b7eecd78`) — `serve enable`/`disable` own LaunchAgent on staged binary. Works Test 11/11. | `scripts/swift-test.sh --filter ServeLifecycleEnableTests` |
 | **SC-S02** | **DONE 2026-08-09** (`5de87193`) — install-cli refreshes staged binary; rebinds LaunchAgent when enabled. Works Test 9/9. | `scripts/swift-test.sh --filter ServeInstallRefreshTests` |
-| **SC-S04** | ~~monolith~~ → split into S04a/S04b; logout/login Works Test after S02. | Serve returns after login |
-| **SC-S05** | Admission PID identity harden (**separate**). | Recycled-pid fixture |
+| **SC-S04** | **NEXT** — logout/login Works Test on product `serve enable` (staged binary). S04a/S04b code done; this row is the host proof only. | Serve returns after login; health available; capacity advances app-closed |
+| **SC-S05** | Admission PID identity harden (**separate** — not this bug). | Recycled-pid fixture |
 
-S00a **refuted H1** for a fresh bootstrap without managed LWCR — packet does
-**not** shrink: SC-S00+ still required (honesty, lifecycle, demand heal, founder
-login ruling). Adhoc debug symlink remains a landmine if BTM re-pins LWCR.
-S00–S02 remain the code-red floor. S03 session heal. S04 login continuity.
-S05 must not wear this bug's clothes.
+**Code floor (2026-08-09):** SC-S00a…S01, S03, S04a, S04b, S02 are committed.
+Remaining to close the packet: **SC-S04 host proof** (logout/login), then promote
+help/doctor teaching and archive. SC-S05 stays a separate hardening track.
+
+S00a **refuted H1** for a fresh bootstrap without managed LWCR. Adhoc debug
+symlink remains a landmine if BTM re-pins LWCR — product path must stay on the
+staged Application Support binary.
 
 ---
 
@@ -255,7 +257,12 @@ S05 must not wear this bug's clothes.
 **Still open (defaults until ruled):**
 
 - Default: start-at-login **off** until explicit `alln serve enable`, vs on after
-  first install. **PM lean: off until enable** (opt-in; quieter for new users).
+  first install. **Shipped as opt-in** (`serve enable`); leave default off unless
+  founder later rules “on after first install.”
+
+**Next proof (blocks archive):** logout → login with `serve enable` active →
+`alln serve --health` available without manual restart; capacity history advances
+with Dock app quit. Script/log under `docs/qa/serve-continuity/`.
 
 ---
 
@@ -271,14 +278,16 @@ Lead call (Partial — one human fork):
 
 ### 7.1 What Bug Hunt confirmed (matches v1)
 
-- Orphan KeepAlive is the lie-prone “looks supervised” layer; product has **zero**
-  LaunchAgent/SMAppService owners in tree.
+- Orphan KeepAlive was the lie-prone “looks supervised” layer; product had **zero**
+  LaunchAgent owners in tree **at hunt time** — now owned by `ServeLifecycle`
+  (`serve enable` / `disable` / `repair` + install-cli refresh).
 - Pre-exec refuse (console LWCR + crash report `CODESIGNING 4 — Launch Constraint
   Violation` at `_dyld_start`) — our Swift never ran on failing spawns.
 - `ServeDaemonProbe` stayed honest (`foregroundOnly` when dead).
 - No second capacity scheduler.
-- Demand heal today is Loop-engine-only; `alln run` and app launch do not revive serve.
-- Fail-closed doctor / `--health` on wedged/orphan agent.
+- Demand heal was Loop-engine-only at hunt time — **SC-S03** widened to `alln run`
+  + Mac app launch via `ServeAutoLaunch.ensureRunning`.
+- Fail-closed doctor / `--health` on wedged/orphan agent (**SC-S00**).
 
 ### 7.2 What Bug Hunt added or corrected (v1 → hunt delta)
 
@@ -316,6 +325,10 @@ experiment matters before declaring green.
 While open: this packet + debugger
 `docs/operations/debugger/2026-08-09-serve-launchagent-lwcr-PACKET.md`.  
 Bug Hunt run: `AC9D2295-329F-4417-A5EC-FA65D010EB1C`.  
-After ship: code SSOT `ServeLifecycle` (name TBD) + `ServeDaemon*` +
-`ServeAutoLaunch` + `InstallCLI`; help topics; doctor; AGENTS row for “serve
-dead / capacity stale with app closed.”
+Sprint board: `docs/phases/sprint/serve-continuity/`.
+
+**Code SSOT (shipped):** `ServeLifecycle`, `ServeStableBinary`,
+`ServeLaunchAgentStatus`, `ServeDaemon*`, `ServeAutoLaunch`, `InstallCLI`
+(`refreshAfterInstall` from CLI after successful install).  
+**Still owed before archive:** logout/login host proof; help teaching polish;
+promote any keepable law out of this packet.

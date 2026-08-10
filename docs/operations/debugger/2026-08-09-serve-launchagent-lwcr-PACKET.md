@@ -81,7 +81,24 @@ Proof command / founder test:
   # → health available; Capacity/_newest_success.json advances app-closed
 ```
 
-## Repro (confirmed)
+## Product progress (2026-08-09)
+
+Code floor for this bug has shipped under `docs/phases/Serve_Continuity.md`:
+
+| Slice | Commit (approx) | What |
+| --- | --- | --- |
+| SC-S00 | `05afee05` | LaunchAgent honesty in doctor / health |
+| SC-S01 | `867d72e3` | `serve repair` + lifecycle remove |
+| SC-S03 | `861578aa` | Demand heal on `alln run` + Mac app launch |
+| SC-S04a | `ef75ec50` | Staged stable binary under Application Support |
+| SC-S04b | `b7eecd78` | `serve enable` / `disable` on staged binary |
+| SC-S02 | `5de87193` | install-cli refreshes staged binary + rebinds when enabled |
+
+**Still open for this packet:** logout/login host proof (`SC-S04-logout-login.md`).
+SC-S05 admission recycled-PID is **separate** hardening — do not fold into this
+debug track.
+
+## Repro (confirmed at intake)
 
 1. `launchctl print gui/$(id -u)/com.allnighter.resident-coordinator`  
    → `last exit code = 78: EX_CONFIG`, `needs LWCR update | managed LWCR`
@@ -91,18 +108,16 @@ Proof command / founder test:
 3. Same binary: `alln serve` under a normal shell (even with `XPC_SERVICE_NAME` set) stays alive; health → `available`.
 4. Therefore EX_CONFIG is **not** ServeDaemonAdmission, not a Swift exit(78), not PATH — **xpcproxy never hands off to alln**.
 
-## What brings serve back today?
+## What brings serve back (update after 2026-08-09 code floor)
 
-| Trigger | Restarts `alln serve`? | Capacity with app closed? |
+| Trigger | Restarts `alln serve`? | Notes |
 | --- | --- | --- |
-| Orphan LaunchAgent KeepAlive / kickstart / reboot / login | **No** (LWCR blocks before exec) | No |
-| `alln run` / team Bug Hunt / ordinary chat run | **No** (`ServeAutoLaunch` not wired) | No |
-| Mac app launch | **No** serve; app runs `CapacityResidentService` only | **Yes while app open**; stops again when quit |
-| `alln loop step` / `start` / `resume` / `pm` (and pair relay verbs) | **Yes** (`ServeAutoLaunch.ensureRunning`) | Yes once launched |
-| Manual `alln serve` | **Yes** | Yes |
-| Waiting for weekly reboot | **No** — same broken LA comes back | No |
-
-Morning capacity stamps with the app closed were from a **manually or Loop-detached** serve process that later died; the LaunchAgent did **not** bring it back (consistent with 6700+ failed spawn attempts).
+| Product `alln serve enable` LaunchAgent (staged binary) | **Yes after logout/login — unproven host** | Code shipped; SC-S04 host proof owed |
+| Orphan KeepAlive / kickstart (old CODE_RED plist) | **No** when LWCR-wedged | Use `alln serve repair` / `disable` |
+| `alln run` / Mac app launch | **Yes** | SC-S03 `ServeAutoLaunch.ensureRunning` |
+| `alln loop` ensureRunning sites | **Yes** | Unchanged |
+| Manual `alln serve` | **Yes** | Always |
+| `install-cli` / `rebuild_cli` | Refreshes staged binary; rebinds if enabled | SC-S02 |
 
 ## What must never be allowed again
 
