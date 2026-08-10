@@ -57,6 +57,14 @@ order from §8, beginning with ASR-S00.
 **Forward next:** ASR-S00 native launchd isolation harness. The old logout/login
 order cannot close the new product claim and remains historical evidence only.
 
+## Alln serve recovery (ASR) — active queue
+
+SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a time.
+
+| Order | Doc | Status |
+| --- | --- | --- |
+| ASR-S00 | [`alln-serve/ASR-S00-launchd-isolation-harness.md`](alln-serve/ASR-S00-launchd-isolation-harness.md) | **ready** |
+
 _None other code work orders active — CT-S04 done; archive S123 when ready._
 
 ## Recently archived (2026-08-09)
