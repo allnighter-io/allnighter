@@ -36,7 +36,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
-| [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — OPEN v1** | First open shows `0/9 ready` against the support catalog with zero probes. Badge honesty (FCS-S01) then framed first scan (FCS-S02) + Cursor-without-CLI card. Do not repeal Launch Authority. |
+| [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — OPEN v2** | First open prints a ratio it never measured (`0/9 ready`) while the capacity strip reads every seat as up and the composer says "Not detected" — three unmeasured claims on one virgin screen. Start at FCS-S01 (one `BenchTally` projector in Core, no ratio when nothing was measured), then the framed first scan (FCS-S02, press not `onAppear`) + Cursor-without-CLI card. Regression laws FCS-L1…L6. Do not repeal Launch Authority. |
 
 > **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
 > **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
