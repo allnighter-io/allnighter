@@ -37,7 +37,6 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | Doc | Status | Next action |
 | --- | --- | --- |
 | [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — OPEN v4** | CLI-first parity: curl\|sh users co-equal with Mac app. Shared `BenchTallyProjector`; **S01 Core → S02 CLI menu/doctor/detect + install teach detect → S03 Mac chrome**. Never `0/catalog` when unscanned. FCS-L7: bootstrap must teach find-CLIs. Domain stays `get.allnighter.io` unless One_Paste cutover. |
-| [`First_Launch_CLI_Strip.md`](First_Launch_CLI_Strip.md) | **OPEN — ready for implementation** | Home marketing pills use **model** grain → “infinite” CLIs. One slice FLCS-S01: `setupCards` only; green/amber/gray fold + `StatusDot`; suppress under Find-my-team; tap → `openCLISetup`. **Not capacity.** |
 
 > **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
 > **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
@@ -105,6 +104,7 @@ Verified against code/commits; full index:
 
 | Packet | Why archived | Successor |
 | --- | --- | --- |
+| [`First_Launch_CLI_Strip.md`](../archive/phases/First_Launch_CLI_Strip.md) | **CLOSED (2026-08-10)** — FLCS-S01: home marketing chips use `setupCards` (not `composeBench` models); Find-my-team suppresses gray wall; green/amber/gray via `StatusDot`; tap → `openCLISetup`. Not capacity. | Code SSOT: `HomeMarketingCLIStrip`, `HomeMarketingEmptyState` / `HomeView`, `RootView.openCLISetup`; proof `HomeMarketingCLIStripTests` |
 | [`Probe_Freshness.md`](../archive/phases/Probe_Freshness.md) | **CLOSED (2026-08-09)** — PF-S00…S03b: expire-at-projection, disclosure, vendor-signal sibling, serve capacity refresh, `lastDetectedAt` split + run capability clock, founder B periodic full probe smoke (`ProbeRecordRefreshScheduler`). | Code SSOT: `ProbeFreshnessGate`, `ProbeFreshnessDisclosure`, `SourceProbeService`, `CensusIngest`, `ProbeRecordRefreshScheduler`, `RunService`; vocabulary: `Product_Vocabulary.md` §Probe freshness |
 | [`OpenCode_Long_Run_Continuity.md`](../archive/phases/OpenCode_Long_Run_Continuity.md) | **CLOSED (2026-08-09)** — S123 long-run/concurrent continuity; CT follow-up archived with parent. CT-10 deferred. | Help `opencode_headless_completion`; code SSOT AgentOS `OpenCodeServeClient` / `OpenCodeSSEParser` / `OpenCodeRoutingWorkerRunner` |
 | [`OpenCode_Turn_Capture_Hardening.md`](../archive/phases/OpenCode_Turn_Capture_Hardening.md) | **CLOSED (2026-08-09)** — OCH-S01…S04: actor parser last-assistant-only, harden post-idle reconcile, busy/idle-defer + clock injection, shared seat timeout budget. AgentOS `65da768`. | Help `opencode_headless_completion`; code SSOT AgentOS `OpenCodeSSEParser` / `OpenCodeServeClient` / `OpenCodeRoutingWorkerRunner` |

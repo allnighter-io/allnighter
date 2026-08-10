@@ -163,6 +163,7 @@ struct RootView: View {
                 showDevSettings = true
                 #endif
             },
+            onOpenCLISetup: { openCLISetup(focus: $0) },
             relayLaunchRequest: $relayLaunchRequest
         )
     }

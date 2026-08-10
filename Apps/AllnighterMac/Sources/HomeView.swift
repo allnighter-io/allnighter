@@ -18,6 +18,8 @@ struct HomeView: View {
     var onContinueWithAuto: (String, String) -> Void = { _, _ in }
     /// DEBUG-only: open the developer GUI-routes sheet (sidebar footer link).
     var onOpenDevRoutes: () -> Void = {}
+    /// FLCS-S01: marketing CLI chip → Settings › CLIs focused on that driver.
+    var onOpenCLISetup: (String) -> Void = { _ in }
     /// R-S08: owned by RootView (mirrors `floorRun`) so a GUI-proof deep-link
     /// (`GUIFixture.opensRelayLaunch`) can force the sheet open deterministically at
     /// launch, without HomeSidebar racing `ProjectsViewModel`'s fixture seeding.
@@ -68,7 +70,7 @@ struct HomeView: View {
         if threads.selectedThread != nil {
             ThreadView()
         } else if threads.threads.isEmpty {
-            HomeMarketingEmptyState()
+            HomeMarketingEmptyState(onOpenCLISetup: onOpenCLISetup)
         } else {
             HomeNewRunPane()
         }
@@ -661,7 +663,8 @@ private struct ArchivedThreadRow: View {
 private struct HomeMarketingEmptyState: View {
     @Environment(AppModel.self) private var appModel
     @Environment(ThreadsViewModel.self) private var threads
-    private var bench: [ComposeBenchModel] { appModel.composeBench }
+    /// FLCS-S01: chip tap → CLI setup focus (wired from RootView via HomeView).
+    var onOpenCLISetup: (String) -> Void = { _ in }
     private let capabilities: [(icon: String, title: String, blurb: String)] = [
         ("message", "Ask", "Ask the bench a question — “token bucket or sliding window for rate limiting?”"),
         ("rectangle.stack", "Team", "Drop a screenshot — “make this profile feel premium and clean” → a board of options."),
@@ -684,7 +687,9 @@ private struct HomeMarketingEmptyState: View {
                     findTeamFrame
                 }
 
-                benchChips
+                if let chips = marketingCLIChips, !chips.isEmpty {
+                    benchChips(chips)
+                }
                 modeCards
                 RoutingComposer(
                     big: true,
@@ -704,6 +709,14 @@ private struct HomeMarketingEmptyState: View {
     /// FCS-S04: press-only first scan — never onAppear.
     private var showsFindTeamFrame: Bool {
         !appModel.hasCompletedSetup && appModel.benchTally.headline == .neverScanned
+    }
+
+    /// FLCS-S01: setup cards only; suppressed under Find-my-team.
+    private var marketingCLIChips: [SetupCardModel]? {
+        HomeMarketingCLIStrip.visibleCards(
+            from: appModel.setupCards,
+            showsFindTeamFrame: showsFindTeamFrame
+        )
     }
 
     private var findTeamFrame: some View {
@@ -744,28 +757,49 @@ private struct HomeMarketingEmptyState: View {
         .padding(.top, 4)
     }
 
-    private var benchChips: some View {
-        let rows = [Array(bench.prefix(3)), Array(bench.suffix(from: min(3, bench.count)))]
-        return VStack(spacing: 8) {
-            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                HStack(spacing: 8) {
-                    ForEach(row) { m in benchChip(m) }
-                }
+    /// Single row — no wrap (FLCS short-bench bar).
+    private func benchChips(_ cards: [SetupCardModel]) -> some View {
+        HStack(spacing: 8) {
+            ForEach(cards) { card in
+                benchChip(card)
             }
         }
         .padding(.top, 6)
     }
 
-    private func benchChip(_ m: ComposeBenchModel) -> some View {
-        HStack(spacing: 8) {
-            DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5)
-            Text(m.name).font(.system(size: 12.5, weight: .semibold)).foregroundStyle(ALColor.textPrimary)
-            Text(m.cli).font(ALFont.monoSm).foregroundStyle(ALColor.textFaint)
-            Circle().fill(m.ready ? ALPalette.green500 : ALColor.textFaint).frame(width: 6, height: 6)
+    private func benchChip(_ card: SetupCardModel) -> some View {
+        let label = shortName(for: card)
+        return Button {
+            onOpenCLISetup(card.driverId)
+        } label: {
+            HStack(spacing: 8) {
+                DriverBrandGlyph(driverId: card.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5)
+                Text(label)
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(ALColor.textPrimary)
+                    .lineLimit(1)
+                HomeMarketingCLIStrip.statusDot(for: card.state)
+            }
+            .padding(.horizontal, 11)
+            .frame(height: 34)
+            .background(ALColor.raised, in: Capsule())
+            .overlay { Capsule().strokeBorder(ALColor.borderDefault, lineWidth: 1) }
         }
-        .padding(.horizontal, 11).frame(height: 34)
-        .background(ALColor.raised, in: Capsule())
-        .overlay { Capsule().strokeBorder(ALColor.borderDefault, lineWidth: 1) }
+        .buttonStyle(.plain)
+        .help("Open \(card.name) setup")
+        .accessibilityLabel("\(label), \(accessibilityStatus(card.state))")
+    }
+
+    private func shortName(for card: SetupCardModel) -> String {
+        appModel.registry.all.first { $0.id == card.driverId }?.shortName ?? card.name
+    }
+
+    private func accessibilityStatus(_ state: SetupCardState) -> String {
+        switch HomeMarketingCLIStrip.dotKind(for: state) {
+        case .ready: return "ready"
+        case .attention: return "needs attention"
+        case .dormant: return "not ready"
+        }
     }
 
     private var modeCards: some View {
