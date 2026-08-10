@@ -1,9 +1,12 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **v7 — COMPLETE. PF-S00, PF-S01, PF-S02, PF-S03 and the final
-  capability-clock ruling all SHIPPED. Nothing open; ARCHIVE READY.
-  The "capacity is a table, not a status" redesign is REFUTED (§0.4) — read it
-  before proposing it again.**
+Status: **v8 — PF-S00…S03 + Option A capability clock SHIPPED; founder B (2026-08-09)
+  authorizes serve-hosted periodic full probe smoke (PF-S03b).**
+  Prior “scheduled smoke not authorized” line is **superseded** by founder B:
+  tiny quota spend is approved; inventing `lastProbeAt` without smoke is not.
+  Option A (`lastDetectedAt` split + run capability clock) remains shipped and
+  correct — B adds the missing serve timer for probe records when the bench is
+  idle. Capacity refresh on serve was already separate (different store).
   **Follow-on (closed 2026-08-09):** serve-scheduler polish archived →
   [`../archive/phases/Capacity_Serve_Refresh_Polish.md`](../archive/phases/Capacity_Serve_Refresh_Polish.md)
   (CRS-S02/S01/S04/S03 shipped; S05 deferred).
@@ -43,10 +46,9 @@ Status: **v7 — COMPLETE. PF-S00, PF-S01, PF-S02, PF-S03 and the final
   Three honest states replace two: **not detected** / **detected, never
   exercised** / **confirmed at T**. The middle one did not exist before and is the
   correct answer for a new user — better than a fabricated verdict or a scary
-  `notReady`. Run settlement remains the *free* capability-clock writer. **Founder B
-  (2026-08-09)** additionally authorizes serve-hosted periodic full smoke when
-  records are stale — tiny quota spend accepted so idle benches stay proven
-  (PF-S03b). Cheap path still must not invent `lastProbeAt`.
+  `notReady`. Scheduled smoke is therefore not needed and is not authorized:
+  spending a user's own paid quota to answer a question they did not ask is the
+  thing to refuse.
 
   Verified live: a failed run (`emptyOutput`) moved **zero** clocks; a successful
   run set `evidenceSource: "run"`; genuine pre-split records on disk correctly
@@ -589,9 +591,14 @@ exists to kill. Two candidate shapes:
 | **A — split the timestamp** | Add `lastDetectedAt` for cheap detection; leave `lastProbeAt` as smoke-only evidence. The gate ages smoke; detection answers "is the binary still there". | Record model change; PF-S01's disclosure must then name *which* clock it is reporting. |
 | **B — permit periodic smoke** | Serve runs a real `full: true` probe on the freshness clock. | Spends quota on a timer, against the user's own subscriptions. Needs a founder ruling on its own. |
 
-Lean: **A.** It is the only one that keeps "fresh" meaning "recently proven",
-and it composes with PF-S01 — a surface can honestly say *detected 4m ago,
-last proven 3h ago*. B trades the packet's core law for convenience.
+**Ruled 2026-08-09 (founder): B.** Tiny quota spend is fine; knowing seat
+readiness is critical. Ship `ProbeRecordRefreshScheduler` on `alln serve`
+(PF-S03b). Constraint retained from A: cheap/`full: false` must never advance
+`lastProbeAt`. Option A’s `lastDetectedAt` split + run capability clock stay;
+B does not replace them.
+
+Prior packet lean was A-only; that lean is superseded for the *scheduler*
+question only.
 
 **Works Test:**
 ```

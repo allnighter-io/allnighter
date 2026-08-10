@@ -40,6 +40,7 @@ Each sprint file must fit on **one to two screens** and include:
 
 | Topic | Doc | Status |
 | --- | --- | --- |
+| Probe Freshness PF-S03b | [`probe-freshness/PF-S03b-probe-smoke-scheduler.md`](probe-freshness/PF-S03b-probe-smoke-scheduler.md) | **ready** — serve periodic full probe smoke (founder B) |
 | Serve Continuity SC-S00 | [`serve-continuity/SC-S00-launchagent-honesty.md`](serve-continuity/SC-S00-launchagent-honesty.md) | **done** — `05afee05` |
 | Serve Continuity SC-S01 | [`serve-continuity/SC-S01-lifecycle-migrate-orphan.md`](serve-continuity/SC-S01-lifecycle-migrate-orphan.md) | **done** — `867d72e3` |
 | Serve Continuity SC-S03 | [`serve-continuity/SC-S03-demand-heal.md`](serve-continuity/SC-S03-demand-heal.md) | **done** — `861578aa` |
