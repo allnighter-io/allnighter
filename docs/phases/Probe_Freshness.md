@@ -43,9 +43,10 @@ Status: **v7 — COMPLETE. PF-S00, PF-S01, PF-S02, PF-S03 and the final
   Three honest states replace two: **not detected** / **detected, never
   exercised** / **confirmed at T**. The middle one did not exist before and is the
   correct answer for a new user — better than a fabricated verdict or a scary
-  `notReady`. Scheduled smoke is therefore not needed and is not authorized:
-  spending a user's own paid quota to answer a question they did not ask is the
-  thing to refuse.
+  `notReady`. Run settlement remains the *free* capability-clock writer. **Founder B
+  (2026-08-09)** additionally authorizes serve-hosted periodic full smoke when
+  records are stale — tiny quota spend accepted so idle benches stay proven
+  (PF-S03b). Cheap path still must not invent `lastProbeAt`.
 
   Verified live: a failed run (`emptyOutput`) moved **zero** clocks; a successful
   run set `evidenceSource: "run"`; genuine pre-split records on disk correctly
