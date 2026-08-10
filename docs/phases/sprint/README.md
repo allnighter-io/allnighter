@@ -67,7 +67,11 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S01a | [`alln-serve/ASR-S01a-canonical-binary-owner.md`](alln-serve/ASR-S01a-canonical-binary-owner.md) | **done** — `d60efa8a` (39 tests) |
 | ASR-S01b | [`alln-serve/ASR-S01b-install-onto-canonical.md`](alln-serve/ASR-S01b-install-onto-canonical.md) | **done** — `91cad2de` (44 tests) |
 | ASR-S01c | [`alln-serve/ASR-S01c-installer-scripts-converge.md`](alln-serve/ASR-S01c-installer-scripts-converge.md) | **done** — `fa8dc145` (16 assertions) |
-| ASR-S01d | [`alln-serve/ASR-S01d-honor-home-env.md`](alln-serve/ASR-S01d-honor-home-env.md) | **ready** |
+| ASR-S01d | [`alln-serve/ASR-S01d-honor-home-env.md`](alln-serve/ASR-S01d-honor-home-env.md) | **done** — `1f3e1add` (50 unit + installer proof) |
+
+**ASR-S01 is complete.** PATH and canonical bytes have one owner. Next: ASR-S02
+convergent supervisor lifecycle — it owns the live-host rebind off the
+Application Support staged path and must close the frozen-daemon gap S01b left.
 
 ASR-S01 is cut into sub-slices: **S01a** canonical binary owner (this),
 **S01b** rewire `InstallCLI.run` + CLI JSON onto the canonical path, **S01c**

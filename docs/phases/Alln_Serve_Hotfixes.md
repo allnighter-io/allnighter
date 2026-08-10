@@ -938,7 +938,9 @@ Dock app, reboot, `kickstart`, or agent intervention.
 - [ ] CLI-only install enables and actively verifies one supervised serve by
   default, with a disclosed opt-out.
 - [ ] PATH, launchd, health, and update name one canonical installed binary, and
-  identity — not version string — decides `binary.matches`.
+  identity — not version string — decides `binary.matches`. — **install side done
+  2026-08-10** (ASR-S01a–d: `d60efa8a`, `91cad2de`, `fa8dc145`, `1f3e1add`);
+  launchd and health still name the staged path until ASR-S02.
 - [ ] No exit path produces a KeepAlive respawn loop; stand-down is visible in
   status rather than silent.
 - [ ] A due obligation survives system sleep and fires within 2 minutes of wake.
