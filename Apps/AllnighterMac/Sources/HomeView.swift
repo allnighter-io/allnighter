@@ -680,6 +680,10 @@ private struct HomeMarketingEmptyState: View {
                     .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
                     .multilineTextAlignment(.center).lineSpacing(3).frame(maxWidth: 600)
 
+                if showsFindTeamFrame {
+                    findTeamFrame
+                }
+
                 benchChips
                 modeCards
                 RoutingComposer(
@@ -695,6 +699,49 @@ private struct HomeMarketingEmptyState: View {
             .padding(.horizontal, 28).padding(.bottom, 40)
         }
         .background(ALColor.base)
+    }
+
+    /// FCS-S04: press-only first scan — never onAppear.
+    private var showsFindTeamFrame: Bool {
+        !appModel.hasCompletedSetup && appModel.benchTally.headline == .neverScanned
+    }
+
+    private var findTeamFrame: some View {
+        VStack(spacing: 10) {
+            Text("Find the CLIs you already pay for")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(ALColor.textPrimary)
+            Text("One scan checks what’s installed and signed in. Nothing runs until you press the button.")
+                .font(.system(size: 12))
+                .foregroundStyle(ALColor.textMuted)
+                .multilineTextAlignment(.center)
+            Button {
+                appModel.runFullSetupProbe(userInitiated: true)
+            } label: {
+                HStack(spacing: 8) {
+                    if appModel.isDetecting {
+                        ProgressView().controlSize(.small)
+                    }
+                    Text(appModel.isDetecting ? "Finding your team…" : "Find my team")
+                        .font(.system(size: 13, weight: .semibold))
+                }
+                .foregroundStyle(ALColor.textOnAmber)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(ALColor.accent, in: RoundedRectangle(cornerRadius: ALRadius.sm))
+            }
+            .buttonStyle(.plain)
+            .disabled(appModel.isDetecting)
+            .accessibilityLabel("Find my team")
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(ALColor.raised, in: RoundedRectangle(cornerRadius: ALRadius.md))
+        .overlay {
+            RoundedRectangle(cornerRadius: ALRadius.md)
+                .strokeBorder(ALColor.accentBorder, lineWidth: 1)
+        }
+        .padding(.top, 4)
     }
 
     private var benchChips: some View {
@@ -760,14 +807,26 @@ private struct HomeNewRunPane: View {
     @State private var capacity = HomeNewRunPane.makeCapacityModel()
 
     private var notReadyOrParked: Set<String> {
+        // FCS-S06: enumerate supported drivers — empty probe cache must not
+        // look like "everything is up."
         let parked = appModel.parkedDriverIds
         var down = Set(parked)
-        for record in appModel.toolStatuses where !record.status.isSmokeReady {
-            // Rate-limited seats still have live capacity numbers — same as bare `alln capacity`.
+        for manifest in appModel.registry.all where manifest.kind == .headlessCLI {
+            let id = manifest.id
+            if parked.contains(id) {
+                down.insert(id)
+                if id == "antigravity" { down.insert("agy") }
+                continue
+            }
+            guard let record = appModel.toolStatus(for: id) else {
+                down.insert(id)
+                if id == "antigravity" { down.insert("agy") }
+                continue
+            }
+            if record.status.isSmokeReady { continue }
             if case .rateLimited = record.status { continue }
-            down.insert(record.driverId)
-            // Capacity source id for Antigravity is `agy`; setup uses `antigravity`.
-            if record.driverId == "antigravity" { down.insert("agy") }
+            down.insert(id)
+            if id == "antigravity" { down.insert("agy") }
         }
         return down
     }

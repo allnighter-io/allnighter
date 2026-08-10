@@ -567,7 +567,8 @@ final class AppModel {
                 case .probeFailed?: reason = "Probe failed"
                 case .rateLimited(let observation)?: reason = DoctorReport.rateLimitedDetail(observation: observation)
                 case .installedNotProbed?: reason = "Not checked"
-                case .notInstalled?, .none: reason = "Not detected"
+                case .notInstalled?: reason = "Not installed"
+                case .none: reason = "Not checked"
                 case .ready?: reason = nil
                 }
             } else if isCooling {
