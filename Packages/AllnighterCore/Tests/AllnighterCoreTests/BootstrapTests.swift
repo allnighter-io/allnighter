@@ -66,10 +66,12 @@ final class BootstrapTests: XCTestCase {
             XCTAssertFalse(out.lowercased().contains("set your api"), "\(host.rawValue) must not advise API keys")
             XCTAssertFalse(out.lowercased().contains("mcp"), "\(host.rawValue) must not revive MCP")
         }
-        // Checkout hosts keep the compact render (no cold preamble).
+        // Checkout hosts also get the find-CLIs preamble (FCS-S02 / FCS-L7).
         let claude = Bootstrap.render(host: .claude, binaryPath: sampleBinary, onPath: true)
-        XCTAssertFalse(claude.contains("subscription CLIs"), "claude must not get cold-host preamble")
-        XCTAssertTrue(claude.hasPrefix("Paste into"), "claude render starts at paste target")
+        XCTAssertFalse(claude.contains("subscription CLIs"), "claude must not get hermes/openclaw-only subscription prose")
+        XCTAssertTrue(claude.hasPrefix("Start with `alln menu --json`"), "claude render starts with find-CLIs preamble")
+        XCTAssertTrue(claude.contains("benchTally.nextAction"), "claude preamble must teach menu nextAction")
+        XCTAssertTrue(claude.contains(Bootstrap.Host.claude.pasteTarget))
     }
 
     // MARK: - Live-menu reflex (v10 body)

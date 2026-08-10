@@ -64,17 +64,21 @@ public enum HelpTopicRegistry {
             do with `alln menu --json` or `alln doctor`. Updates appear on `alln menu --json` \
             (`update` field) and use the same one-liner.
 
-            Allnighter turns the AI CLIs you already have (Claude Code, Codex, Cursor, \
+            Allnighter turns the AI CLIs you already have (Claude Code, Codex, Cursor Agent, \
             Grok, Antigravity) into one team that works in a repo. A default run sends \
             your message to the Default model (Auto) in the project root. Pick a named \
             team when you want a multi-agent pass.
+
+            After install, read `alln menu --json`. If `benchTally.nextAction` is set \
+            (headline `neverScanned`), run that command once — usually `alln detect` — \
+            before spending quota. Never treat an empty probe cache as "0 of N ready."
 
             Other agents: run `alln bootstrap` for a paste-ready context snippet that teaches \
             the live-menu reflex (`alln menu --json`) in one paste (no MCP server, no config file edits).
             """,
             aliases: ["getting started", "first run", "what is allnighter",
                       "no alln", "get alln", "curl", "PATH", "update", "upgrade"],
-            relatedCommandNames: ["install-cli", "run", "doctor", "bootstrap", "menu"],
+            relatedCommandNames: ["install-cli", "run", "doctor", "bootstrap", "menu", "detect"],
             needsLiveCheck: false),
 
         HelpTopic(
@@ -113,7 +117,7 @@ public enum HelpTopicRegistry {
                      "wire up allnighter", "onboard agent", "mcp install", "mcp", "install mcp",
                      "rebuild", "self build", "fresh binary", "build alln",
                      "hermes", "openclaw"],
-            relatedCommandNames: ["install-cli", "bootstrap", "help get", "help search", "menu", "doctor", "version"],
+            relatedCommandNames: ["install-cli", "bootstrap", "help get", "help search", "menu", "doctor", "version", "detect"],
             schemaRefs: [],
             needsLiveCheck: false),
 
@@ -122,7 +126,8 @@ public enum HelpTopicRegistry {
             summary: "When unsure, start with `alln menu --json`. Then pick foreground `run`, `thread send`, or pending by intent.",
             bodyMarkdown: """
             When unsure which command to use, call `alln menu --json` \
-            first — choose from useWhen/dontUseWhen and pass canonical ids only. Do not invent flags.
+            first — choose from useWhen/dontUseWhen and pass canonical ids only. Do not invent flags. \
+            If `benchTally.nextAction` is present, run it once before any spend (find CLIs).
 
             Verb tree:
             - `alln run` — single agent / chat / named-model ask in the project root \
@@ -158,7 +163,7 @@ public enum HelpTopicRegistry {
             ],
             relatedCommandNames: ["help search", "help get", "menu", "run",
                                   "show", "thread send",
-                                  "pending add", "pending run", "spec"],
+                                  "pending add", "pending run", "spec", "detect"],
             schemaRefs: ["teamStartResponse"],
             needsLiveCheck: true),
 
@@ -640,7 +645,15 @@ public enum HelpTopicRegistry {
             Allnighter uses your existing CLI subscriptions and logins — never API keys. If a \
             source is blocked, run `alln doctor` (optionally for one agent) to see the exact \
             failing check, then `alln doctor explain` for the recovery text. Auth is live state: the \
-            help bundle cannot know it — call doctor. Cursor gotcha: headless cursor-agent \
+            help bundle cannot know it — call doctor.
+
+            Cursor IDE vs Cursor Agent CLI: opening Cursor (the IDE) does **not** seat \
+            `cursor_agent`. The seat is the headless `agent` / `cursor-agent` binary. Install \
+            with the catalog hint (`curl https://cursor.com/install …`), then `agent login` \
+            if needed, then `alln detect` (or Mac Re-check on that card). Doctor/detect copy \
+            never treats the IDE as the seat.
+
+            Cursor gotcha: headless cursor-agent \
             respects `permissions.allow` in `~/.cursor/cli-config.json` even under `--trust`; \
             denied shell tools fail silently. Widen the global allowlist (e.g. `Shell(git)`, \
             `Shell(python3)`, or `Shell(**)`), or add a repo-root `.cursor/cli.json` with \
@@ -648,25 +661,35 @@ public enum HelpTopicRegistry {
             merge at cursor-agent process start (next headless turn). `alln doctor` reports \
             this as `source.cursor_agent.shellAllowlist` (Allnighter never writes vendor config).
             """,
-            aliases: ["auth", "login", "sign in", "blocked", "why can't allnighter run codex", "api key"],
+            aliases: ["auth", "login", "sign in", "blocked", "why can't allnighter run codex", "api key",
+                      "cursor ide", "cursor app", "cursor agent", "cursor-agent", "agent login",
+                      "install cursor cli"],
             sections: [
                 .init("source-auth-expired", "Source auth expired", "Re-authenticate the named source via its own login flow, then re-probe with `alln doctor`."),
+                .init("cursor-ide-vs-agent", "Cursor IDE ≠ Agent CLI", "The Cursor app is not a seat. Install/sign in the `agent` CLI, then `alln detect`."),
             ],
-            relatedCommandNames: ["doctor", "doctor explain"],
+            relatedCommandNames: ["doctor", "doctor explain", "detect"],
             schemaRefs: ["doctorResult"],
             errorRefs: ["SOURCE_AUTH_EXPIRED", "SOURCE_NOT_FOUND", "SOURCE_KEYCHAIN_UNAVAILABLE"],
             needsLiveCheck: true),
 
         HelpTopic(
             id: "current_setup", title: "Current Setup", audience: .both,
-            summary: "What can THIS install do right now? Call `alln menu --json` (or `alln doctor`) — this is live state, not guide truth.",
+            summary: "What can THIS install do right now? Read `alln menu --json` (`benchTally`); if never scanned, run `alln detect` once.",
             bodyMarkdown: """
-            To answer "what can my install do right now?", call `alln menu --json` for a compact \
-            readiness snapshot, or `alln doctor` for the full per-source report. The help \
-            bundle describes product behavior; it does not know this machine's live state.
+            To answer "what can my install do right now?", call `alln menu --json`. Read \
+            `benchTally.headline` and counts — the same BenchTally projector the Mac badge uses. \
+            Headline `neverScanned` means no probe cache yet: **not** "0 of catalog ready." \
+            When `benchTally.nextAction` is set, run that command once (usually `alln detect`) \
+            before spend. `alln doctor` uses the same headline and may point at detect.
+
+            Mac chrome says **Find my team** / **No CLIs checked yet** in that state — press \
+            Find my team (or run detect on the CLI) to measure. Ready only means smoke-passed.
             """,
-            aliases: ["can it run", "ready", "readiness", "what can it do now", "status"],
-            relatedCommandNames: ["menu", "doctor", "show"],
+            aliases: ["can it run", "ready", "readiness", "what can it do now", "status",
+                      "detect", "alln detect", "find clis", "find my team", "bench tally",
+                      "neverScanned", "never scanned", "0/9 ready", "no clis checked"],
+            relatedCommandNames: ["menu", "doctor", "show", "detect"],
             needsLiveCheck: true),
 
         HelpTopic(

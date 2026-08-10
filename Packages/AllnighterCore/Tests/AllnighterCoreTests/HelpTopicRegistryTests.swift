@@ -387,6 +387,30 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertNil(r.selectedSectionId, "unknown section is dropped, topic still returned")
     }
 
+    /// FCS-S07 — detect / tally / Cursor IDE vs Agent must be findable via help search.
+    func testSearchRoutesDetectTallyAndCursorIDEQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("detect"), "current_setup")
+        XCTAssertEqual(top("alln detect"), "current_setup")
+        XCTAssertEqual(top("find my team"), "current_setup")
+        XCTAssertEqual(top("neverScanned"), "current_setup")
+        XCTAssertEqual(top("bench tally"), "current_setup")
+        XCTAssertEqual(top("cursor ide"), "setup_and_auth")
+        XCTAssertEqual(top("cursor agent"), "setup_and_auth")
+        XCTAssertEqual(top("install cursor cli"), "setup_and_auth")
+
+        let cursor = HelpService.get(topic: "setup_and_auth")
+        let body = cursor.topic?.bodyMarkdown ?? ""
+        XCTAssertTrue(body.contains("does **not** seat"), "Cursor IDE must not be taught as the seat")
+        XCTAssertTrue(body.contains("cursor_agent") || body.contains("agent"), "Agent CLI must be named")
+
+        let setup = HelpService.get(topic: "current_setup")
+        let setupBody = setup.topic?.bodyMarkdown ?? ""
+        XCTAssertTrue(setupBody.contains("neverScanned"))
+        XCTAssertTrue(setupBody.contains("alln detect"))
+        XCTAssertTrue(setup.topic?.relatedCommandNames.contains("detect") ?? false)
+    }
+
     // MARK: - Ref round-trip
 
     func testHelpRefBuildAndParseRoundTrip() {
