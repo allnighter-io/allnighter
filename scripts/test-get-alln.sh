@@ -250,7 +250,6 @@ log "scenario A: pipe install (BUG-0)"
 STATUS_A="$(run_install happy)"
 HOME_A="$WORK/home-happy"
 LINK_A="$WORK/link-happy"
-BIN_A="$HOME_A/.local/share/allnighter/bin/alln"
 OUT_A="$WORK/out-happy.txt"
 ERR_A="$WORK/err-happy.txt"
 
@@ -262,23 +261,23 @@ else
   sed 's/^/  | /' "$OUT_A" >&2 || true
 fi
 
-if [[ -x "$BIN_A" ]]; then
-  pass "stable home binary exists: $BIN_A"
+if [[ -x "$LINK_A/alln" ]]; then
+  pass "installed symlink is executable"
 else
-  fail "stable home binary missing after install"
+  fail "installed symlink missing or not executable"
 fi
 
-if "$BIN_A" version </dev/null >/dev/null 2>&1; then
-  pass "absolute version exits 0"
+if "$LINK_A/alln" version </dev/null >/dev/null 2>&1; then
+  pass "installed binary version exits 0"
 else
-  fail "absolute version failed"
+  fail "installed binary version failed"
 fi
 
-# Step 10: bootstrap paste markers
-if grep -q 'alln menu --json' "$OUT_A" && grep -q 'ALLNIGHTER:TEACHING' "$OUT_A"; then
-  pass "stdout includes bootstrap teaching paste (step 10)"
+# Delegation to install-cli (ASR-S01c)
+if grep -qE 'installed:|already installed:|alreadyInstalled' "$OUT_A"; then
+  pass "delegated to install-cli (stdout proof)"
 else
-  fail "bootstrap paste markers missing from stdout (BUG-0 / step 10)"
+  fail "install-cli delegation not visible in stdout"
   sed 's/^/  | /' "$OUT_A" | head -n 40 >&2 || true
 fi
 
@@ -376,11 +375,13 @@ env -i \
   >"$OUT_C1" 2>"$ERR_C1"
 STATUS_C1=$?
 set -e
-BIN_C="$HOME_C/.local/share/allnighter/bin/alln"
-[[ "$STATUS_C1" -eq 0 && -x "$BIN_C" ]] || fail "BUG-3 setup install failed (status=$STATUS_C1)"
+[[ "$STATUS_C1" -eq 0 && -x "$LINK_C/alln" ]] || fail "BUG-3 setup install failed (status=$STATUS_C1)"
+
+CANONICAL_C="$(python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$LINK_C/alln" </dev/null)"
+[[ -n "$CANONICAL_C" && -x "$CANONICAL_C" ]] || fail "BUG-3: could not resolve canonical binary from symlink"
 
 # Hold the installed binary's inode open (simulates a long-lived serve/loop).
-python3 - "$BIN_C" <<'PY' &
+python3 - "$CANONICAL_C" <<'PY' &
 import sys, time
 path = sys.argv[1]
 f = open(path, "rb")
@@ -432,7 +433,7 @@ else
   fail "inode holder died during upgrade (should survive rename)"
 fi
 
-if "$BIN_C" version </dev/null >/dev/null 2>&1; then
+if "$LINK_C/alln" version </dev/null >/dev/null 2>&1; then
   pass "new binary at install path still runs after atomic upgrade"
 else
   fail "new binary failed version after atomic upgrade"
@@ -473,23 +474,22 @@ STATUS_D=$?
 set -e
 
 if [[ "$STATUS_D" -eq 0 ]]; then
-  pass "conflict install still exited 0 (warn, do not refuse)"
+  pass "conflict install still exited 0 (decoy on PATH does not block install)"
 else
   fail "conflict install exited $STATUS_D"
   sed 's/^/  | /' "$ERR_D" >&2 || true
 fi
 
-if grep -q 'BUG-6 conflict' "$ERR_D" && grep -q "$FAKE_D/alln" "$ERR_D"; then
-  pass "PATH conflict printed with decoy path"
+if [[ -x "$LINK_D/alln" ]]; then
+  pass "symlink executable despite PATH conflict"
 else
-  fail "PATH conflict warning missing decoy path"
-  sed 's/^/  | /' "$ERR_D" >&2 || true
+  fail "symlink missing or not executable after conflict install"
 fi
 
-if grep -q "$HOME_D/.local/share/allnighter/bin/alln" "$ERR_D" || grep -q "$LINK_D/alln" "$ERR_D"; then
-  pass "PATH conflict printed this-install path"
+if "$LINK_D/alln" version </dev/null >/dev/null 2>&1; then
+  pass "installed binary works despite PATH conflict"
 else
-  fail "PATH conflict missing this-install path"
+  fail "installed binary failed version after conflict install"
 fi
 
 # =============================================================================

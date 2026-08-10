@@ -30,8 +30,6 @@ fi
 # later protected-folder access to Allnighter. Keep the executable image in an
 # Allnighter-owned developer directory instead.
 SCRATCH="${ALLNIGHTER_CLI_SCRATCH:-$HOME/Library/Developer/Allnighter/CLI}"
-INSTALL_DIR="${ALLNIGHTER_CLI_INSTALL_DIR:-$HOME/.local/bin}"
-
 # Drop stale BuildInfo so incremental SPM builds cannot relink an old gitSha
 # (BuildInfoPlugin buildCommand regenerates when inputs move; missing output
 # forces a run even if mtimes are ambiguous after a scratch reuse).
@@ -55,4 +53,10 @@ if [[ ! -x "$ALLN_BIN" ]]; then
   exit 1
 fi
 
-"$ALLN_BIN" install-cli --path "$INSTALL_DIR"
+# Delegate install to install-cli (ASR-S01c). Only pass --path when the
+# caller supplied an explicit override via ALLNIGHTER_CLI_INSTALL_DIR.
+if [[ -n "${ALLNIGHTER_CLI_INSTALL_DIR:-}" ]]; then
+  exec "$ALLN_BIN" install-cli --path "$ALLNIGHTER_CLI_INSTALL_DIR"
+else
+  exec "$ALLN_BIN" install-cli
+fi
