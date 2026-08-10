@@ -6,7 +6,8 @@ Created: 2026-08-10
 Finalized: 2026-08-10
 Adversarial review: 2026-08-10 — code identity, restart contract, wake ownership,
 slice ordering, and rollback terminal state were added after review. §4.5 is the
-highest-risk assumption in this packet and ASR-S00 exists to settle it.
+highest-risk assumption in this packet and ASR-S00 exists to settle it; §4.6
+names the most likely fix if it fails.
 Supersedes: `docs/archive/phases/Serve_Continuity.md` and its unfinished logout/login
 queue. The shipped code named there is evidence, not the forward design.
 
@@ -377,20 +378,50 @@ If the second case reproduces the exit-78 class, §4.3's ordering is confirmed a
 becomes an invariant: *every change to the canonical binary's bytes is bracketed
 by bootout and bootstrap; launchd is never allowed to respawn across a code
 identity change.* If the first case **also** fails, the CLI-only LaunchAgent
-distribution path in §2.5 is not viable as specified and this packet stops for a
-platform ruling rather than shipping another product patch on top of it.
+distribution path in §2.5 is not viable as ad-hoc-signed, and the fix is §4.6
+rather than another product patch.
 
-Additional identity facts this packet commits to:
+### 4.6 Signing is a candidate fix, not a later chore
 
+Ad-hoc signing is not "unsigned." It is signed with **no stable anchor**: the
+identity *is* the content hash, so every rebuild is, to launchd, a different
+program. A team-signed binary is different in kind — the code requirement can be
+anchored to the signing team rather than to one hash, and any later build from
+the same team satisfies the same requirement.
+
+| Track | Anchor launchd/BTM can hold | Survives a byte replacement |
+| --- | --- | --- |
+| ad-hoc (`codesign --sign -`, today) | the cdhash itself | no — new bytes are a new identity |
+| team-signed | `cert leaf` team identifier | yes — same requirement, new build |
+
+This is testable in dev builds **today**. Nothing about the macOS sandbox is
+involved: the CLI is not sandboxed, the Mac app is unsandboxed by design, and
+arm64 binaries already carry an ad-hoc signature because the platform requires
+one to execute at all. The machine already carries an
+`Apple Development: Michael Reining (7RU34H8XPD)` identity, which is sufficient
+to run the signed arm of the experiment locally.
+
+ASR-S00 therefore tests the signed arm too. If team-signed replacement survives
+where ad-hoc does not, signing is **promoted from a distribution nicety to a
+prerequisite of §2.5**, and a signing slice lands before ASR-S01 rather than
+after the packet closes.
+
+Facts this packet does not overstate:
+
+- No track is signed with a real identity today. `scripts/build-universal.sh` is
+  ad-hoc on the dogfood track, and there is no separate signed release track —
+  the public artifacts are built the same way.
+- An `Apple Development` certificate proves the mechanism locally. Distributing
+  to other users needs a **Developer ID Application** certificate (and, for the
+  faucet path, notarization); that certificate is not on the build host yet.
+  Obtaining it is a distribution-identity decision under the High-Risk Stops.
 - Install records the candidate's code identity alongside its version, and
   `ServeStatus` reports a binary mismatch when the running daemon's identity is
   not the recorded one. Version string equality is not identity.
 - The curl faucet does not apply `com.apple.quarantine` (curl does not set it),
   and `get-alln.sh` already execs the downloaded binary before install, which
   would fail loudly if that ever changed. No Gatekeeper workaround is added.
-- Nothing in this packet weakens, strips, or works around a signature. If a
-  real Developer ID identity is adopted later, it replaces ad-hoc signing at the
-  build step and this section's proofs re-run unchanged.
+- Nothing in this packet weakens, strips, or works around a signature.
 
 ---
 
@@ -567,12 +598,17 @@ assumption, before another product patch.
   `com.allnighter.resident-coordinator`.
 - Prove bootstrap, active check, TERM/KILL restart, disable cleanup, minimal
   PATH, and no repo/app dependency.
-- **Code identity is the headline experiment.** Build two ad-hoc-signed harness
-  binaries with genuinely different cdhashes (verify with `codesign -dvvv`) and
-  replace the bootstrapped executable both ways:
+- **Code identity is the headline experiment.** Build two harness binaries with
+  genuinely different cdhashes (verify with `codesign -dvvv`) and replace the
+  bootstrapped executable both ways:
   (a) bootout -> rename -> bootstrap, and (b) rename underneath a loaded
   KeepAlive job with no rebind. Record what launchd does in each case, including
   exit status and any pre-`main` refusal.
+- **Run that matrix on both signing tracks** (§4.6): ad-hoc (`codesign --sign -`,
+  today's shipping reality) and team-signed with the local
+  `Apple Development (7RU34H8XPD)` identity. Four cells total. The comparison is
+  the point — if the signed track survives a case the ad-hoc track fails, the
+  answer is a signing slice, not more lifecycle code.
 - Prove the restart contract from §4.2 on the real primitive: `KeepAlive =
   { SuccessfulExit = false }` with a deliberate exit `0` produces **no** respawn,
   and a signal death does produce one.
@@ -583,12 +619,16 @@ Proof: `bash tools/ServeLaunchdHarness/run.sh same-session`
 Stop conditions — report the platform result and edit no product lifecycle code:
 
 - the minimal agent cannot survive kill or rebind;
-- case (a) fails, which invalidates the §4.3 transaction and the §2.5 CLI-only
-  LaunchAgent path as specified;
+- case (a) fails on **both** signing tracks, which invalidates the §4.3
+  transaction and the §2.5 CLI-only LaunchAgent path outright;
 - the restart contract does not behave as §4.2 assumes.
 
-If case (b) succeeds where the incident failed, say so plainly — it means the
-LWCR wedge had another cause and §4.5 must be re-derived before ASR-S01.
+Branch conditions:
+
+- case (a) fails ad-hoc but passes team-signed -> §4.6 wins: cut a signing slice
+  before ASR-S01 and make a stable signing anchor a prerequisite of §2.5;
+- case (b) succeeds where the incident failed -> say so plainly; the LWCR wedge
+  had another cause and §4.5 must be re-derived before ASR-S01.
 
 ### ASR-S01 — one canonical CLI installation
 
@@ -779,12 +819,22 @@ Required host matrix:
     launchd does not respawn and `serve status` reports `degraded` with the
     reason. Then induce a crash and confirm it does respawn.
 
-The faucet line in the Works Test is dogfood-pinned. `https://get.allnighter.io`
-returns HTTP 525 as of 2026-08-10 and `One_Paste_Cold_Start.md` still marks the
-public URL provisional, so the accepted gate form is
-`ALLN_INSTALL_BASE_URL=<dogfood base> curl -fsSL .../get-alln.sh | sh`. The
-public URL becomes the gate only when the publish pipeline serves `latest.json`;
-until then, quoting the public one-liner as a passing proof is a false receipt.
+Faucet status as of 2026-08-10, measured not assumed. The public host is
+`https://allnighter.ikiro.io` (Ikiro is ours; it moves to `allnighter.io`
+shortly, and `get.allnighter.io` currently returns HTTP 525). The site root
+answers `200`, but the two artifacts the installer actually fetches —
+`/latest.json` and `/get-alln.sh` — both return `404`. A live marketing host is
+not a live faucet.
+
+So the accepted gate form stays base-pinned:
+`ALLN_INSTALL_BASE_URL=<base> sh scripts/get-alln.sh`. The published one-liner
+becomes the gate the day `/latest.json` and `/get-alln.sh` return `200` and the
+sha256 in the manifest matches the published binary. Quoting the one-liner as a
+passing proof before then is a false receipt.
+
+Publishing the artifacts does not make them signed. Both tracks are ad-hoc
+(§4.6), so the host proofs must state which signing track the tested binary
+came from.
 
 Gates 7, 8, 9, and 10 require a human at the machine. The founder is the signer.
 Each run is recorded under `docs/qa/alln-serve/` as one file per attempt with:
@@ -811,8 +861,9 @@ the approved host script and the founder-signed records under
 ```text
 Precondition: clean user; Allnighter.app absent; no old agent/plist/process.
 
-# public URL is not live yet (HTTP 525 on 2026-08-10) — pin the dogfood base
-ALLN_INSTALL_BASE_URL="$DOGFOOD_BASE" sh scripts/get-alln.sh
+# host is live (allnighter.ikiro.io) but /latest.json and /get-alln.sh are 404
+# as of 2026-08-10 — pin the base until the publish pipeline serves them
+ALLN_INSTALL_BASE_URL="$BASE" sh scripts/get-alln.sh
 alln serve status --json
 # assert state=healthy; binary.matches=true; authorization=enabled;
 # assert required scheduler ids present; record pid/build.
@@ -833,8 +884,9 @@ Dock app, reboot, `kickstart`, or agent intervention.
 
 ## 10. Done when
 
-- [ ] ASR-S00 settled the §4.5 code-identity assumption on a real host, and the
-  bootout-before-replacement invariant is either confirmed or replaced.
+- [ ] ASR-S00 settled the §4.5 code-identity assumption on a real host across
+  both signing tracks, and the bootout-before-replacement invariant is either
+  confirmed or replaced by the §4.6 signing slice.
 - [ ] CLI-only install enables and actively verifies one supervised serve by
   default, with a disclosed opt-out.
 - [ ] PATH, launchd, health, and update name one canonical installed binary, and
@@ -865,8 +917,18 @@ product decisions.
 
 One open **platform** question remains, and it is deliberately assigned to
 ASR-S00 rather than answered here: whether a per-user LaunchAgent survives
-replacement of an ad-hoc-signed binary whose cdhash changes (§4.5). If ASR-S00
-shows it does not — even with bootout bracketing — the CLI-only distribution
-path in §2.5 fails and this packet returns for a distribution ruling (real
-signing identity, or an app-bundle-hosted agent) before any product code moves.
-That is a stop, not a fork to decide now.
+replacement of an ad-hoc-signed binary whose cdhash changes (§4.5). ASR-S00
+answers it by experiment on both signing tracks, so the likely outcomes are
+already routed:
+
+- ad-hoc survives with bootout bracketing -> proceed to ASR-S01 unchanged;
+- only team-signed survives -> §4.6 signing slice lands first; this is an
+  execution consequence, not a new product decision;
+- neither survives -> §2.5's CLI-only LaunchAgent path fails and the packet
+  returns for a distribution ruling (app-bundle-hosted agent) before any product
+  code moves.
+
+The one thing that would need a founder ruling is obtaining a **Developer ID
+Application** certificate for distribution to other users — a distribution
+identity decision under the High-Risk Stops. It is not needed to run ASR-S00 or
+to fix the founder's own host.
