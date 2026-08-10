@@ -1,6 +1,7 @@
 # SC-S04 — Logout/login host proof (product `serve enable`)
 
-Status: ready  
+Status: ready — **same-session PASS 2026-08-09** (logout still owed)  
+See log: [`docs/qa/serve-continuity/SC-S04-same-session-keepalive.md`](../../../../qa/serve-continuity/SC-S04-same-session-keepalive.md)  
 Slice: SC-S04 (host proof only — no product code)  
 SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §4 SC-S04 + §5 + §6
 
