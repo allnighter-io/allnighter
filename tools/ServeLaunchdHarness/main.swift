@@ -9,12 +9,14 @@ struct ServeLaunchdHarness {
         var beatAt: Date
         var beatCount: Int
         var cdhash: String
+        var buildTag: String
         var argv0: String
         var cwd: String
         var path: String
     }
 
     static func getCdhash() -> String {
+        // Path-derived via codesign, not image-derived. Use buildTag for in-image identity.
         let selfPath = CommandLine.arguments[0]
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/codesign")
@@ -41,6 +43,7 @@ struct ServeLaunchdHarness {
             beatAt: Date(),
             beatCount: beatCount,
             cdhash: getCdhash(),
+            buildTag: __harnessBuildTag,
             argv0: CommandLine.arguments[0],
             cwd: FileManager.default.currentDirectoryPath,
             path: ProcessInfo.processInfo.environment["PATH"] ?? ""

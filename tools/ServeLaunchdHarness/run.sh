@@ -138,6 +138,10 @@ get_cdhash_from_beat() {
   read_beat_field "$1" cdhash
 }
 
+get_build_tag_from_beat() {
+  read_beat_field "$1" buildTag
+}
+
 wait_for_new_pid() {
   local heartbeat_path="$1" old_pid="$2" timeout="${3:-30}"
   local deadline=$(($(date +%s) + timeout))
@@ -194,7 +198,10 @@ build_track() {
 
   cp "$src" "$src_a"
   cp "$src" "$src_b"
-  echo "// BUILD_TAG_${track}_B" >> "$src_b"
+  echo "" >> "$src_a"
+  echo 'let __harnessBuildTag = "A"' >> "$src_a"
+  echo "" >> "$src_b"
+  echo 'let __harnessBuildTag = "B"' >> "$src_b"
 
   xcrun swiftc -parse-as-library -module-cache-path "$MODULE_CACHE" "$src_a" -o "$bin_a"
   xcrun swiftc -parse-as-library -module-cache-path "$MODULE_CACHE" "$src_b" -o "$bin_b"
@@ -236,7 +243,9 @@ build_track() {
 
 deploy_bin() {
   local src="$1" dst="$2"
-  cp "$src" "$dst"
+  local tmp="${dst}.deploy.$$"
+  cp "$src" "$tmp" || { echo "deploy_bin: cp $src -> $tmp failed (errno $?)" >&2; return 1; }
+  mv -f "$tmp" "$dst" || { echo "deploy_bin: mv $tmp -> $dst failed (errno $?)" >&2; rm -f "$tmp"; return 1; }
 }
 
 # --- run case (a): bootout, replace, bootstrap ----------------------------
@@ -250,7 +259,13 @@ run_case_a() {
 
   rm -f "$heartbeat_path"
   bootout
-  deploy_bin "$bin_a" "$bin_path"
+
+  local deploy_err
+  if ! deploy_err=$(deploy_bin "$bin_a" "$bin_path" 2>&1); then
+    record "$cell" FAIL "deploy A failed: $deploy_err" "$log_file"
+    return 1
+  fi
+
   write_plist "$bin_path" "$heartbeat_path" "run"
 
   bootstrap
@@ -260,19 +275,29 @@ run_case_a() {
     return 1
   fi
 
-  local pid_before cdhash_before
+  local pid_before cdhash_before build_tag_before
   pid_before="$(get_pid_from_beat "$heartbeat_path")"
   cdhash_before="$(get_cdhash_from_beat "$heartbeat_path")"
+  build_tag_before="$(get_build_tag_from_beat "$heartbeat_path")"
+
+  if [[ "$build_tag_before" != "A" ]]; then
+    record "$cell" FAIL "buildTag before replacement: expected A, got $build_tag_before" "$log_file"
+    return 1
+  fi
 
   if [[ "$cdhash_before" != "$cdhash_a" ]]; then
-    record "$cell" FAIL "cdhash mismatch before replacement: expected $cdhash_a, got $cdhash_before" "$log_file"
+    record "$cell" FAIL "cdhash (path-derived) before replacement: expected $cdhash_a, got $cdhash_before" "$log_file"
     return 1
   fi
 
   bootout
   rm -f "$heartbeat_path"
 
-  deploy_bin "$bin_b" "$bin_path"
+  deploy_err=""
+  if ! deploy_err=$(deploy_bin "$bin_b" "$bin_path" 2>&1); then
+    record "$cell" FAIL "deploy B failed: $deploy_err" "$log_file"
+    return 1
+  fi
 
   bootstrap
 
@@ -281,19 +306,25 @@ run_case_a() {
     return 1
   fi
 
-  local pid_after cdhash_after
+  local pid_after cdhash_after build_tag_after
   pid_after="$(get_pid_from_beat "$heartbeat_path")"
   cdhash_after="$(get_cdhash_from_beat "$heartbeat_path")"
+  build_tag_after="$(get_build_tag_from_beat "$heartbeat_path")"
 
   local last_exit
   last_exit="$(get_last_exit_status)"
 
-  if [[ "$cdhash_after" != "$cdhash_b" ]]; then
-    record "$cell" FAIL "cdhash after replacement: expected $cdhash_b, got $cdhash_after" "$log_file"
+  if [[ "$build_tag_after" != "B" ]]; then
+    record "$cell" FAIL "buildTag after replacement: expected B, got $build_tag_after — new bytes NOT exec'd" "$log_file"
     return 1
   fi
 
-  record "$cell" PASS "A:$cdhash_a B:$cdhash_b pid:$pid_before->$pid_after lastExit:$last_exit" "$log_file"
+  if [[ "$cdhash_after" != "$cdhash_b" ]]; then
+    record "$cell" FAIL "cdhash (path-derived) after replacement: expected $cdhash_b, got $cdhash_after" "$log_file"
+    return 1
+  fi
+
+  record "$cell" PASS "A buildTag:A cdhash:$cdhash_a B buildTag:B cdhash:$cdhash_b pid:$pid_before->$pid_after lastExit:$last_exit" "$log_file"
   return 0
 }
 
@@ -308,7 +339,13 @@ run_case_b() {
 
   rm -f "$heartbeat_path"
   bootout
-  deploy_bin "$bin_a" "$bin_path"
+
+  local deploy_err
+  if ! deploy_err=$(deploy_bin "$bin_a" "$bin_path" 2>&1); then
+    record "$cell" FAIL "deploy A failed: $deploy_err" "$log_file"
+    return 1
+  fi
+
   write_plist "$bin_path" "$heartbeat_path" "run"
 
   bootstrap
@@ -318,16 +355,26 @@ run_case_b() {
     return 1
   fi
 
-  local pid_before cdhash_before
+  local pid_before cdhash_before build_tag_before
   pid_before="$(get_pid_from_beat "$heartbeat_path")"
   cdhash_before="$(get_cdhash_from_beat "$heartbeat_path")"
+  build_tag_before="$(get_build_tag_from_beat "$heartbeat_path")"
 
-  if [[ "$cdhash_before" != "$cdhash_a" ]]; then
-    record "$cell" FAIL "cdhash mismatch before kill: expected $cdhash_a, got $cdhash_before" "$log_file"
+  if [[ "$build_tag_before" != "A" ]]; then
+    record "$cell" FAIL "buildTag before kill: expected A, got $build_tag_before" "$log_file"
     return 1
   fi
 
-  deploy_bin "$bin_b" "$bin_path"
+  if [[ "$cdhash_before" != "$cdhash_a" ]]; then
+    record "$cell" FAIL "cdhash (path-derived) before kill: expected $cdhash_a, got $cdhash_before" "$log_file"
+    return 1
+  fi
+
+  deploy_err=""
+  if ! deploy_err=$(deploy_bin "$bin_b" "$bin_path" 2>&1); then
+    record "$cell" FAIL "deploy B failed: $deploy_err" "$log_file"
+    return 1
+  fi
 
   kill -TERM "$pid_before" 2>/dev/null || true
 
@@ -344,17 +391,18 @@ run_case_b() {
     return 1
   fi
 
-  local cdhash_after
+  local cdhash_after build_tag_after
   cdhash_after="$(get_cdhash_from_beat "$heartbeat_path")"
+  build_tag_after="$(get_build_tag_from_beat "$heartbeat_path")"
   local last_exit
   last_exit="$(get_last_exit_status)"
 
-  if [[ "$cdhash_after" == "$cdhash_b" ]]; then
-    record "$cell" PASS "Respawned with NEW cdhash. A:$cdhash_a B:$cdhash_b pid:$pid_before->$pid_after lastExit:$last_exit" "$log_file"
-  elif [[ "$cdhash_after" == "$cdhash_a" ]]; then
-    record "$cell" PASS "Respawned with OLD cdhash (A). cdhash:$cdhash_a pid:$pid_before->$pid_after lastExit:$last_exit" "$log_file"
+  if [[ "$build_tag_after" == "B" ]]; then
+    record "$cell" PASS "Respawned with NEW bytes (buildTag:B, image-derived). cdhash(path-derived):$cdhash_after pid:$pid_before->$pid_after lastExit:$last_exit" "$log_file"
+  elif [[ "$build_tag_after" == "A" ]]; then
+    record "$cell" FAIL "Respawned but buildTag still A — launchd re-exec'd OLD image from old inode; new-bytes claim was wrong. cdhash(path-derived):$cdhash_after pid:$pid_before->$pid_after lastExit:$last_exit" "$log_file"
   else
-    record "$cell" PASS "Respawned with UNKNOWN cdhash:$cdhash_after pid:$pid_before->$pid_after lastExit:$last_exit" "$log_file"
+    record "$cell" FAIL "Unknown buildTag after respawn: $build_tag_after cdhash(path-derived):$cdhash_after pid:$pid_before->$pid_after lastExit:$last_exit" "$log_file"
   fi
   return 0
 }
