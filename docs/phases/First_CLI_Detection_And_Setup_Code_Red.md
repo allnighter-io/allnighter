@@ -15,6 +15,8 @@ Founder follow-up: many users never open the app — they install with
 and reach a working bench with the **same truth** the GUI would show.
 
 Related (read before coding — do not relitigate closed law):
+- **Home empty-state CLI pills (model grain bug):** [`First_Launch_CLI_Strip.md`](First_Launch_CLI_Strip.md)
+  — separate packet; marketing chips ≠ capacity; fix grain/color/tap only
 - **Intake / CLI-first:** `docs/workflows/SSOT_Founder_Input_Workflow.md`,
   `docs/workflows/SSOT_Feature_Workflow.md` (§CLI-First Rule, Teaching Surface)
 - Install faucet: `docs/phases/One_Paste_Cold_Start.md`, `scripts/get-alln.sh`,

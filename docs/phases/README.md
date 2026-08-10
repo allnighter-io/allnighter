@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-08-09
+Updated: 2026-08-10
 
 ## Purpose
 
@@ -37,6 +37,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | Doc | Status | Next action |
 | --- | --- | --- |
 | [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — OPEN v4** | CLI-first parity: curl\|sh users co-equal with Mac app. Shared `BenchTallyProjector`; **S01 Core → S02 CLI menu/doctor/detect + install teach detect → S03 Mac chrome**. Never `0/catalog` when unscanned. FCS-L7: bootstrap must teach find-CLIs. Domain stays `get.allnighter.io` unless One_Paste cutover. |
+| [`First_Launch_CLI_Strip.md`](First_Launch_CLI_Strip.md) | **OPEN — ready for implementation** | Home marketing empty-state pills use **model** grain (`composeBench`) → looks like infinite CLIs. Fix: one pill per recognized headless CLI; green/amber/gray from setup truth; tap → `openCLISetup`. **Not capacity.** FLCS-S01…S03. |
 
 > **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
 > **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
