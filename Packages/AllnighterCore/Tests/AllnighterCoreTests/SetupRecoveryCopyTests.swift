@@ -88,6 +88,16 @@ final class SetupRecoveryCopyTests: XCTestCase {
         XCTAssertTrue(detail.lowercased().contains("opencode") || detail.contains("4096"), detail)
     }
 
+    func testAttentionDetailSurfacesOpenCodeBadModel() {
+        let detail = SetupRecoveryCopy.attentionDetail(
+            driverId: "opencode",
+            state: .probeFailed,
+            probeReason: #"opencode smoke: messageFailed("HTTP 500: {\"name\":\"UnknownError\"}")"#
+        )
+        XCTAssertTrue(detail.lowercased().contains("zen") || detail.lowercased().contains("binary"), detail)
+        XCTAssertFalse(detail.lowercased().contains("locate"), detail)
+    }
+
     func testAttentionDetailPassesClaudeSmokeReason() {
         let detail = SetupRecoveryCopy.attentionDetail(
             driverId: "claude_code",

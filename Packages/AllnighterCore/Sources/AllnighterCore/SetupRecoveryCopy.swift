@@ -82,6 +82,17 @@ public enum SetupRecoveryCopy {
            lower.contains("portownedbyforeign") || lower.contains("port owned") {
             return "OpenCode serve is busy on :4096 — attach or free the port, then re-check."
         }
+        if driverId == "opencode",
+           lower.contains("providermodelnotfound")
+            || lower.contains("model not found")
+            || lower.contains("opencode-go/")
+            || (lower.contains("http 500") && lower.contains("unknownerror")) {
+            return "OpenCode is installed — the smoke model/provider was rejected. Re-try probe (uses OpenCode Zen). This isn’t a missing binary."
+        }
+        if driverId == "opencode",
+           lower.contains("opencode smoke") || lower.contains("messagefailed") {
+            return "OpenCode serve answered, but the smoke turn failed — Re-try probe. Not a Locate-binary problem."
+        }
         if !raw.isEmpty {
             let clipped = raw.count > 120 ? String(raw.prefix(117)) + "…" : raw
             return clipped

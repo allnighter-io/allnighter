@@ -44,7 +44,8 @@ final class ModelCatalogTests: XCTestCase {
         // Muse Spark 1.2 seats added default-on 2026-08-05 (18 → 20).
         // OpenCode Go seats added default-on 2026-08-05 (20 → 27).
         // Qwen Code CLI seat added default-on 2026-08-06 (27 → 28).
-        XCTAssertEqual(models.filter(\.enabled).count, 28)
+        // OpenCode Zen Big Pickle smoke seat added default-on 2026-08-10 (28 → 29).
+        XCTAssertEqual(models.filter(\.enabled).count, 29)
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
         XCTAssertEqual(models.first { $0.id == "model_agy_sonnet" }?.displayName, "Sonnet 4.6 (Antigravity)")
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.modelLabel, "Claude Opus 4.6 (Thinking)")
@@ -106,6 +107,13 @@ final class ModelCatalogTests: XCTestCase {
         try ModelCatalog.setEnabled("model_sonnet", false)
         // Falls back to the Claude-side flagship built-in label for smoke probes.
         XCTAssertEqual(ModelCatalog.probeModelLabel(driverId: "claude_code"), "fable")
+    }
+
+    func testOpenCodeProbeUsesZenBigPickleNotGoCapacityLabel() {
+        XCTAssertEqual(ModelCatalog.probeModelLabel(driverId: "opencode"), "opencode/big-pickle")
+        XCTAssertFalse(
+            ModelCatalog.probeModelLabel(driverId: "opencode")?.hasPrefix("opencode-go/") == true
+        )
     }
 
     func testCustomModelCRUD() throws {

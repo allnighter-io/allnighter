@@ -196,6 +196,13 @@ public enum ModelCatalog {
            let regular = defs.first(where: { $0.id == "model_cursor_composer_25" }) {
             return regular.modelLabel
         }
+        // OpenCode smoke must use a real Zen provider label (`opencode/…`). Catalog
+        // Go seats still ship `opencode-go/…` (capacity-source naming) which the
+        // local serve rejects as ProviderModelNotFound → HTTP 500 UnknownError.
+        if driverId == "opencode",
+           let zen = defs.first(where: { $0.id == "model_opencode_big_pickle" }) {
+            return zen.modelLabel
+        }
         let enabledMap = enabledModelIDs(definitions: mergedDefinitions())
         let enabled = defs.filter { enabledMap[$0.id] == true }
         if let label = selectProbeLabel(from: enabled) { return label }

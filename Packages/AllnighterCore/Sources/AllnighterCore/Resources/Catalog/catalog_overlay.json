@@ -507,6 +507,18 @@
       },
       "defaultOn": true
     },
+    "model_opencode_big_pickle": {
+      "caliber": {
+        "capabilityTags": [
+          "code"
+        ],
+        "laneTags": [
+          "code"
+        ],
+        "strengthRank": 40
+      },
+      "defaultOn": true
+    },
     "model_opencode_qwen_38_max": {
       "caliber": {
         "capabilityTags": [

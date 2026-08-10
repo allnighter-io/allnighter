@@ -486,7 +486,7 @@ struct BenchRepairPanel: View {
                 return "Installing Cursor Agent CLI with Cursor’s official installer, then re-checking automatically."
             }
             if card.driverId == "opencode" {
-                return "Starting OpenCode's local server, then running a smoke test through Featherless. First run can take 1–3 minutes — nothing else to install or start manually."
+                return "Starting OpenCode’s local server, then a short Zen smoke (opencode/big-pickle). First run can take 1–3 minutes — nothing else to install."
             }
             return "Running detect and smoke test for \(card.name)…"
         case .needsLogin, .waiting:
@@ -498,7 +498,7 @@ struct BenchRepairPanel: View {
             return "Found as a shell function, not a plain command. Point us at the binary, or run it through your login shell."
         case .probeFailed:
             if card.driverId == "opencode" {
-                return "Detect passed but smoke failed. Allnighter starts the OpenCode server for you — no separate terminal step. Re-try probe (can take a few minutes) or Copy log."
+                return "OpenCode is on PATH and the local serve is up — smoke used a bad model/provider label before. Re-try probe (Zen). Locate binary won’t help."
             }
             return "Detect passed but the smoke run failed — this is not a sign-in problem. Re-try the probe or copy the log for the real error."
         case .rateLimited:
@@ -589,6 +589,35 @@ struct BenchRepairPanel: View {
                 },
             ]
         case .probeFailed:
+            if card.driverId == "opencode" {
+                return [
+                    RepairAction(
+                        icon: "arrow.clockwise",
+                        title: "Re-try probe",
+                        subtitle: "Runs a short OpenCode Zen smoke through the local serve on :4096",
+                        button: isProbingThisCard ? "Running…" : "Run",
+                        primary: true,
+                        secondary: false
+                    ) {
+                        model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
+                    },
+                    RepairAction(
+                        icon: "doc.on.doc",
+                        title: "Copy log",
+                        subtitle: "Copy the smoke error for support",
+                        button: logCopied ? "Copied" : "Copy",
+                        primary: false,
+                        secondary: true
+                    ) {
+                        SetupActions.copyToPasteboard(card.probeLogText)
+                        logCopied = true
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(2))
+                            logCopied = false
+                        }
+                    },
+                ]
+            }
             return [
                 RepairAction(icon: "arrow.clockwise", title: "Re-try probe", subtitle: probeRetrySubtitle, button: isProbingThisCard ? "Running…" : "Run", primary: true, secondary: false) {
                     model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
@@ -653,7 +682,7 @@ struct BenchRepairPanel: View {
 
     private var probeRetrySubtitle: String {
         card.driverId == "opencode"
-            ? "Smoke via Featherless — may take 1–3 min on first run"
+            ? "Short OpenCode Zen smoke via local serve (:4096)"
             : "Run the smoke test again"
     }
 
@@ -726,7 +755,7 @@ struct BenchRepairPanel: View {
             if card.driverId == "opencode" {
                 return [
                     [.init(text: "… ", tone: .prompt), .init(text: "Starting local OpenCode server", tone: .normal)],
-                    [.init(text: "… ", tone: .prompt), .init(text: "Running smoke test (Featherless) — up to ~3 min", tone: .normal)],
+                    [.init(text: "… ", tone: .prompt), .init(text: "Running Zen smoke (big-pickle) — up to ~3 min", tone: .normal)],
                 ]
             }
             return [
