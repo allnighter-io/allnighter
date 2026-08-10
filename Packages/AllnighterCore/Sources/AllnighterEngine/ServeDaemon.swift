@@ -175,6 +175,10 @@ public final class ServeDaemon: @unchecked Sendable {
                     await CapacityRefreshScheduler().run { shutdown.isCancelled }
                 }
                 group.addTask {
+                    // Probe_Freshness founder B 2026-08-09
+                    await ProbeRecordRefreshScheduler().run { shutdown.isCancelled }
+                }
+                group.addTask {
                     let notifications = NotificationScheduler(
                         commandRunner: wake.commandRunner,
                         models: wake.models,
