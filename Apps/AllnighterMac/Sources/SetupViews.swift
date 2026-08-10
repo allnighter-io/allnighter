@@ -430,21 +430,12 @@ struct SetupCardView: View {
             fixItBody {
                 let loginCmd = card.loginCommand
                     ?? (card.driverId == CursorAgentCLIInstall.driverId ? "cursor-agent login" : card.driverId)
-                if card.driverId == CursorAgentCLIInstall.driverId {
-                    fixLine("Copy the command, open a new Terminal window (don’t paste into a Grok session), paste, press Return. Finish browser sign-in if asked.")
-                } else {
-                    fixLine("\(card.name) is installed but not signed in. Copy → new Terminal → paste → Return.")
-                }
-                CmdRow(text: loginCmd)
-                if card.state == .waiting {
-                    HStack(spacing: 10) {
-                        SetupPill(kind: .check, label: "Waiting for sign-in…")
-                        Text("re-checking every few seconds").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
-                    }
-                } else {
+                if card.driverId == "claude_code" {
+                    fixLine("Login expired — open Terminal, start Claude Code with `claude`, then type `/login` inside Claude Code (not in the shell). Finish browser sign-in, then Re-check.")
+                    CmdRow(text: "/login")
                     HStack(spacing: 8) {
-                        Button { onAction(.copy(loginCmd)) } label: {
-                            Label("Copy command", systemImage: "doc.on.doc")
+                        Button { onAction(.copy("/login")) } label: {
+                            Label("Copy /login", systemImage: "doc.on.doc")
                         }.buttonStyle(.alPrimary(small: true))
                         Button { onAction(.openTerminalApp) } label: {
                             Label("Open Terminal", systemImage: "terminal")
@@ -453,10 +444,56 @@ struct SetupCardView: View {
                             Label("Re-check", systemImage: "arrow.clockwise")
                         }.buttonStyle(.alGhost)
                     }
+                    note("Run `claude` first to open Claude Code — then paste `/login` there.", systemImage: "info.circle")
+                } else if card.driverId == CursorAgentCLIInstall.driverId {
+                    fixLine("Copy the command, open a new Terminal window (don’t paste into a Grok session), paste, press Return. Finish browser sign-in if asked.")
+                    CmdRow(text: loginCmd)
+                    if card.state == .waiting {
+                        HStack(spacing: 10) {
+                            SetupPill(kind: .check, label: "Waiting for sign-in…")
+                            Text("re-checking every few seconds").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                        }
+                    } else {
+                        HStack(spacing: 8) {
+                            Button { onAction(.copy(loginCmd)) } label: {
+                                Label("Copy command", systemImage: "doc.on.doc")
+                            }.buttonStyle(.alPrimary(small: true))
+                            Button { onAction(.openTerminalApp) } label: {
+                                Label("Open Terminal", systemImage: "terminal")
+                            }.buttonStyle(.alSecondary(small: true))
+                            Button { onAction(.rescan(driverId: card.driverId)) } label: {
+                                Label("Re-check", systemImage: "arrow.clockwise")
+                            }.buttonStyle(.alGhost)
+                        }
+                    }
+                    note(card.state == .waiting ? "Flips to ready when sign-in succeeds — no restart needed."
+                                                 : "After you finish in Terminal, tap Re-check.",
+                         systemImage: card.state == .waiting ? "arrow.triangle.2.circlepath" : "info.circle")
+                } else {
+                    fixLine("\(card.name) is installed but not signed in. Copy → new Terminal → paste → Return.")
+                    CmdRow(text: loginCmd)
+                    if card.state == .waiting {
+                        HStack(spacing: 10) {
+                            SetupPill(kind: .check, label: "Waiting for sign-in…")
+                            Text("re-checking every few seconds").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(ALColor.textFaint)
+                        }
+                    } else {
+                        HStack(spacing: 8) {
+                            Button { onAction(.copy(loginCmd)) } label: {
+                                Label("Copy command", systemImage: "doc.on.doc")
+                            }.buttonStyle(.alPrimary(small: true))
+                            Button { onAction(.openTerminalApp) } label: {
+                                Label("Open Terminal", systemImage: "terminal")
+                            }.buttonStyle(.alSecondary(small: true))
+                            Button { onAction(.rescan(driverId: card.driverId)) } label: {
+                                Label("Re-check", systemImage: "arrow.clockwise")
+                            }.buttonStyle(.alGhost)
+                        }
+                    }
+                    note(card.state == .waiting ? "Flips to ready when sign-in succeeds — no restart needed."
+                                                 : "After you finish in Terminal, tap Re-check.",
+                         systemImage: card.state == .waiting ? "arrow.triangle.2.circlepath" : "info.circle")
                 }
-                note(card.state == .waiting ? "Flips to ready when sign-in succeeds — no restart needed."
-                                             : "After you finish in Terminal, tap Re-check.",
-                     systemImage: card.state == .waiting ? "arrow.triangle.2.circlepath" : "info.circle")
             }
         case .needsPath:
             fixItBody {

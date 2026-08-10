@@ -533,7 +533,7 @@ struct BenchRepairPanel: View {
                 return "Copy `cursor-agent login`, open a new Terminal window (don’t reuse a Grok session), paste, press Return. Finish browser sign-in if asked — then tap Re-check."
             }
             if card.driverId == "claude_code" {
-                return "Login expired or signed out — open Terminal, run `claude`, type `/login`, finish browser sign-in, then tap Re-check."
+                return "Login expired — open Terminal, start Claude Code with `claude`, then type `/login` inside Claude Code and finish browser sign-in. Then tap Re-check. `claude` alone is not the login command."
             }
             return "Copy the sign-in command, open a new Terminal window, paste, press Return. Then tap Re-check."
         case .needsPath:
@@ -585,6 +585,45 @@ struct BenchRepairPanel: View {
     private var actions: [RepairAction] {
         switch card.state {
         case .needsLogin, .waiting:
+            if card.driverId == "claude_code" {
+                return [
+                    RepairAction(
+                        icon: "doc.on.doc",
+                        title: "Copy `/login`",
+                        subtitle: "Type this inside Claude Code after it opens — not a shell command",
+                        button: loginCommandCopied ? "Copied" : "Copy",
+                        primary: true,
+                        secondary: false
+                    ) {
+                        SetupActions.copyToPasteboard("/login")
+                        loginCommandCopied = true
+                        Task { @MainActor in
+                            try? await Task.sleep(for: .seconds(2))
+                            loginCommandCopied = false
+                        }
+                    },
+                    RepairAction(
+                        icon: "terminal",
+                        title: "Open Terminal",
+                        subtitle: "Run `claude` to open Claude Code, then paste `/login`",
+                        button: "Open",
+                        primary: false,
+                        secondary: true
+                    ) {
+                        SetupActions.openTerminalApp()
+                    },
+                    RepairAction(
+                        icon: "arrow.clockwise",
+                        title: "Re-check",
+                        subtitle: "After browser sign-in finishes, confirm Claude Code is ready",
+                        button: isProbingThisCard ? "Checking…" : "Run",
+                        primary: false,
+                        secondary: false
+                    ) {
+                        model.runSetupProbe(userInitiated: true, onlyDriverId: card.driverId)
+                    },
+                ]
+            }
             let loginCmd = resolvedLoginCommand
             return [
                 RepairAction(
@@ -615,7 +654,9 @@ struct BenchRepairPanel: View {
                 RepairAction(
                     icon: "arrow.clockwise",
                     title: "Re-check",
-                    subtitle: "After sign-in finishes, confirm Cursor Agent is ready",
+                    subtitle: card.driverId == CursorAgentCLIInstall.driverId
+                        ? "After sign-in finishes, confirm Cursor Agent is ready"
+                        : "After sign-in finishes, confirm this CLI is ready",
                     button: isProbingThisCard ? "Checking…" : "Run",
                     primary: false,
                     secondary: false

@@ -40,7 +40,7 @@ public enum SetupRecoveryCopy {
         switch state {
         case .needsLogin:
             if driverId == "claude_code" {
-                return "Login expired or signed out — run `claude`, type `/login`, finish browser sign-in, then Re-check."
+                return "Login expired — open Claude Code, type `/login`, finish browser sign-in, then Re-check."
             }
             return "Installed but signed out — sign in to use its models."
         case .needsPath:

@@ -113,7 +113,8 @@ final class SetupRecoveryCopyTests: XCTestCase {
             state: .needsLogin,
             probeReason: nil
         )
-        XCTAssertTrue(detail.lowercased().contains("login"), detail)
         XCTAssertTrue(detail.contains("/login"), detail)
+        XCTAssertTrue(detail.lowercased().contains("claude code"), detail)
+        XCTAssertFalse(detail.lowercased().contains("run `claude`, type"), detail)
     }
 }
