@@ -31,7 +31,7 @@
     "sentinel": null
   },
   "setup": {
-    "bins": ["agent", "cursor-agent"],
+    "bins": ["cursor-agent", "agent"],
     "knownPaths": ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"],
     "loginFlow": {
       "interactiveCommand": "agent login",

@@ -5,10 +5,18 @@ import AllnighterEngine
 /// Setup card mapping and cached setup state helpers for `AppModel`.
 enum AppSetupModel {
     /// Per-driver invocations from probe records — shared by `AppModel` runners and `ThreadsViewModel`.
-    static func invocations(from records: [ToolProbeRecord]) -> [String: ToolInvocation] {
+    /// Keys by driver id (image invoker) and by manifest `invoke.command` (spawn resolver).
+    static func invocations(
+        from records: [ToolProbeRecord],
+        registry: DriverRegistry = DefaultConfig.registry
+    ) -> [String: ToolInvocation] {
         var map: [String: ToolInvocation] = [:]
-        for record in records where record.invocation != nil {
-            map[record.driverId] = record.invocation
+        for record in records {
+            guard let inv = record.invocation else { continue }
+            map[record.driverId] = inv
+            if let command = registry.manifest(id: record.driverId)?.invoke?.command, !command.isEmpty {
+                map[command] = inv
+            }
         }
         return map
     }

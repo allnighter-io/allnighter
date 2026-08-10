@@ -2709,7 +2709,14 @@ struct ToolRuntime {
         let teams = TeamCatalog.all
         let config = ToolRuntime.loadConfig()
         var invs: [String: ToolInvocation] = [:]
-        for record in SetupStore().load().records { if let inv = record.invocation { invs[record.driverId] = inv } }
+        let records = SetupStore().load().records
+        for record in records {
+            guard let inv = record.invocation else { continue }
+            invs[record.driverId] = inv
+            if let command = registry.manifest(id: record.driverId)?.invoke?.command, !command.isEmpty {
+                invs[command] = inv
+            }
+        }
         self.models = models
         self.registry = registry
         self.teams = teams

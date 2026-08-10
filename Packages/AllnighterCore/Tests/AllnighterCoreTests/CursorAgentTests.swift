@@ -26,7 +26,7 @@ final class CursorAgentTests: XCTestCase {
         XCTAssertEqual(manifest.id, "cursor_agent")
         XCTAssertEqual(manifest.invoke?.command, "agent")
         XCTAssertTrue(manifest.invoke?.args.contains("--trust") ?? false)
-        XCTAssertEqual(manifest.setup?.bins, ["agent", "cursor-agent"])
+        XCTAssertEqual(manifest.setup?.bins, ["cursor-agent", "agent"])
         XCTAssertEqual(manifest.setup?.knownPaths, ["~/.local/bin", "/opt/homebrew/bin", "/usr/local/bin"])
         XCTAssertFalse(manifest.setup?.knownPaths.contains(where: { $0.contains("Cursor.app") }) ?? true)
         XCTAssertEqual(manifest.smokeTestCommand?.contains("composer-2.5"), true)

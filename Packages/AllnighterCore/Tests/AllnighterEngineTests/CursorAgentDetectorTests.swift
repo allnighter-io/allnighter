@@ -88,4 +88,44 @@ final class CursorAgentDetectorTests: XCTestCase {
         XCTAssertTrue(r.status.isSmokeReady)
         try? FileManager.default.removeItem(at: root)
     }
+
+    func testCursorAgentRejectsGrokBuildAgentShimOnPath() async throws {
+        let grokAgent = "/tmp/home/.grok/bin/agent"
+        let cursorAgent = "/tmp/home/.local/bin/cursor-agent"
+        try? FileManager.default.createDirectory(
+            atPath: (grokAgent as NSString).deletingLastPathComponent,
+            withIntermediateDirectories: true)
+        try? FileManager.default.createDirectory(
+            atPath: (cursorAgent as NSString).deletingLastPathComponent,
+            withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: grokAgent, contents: Data([0x7f]), attributes: [.posixPermissions: 0o755])
+        FileManager.default.createFile(atPath: cursorAgent, contents: Data([0x7f]), attributes: [.posixPermissions: 0o755])
+
+        let manifest = try Fixtures.manifest(.manifestCursor)
+        let det = AllnighterCLIDetector.make(
+            commandRunner: ClosureRunner { command, args in
+                if args.first == "-lc" {
+                    return CommandResult(
+                        stdout: "<<<AOS:cursor-agent|\(cursorAgent)>>>\n<<<AOS:agent|\(grokAgent)>>>\n",
+                        exitCode: 0)
+                }
+                if command == grokAgent {
+                    return args.contains("--version")
+                        ? CommandResult(stdout: "grok 0.2.54", exitCode: 0)
+                        : CommandResult(stderr: "error: a value is required for '--single <PROMPT>'", exitCode: 1)
+                }
+                if command == cursorAgent {
+                    return args.contains("--version")
+                        ? CommandResult(stdout: "2026.06.16", exitCode: 0)
+                        : CommandResult(stdout: "ALLNIGHTER_READY", exitCode: 0)
+                }
+                return CommandResult(launchError: "unexpected \(command)")
+            },
+            shellPath: "/bin/zsh", home: "/tmp/home")
+        let r = await det.probe(manifest, model: "composer-2.5", now: .init(timeIntervalSince1970: 0))
+        XCTAssertEqual(r.invocation, .direct(path: cursorAgent))
+        XCTAssertTrue(r.status.isSmokeReady)
+        try? FileManager.default.removeItem(atPath: (grokAgent as NSString).deletingLastPathComponent)
+        try? FileManager.default.removeItem(atPath: (cursorAgent as NSString).deletingLastPathComponent)
+    }
 }

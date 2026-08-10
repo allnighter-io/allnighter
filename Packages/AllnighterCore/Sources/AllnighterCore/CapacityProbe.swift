@@ -298,7 +298,7 @@ public enum CapacityProbe {
     public static let commandCandidates: [String: [String]] = [
         "agy": ["agy"],
         "kimi": ["kimi"],
-        "cursor_agent": ["agent", "cursor-agent"],
+        "cursor_agent": ["cursor-agent", "agent"],
         "claude_code": ["claude"],
         "codex": ["codex"],
         "grok": ["grok"],
@@ -308,7 +308,7 @@ public enum CapacityProbe {
     public static let knownHomeRelativePaths: [String: [String]] = [
         "agy": [".local/bin/agy"],
         "kimi": [".kimi-code/bin/kimi", ".local/bin/kimi"],
-        "cursor_agent": [".local/bin/agent", ".local/bin/cursor-agent"],
+        "cursor_agent": [".local/bin/cursor-agent", ".local/bin/agent"],
         "claude_code": [".local/bin/claude", ".local/share/claude/versions"],
         "codex": [".local/bin/codex"],
         "grok": [".local/bin/grok"],
