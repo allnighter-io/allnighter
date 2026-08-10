@@ -6186,7 +6186,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.16.0",
+  "contractVersion" : "9.17.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

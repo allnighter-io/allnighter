@@ -39,7 +39,7 @@ final class VersionIdentityTests: XCTestCase {
     /// 0.12.6 → 1.0.0 (first public release identity; see `VersionJSON.swift`
     /// release note).
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.0.0")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.0.1")
     }
 
     /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at

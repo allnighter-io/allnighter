@@ -868,7 +868,15 @@ struct AllnighterCLI {
                 print("\(r.driverId)\tNOT INSTALLED\t(no binary on PATH or known paths)")
             }
         }
-        print("\nAssembled team: \(result.assembledTeam.benchModelIds.count) ready model(s); plan writer: \(result.assembledTeam.planWriterModelId ?? "—") · saved")
+        let tally = BenchTallyProjector.tally(
+            registry: runtime.registry,
+            records: result.records,
+            parked: SetupStore().load().parkedSet
+        )
+        print(
+            "\nBench: \(tally.headline.rawValue) — \(tally.ready) ready · \(tally.needsStep) need a step · \(tally.notInstalled) not installed · \(tally.needsCheck) need check (of \(tally.supported) supported)"
+        )
+        print("Assembled team: \(result.assembledTeam.benchModelIds.count) ready model(s); plan writer: \(result.assembledTeam.planWriterModelId ?? "—") · saved")
     }
 
     /// `alln dev export-contracts [--check]` — regenerate or verify the

@@ -99,8 +99,12 @@ import Foundation
 /// **0.12.6 → 1.0.0 (launch).** Public semver for the shipped CLI — no
 /// `contractVersion` major cut in this batch. The 0.x train was pre-launch
 /// dogfood; 1.0.0 is the first customer-facing release identity.
+///
+/// **1.0.0 → 1.0.1 (FCS-S02).** `contractVersion` additive minor (9.16.0 →
+/// 9.17.0): optional `MenuJSON.benchTally` with agent `nextAction` when the
+/// bench was never scanned. Standard +0.0.1 batch bump.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.0.0"
+    public static let binaryVersion = "1.0.1"
 }
 
 /// `alln version` / `alln --version` machine contract.

@@ -45,6 +45,19 @@ final class DoctorReportTests: XCTestCase {
         XCTAssertEqual(r.coordinator.state, .foregroundOnly)
     }
 
+    func testNeverScannedDoctorEmitsDetectNextAction() {
+        let r = DoctorReport.build(
+            models: models,
+            manifests: manifests,
+            records: [],
+            inputs: inputs(full: false)
+        )
+        XCTAssertEqual(check(r, "benchReadyCount")?.status, .notChecked)
+        XCTAssertEqual(check(r, "benchReadyCount")?.fixCommand, "alln detect")
+        XCTAssertEqual(r.nextActions.first?.command, "alln detect")
+        XCTAssertEqual(r.nextActions.first?.kind, "detectCLIs")
+    }
+
     func testFullReflectsRealProbeOutcomes() {
         let records = [
             ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1.2"), version: "1.2", lastProbeAt: t),

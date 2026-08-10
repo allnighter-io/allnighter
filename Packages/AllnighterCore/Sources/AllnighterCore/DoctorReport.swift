@@ -160,16 +160,34 @@ public enum DoctorReport {
 
         checks.append(TeachingInstalledCheck.check(inputs: inputs.teachingInputs))
 
-        // Bench-readiness aggregate.
+        // Bench-readiness aggregate — same BenchTallyProjector the menu uses.
+        let parked = Set<String>() // doctor Inputs do not carry park set yet
+        let tally = BenchTallyProjector.tally(
+            registry: DriverRegistry(manifests),
+            records: records,
+            parked: parked
+        )
         if inputs.full {
-            let ready = records.filter { $0.status.isSmokeReady }.count
-            checks.append(.init(name: "benchReadyCount",
-                                status: ready > 0 ? .ok : .critical,
-                                detail: "\(ready) model\(ready == 1 ? "" : "s") ready",
-                                requiresManual: ready == 0))
+            checks.append(.init(
+                name: "benchReadyCount",
+                status: tally.ready > 0 ? .ok : .critical,
+                detail: "\(tally.ready) CLI\(tally.ready == 1 ? "" : "s") ready (\(tally.headline.rawValue))",
+                requiresManual: tally.ready == 0
+            ))
+        } else if tally.headline == .neverScanned {
+            checks.append(.init(
+                name: "benchReadyCount",
+                status: .notChecked,
+                detail: "CLI bench not scanned yet",
+                fixCommand: BenchTallyProjector.detectCommand
+            ))
         } else {
-            checks.append(.init(name: "benchReadyCount", status: .notChecked,
-                                detail: "model readiness not checked (no smoke probe)", fixCommand: fullFix))
+            checks.append(.init(
+                name: "benchReadyCount",
+                status: .notChecked,
+                detail: "model readiness not smoke-checked (cached scan: \(tally.headline.rawValue))",
+                fixCommand: fullFix
+            ))
         }
 
         checks.append(.init(name: "defaultTeamValid",
@@ -206,6 +224,14 @@ public enum DoctorReport {
             let frontDoor = AgentFrontDoor.missingConfigCounsel()
             counsel = frontDoor.counsel
             nextActions = frontDoor.nextActions
+        } else if tally.headline == .neverScanned {
+            nextActions = [
+                AgentSurfaceNextAction(
+                    kind: "detectCLIs",
+                    label: "Find CLIs on this Mac",
+                    command: BenchTallyProjector.detectCommand
+                )
+            ]
         }
 
         return DoctorResult(

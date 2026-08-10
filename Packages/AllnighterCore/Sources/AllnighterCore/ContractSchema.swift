@@ -891,6 +891,7 @@ public enum ContractSchema {
             "completeness": ref("MenuCompleteness"),
             "capacity": ref("Capacity"),
             "update": ref("ReleaseUpdate"),
+            "benchTally": ref("BenchTally"),
         ], required: [
             "schemaVersion", "contractVersion", "contractHash", "catalogRevision",
             "truncated", "detailTemplate", "actions", "commands", "teams", "models",
@@ -965,6 +966,16 @@ public enum ContractSchema {
                 "available": bool, "current": str, "latest": str,
                 "binaryPath": nullable("string"), "command": str,
             ], required: ["available", "current", "latest", "command"]),
+            "BenchTally": obj([
+                "headline": str,
+                "supported": int, "measured": int, "ready": int,
+                "needsStep": int, "notInstalled": int, "needsCheck": int,
+                "nextAction": nullableRef("AgentSurfaceNextAction"),
+            ], required: [
+                "headline", "supported", "measured", "ready",
+                "needsStep", "notInstalled", "needsCheck",
+            ]),
+            "AgentSurfaceNextAction": agentSurfaceNextActionDef(),
         ]
         return schema
     }

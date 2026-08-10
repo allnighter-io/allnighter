@@ -1,5 +1,71 @@
 {
   "$defs" : {
+    "AgentSurfaceNextAction" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "command" : {
+          "type" : "string"
+        },
+        "kind" : {
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "kind",
+        "label",
+        "command"
+      ],
+      "type" : "object"
+    },
+    "BenchTally" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "headline" : {
+          "type" : "string"
+        },
+        "measured" : {
+          "type" : "integer"
+        },
+        "needsCheck" : {
+          "type" : "integer"
+        },
+        "needsStep" : {
+          "type" : "integer"
+        },
+        "nextAction" : {
+          "oneOf" : [
+            {
+              "$ref" : "#\/$defs\/AgentSurfaceNextAction"
+            },
+            {
+              "type" : "null"
+            }
+          ]
+        },
+        "notInstalled" : {
+          "type" : "integer"
+        },
+        "ready" : {
+          "type" : "integer"
+        },
+        "supported" : {
+          "type" : "integer"
+        }
+      },
+      "required" : [
+        "headline",
+        "supported",
+        "measured",
+        "ready",
+        "needsStep",
+        "notInstalled",
+        "needsCheck"
+      ],
+      "type" : "object"
+    },
     "Capacity" : {
       "additionalProperties" : false,
       "properties" : {
@@ -453,6 +519,9 @@
         "$ref" : "#\/$defs\/MenuAction"
       },
       "type" : "array"
+    },
+    "benchTally" : {
+      "$ref" : "#\/$defs\/BenchTally"
     },
     "capacity" : {
       "$ref" : "#\/$defs\/Capacity"

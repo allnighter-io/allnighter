@@ -10,12 +10,19 @@ enum MenuCLI {
         // first spend, so the default carries only what selection needs.
         // `--detailed` restores per-seat ref/prose and off-bench rows.
         let detailed = opts.flag("detailed")
+        let setup = SetupStore().load()
+        let tally = BenchTallyProjector.tally(
+            registry: runtime.registry,
+            records: setup.records,
+            parked: setup.parkedSet
+        )
         let menu = MenuCatalog.project(
             teams: runtime.teams.filter { !$0.isLabTeam },
             modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models,
             detailed: detailed,
             capacity: AllnighterCLI.menuCapacity(now: Date()),
-            update: AllnighterCLI.menuUpdate(now: Date())
+            update: AllnighterCLI.menuUpdate(now: Date()),
+            benchTally: MenuJSON.BenchTallyPayload(tally: tally)
         )
         do {
             print(String(decoding: try MenuCatalog.encodeCompact(menu), as: UTF8.self))

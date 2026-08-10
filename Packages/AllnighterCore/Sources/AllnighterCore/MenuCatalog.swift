@@ -18,7 +18,8 @@ public enum MenuCatalog {
         detailed: Bool = false,
         defaultModelId: String? = nil,
         capacity: MenuJSON.Capacity? = nil,
-        update: ReleaseUpdateInfo? = nil
+        update: ReleaseUpdateInfo? = nil,
+        benchTally: MenuJSON.BenchTallyPayload? = nil
     ) -> MenuJSON {
         let teamList = (teams ?? TeamCatalog.all.filter { !$0.isLabTeam })
             .sorted { $0.id < $1.id }
@@ -207,7 +208,8 @@ public enum MenuCatalog {
             ),
             completeness: completeness,
             capacity: capacity,
-            update: update
+            update: update,
+            benchTally: benchTally
         )
     }
 

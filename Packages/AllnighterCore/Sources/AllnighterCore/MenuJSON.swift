@@ -29,6 +29,62 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     /// OPC-S06 — release-channel announcement when a newer CLI is known.
     /// Absent (not `null`) when omitted. Never carries remote notes/command.
     public var update: ReleaseUpdateInfo?
+    /// FCS-S02 — shared bench tally (Core `BenchTallyProjector`). Always present
+    /// when projected from a live registry. `nextAction` is set only when the
+    /// agent must run a command before spend (typically `alln detect`).
+    public var benchTally: BenchTallyPayload?
+
+    /// Wire shape for `BenchTally` — no ready/total ratio field by design.
+    public struct BenchTallyPayload: Codable, Sendable, Equatable {
+        public var headline: String
+        public var supported: Int
+        public var measured: Int
+        public var ready: Int
+        public var needsStep: Int
+        public var notInstalled: Int
+        public var needsCheck: Int
+        public var nextAction: AgentSurfaceNextAction?
+
+        public init(
+            headline: String,
+            supported: Int,
+            measured: Int,
+            ready: Int,
+            needsStep: Int,
+            notInstalled: Int,
+            needsCheck: Int,
+            nextAction: AgentSurfaceNextAction? = nil
+        ) {
+            self.headline = headline
+            self.supported = supported
+            self.measured = measured
+            self.ready = ready
+            self.needsStep = needsStep
+            self.notInstalled = notInstalled
+            self.needsCheck = needsCheck
+            self.nextAction = nextAction
+        }
+
+        public init(tally: BenchTally) {
+            headline = tally.headline.rawValue
+            supported = tally.supported
+            measured = tally.measured
+            ready = tally.ready
+            needsStep = tally.needsStep
+            notInstalled = tally.notInstalled
+            needsCheck = tally.needsCheck
+            switch tally.headline {
+            case .neverScanned:
+                nextAction = AgentSurfaceNextAction(
+                    kind: "detectCLIs",
+                    label: "Find CLIs on this Mac",
+                    command: BenchTallyProjector.detectCommand
+                )
+            case .configurationMissing, .allReady, .noneReady, .partial:
+                nextAction = nil
+            }
+        }
+    }
 
     public struct Action: Codable, Sendable, Equatable {
         public var id: String
@@ -176,7 +232,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         defaults: Defaults,
         completeness: Completeness,
         capacity: Capacity? = nil,
-        update: ReleaseUpdateInfo? = nil
+        update: ReleaseUpdateInfo? = nil,
+        benchTally: BenchTallyPayload? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -197,6 +254,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         self.completeness = completeness
         self.capacity = capacity
         self.update = update
+        self.benchTally = benchTally
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -204,7 +262,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
             detailTemplate, actions, commands, teams, teamInvocation, models, modelInvocation,
             blocked, recipes,
             effectProfiles,
-            defaults, completeness, capacity, update
+            defaults, completeness, capacity, update, benchTally
     }
 
     /// Swift's synthesized `Encodable` writes `Optional` properties as explicit
@@ -232,6 +290,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         try container.encode(completeness, forKey: .completeness)
         try container.encodeIfPresent(capacity, forKey: .capacity)
         try container.encodeIfPresent(update, forKey: .update)
+        try container.encodeIfPresent(benchTally, forKey: .benchTally)
     }
 }
 

@@ -103,15 +103,20 @@ public enum Bootstrap {
         /// Compact host-specific advice ahead of the shared snippet (render only).
         /// Cold hosts only — checkout hosts already live in a repo context.
         public var coldStartPreamble: String? {
+            // FCS-S02: agents (not humans) run detect via menu nextAction after curl.
+            let findCLIs = """
+                Start with `alln menu --json`. If `benchTally.nextAction` is set, run that command once before any spend.
+                """
             switch self {
             case .hermes, .openclaw:
                 return """
                 Allnighter runs on the subscription CLIs you already pay for — not API keys.
-                Start with `alln menu --json`. Authorize before any spend or mutate.
+                \(findCLIs.trimmingCharacters(in: .whitespacesAndNewlines))
+                Authorize before any spend or mutate.
                 Upgrade between rounds, never mid-loop.
                 """
             case .claude, .cursor, .codex, .generic:
-                return nil
+                return findCLIs.trimmingCharacters(in: .whitespacesAndNewlines)
             }
         }
     }

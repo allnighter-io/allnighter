@@ -39,7 +39,9 @@ public extension ContractRegistry {
     // LaunchAgent orphan (bootout + plist delete); never registers/enables.
     // SC-S04b: minor — `serve enable` / `serve disable` own the LaunchAgent
     // lifecycle against the staged stable binary (opt-in start-at-login).
-    static let contractVersion = "9.16.0"
+    // FCS-S02: minor — optional `MenuJSON.benchTally` (+ agent nextAction when
+    // neverScanned) so curl|sh agents learn to run `alln detect` from the menu.
+    static let contractVersion = "9.17.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
