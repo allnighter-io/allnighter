@@ -1,7 +1,7 @@
 # PF-S03b — Serve-hosted periodic probe smoke (founder B)
 
 Run: `28A5D3B3-A034-45E8-83A3-888108EFF270` (DeepSeek V4 Pro)
-Status: in_progress  
+Status: **saved WIP 2026-08-09** — code present; DeepSeek run `28A5D3B3` still attached at save; PM committed in-flight files before founder offline  
 Slice: PF-S03b (small)  
 SSOT: [`docs/phases/Probe_Freshness.md`](../../Probe_Freshness.md) §PF-S03 missing decision + founder B (2026-08-09)  
 Executor: `model_opencode_deepseek_v4_pro` (founder-routed)
