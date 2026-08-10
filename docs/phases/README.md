@@ -36,7 +36,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
-| [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — OPEN v3** | First open prints a ratio it never measured (`0/9 ready`) while absent records make capacity look available and make the composer say "Not detected." Start tomorrow with FCS-S01 only: one `BenchTallyProjector` in Core, then badge + selected-empty-thread chrome; no probe/routing changes. FCS-S02 adds the press-only framed scan inside Home, with the roster as recovery. Regression laws FCS-L1…L6; never repeal Launch Authority. |
+| [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — OPEN v4** | CLI-first parity: curl\|sh users co-equal with Mac app. Shared `BenchTallyProjector`; **S01 Core → S02 CLI menu/doctor/detect + install teach detect → S03 Mac chrome**. Never `0/catalog` when unscanned. FCS-L7: bootstrap must teach find-CLIs. Domain stays `get.allnighter.io` unless One_Paste cutover. |
 
 > **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
 > **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
