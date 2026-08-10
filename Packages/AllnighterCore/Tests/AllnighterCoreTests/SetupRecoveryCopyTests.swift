@@ -105,7 +105,7 @@ final class SetupRecoveryCopyTests: XCTestCase {
             probeReason: "smoke exited 1"
         )
         XCTAssertTrue(detail.contains("/login"), detail)
-        XCTAssertTrue(detail.contains("alln detect"), detail)
+        XCTAssertTrue(detail.lowercased().contains("re-check"), detail)
     }
 
     func testAttentionDetailClaudeNeedsLoginNamesExpiredLogin() {
@@ -117,6 +117,27 @@ final class SetupRecoveryCopyTests: XCTestCase {
         XCTAssertTrue(detail.contains("/login"), detail)
         XCTAssertTrue(detail.lowercased().contains("claude code"), detail)
         XCTAssertFalse(detail.lowercased().contains("run `claude`, type"), detail)
+    }
+
+    func testNeedsLoginDetailPrefersCatalogInstructionsForKimi() {
+        let detail = SetupRecoveryCopy.needsLoginDetail(
+            driverId: "kimi",
+            loginCommand: "kimi login",
+            loginInstructions: "Run `kimi login` and complete the device-code flow in the browser."
+        )
+        XCTAssertEqual(
+            detail,
+            "Run `kimi login` and complete the device-code flow in the browser."
+        )
+    }
+
+    func testNeedsLoginDetailFallsBackToCommandWhenNoInstructions() {
+        let detail = SetupRecoveryCopy.needsLoginDetail(
+            driverId: "codex",
+            loginCommand: "codex",
+            loginInstructions: nil
+        )
+        XCTAssertTrue(detail.contains("`codex`"), detail)
     }
 
     func testRecoveryClaudeOpaqueSmokeIsNeedsSignIn() {

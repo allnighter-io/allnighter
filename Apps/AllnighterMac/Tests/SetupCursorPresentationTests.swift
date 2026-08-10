@@ -25,6 +25,42 @@ final class SetupCursorPresentationTests: XCTestCase {
                       || card?.installHint?.contains("agent") ?? false)
     }
 
+    func testKimiNeedsLoginAttentionNamesLoginCommand() {
+        let detail = SetupRecoveryCopy.needsLoginDetail(
+            driverId: "kimi",
+            loginCommand: "kimi login",
+            loginInstructions: "Run `kimi login` and complete the device-code flow in the browser. If models are missing after login, run `kimi login` again."
+        )
+        XCTAssertTrue(detail.contains("kimi login"), detail)
+        XCTAssertTrue(detail.lowercased().contains("browser") || detail.lowercased().contains("device"), detail)
+
+        let card = SetupCardModel(
+            driverId: "kimi",
+            name: "Kimi Code CLI",
+            route: "via kimi",
+            version: "0.34.0",
+            state: .needsLogin,
+            workers: [],
+            loginCommand: "kimi login",
+            loginInstructions: "Run `kimi login` and complete the device-code flow in the browser.",
+            installHint: nil,
+            docsURL: nil,
+            loginDocsURL: nil,
+            shimCommand: nil,
+            probeReason: nil,
+            headlessTrust: nil
+        )
+        let reason = SetupRecoveryCopy.attentionDetail(
+            driverId: card.driverId,
+            state: .needsLogin,
+            probeReason: nil,
+            loginCommand: card.loginCommand,
+            loginInstructions: card.loginInstructions
+        )
+        XCTAssertTrue(reason.contains("kimi login"), reason)
+        XCTAssertEqual(card.loginCommand, "kimi login")
+    }
+
     func testSetupRecoveryCopyNeverEquatesCursorAppWithSeat() throws {
         let manifest = BundledDefaults.cursorManifest
         let detail = SetupRecoveryCopy.notInstalledDetail(for: manifest, cursorAppPresent: false)

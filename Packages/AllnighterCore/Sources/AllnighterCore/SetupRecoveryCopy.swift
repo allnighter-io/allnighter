@@ -35,14 +35,17 @@ public enum SetupRecoveryCopy {
         driverId: String,
         state: AttentionState,
         probeReason: String?,
-        cursorAppPresent: Bool? = nil
+        cursorAppPresent: Bool? = nil,
+        loginCommand: String? = nil,
+        loginInstructions: String? = nil
     ) -> String {
         switch state {
         case .needsLogin:
-            if driverId == "claude_code" {
-                return "Login expired — open Claude Code, type `/login`, finish browser sign-in, then run `alln detect`."
-            }
-            return "Installed but signed out — sign in to use its models."
+            return needsLoginDetail(
+                driverId: driverId,
+                loginCommand: loginCommand,
+                loginInstructions: loginInstructions
+            )
         case .needsPath:
             return "Installed but not on PATH — locate it to use its models."
         case .notInstalled:
@@ -67,6 +70,27 @@ public enum SetupRecoveryCopy {
         case .queued:
             return "Queued for check…"
         }
+    }
+
+    /// Needs-sign-in copy. Prefer catalog `instructions` (names the real command), then
+    /// `loginCommand`, then a generic line — never invent a shell login for Claude.
+    public static func needsLoginDetail(
+        driverId: String,
+        loginCommand: String? = nil,
+        loginInstructions: String? = nil
+    ) -> String {
+        if driverId == "claude_code" {
+            return "Login expired — open Claude Code, type `/login`, finish browser sign-in, then re-check."
+        }
+        let instructions = loginInstructions?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !instructions.isEmpty {
+            return instructions
+        }
+        let cmd = loginCommand?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !cmd.isEmpty {
+            return "Installed but signed out — run `\(cmd)` in Terminal, finish browser sign-in, then re-check."
+        }
+        return "Installed but signed out — sign in to use its models."
     }
 
     /// Actionable projection for detect/doctor/drivers — same disease as Mac cards, CLI verbs.
@@ -108,14 +132,11 @@ public enum SetupRecoveryCopy {
                 )
             )
         case .installedNotSignedIn(let flow):
-            let detail: String
-            if record.driverId == "claude_code" {
-                detail = attentionDetail(driverId: record.driverId, state: .needsLogin, probeReason: nil)
-            } else {
-                let base = attentionDetail(driverId: record.driverId, state: .needsLogin, probeReason: nil)
-                let instructions = flow.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
-                detail = instructions.isEmpty ? base : "\(base) \(instructions)"
-            }
+            let detail = needsLoginDetail(
+                driverId: record.driverId,
+                loginCommand: flow.interactiveCommand,
+                loginInstructions: flow.instructions
+            )
             let fix = doctorFixCommand(
                 driverId: record.driverId,
                 state: .needsLogin,

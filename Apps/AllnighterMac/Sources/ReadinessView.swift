@@ -535,7 +535,15 @@ struct BenchRepairPanel: View {
             if card.driverId == "claude_code" {
                 return "Login expired — open Terminal, start Claude Code with `claude`, then type `/login` inside Claude Code and finish browser sign-in. Then tap Re-check. `claude` alone is not the login command."
             }
-            return "Copy the sign-in command, open a new Terminal window, paste, press Return. Then tap Re-check."
+            let named = SetupRecoveryCopy.needsLoginDetail(
+                driverId: card.driverId,
+                loginCommand: resolvedLoginCommand,
+                loginInstructions: card.loginInstructions
+            )
+            if named != "Installed but signed out — sign in to use its models." {
+                return "\(named) Then tap Re-check."
+            }
+            return "Copy `\(resolvedLoginCommand)`, open a new Terminal window, paste, press Return. Then tap Re-check."
         case .needsPath:
             return "Found as a shell function, not a plain command. Point us at the binary, or run it through your login shell."
         case .probeFailed:

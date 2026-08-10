@@ -72,6 +72,7 @@ enum AppSetupModel {
                 driverId: manifest.id, name: manifest.displayName, route: route, version: rec?.version,
                 state: state, workers: seats,
                 loginCommand: manifest.setup?.loginFlow?.interactiveCommand,
+                loginInstructions: manifest.setup?.loginFlow?.instructions,
                 installHint: manifest.setup?.installHint, docsURL: manifest.setup?.docsURL,
                 loginDocsURL: manifest.setup?.loginFlow?.docsURL,
                 shimCommand: shim, probeReason: reason,

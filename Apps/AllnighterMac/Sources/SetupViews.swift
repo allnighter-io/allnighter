@@ -85,6 +85,8 @@ struct SetupCardModel: Identifiable {
     let state: SetupCardState
     let workers: [WorkerSeat]      // models on this tool (shown when ready)
     let loginCommand: String?      // loginFlow.interactiveCommand
+    /// Catalog login prose (`loginFlow.instructions`) — names the real command.
+    let loginInstructions: String?
     let installHint: String?
     let docsURL: String?
     /// From `loginFlow.docsURL` when distinct from install docs.
@@ -95,6 +97,38 @@ struct SetupCardModel: Identifiable {
     let headlessTrust: HeadlessTrustPolicy?
 
     var id: String { driverId }
+
+    init(
+        driverId: String,
+        name: String,
+        route: String,
+        version: String?,
+        state: SetupCardState,
+        workers: [WorkerSeat],
+        loginCommand: String?,
+        loginInstructions: String? = nil,
+        installHint: String?,
+        docsURL: String?,
+        loginDocsURL: String?,
+        shimCommand: String?,
+        probeReason: String?,
+        headlessTrust: HeadlessTrustPolicy?
+    ) {
+        self.driverId = driverId
+        self.name = name
+        self.route = route
+        self.version = version
+        self.state = state
+        self.workers = workers
+        self.loginCommand = loginCommand
+        self.loginInstructions = loginInstructions
+        self.installHint = installHint
+        self.docsURL = docsURL
+        self.loginDocsURL = loginDocsURL
+        self.shimCommand = shimCommand
+        self.probeReason = probeReason
+        self.headlessTrust = headlessTrust
+    }
 
     /// Clipboard payload for setup probe failures (Copy log).
     var probeLogText: String {
@@ -470,7 +504,12 @@ struct SetupCardView: View {
                                                  : "After you finish in Terminal, tap Re-check.",
                          systemImage: card.state == .waiting ? "arrow.triangle.2.circlepath" : "info.circle")
                 } else {
-                    fixLine("\(card.name) is installed but not signed in. Copy → new Terminal → paste → Return.")
+                    let loginCopy = SetupRecoveryCopy.needsLoginDetail(
+                        driverId: card.driverId,
+                        loginCommand: loginCmd,
+                        loginInstructions: card.loginInstructions
+                    )
+                    fixLine(loginCopy)
                     CmdRow(text: loginCmd)
                     if card.state == .waiting {
                         HStack(spacing: 10) {
@@ -996,7 +1035,9 @@ struct CLIStatusRow: View {
                 probeReason: card.probeReason,
                 cursorAppPresent: card.driverId == CursorAgentCLIInstall.driverId
                     ? CursorAgentCLIInstall.isCursorAppInstalled()
-                    : nil
+                    : nil,
+                loginCommand: card.loginCommand,
+                loginInstructions: card.loginInstructions
             )
         }
         return "Needs a step."
