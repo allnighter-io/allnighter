@@ -44,4 +44,32 @@ final class SetupRecoveryCopyTests: XCTestCase {
         XCTAssertTrue(check.detail.contains("Cursor app is not the seat"))
         XCTAssertEqual(check.fixCommand, "https://cursor.com/docs/cli/installation")
     }
+
+    func testAttentionDetailNamesCursorGrokCollision() {
+        let detail = SetupRecoveryCopy.attentionDetail(
+            driverId: "cursor_agent",
+            state: .probeFailed,
+            probeReason: "error: a value is required for '--single <PROMPT>'"
+        )
+        XCTAssertTrue(detail.lowercased().contains("cursor"), detail)
+        XCTAssertFalse(detail.lowercased().contains("health check failed"), detail)
+    }
+
+    func testAttentionDetailSurfacesOpenCodePort() {
+        let detail = SetupRecoveryCopy.attentionDetail(
+            driverId: "opencode",
+            state: .probeFailed,
+            probeReason: "opencode serve: portOwnedByForeignProcess(listenerPID: 40234)"
+        )
+        XCTAssertTrue(detail.lowercased().contains("opencode") || detail.contains("4096"), detail)
+    }
+
+    func testAttentionDetailPassesClaudeSmokeReason() {
+        let detail = SetupRecoveryCopy.attentionDetail(
+            driverId: "claude_code",
+            state: .probeFailed,
+            probeReason: "smoke exited 1"
+        )
+        XCTAssertEqual(detail, "smoke exited 1")
+    }
 }

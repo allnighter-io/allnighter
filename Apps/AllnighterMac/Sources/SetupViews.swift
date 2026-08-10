@@ -880,19 +880,24 @@ struct CLIStatusRow: View {
     }
 
     private var attentionReason: String {
-        // Short category only — raw probeReason stays in Last proof / Copy log.
+        let mapped: SetupRecoveryCopy.AttentionState?
         switch card.state {
-        case .needsLogin, .waiting: return "Installed but signed out — sign in to use its models."
-        case .needsPath: return "Installed but not on PATH — locate it to use its models."
-        case .notInstalled: return "Not installed."
-        case .probeFailed: return "Health check failed — re-check or fix."
-        case .rateLimited: return card.probeReason ?? "Out of capacity — nothing to fix, it clears when the vendor resets."
-        case .notChecked: return "Not checked yet — run a scan to detect this CLI."
-        case .installedNotProbed: return "Installed but not checked yet — run a scan."
-        case .detecting, .reprobing: return "Re-checking this CLI…"
-        case .queued: return "Queued for check…"
-        default: return "Needs a step."
+        case .needsLogin, .waiting: mapped = .needsLogin
+        case .needsPath: mapped = .needsPath
+        case .notInstalled: mapped = .notInstalled
+        case .probeFailed: mapped = .probeFailed
+        case .rateLimited: mapped = .rateLimited
+        case .notChecked: mapped = .notChecked
+        case .installedNotProbed: mapped = .installedNotProbed
+        case .detecting, .reprobing: mapped = .detecting
+        case .queued: mapped = .queued
+        default: mapped = nil
         }
+        if let mapped {
+            return SetupRecoveryCopy.attentionDetail(
+                driverId: card.driverId, state: mapped, probeReason: card.probeReason)
+        }
+        return "Needs a step."
     }
 }
 

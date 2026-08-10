@@ -509,6 +509,7 @@ struct RootView: View {
     }
 
     /// Settings shell → CLIs page. Optional focus selects that driver in the repair panel.
+    /// Opening CLIs is explicit user intent — re-probe so seats heal without a separate detect ceremony.
     private func openCLISetup(focus driverId: String? = nil) {
         showTeamDropdown = false
         showDoctor = false
@@ -518,6 +519,11 @@ struct RootView: View {
         studioCLIFocusDriverId = driverId
         studioInitialRoute = .clis
         showTeamStudio = true
+        if let driverId {
+            model.runSetupProbe(userInitiated: true, onlyDriverId: driverId)
+        } else {
+            model.runFullSetupProbe(userInitiated: true)
+        }
     }
 
     /// Top-bar Inbox/Teams are ROUTE COMMANDS, not passive tab labels: they dismiss every

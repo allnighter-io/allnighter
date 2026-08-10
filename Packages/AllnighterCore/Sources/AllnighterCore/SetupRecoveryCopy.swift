@@ -21,6 +21,60 @@ public enum SetupRecoveryCopy {
         return "\(name) not found on PATH or known paths"
     }
 
+    /// One-line Needs-attention reason. Prefer a named disease over "health check failed."
+    public static func attentionDetail(
+        driverId: String,
+        state: AttentionState,
+        probeReason: String?
+    ) -> String {
+        switch state {
+        case .needsLogin:
+            return "Installed but signed out — sign in to use its models."
+        case .needsPath:
+            return "Installed but not on PATH — locate it to use its models."
+        case .notInstalled:
+            if driverId == "cursor_agent" {
+                return "Cursor Agent CLI not installed — install it to use Composer."
+            }
+            return "Not installed."
+        case .probeFailed:
+            return probeFailedAttention(driverId: driverId, reason: probeReason)
+        case .rateLimited:
+            return probeReason ?? "Out of capacity — clears when the vendor resets."
+        case .notChecked:
+            return "Not checked yet — opening this panel scans for you."
+        case .installedNotProbed:
+            return "Installed but not checked yet — scanning…"
+        case .detecting, .reprobing:
+            return "Re-checking this CLI…"
+        case .queued:
+            return "Queued for check…"
+        }
+    }
+
+    public enum AttentionState: Sendable {
+        case needsLogin, needsPath, notInstalled, probeFailed, rateLimited
+        case notChecked, installedNotProbed, detecting, reprobing, queued
+    }
+
+    private static func probeFailedAttention(driverId: String, reason: String?) -> String {
+        let raw = reason?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let lower = raw.lowercased()
+        if driverId == "cursor_agent",
+           lower.contains("grok") || lower.contains("--single") {
+            return "Cursor Agent CLI not installed — Grok’s `agent` is not Cursor."
+        }
+        if driverId == "opencode",
+           lower.contains("portownedbyforeign") || lower.contains("port owned") {
+            return "OpenCode serve is busy on :4096 — attach or free the port, then re-check."
+        }
+        if !raw.isEmpty {
+            let clipped = raw.count > 120 ? String(raw.prefix(117)) + "…" : raw
+            return clipped
+        }
+        return "Health check failed — re-check this CLI."
+    }
+
     /// Prefer install docs URL for “open this page”; login docs stay separate.
     public static func notInstalledFixCommand(for manifest: DriverManifest) -> String? {
         let docs = manifest.setup?.docsURL?.trimmingCharacters(in: .whitespacesAndNewlines)
