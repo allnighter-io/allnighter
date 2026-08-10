@@ -1,11 +1,11 @@
 # First CLI Detection & Setup — CODE RED
 
-Status: **CODE RED — OPEN — v2 (execution-ready)**
+Status: **CODE RED — OPEN — v3 (Sol-hardened, execution-ready)**
 Owner: AllnighterMac (`RootView` cold launch, `BenchHealthBadge`, `ThreadEmptyStateBody`,
 `ReadinessView` / `SetupViews`) + AllnighterCore (proposed tally projector,
 `ProbeFreshnessGate`, `BenchReadiness`) + AgentOS `CLIDetector` / `ModelSetupStatus`
 Created: 2026-08-10
-Revised: 2026-08-10 (v2 — first-principles, decision table, sliced for a builder)
+Revised: 2026-08-10 (v3 — code-checked touchpoints, falsifiable proofs, S01-first dogfood order)
 Origin: First launch of the Mac app on a new host shows amber **`0/9 ready`**, a
 capacity strip painting every seat as up, and a composer seat list labelled "Not
 detected" — while **zero** CLI probes have ever run on that machine. The product
@@ -44,9 +44,9 @@ measured, printed in warning amber, as the first thing the product says.
 | # | Observed | Code |
 | --- | --- | --- |
 | 1 | Title-bar badge reads **`0/9 ready`**, amber/warning tone | `BenchHealthBadge.label` / `.tone` — `SetupViews.swift` ~933–942 |
-| 2 | Thread empty state repeats **`0/9 CLIs ready`** with a grey dot | `ThreadEmptyStateBody` — `ThreadView.swift` ~90–108 |
+| 2 | An **existing selected thread with zero turns** repeats **`0/9 CLIs ready`** with a grey dot | `ThreadEmptyStateBody` — `ThreadView.swift` ~86–108. Correction from v2: this is not necessarily the virgin app's first pane; a host with no threads is in `HomeMarketingEmptyState`. It is still a live duplicate lie reached as soon as an empty thread is selected. |
 | 3 | Composer still lists Auto / Composer 2.5 / Cursor Grok 4.5, each labelled **"Not detected"** | `AppModel.composeBench` — `AppModel.swift` ~545–582 |
-| 4 | Capacity strip paints seats as live | `HomeNewRunPane.notReadyOrParked` — `HomeView.swift` ~762–773 |
+| 4 | Capacity strip has no setup-derived reason to suppress never-probed seats, so cached/live rows can paint them as available | `HomeNewRunPane.notReadyOrParked` — `HomeView.swift` ~762–773 |
 | 5 | Nothing offers a scan; setup never opens | `RootView` cold launch → `loadCachedSetupState()` only, ~388–399 |
 
 ### The two numbers, and why they are both wrong together
@@ -58,7 +58,8 @@ measured, printed in warning amber, as the first thing the product says.
 
 Cold launch calls `loadCachedSetupState()` (~685), which assigns `toolStatuses`
 **only if the persisted record set is non-empty**. Empty store ⇒ `toolStatuses`
-stays `[]` ⇒ X = 0 forever until the user finds setup on their own. The badge
+stays at its initialized `[]` value ⇒ X = 0 until the user explicitly opens setup
+and runs a probe. The badge
 formula (`ready == total ? "N ready" : "N/T ready"`) then renders a ratio whose
 numerator was never sampled, and tones it `.warning`.
 
@@ -178,9 +179,10 @@ installed and signed in:
 
 ## 6. Shape A vs Shape B — decision table
 
-**Shape A — framed first-run scan.** On a host with no completed setup, the
-first window presents a small "Find your team" frame whose primary button runs
-one `runFullSetupProbe(userInitiated: true)` with live per-source progress.
+**Shape A — framed first-run scan.** On a host with no completed setup, normal
+Home includes a small "Find your team" frame whose primary button runs one
+`runFullSetupProbe(userInitiated: true)` with live per-source progress. It is
+content inside Home, not an auto-open setup sheet.
 
 **Shape B — roster-first.** The first meaningful surface is the CLI setup roster,
 pre-populated with every supported source as `notChecked`, each with one primary
@@ -197,58 +199,83 @@ action; a "Scan all" sits at the top.
 | Proof surface | New gate tests + GUI proof | Existing `CLISetupGroupingTests` / setup GUI proof |
 | Dogfood truth | Best "it found my team" moment | Best "I understand what I have" moment |
 
-**Recommended default: A over B, with B as the landing.** Ship the framed scan
-whose *result surface is the roster* — success lands on Home, anything unresolved
-lands on the roster with the founder's cards already partitioned. Neither shape
-is worth building until **FCS-S01 lands**, because both inherit the same tally.
+**Recommended default: A over B, with B as the result/recovery surface.** Ship
+the framed Home scan; after the press, all-clear stays on Home and unresolved
+results open the roster with the founder's cards already partitioned. Neither
+shape is worth building until **FCS-S01 lands**, because both inherit the same
+tally.
 
 **Hard constraint on A:** the scan fires from a press, never from `onAppear`,
-never from a sheet that auto-runs on presentation. If the sheet appears and the
-user does nothing, zero child processes are spawned. That is the wall-reachable
-gate (§9, FCS-S02).
+and never from presentation. If the frame renders and the user does nothing,
+zero child processes are spawned. That is the wall-reachable gate (§10,
+FCS-S02).
 
 ---
 
 ## 7. The missing truth owner: one bench tally
 
-Today three surfaces each do their own arithmetic over `toolStatuses`. There is
-no owner. Introduce one pure projector in **AllnighterCore** — not in the Mac app
+Today the badge and empty-thread surface duplicate ratio arithmetic, while the
+capacity strip derives a different "down" set from only existing records and
+the composer maps an absent record to a detection result. The setup page is
+**not** a third ratio owner: `ReadinessView.summaryLine` currently shows
+`availableModelCLICount` + `availableModels.count`. v2 incorrectly grouped that
+header with the ratio bug.
+
+Introduce one pure projector in **AllnighterCore** — not in the Mac app
 — because the Mac target has no mid-slice proof path (`scripts/swift-test.sh`
 covers `Packages/AllnighterCore` only; app tests run at closeout under
 `scripts/check.sh`). Putting the law in Core is what makes it provable during
 the slice.
 
-Proposed shape (builder may rename; there must be exactly one):
+Required shape (names may change only if the same distinctions survive; there
+must be exactly one projector):
 
 ```text
 BenchTallyProjector.tally(registry:records:parked:now:) -> BenchTally
 
 BenchTally {
   supported: Int        // headlessCLI manifests, minus parked  (a fact about us)
-  measured: Int         // supported drivers WITH a probe record (a fact about this host)
+  measured: Int         // supported drivers WITH any probe record (historical observation)
   ready: Int            // records .isSmokeReady, minus parked
-  needsStep: Int        // installedNotSignedIn / shimmedNeedsConfirm / probeFailed / rateLimited
+  needsStep: Int        // currently assertable installedNotSignedIn / shimmedNeedsConfirm /
+                         // probeFailed / rateLimited
   notInstalled: Int
-  notChecked: Int       // supported minus measured  — the state that does not exist today
-  headline: Headline    // .neverScanned | .partial(ready:needsStep:) | .allReady | .noneReady
+  needsCheck: Int       // absent record OR an unassertable expired/inferred negative
+  headline: Headline    // .configurationMissing | .neverScanned | .partial |
+                         // .allReady | .noneReady
 }
 ```
 
 Rules the projector encodes, so no caller can re-derive them wrong:
 
-- `measured == 0` ⇒ `headline == .neverScanned`. **No ratio is emitted at all** —
+- `supported == 0` ⇒ `headline == .configurationMissing`; preserve the existing
+  reinstall-style broken-configuration path. An empty registry is not an
+  unscanned bench.
+- Otherwise `measured == 0` ⇒ `headline == .neverScanned`. **No ratio is emitted at all** —
   the type does not carry one, so a caller cannot print `0/9`.
+- Remaining headline precedence is mechanical: `ready == supported` ⇒
+  `.allReady`; else `ready == 0` ⇒ `.noneReady`; else `.partial`. Buckets provide
+  detail; callers do not choose a different headline.
 - `supported` is never a denominator in chrome. It belongs on the setup page
   ("we support 9, found 4"), which is a sentence, not a grade.
 - Parked sources are excluded from every count (already true of
   `readyToolCount` / `totalToolCount`; keep it).
-- Freshness is *disclosed*, not folded in: `ProbeFreshnessGate` decides whether a
-  stored negative may still be asserted, and the tally reports what it reports.
+- `measured` means a record exists; it does **not** mean a negative is still
+  assertable. Before filling `needsStep`, call
+  `ProbeFreshnessGate.unassertableNegatives(records, now:)`. An expired/inferred
+  negative goes to `needsCheck`, not `needsStep`; positives stay ready. This
+  removes v2's ambiguous "the tally reports what it reports," which could have
+  reintroduced stale negative claims.
+- Duplicate records for one `driverId` count once. The projector must choose the
+  latest `lastProbeAt` record deterministically; array length is never a tally.
+- Records for unknown/non-headless manifests are ignored. Parked drivers are
+  excluded from `supported`, every bucket, and the headline.
 
 ### Required chrome mapping
 
 | Tally headline | Title-bar badge | Thread empty state | Home / composer |
 | --- | --- | --- | --- |
+| `.configurationMissing` | **Setup unavailable**, danger | Reinstall-style configuration error | No scan/runnable seats; preserve `isConfigurationBroken` recovery |
 | `.neverScanned` | **Find my team** (neutral CTA, never warning amber) | "No CLIs checked yet" + the same CTA | No seat is offered as runnable; the scan is the primary action |
 | `.partial` | **`N ready`** (or `N ready · M need a step`) | `N ready` | Only ready sources power Auto and the seat list |
 | `.noneReady` | **Set up CLIs** + the top reason | Reason + one action | Hopeful install list; nothing runnable claimed |
@@ -265,8 +292,9 @@ The user is coding *inside* Cursor and reasonably expects Cursor to be seated.
 Under the current contract that expectation is false, and today we neither
 satisfy nor correct it.
 
-**The content for this card already ships.** The AgentOS catalog
-(`Sources/AgentOSCLI/Catalog/catalog.json`, `cursor_agent.setup`) already carries
+**The content for this card already ships.** The canonical sibling AgentOS
+catalog (`../AgentOS/Sources/AgentOSCLI/Catalog/catalog.json`,
+`cursor_agent.setup`) already carries
 the install one-liner, both docs URLs, the login command, the auth patterns, and
 the trust disclosure. This slice is rendering, not authoring.
 
@@ -276,7 +304,7 @@ the trust disclosure. This slice is rendering, not authoring.
 | Bins are `agent` **and** `cursor-agent` | `setup.bins` | Detection tries both; "not installed" means *neither* resolved |
 | Detect `agent --version`; smoke `-p … --model composer-2.5 --trust` | manifest | Ready requires the smoke token; an open IDE proves nothing |
 | `curl https://cursor.com/install -fsS \| bash`, then `agent login` | `setup.installHint` | The install card needs no invented copy — render this, copyable |
-| `https://cursor.com/docs/cli/installation` / `…/cli/using` | `setup.docsURL`, `setup.loginFlow.docsURL` | Two distinct links; install vs. usage |
+| `https://cursor.com/docs/cli/installation` / `…/cli/using` | `setup.docsURL`, `setup.loginFlow.docsURL` | Two distinct links exist in the catalog. **Current Mac mapping keeps only `setup.docsURL`; `SetupCardModel` has no login-doc URL. S03 must add and map it.** |
 | `agent login`, plus "open Cursor once and retry" for Keychain errors | `setup.loginFlow` | The sign-in card opens Terminal with exactly this |
 | `SecItemCopyMatching failed`, `not authenticated`, `401`, … | `setup.loginFlow.authErrorPatterns` | Classify as `installedNotSignedIn`, not `probeFailed` |
 | `--trust` required, with a full disclosure sentence | `setup.headlessTrust` | The disclosure must survive onto the card; do not silently drop it |
@@ -287,9 +315,12 @@ Builder path for the Cursor-without-CLI card:
 2. Card headline names the gap in the user's words: *"Cursor Agent CLI not found
    — the Cursor app is not the seat."*
 3. Render `setup.installHint` (copyable) + `setup.docsURL`, then `agent login`
-   from `loginFlow`, then one **Re-check** that calls
+   from `loginFlow` plus `loginFlow.docsURL`, then one **Re-check** that calls
    `runSetupProbe(userInitiated: true, onlyDriverId: "cursor_agent")` and flips
    the card in place.
+   Correction from v2: `SetupActions.handle(.rescan)` currently calls
+   `runFullSetupProbe`, so merely drawing a per-card button does not satisfy this
+   path; the action must carry `driverId` and use the single-driver API.
 4. **No IDE detection anywhere in this path.** Do not read the running process
    list, `~/.cursor`, or any Cursor config to soften the card. If we later want
    "installed, not checked", that is `installedNotProbed` after a real resolve —
@@ -297,7 +328,30 @@ Builder path for the Cursor-without-CLI card:
 
 ---
 
-## 9. Slices
+## 9. Execution start here
+
+**Tomorrow morning, implement only FCS-S01. Do not start the framed scan in the
+same change.** It removes the founder-visible false grade without changing launch
+authority, probe behavior, TCC posture, manifests, capacity acquisition, or setup
+routing.
+
+FCS-S01 is done when, and only when:
+
+- `BenchTallyProjectorTests` proves empty records, empty registry, duplicate,
+  parked, unknown-manifest, partial, all-ready, and stale/inferred-negative
+  fixtures.
+- `AppModel.benchTally` is the sole Mac bridge; `BenchHealthBadge` and
+  `ThreadEmptyStateBody` no longer read `readyToolCount` / `totalToolCount`
+  directly and never construct a slash ratio.
+- The never-scanned GUI fixture visibly reads **Find my team** in the badge and
+  **No CLIs checked yet** in the selected empty-thread state, both neutral; a
+  one-ready fixture reads **1 ready**.
+- Focused Core proof passes, then the one closeout wall runs once. No S02 files or
+  behavior are included.
+
+---
+
+## 10. Slices
 
 Ship order is S01 → S02 → S03 → S04. **S01 alone removes the worst lie** and is
 worth landing on its own.
@@ -310,34 +364,70 @@ worth landing on its own.
 
 ### FCS-S01 — One bench tally, no invented ratio
 
-- Goal: `BenchTallyProjector` in AllnighterCore; badge, thread empty state, and
-  setup header all read it. Never-scanned emits a CTA, not `0/9`, and not amber.
+- Goal: `BenchTallyProjector` in AllnighterCore; badge and selected-empty-thread
+  chrome read it. Never-scanned emits a CTA, not `0/9`, and not amber. The setup
+  summary is explicitly out of this slice because it does not print the ratio.
 - Truth owner: `BenchTallyProjector` (new) over `registry` + `[ToolProbeRecord]`.
 - Lie-prone layer: `BenchHealthBadge.label` / `.tone`; `ThreadEmptyStateBody`;
   any future surface tempted to divide.
-- Works Test (owner-visible): with an empty `cli_setup.json`, first open shows a
-  **Find my team** CTA in neutral tone in both the title bar and the thread empty
-  state; with one ready source it shows `1 ready`.
+- Exact files/types:
+  - add `Packages/AllnighterCore/Sources/AllnighterCore/BenchTallyProjector.swift`
+    (`BenchTally`, `BenchTally.Headline`, `BenchTallyProjector`);
+  - add `Packages/AllnighterCore/Tests/AllnighterCoreTests/BenchTallyProjectorTests.swift`;
+  - edit `Apps/AllnighterMac/Sources/AppModel.swift` to expose one
+    `benchTally(now:)`/`benchTally` bridge (do not add a second projector);
+  - edit `Apps/AllnighterMac/Sources/SetupViews.swift` (`BenchHealthBadge`) and
+    `Apps/AllnighterMac/Sources/ThreadView.swift` (`ThreadEmptyStateBody`);
+  - add exact presentation assertions under
+    `Apps/AllnighterMac/Tests/AppModelTests.swift` or a narrowly named
+    `BenchTallyPresentationTests.swift`, plus a deterministic GUI fixture only
+    if needed for owner-visible proof.
+- Out of scope: `RootView`, `ReadinessView`, probing, setup completion,
+  `HomeView`, `CapacityStripModel`, Cursor card content.
+- Works Test (owner-visible and falsifiable): with an empty `cli_setup.json`,
+  select a zero-turn thread and capture the app: title badge is exactly **Find my
+  team**, its tone is neutral, thread copy is exactly **No CLIs checked yet**, and
+  the capture contains neither `0/` nor `ready` beside the badge. Seed one fresh
+  ready record and recapture: both surfaces say **1 ready**.
 - Proof: `scripts/swift-test.sh --filter BenchTallyProjectorTests` (empty
-  records ⇒ `.neverScanned`; parked excluded; partial/all-ready mapping) +
-  `bash scripts/check.sh` at closeout for the Mac-layer call sites; GUI proof if
-  the pill's footprint changes (`scripts/gui_proof.sh`, `docs/gui/Visual_Proof_Gate.md`).
+  records ⇒ `.neverScanned`; empty registry ⇒ `.configurationMissing`;
+  duplicates dedupe; parked/unknown excluded;
+  stale/inferred negatives do not become needs-step; partial/all-ready mapping).
+  Mac tests cannot be run through `scripts/swift-test.sh`; run
+  `bash scripts/check.sh` **once at slice closeout**, never mid-slice. The focused
+  Core wrapper is the only iteration loop. GUI proof is required because visible
+  copy/tone is the Works Test (`scripts/gui_proof.sh`,
+  `docs/gui/Visual_Proof_Gate.md`).
 
 ### FCS-S02 — Framed first scan (Shape A), once, on a press
 
-- Goal: on `setupCompletedAt == nil` **and** zero probe records, present the
-  first-run frame whose primary button runs `runFullSetupProbe(userInitiated:
-  true)` with live per-source progress; land on the roster if anything is
-  unresolved, Home if all clear. Gate fires once until completed or deferred.
+- Goal: on `setupCompletedAt == nil` **and** zero probe records, render the
+  first-run frame **inside the normal Home launch surface**. Do not auto-present
+  `TeamReadinessView` or a sheet: `RootView` and the durable setup specs currently
+  say setup never hijacks launch. The frame's primary button runs
+  `runFullSetupProbe(userInitiated: true)` with live per-source progress; results
+  use the roster (Shape B). This is how v3 keeps Shape A+B without silently
+  overriding the standing "Home first" decision.
 - Truth owner: `SetupStore` (`setupCompletedAt`, records) + the once-gate.
 - Lie-prone layer: the presentation path — a sheet that scans on appear is
   indistinguishable from a silent launch spawn to macOS and to TCC.
-- Works Test: after `tccutil reset`, open the app and **touch nothing** — zero
-  child processes, zero dialogs; press the button — exactly one probe wave, real
-  found/ready partition; quit and reopen — the frame does not return.
-- Proof: `scripts/swift-test.sh --filter LaunchAuthorityProbeTests` plus a new
-  case asserting the presented frame spawns nothing until the action fires;
-  founder TCC-reset dogfood.
+- Exact files/types: `Apps/AllnighterMac/Sources/RootView.swift` (routing only),
+  the Home first-run frame in `HomeView.swift` or a new single-purpose view,
+  `AppModel.hasCompletedSetup` / `markSetupCompleted`, and AppModel test
+  injection for the detector/probe command. Do not edit `CLIDetector` semantics.
+- Works Test: inject a recording probe command. Construct/present the frame and
+  advance the main actor: recorded requests and child-command calls remain
+  exactly `0`. Invoke the primary action twice while in flight: exactly `1`
+  full-probe request is recorded. Complete it with one ready + one not-installed
+  record: roster partitions exactly 1/1. Mark complete, reconstruct the model,
+  and assert the frame predicate is false. Then founder TCC proof:
+  `tccutil reset` → open app outside protected folders → touch nothing → zero
+  dialogs.
+- Proof: the existing `AppModelTests.testLoadCachedSetupStateDoesNotStartDetection`
+  only checks `isDetecting`; it can stay green if another launch path spawns a
+  process. Add the recording seam above. Core iteration:
+  `scripts/swift-test.sh --filter LaunchAuthorityProbeTests`; Mac/integration
+  assertions run only in the closeout `bash scripts/check.sh`.
 
 ### FCS-S03 — Roster as the recovery UI (Shape B) + Cursor card
 
@@ -346,9 +436,16 @@ worth landing on its own.
 - Truth owner: `AppModel.setupCards` / `AppSetupModel` (already enumerates
   supported drivers — extend, do not fork).
 - Lie-prone layer: copy that implies the IDE is the seat; multi-step cards.
-- Works Test: on a host with Cursor IDE and no `agent` binary, the roster shows
-  the Cursor Agent CLI card with install + `agent login` + Re-check, and
-  re-check flips it in place without an app restart.
+- Exact files/types: `Apps/AllnighterMac/Sources/AppSetupModel.swift`;
+  `SetupCardModel` / `SetupCardView` / `SetupActions` in `SetupViews.swift`;
+  `AppModel.runSetupProbe(userInitiated:onlyDriverId:)`; and
+  `Apps/AllnighterMac/Tests/SetupCursorPresentationTests.swift`. Catalog content
+  remains owned by AgentOS and is not duplicated in Mac copy.
+- Works Test: build a registry from the canonical Cursor manifest and no Cursor
+  record. Assert the card carries the exact catalog `installHint`, install docs
+  URL, `agent login`, login docs URL, and full trust disclosure. Trigger its
+  Re-check and assert the recording seam receives only `cursor_agent`, not a
+  full-bench request; return ready and assert that card flips in place.
 - Proof: `SetupCursorPresentationTests`, `CLISetupGroupingTests` (closeout via
   `check.sh`); layout proof if the card changes the roster's geometry.
 
@@ -366,9 +463,16 @@ worth landing on its own.
 - Works Test: with an empty cache, no source is painted as live capacity and no
   unmeasured seat is offered as runnable; with one ready source, exactly that one
   is offered.
-- Proof: `scripts/swift-test.sh --filter 'CapacityStripModelTests'` for the
-  down-set derivation once it moves behind the projector; Mac call sites at
-  closeout.
+- Exact files/types: `AppModel.composeBench`; `HomeNewRunPane.notReadyOrParked`
+  in `HomeView.swift`; `CapacityStripModel.updateNotReadyOrParked`; projector
+  output only (no second tally). Preserve the existing `antigravity` → `agy`
+  capacity-id adapter until a separate canonical source-id mapping exists.
+- Proof: these are Mac-target tests, so the v2 command
+  `scripts/swift-test.sh --filter CapacityStripModelTests` was wrong: that wrapper
+  covers the Swift package, not `Apps/AllnighterMac/Tests`. Put deterministic
+  cases in `CapacityStripModelTests` / `AppModelTests` and run them through the
+  one closeout `bash scripts/check.sh`; use the Core wrapper only for any new
+  projector cases.
 
 ### FCS-S05 — Teaching surface
 
@@ -381,14 +485,14 @@ worth landing on its own.
 ### FCS-S06 — Closeout
 
 - Goal: promote the tally law + first-scan authority into
-  `docs/phases/setup/00_…` and `01_…`; add the regression laws (§10) to the
+  `docs/phases/setup/00_…` and `01_…`; add the regression laws (§11) to the
   debugger law backlog; archive this packet.
 - Works Test: founder first-open dogfood PASS on a clean host.
 - Proof: `bash scripts/check.sh` + founder note.
 
 ---
 
-## 10. Regression laws (must never happen again)
+## 11. Regression laws (must never happen again)
 
 | # | Law | Enforced by |
 | --- | --- | --- |
@@ -401,7 +505,7 @@ worth landing on its own.
 
 ---
 
-## 11. Out of scope
+## 12. Out of scope
 
 - Capacity acquire policy, `alln serve`, remote relay (separate 2026-08-10
   packets). Do not re-open silent capacity waves to "fix" setup.
@@ -414,11 +518,12 @@ worth landing on its own.
 
 ---
 
-## 12. Founder decisions (defaults apply if unanswered)
+## 13. Founder decisions (defaults apply if unanswered)
 
-1. **Shape A trigger:** framed first-run sheet with one primary **Find my team**,
-   vs landing directly on the roster until the first scan completes?
-   → **Default: framed sheet, roster as the result surface.**
+1. **Shape A trigger:** v3 resolves the v2 ambiguity against standing law:
+   framed Home content with one primary **Find my team**; no auto-open sheet.
+   The roster is the result/recovery surface. A sheet requires a new explicit
+   founder reversal of `00_…` §3 and `RootView`'s Home-first rule.
 2. **Minimum to enter Home:** keep non-trapping (skip at 0 ready) vs soft-gate?
    → **Default: keep non-trapping.** It is existing law.
 3. **Cursor without the CLI:** ~~in-app instructions only, or also an install
@@ -433,12 +538,13 @@ worth landing on its own.
 
 ---
 
-## 13. Done when
+## 14. Done when
 
 - [ ] An unscanned first open never shows `0/<catalog> ready`, and never shows
       warning amber for "we haven't looked."
-- [ ] One projector owns the tally; badge, thread empty state, and setup header
-      all read it.
+- [ ] One projector owns the tally; badge and thread empty state read it. The
+      setup header keeps its distinct available-CLI/model sentence and does not
+      invent another readiness ratio.
 - [ ] One framed first scan finds installed CLIs and partitions
       ready / needs-a-step / not installed, from a press.
 - [ ] Cursor-without-Agent is one obvious card that never calls the IDE the seat.
@@ -449,7 +555,7 @@ worth landing on its own.
 
 ---
 
-## 14. Truth owner / lie-prone layer / missing proof
+## 15. Truth owner / lie-prone layer / missing proof
 
 ```text
 Tier: T2 SSOT (readiness chrome + first-run routing) — T3 if probe authority regresses
@@ -461,7 +567,7 @@ Bug fingerprint: catalog-size denominator over an empty record array
 Truth owner: SetupStore probe records + CLIDetector smoke; bench tally projector (missing)
 Lie-prone layer: any surface that divides by totalToolCount, or filters
   toolStatuses to decide what is broken
-Missing proof: empty-cache tally test; "sheet presented, nothing spawned" gate;
+Missing proof: empty-cache tally test; "frame rendered, nothing spawned" gate;
   Cursor-without-CLI card; supported-set derivation of the capacity down-set
 Fix boundary: honest counts + one framed first scan. No silent launch spawn, no
   inferred readiness, no hard gate, no capacity/serve changes
@@ -473,9 +579,10 @@ Proof command:
 
 ---
 
-## 15. Version history
+## 16. Version history
 
 | Ver | Date | Author | Change |
 | --- | --- | --- | --- |
 | v1 | 2026-08-10 | Intake (dogfood code red) | Claim, RCA, Shape A/B, slices FCS-S00…S06 |
 | v2 | 2026-08-10 | Opus pass | Named the ratio (not the zero) as the lie; found the absence-of-record trap in both directions — the capacity down-set silently reads "nothing wrong" and `composeBench` asserts "Not detected" without detecting; added first principles + anti-pattern table; made Shape A/B a decision table with a recommended default and a hard press-not-appear constraint; specified the missing `BenchTallyProjector` in Core (with the reason: Mac target has no mid-slice proof path); made the Cursor path implementable from the shipped manifest; added regression laws FCS-L1…L6; gave every slice a truth owner, lie-prone layer, Works Test, and a real proof command |
+| v3 | 2026-08-10 | Sol review | Corrected the empty-thread and setup-header scope; bound tally freshness, dedupe, parked, and unknown-manifest behavior; reconciled Shape A with Home-first launch law; exposed the dropped Cursor login-doc field and full-scan card-action bug; named exact files/types; replaced state-only and wrong-target proofs with recording/falsifiable gates; made S01 the standalone morning dogfood slice and documented the Core-vs-Mac proof wall. |
