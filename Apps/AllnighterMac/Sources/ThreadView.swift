@@ -87,8 +87,7 @@ private struct ThreadEmptyStateBody: View {
     @Environment(AppModel.self) private var appModel
     let thread: WorkThread
 
-    private var readyCount: Int { appModel.readyToolCount }
-    private var totalCount: Int { appModel.totalToolCount }
+    private var tally: BenchTally { appModel.benchTally }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -102,8 +101,8 @@ private struct ThreadEmptyStateBody: View {
                     .font(.system(size: 13.5)).foregroundStyle(ALColor.textMuted)
                     .multilineTextAlignment(.center).lineSpacing(3).frame(maxWidth: 486)
                 HStack(spacing: 8) {
-                    Circle().fill(readyCount > 0 ? ALPalette.green500 : ALColor.textFaint).frame(width: 6, height: 6)
-                    Text(readyCount == totalCount ? "\(readyCount) CLIs ready" : "\(readyCount)/\(totalCount) CLIs ready")
+                    Circle().fill(tally.ready > 0 ? ALPalette.green500 : ALColor.textFaint).frame(width: 6, height: 6)
+                    Text(BenchTallyProjector.threadEmptyLabel(for: tally))
                         .font(ALFont.monoSm).foregroundStyle(ALColor.textMuted)
                 }
                 .padding(.top, 4)

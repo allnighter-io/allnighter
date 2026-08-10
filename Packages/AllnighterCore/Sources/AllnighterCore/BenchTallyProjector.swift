@@ -125,6 +125,46 @@ public enum BenchTallyProjector {
         )
     }
 
+    // MARK: - Chrome copy (Mac badge / empty thread — same words as agents see)
+
+    /// Title-bar / thread empty-state label. Never emits `0/<catalog>`.
+    public static func chromeLabel(for tally: BenchTally) -> String {
+        switch tally.headline {
+        case .configurationMissing: return "Setup unavailable"
+        case .neverScanned: return "Find my team"
+        case .allReady: return "\(tally.ready) ready"
+        case .noneReady: return "Set up CLIs"
+        case .partial:
+            if tally.needsStep > 0 {
+                return "\(tally.ready) ready · \(tally.needsStep) need a step"
+            }
+            return "\(tally.ready) ready"
+        }
+    }
+
+    /// Empty-thread supporting line under the hero.
+    public static func threadEmptyLabel(for tally: BenchTally) -> String {
+        switch tally.headline {
+        case .configurationMissing: return "CLI setup unavailable — reinstall Allnighter"
+        case .neverScanned: return "No CLIs checked yet"
+        case .allReady: return "\(tally.ready) CLI\(tally.ready == 1 ? "" : "s") ready"
+        case .noneReady: return "No CLIs ready — open CLI setup"
+        case .partial: return "\(tally.ready) CLI\(tally.ready == 1 ? "" : "s") ready"
+        }
+    }
+
+    /// Badge tone: never-scanned is neutral, not warning amber.
+    public static func chromeIsPositive(for tally: BenchTally) -> Bool {
+        tally.headline == .allReady
+    }
+
+    public static func chromeIsWarning(for tally: BenchTally) -> Bool {
+        switch tally.headline {
+        case .noneReady, .partial, .configurationMissing: return true
+        case .neverScanned, .allReady: return false
+        }
+    }
+
     // MARK: - Internals
 
     private enum Bucket {

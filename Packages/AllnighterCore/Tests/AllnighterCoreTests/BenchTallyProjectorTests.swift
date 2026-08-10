@@ -196,4 +196,34 @@ final class BenchTallyProjectorTests: XCTestCase {
     func testDetectCommandIsRegistryResolvableName() {
         XCTAssertEqual(BenchTallyProjector.detectCommand, "alln detect")
     }
+
+    func testChromeLabelsNeverEmitCatalogRatioWhenUnscanned() {
+        let tally = BenchTallyProjector.tally(
+            registry: registry(["a", "b", "c"]),
+            records: [],
+            now: now
+        )
+        let badge = BenchTallyProjector.chromeLabel(for: tally)
+        let thread = BenchTallyProjector.threadEmptyLabel(for: tally)
+        XCTAssertEqual(badge, "Find my team")
+        XCTAssertEqual(thread, "No CLIs checked yet")
+        XCTAssertFalse(badge.contains("/"))
+        XCTAssertFalse(thread.contains("/"))
+        XCTAssertFalse(BenchTallyProjector.chromeIsWarning(for: tally))
+        XCTAssertFalse(BenchTallyProjector.chromeIsPositive(for: tally))
+    }
+
+    func testChromeLabelsOneReady() {
+        let tally = BenchTallyProjector.tally(
+            registry: registry(["a", "b"]),
+            records: [
+                record("a", .ready(version: "1")),
+                record("b", .notInstalled),
+            ],
+            now: now
+        )
+        XCTAssertEqual(BenchTallyProjector.chromeLabel(for: tally), "1 ready")
+        XCTAssertEqual(BenchTallyProjector.threadEmptyLabel(for: tally), "1 CLI ready")
+        XCTAssertTrue(BenchTallyProjector.chromeIsWarning(for: tally))
+    }
 }

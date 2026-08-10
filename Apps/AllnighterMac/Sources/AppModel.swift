@@ -436,17 +436,23 @@ final class AppModel {
     // MARK: - Detection (CLIDetector → canonical per-tool status)
 
     var readyToolCount: Int {
-        let parked = parkedDriverIds
-        return toolStatuses.filter { $0.status.isSmokeReady && !parked.contains($0.driverId) }.count
+        benchTally.ready
     }
     var totalToolCount: Int {
-        let parked = parkedDriverIds
-        return registry.all.filter { $0.kind == .headlessCLI && !parked.contains($0.id) }.count
+        benchTally.supported
+    }
+    /// Shared Core tally — sole owner of ready/supported chrome numbers.
+    var benchTally: BenchTally {
+        BenchTallyProjector.tally(
+            registry: registry,
+            records: toolStatuses,
+            parked: parkedDriverIds
+        )
     }
     /// Every supported tool is ready — used to keep setup affordances quiet when
     /// there is nothing to fix (Track B). False on a cold, unprobed launch.
     /// Parked CLIs are excluded from both counts (they are ignored, not broken).
-    var allToolsReady: Bool { totalToolCount > 0 && readyToolCount == totalToolCount }
+    var allToolsReady: Bool { benchTally.headline == .allReady }
     func toolStatus(for driverId: String) -> ToolProbeRecord? { toolStatuses.first { $0.driverId == driverId } }
 
     /// Durable park intent from SetupStore (also mutated by `alln drivers park`).

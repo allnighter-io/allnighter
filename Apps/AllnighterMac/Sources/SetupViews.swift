@@ -931,14 +931,15 @@ struct BenchHealthBadge: View {
     }
 
     private var label: String {
-        guard model.totalToolCount > 0 else { return "checking…" }
-        let ready = model.readyToolCount, total = model.totalToolCount
-        return ready == total ? "\(ready) ready" : "\(ready)/\(total) ready"
+        BenchTallyProjector.chromeLabel(for: model.benchTally)
     }
 
     private var tone: Badge.Tone {
-        guard model.totalToolCount > 0, !model.isDetecting else { return .neutral }
-        return model.readyToolCount == model.totalToolCount ? .positive : .warning
+        if model.isDetecting { return .neutral }
+        let tally = model.benchTally
+        if BenchTallyProjector.chromeIsPositive(for: tally) { return .positive }
+        if BenchTallyProjector.chromeIsWarning(for: tally) { return .warning }
+        return .neutral
     }
 }
 
