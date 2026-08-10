@@ -106,4 +106,14 @@ final class SetupRecoveryCopyTests: XCTestCase {
         )
         XCTAssertEqual(detail, "smoke exited 1")
     }
+
+    func testAttentionDetailClaudeNeedsLoginNamesExpiredLogin() {
+        let detail = SetupRecoveryCopy.attentionDetail(
+            driverId: "claude_code",
+            state: .needsLogin,
+            probeReason: nil
+        )
+        XCTAssertTrue(detail.lowercased().contains("login"), detail)
+        XCTAssertTrue(detail.contains("/login"), detail)
+    }
 }

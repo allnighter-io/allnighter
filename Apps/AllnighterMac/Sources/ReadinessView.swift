@@ -532,6 +532,9 @@ struct BenchRepairPanel: View {
             if card.driverId == CursorAgentCLIInstall.driverId {
                 return "Copy `cursor-agent login`, open a new Terminal window (don’t reuse a Grok session), paste, press Return. Finish browser sign-in if asked — then tap Re-check."
             }
+            if card.driverId == "claude_code" {
+                return "Login expired or signed out — open Terminal, run `claude`, type `/login`, finish browser sign-in, then tap Re-check."
+            }
             return "Copy the sign-in command, open a new Terminal window, paste, press Return. Then tap Re-check."
         case .needsPath:
             return "Found as a shell function, not a plain command. Point us at the binary, or run it through your login shell."
