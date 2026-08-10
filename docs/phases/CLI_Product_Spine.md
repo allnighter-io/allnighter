@@ -7,7 +7,7 @@ Updated: 2026-07-24
 > **One run surface (ORS, 2026-08-01):** single-run read is only
 > `alln show <id> --json` (snapshot) and `alln show <id> --stream` (observe +
 > terminal deliver). `team status` / `team result` / old wait flags are deleted
-> — no aliases or shims. Packet: [`One_Run_Surface.md`](One_Run_Surface.md).
+> — no aliases or shims. Historical packet: [`One_Run_Surface.md`](../archive/phases/One_Run_Surface.md).
 
 > **Resolved 2026-07-19 — do not re-fix.** This doc previously carried a
 > standing warning that the run journal was one-shot-at-end, so an interrupted

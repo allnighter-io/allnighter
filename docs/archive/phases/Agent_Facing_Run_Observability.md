@@ -1,7 +1,7 @@
 # Agent-Facing Run Observability
 
 Status: **SUPERSEDED before implementation (2026-08-01)** by
-[`One_Run_Surface.md`](../../phases/One_Run_Surface.md). Historical incident and
+[`One_Run_Surface.md`](One_Run_Surface.md). Historical incident and
 rejected incremental approach only; do not resume OBS-S00–S04.
 Owner: Founder ruling pending; implementer TBD
 Updated: 2026-08-01

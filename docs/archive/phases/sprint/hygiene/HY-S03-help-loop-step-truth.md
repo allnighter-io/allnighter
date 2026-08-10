@@ -88,4 +88,4 @@ scripts/swift-test.sh --filter HelpTopicRegistry
 
 ## SSOT
 
-`docs/phases/One_Run_Surface.md` known follow-up; `Product_Vocabulary.md` loop grammar.
+`docs/archive/phases/One_Run_Surface.md` known follow-up; `Product_Vocabulary.md` loop grammar.
