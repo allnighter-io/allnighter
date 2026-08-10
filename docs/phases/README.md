@@ -34,6 +34,10 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 ### Active priorities (founder-ordered)
 
+| Doc | Status | Next action |
+| --- | --- | --- |
+| [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — OPEN v1** | First open shows `0/9 ready` against the support catalog with zero probes. Badge honesty (FCS-S01) then framed first scan (FCS-S02) + Cursor-without-CLI card. Do not repeal Launch Authority. |
+
 > **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
 > **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
 > assignments~~ (both closed + archived) · ~~**3.** Native capacity channels~~
