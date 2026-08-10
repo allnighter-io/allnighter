@@ -1,9 +1,10 @@
 # One Run Surface
 
 Status: **OPEN — product surface shipped and verified live on two hosts; Codex
-host proof deferred; do not archive.**
+app-backed foreground handoff works, but the required detached host proof is
+still open; do not archive.**
 Owner: Shared Core + CLI
-Updated: 2026-08-02
+Updated: 2026-08-10
 
 Supersedes archived
 [`Agent_Facing_Run_Observability.md`](../archive/phases/Agent_Facing_Run_Observability.md).
@@ -13,12 +14,14 @@ Amends the pull path shipped by archived
 delivery remains required, but the one returned command must observe the middle
 and deliver the end.
 
-## Closeout status (2026-08-02)
+## Closeout status (2026-08-10)
 
 **Not complete. Not archived.** Code/docs cutover + live proof on Claude Code
-and Cursor are done. The packet named Codex as a host; that proof is deferred.
-Keepable law is promoted below and in `AGENTS.md` § Project Laws. Archival
-waits for the Codex host proof.
+and Cursor are done. An open Allnighter app can now run a Codex request through
+the app-backed foreground handoff, but the packet's required detached
+`--no-wait` proof still fails before handoff and has not produced a durable
+`worker.tool` event. Keepable law is promoted below and in `AGENTS.md` § Project
+Laws. Archival waits for the complete Codex host proof.
 
 ### SHIPPED (verified live on the installed binary, two hosts)
 
@@ -42,9 +45,12 @@ Hosts proven: **Claude Code + Cursor**. Binary path exercised on the installed
 
 ### NOT DONE — leave unticked
 
-- **Codex host proof.** The packet names Codex as a host. Codex is **DEFERRED**
-  (capacity 0% + host-sandbox `FS_PERMISSION_DENIED`). Hosts proven were Claude
-  Code + Cursor. Two real hosts is not the named set.
+- **Codex host proof.** The packet names Codex as a host. With Allnighter open,
+  the app-backed foreground handoff is proven, but the required detached
+  `--no-wait` flow still fails with the Codex host-sandbox signature before it
+  can hand off, and the successful app-backed replay contained no `worker.tool`
+  event. Hosts proven for the complete Works Test remain Claude Code + Cursor.
+  Two real hosts is not the named set.
 - **Archival.** Do **not** archive this packet. It stays open until the Codex
   host proof lands.
 
@@ -899,3 +905,30 @@ Re-run 2026-08-01 against fixed binary **0.12.1** / contract **9.3.0** (`alln 0.
 6. **PASS** — Journal `run_9C1E0982-29D2-4A1A-842D-911BDF9519A9/events.jsonl` kinds: `run.status_changed`×2, `worker.status_changed`×2, `worker.tool`×1, `stage.started`×1, `stage.completed`×1. `worker.tool` present; no transcript kinds (`worker.answer_delta` / `worker.reasoning_delta` / `worker.output` / `stage.output`).
 7. **PASS** — `alln team status <idA> --json` and `alln team result <idA> --json` each exited **2** with `CLI_USAGE_ERROR`; messages named `alln show`; neither executed anything.
 8. **PASS** — Needed no `alln ps`, `git status`, polling loop, or private path except the explicitly authorized step-6 journal audit.
+
+## Latest Codex rerun — app-open handoff (2026-08-10)
+
+This rerun separates app-backed execution from the packet's detached proof.
+`alln doctor handoff --json` was healthy and reported `claimedBy: "mac-app"`.
+
+- **PASS — foreground handoff.** A Codex `model_gpt_sol` request was handed to
+  the open app as `handoff-5FE444BD-C7C8-47D7-980B-E27801D1B72D`. The app claimed
+  it, the worker created the bounded temporary proof file, the run completed,
+  and `repoDelta.changed` was `false`. This proves that opening Allnighter lets
+  the app run Codex work that the protected terminal cannot start itself.
+- **FAIL — required detached path.** The exact returned command from detached
+  run `2671400E-1068-444A-A5B4-30216209199C` exited 1 with Codex's
+  `Operation not permitted` / in-process app-server error. The run remained on
+  the original failed id; no app handoff was reported for that detached
+  request.
+- **FAIL — live tool activity.** Reattaching to the successful app-backed run
+  produced `workerStarted`, `workerAnswered`, plan, and terminal frames, but no
+  `worker.tool` / `workerActivity` frame. The foreground success therefore does
+  not close the required activity proof.
+- **PASS — focused product filters.** `OneRunSurface` 76, `RetiredVocabulary`
+  12, and `DetachedDispatch` 16 passed. These are product/fixture proofs and
+  do not replace the live detached host proof.
+
+Conclusion: **Codex works when Allnighter is open for the foreground handoff
+path; ORS-S04 remains open for detached `--no-wait` plus durable `worker.tool`
+proof.**
