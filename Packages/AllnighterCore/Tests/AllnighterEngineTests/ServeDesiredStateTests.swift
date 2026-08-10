@@ -258,6 +258,38 @@ final class ServeDesiredStateTests: XCTestCase {
 
     // MARK: - Write overwrite
 
+    // MARK: - Atomic write proof
+
+    final class RemoveRecordingFileManager: FileManager {
+        private(set) var removedURLs: [URL] = []
+
+        override func removeItem(at url: URL) throws {
+            removedURLs.append(url)
+            try super.removeItem(at: url)
+        }
+
+        override func removeItem(atPath path: String) throws {
+            removedURLs.append(URL(fileURLWithPath: path))
+            try super.removeItem(atPath: path)
+        }
+    }
+
+    func testAtomicOverwriteNeverRemovesDestination() {
+        let recorder = RemoveRecordingFileManager()
+        let destURL = storeURL
+
+        _ = ServeDesiredState.write(.disabled, homeDirectory: homeURL, clock: fixedClock)
+
+        _ = ServeDesiredState.write(.enabled, homeDirectory: homeURL, fileManager: recorder, clock: fixedClock)
+
+        let destRemovals = recorder.removedURLs.filter { $0.path == destURL.path }
+        XCTAssertEqual(
+            destRemovals.count,
+            0,
+            "destination must never be removed during overwrite — removal creates a window where .absent maps to .enabled, defeating explicit .disabled"
+        )
+    }
+
     func testOverwriteUpdatesState() {
         _ = ServeDesiredState.write(.enabled, homeDirectory: homeURL, clock: fixedClock)
         _ = ServeDesiredState.write(.disabled, homeDirectory: homeURL, clock: fixedClock)

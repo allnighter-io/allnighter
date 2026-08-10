@@ -103,13 +103,14 @@ public enum ServeDesiredState {
 
         do {
             if fileManager.fileExists(atPath: url.path) {
-                try fileManager.removeItem(at: url)
+                _ = try fileManager.replaceItem(at: url, withItemAt: tempURL, backupItemName: nil, options: [], resultingItemURL: nil)
+            } else {
+                try fileManager.moveItem(at: tempURL, to: url)
             }
-            try fileManager.moveItem(at: tempURL, to: url)
         } catch {
             try? fileManager.removeItem(at: tempURL)
             return .failure(Failure(code: "SERVE_DESIRED_STATE_WRITE_FAILED",
-                                    message: "rename to \(url.path) failed: \(error.localizedDescription)"))
+                                    message: "write to \(url.path) failed: \(error.localizedDescription)"))
         }
 
         return .success(())
