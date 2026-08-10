@@ -58,4 +58,34 @@ final class ModelDisplayNameTests: XCTestCase {
             ModelDisplayName.format(baseName: "Sonnet 4.6", modelId: "model_agy_sonnet", driverId: "antigravity"),
             "Sonnet 4.6 (Antigravity)")
     }
+
+    /// OpenCode is a non-home source for Qwen family seats — show it once.
+    /// GUI paths re-call `format` on an already-suffixed catalog name; that must
+    /// not become `Qwen 3.8 Max (OpenCode) (OpenCode)`.
+    func testOpenCodeAlternateSourceShowsParentheticalOnce() {
+        XCTAssertEqual(
+            ModelDisplayName.format(
+                baseName: "Qwen 3.8 Max",
+                modelId: "model_opencode_qwen_38_max",
+                driverId: "opencode"),
+            "Qwen 3.8 Max (OpenCode)")
+        XCTAssertEqual(
+            ModelDisplayName.format(
+                baseName: "Qwen 3.8 Max (OpenCode)",
+                modelId: "model_opencode_qwen_38_max",
+                driverId: "opencode"),
+            "Qwen 3.8 Max (OpenCode)")
+        XCTAssertEqual(
+            ModelDisplayName.format(
+                baseName: "Qwen 3.8 Max (OpenCode) (OpenCode)",
+                modelId: "model_opencode_qwen_38_max",
+                driverId: "opencode"),
+            "Qwen 3.8 Max (OpenCode)")
+        XCTAssertEqual(
+            ModelDisplayName.format(
+                baseName: "Qwen 3.8 Max",
+                modelId: "model_qwen_38_max",
+                driverId: "qwen"),
+            "Qwen 3.8 Max")
+    }
 }

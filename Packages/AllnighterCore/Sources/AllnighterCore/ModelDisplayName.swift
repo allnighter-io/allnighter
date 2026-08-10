@@ -4,14 +4,25 @@ import Foundation
 /// seat runs on a non-default driver for its reasoning family — e.g.
 /// `GPT-5.6 Sol` on Codex (default) vs `GPT-5.6 Sol (Cursor)` on Cursor.
 public enum ModelDisplayName {
-    private static let knownCLILabels = ["Claude", "Codex", "Cursor", "Grok", "Antigravity", "Kimi", "Muse", "Qwen"]
+    /// Parenthetical source labels `format` may append — also stripped by
+    /// `canonicalBaseName` so re-formatting an already-suffixed name stays
+    /// idempotent (`Qwen 3.8 Max (OpenCode)` → still one OpenCode, never two).
+    private static let knownCLILabels = [
+        "Claude", "Codex", "Cursor", "Grok", "Antigravity", "Kimi", "Muse", "Qwen", "OpenCode",
+    ]
 
-    /// Strip a legacy ` (CLI)` suffix so catalog migrations stay idempotent.
+    /// Strip legacy / already-applied ` (CLI)` suffixes so catalog + GUI
+    /// re-formatting stays idempotent (may peel more than one suffix).
     public static func canonicalBaseName(_ name: String) -> String {
         var trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        for label in knownCLILabels where trimmed.hasSuffix(" (\(label))") {
-            trimmed = String(trimmed.dropLast(label.count + 3))
-            break
+        var peeled = true
+        while peeled {
+            peeled = false
+            for label in knownCLILabels where trimmed.hasSuffix(" (\(label))") {
+                trimmed = String(trimmed.dropLast(label.count + 3))
+                peeled = true
+                break
+            }
         }
         return trimmed
     }

@@ -159,13 +159,18 @@ final class MenuCatalogTests: XCTestCase {
 
     // MARK: - Tier-1 vs --detailed (menu slimming, stage 1)
 
-    private func seat(_ id: String, enabled: Bool) -> ModelListJSON.Entry {
+    private func seat(
+        _ id: String,
+        enabled: Bool,
+        ready: Bool = true,
+        status: String = "ready"
+    ) -> ModelListJSON.Entry {
         ModelListJSON.Entry(
             id: id, displayName: id, modelLabel: id,
             driverId: "claude_code", driverName: "claude_code",
             role: "answer", origin: "custom",
-            enabled: enabled, ready: true,
-            status: "ready", state: enabled ? "onBench" : "offBench",
+            enabled: enabled, ready: ready,
+            status: status, state: enabled ? "onBench" : "offBench",
             capabilities: ModelCapabilities()
         )
     }
@@ -202,6 +207,22 @@ final class MenuCatalogTests: XCTestCase {
         )
         XCTAssertEqual(menu.models.map(\.id), ["model_on"])
         let blocked = try XCTUnwrap(menu.blocked, "omitted seats must be announced")
+        XCTAssertEqual(blocked.count, 1)
+        XCTAssertEqual(blocked.see, "alln models")
+    }
+
+    /// Not-installed / not-ready ON seats are also not selectable — Tier-1 must
+    /// hide them (agents should not pin a seat whose CLI is missing) and point
+    /// at `alln models` for the catalog / enable path.
+    func testTierOneOmitsNotReadySeatsButSaysSo() throws {
+        let ready = seat("model_ready", enabled: true, ready: true)
+        let notInstalled = seat("model_missing", enabled: true, ready: false, status: "notReady")
+        let menu = MenuCatalog.project(
+            teams: BuiltInTeams.all.filter { !$0.isLabTeam },
+            modelEntries: [ready, notInstalled]
+        )
+        XCTAssertEqual(menu.models.map(\.id), ["model_ready"])
+        let blocked = try XCTUnwrap(menu.blocked, "not-ready seats must be announced")
         XCTAssertEqual(blocked.count, 1)
         XCTAssertEqual(blocked.see, "alln models")
     }

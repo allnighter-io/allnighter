@@ -54,7 +54,7 @@ extension RoutingComposer {
     var targetKeyMonitor: some View {
         let items = targetItems
         let count = items.count
-        let bench = appModel.composeBench
+        let selectableIds = Set(appModel.composeSelectableBench.map(\.id))
         let teams = pickerTeams
         return PopoverKeyCatcher { action in
             switch action {
@@ -79,7 +79,7 @@ extension RoutingComposer {
                 case .auto:
                     team = nil; pinnedModelId = nil; targetOpen = false
                 case .model(let id):
-                    if bench.first(where: { $0.id == id })?.ready == true {
+                    if selectableIds.contains(id) {
                         pinBenchModel(id); if !locksTeam { team = nil }; targetOpen = false
                     }
                 case .team(let id):
@@ -233,8 +233,9 @@ extension RoutingComposer {
         pickerTeams = appModel.composeAllTeams()
     }
 
-    /// On-Bench model ids in A–Z browse order (Unassigned tail order).
-    var benchModelIds: [String] { appModel.composeBench.map(\.id) }
+    /// Selectable bench model ids in A–Z browse order (Unassigned tail order).
+    /// Not-installed / not-ready models never appear — CLI setup owns those.
+    var benchModelIds: [String] { appModel.composeSelectableBench.map(\.id) }
 
     /// Tier-grouped picker sections — roster order within tier, deduped by highest tier.
     var modelPickerSections: [TierMembership.PickerSection] {
@@ -405,14 +406,13 @@ extension RoutingComposer {
 
     @ViewBuilder
     func modelListRow(_ id: String) -> some View {
-        if let m = appModel.composeBench.first(where: { $0.id == id }) {
+        if let m = appModel.composeSelectableBench.first(where: { $0.id == id }) {
             HStack(spacing: 4) {
                 Button {
-                    if m.ready { pinBenchModel(id); if !locksTeam { team = nil }; targetOpen = false }
+                    pinBenchModel(id); if !locksTeam { team = nil }; targetOpen = false
                 } label: { modelRow(m) }
                     .buttonStyle(.plain)
-                    .disabled(!m.ready)
-                if m.ready && m.supportsEffort {
+                if m.supportsEffort {
                     modelEffortPill(for: m.id).padding(.trailing, 6)
                 }
             }
@@ -421,10 +421,10 @@ extension RoutingComposer {
 
     func modelRow(_ m: ComposeBenchModel) -> some View {
         HStack(spacing: 8) {
-            DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5).opacity(m.ready ? 1 : 0.5)
+            DriverBrandGlyph(driverId: m.driverId, boxSize: 18, iconSize: 11, cornerRadius: 5)
             VStack(alignment: .leading, spacing: 1) {
                 Text(m.name).font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(m.ready ? ALColor.textPrimary : ALColor.textMuted)
+                    .foregroundStyle(ALColor.textPrimary)
                     .lineLimit(1)
                 if !m.sub.isEmpty {
                     Text(m.sub).font(.system(size: 11, design: .monospaced))
@@ -433,17 +433,15 @@ extension RoutingComposer {
                 }
             }
             Spacer(minLength: 8)
-            if m.ready {
-                if pinnedModelId == m.id { Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary) }
-            } else if let reason = m.notReadyReason {
-                Badge(text: reason, tone: .warning)
+            if pinnedModelId == m.id {
+                Image(systemName: "checkmark").font(.system(size: 12)).foregroundStyle(ALColor.textSecondary)
             }
         }
         .padding(.horizontal, 9).padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(highlightedTargetItem == .model(m.id) ? ALColor.active : Color.clear, in: RoundedRectangle(cornerRadius: ALRadius.md))
         .contentShape(Rectangle())
-        .onHover { if m.ready, $0 { highlightTarget(.model(m.id)) } }
+        .onHover { if $0 { highlightTarget(.model(m.id)) } }
     }
 
     /// Model-row effort pill — shows Low/Med/High and opens the picker without

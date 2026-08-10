@@ -49,9 +49,9 @@ extension RoutingComposer {
     func resolvedModelId(forTeam team: String?) -> String? {
         let preset = team.flatMap { TeamCatalog.get($0) } ?? TeamCatalog.defaultRunTeam()
         guard let id = preset?.agentSpecs.first?.preferredModelId ?? preset?.lead.preferredModelId else { return nil }
-        // Only honor it if it's actually on the bench (else the chip would show a
-        // model the user can't run); otherwise the ready-fallback applies.
-        return appModel.composeBench.contains(where: { $0.id == id }) ? id : nil
+        // Only honor it if it's selectable right now (ON + ready CLI); otherwise
+        // the ready-fallback applies. Not-installed / setup-gap models never pin.
+        return appModel.composeSelectableBench.contains(where: { $0.id == id }) ? id : nil
     }
     /// Team runs keep a standalone effort chip. Model routes surface effort in the
     /// target chip (`Grok 4.5 · High`) and in each model row's effort pill.

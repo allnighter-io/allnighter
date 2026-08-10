@@ -67,7 +67,7 @@ public enum ModelListProjector {
         // align to the same menu rows `alln menu --json` exposes.
         // `detailed: true` is required, not cosmetic. MenuCatalog is the
         // SELECTION front door and drops disabled rows
-        // (`selectableRows = detailed ? modelRows : modelRows.filter(\.enabled)`).
+        // (`selectableRows = detailed ? modelRows : modelRows.filter(isTierOneSelectable)`).
         // `alln models` is the CATALOG view — it must show off-Bench seats as
         // `state: "available"`, which is the whole point of the
         // `models add` → `models verify` → `models enable` flow. Borrowing the

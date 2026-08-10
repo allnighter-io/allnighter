@@ -273,4 +273,49 @@ final class AppModelTests: XCTestCase {
         model.closeHistory()
         XCTAssertNil(model.displayRun)
     }
+
+    /// Model picker must never list not-installed (or otherwise not-ready) seats —
+    /// those live on CLI setup. `composeSelectableBench` is the picker source.
+    func testComposeSelectableBenchOmitsNotInstalledModels() throws {
+        let tmp = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("setup-selectable-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: tmp) }
+        let store = SetupStore(fileURL: tmp)
+        let model = AppModel(setupStore: store)
+
+        let enabledByDriver = Dictionary(grouping: model.models.filter(\.enabled), by: \.driverId)
+        let drivers = Array(enabledByDriver.keys)
+        guard drivers.count >= 2,
+              let readyDriver = drivers.first,
+              let missingDriver = drivers.dropFirst().first,
+              let readyModelId = enabledByDriver[readyDriver]?.first?.id,
+              let missingModelId = enabledByDriver[missingDriver]?.first?.id
+        else {
+            return XCTFail("need ≥2 enabled models on distinct drivers")
+        }
+
+        try store.save(.init(records: [
+            record(readyDriver, ready: true, path: "/x/\(readyDriver)"),
+            record(missingDriver, ready: false),
+        ]))
+        model.loadCachedSetupState()
+
+        XCTAssertTrue(
+            model.composeBench.contains { $0.id == missingModelId && $0.notReadyReason == "Not installed" },
+            "composeBench still annotates not-installed for lookups"
+        )
+        XCTAssertFalse(
+            model.composeSelectableBench.contains { $0.id == missingModelId },
+            "picker must never offer a not-installed model"
+        )
+        XCTAssertTrue(
+            model.composeSelectableBench.contains { $0.id == readyModelId },
+            "ready ON models remain selectable"
+        )
+        XCTAssertEqual(
+            Set(model.composeSelectableBench.map(\.id)),
+            Set(model.availableModels.map(\.id)),
+            "compose selectable bench matches availableModels"
+        )
+    }
 }

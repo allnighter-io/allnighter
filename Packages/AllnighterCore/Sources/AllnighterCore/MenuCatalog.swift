@@ -125,13 +125,16 @@ public enum MenuCatalog {
             )
         }
 
-        // Tier-1 lists what can be SELECTED right now. An off-bench seat is not
-        // selectable, so it is summarised rather than described in full — but it
-        // is never silently absent: `blocked` says how many and where to look.
+        // Tier-1 lists what can be SELECTED right now: ON (enabled) seats whose
+        // source is not known-unavailable. Not-installed / not-ready / parked /
+        // missing-driver seats are summarised via `blocked` → `alln models` —
+        // agents must not be tempted to pin the impossible. `notChecked` still
+        // appears (instruments inform; `benchTally` / detect owns the scan).
+        // `--detailed` / `alln models` keep the full catalog for enable/add.
         // Stage 2: state the invocation shape ONCE, with a complete worked
         // example carrying a real id, instead of repeating it per seat. The
         // worked example uses the first selectable seat so it is always runnable.
-        let selectableRows = detailed ? modelRows : modelRows.filter(\.enabled)
+        let selectableRows = detailed ? modelRows : modelRows.filter(Self.isTierOneSelectable)
         let teamInvocation: MenuJSON.Invocation? = detailed ? nil : .init(
             run: "alln run \"{message}\" --team {team} --json",
             validate: "alln run \"{message}\" --team {team} --dry-run",
@@ -537,6 +540,21 @@ public enum MenuCatalog {
         guard trimmed.count > limit else { return trimmed }
         let idx = trimmed.index(trimmed.startIndex, offsetBy: limit - 1)
         return String(trimmed[..<idx]) + "…"
+    }
+
+    /// Tier-1 selection gate: ON seats that are not known-unavailable.
+    /// Hides off-bench, not-ready (incl. not-installed), parked, and missing
+    /// drivers. Keeps `notChecked` visible so a pre-detect menu is not empty.
+    /// Ready seats carry `status == nil` (see row mapping above).
+    static func isTierOneSelectable(_ model: MenuJSON.Model) -> Bool {
+        guard model.enabled else { return false }
+        guard let status = model.status else { return true }
+        switch status {
+        case "notReady", "driverMissing", "parked":
+            return false
+        default:
+            return true
+        }
     }
 
     private static func modelBlockedReason(_ entry: ModelListJSON.Entry) -> String? {

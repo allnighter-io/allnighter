@@ -549,11 +549,10 @@ final class AppModel {
 
     // MARK: - Compose routing data (CR3)
 
-    /// The bench the routing composer offers — the user's REAL enabled models
-    /// with REAL readiness from `toolStatuses`. Work routes to a model; the CLI
-    /// is only the source (brand glyph + slug + sub). A source that's cooling down
-    /// (recent capacity wall, not yet reset) is shown not-ready so the picker grays +
-    /// disables it — an explicit pick would just fail, since substitution only applies to Auto.
+    /// The bench the routing composer knows about — enabled models annotated with
+    /// live readiness from `toolStatuses`. Used for chip labels / lookups of models
+    /// that may no longer be selectable. The Model picker itself reads
+    /// `composeSelectableBench` only (never not-installed or other setup gaps).
     var composeBench: [ComposeBenchModel] {
         let cooling = coolingSources
         let parked = parkedDriverIds
@@ -592,6 +591,13 @@ final class AppModel {
                 supportsEffort: m.supportsEffort(registry: registry))
         }
         .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Models the compose target picker may offer: ON (enabled) and CLI ready.
+    /// Same gate as `availableModels` — not-installed, parked, unsigned-in, cooling,
+    /// and other setup gaps stay on CLI setup and never clutter the picker.
+    var composeSelectableBench: [ComposeBenchModel] {
+        composeBench.filter(\.ready)
     }
 
     /// Models that can run as an agent in your repo — enabled models whose

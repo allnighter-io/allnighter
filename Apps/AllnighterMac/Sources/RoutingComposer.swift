@@ -214,7 +214,7 @@ struct RoutingComposer: View {
     /// settlement, empty→conversation transitions, and thread switches.
     private func adoptContinuationModelIfNeeded() {
         guard !locksTeam, team == nil, let id = continuationModelId,
-              appModel.composeBench.contains(where: { $0.id == id }) else { return }
+              appModel.composeSelectableBench.contains(where: { $0.id == id }) else { return }
         pinBenchModel(id)
         targetTab = .model
     }
