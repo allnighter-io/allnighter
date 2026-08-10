@@ -1,397 +1,622 @@
-# Allnighter — `alln serve` Hotfixes
+# `alln serve` Recovery
 
-Status: **OPEN — incident 2026-08-10 — v2 (external review)**
-Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeLifecycle`,
-`ServeAutoLaunch`, `ServeLaunchAgentStatus`, `CapacityRefreshScheduler`)
+Status: **CODE RED — READY FOR IMPLEMENTATION**
+Owner: AllnighterCLI + AllnighterEngine
 Created: 2026-08-10
-Revised: 2026-08-10 (v2 — DeepSeek V4 Pro review via `alln run`)
-Review run: `CF00F214-CDF6-42B0-B915-1BA7B7756E93` (`model_opencode_deepseek_v4_pro`, read-only)
-Related:
-- [`Serve_Continuity.md`](Serve_Continuity.md) — parent packet (code floor shipped; host proof incomplete)
-- [`docs/operations/debugger/2026-08-09-serve-launchagent-lwcr-PACKET.md`](../operations/debugger/2026-08-09-serve-launchagent-lwcr-PACKET.md)
-- [`docs/operations/debugger/2026-08-10-mac-serve-fork-bomb-PACKET.md`](../operations/debugger/2026-08-10-mac-serve-fork-bomb-PACKET.md)
-- [`docs/operations/debugger/DEBUGLOG.md`](../operations/debugger/DEBUGLOG.md) — 2026-08-10 TCC / cold-launch entry
-- Code SSOT: `ServeDaemon.swift`, `ServeLifecycle.swift`, `ServeAutoLaunch.swift`,
-  `ServeDaemonProbe.swift`, `CapacityRefreshScheduler.swift`
+Finalized: 2026-08-10
+Supersedes: `docs/archive/phases/Serve_Continuity.md` and its unfinished logout/login
+queue. The shipped code named there is evidence, not the forward design.
 
-Phases are ephemeral. This doc captures **open hotfix hypotheses** from a live
-dogfood incident, plus an external review with ranked fix slices. **No code
-changes are authorized from this packet alone** — slices below are the build
-queue input.
+Related incident evidence:
 
----
+- `docs/operations/debugger/2026-08-09-serve-launchagent-lwcr-PACKET.md`
+- `docs/operations/debugger/2026-08-10-mac-serve-fork-bomb-PACKET.md`
+- `docs/operations/debugger/2026-08-10-first-launch-tcc-popups-PACKET.md`
+- `docs/operations/debugger/DEBUGLOG.md` (2026-08-09 and 2026-08-10)
 
-## 0. One-sentence claim
+Code truth at intake:
 
-**`alln serve` is still not reliably alive on the dogfood Mac when the founder
-expects it to be — and we may have masked the failure by manually enabling it.**
+- `ServeDaemon`, `ServeDaemonProbe`, `ServeDaemonAdmission`
+- `ServeLifecycle`, `ServeLaunchAgentStatus`, `ServeStableBinary`
+- `ServeAutoLaunch`, `ServeAutoLaunchCLI`
+- `InstallCLI`, `scripts/get-alln.sh`, `scripts/rebuild_cli.sh`
+- `CapacityResidentService`, `CapacityRefreshScheduler`,
+  `ProbeRecordRefreshScheduler`
 
----
-
-## 1. Facts from 2026-08-10 (dogfood host, ~3:00pm PDT)
-
-### 1.1 What the founder was testing
-
-Stability: **is `alln serve` staying up on its own?** The answer at check time
-was effectively **no** — there was no product-owned continuity path active.
-
-### 1.2 State before agent contamination
-
-| Signal | Observation |
-| --- | --- |
-| LaunchAgent | **Absent** — `alln serve repair --json` → `outcome: absent`, `no com.allnighter.resident-coordinator plist installed` |
-| `alln serve --health` | Initially showed a **debug-build** daemon (`…/Packages/AllnighterCore/.build/…/debug/alln serve`, pid 79995, started ~1:06pm) with `state: available` — **not** the staged Application Support binary and **not** LaunchAgent-supervised |
-| Mac app | Open (pid 90022, debug build under `~/Library/Developer/Allnighter/Build/…`) |
-| Capacity history | Disk `_newest_success.json` had recent writes; resident socket snapshot was **stale vs disk** at one point (~29m socket age vs ~3m disk recency) |
-| Founder intent | Serve should stay up **without** manual intervention — it did not meet that bar |
-
-### 1.3 Agent contamination (invalidates the stability test)
-
-An agent ran **`alln serve enable`** while diagnosing status. That:
-
-1. Installed `~/Library/LaunchAgents/com.allnighter.resident-coordinator.plist`
-2. Staged `~/Library/Application Support/Allnighter/CLI/alln`
-3. Bootstrapped LaunchAgent pid 4693 on the staged binary
-4. Triggered a macOS **Documents folder** TCC prompt attributed to **`alln`**
-
-**This was wrong.** Enable is explicit opt-in founder action, not an agent
-diagnostic. The stability experiment is **compromised** until the host is
-returned to the pre-enable state and observed again without intervention.
-
-### 1.4 Documents TCC prompt (same session)
-
-Prompt text: **`"alln" would like to access files in your Documents folder.`**
-
-Observed immediately after agent-driven `serve enable`. Multiple prior hotfixes
-target this class of leak (`Launch_Authority_TCC_Hotfix`, ProbeScratch CWD,
-native capacity spawns, removal of ServeAutoLaunch from Mac app launch). **It
-still fired.**
+This is the final recovery packet. It contains decisions, not hypotheses or a
+menu of founder forks. Each slice may begin when its sprint work order is cut;
+no additional product ruling is required.
 
 ---
 
-## 2. Product law (what we thought we shipped)
-
-From `Serve_Continuity.md` + DEBUGLOG 2026-08-10:
-
-| Mechanism | Intended behavior | Current doubt |
-| --- | --- | --- |
-| **`serve enable`** | Opt-in LaunchAgent on **staged** binary | Never enabled on this host until agent; logout/login proof still **deferred** |
-| **Demand heal (`ServeAutoLaunch`)** | `alln run`, loop verbs restart serve | Mac app launch **explicitly removed** (TCC + fork-bomb) — contradicts SC-S03 "done" banner in parent packet |
-| **`serve repair`** | Remove orphan / wedged CODE_RED plist | Host had **no plist** — repair is a no-op; does not *start* serve |
-| **Capacity scheduler in serve** | Refreshes when app closed | Only matters if serve is alive |
-| **KeepAlive** | Restarts killed serve | Only after explicit `enable`; useless when disabled |
-
-**Lie-prone layer:** "code floor shipped" + green unit tests ≠ serve actually
-stays up on the founder Mac without a ritual verb.
-
----
-
-## 3. Hypotheses — why it is still not fucking working
-
-Ranked by likelihood given today's evidence. **Unconfirmed** until host proof.
-
-### H1 — Default-off + no LaunchAgent = expected death (product gap, not crash)
-
-`serve enable` is **opt-in**. This host had **no plist** until the agent ran
-enable. Without that, serve only comes back via demand heal (`alln run`, loop)
-or manual `alln serve`.
-
-**If the founder expectation is "always on," the product never promised that
-without enable.** The bug may be **expectation / teaching / default policy**,
-not a crashed daemon.
-
-**Proof:** With plist removed and app open but no `alln run` — does serve stay
-dead for >30m? (Should, per current law.)
-
----
-
-### H2 — Mac app demand heal was deliberately removed (SC-S03 regression vs TCC fix)
-
-`AllnighterMacApp` / `AppDelegate` **does not** call `ServeAutoLaunch` on
-launch (comment: child inherits Dock app TCC → Documents prompts). Unit test
-`testMacAppLaunchDoesNotDemandHealServe` **locks this in**.
-
-`Serve_Continuity.md` still claims SC-S03 shipped "Mac app launch calls
-ensureRunning." **That is stale relative to code.**
-
-**Effect:** Founder keeps the app open all day; serve dies; **nothing heals it.**
-
-**Proof:** Diff `Serve_Continuity.md` SC-S03 row vs `AppDelegate` + DEBUGLOG
-2026-08-10 entry. Reconcile which is SSOT.
-
----
-
-### H3 — Demand heal surface is too narrow for dogfood reality
-
-Even where SC-S03 holds, heal is only on **`alln run`** and **loop engine
-verbs** — not `alln capacity`, `alln bootstrap`, `alln doctor`, menu-bar
-actions, or "app is open."
-
-Founder dogfood is **Teams + app open + capacity strip**, not necessarily
-`alln run` every hour. Serve can die silently until the next loop dispatch.
-
-**Proof:** Kill serve with app open, use only GUI for 1h — does capacity age
-past 30m with no heal?
-
----
-
-### H4 — Debug serve vs staged binary split (two worlds)
-
-Before contamination, a **debug `.build/alln serve`** was alive (pid 79995).
-LaunchAgent targets **staged** `Application Support/Allnighter/CLI/alln`. Health
-probe keys off `coordinator.json` pid — whichever process wrote last wins.
-
-Dogfood terminal = debug symlink; continuity path = staged copy. Rebuild
-without `install-cli` / `serve enable` refresh can leave **registration,
-coordinator record, and running process** on different identities.
-
-**Proof:** After `rebuild_cli.sh`, compare staged bytes, coordinator.json
-`binaryGitSha`, and live `pgrep -fl alln serve`.
-
----
-
-### H5 — LWCR / EX_CONFIG wedge (founder machine class; absent on this host today)
-
-Original code red: orphan CODE_RED plist, exit **78 EX_CONFIG**, LWCR thrash,
-~6700 spawn cycles, KeepAlive that never holds a pid.
-
-**This host today:** `repair` reported **absent** — not the same failure mode.
-Still a risk if an old plist returns or if new `enable` plist wedges after
-logout/login (SC-S04 **unproven**).
-
-**Proof:** `launchctl print gui/$UID/com.allnighter.resident-coordinator` for
-`last exit code = 78`, Console LWCR strings. Logout/login with enabled agent.
-
----
-
-### H6 — Hand LaunchAgent is not BTM/SMAppService (structural fragility)
-
-`serve enable` writes a **LaunchAgents plist** with KeepAlive — not
-`SMAppService` / modern Background Task Management registration. Parent packet
-§3.2 originally called for SMAppService; shipped SC-S04b is plist-based.
-
-May work same-session (PASS log exists) but fail across logout, OS update, or
-privacy reset — **exactly the scenario Serve_Continuity was opened for.**
-
-**Proof:** SC-S04 logout/login host test (still deferred in parent packet).
-
----
-
-### H7 — Serve dies and nothing notices (health / doctor gap)
-
-`ServeDaemonProbe` reports `foregroundOnly` when no `coordinator.json` or dead
-pid — but **nothing pushes that to the founder** during normal app use. Menu
-bar / capacity strip can show **stale resident snapshot** while serve is dead
-(socket from Mac app) or go cold without a loud "keeper dead" surfacing.
-
-**Proof:** Kill serve, open app, read capacity age for 45m — is failure loud?
-
----
-
-### H8 — Documents TCC still leaks on serve lifecycle (enable path)
-
-Observed prompt attributed to **`alln`** after `serve enable`. Likely
-mechanisms (not mutually exclusive):
-
-| Leak | Mechanism |
-| --- | --- |
-| **Staging read** | `ServeStableBinary.stage` reads `Data(contentsOf:)` from debug binary at `~/Documents/GitHub/Allnighter/.build/…/alln` when `~/.local/bin/alln` resolves there |
-| **Agent shell CWD** | Diagnostic commands ran from repo under `~/Documents/…` (less likely for TCC bucket `alln` unless parent process accessed Documents) |
-| **Serve boot probes** | New serve immediately runs `CapacityRefreshScheduler` + `ProbeRecordRefreshScheduler` (`SourceProbeService` full smoke) — any missed ProbeScratch wiring trips TCC |
-| **LaunchAgent CWD** | Plist has **no `WorkingDirectory`** — launchd default cwd; child spawns mostly use ProbeScratch, but any path that falls through `ensuredProbeScratchPath() → nil` inherits ambient cwd per `AllnighterPaths` comment |
-
-Prior hotfixes fixed **app-child** and **capacity PTY** paths; **enable +
-LaunchAgent-hosted serve** may be a **new seam**.
-
-**Proof:** `tccutil reset`, run only `serve enable` from repo cwd with
-Instruments / Console TCC logging; bisect staging vs bootstrap vs first
-scheduler tick.
-
----
-
-### H9 — Socket vs disk freshness split (resident lies while serve dead)
-
-At check time, disk capacity history (`_newest_success.json` at 21:58Z) was
-**newer** than the resident socket answer (`observedAt` 21:31Z, ~29m age).
-Mac app's `CapacityResidentService` serves `capacity.sock`; serve writes disk
-history. When both run, answers can diverge — **`alln capacity` can look
-"fine but stale" while misreporting scheduler health.**
-
-**Proof:** Compare socket `observedAt` vs disk `lastObservedAt` per source
-with serve killed vs alive.
-
----
-
-### H10 — KeepAlive restart uses wrong environment
-
-LaunchAgent `environment` is minimal (`XPC_SERVICE_NAME` only); `PATH` is
-`/usr/bin:/bin:/usr/sbin:/sbin`. Capacity probes need vendor CLIs on user PATH
-(`~/.local/bin`, npm globals, etc.). Serve may **start** but probes **fail**
-(spawn failed / never sampled), giving the appearance of a dead or useless
-scheduler.
-
-**Proof:** Log probe failures from LaunchAgent-started serve vs manual shell
-start; compare `PATH` in child environment.
-
----
-
-### H11 — Agent actions destroy stability experiments (process discipline)
-
-Running `enable`, `kickstart`, or manual `alln serve` during a "is it still
-up?" watch **invalidates the experiment**. Today's session is contaminated.
-
-**Proof:** N/A — operational rule. Reset host before next stability watch.
-
-### 3.1 External review verdicts (DeepSeek V4 Pro, 2026-08-10)
-
-| Hypothesis | Verdict | Notes |
-| --- | --- | --- |
-| H1 | **Agree** | Opt-in by design; founder expected "always on" without `serve enable` — teaching gap |
-| H2 | **Agree** | `Serve_Continuity.md:217` is stale; code + `testMacAppLaunchDoesNotDemandHealServe` are SSOT |
-| H3 | **Agree** | Operational failure mode of H1+H2 — heal only on `alln run` + loop |
-| H4 | **Agree** | Two binaries, one `coordinator.json` — confusion, not primary crash |
-| H5 | **Agree (risk), not active here** | This host had no plist pre-contamination; LWCR class still real |
-| H6 | **Agree strongly** | Shipped hand plist violates parent packet §3.1 SMAppService intent |
-| H7 | **Agree** | Honest probe exists; nothing surfaces dead keeper to founder |
-| H8 | **Agree** | **Confirmed callsite:** `ServeStableBinary.swift:73` `Data(contentsOf:)` during `enable` staging from Documents-path debug binary |
-| H9 | **Agree (symptom)** | Fix via H7 observability, not merging socket + disk paths |
-| H10 | **Agree (caveat)** | `AgentPlist` has no `EnvironmentVariables`; launchd PATH too narrow |
-| H11 | **Agree** | Needs code enforcement, not prose alone |
-
----
-
-## 4. Root cause ranking (review + incident)
-
-| Rank | What | Category | Code / doc reference |
-| --- | --- | --- | --- |
-| **1** | Founder expects always-on; product is opt-in with no teaching | Expectation mismatch | `ServeLifecycle.enable()` |
-| **2** | SC-S03 doc claims Mac app heal; code forbids it | **Documentation drift** | `Serve_Continuity.md:217` vs `AllnighterMacApp.swift:114-118` |
-| **3** | Only `alln run` + loop heal; dogfood uses app + capacity strip | **Actually broken** | `RunCLI.swift:169-174` |
-| **4** | Hand LaunchAgent, not SMAppService/BTM | **Structural** | `ServeLifecycle.swift` plist write + bootstrap |
-| **5** | `enable` stages via `Data(contentsOf:)` from Documents-path binary | **TCC leak** | `ServeStableBinary.swift:73` |
-| **6** | Dead keeper invisible in UI | **Observability** | `ServeDaemonProbe` unused on timer |
-| **7** | LaunchAgent serve missing PATH for vendor CLIs | **Silent probe failure** | `AgentPlist` no env block |
-| **8** | Debug vs staged binary identity split | Operational confusion | `coordinator.json` / `ServeDaemonStore` |
-
----
-
-## 5. Why this is so fucking hard (should be easy — isn't)
-
-**It should be easy:** one background process, KeepAlive, done.
-
-**It isn't**, because Allnighter picked the hardest macOS configuration:
-
-1. **BTM/LWCR** — LaunchAgents pin to exact code identity. Every `rebuild_cli.sh`
-   rotates the debug cdhash. macOS can refuse exec (exit 78) before `main` with
-   no product-visible error except `launchctl print` string parsing.
-
-2. **Staged-binary fix creates TCC problem** — Stable identity lives in Application
-   Support, but staging *from* `~/Documents/…/.build/debug/alln` is a Documents
-   read → TCC prompt. Fixing continuity triggers privacy.
-
-3. **No supported API for "CLI login item"** — `SMAppService` wants an `.app`.
-   Background coordinator is a bare CLI. Hand plist is the only path — and it's
-   the path macOS is pushing away from.
-
-4. **TCC inheritance blocks app-side heal** — Dock app spawning `Process` inherits
-   app TCC identity. Mac app demand heal was removed after fork-bomb + Documents
-   prompts. "App open → serve starts" has no clean seam.
-
-5. **The monitor is the monitored** — When serve dies, nothing runs
-   `ServeDaemonProbe` on a schedule. Watchers: LaunchAgent (if enabled), `alln
-   run` (if invoked), loop verbs. All three were closed on 2026-08-10.
-
-**Blunt summary (review):** macOS spent a decade making background processes
-harder; we built a constantly-rebuilt adhoc-signed CLI that wants to behave like
-a system daemon.
-
----
-
-## 6. Fix slices (ordered — smallest shippable first)
-
-Review recommendations. **Not implemented in this commit.**
-
-| Slice | What | Effort | ROI |
-| --- | --- | --- | --- |
-| **ASH-S01** | Fix SC-S03 doc drift (`Serve_Continuity.md`, lwcr packet line 117) | Docs only | Immediate clarity |
-| **ASH-S02** | Widen demand heal: `alln capacity`, `bootstrap`, `doctor` — same `ServeAutoLaunchCLI` block as `RunCLI.swift:169-174` | Small code | **Highest** — matches dogfood verbs |
-| **ASH-S03** | Mac app heal **only when LaunchAgent plist exists** — spawn **staged CLI**, never `.app` (`ServeStableBinary.defaultDestinationURL()`) | Medium | Closes app-open gap without fork bomb |
-| **ASH-S04** | TCC-safe enable: refuse Documents/Desktop/Downloads staging path; **require staged binary from `install-cli` first**; optional ProbeScratch intermediary copy | Small code | Stops Documents prompt on enable |
-| **ASH-S05** | `AgentPlist.EnvironmentVariables` — user PATH + HOME for LaunchAgent serve | Small code | Fixes silent probe failure (H10) |
-| **ASH-S06** | Dead-keeper surfacing — menu bar / capacity strip warns when `ServeDaemonProbe` ≠ `.available` >5m | Medium | Makes failure visible (H7) |
-| **ASH-S07** | `.stability-watch` sentinel — refuse `enable`/`disable`/`serve`/`repair` mutations during host watches + `scripts/serve-stability-watch.sh` | Medium | Agent-proof experiments (H11) |
-| **ASH-S08** | SMAppService / BTM migration (structural) — likely via Mac app login item spawning staged CLI | Large | SC-S04 logout/login; parent packet intent |
-
-### TCC callsite (confirmed)
-
-```
-alln serve enable
-  → ServeLifecycle.enable() (:215)
-  → stage(currentExecutableURL)  // resolves to ~/Documents/.../.build/debug/alln
-  → ServeStableBinary.stage(:73) Data(contentsOf: sourceURL)
-  → macOS Documents TCC prompt on "alln"
+## 1. Founder intent
+
+### Raw request
+
+`alln serve` must be dependable enough to own every background scheduler for a
+CLI-only user. The Dock app must not be installed, open, or involved. Opening
+the app must never start, repair, replace, or recursively launch serve.
+
+### Product value
+
+A user installs `alln` once and gets one supervised local scheduler that
+survives terminal exit, daemon crash, logout/login, and CLI update. Pending
+wake, Boost seed, vendor-backoff continuation, notifications, capacity refresh,
+probe refresh, and optional relay remain alive without a ritual command and
+without the Dock app.
+
+### Trusted workflow slice
+
+```text
+install or update CLI
+-> product atomically installs one canonical binary
+-> product registers one per-user launchd agent
+-> launchd starts one alln serve daemon
+-> active health proves daemon identity and scheduler progress
+-> process death is restarted by launchd
+-> CLI-only background obligations continue
 ```
 
-**Best fix (review):** `enable` must not be the first staging call. Require
-`install-cli` / SC-S02 staged binary to exist; refuse enable otherwise.
+### Non-goals
+
+- No scheduler or run semantics move into launchd.
+- No second daemon, watcher daemon, cron job, menu-bar keeper, or app fallback.
+- No root daemon, privileged helper, Full Disk Access, or Keychain change.
+- No app-bundled `SMAppService` dependency for CLI users.
+- No Linux/Windows service manager in this packet.
+- No smart routing, capacity estimation, or new scheduler behavior.
 
 ---
 
-## 7. Stability test protocol (agent-proof)
+## 2. CTO ruling
 
-Procedural rules failed today (agent ran `enable`). Review recommends
-**declarative refusal**:
+### 2.1 One host, one supervisor, one binary
 
-1. Sentinel: `~/Library/Application Support/Allnighter/.stability-watch`
-2. When present, refuse: `serve enable`, `serve disable`, `serve repair`
-   (non-absent), `alln serve` (daemon start), `refreshAfterInstall`
-3. Script: `scripts/serve-stability-watch.sh` — creates sentinel, logs health +
-   launchctl + capacity stamp every 5m, no mutations
-4. CI: `testEnableRefusesDuringStabilityWatch`, `testRepairRefusesDuringStabilityWatch`
-5. Agent rule: **never delete sentinel**; if refused, STOP and report
+The supported background path is:
 
-**Reset contaminated host before next watch:** `alln serve disable`, confirm no
-pid, observe ≥1h without healing.
+```text
+launchd user agent
+  com.allnighter.resident-coordinator
+    -> ~/.local/share/allnighter/bin/alln serve
+         -> ServeDaemon
+              -> all background schedulers
+```
+
+There is exactly one canonical installed CLI executable:
+
+```text
+~/.local/share/allnighter/bin/alln
+```
+
+The PATH entry (`~/.local/bin/alln`, `/usr/local/bin/alln`, or an explicit
+install directory) is a symlink to that canonical executable. The LaunchAgent
+points to the same canonical executable. Delete the second staged copy under
+`~/Library/Application Support/Allnighter/CLI/` and delete its staging owner,
+`ServeStableBinary`.
+
+The dev build is also installed through this layout. `rebuild_cli.sh` may build
+under `~/Library/Developer/Allnighter/CLI`, but `install-cli` copies the result
+atomically to the canonical installed path before updating the PATH symlink or
+the agent.
+
+### 2.2 CLI install enables continuity by default
+
+`alln install-cli` and the one-paste installer install/update the canonical
+binary, register the LaunchAgent, start it, and verify active health in one
+transaction. This is the product default, not a later ritual.
+
+The user can opt out during installation with `--no-serve` (one-paste env:
+`ALLN_NO_SERVE=1`) or later with `alln serve disable`. Disable persists a local
+desired-state marker, so later CLI updates do not silently re-enable it.
+`alln serve enable` clears the marker and converges the installation to healthy.
+
+Install output must plainly say that Allnighter installed a per-user background
+scheduler, why it exists, and how to disable it. This is the permission/startup
+posture disclosure.
+
+### 2.3 launchd owns continuity; commands never spawn a detached substitute
+
+Delete `ServeAutoLaunch.ensureRunning`, `ServeAutoLaunchCLI`, and their call
+sites. An ordinary command never starts an unsupervised `alln serve` child.
+`alln run` stays runnable without serve because serve owns no run semantics.
+
+A command that intentionally creates a future background obligation must call
+one shared `ServeRequirement` preflight before writing that obligation. If the
+supervised daemon is not actively healthy, it exits nonzero with the observed
+state and `alln serve repair`; it does not queue work and hope a daemon appears.
+The first audit covers Loop operations, Pending wake, Boost seed, vendor-backoff
+continuation, notification scheduling, and cloud relay entry points.
+
+### 2.4 The Dock app is outside the lifecycle
+
+The Mac app must not import or call `ServeLifecycle`, `ServeAutoLaunch`,
+`launchctl`, or any generic process path that starts `alln serve`. Keep the
+existing early refusal for `Allnighter.app ... serve` until an architecture
+check makes the impossible path permanent.
+
+The Dock app also stops hosting periodic capacity/probe scheduling. It may:
+
+- render durable history written by serve;
+- request an explicit user refresh through the shared Engine operation; and
+- show the read-only `alln serve status` projection.
+
+It may not own a timer, wake observer, or silent vendor-CLI acquire. Remove the
+periodic/wake portion of `CapacityResidentService` and the stale socket-vs-disk
+truth split. `CapacityRefreshScheduler` and `ProbeRecordRefreshScheduler` run
+only inside `ServeDaemon`.
+
+### 2.5 CLI-only launchd is deliberate
+
+Apple's current `SMAppService.agent(plistName:)` requires the LaunchAgent plist
+and helper executable inside an app bundle. That is the preferred app-owned
+path, but it would violate CLI-only operation. A product-owned per-user plist
+under `~/Library/LaunchAgents` is therefore the deliberate CLI distribution
+path.
+
+On macOS 13+, observe user authorization with
+`SMAppService.statusForLegacyPlist(at:)`. If it returns `requiresApproval`,
+report that exact fact and direct the user to Login Items. Never bypass a user
+who disabled the background item.
+
+Prior art:
+
+- [Apple: Updating helper executables from earlier versions of macOS](https://developer.apple.com/documentation/servicemanagement/updating-helper-executables-from-earlier-versions-of-macos)
+- [Apple: Creating Launch Daemons and Agents](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html)
 
 ---
 
-## 8. What we are **not** claiming yet
+## 3. Root cause and present evidence
 
-- We have **not** reproduced LWCR exit 78 on this host post-contamination.
-- We have **not** proven logout/login continuity.
-- TCC callsite is **hypothesis-confirmed** (`ServeStableBinary.swift:73`) but not
-  host-reproduced with Instruments after sentinel reset.
-- We do **not** know if pid 79995 died naturally or was never the "real"
-  keeper the founder cared about.
+This incident is not one mysterious macOS failure. It is an ownership failure
+with four proven consequences.
+
+| Proven defect | Evidence | Design correction |
+| --- | --- | --- |
+| Three executable identities can disagree | On 2026-08-10 the PATH symlink resolved to a Documents debug build; the staged binary had different bytes/code identity; the live daemon ran the staged copy | One canonical installed executable for PATH, launchd, update, and health |
+| Supervision is opt-in after install | The pre-diagnostic host had no product LaunchAgent; `serve enable` created it manually | Install/update establishes desired state by default and verifies it |
+| App demand-heal recursively launched the Dock app | SC-S03 resolved `Allnighter.app/Contents/MacOS/Allnighter`, appended `serve`, and repeated until the machine filled with Dock processes | App never owns serve lifecycle; delete detached auto-launch |
+| A live PID is painted healthier than the work it hosts | `ServeDaemonProbe` treats `kill(pid, 0)` as loopback listening; LaunchAgent PATH is `/usr/bin:/bin:/usr/sbin:/sbin`; no per-scheduler receipt proves useful progress | Active loopback handshake + binary match + scheduler receipts |
+
+Additional verified constraints:
+
+- The original exit 78/LWCR storm occurred before Swift `main`; admission code
+  could not repair it.
+- A fresh legacy `bootout` + `bootstrap` survived a same-session kill, but
+  logout/login remains unproven.
+- `serve enable` can read a debug binary from a Documents checkout through
+  `Data(contentsOf:)`, producing the observed TCC seam.
+- Current `repair` removes the agent and never restores service. That is cleanup,
+  not repair.
+- Current help still teaches silent detached auto-launch and the destructive
+  meaning of repair.
+
+Truth owner: `ServeInstallation` (new name; may replace `ServeLifecycle`) owns
+desired state, canonical binary, plist, launchd registration, update, repair,
+and rollback. `ServeDaemon` owns runtime/scheduler state. `ServeStatus` is the
+read-only join of those owners.
+
+Lie-prone layers: plist existence, PID liveness, stale coordinator record,
+socket/disk freshness split, help prose, and any app-side timer/process hook.
 
 ---
 
-## 9. Recommended next steps
+## 4. Installation and supervisor contract
 
-1. **Reset experiment** (founder): `alln serve disable`, no manual start, watch
-   ≥1h — ideally via ASH-S07 sentinel script once built.
-2. **Ship ASH-S01 + ASH-S02** — doc truth + heal widening (low risk, high ROI).
-3. **Founder ruling** on ASH-S03 (conditional Mac app heal) vs ASH-S02-only path.
-4. **Ship ASH-S04** before anyone runs `serve enable` from Documents checkout again.
-5. **SC-S04 logout/login** host proof when session can be spared.
+### 4.1 Canonical layout
+
+```text
+~/.local/share/allnighter/bin/alln
+~/Library/LaunchAgents/com.allnighter.resident-coordinator.plist
+~/Library/Application Support/Allnighter/Coordinator/coordinator.json
+~/Library/Application Support/Allnighter/Coordinator/runtime.json
+~/Library/Logs/Allnighter/serve.log
+~/Library/Application Support/Allnighter/serve-desired-state.json
+```
+
+`serve-desired-state.json` stores only `enabled|disabled`, schema version, and
+updated time. Absence migrates to `enabled` during the first post-fix install.
+It contains no credentials or vendor data.
+
+### 4.2 LaunchAgent shape
+
+The generated plist has one code owner and these required properties:
+
+- `Label = com.allnighter.resident-coordinator`
+- `ProgramArguments = [canonicalBinaryPath, "serve"]`
+- `RunAtLoad = true`
+- `KeepAlive = true`
+- `ThrottleInterval = 30`
+- `ProcessType = Background`
+- `WorkingDirectory = ~/Library/Application Support/Allnighter/ProbeScratch`
+- `StandardOutPath` and `StandardErrorPath` under `~/Library/Logs/Allnighter/`
+- deterministic `HOME` and `PATH`; never inherit repo/app CWD or a host shell
+
+Vendor processes use persisted absolute `ToolInvocation` paths. The LaunchAgent
+PATH is a fallback containing only the canonical install directory and standard
+user/system binary directories. It never evaluates a login shell.
+
+### 4.3 Install/update transaction
+
+One owner performs this bounded sequence:
+
+1. Resolve the candidate binary and refuse app-bundle re-exec or a protected
+   Documents/Desktop/Downloads source in developer mode. `rebuild_cli.sh`
+   already supplies a Library/Developer scratch candidate.
+2. Read desired state and active obligations. If an update would stop a daemon
+   with active obligations, exit `75`/`SERVE_BUSY` before modifying anything.
+3. Verify candidate executable/version, then copy it to a same-filesystem temp
+   beside the canonical path. Preserve the prior canonical binary as rollback.
+4. Atomically rename candidate into the canonical path and atomically update the
+   requested PATH symlink.
+5. When desired state is enabled: write the plist atomically, boot out the old
+   label once, bootstrap the new plist once, and wait at most 10 seconds for an
+   active health response from the expected build.
+6. On any failure after step 3, restore binary, symlink, and plist; bootstrap the
+   prior known-good job when one existed; return a nonzero structured failure.
+7. Delete rollback bytes only after active health matches the candidate build.
+
+No unbounded retry, recursive self-launch, `kickstart` loop, or success-with-a-
+warning. The install command's exit code covers the whole requested transaction.
+
+The one-paste installer downloads to temp, verifies SHA/signature as it does
+today, then invokes the candidate's `install-cli`; it no longer hand-maintains a
+parallel install layout.
+
+### 4.4 Crash and login behavior
+
+launchd restarts an abnormal serve exit. Serve stays in the foreground from
+launchd's perspective and never daemonizes/forks. `SIGTERM` settles runtime
+receipts and exits. `serve disable` boots out before removing the plist, so
+KeepAlive cannot resurrect a disabled service.
+
+Logout/login is a release gate, not a deferred nice-to-have.
 
 ---
 
-## 10. Founder rulings needed
+## 5. CLI and JSON contract
 
-| Question | Options |
+### 5.1 Commands
+
+| Command | Contract |
 | --- | --- |
-| Default continuity | Stay opt-in (`serve enable`) vs on-after-first-install |
-| Mac app heal | Re-enable demand heal with TCC-safe spawn (staged CLI only, never `.app`) vs accept app-open ≠ serve-alive |
-| Heal widening | Add `alln capacity` / bootstrap / doctor ensureRunning? |
-| TCC on enable | Is staging from Documents-path debug binary acceptable ever? |
-| Stability test protocol | Agents must **never** run `serve enable`, `serve`, or `kickstart` during watch periods |
+| `alln install-cli [--path <dir>] [--no-serve] [--json]` | Install/update canonical CLI; enabled serve is the default; atomic result includes serve status |
+| `alln serve status [--json]` | Read-only desired state + supervisor + active daemon + scheduler health |
+| `alln serve --health [--json]` | Compatibility spelling for `serve status`; same output and exit code |
+| `alln serve enable [--json]` | Persist enabled, converge plist/registration, start, actively verify |
+| `alln serve disable [--json]` | Persist disabled, boot out, delete plist, verify stopped |
+| `alln serve restart [--json]` | Refuse while obligations are active; otherwise one bootout/bootstrap + active verify |
+| `alln serve repair [--json]` | If desired state is enabled, reinstall canonical plist and registration, then active verify; never merely delete |
+| `alln serve` | Foreground daemon entry used by launchd and explicit diagnostics; singleton admission remains fail-closed |
+
+Retire from all contracts/help: `--no-auto-serve`, `ALLN_NO_AUTO_SERVE`, and
+the claim that ordinary dispatch silently spawns serve.
+
+### 5.2 `ServeStatusJSON` v2
+
+```json
+{
+  "schemaVersion": 2,
+  "desiredState": "enabled",
+  "state": "healthy",
+  "supervisor": {
+    "kind": "launchAgent",
+    "label": "com.allnighter.resident-coordinator",
+    "loaded": true,
+    "authorization": "enabled",
+    "pid": 1234,
+    "lastExitCode": null
+  },
+  "binary": {
+    "path": "/Users/me/.local/share/allnighter/bin/alln",
+    "expectedGitSha": "abc123",
+    "runningGitSha": "abc123",
+    "matches": true
+  },
+  "daemon": {
+    "daemonId": "...",
+    "pid": 1234,
+    "startedAt": "...",
+    "activeHealthRespondedAt": "..."
+  },
+  "schedulers": [
+    {
+      "id": "capacityRefresh",
+      "state": "waiting",
+      "lastAttemptAt": "...",
+      "lastSuccessAt": "...",
+      "lastError": null,
+      "nextWakeAt": "..."
+    }
+  ],
+  "recovery": null
+}
+```
+
+Top-level state is one of:
+
+- `healthy`: desired enabled, authorization enabled, loaded supervisor, active
+  loopback response, matching binary, required schedulers registered;
+- `starting`: bounded internal install/repair observation only;
+- `disabled`: desired disabled and no loaded job/process;
+- `requiresApproval`: macOS reports user approval/revocation;
+- `degraded`: any enabled-state mismatch, stale/nonresponding daemon, binary
+  mismatch, crash/wedge, or required scheduler failure.
+
+`healthy` requires a real `GET /health` response from the recorded loopback
+port whose daemon id, pid, and build identity match the durable record. A live
+PID alone never sets `loopback.listening = true`.
+
+### 5.3 Exit codes and errors
+
+| Exit | Meaning | Stable error code examples |
+| --- | --- | --- |
+| `0` | Requested state reached; status is healthy or intentionally disabled | — |
+| `2` | CLI usage error only | `CLI_USAGE_ERROR` |
+| `69` (`EX_UNAVAILABLE`) | Enabled service is not actively healthy | `SERVE_UNAVAILABLE`, `SERVE_WEDGED`, `SERVE_BINARY_MISMATCH` |
+| `75` (`EX_TEMPFAIL`) | Active obligations make update/restart unsafe | `SERVE_BUSY` |
+| `77` (`EX_NOPERM`) | User/macOS approval is required | `SERVE_REQUIRES_APPROVAL` |
+| `1` | Filesystem, launchctl, rollback, or verification failure | `SERVE_INSTALL_FAILED`, `SERVE_ROLLBACK_FAILED` |
+
+JSON commands emit exactly one object on stdout. Diagnostics go to structured
+fields and the serve log, not stray stdout. Human output ends with one working
+recovery command.
 
 ---
 
-## 11. Anti-patterns (do not repeat)
+## 6. Runtime receipts and logs
 
-- Agent runs `alln serve enable` during a status check.
-- Treating "a serve pid exists" as "continuity works" when it is debug/adhoc.
-- Treating KeepAlive plist presence as health without `launchctl print` + live pid.
-- Assuming SC-S03 doc banner matches Mac app after 2026-08-10 TCC revert.
+`ServeDaemon` writes `runtime.json` atomically. It records daemon identity and
+one row for every registered scheduler:
+
+- `pendingWake`
+- `pmTurnWake`
+- `boostSeed`
+- `vendorBackoff`
+- `notifications`
+- `capacityRefresh`
+- `probeRecordRefresh`
+- `cloudRelay` only when configured
+
+Each row records registered/running/waiting/failed, last attempt, last success,
+last observed error, and next wake when known. Absence of a configured optional
+scheduler is omitted, never painted failed. Absence of a required scheduler is
+degraded.
+
+The serve log is bounded: rotate at 5 MiB, keep three files. Lifecycle actions
+and daemon start/stop/crash write timestamp, build identity, pid, launchd label,
+and observed result. Never log prompts, source, credentials, environment dumps,
+or vendor output.
+
+`alln serve status` remains useful if the daemon is dead because it can join the
+desired-state file, plist, launchctl observation, coordinator record, runtime
+receipt, and last bounded log error.
+
+---
+
+## 7. Inference bans
+
+| Junction | Owner | Possible bad inference | Ban | Negative proof |
+| --- | --- | --- | --- | --- |
+| plist -> supervision | `ServeInstallation` | plist exists, therefore serve is supervised | Healthy requires authorization + loaded launchd job + active daemon response | Fixture: plist present, job absent => degraded |
+| pid -> daemon | `ServeStatus` | `kill(pid, 0)` means health endpoint is listening | Active loopback handshake and matching daemon identity are mandatory | Fixture: recycled live pid => degraded |
+| daemon -> scheduler | `ServeRuntimeStatus` | process answers, therefore schedulers work | Required scheduler registration and current receipt are part of health | Fixture: missing capacity row => degraded |
+| install -> enabled | install transaction | binary copied, therefore install succeeded | Exit 0 only after requested desired state is actively verified | Bootstrap failure rolls back and exits 1 |
+| update -> safe restart | active obligations | update command may kill serve at any time | Refuse before mutation when obligations are active | Busy fixture leaves binary/plist bytes unchanged |
+| CLI -> app | architecture gate | any executable named Allnighter can run `serve` | App bundle paths are never lifecycle candidates; Mac app has no lifecycle calls | Static gate + app argv kill test |
+| app -> freshness | `ServeDaemon` | app-open timer can substitute for serve | Periodic scheduling exists only in ServeDaemon | Static gate rejects app timer/wake ownership |
+| user disable -> repair | desired state + ServiceManagement | missing process means re-enable it | Updates preserve explicit disabled; revoked approval is never bypassed | Disabled/requiresApproval fixtures perform no bootstrap |
+| PATH -> vendor availability | persisted `ToolInvocation` | launchd's PATH can answer which vendor CLI to run | Scheduler spawns use resolved absolute invocations; PATH is fallback only | Minimal-PATH scheduler fixture invokes absolute binary |
+
+---
+
+## 8. Ordered implementation slices
+
+One slice = one work order = one commit. Do not combine slices.
+
+### ASR-S00 — native launchd isolation harness
+
+Goal: prove the CLI-only primitive before another product patch.
+
+- Add `tools/ServeLaunchdHarness/` with a tiny executable/fixture that writes a
+  heartbeat from a neutral Library CWD.
+- Use a unique non-product label and scratch home; never mutate
+  `com.allnighter.resident-coordinator`.
+- Prove bootstrap, active check, TERM/KILL restart, atomic binary replacement +
+  rebind, disable cleanup, minimal PATH, and no repo/app dependency.
+- Capture the working plist/API sequence and product delta under `docs/qa/`.
+
+Proof: `bash tools/ServeLaunchdHarness/run.sh same-session`
+Stop: if the minimal agent cannot survive kill/rebind, do not edit product
+lifecycle code; report the platform failure.
+
+### ASR-S01 — one canonical CLI installation
+
+Goal: make `InstallCLI` and the one-paste installer converge on one binary.
+
+Touch: `InstallCLI`, `AllnighterCLI.runInstallCLI`, `scripts/get-alln.sh`,
+`scripts/rebuild_cli.sh`, install tests. Delete `ServeStableBinary` and its tests
+only after all references move.
+
+Proof:
+
+```text
+scripts/swift-test.sh --filter 'InstallCLITests|ServeInstallRefreshTests'
+bash scripts/test-get-alln.sh
+```
+
+Required kill tests: same-file candidate; protected dev source refusal; atomic
+rollback; PATH and LaunchAgent target resolve to the same inode/path.
+
+### ASR-S02 — convergent supervisor lifecycle
+
+Goal: make enable/disable/restart/repair and default install activation one
+transactional owner.
+
+Touch: `ServeLifecycle` (or rename to `ServeInstallation`),
+`ServeLaunchAgentStatus`, desired-state store, CLI routing, lifecycle tests.
+
+Proof:
+
+```text
+scripts/swift-test.sh --filter 'ServeLifecycleTests|ServeLifecycleEnableTests|ServeLaunchAgentStatusTests|ServeInstallRefreshTests'
+```
+
+Required kill tests: first install defaults enabled; `--no-serve`; disable
+persists across update; repair restores enabled agent; requiresApproval does not
+bootstrap; busy update is byte-for-byte nonmutating; bootstrap failure restores
+prior healthy bytes/plist.
+
+### ASR-S03 — active health and scheduler receipts
+
+Goal: make status answer “is useful scheduling alive?” rather than “does a pid
+exist?”
+
+Touch: `ServeDaemon`, `ServeDaemonProbe`, loopback health client/server,
+`CoordinatorHealth` -> `ServeStatusJSON` mapping, runtime receipt, bounded log,
+focused scheduler wrappers/tests.
+
+Proof:
+
+```text
+scripts/swift-test.sh --filter 'CoordinatorTests|ServeLaunchAgentStatusTests|ServeDaemonAdmissionTests|ServeStatusTests|ServeRuntimeStatusTests'
+```
+
+Required kill tests: recycled PID; dead port; wrong daemon id; wrong build;
+missing required scheduler; failed scheduler with readable last error; daemon-
+dead status still returns one recovery object.
+
+### ASR-S04 — delete alternate lifecycle and app scheduler ownership
+
+Goal: make the forbidden architecture unrepresentable.
+
+Delete `ServeAutoLaunch`, `ServeAutoLaunchCLI`, run/loop call sites,
+`--no-auto-serve`, `ALLN_NO_AUTO_SERVE`, app demand-heal remnants, and app-owned
+periodic/wake capacity acquisition. Retain explicit UI refresh through the
+shared Engine operation and durable history rendering.
+
+Add a deterministic architecture gate to
+`scripts/check_architecture_policy.sh`: app source may not call/import serve
+lifecycle or host `CapacityRefreshScheduler`/`ProbeRecordRefreshScheduler`;
+non-lifecycle CLI code may not spawn `alln serve`.
+
+Proof:
+
+```text
+scripts/swift-test.sh --filter 'ServeRequirementTests|ServeAutoLaunchTests|CapacityResidentServiceTests|CapacityStripModelTests'
+bash scripts/check_architecture_policy.sh
+```
+
+Replace obsolete tests rather than preserving tests for deleted behavior.
+Founder app check: open Allnighter once -> one Dock process; serve pid/build is
+unchanged by app launch; no silent vendor process starts.
+
+### ASR-S05 — contract, teaching, migration, uninstall
+
+Goal: make every entry point teach and preserve the same lifecycle.
+
+- Update `ContractRegistry`, `HelpTopicRegistry`, `RetiredVocabulary`, bootstrap
+  snippets, `alln doctor`, and generated contract artifacts.
+- Search terms: `serve`, `scheduler`, `background`, `login`, `launchagent`,
+  `capacity stale`, `pending stuck`, `notification`, `repair`.
+- Migrate the old Application Support staged binary and old plist only after the
+  new agent is healthy. Remove the obsolete staged binary; never leave two jobs.
+- Uninstall disables/boots out first, then removes canonical CLI, plist, desired
+  state, runtime receipt, and logs according to the uninstall disclosure.
+- Update `Product_Vocabulary.md` with the shipped background-scheduler law at
+  closeout; archive this packet (the superseded Serve Continuity history is
+  already archived).
+
+Proof:
+
+```text
+scripts/swift-test.sh --filter 'ContractRegistryTests|HelpTopicRegistryTests|InstallCLITests|ServeMigrationTests'
+bash scripts/rebuild_cli.sh
+alln dev export-contracts
+```
+
+### ASR-S06 — real host release gates
+
+Goal: prove the claim outside mocks with the Dock app quit.
+
+Add `scripts/works-test-serve-continuity.sh` with inspect-only default and
+explicit `--mutate-product-agent` mode. The mutating mode kills/rebinds the real
+serve and therefore requires founder approval under the High-Risk Stops.
+
+Required host matrix:
+
+1. CLI-only cold install in a clean user home; no Allnighter.app present.
+2. `serve status --json` healthy with canonical binary/agent/daemon identity
+   equal and every required scheduler registered.
+3. TERM then KILL: launchd supplies a new pid and active health within 15s; no
+   extra daemon and no Dock process.
+4. vA -> vB update: one agent, one daemon, new build identity, no orphan/staged
+   copy, rollback proven with an injected bootstrap failure.
+5. Capacity and probe receipts advance from serve with the app absent; a
+   persisted absolute vendor invocation works under launchd's minimal PATH.
+6. TCC reset + CLI install/serve from the supported canonical layout produces no
+   Documents/Desktop/Downloads prompt.
+7. Logout/login: serve returns without terminal or app launch and active health
+   passes. This gate cannot be waived by a same-session unit test.
+8. Disable -> logout/login: serve stays absent. Reinstall/update preserves
+   disabled until explicit enable.
+
+Closeout proof: focused tests from all slices, then `bash scripts/check.sh`, then
+the approved host script and logout/login record under `docs/qa/alln-serve/`.
+
+---
+
+## 9. Works Test
+
+### User-visible claim
+
+> Install the CLI and close every terminal and the Dock app. `alln serve`
+> remains supervised. If its process dies, launchd restarts the same installed
+> build. `alln serve status --json` proves the daemon and each scheduler, and
+> logout/login brings it back. The app is never required and never launches it.
+
+### Exact final scenario
+
+```text
+Precondition: clean user; Allnighter.app absent; no old agent/plist/process.
+
+curl -fsSL https://get.allnighter.io | sh
+alln serve status --json
+# assert state=healthy; binary.matches=true; authorization=enabled;
+# assert required scheduler ids present; record pid/build.
+
+# approved Works Test kills pid
+scripts/works-test-serve-continuity.sh --mutate-product-agent crash-restart
+# assert new pid, same expected build, active health <=15s, one daemon.
+
+# logout/login, launch Terminal only
+alln serve status --json
+# assert healthy before any app or scheduler-triggering CLI command.
+```
+
+The Works Test fails if it needs `alln serve enable`, manual `alln serve`, the
+Dock app, reboot, `kickstart`, or agent intervention.
+
+---
+
+## 10. Done when
+
+- [ ] CLI-only install enables and actively verifies one supervised serve by
+  default, with a disclosed opt-out.
+- [ ] PATH, launchd, health, and update name one canonical installed binary.
+- [ ] Kill, update, rollback, disable, and logout/login host proofs pass.
+- [ ] Status fails closed on authorization, launchd, daemon, binary, or required
+  scheduler mismatch and returns a working recovery command.
+- [ ] Scheduler-dependent commands never leave new background obligations when
+  supervised serve is unavailable.
+- [ ] The app contains no serve lifecycle and no periodic capacity/probe host.
+- [ ] Detached auto-launch and its opt-out grammar are deleted and deny-listed.
+- [ ] Install, doctor, help search, bootstrap teaching, and uninstall agree.
+- [ ] TCC proof shows no protected-folder prompt on the supported install/start
+  path.
+- [ ] Focused proofs and `bash scripts/check.sh` pass.
+- [ ] Durable law is promoted to code/contracts/vocabulary; this packet and the
+  superseded sprint orders are archived.
+
+## 11. Blocking questions
+
+None. Native host proofs are execution gates, not unanswered product decisions.

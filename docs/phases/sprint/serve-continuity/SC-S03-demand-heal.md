@@ -3,7 +3,7 @@
 Status: **done** (2026-08-09) — commit `861578aa`; Works Test 13/13  
 Slice: SC-S03  
 Run: `723B7A89-63A3-4800-AE63-8E0AF4EA11B3`  
-SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §3.3 + §4  
+Historical packet: [`Serve_Continuity.md`](../../../archive/phases/Serve_Continuity.md) §3.3 + §4
 Executor: Kimi K3 via `alln run --team build_slice --model model_kimi_k3`
 
 ## Goal
@@ -26,7 +26,7 @@ You are implementing Serve Continuity slice SC-S03 only.
 
 Read ONLY:
 - docs/phases/sprint/serve-continuity/SC-S03-demand-heal.md (this file)
-- docs/phases/Serve_Continuity.md §3.3 and §4 SC-S03
+- docs/archive/phases/Serve_Continuity.md §3.3 and §4 SC-S03
 - Packages/AllnighterCore/Sources/AllnighterEngine/ServeAutoLaunch.swift
 - Packages/AllnighterCore/Sources/AllnighterCLI/ServeAutoLaunchCLI.swift
 - Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift (dispatch entry — where run starts)
@@ -79,4 +79,4 @@ scripts/swift-test.sh --filter ServeAutoLaunchTests
 
 ## SSOT
 
-`docs/phases/Serve_Continuity.md` §3.3 / §4 SC-S03.
+`docs/archive/phases/Serve_Continuity.md` §3.3 / §4 SC-S03.

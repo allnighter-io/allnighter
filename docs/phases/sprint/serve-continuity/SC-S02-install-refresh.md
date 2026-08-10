@@ -3,7 +3,7 @@
 Run: `C9C3159E-0439-4A1A-8DC9-90DB8E176673` (model_opencode_deepseek_v4_pro)
 Status: **done** (2026-08-09) — commit `5de87193`; Works Test 9/9  
 Slice: SC-S02 (small)  
-SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §6 + §4 SC-S02  
+Historical packet: [`Serve_Continuity.md`](../../../archive/phases/Serve_Continuity.md) §6 + §4 SC-S02
 Executor: Kimi K3 if 5h remaining ≥15%; else DeepSeek V4 Pro
 
 ## Goal
@@ -23,7 +23,7 @@ You are implementing Serve Continuity slice SC-S02 only — keep it small.
 
 Read ONLY:
 - docs/phases/sprint/serve-continuity/SC-S02-install-refresh.md (this file)
-- docs/phases/Serve_Continuity.md §6 (stable binary YES; refresh on install-cli/rebuild) + §4 SC-S02
+- docs/archive/phases/Serve_Continuity.md §6 (stable binary YES; refresh on install-cli/rebuild) + §4 SC-S02
 - Packages/AllnighterCore/Sources/AllnighterEngine/ServeLifecycle.swift
 - Packages/AllnighterCore/Sources/AllnighterEngine/ServeStableBinary.swift
 - Packages/AllnighterCore/Sources/AllnighterCLI/AllnighterCLI.swift (runInstallCLI)

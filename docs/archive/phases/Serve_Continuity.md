@@ -1,12 +1,15 @@
 # Serve Continuity (Background Keeper)
 
-Status: **OPEN — v2.8 (code floor + same-session KeepAlive PASS; logout/login deferred)**
+Status: **ARCHIVED 2026-08-10 — superseded code-floor record only**
 Owner: AllnighterCLI / AllnighterEngine (`ServeDaemon`, `ServeAutoLaunch`,
 admission, doctor, `ServeLifecycle`, `ServeStableBinary`) + `InstallCLI` /
 `rebuild_cli.sh` (same transaction as identity change) + Mac app (demand heal) —
 **not** a second capacity scheduler
 Created: 2026-08-09
 Revised: 2026-08-09 (v2.8.1 — same-session KeepAlive PASS; logout deferred)
+Forward implementation: `docs/phases/Alln_Serve_Hotfixes.md`. Do not execute
+the SC queue or its app demand-heal design; the final packet replaces it with a
+CLI-only owner, one canonical binary, and no Dock-app lifecycle.
 Origin: Dogfood code red — with the Mac app closed, capacity / Pending wake /
 Boost / vendor-backoff / OS notifications depend on `alln serve`. Serve can
 die; on this host the orphan LaunchAgent did **not** bring it back (exit 78 /

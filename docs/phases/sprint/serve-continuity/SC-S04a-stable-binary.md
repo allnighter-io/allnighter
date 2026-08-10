@@ -3,7 +3,7 @@
 Status: **done** (2026-08-09) — commit `ef75ec50`; Works Test 7/7  
 Slice: SC-S04a (tiny)  
 Run: `7072A0A3-65EB-4736-A638-4B749167E207` (DeepSeek V4 Pro — capacity gate false-fail on None; Kimi was actually ~31%)  
-SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §6 founder rulings + §4 SC-S04a  
+Historical packet: [`Serve_Continuity.md`](../../../archive/phases/Serve_Continuity.md) §6 founder rulings + §4 SC-S04a
 Executor: prefer Kimi K3 if 5h remaining ≥15%; else `model_opencode_deepseek_v4_pro`  
 (Note: menu has no DeepSeek V5 Pro — V4 Pro is the fallback.)
 
@@ -20,7 +20,7 @@ You are implementing Serve Continuity slice SC-S04a only — smallest possible.
 
 Read ONLY:
 - docs/phases/sprint/serve-continuity/SC-S04a-stable-binary.md (this file)
-- docs/phases/Serve_Continuity.md §6 (founder: stable binary YES) and §4 SC-S04a
+- docs/archive/phases/Serve_Continuity.md §6 (founder: stable binary YES) and §4 SC-S04a
 - Packages/AllnighterCore/Sources/AllnighterCore/InstallCLI.swift (resolvedRunningBinary patterns only — do not change unless required)
 - docs/operations/Execution-Playbook.md § Green Wall — FILTERED tests ONLY
 

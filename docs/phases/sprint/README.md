@@ -36,7 +36,13 @@ Each sprint file must fit on **one to two screens** and include:
 - **Archive when done:** move to `docs/archive/phases/sprint/<topic>/`.
 - **Status header** on each work order: `Status: ready | in_progress | done`.
 
-## Active sprints
+## Superseded Serve Continuity orders
+
+These orders record the 2026-08-09 code floor. They are **not the active build
+queue** after the 2026-08-10 fork-bomb/TCC incident. Do not resume SC-S04 or
+start SC-S05. The forward contract is
+[`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md); cut exactly one ASR work
+order from §8, beginning with ASR-S00.
 
 | Topic | Doc | Status |
 | --- | --- | --- |
@@ -48,9 +54,8 @@ Each sprint file must fit on **one to two screens** and include:
 | Serve Continuity SC-S02 | [`serve-continuity/SC-S02-install-refresh.md`](serve-continuity/SC-S02-install-refresh.md) | **done** — `5de87193` |
 | Serve Continuity SC-S04 | [`serve-continuity/SC-S04-logout-login.md`](serve-continuity/SC-S04-logout-login.md) | **partial** — same-session PASS; logout deferred |
 
-**Serve Continuity next (host, not a code slice):** logout/login Works Test after
-`alln serve enable` — see [`SC-S04-logout-login.md`](serve-continuity/SC-S04-logout-login.md).
-Do not start SC-S05 (admission) under this bug’s clothes.
+**Forward next:** ASR-S00 native launchd isolation harness. The old logout/login
+order cannot close the new product claim and remains historical evidence only.
 
 _None other code work orders active — CT-S04 done; archive S123 when ready._
 

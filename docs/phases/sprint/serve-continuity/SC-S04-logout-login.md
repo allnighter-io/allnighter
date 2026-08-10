@@ -1,9 +1,9 @@
-# SC-S04 — Logout/login host proof (product `serve enable`)
+# SC-S04 — Superseded logout/login host proof
 
-Status: ready — **same-session PASS 2026-08-09** (logout still owed)  
-See log: [`docs/qa/serve-continuity/SC-S04-same-session-keepalive.md`](../../../../qa/serve-continuity/SC-S04-same-session-keepalive.md)  
-Slice: SC-S04 (host proof only — no product code)  
-SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §4 SC-S04 + §5 + §6
+Status: **done** — superseded 2026-08-10; do not execute
+See log: [`docs/qa/serve-continuity/SC-S04-same-session-keepalive.md`](../../../qa/serve-continuity/SC-S04-same-session-keepalive.md)
+Slice: historical SC-S04 evidence only; ASR-S06 owns the forward host proof.
+Historical packet: [`Serve_Continuity.md`](../../../archive/phases/Serve_Continuity.md) §4 SC-S04 + §5 + §6
 
 ## Goal
 
@@ -40,7 +40,7 @@ quit, and doctor/health stay honest.
 ## Done when
 
 - [ ] Log exists with PASS (or FAIL with LWCR/BTM evidence)
-- [ ] Packet `Serve_Continuity.md` SC-S04 marked DONE or FAIL-open with next fix
+- [ ] Historical packet result recorded; forward recovery remains ASR-S06
 - [ ] No silent “looks supervised” wedge
 
 ## Not this slice

@@ -3,7 +3,7 @@
 Status: **done** (2026-08-09) — commit `05afee05`; Works Test 14/14  
 Slice: SC-S00  
 Run: `2ADC34AF-DB8D-4712-8FE4-43DAE717EC0E` (Kimi K3; PM verified after stopping unfiltered suite)  
-SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §3.4 + §4  
+Historical packet: [`Serve_Continuity.md`](../../../archive/phases/Serve_Continuity.md) §3.4 + §4
 Executor: Kimi K3 (`model_kimi_k3`) via `alln run --team build_slice --model model_kimi_k3`
 
 ## Goal
@@ -20,7 +20,7 @@ You are implementing Serve Continuity slice SC-S00 only.
 
 Read ONLY:
 - docs/phases/sprint/serve-continuity/SC-S00-launchagent-honesty.md (this file)
-- docs/phases/Serve_Continuity.md §3.4 and §4 (SC-S00 row + S00a verdict)
+- docs/archive/phases/Serve_Continuity.md §3.4 and §4 (SC-S00 row + S00a verdict)
 - Packages/AllnighterCore/Sources/AllnighterEngine/ServeDaemonProbe.swift
 - Packages/AllnighterCore/Sources/AllnighterCore/CoordinatorHealth.swift
 - Packages/AllnighterCore/Sources/AllnighterCore/DoctorReport.swift (coordinatorCheck)
@@ -113,4 +113,4 @@ Checkboxes in the prompt.
 
 ## SSOT
 
-`docs/phases/Serve_Continuity.md` §3.4 / §4 SC-S00.
+`docs/archive/phases/Serve_Continuity.md` §3.4 / §4 SC-S00.

@@ -69,19 +69,15 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | Post-MVP planning, open build packets, what to archive next | `docs/phases/README.md` (ephemeral packets only — never SSOT; closeout = promote + archive) |
 | Run model: chat/run = agent in repo root, Default Team, presets, write lock | Code SSOT: `RunService.swift`, `TeamPreset`/`TeamCatalog`, `RunWriteLockRegistry` |
 | Run started — what is happening, is anything needed, where is the result | `alln show <id> --json` snapshot / `alln show <id> --stream` observe + deliver. Code SSOT: `RunService.swift`, `TeamRunJSONMapper` (`observation`), `RemoteRunEventJournal` (derived history) |
-| Multi-seat / spawn-gated same-CLI crew | **Closed** — serialize, never refuse. Code SSOT: `GatedWorkerRunner` / `spawnSerializationWarnings`; archive `Crew_Understaffed_Signal.md` |
 | Run stuck, status/journal mismatch, opaque contention, orphan worker, kill/retry failure, missing progress stream | Code SSOT: `KillSettlement.swift`, `RunClockEnforcer.swift`, `IdempotencyStore.swift`, `ProcessOwnership.swift` |
 | Capacity strip, `alln capacity`, warm pool, menu-bar resident | Archive `Capacity_Warm_Bench.md` — S02 `capacity.sock` (`CapacitySocket.swift`); menu bar / warm PTY not v1 |
 | `alln menu` hides seats / stale or invented readiness / probe freshness | Archived `docs/archive/phases/Probe_Freshness.md`; code SSOT `ProbeFreshnessGate`, `ProbeFreshnessDisclosure`, `SourceProbeService`, `CensusIngest`, `ProbeRecordRefreshScheduler`, `RunService` capability clock |
 | Plan-time quota routing, capacity in menu/bootstrap, loop session-cap wake | Archived [`Quota_Aware_Bench_Continuity.md`](../docs/archive/phases/Quota_Aware_Bench_Continuity.md) — shipped 2026-07-31, closed 2026-08-09; vocabulary `Product_Vocabulary.md` §Quota-aware bench; code SSOT `VendorBackoffReconciler`, `VendorSubstitutionPolicy`, `LoopCoordinator.dispatchDevTurn` |
 | OpenCode Go plan capacity (browser `/go` scrape, encrypted credentials) | Open packet: `docs/phases/OpenCode_Go_Capacity.md` — not PTY; v1 strip only; code SSOT TBD `OpenCodeGoCapacityProbe`, `OpenCodeGoCredentialStore` |
-| OpenCode `:4096` leftover serve between runs | **Closed 2026-08-08** — attach healthy listener; never SIGTERM to clear port. Code SSOT: AgentOS `OpenCodeServeCoordinator.ensureRunning`; help `opencode_headless_completion`; archive `OpenCode_Serve_Attach.md` |
 | OpenCode local / Ollama seats; frontier→local labor; local-vs-cloud benchmark proposals | Open packet **1 of 3**: `docs/phases/OpenCode_Local_Ollama_Seats.md` — frontier plans, local executes; code unauthorized until ready |
 | Context Firewall / egress ledger / root-less dispatch; privacy buyers | Open packet **2 of 3**: `docs/phases/Context_Firewall.md` — auditable egress, never sanitisation; root-less dispatch undesigned |
 | Second Mac / LAN bench / remote `OLLAMA_HOST` | Open packet **3 of 3**: `docs/phases/Second_Mac_Bench.md` — fence only; refuse cross-host mutators |
 | OpenCode long runs / `stream_drop` / `task` hang | Archived `docs/archive/phases/OpenCode_Long_Run_Continuity.md` + `OpenCode_Completion_Truth_Followup.md`; code SSOT AgentOS `OpenCode*` + `OpenCodeOutcomeAuthority`; help `opencode_headless_completion` |
-| OpenCode long mutating under-ship / commit dogfood | **Closed 2026-08-09** — help `opencode_mutating_commit_contract`; archive `OpenCode_Mutating_Long_Run_Hardening.md` |
-| OpenCode empty turn / stall mid-`task` / seat timeout 2× | **Closed 2026-08-09** — OCH; archive `OpenCode_Turn_Capture_Hardening.md`; help `opencode_headless_completion` |
 | Smart / auto model routing, economy vs balanced seats, "always prefer vendor X" | Brainstorm only: `docs/phases/Scarcity_Aware_Routing.md` — read §3 rejected list first |
 | Vendor usage limit / parked run / wake-resume / authorized substitute | Code SSOT: `VendorBackoffReconciler.swift`, `VendorSubstitutionPolicy.swift` |
 | Wrong/invented capacity verdict; cross-vendor limit detection; failed-run work missing from `alln show` | Open: `docs/phases/Vendor_Signal_Isolation.md` — parser scoped by `sourceId`. Code SSOT: AgentOS `CapacityClassifier`, `DriverManifest` |
@@ -90,7 +86,6 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | GUI visual layout proof / layout-watcher | `docs/gui/Visual_Proof_Gate.md` + `docs/gui/GUI_Workflow.md` |
 | Design team (build → screenshot, not Midjourney) | `docs/operations/Design_Lane.md` + code `DesignBoardCapture` |
 | Spec Review hero loop | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope` |
-| AI Readiness (agent-workable repo; no score; cold-start Code Team) | **Closed 2026-08-09** — `code_ai_readiness` / `aiReadinessReport`. SSOT: `BuiltInTeams`, `AIReadinessReport`, `AIReadinessReceipts`, `AIReadinessShape`, `AIReadinessColdStart`, `ArtifactProjector`. Archive `AI_Readiness.md` |
 | Green suite over a real defect; a proof that could never fail; tolerance fitted until the test passed; "we measured the wrong thing" | `docs/operations/Spec_Review.md` §3 Measurement + §4 instrumentation rule — code SSOT `measurement_auditor` (Spec Review Max, Release Proof) |
 | Adding/removing a seat at a Min or Max tier | `docs/operations/Spec_Review.md` §Depth splits charters — a dropped seat's questions must be absorbed by a named pass on a seat that remains, never silently lost |
 | Execution/answer teams, mutating runs, source/write safety | Code SSOT: `RunService.swift`, `RunWriteLockRegistry` |
@@ -105,8 +100,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
-| Forward Mac app shell, Dock app, background scheduler | `alln serve` is a background SCHEDULER only (Pending wake, Boost seed, vendor-backoff continuation, cloud relay, probe/capacity refresh). It owns no run semantics; adding an operation to it is a new feature packet. |
-| `alln serve` dead / orphan LaunchAgent / capacity stale with app closed / no restart after kill | Open packet: `docs/phases/Serve_Continuity.md` (code floor shipped: `ServeLifecycle` enable/disable/repair, `ServeStableBinary`, install-cli refresh, demand heal). Next: logout/login host proof. Debugger: `2026-08-09-serve-launchagent-lwcr-PACKET.md` |
+| Background scheduler / `alln serve` dead, stale, orphaned, or launching the app | **CODE RED:** `docs/phases/Alln_Serve_Hotfixes.md`. Serve owns scheduling, never run semantics; first slice is the native launchd harness. |
 | Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |

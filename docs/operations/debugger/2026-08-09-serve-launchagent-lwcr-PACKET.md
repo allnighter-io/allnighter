@@ -83,7 +83,9 @@ Proof command / founder test:
 
 ## Product progress (2026-08-09)
 
-Code floor for this bug has shipped under `docs/phases/Serve_Continuity.md`:
+Historical code floor for this bug is archived under
+`docs/archive/phases/Serve_Continuity.md`; forward recovery is
+`docs/phases/Alln_Serve_Hotfixes.md`:
 
 | Slice | Commit (approx) | What |
 | --- | --- | --- |

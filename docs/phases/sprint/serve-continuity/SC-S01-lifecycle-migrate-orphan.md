@@ -3,7 +3,7 @@
 Status: **done** (2026-08-09) — commit `867d72e3`; Works Test 8/8  
 Slice: SC-S01  
 Run: `19045F88-081F-4CBE-B252-9353B7CA6621`  
-SSOT: [`docs/phases/Serve_Continuity.md`](../../Serve_Continuity.md) §3.2 + §4  
+Historical packet: [`Serve_Continuity.md`](../../../archive/phases/Serve_Continuity.md) §3.2 + §4
 Executor: Kimi K3 via `alln run --team build_slice --model model_kimi_k3`
 
 ## Goal
@@ -22,7 +22,7 @@ You are implementing Serve Continuity slice SC-S01 only.
 
 Read ONLY:
 - docs/phases/sprint/serve-continuity/SC-S01-lifecycle-migrate-orphan.md (this file)
-- docs/phases/Serve_Continuity.md §3.2–3.4 and §4 (SC-S01 row; SC-S00 done)
+- docs/archive/phases/Serve_Continuity.md §3.2–3.4 and §4 (SC-S01 row; SC-S00 done)
 - Packages/AllnighterCore/Sources/AllnighterEngine/ServeLaunchAgentStatus.swift
 - Packages/AllnighterCore/Sources/AllnighterCLI/AllnighterCLI.swift (runServe only)
 - Packages/AllnighterCore/Sources/AllnighterCore/ContractRegistry+Milestone1.swift (serve command flags — additive repair only)
@@ -82,4 +82,4 @@ scripts/swift-test.sh --filter ServeLifecycleTests
 
 ## SSOT
 
-`docs/phases/Serve_Continuity.md` §4 SC-S01.
+`docs/archive/phases/Serve_Continuity.md` §4 SC-S01.
