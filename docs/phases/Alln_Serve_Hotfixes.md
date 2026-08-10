@@ -4,6 +4,9 @@ Status: **CODE RED — READY FOR IMPLEMENTATION**
 Owner: AllnighterCLI + AllnighterEngine
 Created: 2026-08-10
 Finalized: 2026-08-10
+Adversarial review: 2026-08-10 — code identity, restart contract, wake ownership,
+slice ordering, and rollback terminal state were added after review. §4.5 is the
+highest-risk assumption in this packet and ASR-S00 exists to settle it.
 Supersedes: `docs/archive/phases/Serve_Continuity.md` and its unfinished logout/login
 queue. The shipped code named there is evidence, not the forward design.
 
@@ -88,11 +91,16 @@ There is exactly one canonical installed CLI executable:
 ~/.local/share/allnighter/bin/alln
 ```
 
-The PATH entry (`~/.local/bin/alln`, `/usr/local/bin/alln`, or an explicit
-install directory) is a symlink to that canonical executable. The LaunchAgent
-points to the same canonical executable. Delete the second staged copy under
+The PATH entry is a symlink to that canonical executable. The LaunchAgent points
+to the same canonical executable. Delete the second staged copy under
 `~/Library/Application Support/Allnighter/CLI/` and delete its staging owner,
 `ServeStableBinary`.
+
+The default PATH symlink is `~/.local/bin/alln`. `/usr/local/bin/alln` is no
+longer auto-preferred: it is machine-wide but would point into one user's home,
+which is wrong on a multi-user Mac and needs sudo for a per-user install. It
+remains available only through an explicit `--path`, and install output says
+plainly that it points at this user's canonical binary.
 
 The dev build is also installed through this layout. `rebuild_cli.sh` may build
 under `~/Library/Developer/Allnighter/CLI`, but `install-cli` copies the result
@@ -126,6 +134,16 @@ supervised daemon is not actively healthy, it exits nonzero with the observed
 state and `alln serve repair`; it does not queue work and hope a daemon appears.
 The first audit covers Loop operations, Pending wake, Boost seed, vendor-backoff
 continuation, notification scheduling, and cloud relay entry points.
+
+The preflight guards **the write of a deferred obligation** — a wake ticket, a
+park, a scheduled notification — never command entry. Attended work that runs
+now and returns its own result is never gated by it: `alln run` and an attended
+`alln loop` turn stay runnable with serve dead or disabled, and only refuse at
+the moment they would hand work to a daemon that will not claim it. This is the
+queue-honesty law in `AGENTS.md` ("prove a host will claim before queuing, and
+refuse loudly"), not a health sensor vetoing an explicit request — which the
+INFORM-never-BLOCK law forbids. `ServeRequirement` is the only place in the
+product allowed to make that refusal.
 
 ### 2.4 The Dock app is outside the lifecycle
 
@@ -224,16 +242,48 @@ The generated plist has one code owner and these required properties:
 - `Label = com.allnighter.resident-coordinator`
 - `ProgramArguments = [canonicalBinaryPath, "serve"]`
 - `RunAtLoad = true`
-- `KeepAlive = true`
+- `KeepAlive = { SuccessfulExit = false }` — **not** `true`
 - `ThrottleInterval = 30`
 - `ProcessType = Background`
 - `WorkingDirectory = ~/Library/Application Support/Allnighter/ProbeScratch`
 - `StandardOutPath` and `StandardErrorPath` under `~/Library/Logs/Allnighter/`
 - deterministic `HOME` and `PATH`; never inherit repo/app CWD or a host shell
 
+The install transaction creates `ProbeScratch` and the log directory before
+bootstrapping. launchd fails the spawn if the `WorkingDirectory` is missing, and
+that failure looks exactly like the wedge this packet is fixing.
+
 Vendor processes use persisted absolute `ToolInvocation` paths. The LaunchAgent
 PATH is a fallback containing only the canonical install directory and standard
 user/system binary directories. It never evaluates a login shell.
+
+#### Restart contract
+
+`KeepAlive = true` restarts the job on *every* exit, including a deliberate one.
+Today `alln serve` exits `0` when admission refuses a duplicate and `1` when a
+peer survives KILL (`AllnighterCLI.swift`), and the health listener exits on a
+bind failure. Under `KeepAlive = true` each of those is a permanent 30-second
+respawn loop — a slow-motion rerun of the fork bomb. The contract is therefore:
+
+| Daemon exit | launchd behavior | Used for |
+| --- | --- | --- |
+| exit `0` | **no restart** | deliberate stand-down: admission refusal, unrecoverable configuration |
+| signal death or nonzero exit | restart after `ThrottleInterval` | crash, wedge, external kill |
+
+`SIGTERM` settles runtime receipts and then re-raises `SIGTERM` under the default
+handler, so launchd observes signal death and restarts. `serve disable` boots out
+before removing the plist, so stand-down never competes with KeepAlive.
+
+A stood-down daemon is never silently absent: the job is loaded with no process,
+and `serve status` reports `degraded` with `supervisor.lastExitCode = 0`, the
+stand-down reason, and a recovery command.
+
+Under launchd, the supervised daemon is authoritative. `ServeDaemonAdmission`
+must supersede a foreground diagnostic daemon rather than refuse to start; the
+refuse-and-exit-0 path belongs only to a human-invoked foreground `alln serve`,
+which is not KeepAlive-managed. Recoverable runtime conditions — a busy health
+port, a transient filesystem error — retry in process with backoff. They never
+become a process exit, because a process exit is launchd's problem to loop on.
 
 ### 4.3 Install/update transaction
 
@@ -245,31 +295,102 @@ One owner performs this bounded sequence:
 2. Read desired state and active obligations. If an update would stop a daemon
    with active obligations, exit `75`/`SERVE_BUSY` before modifying anything.
 3. Verify candidate executable/version, then copy it to a same-filesystem temp
-   beside the canonical path. Preserve the prior canonical binary as rollback.
-4. Atomically rename candidate into the canonical path and atomically update the
+   beside the canonical path. Preserve the prior canonical binary as rollback at
+   the named path `<canonical>.rollback`.
+4. **Boot out the existing label before the canonical bytes change.** No
+   KeepAlive job may be loaded against the canonical path while its code identity
+   is being replaced (§4.5).
+5. Atomically rename candidate into the canonical path and atomically update the
    requested PATH symlink.
-5. When desired state is enabled: write the plist atomically, boot out the old
-   label once, bootstrap the new plist once, and wait at most 10 seconds for an
-   active health response from the expected build.
-6. On any failure after step 3, restore binary, symlink, and plist; bootstrap the
+6. When desired state is enabled: write the plist atomically, bootstrap it once,
+   and wait at most 10 seconds for an active health response from the expected
+   build.
+7. On any failure after step 5, restore binary, symlink, and plist; bootstrap the
    prior known-good job when one existed; return a nonzero structured failure.
-7. Delete rollback bytes only after active health matches the candidate build.
+8. Delete rollback bytes only after active health matches the candidate build.
 
 No unbounded retry, recursive self-launch, `kickstart` loop, or success-with-a-
 warning. The install command's exit code covers the whole requested transaction.
 
-The one-paste installer downloads to temp, verifies SHA/signature as it does
-today, then invokes the candidate's `install-cli`; it no longer hand-maintains a
-parallel install layout.
+**When rollback itself fails** (`SERVE_ROLLBACK_FAILED`, exit `1`), the rollback
+bytes stay at `<canonical>.rollback` and are never deleted. The failure output
+must print an absolute-path recovery that does **not** require a working `alln`
+on PATH — a literal `cp` of the preserved rollback into the canonical path plus
+the one-paste faucet as the second option. A user whose PATH binary is broken
+cannot be told to run an `alln` subcommand to fix it.
 
-### 4.4 Crash and login behavior
+The one-paste installer downloads to temp and verifies the published sha256 —
+`scripts/get-alln.sh` performs no signature check today, and this packet does not
+add one — then invokes the candidate's `install-cli`; it no longer hand-maintains
+a parallel install layout.
 
-launchd restarts an abnormal serve exit. Serve stays in the foreground from
-launchd's perspective and never daemonizes/forks. `SIGTERM` settles runtime
-receipts and exits. `serve disable` boots out before removing the plist, so
-KeepAlive cannot resurrect a disabled service.
+### 4.4 Crash, login, and sleep behavior
+
+launchd restarts an abnormal serve exit per the restart contract in §4.2. Serve
+stays in the foreground from launchd's perspective and never daemonizes/forks.
+`serve disable` boots out before removing the plist, so KeepAlive cannot
+resurrect a disabled service.
 
 Logout/login is a release gate, not a deferred nice-to-have.
+
+**Sleep is an owner, not an assumption.** §2.4 removes the app's wake observer,
+and every serve-side scheduler is a `Task.sleep` poll today
+(`PendingWakeScheduler`, `CapacityRefreshScheduler`). A sleeping Mac does not
+fire those timers, and a long interval can resume late after wake. Left
+unowned, a lid close silently defers exactly the obligations serve exists for:
+Pending wake and vendor-backoff continuation.
+
+`ServeDaemon` therefore owns wake. Schedulers compare a persisted absolute
+deadline against wall-clock time and are re-evaluated on system wake, not only
+when a timer expires. The bound is explicit and testable: **a due obligation
+fires within 2 minutes of system wake.** Whether that is an `IOKit`/
+`NSWorkspace` wake source inside the daemon or a short bounded poll that
+re-reads deadlines is an implementation choice for ASR-S03; the bound is not.
+
+### 4.5 Code identity across replacement — the load-bearing assumption
+
+This is the seam that opened the incident and it must be named, not implied.
+
+The 2026-08-09 failure was launchd refusing to exec before Swift `main` ran, with
+a lightweight code requirement in the log. Allnighter binaries are **ad-hoc
+signed** (`scripts/build-universal.sh`), so the cdhash changes on every build —
+release or dev rebuild. When launchd bootstraps a job it records the code
+identity at that path. Replacing the bytes underneath a loaded KeepAlive job
+means the next respawn execs an executable whose identity no longer matches the
+registration launchd and Background Task Management are holding.
+
+The whole install transaction rests on one assumption:
+
+> A bootout before the bytes change, followed by a fresh bootstrap after, is
+> sufficient to keep a per-user LaunchAgent valid across an ad-hoc-signed binary
+> replacement whose cdhash differs.
+
+That assumption is **unproven on this host**. It is why §4.3 step 4 boots out
+before the rename rather than after, and it is the entire reason ASR-S00 runs
+first. ASR-S00 must vary code identity across the replacement — two ad-hoc
+binaries with genuinely different cdhashes — and test both orders:
+
+- replace bytes **with** bootout/bootstrap around the rename;
+- replace bytes **without** rebind, letting KeepAlive respawn into new bytes.
+
+If the second case reproduces the exit-78 class, §4.3's ordering is confirmed and
+becomes an invariant: *every change to the canonical binary's bytes is bracketed
+by bootout and bootstrap; launchd is never allowed to respawn across a code
+identity change.* If the first case **also** fails, the CLI-only LaunchAgent
+distribution path in §2.5 is not viable as specified and this packet stops for a
+platform ruling rather than shipping another product patch on top of it.
+
+Additional identity facts this packet commits to:
+
+- Install records the candidate's code identity alongside its version, and
+  `ServeStatus` reports a binary mismatch when the running daemon's identity is
+  not the recorded one. Version string equality is not identity.
+- The curl faucet does not apply `com.apple.quarantine` (curl does not set it),
+  and `get-alln.sh` already execs the downloaded binary before install, which
+  would fail loudly if that ever changed. No Gatekeeper workaround is added.
+- Nothing in this packet weakens, strips, or works around a signature. If a
+  real Developer ID identity is adopted later, it replaces ad-hoc signing at the
+  build step and this section's proofs re-run unchanged.
 
 ---
 
@@ -310,6 +431,8 @@ the claim that ordinary dispatch silently spawns serve.
     "path": "/Users/me/.local/share/allnighter/bin/alln",
     "expectedGitSha": "abc123",
     "runningGitSha": "abc123",
+    "expectedCodeIdentity": "cdhash:...",
+    "runningCodeIdentity": "cdhash:...",
     "matches": true
   },
   "daemon": {
@@ -340,11 +463,14 @@ Top-level state is one of:
 - `disabled`: desired disabled and no loaded job/process;
 - `requiresApproval`: macOS reports user approval/revocation;
 - `degraded`: any enabled-state mismatch, stale/nonresponding daemon, binary
-  mismatch, crash/wedge, or required scheduler failure.
+  mismatch, crash/wedge, deliberate stand-down (§4.2), or required scheduler
+  failure.
 
 `healthy` requires a real `GET /health` response from the recorded loopback
 port whose daemon id, pid, and build identity match the durable record. A live
-PID alone never sets `loopback.listening = true`.
+PID alone never sets `loopback.listening = true`. `binary.matches` is false when
+either the build sha or the recorded code identity differs; two builds sharing a
+version string are not the same executable.
 
 ### 5.3 Exit codes and errors
 
@@ -356,6 +482,15 @@ PID alone never sets `loopback.listening = true`.
 | `75` (`EX_TEMPFAIL`) | Active obligations make update/restart unsafe | `SERVE_BUSY` |
 | `77` (`EX_NOPERM`) | User/macOS approval is required | `SERVE_REQUIRES_APPROVAL` |
 | `1` | Filesystem, launchctl, rollback, or verification failure | `SERVE_INSTALL_FAILED`, `SERVE_ROLLBACK_FAILED` |
+
+`SERVE_BUSY` must never become an un-updatable CLI. "Active obligations" means
+non-terminal runs as `ServeDaemonProbe` already computes them, minus
+vendor-backoff parks. A wedged run that `RunClockEnforcer` fails to settle would
+otherwise block every future update with no way out, so exit `75` must name the
+blocking run ids and print the exact existing command that settles or kills
+them. This packet adds **no** `--force` update path: forcing would kill live runs
+silently, which is a destructive session kill under the High-Risk Stops. The
+escape is explicit run settlement by the owner, not a flag.
 
 JSON commands emit exactly one object on stdout. Diagnostics go to structured
 fields and the serve log, not stray stdout. Human output ends with one working
@@ -403,7 +538,10 @@ receipt, and last bounded log error.
 | install -> enabled | install transaction | binary copied, therefore install succeeded | Exit 0 only after requested desired state is actively verified | Bootstrap failure rolls back and exits 1 |
 | update -> safe restart | active obligations | update command may kill serve at any time | Refuse before mutation when obligations are active | Busy fixture leaves binary/plist bytes unchanged |
 | CLI -> app | architecture gate | any executable named Allnighter can run `serve` | App bundle paths are never lifecycle candidates; Mac app has no lifecycle calls | Static gate + app argv kill test |
-| app -> freshness | `ServeDaemon` | app-open timer can substitute for serve | Periodic scheduling exists only in ServeDaemon | Static gate rejects app timer/wake ownership |
+| app -> freshness | `ServeDaemon` | app-open timer can substitute for serve | Periodic scheduling exists only in ServeDaemon | Seeded violation through `scripts/validate_architecture_policy.py` fails the gate |
+| version -> identity | `ServeInstallation` | same version string means same executable | Recorded code identity, not version equality, decides `binary.matches` | Fixture: equal version, different cdhash => degraded |
+| exit -> restart | launchd plist | KeepAlive can always restart safely | Exit `0` means stand-down; only signal/nonzero restarts | Fixture: persistent refusal produces one stand-down, not a respawn loop |
+| timer -> wake | `ServeDaemon` | an in-process sleep survives system sleep | Deadlines are wall-clock and re-evaluated on wake | Host gate: due obligation after lid close fires within 2 min of wake |
 | user disable -> repair | desired state + ServiceManagement | missing process means re-enable it | Updates preserve explicit disabled; revoked approval is never bypassed | Disabled/requiresApproval fixtures perform no bootstrap |
 | PATH -> vendor availability | persisted `ToolInvocation` | launchd's PATH can answer which vendor CLI to run | Scheduler spawns use resolved absolute invocations; PATH is fallback only | Minimal-PATH scheduler fixture invokes absolute binary |
 
@@ -413,21 +551,44 @@ receipt, and last bounded log error.
 
 One slice = one work order = one commit. Do not combine slices.
 
+**Per-slice invariant:** committing any single slice must leave the founder's
+live host no worse than before it. A slice that can only be safe in combination
+with a later slice is mis-cut. Each work order states, in one line, what the host
+looks like with that slice committed and the rest unbuilt.
+
 ### ASR-S00 — native launchd isolation harness
 
-Goal: prove the CLI-only primitive before another product patch.
+Goal: prove the CLI-only primitive, and specifically the §4.5 code-identity
+assumption, before another product patch.
 
 - Add `tools/ServeLaunchdHarness/` with a tiny executable/fixture that writes a
   heartbeat from a neutral Library CWD.
 - Use a unique non-product label and scratch home; never mutate
   `com.allnighter.resident-coordinator`.
-- Prove bootstrap, active check, TERM/KILL restart, atomic binary replacement +
-  rebind, disable cleanup, minimal PATH, and no repo/app dependency.
+- Prove bootstrap, active check, TERM/KILL restart, disable cleanup, minimal
+  PATH, and no repo/app dependency.
+- **Code identity is the headline experiment.** Build two ad-hoc-signed harness
+  binaries with genuinely different cdhashes (verify with `codesign -dvvv`) and
+  replace the bootstrapped executable both ways:
+  (a) bootout -> rename -> bootstrap, and (b) rename underneath a loaded
+  KeepAlive job with no rebind. Record what launchd does in each case, including
+  exit status and any pre-`main` refusal.
+- Prove the restart contract from §4.2 on the real primitive: `KeepAlive =
+  { SuccessfulExit = false }` with a deliberate exit `0` produces **no** respawn,
+  and a signal death does produce one.
 - Capture the working plist/API sequence and product delta under `docs/qa/`.
 
 Proof: `bash tools/ServeLaunchdHarness/run.sh same-session`
-Stop: if the minimal agent cannot survive kill/rebind, do not edit product
-lifecycle code; report the platform failure.
+
+Stop conditions — report the platform result and edit no product lifecycle code:
+
+- the minimal agent cannot survive kill or rebind;
+- case (a) fails, which invalidates the §4.3 transaction and the §2.5 CLI-only
+  LaunchAgent path as specified;
+- the restart contract does not behave as §4.2 assumes.
+
+If case (b) succeeds where the incident failed, say so plainly — it means the
+LWCR wedge had another cause and §4.5 must be re-derived before ASR-S01.
 
 ### ASR-S01 — one canonical CLI installation
 
@@ -437,6 +598,14 @@ Touch: `InstallCLI`, `AllnighterCLI.runInstallCLI`, `scripts/get-alln.sh`,
 `scripts/rebuild_cli.sh`, install tests. Delete `ServeStableBinary` and its tests
 only after all references move.
 
+Ordering guard: the founder's live host currently runs a LaunchAgent whose
+`ProgramArguments` point at the staged copy under Application Support
+(`ServeLifecycle`). This slice writes the canonical binary and repoints PATH, but
+it **must not delete the staged bytes** — deleting them while that agent is still
+loaded gives launchd a missing executable to thrash on. Staged bytes stay until
+ASR-S02 rebinds the live agent to the canonical path. With only this slice
+committed, the host has a stale-but-running agent and a correct PATH binary.
+
 Proof:
 
 ```text
@@ -445,7 +614,10 @@ bash scripts/test-get-alln.sh
 ```
 
 Required kill tests: same-file candidate; protected dev source refusal; atomic
-rollback; PATH and LaunchAgent target resolve to the same inode/path.
+rollback; PATH and LaunchAgent target resolve to the same inode/path; bootout is
+observed **before** the canonical bytes change (§4.3 step 4); install records the
+candidate's code identity, not only its version string; a failed rollback leaves
+`<canonical>.rollback` in place and emits a recovery that does not invoke `alln`.
 
 ### ASR-S02 — convergent supervisor lifecycle
 
@@ -454,6 +626,14 @@ transactional owner.
 
 Touch: `ServeLifecycle` (or rename to `ServeInstallation`),
 `ServeLaunchAgentStatus`, desired-state store, CLI routing, lifecycle tests.
+Links `ServiceManagement` into the CLI target for `statusForLegacyPlist(at:)`,
+which the codebase does not use today.
+
+This slice owns the live-host rebind: converging an enabled installation boots
+out any agent still pointing at the Application Support staged path, writes the
+canonical plist, bootstraps it, and only then removes the staged bytes. That
+migration belongs here, not in ASR-S05, so no commit leaves two executable
+identities on a real host.
 
 Proof:
 
@@ -463,17 +643,23 @@ scripts/swift-test.sh --filter 'ServeLifecycleTests|ServeLifecycleEnableTests|Se
 
 Required kill tests: first install defaults enabled; `--no-serve`; disable
 persists across update; repair restores enabled agent; requiresApproval does not
-bootstrap; busy update is byte-for-byte nonmutating; bootstrap failure restores
-prior healthy bytes/plist.
+bootstrap; busy update is byte-for-byte nonmutating and names the blocking run
+ids; bootstrap failure restores prior healthy bytes/plist; the generated plist
+emits `KeepAlive` as a dictionary with `SuccessfulExit = false`, never the bare
+boolean; convergence rebinds an agent still pointing at the staged path and
+removes the staged bytes only after the canonical agent answers health;
+`WorkingDirectory` and the log directory exist before bootstrap.
 
 ### ASR-S03 — active health and scheduler receipts
 
 Goal: make status answer “is useful scheduling alive?” rather than “does a pid
 exist?”
 
-Touch: `ServeDaemon`, `ServeDaemonProbe`, loopback health client/server,
-`CoordinatorHealth` -> `ServeStatusJSON` mapping, runtime receipt, bounded log,
-focused scheduler wrappers/tests.
+Touch: `ServeDaemon`, `ServeDaemonProbe`, `ServeDaemonAdmission`, loopback health
+client/server, `CoordinatorHealth` -> `ServeStatusJSON` mapping, runtime receipt,
+bounded log, focused scheduler wrappers/tests. Also owns the §4.4 wake bound and
+the §4.2 in-daemon exit contract (supersede under launchd; retry recoverable
+runtime conditions in process instead of exiting into a KeepAlive loop).
 
 Proof:
 
@@ -483,7 +669,11 @@ scripts/swift-test.sh --filter 'CoordinatorTests|ServeLaunchAgentStatusTests|Ser
 
 Required kill tests: recycled PID; dead port; wrong daemon id; wrong build;
 missing required scheduler; failed scheduler with readable last error; daemon-
-dead status still returns one recovery object.
+dead status still returns one recovery object; a deadline that came due during a
+simulated sleep gap is re-evaluated on wake rather than waiting out the original
+interval; a stood-down daemon (loaded job, exit `0`, no process) reports
+`degraded` with the stand-down reason instead of reading as absent; a busy health
+port retries in process and does not exit.
 
 ### ASR-S04 — delete alternate lifecycle and app scheduler ownership
 
@@ -494,10 +684,24 @@ Delete `ServeAutoLaunch`, `ServeAutoLaunchCLI`, run/loop call sites,
 periodic/wake capacity acquisition. Retain explicit UI refresh through the
 shared Engine operation and durable history rendering.
 
+This slice also **builds** `ServeRequirement`, which does not exist yet. It is
+mandated by §2.3 and belongs here because it replaces the very call sites this
+slice deletes: `ensureRunning` is invoked from `LoopEngineCLI` today. Touch:
+new `ServeRequirement` plus the §2.3 audit list — Loop obligations, Pending
+wake, Boost seed, vendor-backoff continuation, notification scheduling, cloud
+relay. Each converted call site is listed in the work order with a verdict of
+"gated" or "attended, not gated" per §2.3's scope rule; a call site that runs
+now and returns its own result is not gated.
+
 Add a deterministic architecture gate to
 `scripts/check_architecture_policy.sh`: app source may not call/import serve
 lifecycle or host `CapacityRefreshScheduler`/`ProbeRecordRefreshScheduler`;
 non-lifecycle CLI code may not spawn `alln serve`.
+
+A name-based gate that has never failed is not a gate. Every rule added here
+must be proven by a seeded violation through `scripts/validate_architecture_policy.py`,
+which already exists for exactly this. A gate that cannot be made to fail on
+demand does not count as the negative proof in §7.
 
 Proof:
 
@@ -518,8 +722,13 @@ Goal: make every entry point teach and preserve the same lifecycle.
   snippets, `alln doctor`, and generated contract artifacts.
 - Search terms: `serve`, `scheduler`, `background`, `login`, `launchagent`,
   `capacity stale`, `pending stuck`, `notification`, `repair`.
-- Migrate the old Application Support staged binary and old plist only after the
-  new agent is healthy. Remove the obsolete staged binary; never leave two jobs.
+- The staged-binary and plist migration itself lands in ASR-S02, not here. This
+  slice sweeps what the migration leaves behind: stale teaching, retired
+  vocabulary, and any residual on-disk artifact that no owner claims.
+- Retire in-code teaching strings, not only help topics. The refuse path today
+  prints "Stop it with `kill <pid>` if you want a fresh one"
+  (`AllnighterCLI.swift:678`), which contradicts the supervised lifecycle and
+  must be replaced with the supported command.
 - Uninstall disables/boots out first, then removes canonical CLI, plist, desired
   state, runtime receipt, and logs according to the uninstall disclosure.
 - Update `Product_Vocabulary.md` with the shipped background-scheduler law at
@@ -559,9 +768,32 @@ Required host matrix:
    passes. This gate cannot be waived by a same-session unit test.
 8. Disable -> logout/login: serve stays absent. Reinstall/update preserves
    disabled until explicit enable.
+9. **Founder dev loop, three consecutive cycles in one session:**
+   `rebuild_cli.sh` -> `install-cli` -> healthy serve, repeated three times with
+   a changing ad-hoc cdhash under the same registration. No LWCR/exit-78 wedge,
+   no TCC prompt, exactly one daemon and one agent after each cycle. This is the
+   loop the founder actually runs; a clean-install-only proof does not cover it.
+10. **Sleep gate:** schedule an obligation due during sleep, close the lid past
+    its deadline, wake, and prove the receipt advances within 2 minutes (§4.4).
+11. **No restart loop:** induce a persistent stand-down (exit `0`) and confirm
+    launchd does not respawn and `serve status` reports `degraded` with the
+    reason. Then induce a crash and confirm it does respawn.
+
+The faucet line in the Works Test is dogfood-pinned. `https://get.allnighter.io`
+returns HTTP 525 as of 2026-08-10 and `One_Paste_Cold_Start.md` still marks the
+public URL provisional, so the accepted gate form is
+`ALLN_INSTALL_BASE_URL=<dogfood base> curl -fsSL .../get-alln.sh | sh`. The
+public URL becomes the gate only when the publish pipeline serves `latest.json`;
+until then, quoting the public one-liner as a passing proof is a false receipt.
+
+Gates 7, 8, 9, and 10 require a human at the machine. The founder is the signer.
+Each run is recorded under `docs/qa/alln-serve/` as one file per attempt with:
+date, build identity, the gate number, the raw `serve status --json` before and
+after, and pass/fail. An unrecorded gate is an unrun gate.
 
 Closeout proof: focused tests from all slices, then `bash scripts/check.sh`, then
-the approved host script and logout/login record under `docs/qa/alln-serve/`.
+the approved host script and the founder-signed records under
+`docs/qa/alln-serve/`.
 
 ---
 
@@ -579,7 +811,8 @@ the approved host script and logout/login record under `docs/qa/alln-serve/`.
 ```text
 Precondition: clean user; Allnighter.app absent; no old agent/plist/process.
 
-curl -fsSL https://get.allnighter.io | sh
+# public URL is not live yet (HTTP 525 on 2026-08-10) — pin the dogfood base
+ALLN_INSTALL_BASE_URL="$DOGFOOD_BASE" sh scripts/get-alln.sh
 alln serve status --json
 # assert state=healthy; binary.matches=true; authorization=enabled;
 # assert required scheduler ids present; record pid/build.
@@ -600,10 +833,18 @@ Dock app, reboot, `kickstart`, or agent intervention.
 
 ## 10. Done when
 
+- [ ] ASR-S00 settled the §4.5 code-identity assumption on a real host, and the
+  bootout-before-replacement invariant is either confirmed or replaced.
 - [ ] CLI-only install enables and actively verifies one supervised serve by
   default, with a disclosed opt-out.
-- [ ] PATH, launchd, health, and update name one canonical installed binary.
-- [ ] Kill, update, rollback, disable, and logout/login host proofs pass.
+- [ ] PATH, launchd, health, and update name one canonical installed binary, and
+  identity — not version string — decides `binary.matches`.
+- [ ] No exit path produces a KeepAlive respawn loop; stand-down is visible in
+  status rather than silent.
+- [ ] A due obligation survives system sleep and fires within 2 minutes of wake.
+- [ ] Kill, update, rollback, disable, logout/login, sleep, and the founder's
+  three-cycle rebuild loop host proofs pass and are signed under
+  `docs/qa/alln-serve/`.
 - [ ] Status fails closed on authorization, launchd, daemon, binary, or required
   scheduler mismatch and returns a working recovery command.
 - [ ] Scheduler-dependent commands never leave new background obligations when
@@ -619,4 +860,13 @@ Dock app, reboot, `kickstart`, or agent intervention.
 
 ## 11. Blocking questions
 
-None. Native host proofs are execution gates, not unanswered product decisions.
+None for the founder. Native host proofs are execution gates, not unanswered
+product decisions.
+
+One open **platform** question remains, and it is deliberately assigned to
+ASR-S00 rather than answered here: whether a per-user LaunchAgent survives
+replacement of an ad-hoc-signed binary whose cdhash changes (§4.5). If ASR-S00
+shows it does not — even with bootout bracketing — the CLI-only distribution
+path in §2.5 fails and this packet returns for a distribution ruling (real
+signing identity, or an app-bundle-hosted agent) before any product code moves.
+That is a stop, not a fork to decide now.
