@@ -22,11 +22,50 @@ final class InstallCLITests: XCTestCase {
         return binary.resolvingSymlinksInPath().path
     }
 
+    private func defaultCanonicalInstall(
+        homeDirectory: URL,
+        fileManager: FileManager
+    ) -> (URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure> {
+        return { candidateURL, home, version, fm in
+            let canonicalDir = CanonicalCLIInstall.canonicalDirectory(homeDirectory: home)
+            try? fileManager.createDirectory(at: canonicalDir, withIntermediateDirectories: true)
+
+            let canonicalURL = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: home)
+            let resolvedCandidate = candidateURL.resolvingSymlinksInPath().standardizedFileURL.path
+            let resolvedCanonical = canonicalURL.resolvingSymlinksInPath().standardizedFileURL.path
+
+            if resolvedCandidate == resolvedCanonical {
+                return .success(CanonicalCLIInstall.Report(canonicalURL: canonicalURL, alreadyCanonical: true, rollbackURL: nil))
+            }
+
+            guard let data = try? Data(contentsOf: candidateURL) else {
+                return .failure(CanonicalCLIInstall.Failure(code: "SERVE_INSTALL_FAILED", message: "could not read candidate"))
+            }
+            let tempURL = canonicalDir.appendingPathComponent(".alln.staging.\(UUID().uuidString)")
+            try? data.write(to: tempURL)
+            try? fileManager.setAttributes([.posixPermissions: 0o755], ofItemAtPath: tempURL.path)
+
+            let oldExists = fileManager.fileExists(atPath: canonicalURL.path)
+            let rollbackURL = CanonicalCLIInstall.rollbackBinaryURL(homeDirectory: home)
+            if oldExists {
+                try? fileManager.removeItem(at: rollbackURL)
+                try? fileManager.moveItem(at: canonicalURL, to: rollbackURL)
+            }
+
+            try? fileManager.moveItem(at: tempURL, to: canonicalURL)
+
+            let rb: URL? = oldExists ? rollbackURL : nil
+            return .success(CanonicalCLIInstall.Report(canonicalURL: canonicalURL, alreadyCanonical: false, rollbackURL: rb))
+        }
+    }
+
     private func request(
         binary: String,
         installDir: String,
         printOnly: Bool = false,
-        pathEnvironment: String? = nil
+        pathEnvironment: String? = nil,
+        canonicalInstall: ((URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure>)? = nil,
+        version: String? = nil
     ) -> InstallCLI.Request {
         InstallCLI.Request(
             argv0: binary,
@@ -34,11 +73,13 @@ final class InstallCLITests: XCTestCase {
             printOnly: printOnly,
             pathEnvironment: pathEnvironment,
             homeDirectory: tempRoot,
-            fileManager: fm
+            fileManager: fm,
+            canonicalInstall: canonicalInstall ?? defaultCanonicalInstall(homeDirectory: tempRoot, fileManager: fm),
+            version: version
         )
     }
 
-    func testInstallCreatesSymlink() throws {
+    func testInstallCreatesSymlinkToCanonicalPath() throws {
         let binary = try makeBinary()
         let installDir = tempRoot.appendingPathComponent("bin").path
         let outcome = InstallCLI.run(request(binary: binary, installDir: installDir))
@@ -46,10 +87,16 @@ final class InstallCLITests: XCTestCase {
             return XCTFail("expected installed, got \(outcome)")
         }
         XCTAssertEqual(json.action, .installed)
-        XCTAssertEqual(json.target, binary)
+        XCTAssertEqual(json.schemaVersion, 2)
+
+        let canonicalPath = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot).path
+        XCTAssertEqual(json.target, canonicalPath)
+        XCTAssertEqual(json.canonicalPath, canonicalPath)
+        XCTAssertEqual(json.target, json.canonicalPath)
+
         let link = installDir + "/alln"
         XCTAssertTrue(fm.fileExists(atPath: link))
-        XCTAssertTrue(InstallCLI.sameExecutable(try fm.destinationOfSymbolicLink(atPath: link), binary))
+        XCTAssertTrue(InstallCLI.sameExecutable(try fm.destinationOfSymbolicLink(atPath: link), canonicalPath))
     }
 
     func testSecondRunIsAlreadyInstalled() throws {
@@ -61,13 +108,16 @@ final class InstallCLITests: XCTestCase {
             return XCTFail("expected installed, got \(outcome)")
         }
         XCTAssertEqual(json.action, .alreadyInstalled)
+        let canonicalPath = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot).path
+        XCTAssertEqual(json.target, canonicalPath)
         let line = InstallCLI.humanLine(json)
         XCTAssertTrue(line.contains("already installed"))
         XCTAssertTrue(line.contains("alln menu --json"))
         XCTAssertTrue(line.contains("benchTally.nextAction"))
+        XCTAssertTrue(line.contains("Canonical binary: \(canonicalPath)"))
     }
 
-    func testRepairsStaleSymlink() throws {
+    func testRepairsStaleSymlinkToCanonicalPath() throws {
         let binary = try makeBinary()
         let stale = tempRoot.appendingPathComponent("stale-bin")
         fm.createFile(atPath: stale.path, contents: Data("x".utf8))
@@ -81,10 +131,13 @@ final class InstallCLITests: XCTestCase {
             return XCTFail("expected installed, got \(outcome)")
         }
         XCTAssertEqual(json.action, .repaired)
-        XCTAssertTrue(InstallCLI.sameExecutable(try fm.destinationOfSymbolicLink(atPath: link), binary))
+
+        let canonicalPath = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot).path
+        XCTAssertEqual(json.target, canonicalPath)
+        XCTAssertTrue(InstallCLI.sameExecutable(try fm.destinationOfSymbolicLink(atPath: link), canonicalPath))
     }
 
-    func testPrintOnlyPreservesLegacyBehavior() throws {
+    func testPrintOnlyPerformsNoInstall() throws {
         let binary = try makeBinary()
         let installDir = tempRoot.appendingPathComponent("bin").path
         let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, printOnly: true))
@@ -93,6 +146,8 @@ final class InstallCLITests: XCTestCase {
         }
         XCTAssertEqual(json.action, .printed)
         XCTAssertFalse(fm.fileExists(atPath: installDir + "/alln"))
+        let canonicalPath = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot).path
+        XCTAssertFalse(fm.fileExists(atPath: canonicalPath))
     }
 
     func testUnwritableDirectoryReturnsCatalogError() throws {
@@ -109,7 +164,7 @@ final class InstallCLITests: XCTestCase {
         XCTAssertTrue(message.contains("--path"))
     }
 
-    func testJSONEnvelopeShape() throws {
+    func testJSONEnvelopeShapeV2() throws {
         let binary = try makeBinary()
         let installDir = tempRoot.appendingPathComponent("bin").path
         let outcome = InstallCLI.run(request(binary: binary, installDir: installDir))
@@ -118,9 +173,111 @@ final class InstallCLITests: XCTestCase {
         }
         let data = try CoreJSON.encode(json)
         let decoded = try CoreJSON.decode(InstallCLI.JSON.self, from: data)
+        XCTAssertEqual(decoded.schemaVersion, 2)
         XCTAssertEqual(decoded.action, .installed)
         XCTAssertEqual(decoded.path, installDir + "/alln")
-        XCTAssertEqual(decoded.target, binary)
+        let canonicalPath = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot).path
+        XCTAssertEqual(decoded.target, canonicalPath)
+        XCTAssertEqual(decoded.canonicalPath, canonicalPath)
+        XCTAssertNil(decoded.rollbackPath)
+        XCTAssertNil(decoded.codeIdentity)
+        XCTAssertNil(decoded.version)
+    }
+
+    func testInstallRefusalPropagatesAsFailed() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+
+        let mockInstall: (URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure> = { _, _, _, _ in
+            .failure(CanonicalCLIInstall.Failure(code: "INSTALL_CANDIDATE_REFUSED", message: "candidate is inside an .app bundle"))
+        }
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, canonicalInstall: mockInstall))
+        guard case .failed(let code, let message) = outcome else {
+            return XCTFail("expected failed, got \(outcome)")
+        }
+        XCTAssertEqual(code, "INSTALL_CANDIDATE_REFUSED")
+        XCTAssertTrue(message.contains(".app bundle"))
+    }
+
+    func testServeInstallFailedPropagatesAsFailed() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+
+        let mockInstall: (URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure> = { _, _, _, _ in
+            .failure(CanonicalCLIInstall.Failure(code: "SERVE_INSTALL_FAILED", message: "could not write temp binary"))
+        }
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, canonicalInstall: mockInstall))
+        guard case .failed(let code, _) = outcome else {
+            return XCTFail("expected failed, got \(outcome)")
+        }
+        XCTAssertEqual(code, "SERVE_INSTALL_FAILED")
+    }
+
+    func testServeRollbackFailedRecoveryMessage() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+
+        let mockInstall: (URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure> = { _, home, _, _ in
+            let errMsg = "rename to /tmp/canonical/alln failed: no space; rollback restore also failed at /tmp/canonical/alln.rollback: no device"
+            return .failure(CanonicalCLIInstall.Failure(code: "SERVE_ROLLBACK_FAILED", message: errMsg))
+        }
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, canonicalInstall: mockInstall))
+        guard case .failed(let code, let message) = outcome else {
+            return XCTFail("expected failed, got \(outcome)")
+        }
+        XCTAssertEqual(code, "SERVE_ROLLBACK_FAILED")
+        XCTAssertTrue(message.contains("To recover:"))
+        XCTAssertTrue(message.contains("cp \""))
+
+        let afterRecovery = message.components(separatedBy: "To recover:").last ?? ""
+        let recoveryLines = afterRecovery.trimmingCharacters(in: .whitespacesAndNewlines).components(separatedBy: "\n")
+        let firstRecoveryLine = recoveryLines.first ?? ""
+        XCTAssertFalse(firstRecoveryLine.contains("alln "), "first recovery step must not require alln on PATH, got: \(firstRecoveryLine)")
+        let joinedRecovery = recoveryLines.joined(separator: "\n")
+        XCTAssertTrue(joinedRecovery.contains("cold-start faucet"), "second option must mention cold-start faucet")
+    }
+
+    func testCanonicalBinaryAlreadyCanonicalStillGuaranteesSymlink() throws {
+        let binary = try makeBinary()
+        let canonicalDir = CanonicalCLIInstall.canonicalDirectory(homeDirectory: tempRoot)
+        try fm.createDirectory(at: canonicalDir, withIntermediateDirectories: true)
+        let canonicalURL = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot)
+        try fm.copyItem(atPath: binary, toPath: canonicalURL.path)
+
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(binary: canonicalURL.path, installDir: installDir))
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        XCTAssertEqual(json.action, .installed)
+        XCTAssertEqual(json.canonicalPath, json.target)
+
+        let link = installDir + "/alln"
+        XCTAssertTrue(fm.fileExists(atPath: link))
+        XCTAssertTrue(InstallCLI.sameExecutable(try fm.destinationOfSymbolicLink(atPath: link), canonicalURL.path))
+    }
+
+    func testStaleSymlinkPointingAtOldBuildRepairedToCanonical() throws {
+        let binary = try makeBinary()
+        let targetDir = CanonicalCLIInstall.canonicalDirectory(homeDirectory: tempRoot)
+        try fm.createDirectory(at: targetDir, withIntermediateDirectories: true)
+        let canonicalTarget = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot)
+
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        try fm.createDirectory(atPath: installDir, withIntermediateDirectories: true)
+        let link = installDir + "/alln"
+
+        let staleTarget = tempRoot.appendingPathComponent("old-build-bin")
+        fm.createFile(atPath: staleTarget.path, contents: Data("old".utf8))
+        try fm.createSymbolicLink(atPath: link, withDestinationPath: staleTarget.path)
+
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir))
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        XCTAssertEqual(json.action, .repaired)
+        XCTAssertTrue(fm.fileExists(atPath: canonicalTarget.path))
+        XCTAssertTrue(InstallCLI.sameExecutable(try fm.destinationOfSymbolicLink(atPath: link), canonicalTarget.path))
     }
 
     func testResolvedRunningBinaryAbsolutePath() throws {

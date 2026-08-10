@@ -2622,17 +2622,22 @@ struct AllnighterCLI {
                 print(InstallCLI.printInstructions(target: target, installDir: installDir))
             }
         case .installed(let json):
-            let refresh = ServeLifecycle().refreshAfterInstall()
             if opts.flag("json") {
                 print(jsonString(json))
             } else {
                 print(InstallCLI.humanLine(json))
             }
-            if refresh.outcome == .failed {
-                FileHandle.standardError.write(Data("install-cli: \(refresh.detail)\n".utf8))
-            }
         case .failed(let code, let message):
-            fail(code: code, message: message)
+            switch code {
+            case "CLI_USAGE_ERROR":
+                fail(code: code, message: message)
+            case "INSTALL_CANDIDATE_REFUSED", "SERVE_INSTALL_FAILED",
+                 "SERVE_ROLLBACK_FAILED", "INSTALL_CLI_TARGET_UNWRITABLE":
+                emitFailure(code: code, message: message)
+                exit(1)
+            default:
+                fail(code: code, message: message)
+            }
         }
     }
 
