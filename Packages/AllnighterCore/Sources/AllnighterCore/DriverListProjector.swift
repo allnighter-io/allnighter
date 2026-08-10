@@ -49,7 +49,7 @@ public enum DriverListProjector {
                         }
                     } else {
                         status = "notReady"
-                        detail = shortProbeDetail(record.status, vendorReset: vendorResetsBySource[manifest.id])
+                        detail = shortProbeDetail(record.status, vendorReset: vendorResetsBySource[manifest.id], driverId: manifest.id)
                     }
                 } else {
                     status = "notChecked"
@@ -77,13 +77,18 @@ public enum DriverListProjector {
         return DriverListJSON(contractVersion: contractVersion, drivers: entries)
     }
 
-    private static func shortProbeDetail(_ status: ModelSetupStatus, vendorReset: Date?) -> String? {
+    private static func shortProbeDetail(_ status: ModelSetupStatus, vendorReset: Date?, driverId: String) -> String? {
         switch status {
-        case .installedNotSignedIn: return "Needs sign-in"
-        case .shimmedNeedsConfirm: return "Needs a path"
-        case .probeFailed: return "Probe failed"
-        case .notInstalled: return "Not installed"
-        case .installedNotProbed: return "Installed, not checked"
+        case .installedNotSignedIn:
+            return SetupRecoveryCopy.attentionDetail(driverId: driverId, state: .needsLogin, probeReason: nil)
+        case .shimmedNeedsConfirm:
+            return SetupRecoveryCopy.attentionDetail(driverId: driverId, state: .needsPath, probeReason: nil)
+        case .probeFailed(let reason):
+            return SetupRecoveryCopy.attentionDetail(driverId: driverId, state: .probeFailed, probeReason: reason)
+        case .notInstalled:
+            return SetupRecoveryCopy.attentionDetail(driverId: driverId, state: .notInstalled, probeReason: nil)
+        case .installedNotProbed:
+            return SetupRecoveryCopy.attentionDetail(driverId: driverId, state: .installedNotProbed, probeReason: nil)
         case .rateLimited(let observation):
             return DoctorReport.rateLimitedDetail(observation: observation, vendorReset: vendorReset)
         case .ready: return nil

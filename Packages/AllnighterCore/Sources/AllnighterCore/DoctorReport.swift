@@ -42,6 +42,8 @@ public enum DoctorReport {
         /// OPC-S06 — same `ReleaseChannel` announcement as menu/version. `nil` means
         /// no newer release announced (or check disabled/failed); never remote notes.
         public var update: ReleaseUpdateInfo?
+        /// Parked driver ids — same set menu uses so doctor bench tallies agree.
+        public var parked: Set<String>
 
         public init(
             binaryVersion: String,
@@ -60,7 +62,8 @@ public enum DoctorReport {
             pathEnvironment: String? = nil,
             pilot: PilotContext? = nil,
             teachingInputs: [TeachingInstalledCheck.TargetInput]? = nil,
-            update: ReleaseUpdateInfo? = nil
+            update: ReleaseUpdateInfo? = nil,
+            parked: Set<String> = []
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -79,6 +82,7 @@ public enum DoctorReport {
             self.pilot = pilot
             self.teachingInputs = teachingInputs
             self.update = update
+            self.parked = parked
         }
     }
 
@@ -145,6 +149,10 @@ public enum DoctorReport {
             }
         }
 
+        if let go = openCodeGoCheck(records: records) {
+            checks.append(go)
+        }
+
         // Cursor shell allowlist — read-only vendor config; never mutated.
         let shellAllowlist = CursorShellAllowlist.check(
             configURL: inputs.cursorCLIConfigURL,
@@ -161,11 +169,10 @@ public enum DoctorReport {
         checks.append(TeachingInstalledCheck.check(inputs: inputs.teachingInputs))
 
         // Bench-readiness aggregate — same BenchTallyProjector the menu uses.
-        let parked = Set<String>() // doctor Inputs do not carry park set yet
         let tally = BenchTallyProjector.tally(
             registry: DriverRegistry(manifests),
             records: records,
-            parked: parked
+            parked: inputs.parked
         )
         if inputs.full {
             checks.append(.init(
@@ -232,6 +239,30 @@ public enum DoctorReport {
                     command: BenchTallyProjector.detectCommand
                 )
             ]
+        } else {
+            var seen = Set<String>()
+            for r in records.sorted(by: { $0.driverId < $1.driverId }) {
+                let recovery = SetupRecoveryCopy.recovery(
+                    for: r, manifest: manifests.first { $0.id == r.driverId })
+                guard let next = recovery.nextAction,
+                      seen.insert("\(next.kind)\u{1F}\(next.command)").inserted else { continue }
+                // Quotas-free doctor: don't push smoke/sign-in until --full, except install.
+                if !inputs.full, recovery.statusKind != "notInstalled" { continue }
+                nextActions.append(next)
+            }
+            if nextActions.isEmpty,
+               tally.headline == .partial
+                 || tally.headline == .noneReady
+                 || tally.needsStep > 0
+                 || tally.notInstalled > 0 {
+                nextActions = [
+                    AgentSurfaceNextAction(
+                        kind: "runDoctorFull",
+                        label: "Diagnose CLI setup",
+                        command: "alln doctor --full --json"
+                    )
+                ]
+            }
         }
 
         return DoctorResult(
@@ -312,7 +343,8 @@ public enum DoctorReport {
             let fix: String?
             if let manifest {
                 detail = SetupRecoveryCopy.notInstalledDetail(for: manifest)
-                fix = SetupRecoveryCopy.notInstalledFixCommand(for: manifest)
+                fix = SetupRecoveryCopy.notInstalledInstallShellCommand(for: manifest)
+                    ?? SetupRecoveryCopy.notInstalledFixCommand(for: manifest)
             } else {
                 detail = "\(name) not found on PATH or known paths"
                 fix = nil
@@ -335,28 +367,57 @@ public enum DoctorReport {
         switch r.status {
         case .ready:
             return .init(name: key, status: .ok, detail: "\(name) authenticated")
-        case .installedNotSignedIn(let flow):
-            return .init(name: key, status: .degraded, detail: "\(name) is not signed in. \(flow.instructions)", fixCommand: flow.interactiveCommand, requiresManual: true)
         case .rateLimited(let observation):
-            // Temporarily unavailable (quota/rate wall) — not "broken auth".
             return .init(
                 name: key,
                 status: .degraded,
                 detail: "\(name) \(rateLimitedDetail(observation: observation))",
                 requiresManual: true
             )
-        case .probeFailed(let reason):
-            let lower = reason.lowercased()
-            if lower.contains("secitemcopymatching failed") {
-                return .init(
-                    name: key, status: .degraded,
-                    detail: "\(name) Keychain auth unavailable (\(reason)). Open Cursor once, run `agent login`, then `alln doctor --full`.",
-                    fixCommand: "agent login", requiresManual: true)
-            }
-            return .init(name: key, status: .degraded, detail: "\(name) smoke probe failed: \(reason)")
+        case .probeFailed(let reason) where reason.lowercased().contains("secitemcopymatching failed"):
+            return .init(
+                name: key, status: .degraded,
+                detail: "\(name) Keychain auth unavailable (\(reason)). Open Cursor once, run `cursor-agent login`, then `alln doctor --full`.",
+                fixCommand: "cursor-agent login", requiresManual: true)
+        case .installedNotSignedIn, .probeFailed, .shimmedNeedsConfirm:
+            let recovery = SetupRecoveryCopy.recovery(for: r, manifest: nil)
+            return .init(
+                name: key,
+                status: .degraded,
+                detail: recovery.detail.map { "\(name): \($0)" } ?? "\(name) needs attention",
+                fixCommand: recovery.fixCommand,
+                requiresManual: true
+            )
         default:
             return .init(name: key, status: .notChecked, detail: "auth not determined")
         }
+    }
+
+    private static func openCodeGoCheck(records: [ToolProbeRecord]) -> DoctorResult.Check? {
+        guard let rec = records.first(where: { $0.driverId == OpenCodeModelGate.driverId }) else {
+            return nil
+        }
+        switch rec.status {
+        case .notInstalled:
+            return nil
+        default:
+            break
+        }
+        if OpenCodeModelGate.isGoConnected() {
+            return .init(
+                name: "source.opencode.goConnected",
+                status: .ok,
+                detail: "OpenCode Go API key present — Go seats can join the bench"
+            )
+        }
+        // Informational upsell — does not fail the doctor overall status (status stays .ok).
+        return .init(
+            name: "source.opencode.goConnected",
+            status: .ok,
+            detail: OpenCodeModelGate.goRecommendDetailCLI,
+            fixCommand: OpenCodeModelGate.goPlanURL.absoluteString,
+            requiresManual: true
+        )
     }
 
     /// Honest temporary-unavailability copy for a probe `.rateLimited` observation.

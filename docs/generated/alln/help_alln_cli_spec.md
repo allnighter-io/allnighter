@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.17.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.18.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -94,7 +94,10 @@ Output schema: `idleSilenceReportJSON`.
 
 ### `alln detect`
 
-Headless first-run CLI detection — probes sources, assembles the Bench/default team from ready ones, and persists the result.
+Headless first-run CLI detection — probes sources, assembles the Bench/default team from ready ones, and persists the result. Emits install/sign-in recovery so agents can fix Cursor/OpenCode/Claude without the Mac app.
+
+Flags:
+- `--json` — Structured DetectJSON for agents: per-source status, detail, fixCommand, benchTally, nextActions.
 
 ### `alln capacity`
 

@@ -41,6 +41,32 @@ final class MenuBenchTallyTests: XCTestCase {
         XCTAssertEqual(payload.ready, 1)
     }
 
+    func testPartialPayloadPointsAtDoctorFull() {
+        let tally = BenchTallyProjector.tally(
+            registry: DriverRegistry([
+                DriverManifest(id: "claude_code", displayName: "Claude", kind: .headlessCLI),
+                DriverManifest(id: "cursor_agent", displayName: "Cursor", kind: .headlessCLI),
+            ]),
+            records: [
+                ToolProbeRecord(
+                    driverId: "claude_code",
+                    status: .ready(version: "1"),
+                    lastProbeAt: now
+                ),
+                ToolProbeRecord(
+                    driverId: "cursor_agent",
+                    status: .notInstalled,
+                    lastProbeAt: now
+                ),
+            ],
+            now: now
+        )
+        let payload = MenuJSON.BenchTallyPayload(tally: tally)
+        XCTAssertEqual(payload.headline, "partial")
+        XCTAssertEqual(payload.nextAction?.command, "alln doctor --full --json")
+        XCTAssertEqual(payload.nextAction?.kind, "runDoctorFull")
+    }
+
     func testMenuProjectEncodesBenchTallyWithoutNullUpdate() throws {
         let payload = MenuJSON.BenchTallyPayload(
             headline: "neverScanned",

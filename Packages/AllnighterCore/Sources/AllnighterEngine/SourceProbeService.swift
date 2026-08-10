@@ -115,7 +115,8 @@ public struct SourceProbeService: Sendable {
             update: ReleaseChannel.checkUpdate(
                 currentVersion: binaryVersion,
                 binaryPath: runningBinaryPath
-            )
+            ),
+            parked: parked
         )
         var result = DoctorReport.build(models: models, manifests: manifests, records: doctorRecords, inputs: inputs)
         result.checks.append(LoopPersistenceDoctorCheck.doctorCheck(loopsRoot: AllnighterPaths.loops))

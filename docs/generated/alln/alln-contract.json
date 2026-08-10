@@ -317,9 +317,9 @@
       "effects" : {
         "destructive" : "never",
         "humanInteraction" : "never",
-        "quotaSpend" : "never",
-        "repoWrite" : "never",
-        "workerStart" : "never"
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
       },
       "exampleIds" : [
 
@@ -328,7 +328,11 @@
 
       ],
       "flags" : [
-
+        {
+          "name" : "json",
+          "summary" : "Structured DetectJSON for agents: per-source status, detail, fixCommand, benchTally, nextActions.",
+          "takesValue" : false
+        }
       ],
       "menuAction" : false,
       "milestone" : "m1",
@@ -337,8 +341,8 @@
       ],
       "name" : "detect",
       "outputSchema" : "none",
-      "spendsQuota" : false,
-      "summary" : "Headless first-run CLI detection — probes sources, assembles the Bench\/default team from ready ones, and persists the result.",
+      "spendsQuota" : true,
+      "summary" : "Headless first-run CLI detection — probes sources, assembles the Bench\/default team from ready ones, and persists the result. Emits install\/sign-in recovery so agents can fix Cursor\/OpenCode\/Claude without the Mac app.",
       "visibility" : "public"
     },
     {
@@ -6186,7 +6190,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.17.0",
+  "contractVersion" : "9.18.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

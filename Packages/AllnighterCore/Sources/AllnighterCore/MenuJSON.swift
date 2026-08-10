@@ -30,8 +30,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     /// Absent (not `null`) when omitted. Never carries remote notes/command.
     public var update: ReleaseUpdateInfo?
     /// FCS-S02 — shared bench tally (Core `BenchTallyProjector`). Always present
-    /// when projected from a live registry. `nextAction` is set only when the
-    /// agent must run a command before spend (typically `alln detect`).
+    /// when projected from a live registry. `nextAction` is set when the agent
+    /// must run a command before spend (`alln detect` or `alln doctor --full --json`).
     public var benchTally: BenchTallyPayload?
 
     /// Wire shape for `BenchTally` — no ready/total ratio field by design.
@@ -80,7 +80,23 @@ public struct MenuJSON: Codable, Sendable, Equatable {
                     label: "Find CLIs on this Mac",
                     command: BenchTallyProjector.detectCommand
                 )
-            case .configurationMissing, .allReady, .noneReady, .partial:
+            case .noneReady, .partial:
+                if tally.needsStep > 0 || tally.notInstalled > 0 || tally.needsCheck > 0 {
+                    nextAction = AgentSurfaceNextAction(
+                        kind: "runDoctorFull",
+                        label: "Diagnose CLI setup",
+                        command: "alln doctor --full --json"
+                    )
+                } else {
+                    nextAction = nil
+                }
+            case .configurationMissing:
+                nextAction = AgentSurfaceNextAction(
+                    kind: "runDoctor",
+                    label: "Check setup and sources",
+                    command: "alln doctor --json"
+                )
+            case .allReady:
                 nextAction = nil
             }
         }

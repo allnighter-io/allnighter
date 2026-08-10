@@ -648,10 +648,18 @@ public enum HelpTopicRegistry {
             help bundle cannot know it — call doctor.
 
             Cursor IDE vs Cursor Agent CLI: opening Cursor (the IDE) does **not** seat \
-            `cursor_agent`. The seat is the headless `agent` / `cursor-agent` binary. Install \
-            with the catalog hint (`curl https://cursor.com/install …`), then `agent login` \
-            if needed, then `alln detect` (or Mac Re-check on that card). Doctor/detect copy \
-            never treats the IDE as the seat.
+            `cursor_agent`. The seat is the headless `cursor-agent` binary (not Grok’s \
+            `agent`). Install with the catalog curl, then `cursor-agent login` if needed, \
+            then `alln detect` (or Mac Re-check). Doctor/detect never treat the IDE as the seat.
+
+            Claude Code: expired OAuth often looks like opaque `smoke exited 1`. Open Claude \
+            Code, type `/login` (in-session — not a shell `claude` login), finish the browser \
+            flow, then `alln detect`.
+
+            OpenCode: Zen (`opencode/*`) can be ready while Go seats stay gated until \
+            `opencode-go` is connected (`/connect` after https://opencode.ai/go). \
+            `alln doctor --full --json` reports `source.opencode.goConnected` as an upsell, \
+            not a failure.
 
             Cursor gotcha: headless cursor-agent \
             respects `permissions.allow` in `~/.cursor/cli-config.json` even under `--trust`; \
@@ -663,10 +671,12 @@ public enum HelpTopicRegistry {
             """,
             aliases: ["auth", "login", "sign in", "blocked", "why can't allnighter run codex", "api key",
                       "cursor ide", "cursor app", "cursor agent", "cursor-agent", "agent login",
-                      "install cursor cli"],
+                      "install cursor cli", "claude login", "/login", "opencode go"],
             sections: [
-                .init("source-auth-expired", "Source auth expired", "Re-authenticate the named source via its own login flow, then re-probe with `alln doctor`."),
-                .init("cursor-ide-vs-agent", "Cursor IDE ≠ Agent CLI", "The Cursor app is not a seat. Install/sign in the `agent` CLI, then `alln detect`."),
+                .init("source-auth-expired", "Source auth expired", "Re-authenticate the named source via its own login flow, then re-probe with `alln doctor --full` / `alln detect`."),
+                .init("cursor-ide-vs-agent", "Cursor IDE ≠ Agent CLI", "The Cursor app is not a seat. Install/sign in `cursor-agent`, then `alln detect`."),
+                .init("claude-slash-login", "Claude `/login`", "Open Claude Code and type `/login` — not a shell login command. Then `alln detect`."),
+                .init("opencode-go", "OpenCode Go", "Zen ready ≠ Go seats. Subscribe at opencode.ai/go, `/connect` the key, then `alln detect`."),
             ],
             relatedCommandNames: ["doctor", "doctor explain", "detect"],
             schemaRefs: ["doctorResult"],
@@ -680,8 +690,9 @@ public enum HelpTopicRegistry {
             To answer "what can my install do right now?", call `alln menu --json`. Read \
             `benchTally.headline` and counts — the same BenchTally projector the Mac badge uses. \
             Headline `neverScanned` means no probe cache yet: **not** "0 of catalog ready." \
-            When `benchTally.nextAction` is set, run that command once (usually `alln detect`) \
-            before spend. `alln doctor` uses the same headline and may point at detect.
+            When `benchTally.nextAction` is set, run that command once — `alln detect` when \
+            never scanned, or `alln doctor --full --json` when CLIs need install/sign-in — \
+            before spend. Prefer `alln detect --json` for per-source `detail` / `fixCommand`.
 
             Mac chrome says **Find my team** / **No CLIs checked yet** in that state — press \
             Find my team (or run detect on the CLI) to measure. Ready only means smoke-passed.

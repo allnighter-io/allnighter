@@ -80,10 +80,88 @@ final class DoctorReportTests: XCTestCase {
         let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: inputs(full: true))
         let auth = check(r, "source.claude_code.auth")
         XCTAssertEqual(auth?.status, .degraded)
-        XCTAssertEqual(auth?.fixCommand, "claude")
+        XCTAssertNil(auth?.fixCommand, "Claude /login is not a shell command")
+        XCTAssertTrue(auth?.detail.contains("/login") ?? false, auth?.detail ?? "")
         XCTAssertTrue(auth?.requiresManual ?? false)
         // Codex is ready, so a minimal team can run → degraded, not critical.
         XCTAssertEqual(r.status, .degraded)
+        XCTAssertEqual(r.nextActions.first?.kind, "signInClaude")
+        XCTAssertEqual(r.nextActions.first?.command, "alln help get setup_and_auth")
+    }
+
+    func testFullMapsOpaqueClaudeSmokeToSignIn() {
+        let records = [
+            ToolProbeRecord(
+                driverId: "claude_code",
+                status: .probeFailed(reason: "smoke exited 1"),
+                version: "1.2",
+                lastProbeAt: t
+            ),
+            ToolProbeRecord(driverId: "codex", status: .ready(version: "0.9"), version: "0.9", lastProbeAt: t),
+        ]
+        let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: inputs(full: true))
+        let auth = check(r, "source.claude_code.auth")
+        XCTAssertEqual(auth?.status, .degraded)
+        XCTAssertTrue(auth?.detail.contains("/login") ?? false, auth?.detail ?? "")
+        XCTAssertNil(auth?.fixCommand)
+    }
+
+    func testOpenCodeGoCheckIsInformationalWhenDisconnected() {
+        OpenCodeModelGate.overrideGoConnectedForTesting(false)
+        defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
+        let records = [
+            ToolProbeRecord(driverId: "opencode", status: .ready(version: "1.0"), version: "1.0", lastProbeAt: t),
+            ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1.2"), version: "1.2", lastProbeAt: t),
+        ]
+        let manifestsWithOC = manifests + [
+            DriverManifest(id: "opencode", displayName: "OpenCode", kind: .headlessCLI)
+        ]
+        let r = DoctorReport.build(
+            models: models, manifests: manifestsWithOC, records: records, inputs: inputs(full: true))
+        let go = check(r, "source.opencode.goConnected")
+        XCTAssertEqual(go?.status, .ok)
+        XCTAssertTrue(go?.detail.contains("$10") ?? false, go?.detail ?? "")
+        XCTAssertEqual(go?.fixCommand, OpenCodeModelGate.goPlanURL.absoluteString)
+        XCTAssertEqual(r.status, .ok, "missing Go must not fail doctor overall")
+    }
+
+    func testDoctorBenchTallyHonorsParkedSet() {
+        var base = inputs(full: true)
+        base.parked = ["codex"]
+        let records = [
+            ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1.2"), version: "1.2", lastProbeAt: t),
+            ToolProbeRecord(driverId: "codex", status: .notInstalled, lastProbeAt: t),
+        ]
+        let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: base)
+        // Parked Codex is excluded from supported — one ready of one supported → allReady.
+        XCTAssertEqual(check(r, "benchReadyCount")?.detail, "1 CLI ready (allReady)")
+    }
+
+    func testDoctorKeepsDistinctRepairNextActions() {
+        let records = [
+            ToolProbeRecord(
+                driverId: "claude_code",
+                status: .probeFailed(reason: "smoke exited 1"),
+                version: "1",
+                lastProbeAt: t
+            ),
+            ToolProbeRecord(
+                driverId: "opencode",
+                status: .probeFailed(reason: "opencode smoke: messageFailed"),
+                version: "1",
+                lastProbeAt: t
+            ),
+        ]
+        let manifestsWithOC = manifests + [
+            DriverManifest(id: "opencode", displayName: "OpenCode", kind: .headlessCLI)
+        ]
+        let r = DoctorReport.build(
+            models: models, manifests: manifestsWithOC, records: records, inputs: inputs(full: true))
+        let kinds = Set(r.nextActions.map(\.kind))
+        let commands = Set(r.nextActions.map(\.command))
+        XCTAssertTrue(kinds.contains("signInClaude"))
+        XCTAssertTrue(kinds.contains("repairProbe") || commands.contains("alln detect"))
+        XCTAssertGreaterThanOrEqual(r.nextActions.count, 2)
     }
 
     func testFullWithZeroReadyIsCritical() {

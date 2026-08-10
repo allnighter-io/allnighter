@@ -93,7 +93,7 @@ struct AllnighterCLI {
         case "team" where args.first == "cancel": await runTeamCancel(Array(args.dropFirst()), runtime)
         case "team" where args.first == "reconcile": await runTeamReconcile(Array(args.dropFirst()), runtime)
         case "doctor": await runDoctor(args, runtime)
-        case "detect": await runDetect(runtime)
+        case "detect": await runDetect(args, runtime)
         case "capacity": runCapacity(args)
         case "opencode-go": OpenCodeGoCLI.run(args)
         case "bailian-token-plan": BailianTokenPlanCLI.run(args)
@@ -837,60 +837,67 @@ struct AllnighterCLI {
         for action in r.nextActions { print("→ \(action.command)") }
     }
 
-    /// First-run CLI detection, headless — proves the detector on a real machine
-    /// before any Setup UI (docs/phases/setup/01 §11, Phase 1). Runs real smoke
-    /// probes. Note: the CLI uses `DefaultConfig` (no `setup` blocks yet), so bins
-    /// fall back to `invoke.command` and loginFlow guidance comes from the app's
-    /// bundle registry, not here.
-    static func runDetect(_ runtime: ToolRuntime) async {
+    /// First-run CLI detection — smoke-probes supported CLIs and prints install/sign-in
+    /// recovery (`alln detect [--json]`). Shared disease copy with doctor / Mac cards.
+    static func runDetect(_ args: [String], _ runtime: ToolRuntime) async {
+        let opts = Options(args)
         let result = await SourceProbeService(
             models: runtime.models,
             registry: runtime.registry,
             binaryVersion: binaryVersion
         ).detect()
 
-        for r in result.records.sorted(by: { $0.driverId < $1.driverId }) {
-            let path = r.invocation?.resolvedPath ?? "—"
-            switch r.status {
-            case .ready(let v):
-                print("\(r.driverId)\tREADY\t\(v)\t\(path)")
-            case .installedNotProbed(let v):
-                print("\(r.driverId)\tINSTALLED (not probed)\t\(v)\t\(path)")
-            case .installedNotSignedIn(let f):
-                print("\(r.driverId)\tNEEDS SIGN-IN\t\(r.version ?? "")\n  → \(f.instructions)")
-            case .rateLimited(let observation):
-                print("\(r.driverId)\tRATE LIMITED\t\(r.version ?? "")\n  → \(DoctorReport.rateLimitedDetail(observation: observation))")
-            case .probeFailed(let reason):
-                print("\(r.driverId)\tPROBE FAILED\t\(r.version ?? "")\n  → \(reason)")
-            case .shimmedNeedsConfirm(let res):
-                print("\(r.driverId)\tNEEDS PATH\t\(res.rawCommandV)")
-            case .notInstalled:
-                let detail: String
-                if let manifest = runtime.registry.manifest(id: r.driverId) {
-                    detail = SetupRecoveryCopy.notInstalledDetail(for: manifest)
-                } else {
-                    detail = "(no binary on PATH or known paths)"
-                }
-                print("\(r.driverId)\tNOT INSTALLED\t\(detail)")
-                if let manifest = runtime.registry.manifest(id: r.driverId) {
-                    if let install = SetupRecoveryCopy.notInstalledInstallShellCommand(for: manifest) {
-                        print("  → \(install)")
-                    }
-                    if let docs = SetupRecoveryCopy.notInstalledFixCommand(for: manifest) {
-                        print("  → \(docs)")
-                    }
-                }
+        let parked = SetupStore().load().parkedSet
+        let report = DetectReport.build(
+            records: result.records,
+            registry: runtime.registry,
+            assembled: result.assembledTeam,
+            parked: parked
+        )
+
+        if opts.flag("json") {
+            print(jsonString(report))
+            return
+        }
+
+        for source in report.sources {
+            let version = source.version ?? ""
+            let path = source.path ?? "—"
+            switch source.status {
+            case "ready":
+                print("\(source.driverId)\tREADY\t\(version)\t\(path)")
+            case "installedNotProbed":
+                print("\(source.driverId)\tINSTALLED (not probed)\t\(version)\t\(path)")
+            case "needsSignIn":
+                print("\(source.driverId)\tNEEDS SIGN-IN\t\(version)")
+                if let detail = source.detail { print("  → \(detail)") }
+                if let fix = source.fixCommand { print("  → \(fix)") }
+            case "rateLimited":
+                print("\(source.driverId)\tRATE LIMITED\t\(version)")
+                if let detail = source.detail { print("  → \(detail)") }
+            case "probeFailed":
+                print("\(source.driverId)\tPROBE FAILED\t\(version)")
+                if let detail = source.detail { print("  → \(detail)") }
+                if let fix = source.fixCommand { print("  → \(fix)") }
+            case "needsPath":
+                print("\(source.driverId)\tNEEDS PATH\t\(version)")
+                if let detail = source.detail { print("  → \(detail)") }
+            case "notInstalled":
+                print("\(source.driverId)\tNOT INSTALLED\t\(source.detail ?? "")")
+                if let fix = source.fixCommand { print("  → \(fix)") }
+            default:
+                print("\(source.driverId)\t\(source.status.uppercased())\t\(version)")
+                if let detail = source.detail { print("  → \(detail)") }
             }
         }
-        let tally = BenchTallyProjector.tally(
-            registry: runtime.registry,
-            records: result.records,
-            parked: SetupStore().load().parkedSet
-        )
+        let tally = report.benchTally
         print(
-            "\nBench: \(tally.headline.rawValue) — \(tally.ready) ready · \(tally.needsStep) need a step · \(tally.notInstalled) not installed · \(tally.needsCheck) need check (of \(tally.supported) supported)"
+            "\nBench: \(tally.headline) — \(tally.ready) ready · \(tally.needsStep) need a step · \(tally.notInstalled) not installed · \(tally.needsCheck) need check (of \(tally.supported) supported)"
         )
-        print("Assembled team: \(result.assembledTeam.benchModelIds.count) ready model(s); plan writer: \(result.assembledTeam.planWriterModelId ?? "—") · saved")
+        print("Assembled team: \(report.assembledTeam.readyModelCount) ready model(s); plan writer: \(report.assembledTeam.planWriterModelId ?? "—") · saved")
+        if let next = report.nextActions.first {
+            print("Next: \(next.label) → \(next.command)")
+        }
     }
 
     /// `alln dev export-contracts [--check]` — regenerate or verify the

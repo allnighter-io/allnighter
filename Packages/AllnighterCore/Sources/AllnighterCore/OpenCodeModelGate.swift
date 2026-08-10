@@ -21,6 +21,10 @@ public enum OpenCodeModelGate {
     public static let goRecommendDetail =
         "$10/mo → $60 of coding-model usage (6×). OpenCode’s own math: ~17,000 DeepSeek V4 Pro calls a month — plus Qwen, GLM, MiniMax, and the rest of the Go lineup. First month is $5. Subscribe, connect the key, then tap Re-check."
 
+    /// Same economics as `goRecommendDetail`, CLI verbs (no Mac “Re-check”).
+    public static let goRecommendDetailCLI =
+        "$10/mo → $60 of coding-model usage (6×). OpenCode’s own math: ~17,000 DeepSeek V4 Pro calls a month — plus Qwen, GLM, MiniMax. First month is $5. Subscribe at https://opencode.ai/go, `/connect` the Go key in OpenCode, then run `alln detect`."
+
     public static let goRecommendPrimaryTitle = "Get Go — $10/mo"
 
     public static let goConnectedDetail =

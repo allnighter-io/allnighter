@@ -66,7 +66,7 @@ final class SetupRecoveryCopyTests: XCTestCase {
                 || check.detail.contains("You have Cursor"),
             check.detail
         )
-        XCTAssertEqual(check.fixCommand, "https://cursor.com/docs/cli/installation")
+        XCTAssertEqual(check.fixCommand, CursorAgentCLIInstall.shellCommand)
     }
 
     func testAttentionDetailNamesCursorGrokCollision() {
@@ -98,13 +98,14 @@ final class SetupRecoveryCopyTests: XCTestCase {
         XCTAssertFalse(detail.lowercased().contains("locate"), detail)
     }
 
-    func testAttentionDetailPassesClaudeSmokeReason() {
+    func testAttentionDetailMapsOpaqueClaudeSmokeToLogin() {
         let detail = SetupRecoveryCopy.attentionDetail(
             driverId: "claude_code",
             state: .probeFailed,
             probeReason: "smoke exited 1"
         )
-        XCTAssertEqual(detail, "smoke exited 1")
+        XCTAssertTrue(detail.contains("/login"), detail)
+        XCTAssertTrue(detail.contains("alln detect"), detail)
     }
 
     func testAttentionDetailClaudeNeedsLoginNamesExpiredLogin() {
@@ -116,5 +117,43 @@ final class SetupRecoveryCopyTests: XCTestCase {
         XCTAssertTrue(detail.contains("/login"), detail)
         XCTAssertTrue(detail.lowercased().contains("claude code"), detail)
         XCTAssertFalse(detail.lowercased().contains("run `claude`, type"), detail)
+    }
+
+    func testRecoveryClaudeOpaqueSmokeIsNeedsSignIn() {
+        let recovery = SetupRecoveryCopy.recovery(
+            for: ToolProbeRecord(
+                driverId: "claude_code",
+                status: .probeFailed(reason: "smoke exited 1"),
+                lastProbeAt: .distantPast
+            ),
+            manifest: nil
+        )
+        XCTAssertEqual(recovery.statusKind, "needsSignIn")
+        XCTAssertNil(recovery.fixCommand)
+        XCTAssertEqual(recovery.nextAction?.kind, "signInClaude")
+        XCTAssertEqual(recovery.nextAction?.command, "alln help get setup_and_auth")
+        XCTAssertFalse(
+            recovery.nextAction?.command.contains("detect") == true,
+            "Claude nextAction must not loop agents on alln detect"
+        )
+    }
+
+    func testDetectReportJSONSurfacesCursorInstall() throws {
+        let manifest = BundledDefaults.cursorManifest
+        let report = DetectReport.build(
+            records: [
+                ToolProbeRecord(
+                    driverId: "cursor_agent",
+                    status: .notInstalled,
+                    lastProbeAt: .distantPast
+                )
+            ],
+            registry: DriverRegistry([manifest]),
+            assembled: .init(benchModelIds: [], planWriterModelId: nil)
+        )
+        let source = try XCTUnwrap(report.sources.first)
+        XCTAssertEqual(source.status, "notInstalled")
+        XCTAssertEqual(source.fixCommand, CursorAgentCLIInstall.shellCommand)
+        XCTAssertEqual(report.nextActions.first?.kind, "installCLI")
     }
 }

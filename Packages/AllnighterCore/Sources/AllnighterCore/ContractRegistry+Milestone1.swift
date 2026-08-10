@@ -41,7 +41,7 @@ public extension ContractRegistry {
     // lifecycle against the staged stable binary (opt-in start-at-login).
     // FCS-S02: minor — optional `MenuJSON.benchTally` (+ agent nextAction when
     // neverScanned) so curl|sh agents learn to run `alln detect` from the menu.
-    static let contractVersion = "9.17.0"
+    static let contractVersion = "9.18.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -130,8 +130,14 @@ public extension ContractRegistry {
             outputSchema: .idleSilenceReportJSON
         ),
         CommandSpec(
-            "detect", summary: "Headless first-run CLI detection — probes sources, assembles the Bench/default team from ready ones, and persists the result.", milestone: .m1,
-            outputSchema: .none
+            "detect",
+            summary: "Headless first-run CLI detection — probes sources, assembles the Bench/default team from ready ones, and persists the result. Emits install/sign-in recovery so agents can fix Cursor/OpenCode/Claude without the Mac app.",
+            milestone: .m1,
+            flags: [
+                FlagSpec("json", summary: "Structured DetectJSON for agents: per-source status, detail, fixCommand, benchTally, nextActions."),
+            ],
+            outputSchema: .none,
+            spendsQuota: true
         ),
         CommandSpec(
             "capacity",
