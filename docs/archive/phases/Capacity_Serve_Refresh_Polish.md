@@ -17,7 +17,7 @@ Status: **COMPLETE — CRS-S02/S01/S04/S03/S05 shipped 2026-08-09.**
 Owner: AllnighterEngine (`CapacityRefreshScheduler`, `ServeDaemon`,
 `CapacityFetch`, `CapacityHistoryStore`; app peer `CapacityResidentService`)
 Created: 2026-08-09 | Updated: 2026-08-09 (authorized)
-Parent: [`Probe_Freshness.md`](../../phases/Probe_Freshness.md) PF-S03 (SHIPPED —
+Parent: [`Probe_Freshness.md`](Probe_Freshness.md) PF-S03 (SHIPPED —
 `CapacityRefreshScheduler`) · supersedes Dock-only host lock per §0.2
 Related: [`Capacity_Warm_Bench.md`](../../phases/Capacity_Warm_Bench.md) (host lock still
 stale vs §0.2 — not this packet's job)

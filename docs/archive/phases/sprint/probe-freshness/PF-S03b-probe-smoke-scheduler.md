@@ -3,7 +3,7 @@
 Run: `28A5D3B3-A034-45E8-83A3-888108EFF270` (DeepSeek V4 Pro)
 Status: **done** (2026-08-09) — commits `fed8f447` + docs; Works Test 13/13 verified  
 Slice: PF-S03b (small)  
-SSOT: [`docs/phases/Probe_Freshness.md`](../../Probe_Freshness.md) §PF-S03 missing decision + founder B (2026-08-09)  
+SSOT: [`docs/archive/phases/Probe_Freshness.md`](../../Probe_Freshness.md) §PF-S03 missing decision + founder B (2026-08-09)  
 Executor: `model_opencode_deepseek_v4_pro` (founder-routed)
 
 ## Goal
@@ -24,7 +24,7 @@ Cheap/full:false must still never advance lastProbeAt.
 
 Read ONLY:
 - docs/phases/sprint/probe-freshness/PF-S03b-probe-smoke-scheduler.md (this file)
-- docs/phases/Probe_Freshness.md §PF-S03 “Missing decision” + header note on B
+- docs/archive/phases/Probe_Freshness.md §PF-S03 “Missing decision” + header note on B
 - Packages/AllnighterCore/Sources/AllnighterEngine/CapacityRefreshScheduler.swift (pattern)
 - Packages/AllnighterCore/Sources/AllnighterEngine/ServeDaemon.swift (wire site)
 - Packages/AllnighterCore/Sources/AllnighterEngine/SourceProbeService.swift

@@ -40,7 +40,6 @@ Each sprint file must fit on **one to two screens** and include:
 
 | Topic | Doc | Status |
 | --- | --- | --- |
-| Probe Freshness PF-S03b | [`probe-freshness/PF-S03b-probe-smoke-scheduler.md`](probe-freshness/PF-S03b-probe-smoke-scheduler.md) | **done** — `fed8f447`; Works Test 13/13 |
 | Serve Continuity SC-S00 | [`serve-continuity/SC-S00-launchagent-honesty.md`](serve-continuity/SC-S00-launchagent-honesty.md) | **done** — `05afee05` |
 | Serve Continuity SC-S01 | [`serve-continuity/SC-S01-lifecycle-migrate-orphan.md`](serve-continuity/SC-S01-lifecycle-migrate-orphan.md) | **done** — `867d72e3` |
 | Serve Continuity SC-S03 | [`serve-continuity/SC-S03-demand-heal.md`](serve-continuity/SC-S03-demand-heal.md) | **done** — `861578aa` |
@@ -54,6 +53,12 @@ Each sprint file must fit on **one to two screens** and include:
 Do not start SC-S05 (admission) under this bug’s clothes.
 
 _None other code work orders active — CT-S04 done; archive S123 when ready._
+
+## Recently archived (2026-08-09)
+
+| Topic | Location | Notes |
+| --- | --- | --- |
+| Probe Freshness PF-S03b | [`archive/phases/sprint/probe-freshness/`](../../archive/phases/sprint/probe-freshness/) | Serve periodic full probe smoke — **done** (`fed8f447`; Works Test 13/13) |
 
 ## Recently archived (2026-08-07)
 

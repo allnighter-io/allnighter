@@ -2,7 +2,13 @@
 
 Status: **OPEN — resident trust gate only. 2 of 8 rows proven, 1 recorder shipped, 5 are founder dogfood (see Trust gate progress below).**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
-(`CapacityResidentService` TBD, **Dock app only**) + AllnighterCLI
+(`CapacityResidentService`, **Dock app while open**) + AllnighterCLI
+**Scheduler host (reconciled 2026-08-09):** automatic capacity refresh and probe-record
+refresh live on **`alln serve`** (`CapacityRefreshScheduler`,
+`ProbeRecordRefreshScheduler`) — see archived
+[`Probe_Freshness.md`](../archive/phases/Probe_Freshness.md) §0.2. The Dock app
+still owns the in-process resident + `capacity.sock` publisher while open; it is
+no longer the only host for background freshness.
 Created: 2026-08-02
 Updated: 2026-08-03 (CWB-S01a resident actor + single-flight + paint gate shipped;
 displayMemo retired — resident snapshot is the one launch truth. CWB-S01b
@@ -120,7 +126,8 @@ menu-bar residency already non-goal.
 
 | Decision | Lock |
 | --- | --- |
-| **Host** | **Main Dock app only** — reason to keep Allnighter open; same process Codex needs |
+| **Host (resident + socket)** | **Dock app while open** — in-process `CapacityResidentService` + `capacity.sock` publisher; same process Codex needs |
+| **Host (background schedulers)** | **`alln serve`** — `CapacityRefreshScheduler` + `ProbeRecordRefreshScheduler` (founder ruling 2026-08-08, archived Probe Freshness §0.2). Dock-only is **not** the scheduler owner. |
 | **Menu bar residency** | **Non-goal v1** |
 | **Instant** | Socket on in-memory gated snapshot while app open — not live probe in 1s |
 | **Background** | Silent scheduled one-shot `CapacityFetch` (six disposable PTYs) |

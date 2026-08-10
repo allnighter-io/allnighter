@@ -1,6 +1,19 @@
 # Probe Freshness — the bench must not hide a working seat
 
-Status: **v8.1 — PF-S03b SHIPPED (`fed8f447`, 2026-08-09). Founder B serve-hosted
+Status: **COMPLETE — PF-S00…PF-S03b shipped 2026-08-09. ARCHIVED.**
+  Code SSOT: `ProbeFreshnessGate`, `ProbeFreshnessDisclosure`, `SourceProbeService`,
+  `CensusIngest`, `ProbeRecordRefreshScheduler`, `RunService` capability clock.
+  Vocabulary: `docs/workflows/Product_Vocabulary.md` §Probe freshness.
+Owner: code SSOT above (not this archive).
+Home: was `docs/phases/` — archived after ship.
+Created: 2026-08-08 · Revised: 2026-08-09 (closeout)
+
+**Doc lifecycle.** On closeout: promote durable behavior into code + standing docs,
+then archive to `docs/archive/phases/`. Never a standing pseudo-SSOT here.
+
+---
+
+Status (historical header): **v8.1 — PF-S03b SHIPPED (`fed8f447`, 2026-08-09). Founder B serve-hosted
   periodic full probe smoke is live. ARCHIVE READY after promote + CWB reconcile.**
   Prior “scheduled smoke not authorized” line is **superseded** by founder B:
   tiny quota spend is approved; inventing `lastProbeAt` without smoke is not.

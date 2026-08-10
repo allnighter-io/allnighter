@@ -48,6 +48,25 @@ already known, they never go and ask. Code SSOT: `CapacityWindow`,
 `CapacityAcquisition`, `CapacityBenchProjection`, `CapacityStripRenderer`,
 `CapacityHistoryStore`, and the five `*CapacityLog` parsers.
 
+## Probe freshness vocabulary (promoted from Probe Freshness, 2026-08-09)
+
+| Term | Meaning |
+| --- | --- |
+| **`lastDetectedAt`** | Cheap presence — binary still there, any check. Decays slowly. |
+| **`lastProbeAt`** | Capability evidence only — a real smoke (`full: true`) or a successful completed run. Never invented on the cheap path. |
+| **`evidenceSource`** | Where the freshness row came from: `"probe"`, `"run"`, or `"driver"` (model rows inherit the driver). |
+| **`stale`** | Read-time projection: capability evidence is older than the 30m gate. Stale never asserts a negative — it weakens the claim. |
+| **Three states** | **not detected** · **detected, never exercised** · **confirmed at T**. The middle state is honest for new users. |
+
+Standing laws: readiness sensors **inform, never block** dispatch (`DispatchReadiness`).
+A meter and a declared vendor refusal are **different facts** — neither disproves
+the other. Expiry is read-time projection only; never mutate `cli_setup.json` from
+a read path. `alln serve` hosts two schedulers: `CapacityRefreshScheduler`
+(capacity store) and `ProbeRecordRefreshScheduler` (probe records, founder B
+periodic full smoke when stale). Code SSOT: `ProbeFreshnessGate`,
+`ProbeFreshnessDisclosure`, `SourceProbeService`, `CensusIngest`, `RunService`
+(capability clock writer), `ProbeRecordRefreshScheduler`.
+
 **The `alln loop` grammar** — one object, one vocabulary, CLI and Mac alike:
 
 ```text
