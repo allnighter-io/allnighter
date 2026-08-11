@@ -82,7 +82,16 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S04a | [`alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md`](alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md) | **done** — `6bacc609` (Grok 4.5, 25 files, 82 tests) |
 | ASR-S04a2 | [`alln-serve/ASR-S04a2-gate-pending-wake.md`](alln-serve/ASR-S04a2-gate-pending-wake.md) | **done** — `69d2f1f8` + data-loss fix `ddb039ef` (77 tests) |
 
-| ASR-S04b | [`alln-serve/ASR-S04b-architecture-gate.md`](alln-serve/ASR-S04b-architecture-gate.md) | **ready** — rules + seeded violations |
+| ASR-S04b | [`alln-serve/ASR-S04b-architecture-gate.md`](alln-serve/ASR-S04b-architecture-gate.md) | **done** — `4403ab3d` (3 rules, 3 seeded failures + 3 legitimate fixtures; no Swift changed) |
+
+**ASR-S04 is complete.** Detached auto-launch is deleted and deny-listed,
+`ServeRequirement` gates deferred obligations, the app owns no serve lifecycle
+or periodic scheduling, and the architecture gate is proven able to fail.
+
+**Seat note:** DeepSeek dropped one run on S04b with `incomplete_no_final_message`
+(driver-level stream truncation, no repo change) and succeeded on retry. Founder
+2026-08-11: use **Composer 2.5** (`model_cursor_composer_25`) for med/easy work
+if DeepSeek fails again — do not retry the same order a third time.
 
 **S04a2 lesson — do not repeat.** The work order said "assert the store is
 byte-for-byte unchanged on refusal." That is right when the gate *precedes* the
