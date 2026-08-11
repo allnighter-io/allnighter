@@ -126,6 +126,7 @@ final class ServeLaunchAgentStatusTests: XCTestCase {
         let o = status(plistPresent: true,
                        printError: ServeLaunchAgentStatus.PrintError(terminationStatus: 113)).observe()
         XCTAssertEqual(o.state, .unknown)
+        XCTAssertEqual(o.launchctlConsultability, .couldNotConsult)
     }
 
     // MARK: - Probe composition

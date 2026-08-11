@@ -15,17 +15,34 @@ public struct ServeLaunchAgentStatus: Sendable {
         case running, wedged, absent, unknown
     }
 
+    /// Whether `launchctl` was consulted for this observation. Display `detail` is not this contract.
+    public enum LaunchctlConsultability: String, Codable, Equatable, Sendable {
+        /// `launchctl print` was attempted and failed — loaded is unknown.
+        case couldNotConsult
+        /// `launchctl print` succeeded, or was not required (e.g. absent plist).
+        case consulted
+    }
+
     public struct Observation: Codable, Equatable, Sendable {
         public var state: State
         public var pid: Int32?
         public var lastExitCode: Int?
         public var detail: String
+        /// Structured consult signal. `nil` is unclassifiable — never infer from `detail`.
+        public var launchctlConsultability: LaunchctlConsultability?
 
-        public init(state: State, pid: Int32? = nil, lastExitCode: Int? = nil, detail: String) {
+        public init(
+            state: State,
+            pid: Int32? = nil,
+            lastExitCode: Int? = nil,
+            detail: String,
+            launchctlConsultability: LaunchctlConsultability? = nil
+        ) {
             self.state = state
             self.pid = pid
             self.lastExitCode = lastExitCode
             self.detail = detail
+            self.launchctlConsultability = launchctlConsultability
         }
     }
 
@@ -52,14 +69,22 @@ public struct ServeLaunchAgentStatus: Sendable {
 
     public func observe() -> Observation {
         guard plistExists(plistURL) else {
-            return Observation(state: .absent, detail: "no \(Self.label) plist installed")
+            return Observation(
+                state: .absent,
+                detail: "no \(Self.label) plist installed",
+                launchctlConsultability: .consulted
+            )
         }
         let listing: String
         do {
             listing = try printListing()
         } catch {
-            return Observation(state: .unknown,
-                               detail: "\(Self.label) plist present but launchctl print failed (job not loaded)")
+            // Producer knows launchctl could not be consulted — declare it; detail stays display-only.
+            return Observation(
+                state: .unknown,
+                detail: "\(Self.label) plist present but launchctl print failed (job not loaded)",
+                launchctlConsultability: .couldNotConsult
+            )
         }
         let state = Self.stringValue("state", in: listing)
         let pid = Self.intValue("pid", in: listing).map(Int32.init)
@@ -68,15 +93,22 @@ public struct ServeLaunchAgentStatus: Sendable {
         if Self.isWedged(state: state, pid: pid, lastExitCode: lastExitCode, activeCount: activeCount, listing: listing) {
             return Observation(
                 state: .wedged, pid: pid, lastExitCode: lastExitCode,
-                detail: "\(Self.label) wedged: spawn scheduled/inactive, last exit \(lastExitCode.map(String.init) ?? "unknown"), no live job pid"
+                detail: "\(Self.label) wedged: spawn scheduled/inactive, last exit \(lastExitCode.map(String.init) ?? "unknown"), no live job pid",
+                launchctlConsultability: .consulted
             )
         }
         if let pid {
-            return Observation(state: .running, pid: pid, lastExitCode: lastExitCode,
-                               detail: "\(Self.label) running (pid \(pid))")
+            return Observation(
+                state: .running, pid: pid, lastExitCode: lastExitCode,
+                detail: "\(Self.label) running (pid \(pid))",
+                launchctlConsultability: .consulted
+            )
         }
-        return Observation(state: .unknown, lastExitCode: lastExitCode,
-                           detail: "\(Self.label) loaded but not running and not wedged (state \(state ?? "unknown"))")
+        return Observation(
+            state: .unknown, lastExitCode: lastExitCode,
+            detail: "\(Self.label) loaded but not running and not wedged (state \(state ?? "unknown"))",
+            launchctlConsultability: .consulted
+        )
     }
 
     /// The one wedge rule (SC-S00 behavior §2). Wedged = launchd reports the

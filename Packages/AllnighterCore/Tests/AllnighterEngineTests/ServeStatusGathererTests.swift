@@ -12,6 +12,35 @@ final class ServeStatusGathererTests: XCTestCase {
     private let shaA = "abc123"
     private let cdhashA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
+    // MARK: - ASR-S03f2a2 rot / fail-closed (supervisor loaded)
+
+    /// Negative proof: structured "could not consult" must yield unknown even when
+    /// `detail` is reworded. Against the prose-matching gatherer this returned `true`.
+    func testStructuredCouldNotConsultWithRewordedDetailYieldsUnknown() {
+        let observation = ServeLaunchAgentStatus.Observation(
+            state: .unknown,
+            detail: "plist present but launchctl could not be reached (reworded)",
+            launchctlConsultability: .couldNotConsult
+        )
+        XCTAssertNil(
+            ServeStatusGatherer.supervisorLoaded(plistPresent: true, observation: observation),
+            "structured could-not-consult must yield unknown regardless of detail wording"
+        )
+    }
+
+    /// Unclassifiable observation (no consultability signal) yields unknown, never optimistic true.
+    func testUnclassifiableObservationYieldsUnknownNotTrue() {
+        let observation = ServeLaunchAgentStatus.Observation(
+            state: .unknown,
+            detail: "com.allnighter.resident-coordinator plist present but launchctl print failed (job not loaded)",
+            launchctlConsultability: nil
+        )
+        XCTAssertNil(
+            ServeStatusGatherer.supervisorLoaded(plistPresent: true, observation: observation),
+            "missing consultability must fail closed to unknown, not optimistic true"
+        )
+    }
+
     // MARK: - Healthy path
 
     func testHealthyHostProducesHealthyStatus() {

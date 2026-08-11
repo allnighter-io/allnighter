@@ -205,19 +205,24 @@ public struct ServeStatusGatherer: Sendable {
 
     // MARK: - Defaults
 
-    private static func supervisorLoaded(
+    /// Maps launch-agent observation → supervisor `loaded`. `nil` means unknown.
+    /// Kept internal so ASR-S03f2a2 can assert rot / fail-closed without host I/O.
+    /// Never reads `detail` — display prose is not this contract.
+    static func supervisorLoaded(
         plistPresent: Bool,
         observation: ServeLaunchAgentStatus.Observation
     ) -> Bool? {
         guard plistPresent else { return false }
-        if observation.state == .unknown,
-           observation.detail.contains("launchctl print failed") {
+        switch observation.launchctlConsultability {
+        case .couldNotConsult:
+            return nil
+        case .consulted:
+            if observation.state == .absent { return false }
+            return true
+        case .none:
+            // Optimism about supervision is the one direction this code may never guess.
             return nil
         }
-        if observation.state == .absent {
-            return false
-        }
-        return true
     }
 
     private static func mapHealthFailure(
