@@ -1,6 +1,6 @@
 # ASR-S03f2a — gather the resolver's inputs from the real host
 
-Status: **ready**
+Status: **done, one junction corrected** — `50c36b30` (Cursor Composer 2.5)
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §5.2,
 §6, §7.
 
@@ -117,3 +117,20 @@ scripts/swift-test.sh --filter 'ServeStatusGathererTests|ServeStatusResolverTest
 Inert. Nothing calls the gatherer yet, and it cannot write. `alln serve --health`
 still emits `CoordinatorHealth` v1 unchanged, so no command's output changes and
 the live daemon is untouched.
+
+## 10. Closeout — 2026-08-11
+
+Landed `50c36b30`. Re-verified outside the seat: 46 tests green, exit 0. Scope
+held to the two permitted files; `ServeDaemonProbe`, `CoordinatorHealth`, and
+every CLI file are untouched, so `alln serve --health` still emits v1 unchanged.
+The gatherer performs no writes — the only `write` in the file is the doc
+comment saying so.
+
+**One junction is wrong and is corrected in
+[`ASR-S03f2a2`](ASR-S03f2a2-structured-supervisor-unknown.md).**
+`supervisorLoaded` decides "unknown" by matching the free-form display string
+`detail.contains("launchctl print failed")`, and the unmatched fall-through is
+`return true`. So rewording a human-facing sentence silently turns "could not
+determine whether launchd has this job" into "launchd has this job" — fail-open,
+in the one path built to fail closed, with no test failing because the tests
+build the same prose the producer does.
