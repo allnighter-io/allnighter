@@ -2600,6 +2600,16 @@ struct AllnighterCLI {
     static func runInstallCLI(_ args: [String]) async {
         let opts = Options(args)
         let env = ProcessInfo.processInfo.environment
+        let noServeFlag = opts.flag("no-serve")
+        let noServeEnv = InstallCLI.isNoServeEnvTruthy(env["ALLN_NO_SERVE"])
+        let noServeSource: String?
+        if noServeFlag {
+            noServeSource = "flag"
+        } else if noServeEnv {
+            noServeSource = "environment"
+        } else {
+            noServeSource = nil
+        }
         let request = InstallCLI.Request(
             argv0: CommandLine.arguments.first,
             pathOverride: opts.value("path"),
@@ -2623,7 +2633,8 @@ struct AllnighterCLI {
                         }
                     }
                 )
-            }
+            },
+            noServeSource: noServeSource
         )
         switch InstallCLI.run(request) {
         case .printed(let json):
@@ -2642,8 +2653,13 @@ struct AllnighterCLI {
                 print(InstallCLI.humanLine(json))
             }
 
-            if opts.flag("no-serve") {
-                print("serve: skipped (--no-serve)")
+            if let source = noServeSource {
+                if source == "flag" {
+                    print("serve: skipped (--no-serve)")
+                } else {
+                    print("serve: skipped (ALLN_NO_SERVE)")
+                }
+                _ = persistServeDisabled(homeDirectory: request.homeDirectory)
             } else {
                 await convergeServeAfterInstall(homeDirectory: request.homeDirectory)
             }
@@ -2658,6 +2674,17 @@ struct AllnighterCLI {
             default:
                 fail(code: code, message: message)
             }
+        }
+    }
+
+    private static func persistServeDisabled(homeDirectory: URL) -> Bool {
+        switch ServeDesiredState.write(.disabled, homeDirectory: homeDirectory) {
+        case .success:
+            FileHandle.standardError.write(Data("serve: desired state set to disabled\n".utf8))
+            return true
+        case .failure(let error):
+            FileHandle.standardError.write(Data("serve: could not persist disabled state: \(error.message)\n".utf8))
+            return false
         }
     }
 
@@ -2703,7 +2730,12 @@ struct AllnighterCLI {
         case .enabled, .notFound, .notRegistered:
             return true
         @unknown default:
-            return true
+            let rawLabel = String(describing: status)
+            emitFailure(
+                code: "SERVE_SERVICE_STATUS_UNKNOWN",
+                message: "SMAppService returned an unknown status (\(rawLabel)). Cannot determine authorization — refusing to bootstrap. Run `alln serve enable` to attempt manual enable."
+            )
+            exit(77)
         }
     }
 

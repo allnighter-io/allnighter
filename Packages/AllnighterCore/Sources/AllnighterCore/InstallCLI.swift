@@ -20,7 +20,8 @@ public enum InstallCLI {
         public var rollbackPath: String?
         public var codeIdentity: String?
         public var version: String?
-        public init(schemaVersion: Int = 2, action: Action, path: String? = nil, target: String? = nil, onPath: Bool? = nil, canonicalPath: String? = nil, rollbackPath: String? = nil, codeIdentity: String? = nil, version: String? = nil) {
+        public var noServeSource: String?
+        public init(schemaVersion: Int = 2, action: Action, path: String? = nil, target: String? = nil, onPath: Bool? = nil, canonicalPath: String? = nil, rollbackPath: String? = nil, codeIdentity: String? = nil, version: String? = nil, noServeSource: String? = nil) {
             self.schemaVersion = schemaVersion
             self.action = action
             self.path = path
@@ -30,6 +31,7 @@ public enum InstallCLI {
             self.rollbackPath = rollbackPath
             self.codeIdentity = codeIdentity
             self.version = version
+            self.noServeSource = noServeSource
         }
     }
 
@@ -42,6 +44,7 @@ public enum InstallCLI {
         public var fileManager: FileManager
         public var canonicalInstall: (URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure>
         public var version: String?
+        public var noServeSource: String?
 
         public init(
             argv0: String? = nil,
@@ -53,7 +56,8 @@ public enum InstallCLI {
             canonicalInstall: @escaping (URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure> = { candidate, home, version, fm in
                 CanonicalCLIInstall.install(candidateURL: candidate, homeDirectory: home, version: version, fileManager: fm)
             },
-            version: String? = nil
+            version: String? = nil,
+            noServeSource: String? = nil
         ) {
             self.argv0 = argv0
             self.pathOverride = pathOverride
@@ -63,6 +67,7 @@ public enum InstallCLI {
             self.fileManager = fileManager
             self.canonicalInstall = canonicalInstall
             self.version = version
+            self.noServeSource = noServeSource
         }
     }
 
@@ -175,7 +180,7 @@ public enum InstallCLI {
 
         if request.printOnly {
             let onPathNow = onPath(runningBinary: runningBinary, pathEnvironment: request.pathEnvironment, fileManager: request.fileManager)
-            return .printed(JSON(action: .printed, path: nil, target: runningBinary, onPath: onPathNow))
+            return .printed(JSON(action: .printed, path: nil, target: runningBinary, onPath: onPathNow, noServeSource: request.noServeSource))
         }
 
         let candidateURL = URL(fileURLWithPath: runningBinary)
@@ -269,7 +274,8 @@ public enum InstallCLI {
                 canonicalPath: canonicalTarget,
                 rollbackPath: rollbackPath,
                 codeIdentity: cdhash,
-                version: request.version
+                version: request.version,
+                noServeSource: request.noServeSource
             ))
         }
     }
@@ -280,6 +286,12 @@ public enum InstallCLI {
           ln -sf "\(target)" \(installDir)/\(symlinkName)
         (Distribution is deferred; this is the dev-build path.)
         """
+    }
+
+    public static func isNoServeEnvTruthy(_ value: String?) -> Bool {
+        guard let value, !value.isEmpty else { return false }
+        let lower = value.lowercased()
+        return lower == "1" || lower == "true" || lower == "yes"
     }
 
     public static func humanLine(_ json: JSON) -> String {

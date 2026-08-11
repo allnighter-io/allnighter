@@ -65,7 +65,8 @@ final class InstallCLITests: XCTestCase {
         printOnly: Bool = false,
         pathEnvironment: String? = nil,
         canonicalInstall: ((URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure>)? = nil,
-        version: String? = nil
+        version: String? = nil,
+        noServeSource: String? = nil
     ) -> InstallCLI.Request {
         InstallCLI.Request(
             argv0: binary,
@@ -75,7 +76,8 @@ final class InstallCLITests: XCTestCase {
             homeDirectory: tempRoot,
             fileManager: fm,
             canonicalInstall: canonicalInstall ?? defaultCanonicalInstall(homeDirectory: tempRoot, fileManager: fm),
-            version: version
+            version: version,
+            noServeSource: noServeSource
         )
     }
 
@@ -514,5 +516,79 @@ final class InstallCLITests: XCTestCase {
         let flag = spec?.flags.first { $0.name == "no-serve" }
         XCTAssertNotNil(flag, "install-cli missing --no-serve FlagSpec")
         XCTAssertFalse(flag?.takesValue ?? true, "--no-serve must be boolean (no value consumed)")
+    }
+
+    // MARK: - ASR-S02e ALLN_NO_SERVE env var
+
+    func testIsNoServeEnvTruthyReturnsTrueForOne() {
+        XCTAssertTrue(InstallCLI.isNoServeEnvTruthy("1"))
+    }
+
+    func testIsNoServeEnvTruthyReturnsTrueForTrue() {
+        XCTAssertTrue(InstallCLI.isNoServeEnvTruthy("true"))
+        XCTAssertTrue(InstallCLI.isNoServeEnvTruthy("TRUE"))
+        XCTAssertTrue(InstallCLI.isNoServeEnvTruthy("True"))
+    }
+
+    func testIsNoServeEnvTruthyReturnsTrueForYes() {
+        XCTAssertTrue(InstallCLI.isNoServeEnvTruthy("yes"))
+        XCTAssertTrue(InstallCLI.isNoServeEnvTruthy("YES"))
+    }
+
+    func testIsNoServeEnvTruthyReturnsFalseForZero() {
+        XCTAssertFalse(InstallCLI.isNoServeEnvTruthy("0"))
+    }
+
+    func testIsNoServeEnvTruthyReturnsFalseForEmptyString() {
+        XCTAssertFalse(InstallCLI.isNoServeEnvTruthy(""))
+    }
+
+    func testIsNoServeEnvTruthyReturnsFalseForNil() {
+        XCTAssertFalse(InstallCLI.isNoServeEnvTruthy(nil))
+    }
+
+    func testIsNoServeEnvTruthyReturnsFalseForUnrecognized() {
+        XCTAssertFalse(InstallCLI.isNoServeEnvTruthy("maybe"))
+        XCTAssertFalse(InstallCLI.isNoServeEnvTruthy("false"))
+    }
+
+    func testNoServeSourceFlagFlowsToJSON() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, noServeSource: "flag"))
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        XCTAssertEqual(json.noServeSource, "flag")
+    }
+
+    func testNoServeSourceEnvironmentFlowsToJSON() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, noServeSource: "environment"))
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        XCTAssertEqual(json.noServeSource, "environment")
+    }
+
+    func testNoServeSourceNilWhenNotSet() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir))
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        XCTAssertNil(json.noServeSource)
+    }
+
+    func testNoServeSourceFlowsToPrintedJSON() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, printOnly: true, noServeSource: "environment"))
+        guard case .printed(let json) = outcome else {
+            return XCTFail("expected printed, got \(outcome)")
+        }
+        XCTAssertEqual(json.noServeSource, "environment")
     }
 }
