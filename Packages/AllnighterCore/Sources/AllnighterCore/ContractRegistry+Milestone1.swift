@@ -41,7 +41,9 @@ public extension ContractRegistry {
     // lifecycle against the staged stable binary (opt-in start-at-login).
     // FCS-S02: minor — optional `MenuJSON.benchTally` (+ agent nextAction when
     // neverScanned) so curl|sh agents learn to run `alln detect` from the menu.
-    static let contractVersion = "9.18.0"
+    // ASR-S03f2b: minor — `serve status` command; `serve --health` and
+    // `serve status` emit `ServeStatusJSON` v2 (was CoordinatorHealth v1 on `--health`).
+    static let contractVersion = "9.19.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -971,11 +973,19 @@ public extension ContractRegistry {
         CommandSpec(
             "serve", summary: "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Continuity is the supervised LaunchAgent (`alln serve enable` / install default); ordinary commands never spawn a detached substitute. Start it in a terminal for diagnostics; Ctrl+C stops a foreground instance.", milestone: .m1,
             flags: [
-                FlagSpec("health", summary: "Read-only serve health; does not start serve."),
-                FlagSpec("json", summary: "Structured CoordinatorHealth output."),
+                FlagSpec("health", summary: "Read-only serve status (compatibility spelling for `serve status`)."),
+                FlagSpec("json", summary: "Structured ServeStatusJSON v2 output."),
             ],
-            outputSchema: .coordinatorHealth,
+            outputSchema: .serveStatusJSON,
             exampleIds: ["serve_health_json"]
+        ),
+        CommandSpec(
+            "serve status", summary: "Read-only desired state + supervisor + active daemon + scheduler health.", milestone: .m1,
+            flags: [
+                FlagSpec("json", summary: "Structured ServeStatusJSON v2 output."),
+            ],
+            outputSchema: .serveStatusJSON,
+            exampleIds: ["serve_status_json"]
         ),
         CommandSpec(
             "serve repair", summary: "Remove the unsupported CODE_RED LaunchAgent (com.allnighter.resident-coordinator): boots it out of launchd and deletes the hand-dropped plist, stopping wedge/thrash loops. No-op success when nothing is installed. Never starts serve and never registers a replacement agent.", milestone: .m1,
@@ -1617,7 +1627,8 @@ public extension ContractRegistry {
         ExampleRecipe("export_contracts_check", title: "Verify no contract drift", command: "alln dev export-contracts --check"),
         ExampleRecipe("thread_send_json", title: "Send message with image and file reference to thread", command: "alln thread send latest \"describe this\" --image ./shot.png --ref Sources/App.swift:10-80 --json"),
         ExampleRecipe("thread_rename_json", title: "Rename a work thread", command: "alln thread rename latest \"Paste-image bug\" --json"),
-        ExampleRecipe("serve_health_json", title: "Coordinator health", command: "alln serve --health --json"),
+        ExampleRecipe("serve_health_json", title: "Serve status (compatibility spelling)", command: "alln serve --health --json"),
+        ExampleRecipe("serve_status_json", title: "Serve status", command: "alln serve status --json"),
         ExampleRecipe("pending_add_json", title: "Create a Draft Pending item", command: "alln pending add --model model_opus --when ready --json \"Review this patch when Claude is available.\""),
         ExampleRecipe("pending_list_json", title: "List Pending items", command: "alln pending list --json"),
         ExampleRecipe("boost_window_show_json", title: "Show Boost window settings", command: "alln boost-window show --json"),

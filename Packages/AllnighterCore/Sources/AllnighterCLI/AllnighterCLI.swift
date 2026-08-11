@@ -630,11 +630,11 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln serve [--health --json]` / `alln serve repair|enable|disable
-    /// [--json]` — the optional background scheduler (Pending wake, Boost
-    /// seeding, vendor-backoff continuation, cloud relay). It owns no run
-    /// semantics: `alln run` never needs it. `--health` is read-only and
-    /// never starts it.
+    /// `alln serve status [--json]` / `alln serve --health [--json]` /
+    /// `alln serve repair|enable|disable [--json]` — the optional background
+    /// scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud
+    /// relay). It owns no run semantics: `alln run` never needs it. Status and
+    /// `--health` are read-only and never start it.
     static func runServe(_ args: [String]) async {
         let opts = Options(args)
         if opts.positional.first == "repair" {
@@ -649,20 +649,22 @@ struct AllnighterCLI {
             await runServeDisable(opts)
             return
         }
-        if opts.flag("health") {
-            let health = ServeDaemonProbe().health(binaryVersion: binaryVersion, healthClient: ServeHealthClient())
-            if opts.flag("json") {
-                print(jsonString(health))
-            } else {
-                print("serve \(health.state.rawValue)")
-                if let pid = health.pid { print("pid \(pid)") }
-                if let port = health.loopback.port { print("loopback \(health.loopback.host):\(port)") }
-                print("obligations \(health.activeObligationCount)")
+        if opts.positional.first == "status" {
+            if opts.positional.count > 1 || !opts.values.isEmpty {
+                serveStatusUsageError()
             }
+            runServeStatus(opts)
+            return
+        }
+        if opts.flag("health") {
+            if !opts.positional.isEmpty || !opts.values.isEmpty {
+                serveStatusUsageError()
+            }
+            runServeStatus(opts)
             return
         }
         if !opts.positional.isEmpty || !opts.values.isEmpty {
-            FileHandle.standardError.write(Data("usage: alln serve [--health --json] | alln serve repair|enable|disable [--json]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data("usage: alln serve [--health --json] | alln serve status [--json] | alln serve repair|enable|disable [--json]\n".utf8)); exit(2)
         }
         // Singleton + takeover. Four daemons were found running on the dogfood
         // host (oldest nine days), each executing a different build — so every
@@ -809,6 +811,68 @@ struct AllnighterCLI {
             stream.write(Data("serve disable \(result.outcome.rawValue): \(result.detail)\n".utf8))
         }
         if result.outcome != .disabled { exit(1) }
+    }
+
+    // MARK: - Serve status (ASR-S03f2b)
+
+    private static func serveStatusUsageError() -> Never {
+        FileHandle.standardError.write(Data(
+            "usage: alln serve status [--json] | alln serve --health [--json]\n".utf8))
+        exit(2)
+    }
+
+    /// Read-only `serve status` / `serve --health` path. Gathers via
+    /// `ServeStatusGatherer` only — no install, repair, or writes.
+    static func runServeStatus(
+        _ opts: Options,
+        gatherer: ServeStatusGatherer = ServeStatusGatherer()
+    ) -> Never {
+        let status = gatherer.gather().status
+        emitServeStatus(opts: opts, status: status)
+        exit(serveStatusExitCode(for: status))
+    }
+
+    /// §5.3 exit codes for the read-only status path.
+    static func serveStatusExitCode(for status: ServeStatusJSON) -> Int32 {
+        switch status.state {
+        case .healthy, .disabled:
+            return ExitCode.success
+        case .requiresApproval:
+            return 77
+        case .degraded, .starting:
+            return 69
+        }
+    }
+
+    static func emitServeStatus(opts: Options, status: ServeStatusJSON) {
+        if opts.flag("json") {
+            print(serveStatusJSONString(status))
+        } else {
+            for line in serveStatusHumanLines(for: status) {
+                print(line)
+            }
+        }
+    }
+
+    /// Exactly one JSON object on stdout — no trailing diagnostics.
+    static func serveStatusJSONString(_ status: ServeStatusJSON) -> String {
+        jsonString(status)
+    }
+
+    /// Human status ends with one pasteable recovery command when not healthy.
+    static func serveStatusHumanLines(for status: ServeStatusJSON) -> [String] {
+        var lines = ["serve \(status.state.rawValue)"]
+        lines.append("desired \(status.desiredState.rawValue)")
+        if status.supervisor.loaded {
+            lines.append("supervisor loaded")
+        }
+        if let pid = status.daemon.pid {
+            lines.append("pid \(pid)")
+        }
+        if let recovery = status.recovery {
+            lines.append(recovery.command)
+        }
+        return lines
     }
 
     private static func printDoctorHuman(_ r: DoctorResult, full: Bool) {
