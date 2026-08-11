@@ -134,11 +134,18 @@ public enum FloorProjector {
 
     private static func workerErrors(for run: TeamRun) -> [ErrorEnvelope] {
         // A failed worker is always visible, even when synthesis succeeded.
-        run.failedWorkerAnswers.map { a in
+        let modelIDsByWorkerID = Dictionary(
+            uniqueKeysWithValues: run.workers.map { ($0.id, $0.modelId) }
+        )
+        return run.failedWorkerAnswers.map { a in
             ErrorEnvelope(
                 code: "AGENT_FAILED",
                 ruleId: "agent.failed",
-                message: a.result.errorReason ?? "worker \(a.memberId) failed",
+                message: VendorUnavailablePresentation.workerFailureMessage(
+                    reason: a.result.errorReason ?? "worker \(a.memberId) failed",
+                    modelId: modelIDsByWorkerID[a.memberId],
+                    isAgentFailure: a.result.status == .failed
+                ),
                 requiresManual: false,
                 retryable: true,
                 agentId: a.memberId
@@ -289,5 +296,29 @@ public enum FloorProjector {
         guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
         if text.count <= max { return text }
         return String(text.prefix(max)) + "…"
+    }
+}
+
+/// Presents a declared, source-scoped vendor unavailability signal alongside
+/// the vendor's literal error. Unknown models, sources, and failure shapes
+/// deliberately preserve the original string byte-for-byte.
+enum VendorUnavailablePresentation {
+    static func workerFailureMessage(
+        reason: String,
+        modelId: String?,
+        isAgentFailure: Bool
+    ) -> String {
+        guard isAgentFailure,
+              let modelId,
+              let model = ModelCatalog.get(modelId),
+              model.driverId == "cursor_agent",
+              reason.range(
+                of: #"RetriableError:\s*\[resource_exhausted\]\s*Error"#,
+                options: [.regularExpression, .caseInsensitive]
+              ) != nil
+        else {
+            return reason
+        }
+        return "Cursor's \(model.displayName) model is unavailable. Vendor error: \(reason)"
     }
 }

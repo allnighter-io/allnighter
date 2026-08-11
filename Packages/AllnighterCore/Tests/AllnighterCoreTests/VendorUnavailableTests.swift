@@ -62,6 +62,12 @@ final class VendorUnavailableTests: XCTestCase {
         })
         XCTAssertEqual(failure.data.error?.message,
                        "Cursor's Composer 2.5 model is unavailable. Vendor error: \(raw)")
+
+        let floorError = try XCTUnwrap(FloorProjector.project(run).errors.first {
+            $0.agentId == workerId
+        })
+        XCTAssertEqual(floorError.message,
+                       "Cursor's Composer 2.5 model is unavailable. Vendor error: \(raw)")
     }
 
     private func projectedFailure(modelId: String, reason: String) throws -> NDJSONStreamProjector.Event {
