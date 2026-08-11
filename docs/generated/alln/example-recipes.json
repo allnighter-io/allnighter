@@ -137,7 +137,12 @@
   {
     "command" : "alln serve --health --json",
     "id" : "serve_health_json",
-    "title" : "Coordinator health"
+    "title" : "Serve status (compatibility spelling)"
+  },
+  {
+    "command" : "alln serve status --json",
+    "id" : "serve_status_json",
+    "title" : "Serve status"
   },
   {
     "command" : "alln pending add --model model_opus --when ready --json \"Review this patch when Claude is available.\"",

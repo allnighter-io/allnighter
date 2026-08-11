@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.18.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.20.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -178,6 +178,16 @@ Flags:
 Output schema: `installCLIJSON`.
 
 Examples: `install_cli_json`.
+
+### `alln uninstall`
+
+Disable serve, boot out the LaunchAgent, then remove install-created CLI and scheduler artifacts. Never removes user data under Application Support.
+
+Flags:
+- `--json` — Structured per-artifact uninstall report (requires --yes).
+- `--yes` — Confirm removal of install-created artifacts without an interactive prompt.
+
+Requires: `--json` requires `--yes`.
 
 ### `alln models`
 
@@ -1177,12 +1187,23 @@ Examples: `export_contracts_check`.
 Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Continuity is the supervised LaunchAgent (`alln serve enable` / install default); ordinary commands never spawn a detached substitute. Start it in a terminal for diagnostics; Ctrl+C stops a foreground instance.
 
 Flags:
-- `--health` — Read-only serve health; does not start serve.
-- `--json` — Structured CoordinatorHealth output.
+- `--health` — Read-only serve status (compatibility spelling for `serve status`).
+- `--json` — Structured ServeStatusJSON v2 output.
 
-Output schema: `coordinatorHealth`.
+Output schema: `serveStatusJSON`.
 
 Examples: `serve_health_json`.
+
+### `alln serve status`
+
+Read-only desired state + supervisor + active daemon + scheduler health.
+
+Flags:
+- `--json` — Structured ServeStatusJSON v2 output.
+
+Output schema: `serveStatusJSON`.
+
+Examples: `serve_status_json`.
 
 ### `alln serve repair`
 
@@ -1818,6 +1839,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `SERVE_SERVICE_STATUS_UNKNOWN` | yes | no | `operational` | SMAppService returned an unrecognized status. Run `alln serve enable` to attempt manual enable; if the macOS version is newer than expected, this may require an Allnighter update. |
 | `SERVE_UNAVAILABLE` | yes | yes | `operational` | Run `alln serve repair` (or `alln serve enable` if desired state is disabled), then retry the deferred-obligation write. |
 | `SERVE_DISABLED_BY_USER` | yes | no | `operational` | The user explicitly disabled serve. Re-enable with `alln serve enable` if desired. |
+| `SERVE_FOREIGN_HOME` | yes | no | `operational` | Run the serve lifecycle command with the real user HOME shown in the error. A per-user launchd label cannot safely be managed from a foreign HOME. |
 
 ## NDJSON events
 
@@ -1920,7 +1942,8 @@ the selected CLI.
 - `export_contracts_check` — Verify no contract drift: `alln dev export-contracts --check`
 - `thread_send_json` — Send message with image and file reference to thread: `alln thread send latest "describe this" --image ./shot.png --ref Sources/App.swift:10-80 --json`
 - `thread_rename_json` — Rename a work thread: `alln thread rename latest "Paste-image bug" --json`
-- `serve_health_json` — Coordinator health: `alln serve --health --json`
+- `serve_health_json` — Serve status (compatibility spelling): `alln serve --health --json`
+- `serve_status_json` — Serve status: `alln serve status --json`
 - `pending_add_json` — Create a Draft Pending item: `alln pending add --model model_opus --when ready --json "Review this patch when Claude is available."`
 - `pending_list_json` — List Pending items: `alln pending list --json`
 - `boost_window_show_json` — Show Boost window settings: `alln boost-window show --json`

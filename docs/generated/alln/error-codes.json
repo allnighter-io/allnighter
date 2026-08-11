@@ -1213,5 +1213,14 @@
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "serve.disabled.by_user"
+  },
+  {
+    "agentAction" : "Run the serve lifecycle command with the real user HOME shown in the error. A per-user launchd label cannot safely be managed from a foreign HOME.",
+    "code" : "SERVE_FOREIGN_HOME",
+    "exitClass" : "operational",
+    "explain" : "Serve lifecycle mutations are refused when effective HOME differs from the account home because launchd scopes com.allnighter.resident-coordinator to one user, not one HOME directory.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "serve.foreign_home"
   }
 ]

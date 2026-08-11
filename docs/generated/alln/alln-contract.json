@@ -684,6 +684,52 @@
 
       ],
       "effects" : {
+        "destructive" : "always",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+        {
+          "kind" : "requires",
+          "peers" : [
+            "yes"
+          ],
+          "subject" : "json"
+        }
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured per-artifact uninstall report (requires --yes).",
+          "takesValue" : false
+        },
+        {
+          "name" : "yes",
+          "summary" : "Confirm removal of install-created artifacts without an interactive prompt.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "uninstall",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Disable serve, boot out the LaunchAgent, then remove install-created CLI and scheduler artifacts. Never removes user data under Application Support.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
         "destructive" : "never",
         "humanInteraction" : "never",
         "quotaSpend" : "never",
@@ -4356,12 +4402,12 @@
       "flags" : [
         {
           "name" : "health",
-          "summary" : "Read-only serve health; does not start serve.",
+          "summary" : "Read-only serve status (compatibility spelling for `serve status`).",
           "takesValue" : false
         },
         {
           "name" : "json",
-          "summary" : "Structured CoordinatorHealth output.",
+          "summary" : "Structured ServeStatusJSON v2 output.",
           "takesValue" : false
         }
       ],
@@ -4371,9 +4417,44 @@
 
       ],
       "name" : "serve",
-      "outputSchema" : "coordinatorHealth",
+      "outputSchema" : "serveStatusJSON",
       "spendsQuota" : false,
       "summary" : "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Continuity is the supervised LaunchAgent (`alln serve enable` \/ install default); ordinary commands never spawn a detached substitute. Start it in a terminal for diagnostics; Ctrl+C stops a foreground instance.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+        "serve_status_json"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured ServeStatusJSON v2 output.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "serve status",
+      "outputSchema" : "serveStatusJSON",
+      "spendsQuota" : false,
+      "summary" : "Read-only desired state + supervisor + active daemon + scheduler health.",
       "visibility" : "public"
     },
     {
@@ -6165,7 +6246,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.18.0",
+  "contractVersion" : "9.20.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -7467,6 +7548,15 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "serve.disabled.by_user"
+    },
+    {
+      "agentAction" : "Run the serve lifecycle command with the real user HOME shown in the error. A per-user launchd label cannot safely be managed from a foreign HOME.",
+      "code" : "SERVE_FOREIGN_HOME",
+      "exitClass" : "operational",
+      "explain" : "Serve lifecycle mutations are refused when effective HOME differs from the account home because launchd scopes com.allnighter.resident-coordinator to one user, not one HOME directory.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "serve.foreign_home"
     }
   ],
   "events" : [
@@ -7738,7 +7828,12 @@
     {
       "command" : "alln serve --health --json",
       "id" : "serve_health_json",
-      "title" : "Coordinator health"
+      "title" : "Serve status (compatibility spelling)"
+    },
+    {
+      "command" : "alln serve status --json",
+      "id" : "serve_status_json",
+      "title" : "Serve status"
     },
     {
       "command" : "alln pending add --model model_opus --when ready --json \"Review this patch when Claude is available.\"",
