@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Works Test for alln serve crash-restart continuity (ASR-S06a gate 3).
+# Works Test for alln serve host continuity (ASR-S06a gate 3, ASR-S06c gate 4 update half).
 #
 # Default: inspect-only — reads `alln serve status --json`, reports host state,
 # never signals or mutates. Exit non-zero only when the host is not healthy.
 #
-# Destructive (founder approval): --mutate-product-agent crash-restart
-#   TERM then KILL the live daemon; assert launchd restart contract (§4.2).
+# Destructive (founder approval):
+#   --mutate-product-agent crash-restart — TERM then KILL; assert §4.2 restart contract.
+#   --mutate-product-agent update — real vA→vB rebuild via rebuild_cli.sh; assert §8 item 4 update half.
 set -uo pipefail
 
 FAILURES=0
@@ -32,6 +33,7 @@ fail() { echo "works-test-serve-continuity: FAIL — $*" >&2; FAILURES=$((FAILUR
 usage() {
   echo "Usage: $(basename "$0")" >&2
   echo "       $(basename "$0") --mutate-product-agent crash-restart" >&2
+  echo "       $(basename "$0") --mutate-product-agent update" >&2
   exit 2
 }
 
@@ -471,6 +473,195 @@ mutate_crash_restart() {
   report_host_state "$json"
 }
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+STAGED_COPY_PATH="$HOME/Library/Application Support/Allnighter/CLI/alln"
+PATH_SYMLINK="$HOME/.local/bin/alln"
+
+# Print cdhash on stdout only (for $(...) capture). Diagnostics on stderr.
+binary_cdhash() {
+  local path="$1"
+  python3 - "$path" <<'PY'
+import subprocess, sys
+path = sys.argv[1]
+try:
+    out = subprocess.check_output(["codesign", "-dvvv", path], stderr=subprocess.STDOUT, text=True)
+except subprocess.CalledProcessError as exc:
+    print(f"codesign failed for {path}: {exc.output}", file=sys.stderr)
+    sys.exit(1)
+for line in out.splitlines():
+    if line.startswith("CandidateCDHash sha256="):
+        print(line.split("=", 1)[1])
+        break
+else:
+    print(f"no CandidateCDHash in codesign output for {path}", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
+assert_no_staged_copy() {
+  local label="$1"
+  if [[ -e "$STAGED_COPY_PATH" ]]; then
+    fail "$label: staged copy must not exist at $STAGED_COPY_PATH (§2.1)"
+  else
+    pass "$label: no staged copy at $STAGED_COPY_PATH"
+  fi
+}
+
+assert_no_orphan_serve() {
+  local label="$1"
+  local binary_path="$2"
+  local supervisor_pid="$3"
+  local orphans
+
+  orphans="$(python3 - "$binary_path" "$supervisor_pid" <<'PY'
+import subprocess, sys
+path = sys.argv[1]
+supervisor = int(sys.argv[2])
+serve_cmd = f"{path} serve"
+try:
+    out = subprocess.check_output(["ps", "-axo", "pid=,ppid=,command="], text=True)
+except subprocess.CalledProcessError:
+    sys.exit(0)
+found = []
+for line in out.splitlines():
+    parts = line.strip().split(None, 2)
+    if len(parts) < 3:
+        continue
+    pid, ppid, cmd = int(parts[0]), int(parts[1]), parts[2]
+    if cmd == serve_cmd and pid != supervisor:
+        found.append(f"pid={pid} ppid={ppid}")
+print("\n".join(found))
+PY
+)"
+
+  if [[ -n "$orphans" ]]; then
+    fail "$label: orphan alln serve process(es) (supervisor pid=$supervisor_pid): $orphans"
+  else
+    pass "$label: no orphan alln serve processes"
+  fi
+}
+
+assert_path_symlink_canonical() {
+  local label="$1"
+  local canonical="$2"
+  local resolved canonical_real
+
+  if [[ ! -e "$PATH_SYMLINK" ]]; then
+    fail "$label: PATH entry missing at $PATH_SYMLINK"
+    return 1
+  fi
+
+  resolved="$(python3 - "$PATH_SYMLINK" <<'PY'
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+)"
+  canonical_real="$(python3 - "$canonical" <<'PY'
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+)"
+
+  if [[ "$resolved" != "$canonical_real" ]]; then
+    fail "$label: PATH symlink resolves to $resolved, expected canonical $canonical_real"
+  else
+    pass "$label: PATH symlink resolves to canonical binary ($canonical_real)"
+  fi
+}
+
+mutate_update() {
+  MUTATING=true
+  local json before_pid before_daemon_id before_sha before_cdhash
+  local expected_sha after_cdhash matches running_sha rebuild_log rebuild_ec
+
+  log "mutating mode: update (vA -> vB via rebuild_cli.sh)"
+
+  log "=== update: record before state ==="
+  if ! json="$(ensure_healthy_or_fail "update before-state")"; then
+    return 1
+  fi
+  read_status_fields "$json"
+  before_pid="$STATUS_DAEMON_PID"
+  before_daemon_id="$STATUS_DAEMON_ID"
+  before_sha="$(json_field binary.runningGitSha "$json" 2>/dev/null || true)"
+
+  if ! before_cdhash="$(binary_cdhash "$STATUS_BINARY_PATH")"; then
+    fail "update: could not read cdhash for $STATUS_BINARY_PATH"
+    return 1
+  fi
+
+  log "before: pid=$before_pid daemonId=$before_daemon_id runningGitSha=$before_sha cdhash=$before_cdhash"
+  assert_singularity "update before-rebuild" "$json" || true
+
+  if ! expected_sha="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"; then
+    fail "update: could not resolve expected git sha from repo at $REPO_ROOT"
+    return 1
+  fi
+  log "expected runningGitSha after rebuild: $expected_sha"
+
+  log "=== update: run rebuild_cli.sh ==="
+  rebuild_log="$(mktemp "${TMPDIR:-/tmp}/rebuild-cli-log.XXXXXX")"
+  rebuild_ec=0
+  bash "$SCRIPT_DIR/rebuild_cli.sh" >"$rebuild_log" 2>&1 || rebuild_ec=$?
+  log "rebuild_cli.sh exit status: $rebuild_ec"
+  cat "$rebuild_log" >&2
+  if [[ "$rebuild_ec" -ne 0 ]]; then
+    fail "update: rebuild_cli.sh failed (exit $rebuild_ec)"
+    rm -f "$rebuild_log"
+    return 1
+  fi
+  rm -f "$rebuild_log"
+
+  log "=== update: wait for healthy host after rebuild ==="
+  if ! wait_for_host_healthy "update after-rebuild"; then
+    fail "update: host did not become healthy within bounded ceiling"
+    return 1
+  fi
+
+  if ! json="$(fetch_serve_status_json)"; then
+    fail "update: could not read status after rebuild"
+    return 1
+  fi
+
+  read_status_fields "$json"
+  matches="$(json_field binary.matches "$json" 2>/dev/null || true)"
+  running_sha="$(json_field binary.runningGitSha "$json" 2>/dev/null || true)"
+
+  if ! after_cdhash="$(binary_cdhash "$STATUS_BINARY_PATH")"; then
+    fail "update: could not read cdhash after rebuild for $STATUS_BINARY_PATH"
+    return 1
+  fi
+
+  log "after: pid=$STATUS_DAEMON_PID daemonId=$STATUS_DAEMON_ID runningGitSha=$running_sha cdhash=$after_cdhash binary.matches=$matches"
+
+  if [[ "$matches" != "true" ]]; then
+    fail "update: binary.matches is not true after rebuild"
+  else
+    pass "update: binary.matches=true"
+  fi
+
+  if [[ "$running_sha" != "$expected_sha" ]]; then
+    fail "update: runningGitSha ($running_sha) != expected ($expected_sha)"
+  else
+    pass "update: runningGitSha matches expected $expected_sha"
+  fi
+
+  if [[ "$after_cdhash" == "$before_cdhash" ]]; then
+    fail "update: build identity did not change (cdhash still $before_cdhash) — rebuild was a no-op because the tree was unchanged; an update proof that did not change the binary proves nothing"
+  else
+    pass "update: build identity changed ($before_cdhash -> $after_cdhash)"
+  fi
+
+  assert_singularity "update after-rebuild" "$json" || true
+  assert_no_staged_copy "update" || true
+  assert_no_orphan_serve "update" "$STATUS_BINARY_PATH" "$STATUS_SUPERVISOR_PID" || true
+  assert_path_symlink_canonical "update" "$STATUS_BINARY_PATH" || true
+
+  pass "update host proof passed (gate 4 update half; rollback half pending ASR-S06d)"
+  report_host_state "$json"
+}
+
 # --- argument parsing ---
 SCENARIO=""
 while [[ $# -gt 0 ]]; do
@@ -493,7 +684,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -n "$SCENARIO" && "$SCENARIO" != "crash-restart" ]]; then
+if [[ -n "$SCENARIO" && "$SCENARIO" != "crash-restart" && "$SCENARIO" != "update" ]]; then
   log "unknown scenario: $SCENARIO"
   usage
 fi
@@ -504,6 +695,8 @@ if [[ -z "$SCENARIO" ]]; then
   inspect_only || true
 elif [[ "$SCENARIO" == "crash-restart" ]]; then
   mutate_crash_restart || true
+elif [[ "$SCENARIO" == "update" ]]; then
+  mutate_update || true
 fi
 
 echo ""
