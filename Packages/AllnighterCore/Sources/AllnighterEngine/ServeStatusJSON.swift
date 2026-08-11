@@ -180,6 +180,8 @@ public struct ServeStatusJSON: Equatable, Sendable {
         public var receipt: ServeRuntimeReceipts.Reading
         /// Bounded internal install/repair observation only (§5.2 `starting`).
         public var converging: Bool
+        /// Wall-clock instant for this observation (startup ceiling; no `Date()` here).
+        public var observedAt: Date
         /// Active obligations that make restart/update unsafe (§7 update ban).
         public var activeObligationCount: Int
 
@@ -190,6 +192,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
             activeHealth: ActiveHealthObservation,
             receipt: ServeRuntimeReceipts.Reading,
             converging: Bool = false,
+            observedAt: Date = Date(timeIntervalSince1970: 0),
             activeObligationCount: Int = 0
         ) {
             self.desiredState = desiredState
@@ -198,6 +201,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
             self.activeHealth = activeHealth
             self.receipt = receipt
             self.converging = converging
+            self.observedAt = observedAt
             self.activeObligationCount = activeObligationCount
         }
     }
@@ -215,6 +219,9 @@ public struct ServeStatusJSON: Equatable, Sendable {
         public var loaded: Bool?
         public var authorization: Supervisor.Authorization
         public var pid: Int32?
+        /// Kernel-reported birth time for the live supervisor pid (startup ceiling
+        /// anchor when the runtime receipt still names a previous daemon).
+        public var processStartedAt: Date?
         public var lastExitCode: Int?
 
         public init(
@@ -224,6 +231,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
             loaded: Bool?,
             authorization: Supervisor.Authorization,
             pid: Int32? = nil,
+            processStartedAt: Date? = nil,
             lastExitCode: Int? = nil
         ) {
             self.kind = kind
@@ -232,6 +240,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
             self.loaded = loaded
             self.authorization = authorization
             self.pid = pid
+            self.processStartedAt = processStartedAt
             self.lastExitCode = lastExitCode
         }
     }
@@ -308,11 +317,18 @@ public struct ServeStatusJSON: Equatable, Sendable {
             binaryObservation: input.binary,
             healthMatched: healthMatched,
             activeHealth: input.activeHealth,
+            daemonStartupAnchor: daemonStartupAnchor(
+                supervisorPid: input.supervisor.pid,
+                supervisorProcessStartedAt: input.supervisor.processStartedAt,
+                receiptPid: receiptPid(input.receipt),
+                receiptStartedAt: daemon.startedAt
+            ),
             receipt: input.receipt,
             missingRequired: missingRequired,
             failedRequired: failedRequired,
             stoppedRequired: stoppedRequired,
             converging: input.converging,
+            observedAt: input.observedAt,
             activeObligationCount: input.activeObligationCount
         )
 
@@ -344,6 +360,28 @@ public struct ServeStatusJSON: Equatable, Sendable {
             runningCodeIdentity: obs.runningCodeIdentity,
             matches: binaryMatches(obs)
         )
+    }
+
+    /// Git-sha comparison: equal, differs, or not-yet-reported.
+    /// `nil` running sha means the daemon has not reported — never "differs".
+    enum GitShaRelation: Equatable, Sendable {
+        case equal
+        case differs
+        case unrecorded
+    }
+
+    /// Matches §4.3 step 6 — active-health wait ceiling for bounded `starting`.
+    static let activeHealthStartupCeiling: TimeInterval = 10
+
+    static func compareGitSha(expected: String?, running: String?) -> GitShaRelation {
+        switch (expected, running) {
+        case (let expectedSha?, let runningSha?) where expectedSha == runningSha:
+            return .equal
+        case (_?, _?):
+            return .differs
+        default:
+            return .unrecorded
+        }
     }
 
     /// Code-identity comparison: equal, differs, or unrecorded.
@@ -379,17 +417,18 @@ public struct ServeStatusJSON: Equatable, Sendable {
     }
 
     /// Binary agreement for `matches` / healthy. False only when a difference is
-    /// observed (app-bundle path, unequal git sha, or two known differing
-    /// cdhashes). Unrecorded identity with equal git sha is not a mismatch —
-    /// absence yields no observation, never an inferred failure.
+    /// observed (app-bundle path, two known unequal git shas, or two known
+    /// differing cdhashes). Not-yet-reported git sha or unrecorded identity is
+    /// not a mismatch — absence yields no observation, never an inferred failure.
     private static func binaryMatches(_ obs: BinaryObservation) -> Bool {
         if obs.path.split(separator: "/").contains(where: { $0.hasSuffix(".app") }) {
             return false
         }
-        guard let expectedSha = obs.expectedGitSha,
-              let runningSha = obs.runningGitSha,
-              expectedSha == runningSha else {
+        switch compareGitSha(expected: obs.expectedGitSha, running: obs.runningGitSha) {
+        case .differs:
             return false
+        case .equal, .unrecorded:
+            break
         }
         switch compareCodeIdentity(
             expected: obs.expectedCodeIdentity,
@@ -402,16 +441,20 @@ public struct ServeStatusJSON: Equatable, Sendable {
         }
     }
 
-    /// Recovery when `matches` is false. `SERVE_BINARY_MISMATCH` only for two
-    /// known differing identities (or sha/path disagreement with a comparable
-    /// pair that did not differ). Unrecorded alone never reaches here when
-    /// git shas are equal; if sha/path fails while identity is unrecorded,
-    /// name that with `SERVE_BINARY_IDENTITY_UNRECORDED` + `alln install-cli`
-    /// — repair does not record an identity.
+    /// Recovery when `matches` is false. `SERVE_BINARY_MISMATCH` only when two
+    /// known git shas or two known identities differ. Unrecorded alone never
+    /// reaches here when shas are equal; if sha/path fails while identity is
+    /// unrecorded, name that with `SERVE_BINARY_IDENTITY_UNRECORDED` +
+    /// `alln install-cli` — repair does not record an identity.
     static func binaryMismatchRecovery(
+        expectedSha: String?,
+        runningSha: String?,
         expected: CanonicalCLIInstall.CodeIdentity?,
         running: CanonicalCLIInstall.CodeIdentity?
     ) -> Recovery {
+        if compareGitSha(expected: expectedSha, running: runningSha) == .differs {
+            return Recovery(reasonCode: "SERVE_BINARY_MISMATCH", command: "alln serve repair")
+        }
         switch compareCodeIdentity(expected: expected, running: running) {
         case .differs:
             return Recovery(reasonCode: "SERVE_BINARY_MISMATCH", command: "alln serve repair")
@@ -423,6 +466,74 @@ public struct ServeStatusJSON: Equatable, Sendable {
         case .equal:
             return Recovery(reasonCode: "SERVE_BINARY_MISMATCH", command: "alln serve repair")
         }
+    }
+
+    static func isWithinStartupWindow(startedAt: Date?, observedAt: Date) -> Bool {
+        guard let startedAt else { return false }
+        let elapsed = observedAt.timeIntervalSince(startedAt)
+        guard elapsed >= 0 else { return false }
+        return elapsed <= activeHealthStartupCeiling
+    }
+
+    static func receiptPid(_ receipt: ServeRuntimeReceipts.Reading) -> Int32? {
+        switch receipt {
+        case .present(_, let pid, _, _):
+            return pid
+        case .absent, .unreadable:
+            return nil
+        }
+    }
+
+    /// Startup-window anchor. When the durable receipt still names a previous
+    /// daemon, the receipt's `startedAt` is stale — bound the window to the live
+    /// supervisor process birth instead. No trustworthy anchor ⇒ fail closed.
+    static func daemonStartupAnchor(
+        supervisorPid: Int32?,
+        supervisorProcessStartedAt: Date?,
+        receiptPid: Int32?,
+        receiptStartedAt: Date?
+    ) -> Date? {
+        guard let supervisorPid else { return receiptStartedAt }
+        if let receiptPid, supervisorPid != receiptPid {
+            return supervisorProcessStartedAt
+        }
+        return receiptStartedAt
+    }
+
+    /// Loaded supervisor with a live pid awaiting first handshake or git-sha report.
+    private static func isDaemonStarting(
+        desired: DesiredState,
+        supervisor: SupervisorObservation,
+        loaded: Bool,
+        healthMatched: Bool,
+        runningGitSha: String?,
+        activeHealth: ActiveHealthObservation,
+        startupAnchor: Date?,
+        observedAt: Date,
+        converging: Bool
+    ) -> Bool {
+        guard desired == .enabled, !converging else { return false }
+        guard loaded, supervisor.pid != nil else { return false }
+        guard isWithinStartupWindow(startedAt: startupAnchor, observedAt: observedAt) else {
+            return false
+        }
+        if !healthMatched {
+            if case .noResponse = activeHealth {
+                return true
+            }
+            return false
+        }
+        return runningGitSha == nil
+    }
+
+    private static func startingDecision() -> Decision {
+        Decision(
+            state: .starting,
+            recovery: Recovery(
+                reasonCode: "SERVE_STARTING",
+                command: "alln serve status --json"
+            )
+        )
     }
 
     private static func resolveDaemon(input: Input) -> (Daemon, healthMatched: Bool) {
@@ -526,11 +637,13 @@ public struct ServeStatusJSON: Equatable, Sendable {
         binaryObservation: BinaryObservation,
         healthMatched: Bool,
         activeHealth: ActiveHealthObservation,
+        daemonStartupAnchor: Date?,
         receipt: ServeRuntimeReceipts.Reading,
         missingRequired: [String],
         failedRequired: [String],
         stoppedRequired: [String],
         converging: Bool,
+        observedAt: Date,
         activeObligationCount: Int
     ) -> Decision {
         // requiresApproval wins over other enabled-path states.
@@ -577,13 +690,22 @@ public struct ServeStatusJSON: Equatable, Sendable {
 
         // Bounded install/repair observation.
         if converging {
-            return Decision(
-                state: .starting,
-                recovery: Recovery(
-                    reasonCode: "SERVE_STARTING",
-                    command: "alln serve status --json"
-                )
-            )
+            return startingDecision()
+        }
+
+        // Bounded daemon startup: loaded pid, handshake or git sha not yet reported.
+        if isDaemonStarting(
+            desired: desired,
+            supervisor: supervisor,
+            loaded: loaded,
+            healthMatched: healthMatched,
+            runningGitSha: binaryObservation.runningGitSha,
+            activeHealth: activeHealth,
+            startupAnchor: daemonStartupAnchor,
+            observedAt: observedAt,
+            converging: converging
+        ) {
+            return startingDecision()
         }
 
         // Stand-down: loaded, exit 0, no process (§4.2 / §7 exit → restart).
@@ -617,6 +739,8 @@ public struct ServeStatusJSON: Equatable, Sendable {
         // Degraded — name why (priority order).
         if !binary.matches {
             let recovery = binaryMismatchRecovery(
+                expectedSha: binaryObservation.expectedGitSha,
+                runningSha: binaryObservation.runningGitSha,
                 expected: binaryObservation.expectedCodeIdentity,
                 running: binaryObservation.runningCodeIdentity
             )

@@ -126,6 +126,129 @@ final class ServeStatusResolverTests: XCTestCase {
         XCTAssertEqual(status.recovery?.reasonCode, "SERVE_BINARY_MISMATCH")
     }
 
+    /// ASR-S03f4 failing-first record: pre-fix `runningGitSha: nil` with a live
+    /// supervisor yielded `matches: false`, `degraded`, `SERVE_BINARY_IDENTITY_UNRECORDED`,
+    /// and `alln install-cli` (a restart that re-enters the same window).
+    func testNotYetReportedRunningGitShaIsStartingNotBinaryMismatch() {
+        var input = healthyInput()
+        input.observedAt = Date(timeIntervalSince1970: 1_720_000_002)
+        input.binary.runningGitSha = nil
+        input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: cdhashA, version: "1.0.1")
+        input.activeHealth = .noResponse(reason: "first handshake pending")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertTrue(status.binary.matches, "nil running sha must not be read as differs")
+        XCTAssertEqual(status.state, .starting)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_STARTING")
+        XCTAssertEqual(status.recovery?.command, "alln serve status --json")
+        XCTAssertNotEqual(status.recovery?.command, "alln install-cli")
+        XCTAssertNotEqual(status.recovery?.reasonCode, "SERVE_BINARY_IDENTITY_UNRECORDED")
+    }
+
+    /// ASR-S03f4: not-yet-reported sha alone never sets matches false.
+    func testNotYetReportedGitShaNeverSetsMatchesFalse() {
+        var input = healthyInput()
+        input.binary.runningGitSha = nil
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertTrue(status.binary.matches)
+    }
+
+    /// ASR-S03f4: handshake matched but git sha not yet in the durable record.
+    func testHandshakeMatchedGitShaPendingWithinWindowIsStarting() {
+        var input = healthyInput()
+        let observed = Date(timeIntervalSince1970: 1_720_000_003)
+        input.observedAt = observed
+        input.binary.runningGitSha = nil
+        input.activeHealth = .responded(daemonId: "d1", pid: 1234, respondedAt: observed)
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .starting)
+        XCTAssertTrue(status.binary.matches)
+        XCTAssertEqual(status.recovery?.command, "alln serve status --json")
+    }
+
+    /// ASR-S03f4 fail-closed: past the §4.3 10s ceiling with no handshake ⇒ degraded.
+    func testDaemonNeverAnswersPastCeilingIsDegradedNotStarting() {
+        var input = healthyInput()
+        input.observedAt = Date(timeIntervalSince1970: 1_720_000_011)
+        input.activeHealth = .noResponse(reason: "never answered")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertNotEqual(status.state, .starting)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_UNAVAILABLE")
+        XCTAssertNotEqual(status.recovery?.command, "alln install-cli")
+    }
+
+    /// ASR-S03f4: stale receipt pid after repair — window anchors to supervisor birth,
+    /// not the previous daemon's receipt `startedAt`.
+    func testStaleReceiptPidMismatchWithinWindowIsStarting() {
+        var input = healthyInput()
+        let supervisorBirth = Date(timeIntervalSince1970: 1_720_000_001)
+        let observed = Date(timeIntervalSince1970: 1_720_000_003)
+        input.observedAt = observed
+        input.supervisor.pid = 90565
+        input.supervisor.processStartedAt = supervisorBirth
+        input.receipt = .present(
+            daemonId: "old-daemon",
+            pid: 90546,
+            startedAt: Date(timeIntervalSince1970: 1_710_000_000),
+            rows: requiredRows()
+        )
+        input.binary.runningGitSha = nil
+        input.activeHealth = .noResponse(reason: "first handshake pending")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .starting)
+        XCTAssertTrue(status.binary.matches)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_STARTING")
+        XCTAssertEqual(status.recovery?.command, "alln serve status --json")
+        XCTAssertNotEqual(status.recovery?.reasonCode, "SERVE_UNAVAILABLE")
+    }
+
+    /// ASR-S03f4 fail-closed: stale receipt + supervisor birth past ceiling ⇒ degraded.
+    func testStaleReceiptPidMismatchPastCeilingIsDegraded() {
+        var input = healthyInput()
+        input.observedAt = Date(timeIntervalSince1970: 1_720_000_020)
+        input.supervisor.pid = 90565
+        input.supervisor.processStartedAt = t0
+        input.receipt = .present(
+            daemonId: "old-daemon",
+            pid: 90546,
+            startedAt: Date(timeIntervalSince1970: 1_710_000_000),
+            rows: requiredRows()
+        )
+        input.activeHealth = .noResponse(reason: "never answered")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_UNAVAILABLE")
+        XCTAssertNotEqual(status.state, .starting)
+    }
+
+    /// ASR-S03f4 fail-closed: pid mismatch with no supervisor birth observation ⇒ degraded.
+    func testStaleReceiptPidMismatchWithoutSupervisorBirthIsDegraded() {
+        var input = healthyInput()
+        input.observedAt = Date(timeIntervalSince1970: 1_720_000_002)
+        input.supervisor.pid = 90565
+        input.supervisor.processStartedAt = nil
+        input.receipt = .present(
+            daemonId: "old-daemon",
+            pid: 90546,
+            startedAt: Date(timeIntervalSince1970: 1_710_000_000),
+            rows: requiredRows()
+        )
+        input.activeHealth = .noResponse(reason: "first handshake pending")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_UNAVAILABLE")
+    }
+
+    func testDaemonStartupAnchorUsesSupervisorBirthWhenReceiptPidStale() {
+        let anchor = ServeStatusJSON.daemonStartupAnchor(
+            supervisorPid: 90565,
+            supervisorProcessStartedAt: t1,
+            receiptPid: 90546,
+            receiptStartedAt: t0
+        )
+        XCTAssertEqual(anchor, t1)
+    }
+
     /// ASR-S03f3: empty/absent expected identity is unrecorded, not a mismatch.
     /// Equal git sha + otherwise healthy ⇒ healthy (reachable-to-green).
     func testUnrecordedExpectedIdentityWithEqualShaIsHealthy() {
@@ -187,13 +310,28 @@ final class ServeStatusResolverTests: XCTestCase {
         XCTAssertEqual(status.recovery?.command, "alln serve repair")
     }
 
-    /// ASR-S03f3: sha/path disagreement with unrecorded identity names
-    /// SERVE_BINARY_IDENTITY_UNRECORDED + install-cli (repair cannot record).
-    func testUnrecordedIdentityWithShaMismatchUsesIdentityUnrecordedRecovery() {
+    /// ASR-S03f3: two known differing git shas set MISMATCH even when identity
+    /// is unrecorded (nil is never differs for sha, but shaB ≠ shaA is observed).
+    func testKnownShaMismatchWithUnrecordedIdentityUsesBinaryMismatch() {
         var input = healthyInput()
         input.binary.expectedCodeIdentity = nil
         input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: "1.0.1")
         input.binary.runningGitSha = shaB
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertFalse(status.binary.matches)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_BINARY_MISMATCH")
+        XCTAssertEqual(status.recovery?.command, "alln serve repair")
+        XCTAssertNotEqual(status.recovery?.reasonCode, "SERVE_BINARY_IDENTITY_UNRECORDED")
+    }
+
+    /// ASR-S03f3: app-bundle path with unrecorded identity names identity-unrecorded
+    /// recovery (repair cannot record; install-cli can).
+    func testUnrecordedIdentityWithAppBundlePathUsesIdentityUnrecordedRecovery() {
+        var input = healthyInput()
+        input.binary.path = "/Applications/Allnighter.app/Contents/MacOS/Allnighter"
+        input.binary.expectedCodeIdentity = nil
+        input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: "1.0.1")
         let status = ServeStatusJSON.resolve(input)
         XCTAssertEqual(status.state, .degraded)
         XCTAssertFalse(status.binary.matches)
@@ -607,6 +745,7 @@ final class ServeStatusResolverTests: XCTestCase {
             activeHealth: .responded(daemonId: "d1", pid: 1234, respondedAt: t1),
             receipt: .present(daemonId: "d1", pid: 1234, startedAt: t0, rows: requiredRows()),
             converging: false,
+            observedAt: t1,
             activeObligationCount: 0
         )
     }

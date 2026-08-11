@@ -100,6 +100,87 @@ final class ServeStatusGathererTests: XCTestCase {
         XCTAssertTrue(gathered.status.binary.matches)
     }
 
+    /// ASR-S03f4: install-cli → serve status window — nil running git sha, handshake
+    /// pending, supervisor live — must be starting (not degraded / install-cli).
+    func testStartupWindowWithUnreportedGitShaReportsStarting() {
+        let root = makeTempRoot()
+        defer { removeIfPresent(root) }
+
+        let observed = Date(timeIntervalSince1970: 1_720_000_002)
+        let gatherer = makeGatherer(
+            root: root,
+            clock: { observed },
+            healthTransport: { _, _ in
+                throw NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: nil)
+            },
+            includeDaemonRecord: false
+        )
+        let gathered = gatherer.gather()
+
+        XCTAssertNil(gathered.input.binary.runningGitSha)
+        XCTAssertTrue(gathered.status.binary.matches)
+        XCTAssertEqual(gathered.status.state, .starting)
+        XCTAssertEqual(gathered.status.recovery?.reasonCode, "SERVE_STARTING")
+        XCTAssertEqual(gathered.status.recovery?.command, "alln serve status --json")
+        XCTAssertNotEqual(gathered.status.recovery?.command, "alln install-cli")
+    }
+
+    /// ASR-S03f4: past startup ceiling with no handshake still degrades.
+    func testGathererPastStartupCeilingWithoutHandshakeIsDegraded() {
+        let root = makeTempRoot()
+        defer { removeIfPresent(root) }
+
+        let observed = Date(timeIntervalSince1970: 1_720_000_020)
+        let gatherer = makeGatherer(
+            root: root,
+            clock: { observed },
+            healthTransport: { _, _ in
+                throw NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: nil)
+            },
+            includeDaemonRecord: false,
+            readSupervisorProcessStartedAt: { _ in Date(timeIntervalSince1970: 1_720_000_000) }
+        )
+        let gathered = gatherer.gather()
+
+        XCTAssertEqual(gathered.status.state, .degraded)
+        XCTAssertNotEqual(gathered.status.state, .starting)
+        XCTAssertEqual(gathered.status.recovery?.reasonCode, "SERVE_UNAVAILABLE")
+    }
+
+    /// ASR-S03f4: repair leaves a stale receipt pid — window anchors to supervisor birth.
+    func testStaleReceiptPidMismatchWithinWindowReportsStarting() {
+        let root = makeTempRoot()
+        defer { removeIfPresent(root) }
+
+        let supervisorBirth = Date(timeIntervalSince1970: 1_720_000_001)
+        let observed = Date(timeIntervalSince1970: 1_720_000_003)
+        let gatherer = makeGatherer(
+            root: root,
+            clock: { observed },
+            healthTransport: { _, _ in
+                throw NSError(domain: NSURLErrorDomain, code: NSURLErrorCannotConnectToHost, userInfo: nil)
+            },
+            launchAgentListing: "state = running\npid = 90565\n",
+            receiptReading: .present(
+                daemonId: "old-daemon",
+                pid: 90546,
+                startedAt: Date(timeIntervalSince1970: 1_710_000_000),
+                rows: requiredRows()
+            ),
+            includeDaemonRecord: false,
+            readSupervisorProcessStartedAt: { _ in supervisorBirth }
+        )
+        let gathered = gatherer.gather()
+
+        XCTAssertEqual(gathered.input.supervisor.pid, 90565)
+        XCTAssertEqual(gathered.input.supervisor.processStartedAt, supervisorBirth)
+        XCTAssertTrue(gathered.status.binary.matches)
+        XCTAssertEqual(gathered.status.state, .starting)
+        XCTAssertEqual(gathered.status.recovery?.reasonCode, "SERVE_STARTING")
+        XCTAssertEqual(gathered.status.recovery?.command, "alln serve status --json")
+        XCTAssertNotEqual(gathered.status.recovery?.reasonCode, "SERVE_UNAVAILABLE")
+    }
+
     // MARK: - Four distinct failure-to-read observations
 
     func testDesiredStateUnreadableMapsToUnknownNotAbsent() {
@@ -362,13 +443,17 @@ final class ServeStatusGathererTests: XCTestCase {
         readDesiredState: (@Sendable () -> ServeDesiredState.Reading)? = nil,
         receiptReading: ServeRuntimeReceipts.Reading? = nil,
         expectedCodeIdentity: CanonicalCLIInstall.CodeIdentity? = nil,
-        runningCodeIdentity: CanonicalCLIInstall.CodeIdentity? = nil
+        runningCodeIdentity: CanonicalCLIInstall.CodeIdentity? = nil,
+        runningGitSha: String? = nil,
+        includeDaemonRecord: Bool = true,
+        readSupervisorProcessStartedAt: (@Sendable (Int32) -> Date?)? = nil
     ) -> ServeStatusGatherer {
         let fixtureT0 = t0
         let fixtureShaA = shaA
         let fixtureCdhashA = cdhashA
         let fixtureCanonicalPath = canonicalPath
         let fixtureLabel = label
+        let resolvedRunningGitSha = runningGitSha ?? fixtureShaA
         let resolvedExpected = expectedCodeIdentity
             ?? CanonicalCLIInstall.CodeIdentity(cdhash: fixtureCdhashA, version: "1.0.0")
         let resolvedRunning = runningCodeIdentity
@@ -385,16 +470,18 @@ final class ServeStatusGathererTests: XCTestCase {
         FileManager.default.createFile(atPath: URL(fileURLWithPath: fixtureCanonicalPath).path, contents: Data([0xCF]))
 
         let store = ServeDaemonStore(directory: coordDir)
-        try? store.save(.init(
-            daemonId: "d1",
-            pid: 1234,
-            startedAt: fixtureT0,
-            loopbackHost: "127.0.0.1",
-            loopbackPort: 18743,
-            binaryVersion: "1.0.0",
-            binaryGitSha: fixtureShaA,
-            contractVersion: "1.0.0"
-        ))
+        if includeDaemonRecord {
+            try? store.save(.init(
+                daemonId: "d1",
+                pid: 1234,
+                startedAt: fixtureT0,
+                loopbackHost: "127.0.0.1",
+                loopbackPort: 18743,
+                binaryVersion: "1.0.0",
+                binaryGitSha: resolvedRunningGitSha,
+                contractVersion: "1.0.0"
+            ))
+        }
 
         let receipts = ServeRuntimeReceipts(directory: coordDir, clock: { fixtureT0 })
         let readReceipt: @Sendable () -> ServeRuntimeReceipts.Reading
@@ -437,6 +524,7 @@ final class ServeStatusGathererTests: XCTestCase {
                 )
             },
             readRunningCodeIdentity: { _ in resolvedRunning },
+            readSupervisorProcessStartedAt: readSupervisorProcessStartedAt,
             activeObligationCount: { 0 },
             converging: { false }
         )

@@ -19,6 +19,7 @@ public struct ServeStatusGatherer: Sendable {
     public let daemonStore: ServeDaemonStore
     public let readCanonicalInstall: @Sendable () -> CanonicalInstallReading
     public let readRunningCodeIdentity: @Sendable (String) -> CanonicalCLIInstall.CodeIdentity?
+    public let readSupervisorProcessStartedAt: @Sendable (Int32) -> Date?
     public let processRunner: @Sendable (String, [String]) -> (stdout: String, stderr: String, exitCode: Int32)
     public let activeObligationCount: @Sendable () -> Int
     public let converging: @Sendable () -> Bool
@@ -61,6 +62,7 @@ public struct ServeStatusGatherer: Sendable {
         daemonStore: ServeDaemonStore? = nil,
         readCanonicalInstall: (@Sendable () -> CanonicalInstallReading)? = nil,
         readRunningCodeIdentity: (@Sendable (String) -> CanonicalCLIInstall.CodeIdentity?)? = nil,
+        readSupervisorProcessStartedAt: (@Sendable (Int32) -> Date?)? = nil,
         processRunner: (@Sendable (String, [String]) -> (stdout: String, stderr: String, exitCode: Int32))? = nil,
         activeObligationCount: (@Sendable () -> Int)? = nil,
         converging: (@Sendable () -> Bool)? = nil
@@ -98,6 +100,7 @@ public struct ServeStatusGatherer: Sendable {
             // as unrecorded / not comparable).
             return CanonicalCLIInstall.CodeIdentity(cdhash: cdhash, version: nil)
         }
+        self.readSupervisorProcessStartedAt = readSupervisorProcessStartedAt ?? Self.defaultSupervisorProcessStartedAt
         self.processRunner = runner
         if let activeObligationCount {
             self.activeObligationCount = activeObligationCount
@@ -126,6 +129,7 @@ public struct ServeStatusGatherer: Sendable {
             activeHealth: gatherActiveHealth(),
             receipt: readReceipt(),
             converging: converging(),
+            observedAt: clock(),
             activeObligationCount: activeObligationCount()
         )
     }
@@ -160,6 +164,7 @@ public struct ServeStatusGatherer: Sendable {
             loaded: loaded,
             authorization: authorization,
             pid: observation.pid,
+            processStartedAt: observation.pid.flatMap { readSupervisorProcessStartedAt($0) },
             lastExitCode: observation.lastExitCode
         )
     }
@@ -261,6 +266,11 @@ public struct ServeStatusGatherer: Sendable {
 
     /// Live `codesign -dvvv` for running-identity cdhash. Default was a stub that
     /// always failed, so status permanently saw version-only running identity.
+    private static func defaultSupervisorProcessStartedAt(pid: Int32) -> Date? {
+        guard let ticks = ProcessOwnership.processStartTimeTicks(pid) else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(ticks) / 1_000_000.0)
+    }
+
     private static func defaultProcessRunner(
         _ launchPath: String,
         _ arguments: [String]
