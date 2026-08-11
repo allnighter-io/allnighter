@@ -1,6 +1,6 @@
 # ASR-S03f2a2 — the supervisor's "can't tell" is structured, not prose
 
-Status: **ready**
+Status: **done** — `fb42dade` (Cursor Grok 4.5)
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §7
 (fail closed; absence of a declared signal yields no observation), and the
 project law *"Prompt prose may request work; it must not be the only owner of
@@ -117,3 +117,17 @@ scripts/swift-test.sh --filter 'ServeStatusGathererTests|ServeLaunchAgentStatusT
 
 Inert. The gatherer is still called by nothing (CLI wiring is S03f2b), and no
 display string changes, so `alln serve --health` v1 output stays byte-identical.
+
+## 10. Closeout — 2026-08-11
+
+Landed `fb42dade`. Re-verified outside the seat: 62 tests green, exit 0.
+
+`supervisorLoaded` now switches on a structured `launchctlConsultability` and
+never reads `detail`. The fall-through is closed, with the rule written where a
+future editor will see it: *"Optimism about supervision is the one direction
+this code may never guess."*
+
+Display wording is intact — the only changes to `detail` lines are trailing
+commas from the added parameter, so human output and v1 stay byte-identical.
+The remaining `detail` reference in the gatherer is a display passthrough on a
+health-failure reason, not a decision.
