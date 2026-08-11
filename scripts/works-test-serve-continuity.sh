@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Works Test for alln serve host continuity (ASR-S06a gate 3, ASR-S06c gate 4 update half,
-# ASR-S06d gate 4 rollback half, ASR-S06f gates 2 and 5).
+# ASR-S06d gate 4 rollback half, ASR-S06f gates 2 and 5, ASR-S06g gate 5 idle classification).
 #
 # Default: inspect-only — reads `alln serve status --json`, reports host state,
 # never signals or mutates. Exit non-zero only when the host is not healthy.
@@ -501,9 +501,9 @@ REQUIRED_SCHEDULER_IDS=(
   probeRecordRefresh
 )
 
-RECEIPT_SCHEDULER_IDS=(
+# Gate 5 vendor-PATH proof: only capacityRefresh must advance (spawns vendor CLIs).
+ADVANCE_REQUIRED_SCHEDULER_IDS=(
   capacityRefresh
-  probeRecordRefresh
 )
 
 # Print cdhash on stdout only (for $(...) capture). Diagnostics on stderr.
@@ -1021,16 +1021,19 @@ report_dock_app_state() {
 observe_receipts_advance() {
   local label="$1"
   local initial_json="$2"
-  local plan_json budget_sec
+  local plan_json budget_sec final_json classify_json
+  local advance_count=${#ADVANCE_REQUIRED_SCHEDULER_IDS[@]}
 
-  plan_json="$(python3 - "$initial_json" "$RECEIPT_MAX_WINDOW_SEC" "$RECEIPT_WAKE_PADDING_SEC" "${RECEIPT_SCHEDULER_IDS[@]}" <<'PY'
+  plan_json="$(python3 - "$initial_json" "$RECEIPT_MAX_WINDOW_SEC" "$RECEIPT_WAKE_PADDING_SEC" "$advance_count" "${ADVANCE_REQUIRED_SCHEDULER_IDS[@]}" "${REQUIRED_SCHEDULER_IDS[@]}" <<'PY'
 import json, sys, time
 from datetime import datetime, timezone
 
 data = json.loads(sys.argv[1])
 max_window = float(sys.argv[2])
 padding = float(sys.argv[3])
-watch_ids = sys.argv[4:]
+advance_count = int(sys.argv[4])
+advance_ids = sys.argv[5:5 + advance_count]
+required_ids = sys.argv[5 + advance_count:]
 now = time.time()
 
 def parse_iso(value):
@@ -1048,14 +1051,32 @@ def scheduler_row(schedulers, sid):
             return row
     return None
 
+def snapshot_row(row):
+    if row is None:
+        return None
+    return {
+        "lastAttemptAt": row.get("lastAttemptAt"),
+        "lastSuccessAt": row.get("lastSuccessAt"),
+        "nextWakeAt": row.get("nextWakeAt"),
+    }
+
 schedulers = data.get("schedulers", [])
 plan = {
     "watch": [],
     "skip": [],
     "initial_success": {},
+    "initial_snapshot": {},
+    "required_ids": required_ids,
+    "advance_ids": advance_ids,
+    "observed_at": now,
+    "max_window": max_window,
 }
 
-for sid in watch_ids:
+for sid in required_ids:
+    row = scheduler_row(schedulers, sid)
+    plan["initial_snapshot"][sid] = snapshot_row(row)
+
+for sid in advance_ids:
     row = scheduler_row(schedulers, sid)
     if row is None:
         plan["skip"].append({"id": sid, "reason": "scheduler row missing"})
@@ -1124,23 +1145,23 @@ for item in plan.get("skip", []):
     sid = item["id"]
     reason = item["reason"]
     if reason == "no nextWakeAt":
-        print(f"SKIP {sid}: no nextWakeAt — skipping advance check (lastSuccessAt={item.get('lastSuccessAt')})")
+        print(f"SKIP {sid}: no nextWakeAt — capacityRefresh advance check skipped (lastSuccessAt={item.get('lastSuccessAt')})")
     elif reason == "nextWakeAt beyond window":
         required = item.get("requiredBudgetSec")
         if required is not None:
             print(
                 f"SKIP {sid}: nextWakeAt {item.get('nextWakeAt')} needs {required}s budget "
-                f"({item.get('secsUntil')}s until wake + padding), beyond {max_window}s window — skipping advance check"
+                f"({item.get('secsUntil')}s until wake + padding), beyond {max_window}s window — capacityRefresh advance check skipped"
             )
         else:
             print(
                 f"SKIP {sid}: nextWakeAt {item.get('nextWakeAt')} is {item.get('secsUntil')}s out, "
-                f"beyond {max_window}s window — skipping advance check"
+                f"beyond {max_window}s window — capacityRefresh advance check skipped"
             )
     else:
         print(f"SKIP {sid}: {reason}")
 for item in plan.get("watch", []):
-    print(f"WATCH {item['id']}: nextWakeAt={item.get('nextWakeAt')} secsUntil={item.get('secsUntil')}")
+    print(f"WATCH {item['id']}: nextWakeAt={item.get('nextWakeAt')} secsUntil={item.get('secsUntil')} (must advance lastSuccessAt)")
 if plan.get("budgetSec"):
     print(f"BUDGET {plan['budgetSec']}")
 PY
@@ -1152,7 +1173,7 @@ PY
         log "$label: ${line#WATCH }"
         ;;
       BUDGET*)
-        log "$label: receipt wait budget=${line#BUDGET }s (derived from nextWakeAt, max window=${RECEIPT_MAX_WINDOW_SEC}s)"
+        log "$label: receipt wait budget=${line#BUDGET }s (derived from capacityRefresh nextWakeAt, max window=${RECEIPT_MAX_WINDOW_SEC}s)"
         ;;
     esac
   done
@@ -1164,7 +1185,7 @@ print(plan.get("budgetSec", 0))
 PY
 )"
 
-  local watch_count
+  local watch_count capacity_advanced=false
   watch_count="$(python3 - "$plan_json" <<'PY'
 import json, sys
 plan = json.loads(sys.argv[1])
@@ -1172,20 +1193,16 @@ print(len(plan.get("watch", [])))
 PY
 )"
 
-  if [[ "$watch_count" -eq 0 ]]; then
-    pass "$label: receipt advance checks skipped (no deadline fell within ${RECEIPT_MAX_WINDOW_SEC}s window)"
-    return 0
-  fi
+  if [[ "$watch_count" -gt 0 ]]; then
+    local deadline=$((SECONDS + ${budget_sec%.*} + 1))
+    local json result_json
 
-  local deadline=$((SECONDS + ${budget_sec%.*} + 1))
-  local json result_json
-
-  while [[ $SECONDS -lt $deadline ]]; do
-    if ! json="$(fetch_serve_status_json)"; then
-      sleep "$POLL_INTERVAL_SEC"
-      continue
-    fi
-    result_json="$(python3 - "$json" "$plan_json" <<'PY'
+    while [[ $SECONDS -lt $deadline ]]; do
+      if ! json="$(fetch_serve_status_json)"; then
+        sleep "$POLL_INTERVAL_SEC"
+        continue
+      fi
+      result_json="$(python3 - "$json" "$plan_json" <<'PY'
 import json, sys
 
 status = json.loads(sys.argv[1])
@@ -1217,33 +1234,55 @@ for item in plan.get("watch", []):
 print(json.dumps({"advanced": advanced, "pending": pending, "done": len(pending) == 0}))
 PY
 )"
-    local done
-    done="$(python3 - "$result_json" <<'PY'
+      local done
+      done="$(python3 - "$result_json" <<'PY'
 import json, sys
 print("true" if json.loads(sys.argv[1]).get("done") else "false")
 PY
 )"
-    if [[ "$done" == "true" ]]; then
-      pass "$label: receipt(s) advanced within ${budget_sec}s budget: $(python3 - "$result_json" <<'PY'
-import json, sys
-print(", ".join(json.loads(sys.argv[1]).get("advanced", [])))
-PY
-)"
-      return 0
-    fi
-    sleep "$POLL_INTERVAL_SEC"
-  done
+      if [[ "$done" == "true" ]]; then
+        capacity_advanced=true
+        final_json="$json"
+        pass "$label: capacityRefresh lastSuccessAt advanced within ${budget_sec}s budget"
+        break
+      fi
+      sleep "$POLL_INTERVAL_SEC"
+    done
 
-  if ! json="$(fetch_serve_status_json)"; then
-    fail "$label: timed out after ${budget_sec}s waiting for receipt advance and could not re-read status"
-    return 1
+    if [[ "$capacity_advanced" != true ]]; then
+      if ! final_json="$(fetch_serve_status_json)"; then
+        fail "$label: timed out after ${budget_sec}s waiting for capacityRefresh advance and could not re-read status"
+        return 1
+      fi
+    fi
+  else
+    final_json="$initial_json"
+    pass "$label: capacityRefresh advance check skipped (nextWakeAt beyond ${RECEIPT_MAX_WINDOW_SEC}s window)"
   fi
 
-  local timeout_detail
-  timeout_detail="$(python3 - "$json" "$plan_json" <<'PY'
-import json, sys
+  classify_json="$(python3 - "$final_json" "$plan_json" "$capacity_advanced" <<'PY'
+import json, sys, time
+from datetime import datetime, timezone
+
 status = json.loads(sys.argv[1])
 plan = json.loads(sys.argv[2])
+capacity_advanced = sys.argv[3] == "true"
+max_window = float(plan.get("max_window", 120))
+observed_at = float(plan.get("observed_at", 0))
+now_end = time.time()
+required_ids = plan.get("required_ids", [])
+advance_ids = set(plan.get("advance_ids", []))
+initial_snapshot = plan.get("initial_snapshot", {})
+skip_by_id = {item["id"]: item for item in plan.get("skip", [])}
+
+def parse_iso(value):
+    if not value:
+        return None
+    text = value.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text).timestamp()
+    except ValueError:
+        return None
 
 def scheduler_row(schedulers, sid):
     for row in schedulers:
@@ -1251,28 +1290,162 @@ def scheduler_row(schedulers, sid):
             return row
     return None
 
-schedulers = status.get("schedulers", [])
-lines = []
-for item in plan.get("watch", []):
-    sid = item["id"]
-    before = plan["initial_success"].get(sid)
-    row = scheduler_row(schedulers, sid)
-    after = row.get("lastSuccessAt") if row else None
-    if not after or after == before:
-        lines.append(
-            f"{sid} lastSuccessAt still {after!r}, nextWakeAt={row.get('nextWakeAt') if row else None!r}"
+def snapshot_row(row):
+    if row is None:
+        return None
+    return {
+        "lastAttemptAt": row.get("lastAttemptAt"),
+        "lastSuccessAt": row.get("lastSuccessAt"),
+        "nextWakeAt": row.get("nextWakeAt"),
+    }
+
+def classify(sid, initial, final):
+    if initial is None and final is None:
+        return "stuck", "scheduler row missing"
+
+    init_attempt = initial.get("lastAttemptAt") if initial else None
+    init_success = initial.get("lastSuccessAt") if initial else None
+    init_wake = initial.get("nextWakeAt") if initial else None
+    final_attempt = final.get("lastAttemptAt") if final else None
+    final_success = final.get("lastSuccessAt") if final else None
+    final_wake = final.get("nextWakeAt") if final else None
+
+    if final_success and final_success != init_success:
+        return "advanced", f"lastSuccessAt advanced ({init_success!r} -> {final_success!r})"
+
+    skip = skip_by_id.get(sid)
+    if skip:
+        reason = skip.get("reason")
+        if reason == "no nextWakeAt":
+            return "out-of-window", "no nextWakeAt — outside observation window"
+        if reason == "nextWakeAt beyond window":
+            required = skip.get("requiredBudgetSec")
+            if required is not None:
+                return (
+                    "out-of-window",
+                    f"nextWakeAt {skip.get('nextWakeAt')} needs {required}s budget, beyond {max_window}s window",
+                )
+            return (
+                "out-of-window",
+                f"nextWakeAt {skip.get('nextWakeAt')} is {skip.get('secsUntil')}s out, beyond {max_window}s window",
+            )
+        return "out-of-window", reason
+
+    init_wake_ts = parse_iso(init_wake)
+    if init_wake_ts is not None and observed_at:
+        secs_until = init_wake_ts - observed_at
+        if secs_until > max_window:
+            return (
+                "out-of-window",
+                f"nextWakeAt {init_wake} is {round(secs_until, 1)}s out, beyond {max_window}s window",
+            )
+
+    if init_wake is None and final_wake is None:
+        return "out-of-window", "no nextWakeAt — outside observation window"
+
+    init_wake_ts = parse_iso(init_wake)
+    final_wake_ts = parse_iso(final_wake)
+
+    if init_wake_ts is not None and init_wake_ts > now_end:
+        return (
+            "out-of-window",
+            f"nextWakeAt {init_wake} not yet due during observation window",
         )
-print("\n".join(lines))
+
+    wake_advanced = (
+        init_wake_ts is not None
+        and final_wake_ts is not None
+        and final_wake_ts > init_wake_ts
+    )
+    attempt_still_null = final_attempt is None and init_attempt is None
+
+    if wake_advanced and attempt_still_null:
+        return "idle", "no attempt recorded and deadline re-armed — idle"
+
+    if not wake_advanced and attempt_still_null:
+        if init_wake_ts is not None and init_wake_ts <= now_end:
+            if (now_end - observed_at) <= 1:
+                return (
+                    "out-of-window",
+                    "no observation window — gate-5 receipt watch did not run",
+                )
+            return "stuck", "nextWakeAt did not advance and no attempt recorded — stuck"
+        return (
+            "out-of-window",
+            f"nextWakeAt {init_wake} not yet due during observation window",
+        )
+
+    if final_attempt != init_attempt:
+        if (now_end - observed_at) <= 1:
+            return (
+                "out-of-window",
+                "no observation window — gate-5 receipt watch did not run",
+            )
+        return "stuck", "attempt recorded but lastSuccessAt unchanged — stuck"
+
+    if (now_end - observed_at) <= 1:
+        return (
+            "out-of-window",
+            "no observation window — gate-5 receipt watch did not run",
+        )
+
+    return "stuck", "no receipt advance observed — stuck"
+
+schedulers = status.get("schedulers", [])
+results = []
+for sid in required_ids:
+    initial = initial_snapshot.get(sid)
+    row = scheduler_row(schedulers, sid)
+    final = snapshot_row(row)
+    kind, detail = classify(sid, initial, final)
+    fail_kind = False
+    if sid in advance_ids:
+        if capacity_advanced or kind == "advanced":
+            fail_kind = False
+        elif kind == "out-of-window":
+            fail_kind = False
+        else:
+            fail_kind = True
+    elif sid == "probeRecordRefresh" and kind == "stuck" and (now_end - observed_at) > 1:
+        fail_kind = True
+    results.append({
+        "id": sid,
+        "kind": kind,
+        "detail": detail,
+        "fail": fail_kind,
+    })
+
+print(json.dumps(results))
 PY
 )"
-  if [[ -n "$timeout_detail" ]]; then
+
+  python3 - "$classify_json" <<'PY' | while IFS= read -r line; do
+import json, sys
+for item in json.loads(sys.argv[1]):
+    print(f"CLASS {item['id']}: {item['kind']} — {item['detail']}")
+PY
+    [[ -z "$line" ]] && continue
+    log "$label: ${line#CLASS }"
+  done
+
+  local gate_failures
+  gate_failures="$(python3 - "$classify_json" <<'PY'
+import json, sys
+for item in json.loads(sys.argv[1]):
+    if item.get("fail"):
+        print(f"{item['id']}: {item['detail']}")
+PY
+)"
+
+  if [[ -n "$gate_failures" ]]; then
     while IFS= read -r line; do
       [[ -z "$line" ]] && continue
-      fail "$label: receipt did not advance within ${budget_sec}s budget — $line"
-    done <<< "$timeout_detail"
-  else
-    fail "$label: receipt did not advance within ${budget_sec}s budget"
+      fail "$label: $line"
+    done <<< "$gate_failures"
+    return 1
   fi
+
+  return 0
 }
 
 assert_identity_and_receipts() {
