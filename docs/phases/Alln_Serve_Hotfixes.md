@@ -1006,7 +1006,23 @@ Dock app, reboot, `kickstart`, or agent intervention.
   all outside protected space; and a full rebuild → install → serve cycle after
   resetting Desktop and Downloads produced zero TCC events. Documents was not
   reset because the repo lives there — stated in the record, not skipped.
-- [ ] Focused proofs and `bash scripts/check.sh` pass.
+- [x] Focused proofs and `bash scripts/check.sh` pass. — **2026-08-11**, with one
+  named exception. Swift package suite: **3861 tests, 6 skipped, 0 failures**.
+  Architecture policy passes and its seeded violations still fail on demand. GUI
+  proof gate passes (11 pre-existing unproven views re-frozen in
+  `docs/qa/gui/DEBT.manifest`, hash-bound, still unproven — the setup/FCS packets
+  that changed them owe the seal).
+
+  **Exception, pre-existing and proven so:**
+  `AllnighterMacTests.ThreadsViewModelTeamRunTests.testAnswerTeamRunsAndBoardReferencesDurableRun`
+  fails — a completed run leaves the board turn `running` instead of `done`.
+  Reproducible, not flaky. Verified pre-existing by restoring `Packages/` to
+  `05d9ac34` (before ASR-S07's product changes) and re-running: it fails
+  identically. Not ASR's, and not fixed here.
+
+  Getting here also cleared 14 pre-existing failures via ASR-S07, several of which
+  were real product defects — a Law 3 model-identity pin, a reconcile path that
+  re-seeded a cleared bench, a spending command with no free twin.
 - [ ] Durable law is promoted to code/contracts/vocabulary; this packet and the
   superseded sprint orders are archived.
 - [ ] Every risk in §10.1 is resolved or re-homed to a named owner, and the
