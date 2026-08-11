@@ -71,6 +71,8 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 
 | ASR-S02a | [`alln-serve/ASR-S02a-desired-state-store.md`](alln-serve/ASR-S02a-desired-state-store.md) | **done** — `aa67241f` + `e9c1b195` (20 tests) |
 
+| ASR-S02b | [`alln-serve/ASR-S02b-canonical-plist-shape.md`](alln-serve/ASR-S02b-canonical-plist-shape.md) | **ready** |
+
 **Carry into ASR-S02c:** `ServeDesiredState.Reading.unreadable` currently reports
 `effectiveState == .enabled`. That is safe only because the reading stays
 distinguishable — S02c must treat `.unreadable` as *do not converge*, report
