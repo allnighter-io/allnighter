@@ -322,6 +322,26 @@ final class ServeHealthClientTests: XCTestCase {
         XCTAssertNil(health.loopback.detail)
     }
 
+    func testCLIPathTransportIsInvokedProofActiveProbeNotNilDefault() throws {
+        let (root, store) = tempDirs()
+        defer { removeIfPresent(root) }
+        try saveRecord(to: store, daemonId: "coord-test", pid: 42)
+
+        let counter = TransportInvocationCounter()
+        let body = Data(#"{"daemonId":"coord-test","pid":42}"#.utf8)
+        let client = ServeHealthClient(transport: { _, _ in
+            counter.invoke()
+            return (body, 200)
+        })
+        let probe = ServeDaemonProbe(store: store, runsDirectory: root.appendingPathComponent("Runs", isDirectory: true),
+                                     processAlive: { _ in true })
+        let health = probe.health(binaryVersion: "0.1.0", healthClient: client)
+
+        XCTAssertTrue(counter.wasInvoked,
+                      "CLI serve health path must invoke transport (active probe), not default to nil healthClient")
+        XCTAssertTrue(health.loopback.listening, "active probe succeeded — daemon should report listening: true")
+    }
+
     func testProbeWithClientDoesNotFallThroughToOldBehavior() throws {
         let (root, store) = tempDirs()
         defer { removeIfPresent(root) }
@@ -344,6 +364,11 @@ final class ServeHealthClientTests: XCTestCase {
         }
         XCTAssertEqual(f, .nonLoopbackHost("10.0.0.1:1234"))
     }
+}
+
+private final class TransportInvocationCounter: @unchecked Sendable {
+    private(set) var wasInvoked = false
+    func invoke() { wasInvoked = true }
 }
 
 private func removeIfPresent(_ url: URL) {

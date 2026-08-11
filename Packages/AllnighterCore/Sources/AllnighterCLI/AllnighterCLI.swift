@@ -650,7 +650,7 @@ struct AllnighterCLI {
             return
         }
         if opts.flag("health") {
-            let health = ServeDaemonProbe().health(binaryVersion: binaryVersion)
+            let health = ServeDaemonProbe().health(binaryVersion: binaryVersion, healthClient: ServeHealthClient())
             if opts.flag("json") {
                 print(jsonString(health))
             } else {
