@@ -988,6 +988,16 @@ any investigation available today.
 **Closeout requirement:** this packet is archived stating the root cause was
 never identified. It must not be archived implying the incident is fixed.
 
+**Gate 9 measured 2026-08-11 — 3/3 clean, R1 still open.** Three consecutive
+`rebuild_cli.sh` → `install-cli` cycles produced four distinct ad-hoc cdhashes
+under one registration with zero LWCR/exit-78 entries, one agent and one daemon
+each time. Record:
+[`docs/qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md`](../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md)
+— **PM-executed at founder direction, not founder-signed.** This is absence
+evidence for an unidentified fault, not a confirmed fix. A **second** unexplained
+launchd event occurred the same day (job unloaded, orphaned daemon at PPID 1);
+there are now two unexplained events, not one.
+
 ### R2 — sleep/wake is the least-designed obligation in the packet
 
 §4.4 states a bound — a due obligation fires within 2 minutes of system wake —
