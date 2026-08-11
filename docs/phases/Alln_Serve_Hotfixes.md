@@ -990,7 +990,15 @@ Dock app, reboot, `kickstart`, or agent intervention.
   — **done** (ASR-S04a). A source grep for `ServeAutoLaunch`, `--no-auto-serve`
   and `ALLN_NO_AUTO_SERVE` returns hits only in `RetiredVocabulary.swift` — i.e.
   the deny-list itself.
-- [ ] Install, doctor, help search, bootstrap teaching, and uninstall agree.
+- [x] Install, doctor, help search, bootstrap teaching, and uninstall agree.
+  — **done 2026-08-11** (ASR-S05a–d). Install discloses on both the enabled and
+  `--no-serve` paths; `alln help get serve` is a narrative topic whose behaviour
+  claims trace to the gate records, with the nine §8 search terms routing to it;
+  `doctor` reports serve; `alln bootstrap` carries one line pointing at
+  `serve status --json` and `help get serve`, on every host variant; and
+  `alln uninstall` exists — serve-disable-first, per-artifact disclosure, never
+  removes user data, refuses `--json` without `--yes`, and refuses under a
+  foreign `HOME`.
 - [x] TCC proof shows no protected-folder prompt on the supported install/start
   path. — **done 2026-08-11**, gate 6. Install *refuses* a Documents-resident
   candidate (`INSTALL_CANDIDATE_REFUSED`); the only protected-folder reference on
