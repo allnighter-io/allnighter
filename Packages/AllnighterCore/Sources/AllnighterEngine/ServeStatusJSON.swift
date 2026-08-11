@@ -566,7 +566,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
         }
 
         if loadedKnown == nil {
-            return degraded("SERVE_UNKNOWN_SUPERVISOR", "alln serve status --json",
+            return degraded("SERVE_UNKNOWN_SUPERVISOR", "alln serve repair",
                             obligations: activeObligationCount)
         }
 

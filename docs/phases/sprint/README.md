@@ -78,6 +78,8 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S03c | [`alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md`](alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md) | **done** — `4edd61be` (37 tests); zero scheduler files edited |
 
 | ASR-S03d | [`alln-serve/ASR-S03d-active-health-handshake.md`](alln-serve/ASR-S03d-active-health-handshake.md) | **done** — `ff90583b` + wiring fix `0612b8ec` (25 tests) |
+| ASR-S02f | [`alln-serve/ASR-S02f-bootout-settle-and-honest-restore.md`](alln-serve/ASR-S02f-bootout-settle-and-honest-restore.md) | **done** — live host 10/10 (baseline 2 failures in 6); **unit tests unrun, XCTest unavailable** |
+| ASR-S03f4 | [`alln-serve/ASR-S03f4-daemon-not-yet-reported-is-starting.md`](alln-serve/ASR-S03f4-daemon-not-yet-reported-is-starting.md) | **ready** |
 | ASR-S03e | [`alln-serve/ASR-S03e-scheduler-receipts.md`](alln-serve/ASR-S03e-scheduler-receipts.md) | **done** — `254cfeae` (26 tests) |
 | ASR-S04a | [`alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md`](alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md) | **done** — `6bacc609` (Grok 4.5, 25 files, 82 tests) |
 | ASR-S04a2 | [`alln-serve/ASR-S04a2-gate-pending-wake.md`](alln-serve/ASR-S04a2-gate-pending-wake.md) | **done** — `69d2f1f8` + data-loss fix `ddb039ef` (77 tests) |

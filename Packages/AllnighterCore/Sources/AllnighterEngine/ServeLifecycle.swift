@@ -259,6 +259,14 @@ public struct ServeLifecycle: Sendable {
 
         do { try bootout(Self.label) } catch { }
 
+        guard await _waitForBootoutSettled() else {
+            return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) restart failed: bootout did not settle")
+        }
+
         let plist = _makePlist()
         do {
             try writePlist(plistURL, plist)
@@ -270,7 +278,7 @@ public struct ServeLifecycle: Sendable {
                                      detail: "\(Self.label) restart failed: plist write: \(error)")
         }
         do {
-            try bootstrap(plistURL.path)
+            try await _bootstrapWithBoundedRetry()
         } catch {
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
@@ -346,46 +354,52 @@ public struct ServeLifecycle: Sendable {
             }
 
             if let bootoutErr = _tryBootout() {
-                if let priorBytes = priorPlistBytes {
-                    try? priorBytes.write(to: plistURL, options: .atomic)
-                    try? bootstrap(plistURL.path)
-                }
+                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: false,
-                                         detail: "\(Self.label) converge enabled: bootout failed — prior registration restored: \(bootoutErr.message)")
+                                         registryVerified: restored,
+                                         detail: _failureDetail(prefix: "converge enabled: bootout failed",
+                                                                error: bootoutErr.message, restored: restored))
+            }
+
+            guard await _waitForBootoutSettled() else {
+                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: false, bootstrapped: false,
+                                         registryVerified: restored,
+                                         detail: _failureDetail(prefix: "converge enabled: bootout did not settle",
+                                                                error: "label still loaded in domain",
+                                                                restored: restored))
             }
 
             let absentPlist = _makePlist()
             do {
                 try writePlist(plistURL, absentPlist)
             } catch {
-                if let priorBytes = priorPlistBytes {
-                    try? priorBytes.write(to: plistURL, options: .atomic)
-                    try? bootstrap(plistURL.path)
-                }
+                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: false,
-                                         detail: "\(Self.label) converge enabled: plist write failed — prior registration restored: \(error)")
+                                         registryVerified: restored,
+                                         detail: _failureDetail(prefix: "converge enabled: plist write failed",
+                                                                error: "\(error)", restored: restored))
             }
 
             do {
-                try bootstrap(plistURL.path)
+                try await _bootstrapWithBoundedRetry()
             } catch {
-                if let priorBytes = priorPlistBytes {
-                    try? priorBytes.write(to: plistURL, options: .atomic)
-                    try? bootstrap(plistURL.path)
-                } else {
+                if priorPlistBytes == nil {
                     try? removePlist(plistURL)
                 }
+                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: true, bootstrapped: false,
-                                         registryVerified: false,
-                                         detail: "\(Self.label) converge enabled: bootstrap failed — prior registration restored: \(error)")
+                                         registryVerified: restored,
+                                         detail: _failureDetail(prefix: "converge enabled: bootstrap failed",
+                                                                error: "\(error)", restored: restored))
             }
 
             let absentVerified = await _boundedVerify(expectedLoaded: true)
@@ -424,46 +438,52 @@ public struct ServeLifecycle: Sendable {
             }
 
             if let bootoutErr = _tryBootout() {
-                if let priorBytes = priorPlistBytes {
-                    try? priorBytes.write(to: plistURL, options: .atomic)
-                    try? bootstrap(plistURL.path)
-                }
+                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: false,
-                                         detail: "\(Self.label) converge enabled: bootout failed — prior registration restored: \(bootoutErr.message)")
+                                         registryVerified: restored,
+                                         detail: _failureDetail(prefix: "converge enabled: bootout failed",
+                                                                error: bootoutErr.message, restored: restored))
+            }
+
+            guard await _waitForBootoutSettled() else {
+                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: false, bootstrapped: false,
+                                         registryVerified: restored,
+                                         detail: _failureDetail(prefix: "converge enabled: bootout did not settle",
+                                                                error: "label still loaded in domain",
+                                                                restored: restored))
             }
 
             let plist = _makePlist()
             do {
                 try writePlist(plistURL, plist)
             } catch {
-                if let priorBytes = priorPlistBytes {
-                    try? priorBytes.write(to: plistURL, options: .atomic)
-                    try? bootstrap(plistURL.path)
-                }
+                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: false,
-                                         detail: "\(Self.label) converge enabled: plist write failed — prior registration restored: \(error)")
+                                         registryVerified: restored,
+                                         detail: _failureDetail(prefix: "converge enabled: plist write failed",
+                                                                error: "\(error)", restored: restored))
             }
 
             do {
-                try bootstrap(plistURL.path)
+                try await _bootstrapWithBoundedRetry()
             } catch {
-                if let priorBytes = priorPlistBytes {
-                    try? priorBytes.write(to: plistURL, options: .atomic)
-                    try? bootstrap(plistURL.path)
-                } else {
+                if priorPlistBytes == nil {
                     try? removePlist(plistURL)
                 }
+                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: true, bootstrapped: false,
-                                         registryVerified: false,
-                                         detail: "\(Self.label) converge enabled: bootstrap failed — prior registration restored: \(error)")
+                                         registryVerified: restored,
+                                         detail: _failureDetail(prefix: "converge enabled: bootstrap failed",
+                                                                error: "\(error)", restored: restored))
             }
 
             let verified = await _boundedVerify(expectedLoaded: true)
@@ -482,59 +502,61 @@ public struct ServeLifecycle: Sendable {
         let stagedPath = stagedBinaryURL.path
 
         if let bootoutErr = _tryBootout() {
-            if let priorBytes = priorPlistBytes {
-                try? priorBytes.write(to: plistURL, options: .atomic)
-                try? bootstrap(plistURL.path)
-            }
+            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: false, bootstrapped: false,
-                                     registryVerified: false,
-                                     detail: "\(Self.label) migration failed: bootout error — prior registration restored: \(bootoutErr.message)")
+                                     registryVerified: restored,
+                                     detail: _failureDetail(prefix: "migration failed: bootout error",
+                                                            error: bootoutErr.message, restored: restored))
+        }
+
+        guard await _waitForBootoutSettled() else {
+            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+            return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: restored,
+                                     detail: _failureDetail(prefix: "migration failed: bootout did not settle",
+                                                            error: "label still loaded in domain",
+                                                            restored: restored))
         }
 
         let plist = _makePlist()
         do {
             try writePlist(plistURL, plist)
         } catch {
-            if let priorBytes = priorPlistBytes {
-                try? priorBytes.write(to: plistURL, options: .atomic)
-                try? bootstrap(plistURL.path)
-            }
+            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: false, bootstrapped: false,
-                                     registryVerified: false,
-                                     detail: "\(Self.label) migration failed: plist write — prior registration restored: \(error)")
+                                     registryVerified: restored,
+                                     detail: _failureDetail(prefix: "migration failed: plist write",
+                                                            error: "\(error)", restored: restored))
         }
 
         do {
-            try bootstrap(plistURL.path)
+            try await _bootstrapWithBoundedRetry()
         } catch {
-            if let priorBytes = priorPlistBytes {
-                try? priorBytes.write(to: plistURL, options: .atomic)
-                try? bootstrap(plistURL.path)
-            } else {
-                try? removePlist(plistURL)
-            }
+            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: true, bootstrapped: false,
-                                     registryVerified: false,
-                                     detail: "\(Self.label) migration failed: bootstrap — prior registration restored: \(error)")
+                                     registryVerified: restored,
+                                     detail: _failureDetail(prefix: "migration failed: bootstrap",
+                                                            error: "\(error)", restored: restored))
         }
 
         let verified = await _boundedVerify(expectedLoaded: true)
         guard verified else {
-            if let priorBytes = priorPlistBytes {
-                try? priorBytes.write(to: plistURL, options: .atomic)
-                try? bootstrap(plistURL.path)
-            }
+            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: true, bootstrapped: true,
-                                     registryVerified: false,
-                                     detail: "\(Self.label) migration failed: verify — prior registration restored")
+                                     registryVerified: restored,
+                                     detail: restored
+                                        ? "\(Self.label) migration failed: verify — prior registration restored"
+                                        : "\(Self.label) migration failed: verify — serve is not running; run `alln serve repair`")
         }
 
         var removed = false
@@ -603,6 +625,54 @@ public struct ServeLifecycle: Sendable {
             do { try await sleep(0.1) } catch { break }
         }
         return verifyJobLoaded(Self.label) == expectedLoaded
+    }
+
+    private static let bootoutSettleTimeout: TimeInterval = 5
+    private static let bootstrapMaxAttempts = 3
+    private static let bootstrapRetryBackoff: TimeInterval = 0.2
+
+    private func _waitForBootoutSettled() async -> Bool {
+        await _boundedVerify(expectedLoaded: false, timeout: Self.bootoutSettleTimeout)
+    }
+
+    private func _bootstrapWithBoundedRetry() async throws {
+        var lastError: Error?
+        for attempt in 0..<Self.bootstrapMaxAttempts {
+            do {
+                try bootstrap(plistURL.path)
+                return
+            } catch {
+                lastError = error
+                if attempt + 1 < Self.bootstrapMaxAttempts {
+                    try await sleep(Self.bootstrapRetryBackoff)
+                }
+            }
+        }
+        if let lastError {
+            throw lastError
+        }
+    }
+
+    private func _restorePriorRegistration(priorPlistBytes: Data?) async -> Bool {
+        guard let priorBytes = priorPlistBytes else { return false }
+        do {
+            try priorBytes.write(to: plistURL, options: .atomic)
+        } catch {
+            return false
+        }
+        do {
+            try await _bootstrapWithBoundedRetry()
+        } catch {
+            return false
+        }
+        return await _boundedVerify(expectedLoaded: true)
+    }
+
+    private func _failureDetail(prefix: String, error: String, restored: Bool) -> String {
+        if restored {
+            return "\(Self.label) \(prefix) — prior registration restored: \(error)"
+        }
+        return "\(Self.label) \(prefix) — serve is not running; run `alln serve repair`: \(error)"
     }
 
     // MARK: - Default log directory

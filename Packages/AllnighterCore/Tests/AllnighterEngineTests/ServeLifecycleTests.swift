@@ -17,8 +17,12 @@ final class ServeLifecycleTests: XCTestCase {
 
         var bootoutError: Error?
         var bootstrapError: Error?
+        var bootstrapFailuresRemaining: Int = 0
         var writeError: Error?
         var deleteError: Error?
+
+        var verifyCallCount = 0
+        var jobUnloadedAfterVerifyCount: Int?
 
         var injectedReading: ServeDesiredState.Reading = .absent
         var desiredWriteResult: Result<Void, ServeDesiredState.Failure> = .success(())
@@ -27,6 +31,8 @@ final class ServeLifecycleTests: XCTestCase {
         var injectedPlistProgramArgument: String?
         var stagedBytesPresent = false
         var stagedRemoveError: Error?
+        var recordedSleeps: [TimeInterval] = []
+        var clockTime: Date
 
         let plistURL = URL(fileURLWithPath: "/tmp/\(UUID().uuidString).plist")
         let homeURL = URL(fileURLWithPath: "/tmp/home-\(UUID().uuidString)")
@@ -37,6 +43,7 @@ final class ServeLifecycleTests: XCTestCase {
             let dir = URL(fileURLWithPath: canonicalBase)
             canonicalURL = dir.appendingPathComponent("alln")
             stagedBinaryURL = URL(fileURLWithPath: "/tmp/staged-\(UUID().uuidString)/alln")
+            clockTime = Date(timeIntervalSince1970: 1_000_000)
         }
 
         var lifecycle: ServeLifecycle {
@@ -57,6 +64,10 @@ final class ServeLifecycleTests: XCTestCase {
                 },
                 bootstrap: { [self] path in
                     bootstrapCalls.append(path)
+                    if bootstrapFailuresRemaining > 0 {
+                        bootstrapFailuresRemaining -= 1
+                        throw bootstrapError ?? ServeLifecycle.BootstrapError(terminationStatus: 1, message: "Bootstrap failed")
+                    }
                     if let bootstrapError { throw bootstrapError }
                 },
                 homeDirectory: homeURL,
@@ -67,9 +78,21 @@ final class ServeLifecycleTests: XCTestCase {
                     desiredWrites.append((state, home))
                     return desiredWriteResult
                 },
-                verifyJobLoaded: { [self] _ in jobIsLoaded },
-                sleep: { _ in },
-                clock: { Date() },
+                verifyJobLoaded: { [self] _ in
+                    verifyCallCount += 1
+                    if let threshold = jobUnloadedAfterVerifyCount {
+                        return verifyCallCount >= threshold ? false : jobIsLoaded
+                    }
+                    if bootoutCalls.count > bootstrapCalls.count {
+                        return false
+                    }
+                    return jobIsLoaded
+                },
+                sleep: { [self] d in
+                    recordedSleeps.append(d)
+                    clockTime = clockTime.addingTimeInterval(d)
+                },
+                clock: { [self] in clockTime },
                 stagedBinaryURL: stagedBinaryURL,
                 readExistingPlistProgramArgument: { [self] _ in injectedPlistProgramArgument },
                 stagedBytesExist: { [self] _ in stagedBytesPresent },
@@ -403,11 +426,13 @@ final class ServeLifecycleTests: XCTestCase {
         let priorBytes = try! Data(contentsOf: h.plistURL)
         h.injectedReading = .present(state: .enabled, updatedAt: Date())
         h.bootoutError = ServeLifecycle.BootoutError(terminationStatus: 1, message: "Boot-out failed: 5: Input/output error")
+        h.jobIsLoaded = true
 
         let result = await h.lifecycle.repair()
         XCTAssertEqual(result.outcome, .failed)
         XCTAssertTrue(result.detail.contains("bootout failed"))
         XCTAssertTrue(result.detail.contains("prior registration restored"))
+        XCTAssertTrue(result.registryVerified)
         XCTAssertTrue(h.writtenPlists.isEmpty, "no plist written after bootout failure")
         XCTAssertTrue(h.bootstrapCalls.count >= 1, "prior job must be re-bootstrapped")
 
@@ -421,11 +446,13 @@ final class ServeLifecycleTests: XCTestCase {
         h.createPlistFile()
         let priorBytes = try! Data(contentsOf: h.plistURL)
         h.bootoutError = ServeLifecycle.BootoutError(terminationStatus: 1, message: "Boot-out failed: 5: Input/output error")
+        h.jobIsLoaded = true
 
         let result = await h.lifecycle.enable()
         XCTAssertEqual(result.outcome, .failed)
         XCTAssertTrue(result.detail.contains("bootout failed"))
         XCTAssertTrue(result.detail.contains("prior registration restored"))
+        XCTAssertTrue(result.registryVerified)
         XCTAssertTrue(h.writtenPlists.isEmpty)
 
         let restorted = try? Data(contentsOf: h.plistURL)

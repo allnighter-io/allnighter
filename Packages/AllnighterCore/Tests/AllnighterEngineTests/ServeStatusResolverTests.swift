@@ -483,6 +483,16 @@ final class ServeStatusResolverTests: XCTestCase {
         XCTAssertTrue(status.recovery?.reasonCode.contains("UNKNOWN") ?? false)
     }
 
+    func testUnknownSupervisorRecoveryNamesRepair() {
+        var input = healthyInput()
+        input.supervisor.loaded = nil
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_UNKNOWN_SUPERVISOR")
+        XCTAssertEqual(status.recovery?.command, "alln serve repair")
+        XCTAssertNotEqual(status.recovery?.command, "alln serve status --json")
+    }
+
     func testUnreadableReceiptFailsClosedDegraded() {
         var input = healthyInput()
         input.receipt = .unreadable(reason: "corrupt")

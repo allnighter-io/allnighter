@@ -16,8 +16,14 @@ final class ServeLifecycleEnableTests: XCTestCase {
 
         var bootoutError: Error?
         var bootstrapError: Error?
+        /// Decremented on each bootstrap call; throws until exhausted.
+        var bootstrapFailuresRemaining: Int = 0
         var writeError: Error?
         var deleteError: Error?
+
+        var verifyCallCount = 0
+        /// When set, `verifyJobLoaded` returns not-loaded after this many verify polls.
+        var jobUnloadedAfterVerifyCount: Int?
 
         var desiredWriteResult: Result<Void, ServeDesiredState.Failure> = .success(())
         var injectedReading: ServeDesiredState.Reading = .absent
@@ -60,6 +66,10 @@ final class ServeLifecycleEnableTests: XCTestCase {
                 },
                 bootstrap: { [self] path in
                     bootstrapCalls.append(path)
+                    if bootstrapFailuresRemaining > 0 {
+                        bootstrapFailuresRemaining -= 1
+                        throw bootstrapError ?? ServeLifecycle.BootstrapError(terminationStatus: 1, message: "Bootstrap failed")
+                    }
                     if let bootstrapError { throw bootstrapError }
                 },
                 homeDirectory: homeURL,
@@ -70,7 +80,16 @@ final class ServeLifecycleEnableTests: XCTestCase {
                     desiredWrites.append((state, home))
                     return desiredWriteResult
                 },
-                verifyJobLoaded: { [self] _ in jobIsLoaded },
+                verifyJobLoaded: { [self] _ in
+                    verifyCallCount += 1
+                    if let threshold = jobUnloadedAfterVerifyCount {
+                        return verifyCallCount >= threshold ? false : jobIsLoaded
+                    }
+                    if bootoutCalls.count > bootstrapCalls.count {
+                        return false
+                    }
+                    return jobIsLoaded
+                },
                 sleep: { [self] d in
                     recordedSleeps.append(d)
                     clockTime = clockTime.addingTimeInterval(d)
@@ -318,6 +337,8 @@ final class ServeLifecycleEnableTests: XCTestCase {
         let priorBytes = try! Data(contentsOf: h.plistURL)
         h.injectedReading = .present(state: .enabled, updatedAt: Date())
         h.bootstrapError = ServeLifecycle.BootstrapError(terminationStatus: 1, message: "Bootstrap failed")
+        h.bootstrapFailuresRemaining = 3
+        h.jobIsLoaded = true
 
         let result = await h.lifecycle.repair()
         XCTAssertEqual(result.outcome, .failed)
@@ -328,6 +349,41 @@ final class ServeLifecycleEnableTests: XCTestCase {
         XCTAssertNotNil(restored)
         XCTAssertEqual(restored, priorBytes, "prior plist bytes must be restored on bootstrap failure")
         XCTAssertTrue(result.detail.contains("prior registration restored"))
+        XCTAssertTrue(result.registryVerified, "verified restore must set registryVerified")
+    }
+
+    /// ASR-S02f failing-first: restore bootstrap also fails — must not claim restored.
+    func testBootstrapFailureWithFailedRestoreDoesNotClaimRestored() async {
+        let h = Harness()
+        h.createPlistFile()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.bootstrapError = ServeLifecycle.BootstrapError(terminationStatus: 5, message: "Bootstrap failed: 5: Input/output error")
+        h.jobIsLoaded = false
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertFalse(result.bootstrapped)
+        XCTAssertFalse(result.registryVerified)
+        XCTAssertFalse(
+            result.detail.contains("prior registration restored"),
+            "must not claim restore when restore bootstrap also failed: \(result.detail)"
+        )
+        XCTAssertTrue(
+            result.detail.contains("not running") && result.detail.contains("alln serve repair"),
+            "must name honest recovery: \(result.detail)"
+        )
+    }
+
+    func testBootoutSettleWaitsBeforeBootstrap() async {
+        let h = Harness()
+        h.createPlistFile()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.jobIsLoaded = true
+        h.jobUnloadedAfterVerifyCount = 2
+
+        _ = await h.lifecycle.repair()
+        XCTAssertGreaterThanOrEqual(h.verifyCallCount, 2, "must poll until bootout settles before bootstrap")
+        XCTAssertGreaterThanOrEqual(h.bootstrapCalls.count, 1)
     }
 
     func testBootstrapFailureRebootstrapsPriorJob() async {
@@ -365,7 +421,7 @@ final class ServeLifecycleEnableTests: XCTestCase {
 
         _ = await h.lifecycle.repair()
         XCTAssertTrue(h.deletedURLs.contains(h.plistURL), "when no prior plist existed, the failed new plist must be deleted")
-        XCTAssertEqual(h.bootstrapCalls.count, 1, "only one bootstrap attempt (no prior to restore)")
+        XCTAssertEqual(h.bootstrapCalls.count, 3, "bounded retry must exhaust attempts when no prior to restore")
     }
 
     // MARK: - bounded verify
@@ -568,6 +624,7 @@ final class ServeLifecycleEnableTests: XCTestCase {
 
         final class Events: @unchecked Sendable {
             var list: [String] = []
+            var bootstrapped = false
         }
         let events = Events()
 
@@ -577,13 +634,16 @@ final class ServeLifecycleEnableTests: XCTestCase {
             plistExists: { _ in true },
             removePlist: { _ in },
             writePlist: { _, _ in events.list.append("write-plist") },
-            bootstrap: { _ in events.list.append("bootstrap") },
+            bootstrap: { _ in
+                events.list.append("bootstrap")
+                events.bootstrapped = true
+            },
             homeDirectory: h.homeURL,
             canonicalBinaryURL: h.canonicalURL,
             canonicalBinaryExists: { _ in true },
             readDesiredState: { _ in .present(state: .enabled, updatedAt: Date()) },
             writeDesiredState: { _, _ in .success(()) },
-            verifyJobLoaded: { _ in true },
+            verifyJobLoaded: { _ in events.bootstrapped },
             sleep: { _ in },
             clock: { Date() },
             stagedBinaryURL: h.stagedBinaryURL,
@@ -620,11 +680,14 @@ final class ServeLifecycleEnableTests: XCTestCase {
         h.injectedPlistProgramArgument = h.stagedBinaryURL.path
         h.stagedBytesPresent = true
         h.bootstrapError = ServeLifecycle.BootstrapError(terminationStatus: 1, message: "Bootstrap failed")
+        h.bootstrapFailuresRemaining = 3
+        h.jobIsLoaded = true
 
         let result = await h.lifecycle.repair()
         XCTAssertEqual(result.outcome, .failed)
         XCTAssertTrue(result.detail.contains("migration failed"))
         XCTAssertTrue(result.detail.contains("prior registration restored"))
+        XCTAssertTrue(result.registryVerified)
         XCTAssertFalse(result.stagedBytesRemoved)
         XCTAssertTrue(h.stagedBytesDeletedURLs.isEmpty, "staged bytes must remain on failed migration")
 
