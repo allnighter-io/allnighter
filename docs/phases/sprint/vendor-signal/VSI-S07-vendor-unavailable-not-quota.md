@@ -77,6 +77,7 @@ context that makes it readable.
 ```text
 Packages/AllnighterCore/Sources/AllnighterCore/ContractRegistry+Milestone1.swift
 Packages/AllnighterCore/Sources/AllnighterCore/NDJSONStreamProjector.swift
+Packages/AllnighterCore/Sources/AllnighterCore/FloorProjector.swift
 Packages/AllnighterCore/Tests/AllnighterCoreTests/VendorUnavailableTests.swift   (new)
 Packages/AllnighterCore/Sources/AllnighterCore/ThreadAgentPresentation.swift     (only if the driver resolver must be threaded through)
 ```
@@ -135,6 +136,28 @@ out of scope.
 6. **Failing-first.** Write the test that shows today's output reading as a quota
    verdict, watch it fail, then fix. Record the observed failure in the commit
    message.
+
+### 7a. Both projectors, or the slice is not done
+
+**Measured after the first implementation attempt:** `NDJSONStreamProjector` was
+fixed, its tests went green (29 passing) — and a real failing run on the live
+host still printed the old string, byte for byte:
+
+```text
+code: AGENT_FAILED
+message: RetriableError: [resource_exhausted] Error
+```
+
+The message a caller actually reads from `alln run --json`
+(`answers[].error.message`) is built by
+**`FloorProjector.workerErrors`** (~line 135) from `a.result.errorReason`, which
+that change never touched. A green suite over an unchanged user-visible defect is
+the exact failure `docs/operations/Spec_Review.md` §3 names: a proof that could
+not fail for the case it claims to cover.
+
+Both projection sites must present the same reading, from one shared helper — not
+two copies that can drift. And the acceptance test below is the live command, not
+a unit test.
 
 ## 8. Works Test
 
