@@ -959,6 +959,62 @@ Dock app, reboot, `kickstart`, or agent intervention.
 - [ ] Focused proofs and `bash scripts/check.sh` pass.
 - [ ] Durable law is promoted to code/contracts/vocabulary; this packet and the
   superseded sprint orders are archived.
+- [ ] Every risk in §10.1 is resolved or re-homed to a named owner, and the
+  archive note states plainly that the LWCR root cause was never identified
+  (R1). Archiving without this is a false receipt.
+
+## 10.1 Known open risks — carry these to closeout
+
+These are **not** blockers and none of them stops a slice. They are named here so
+closeout cannot quietly imply they were solved. Archiving this packet without
+resolving or re-homing each one is a false receipt.
+
+### R1 — the 2026-08-09 LWCR root cause is unidentified
+
+ASR-S00 refuted this packet's own theory. Replacing an ad-hoc binary's bytes
+under a loaded KeepAlive agent — the mechanism §4.5 assumed — did **not**
+reproduce the exit-78/LWCR wedge, on any of three signing tracks. The install
+ordering in §4.3 is still correct and proven sufficient, but it is not a
+confirmed fix for the incident, because the incident's cause is unknown.
+
+Consequence: the wedge can recur after this packet closes and nothing here would
+have predicted it. **ASR-S06 gate 9** (three consecutive `rebuild_cli.sh` →
+`install-cli` cycles with a changing cdhash under one registration) is the
+closest thing to a detector, because it is the exact motion that wedged. Do not
+waive it, and record its result either way. If it wedges, that is a reproduction
+with the new receipts and bounded logs in place — a better starting point than
+any investigation available today.
+
+**Closeout requirement:** this packet is archived stating the root cause was
+never identified. It must not be archived implying the incident is fixed.
+
+### R2 — sleep/wake is the least-designed obligation in the packet
+
+§4.4 states a bound — a due obligation fires within 2 minutes of system wake —
+but deliberately leaves the mechanism to ASR-S03, and every scheduler today is a
+`Task.sleep` poll (`PendingWakeScheduler`, `CapacityRefreshScheduler`). This is
+the easiest place in the packet to write a proof that cannot fail: a test that
+advances a fake clock proves the arithmetic, not that a sleeping Mac wakes and
+fires. ASR-S03 must carry the 2-minute bound as its own failing-first test, and
+**ASR-S06 gate 10** (real lid close past a deadline) is the only proof that
+counts. Cut the wake work as its own sub-slice so it cannot ride along inside a
+larger status slice.
+
+### R3 — the release gates that matter need a human
+
+Gates 7, 8, 9, and 10 (logout/login, disable-survives-login, the three-cycle
+rebuild loop, and sleep) cannot be closed by any agent or same-session unit
+test. They are the gates that actually prove §9's user-visible claim. Until they
+are recorded and signed under `docs/qa/alln-serve/`, the claim is unproven no
+matter how green the suite is. An unrecorded gate is an unrun gate.
+
+### R4 — intermediate state: the live daemon is frozen
+
+Between ASR-S01b (`91cad2de`) and ASR-S02c, `install-cli` updates the canonical
+binary and PATH while the loaded agent keeps running its already-staged bytes,
+so the daemon's build no longer tracks installs. This is deliberate — it is the
+§8 ASR-S01 ordering guard — but it is a real degradation while it lasts, and
+ASR-S02c closes it. Do not let it survive past that slice.
 
 ## 11. Blocking questions
 
