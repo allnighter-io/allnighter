@@ -941,10 +941,16 @@ Dock app, reboot, `kickstart`, or agent intervention.
   scheduler…" naming what it handles and `alln serve disable`; the `--no-serve`
   path names what was skipped and `alln serve enable`. Active verification is
   gate 2 (loopback handshake, not a pid check).
-- [ ] PATH, launchd, health, and update name one canonical installed binary, and
-  identity — not version string — decides `binary.matches`. — **install side done
-  2026-08-10** (ASR-S01a–d: `d60efa8a`, `91cad2de`, `fa8dc145`, `1f3e1add`);
-  launchd and health still name the staged path until ASR-S02.
+- [x] PATH, launchd, health, and update name one canonical installed binary, and
+  identity — not version string — decides `binary.matches`. — **done 2026-08-11**.
+  Install side ASR-S01a–d (`d60efa8a`, `91cad2de`, `fa8dc145`, `1f3e1add`);
+  launchd/health rebind ASR-S02d. Proven on the host by **gate 2**: `binary.path`,
+  the loaded agent's `program` read from `launchctl print`, and the PATH symlink
+  all resolve to `~/.local/share/allnighter/bin/alln`, with `daemon.pid ==
+  supervisor.pid`. **Gate 4** proved it survives a vA→vB update with no orphan and
+  no staged copy. Identity, not version string, decides `matches`
+  (ASR-S03f3/S03f4): a `version`-only identity is unrecorded, and an unrecorded or
+  not-yet-reported identity is never a mismatch.
 - [x] No exit path produces a KeepAlive respawn loop; stand-down is visible in
   status rather than silent. — **done 2026-08-11**, gate 3 (`476e9d80`). SIGTERM
   now dies by signal and launchd restarts (`runs` 1→2→3); admission refusal and
