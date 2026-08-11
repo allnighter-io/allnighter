@@ -153,6 +153,9 @@ public struct ServeLifecycle: Sendable {
     public let removePlist: @Sendable (URL) throws -> Void
     public let writePlist: @Sendable (URL, AgentPlist) throws -> Void
     public let bootstrap: @Sendable (String) throws -> Void
+    /// Bootstrap used only on the install/converge forward path (ASR-S06d). Restore
+    /// re-bootstraps through `bootstrap` so a test injection cannot brick recovery.
+    private let installTransactionBootstrap: @Sendable (String) throws -> Void
 
     public let homeDirectory: URL
     public let canonicalBinaryURL: URL
@@ -194,7 +197,9 @@ public struct ServeLifecycle: Sendable {
         self.plistExists = plistExists
         self.removePlist = removePlist
         self.writePlist = writePlist ?? Self.liveWritePlist
-        self.bootstrap = bootstrap ?? Self.liveBootstrap
+        let baseBootstrap = bootstrap ?? Self.liveBootstrap
+        self.bootstrap = baseBootstrap
+        self.installTransactionBootstrap = Self.makeInstallTransactionBootstrap(base: baseBootstrap)
         self.homeDirectory = homeDirectory
         self.canonicalBinaryURL = canonicalBinaryURL ?? CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: homeDirectory)
         self.canonicalBinaryExists = canonicalBinaryExists ?? { FileManager.default.isExecutableFile(atPath: $0.path) }
@@ -388,7 +393,7 @@ public struct ServeLifecycle: Sendable {
             }
 
             do {
-                try await _bootstrapWithBoundedRetry()
+                try await _bootstrapInstallTransactionWithBoundedRetry()
             } catch {
                 if priorPlistBytes == nil {
                     try? removePlist(plistURL)
@@ -472,7 +477,7 @@ public struct ServeLifecycle: Sendable {
             }
 
             do {
-                try await _bootstrapWithBoundedRetry()
+                try await _bootstrapInstallTransactionWithBoundedRetry()
             } catch {
                 if priorPlistBytes == nil {
                     try? removePlist(plistURL)
@@ -635,11 +640,19 @@ public struct ServeLifecycle: Sendable {
         await _boundedVerify(expectedLoaded: false, timeout: Self.bootoutSettleTimeout)
     }
 
+    private func _bootstrapInstallTransactionWithBoundedRetry() async throws {
+        try await _bootstrapWithBoundedRetry(using: installTransactionBootstrap)
+    }
+
     private func _bootstrapWithBoundedRetry() async throws {
+        try await _bootstrapWithBoundedRetry(using: bootstrap)
+    }
+
+    private func _bootstrapWithBoundedRetry(using bootstrapFn: @Sendable (String) throws -> Void) async throws {
         var lastError: Error?
         for attempt in 0..<Self.bootstrapMaxAttempts {
             do {
-                try bootstrap(plistURL.path)
+                try bootstrapFn(plistURL.path)
                 return
             } catch {
                 lastError = error
@@ -680,6 +693,44 @@ public struct ServeLifecycle: Sendable {
     public static func defaultLogDirectory() -> URL {
         FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Logs/Allnighter", isDirectory: true)
+    }
+
+    // MARK: - Install transaction test injection (ASR-S06d)
+
+    /// Exact value for `ALLNIGHTER_SERVE_TEST_INJECT` that fails the install/converge
+    /// bootstrap step. Presence alone or any other value injects nothing.
+    public static let testInjectBootstrapFailure = "bootstrap-failure"
+
+    private static let testInjectEnvKey = "ALLNIGHTER_SERVE_TEST_INJECT"
+
+    private static let bootstrapFailureInjectMessage =
+        "ALLNIGHTER_SERVE_TEST_INJECT=bootstrap-failure: injected launchctl bootstrap failure (ASR-S06d test seam)"
+
+    private static func bootstrapFailureInjectIsActive() -> Bool {
+        guard let value = ProcessInfo.processInfo.environment[testInjectEnvKey], !value.isEmpty else {
+            return false
+        }
+        return value == testInjectBootstrapFailure
+    }
+
+    private static func announceBootstrapFailureInject() {
+        FileHandle.standardError.write(Data(
+            "ALLNIGHTER: WARNING — serve install test injection active (\(testInjectEnvKey)=\(testInjectBootstrapFailure)); launchctl bootstrap will fail\n"
+                .utf8
+        ))
+    }
+
+    private static func makeInstallTransactionBootstrap(
+        base: @escaping @Sendable (String) throws -> Void
+    ) -> @Sendable (String) throws -> Void {
+        let injectActive = bootstrapFailureInjectIsActive()
+        return { plistPath in
+            if injectActive {
+                announceBootstrapFailureInject()
+                throw BootstrapError(terminationStatus: 1, message: bootstrapFailureInjectMessage)
+            }
+            try base(plistPath)
+        }
     }
 
     // MARK: - Live launchctl (never called from unit tests)

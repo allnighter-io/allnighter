@@ -829,4 +829,54 @@ final class ServeLifecycleEnableTests: XCTestCase {
         XCTAssertEqual(decoded.migratedFrom, result.migratedFrom)
         XCTAssertEqual(decoded.stagedBytesRemoved, result.stagedBytesRemoved)
     }
+
+    // MARK: - ASR-S06d bootstrap failure injection
+
+    func testBootstrapFailureInjectFailsInstallTransactionButRestoreBootstraps() async {
+        setenv("ALLNIGHTER_SERVE_TEST_INJECT", ServeLifecycle.testInjectBootstrapFailure, 1)
+        defer { unsetenv("ALLNIGHTER_SERVE_TEST_INJECT") }
+
+        let h = Harness()
+        h.createPlistFile()
+        let priorBytes = try! Data(contentsOf: h.plistURL)
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.jobIsLoaded = true
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertFalse(result.bootstrapped)
+        XCTAssertTrue(result.detail.contains("bootstrap failed"))
+        XCTAssertTrue(result.detail.contains(ServeLifecycle.testInjectBootstrapFailure))
+        XCTAssertTrue(result.registryVerified, "restore bootstrap must succeed without injection")
+
+        let restored = try? Data(contentsOf: h.plistURL)
+        XCTAssertEqual(restored, priorBytes)
+        XCTAssertGreaterThan(h.bootstrapCalls.count, 0, "restore must call base bootstrap, not the injected path")
+    }
+
+    func testBootstrapFailureInjectInactiveWhenUnset() async {
+        unsetenv("ALLNIGHTER_SERVE_TEST_INJECT")
+
+        let h = Harness()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.jobIsLoaded = true
+
+        let result = await h.lifecycle.enable()
+        XCTAssertEqual(result.outcome, .enabled)
+        XCTAssertTrue(result.bootstrapped)
+        XCTAssertGreaterThanOrEqual(h.bootstrapCalls.count, 1)
+    }
+
+    func testBootstrapFailureInjectInactiveForWrongValue() async {
+        setenv("ALLNIGHTER_SERVE_TEST_INJECT", "not-bootstrap-failure", 1)
+        defer { unsetenv("ALLNIGHTER_SERVE_TEST_INJECT") }
+
+        let h = Harness()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.jobIsLoaded = true
+
+        let result = await h.lifecycle.enable()
+        XCTAssertEqual(result.outcome, .enabled)
+        XCTAssertTrue(result.bootstrapped)
+    }
 }

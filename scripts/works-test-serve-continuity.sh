@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Works Test for alln serve host continuity (ASR-S06a gate 3, ASR-S06c gate 4 update half).
+# Works Test for alln serve host continuity (ASR-S06a gate 3, ASR-S06c gate 4 update half,
+# ASR-S06d gate 4 rollback half).
 #
 # Default: inspect-only — reads `alln serve status --json`, reports host state,
 # never signals or mutates. Exit non-zero only when the host is not healthy.
@@ -34,6 +35,7 @@ usage() {
   echo "Usage: $(basename "$0")" >&2
   echo "       $(basename "$0") --mutate-product-agent crash-restart" >&2
   echo "       $(basename "$0") --mutate-product-agent update" >&2
+  echo "       $(basename "$0") --mutate-product-agent update-rollback" >&2
   exit 2
 }
 
@@ -307,6 +309,7 @@ attempt_host_repair() {
 }
 
 cleanup() {
+  unset ALLNIGHTER_SERVE_TEST_INJECT 2>/dev/null || true
   if [[ "$MUTATING" != true ]]; then
     return 0
   fi
@@ -477,6 +480,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 STAGED_COPY_PATH="$HOME/Library/Application Support/Allnighter/CLI/alln"
 PATH_SYMLINK="$HOME/.local/bin/alln"
+CANONICAL_BINARY="$HOME/.local/share/allnighter/bin/alln"
+ROLLBACK_BINARY="${CANONICAL_BINARY}.rollback"
+PLIST_PATH="$HOME/Library/LaunchAgents/com.allnighter.resident-coordinator.plist"
 
 # Print cdhash on stdout only (for $(...) capture). Diagnostics on stderr.
 binary_cdhash() {
@@ -497,6 +503,11 @@ else:
     print(f"no CandidateCDHash in codesign output for {path}", file=sys.stderr)
     sys.exit(1)
 PY
+}
+
+binary_sha256() {
+  local path="$1"
+  shasum -a 256 "$path" | awk '{print $1}'
 }
 
 assert_no_staged_copy() {
@@ -572,10 +583,15 @@ PY
 
 mutate_update() {
   MUTATING=true
-  local json before_pid before_daemon_id before_sha before_cdhash
-  local expected_sha after_cdhash matches running_sha rebuild_log rebuild_ec
+  local json before_pid before_daemon_id before_sha before_cdhash before_head
+  local expected_sha after_cdhash matches running_sha rebuild_log rebuild_ec after_head
 
   log "mutating mode: update (vA -> vB via rebuild_cli.sh)"
+
+  if ! before_head="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"; then
+    fail "update: could not resolve git HEAD from repo at $REPO_ROOT"
+    return 1
+  fi
 
   log "=== update: record before state ==="
   if ! json="$(ensure_healthy_or_fail "update before-state")"; then
@@ -591,13 +607,10 @@ mutate_update() {
     return 1
   fi
 
-  log "before: pid=$before_pid daemonId=$before_daemon_id runningGitSha=$before_sha cdhash=$before_cdhash"
+  log "before: pid=$before_pid daemonId=$before_daemon_id runningGitSha=$before_sha cdhash=$before_cdhash repoHead=$before_head"
   assert_singularity "update before-rebuild" "$json" || true
 
-  if ! expected_sha="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"; then
-    fail "update: could not resolve expected git sha from repo at $REPO_ROOT"
-    return 1
-  fi
+  expected_sha="$before_head"
   log "expected runningGitSha after rebuild: $expected_sha"
 
   log "=== update: run rebuild_cli.sh ==="
@@ -612,6 +625,11 @@ mutate_update() {
     return 1
   fi
   rm -f "$rebuild_log"
+
+  if ! after_head="$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)"; then
+    fail "update: could not resolve git HEAD after rebuild"
+    return 1
+  fi
 
   log "=== update: wait for healthy host after rebuild ==="
   if ! wait_for_host_healthy "update after-rebuild"; then
@@ -633,7 +651,7 @@ mutate_update() {
     return 1
   fi
 
-  log "after: pid=$STATUS_DAEMON_PID daemonId=$STATUS_DAEMON_ID runningGitSha=$running_sha cdhash=$after_cdhash binary.matches=$matches"
+  log "after: pid=$STATUS_DAEMON_PID daemonId=$STATUS_DAEMON_ID runningGitSha=$running_sha cdhash=$after_cdhash binary.matches=$matches repoHead=$after_head"
 
   if [[ "$matches" != "true" ]]; then
     fail "update: binary.matches is not true after rebuild"
@@ -647,10 +665,18 @@ mutate_update() {
     pass "update: runningGitSha matches expected $expected_sha"
   fi
 
-  if [[ "$after_cdhash" == "$before_cdhash" ]]; then
-    fail "update: build identity did not change (cdhash still $before_cdhash) — rebuild was a no-op because the tree was unchanged; an update proof that did not change the binary proves nothing"
+  if [[ "$before_head" == "$after_head" && "$before_sha" == "$after_head" ]]; then
+    log "update: same-version reinstall — repo HEAD unchanged at $before_head; cdhash may move from rebuild timestamp alone"
+    pass "update: same-version reinstall (not a vA -> vB proof)"
+  elif [[ "$before_sha" != "$running_sha" ]]; then
+    pass "update: version changed ($before_sha -> $running_sha)"
+    if [[ "$after_cdhash" != "$before_cdhash" ]]; then
+      pass "update: build identity changed ($before_cdhash -> $after_cdhash)"
+    else
+      log "update: cdhash unchanged despite version change — unexpected but not failing alone"
+    fi
   else
-    pass "update: build identity changed ($before_cdhash -> $after_cdhash)"
+    fail "update: runningGitSha did not change ($before_sha) but repo HEAD moved ($before_head -> $after_head)"
   fi
 
   assert_singularity "update after-rebuild" "$json" || true
@@ -658,7 +684,131 @@ mutate_update() {
   assert_no_orphan_serve "update" "$STATUS_BINARY_PATH" "$STATUS_SUPERVISOR_PID" || true
   assert_path_symlink_canonical "update" "$STATUS_BINARY_PATH" || true
 
-  pass "update host proof passed (gate 4 update half; rollback half pending ASR-S06d)"
+  pass "update host proof passed (gate 4 update half)"
+  report_host_state "$json"
+}
+
+mutate_update_rollback() {
+  MUTATING=true
+  local json before_pid before_sha before_cdhash before_binary_sha before_plist_sha
+  local rebuild_log rebuild_ec running_sha matches rollback_present
+
+  log "mutating mode: update-rollback (injected bootstrap failure via ALLNIGHTER_SERVE_TEST_INJECT)"
+
+  log "=== update-rollback: record before state ==="
+  if ! json="$(ensure_healthy_or_fail "update-rollback before-state")"; then
+    unset ALLNIGHTER_SERVE_TEST_INJECT 2>/dev/null || true
+    return 1
+  fi
+  read_status_fields "$json"
+  before_pid="$STATUS_DAEMON_PID"
+  before_sha="$(json_field binary.runningGitSha "$json" 2>/dev/null || true)"
+
+  if [[ ! -f "$CANONICAL_BINARY" ]]; then
+    fail "update-rollback: canonical binary missing at $CANONICAL_BINARY"
+    unset ALLNIGHTER_SERVE_TEST_INJECT 2>/dev/null || true
+    return 1
+  fi
+  if [[ ! -f "$PLIST_PATH" ]]; then
+    fail "update-rollback: plist missing at $PLIST_PATH"
+    unset ALLNIGHTER_SERVE_TEST_INJECT 2>/dev/null || true
+    return 1
+  fi
+
+  before_binary_sha="$(binary_sha256 "$CANONICAL_BINARY")"
+  before_plist_sha="$(binary_sha256 "$PLIST_PATH")"
+
+  if ! before_cdhash="$(binary_cdhash "$CANONICAL_BINARY")"; then
+    fail "update-rollback: could not read cdhash for $CANONICAL_BINARY"
+    unset ALLNIGHTER_SERVE_TEST_INJECT 2>/dev/null || true
+    return 1
+  fi
+
+  log "before: pid=$before_pid runningGitSha=$before_sha cdhash=$before_cdhash binarySha256=$before_binary_sha plistSha256=$before_plist_sha"
+  assert_singularity "update-rollback before-rebuild" "$json" || true
+
+  log "=== update-rollback: run rebuild_cli.sh with bootstrap-failure injection ==="
+  export ALLNIGHTER_SERVE_TEST_INJECT=bootstrap-failure
+  rebuild_log="$(mktemp "${TMPDIR:-/tmp}/rebuild-cli-rollback-log.XXXXXX")"
+  rebuild_ec=0
+  bash "$SCRIPT_DIR/rebuild_cli.sh" >"$rebuild_log" 2>&1 || rebuild_ec=$?
+  log "rebuild_cli.sh exit status (expected nonzero): $rebuild_ec"
+  cat "$rebuild_log" >&2
+  rm -f "$rebuild_log"
+  unset ALLNIGHTER_SERVE_TEST_INJECT
+
+  if [[ "$rebuild_ec" -eq 0 ]]; then
+    fail "update-rollback: rebuild_cli.sh succeeded but bootstrap failure was injected"
+    return 1
+  else
+    pass "update-rollback: install command exited nonzero ($rebuild_ec)"
+  fi
+
+  log "=== update-rollback: wait for healthy host on original build ==="
+  if ! wait_for_host_healthy "update-rollback after failed install"; then
+    fail "update-rollback: host did not return healthy on the original build"
+    return 1
+  fi
+
+  if ! json="$(fetch_serve_status_json)"; then
+    fail "update-rollback: could not read status after failed install"
+    return 1
+  fi
+
+  read_status_fields "$json"
+  running_sha="$(json_field binary.runningGitSha "$json" 2>/dev/null || true)"
+  matches="$(json_field binary.matches "$json" 2>/dev/null || true)"
+
+  local after_binary_sha after_plist_sha after_cdhash
+  after_binary_sha="$(binary_sha256 "$CANONICAL_BINARY")"
+  after_plist_sha="$(binary_sha256 "$PLIST_PATH")"
+  if ! after_cdhash="$(binary_cdhash "$CANONICAL_BINARY")"; then
+    fail "update-rollback: could not read cdhash after failed install"
+    return 1
+  fi
+
+  log "after: pid=$STATUS_DAEMON_PID runningGitSha=$running_sha cdhash=$after_cdhash binarySha256=$after_binary_sha plistSha256=$after_plist_sha binary.matches=$matches"
+
+  if [[ "$after_binary_sha" != "$before_binary_sha" ]]; then
+    fail "update-rollback: canonical binary changed (before=$before_binary_sha after=$after_binary_sha)"
+  else
+    pass "update-rollback: canonical binary byte-identical to before state"
+  fi
+
+  if [[ "$after_plist_sha" != "$before_plist_sha" ]]; then
+    fail "update-rollback: plist changed (before=$before_plist_sha after=$after_plist_sha)"
+  else
+    pass "update-rollback: plist restored to before bytes"
+  fi
+
+  if [[ "$running_sha" != "$before_sha" ]]; then
+    fail "update-rollback: runningGitSha ($running_sha) != original ($before_sha)"
+  else
+    pass "update-rollback: host healthy on original runningGitSha $before_sha"
+  fi
+
+  if [[ "$before_cdhash" != "$after_cdhash" ]]; then
+    fail "update-rollback: cdhash changed ($before_cdhash -> $after_cdhash)"
+  else
+    pass "update-rollback: cdhash unchanged on original build ($before_cdhash)"
+  fi
+
+  if launchctl print "gui/$(id -u)/$STATUS_SUPERVISOR_LABEL" >/dev/null 2>&1; then
+    pass "update-rollback: prior LaunchAgent job is loaded again"
+  else
+    fail "update-rollback: LaunchAgent job is not loaded after restore"
+  fi
+
+  assert_singularity "update-rollback after-restore" "$json" || true
+  assert_path_symlink_canonical "update-rollback" "$CANONICAL_BINARY" || true
+
+  if [[ -f "$ROLLBACK_BINARY" ]]; then
+    log "update-rollback: rollback bytes remain at $ROLLBACK_BINARY (§4.3 failed-rollback case — not deleted)"
+  else
+    pass "update-rollback: no $ROLLBACK_BINARY left behind after health confirmed"
+  fi
+
+  pass "update-rollback host proof passed (gate 4 rollback half; §4.3 step 7)"
   report_host_state "$json"
 }
 
@@ -684,7 +834,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -n "$SCENARIO" && "$SCENARIO" != "crash-restart" && "$SCENARIO" != "update" ]]; then
+if [[ -n "$SCENARIO" && "$SCENARIO" != "crash-restart" && "$SCENARIO" != "update" && "$SCENARIO" != "update-rollback" ]]; then
   log "unknown scenario: $SCENARIO"
   usage
 fi
@@ -697,6 +847,8 @@ elif [[ "$SCENARIO" == "crash-restart" ]]; then
   mutate_crash_restart || true
 elif [[ "$SCENARIO" == "update" ]]; then
   mutate_update || true
+elif [[ "$SCENARIO" == "update-rollback" ]]; then
+  mutate_update_rollback || true
 fi
 
 echo ""

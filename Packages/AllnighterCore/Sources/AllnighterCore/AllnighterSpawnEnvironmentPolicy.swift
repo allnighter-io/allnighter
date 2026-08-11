@@ -43,6 +43,8 @@ public struct AllnighterSpawnEnvironmentPolicy: SpawnEnvironmentPolicy {
         env["ALLNIGHTER_TEAM_DEPTH"] = String(depth + 1)
         // Scrub the loopback tool token from deep workers.
         env["ALLNIGHTER_TOOL_TOKEN"] = nil
+        // Scrub serve install test injection so launchd-spawned daemons never inherit it.
+        env["ALLNIGHTER_SERVE_TEST_INJECT"] = nil
         // Unattended posture — common git/ssh prompts fail closed (see limit above).
         for (key, value) in Self.nonInteractiveWorkerEnvironment {
             env[key] = value
