@@ -935,8 +935,12 @@ Dock app, reboot, `kickstart`, or agent intervention.
   confirmed or replaced by the §4.6 signing slice. — **done 2026-08-10**
   (`e775d586`); confirmed on three tracks, no signing slice required; residual
   LWCR root cause remains open as a separate investigation.
-- [ ] CLI-only install enables and actively verifies one supervised serve by
-  default, with a disclosed opt-out.
+- [x] CLI-only install enables and actively verifies one supervised serve by
+  default, with a disclosed opt-out. — **done 2026-08-11** (ASR-S02e + S05a).
+  Install prints "serve: enabled. Allnighter installed a per-user background
+  scheduler…" naming what it handles and `alln serve disable`; the `--no-serve`
+  path names what was skipped and `alln serve enable`. Active verification is
+  gate 2 (loopback handshake, not a pid check).
 - [ ] PATH, launchd, health, and update name one canonical installed binary, and
   identity — not version string — decides `binary.matches`. — **install side done
   2026-08-10** (ASR-S01a–d: `d60efa8a`, `91cad2de`, `fa8dc145`, `1f3e1add`);
@@ -952,15 +956,34 @@ Dock app, reboot, `kickstart`, or agent intervention.
   real wake, with `nextWakeAt` rescheduled forward (§10.1 R2).
 - [ ] Kill, update, rollback, disable, logout/login, sleep, and the founder's
   three-cycle rebuild loop host proofs pass and are signed under
-  `docs/qa/alln-serve/`. — **logout/login, disable and sleep signed 2026-08-11**
-  (gates 7, 8, 10); three-cycle rebuild countersigned but PM-executed (gate 9);
-  **kill, update and rollback still unrun** (§8 host matrix 3, 4).
-- [ ] Status fails closed on authorization, launchd, daemon, binary, or required
-  scheduler mismatch and returns a working recovery command.
-- [ ] Scheduler-dependent commands never leave new background obligations when
-  supervised serve is unavailable.
-- [ ] The app contains no serve lifecycle and no periodic capacity/probe host.
-- [ ] Detached auto-launch and its opt-out grammar are deleted and deny-listed.
+  `docs/qa/alln-serve/`. — **all pass as of 2026-08-11**: kill (gate 3), update
+  and rollback (gate 4), disable (gate 8), logout/login (gate 7), sleep
+  (gate 10), three-cycle rebuild (gate 9). **Signatures outstanding** on gates
+  2, 3, 4, 5, 6 and 11; gates 7, 8, 10 are founder-signed and gate 9 is
+  countersigned. This item closes when the founder signs the rest.
+- [x] Status fails closed on authorization, launchd, daemon, binary, or required
+  scheduler mismatch and returns a working recovery command. — **done 2026-08-11**.
+  `ServeStatusResolverTests` 52 tests, 0 failures, including
+  `testUnknownDesiredStateFailsClosedDegraded`,
+  `testUnknownActiveHealthFailsClosedDegraded`,
+  `testUnreadableReceiptFailsClosedDegraded`. Recovery commands are now ones that
+  can change the state they describe (`SERVE_UNKNOWN_SUPERVISOR` → `serve repair`,
+  ASR-S02f; the `starting` window no longer prescribes a daemon restart,
+  ASR-S03f4).
+- [x] Scheduler-dependent commands never leave new background obligations when
+  supervised serve is unavailable. — **done** (ASR-S04a/S04a2).
+  `ServeRequirementTests` 15 tests, 0 failures, including
+  `testDeferredWriteRefusesAndWritesNothing` and
+  `testRequireRefusesLivePidWithNothingListening` — a live pid with nothing
+  listening still refuses.
+- [x] The app contains no serve lifecycle and no periodic capacity/probe host.
+  — **done** (ASR-S04b). `bash scripts/check_architecture_policy.sh` →
+  `architecture-policy: passed`, and its rules are proven able to fail by seeded
+  violations.
+- [x] Detached auto-launch and its opt-out grammar are deleted and deny-listed.
+  — **done** (ASR-S04a). A source grep for `ServeAutoLaunch`, `--no-auto-serve`
+  and `ALLN_NO_AUTO_SERVE` returns hits only in `RetiredVocabulary.swift` — i.e.
+  the deny-list itself.
 - [ ] Install, doctor, help search, bootstrap teaching, and uninstall agree.
 - [x] TCC proof shows no protected-folder prompt on the supported install/start
   path. — **done 2026-08-11**, gate 6. Install *refuses* a Documents-resident
