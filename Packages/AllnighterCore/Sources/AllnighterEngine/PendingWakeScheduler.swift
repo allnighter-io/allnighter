@@ -28,6 +28,15 @@ public struct PendingWakeScheduler: Sendable {
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
     public var jitterSeconds: TimeInterval
+    private let _overshootBox = OvershootBox()
+
+    private final class OvershootBox: @unchecked Sendable {
+        var value: TimeInterval?
+    }
+
+    public var lastWakeOvershoot: TimeInterval? {
+        _overshootBox.value
+    }
 
     public init(
         store: PendingStore = PendingStore(),
@@ -36,7 +45,7 @@ public struct PendingWakeScheduler: Sendable {
         commandRunner: CommandRunner = SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
-        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
+        sleeper: any PendingWakeSleeper = WakeSafeWaiter(),
         jitterSeconds: TimeInterval = 60
     ) {
         self.store = store
@@ -62,14 +71,21 @@ public struct PendingWakeScheduler: Sendable {
             }
 
             guard let nextWake = plan.nextWakeAt else {
-                try? await sleeper.sleep(until: now().addingTimeInterval(300), jitterSeconds: 0)
+                try? await recordOvershoot { try await sleeper.sleep(until: now().addingTimeInterval(300), jitterSeconds: 0) }
                 continue
             }
             do {
-                try await sleeper.sleep(until: nextWake, jitterSeconds: jitterSeconds)
+                try await recordOvershoot { try await sleeper.sleep(until: nextWake, jitterSeconds: jitterSeconds) }
             } catch {
                 break
             }
+        }
+    }
+
+    private func recordOvershoot(_ block: () async throws -> Void) async rethrows {
+        try await block()
+        if let waiter = sleeper as? WakeSafeWaiter {
+            _overshootBox.value = waiter.lastOvershoot
         }
     }
 
