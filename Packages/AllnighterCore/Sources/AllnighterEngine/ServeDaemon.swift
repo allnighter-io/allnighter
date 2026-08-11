@@ -71,6 +71,7 @@ public final class ServeDaemon: @unchecked Sendable {
     private let wakeDependencies: WakeDependencies?
     private let remoteDependencies: RemoteDependencies?
     private let receipts: ServeRuntimeReceipts
+    private let standDownMarkerURL: URL
     private let daemonId: String
     private let startedAt: Date
 
@@ -83,7 +84,8 @@ public final class ServeDaemon: @unchecked Sendable {
         server: LoopbackHealthServer = LoopbackHealthServer(),
         pmTurnWakeScheduler: PMTurnWakeScheduler = PMTurnWakeScheduler(),
         wakeDependencies: WakeDependencies? = nil,
-        remoteDependencies: RemoteDependencies? = nil
+        remoteDependencies: RemoteDependencies? = nil,
+        standDownMarkerURL: URL = AllnighterPaths.coordinator.appendingPathComponent("stand-down")
     ) {
         self.binaryVersion = binaryVersion
         self.binaryGitSha = binaryGitSha
@@ -95,6 +97,7 @@ public final class ServeDaemon: @unchecked Sendable {
         self.pmTurnWakeScheduler = pmTurnWakeScheduler
         self.wakeDependencies = wakeDependencies
         self.remoteDependencies = remoteDependencies
+        self.standDownMarkerURL = standDownMarkerURL
         self.daemonId = UUID().uuidString.lowercased()
         self.startedAt = Date()
     }
@@ -102,6 +105,9 @@ public final class ServeDaemon: @unchecked Sendable {
     /// Starts loopback health, writes durable state, runs the scheduler loops
     /// until shutdown. Always clears durable state on exit.
     public func run(untilShutdown: @escaping @Sendable () async -> Void) async throws {
+        if Self.consumeStandDownMarkerIfRequested(at: standDownMarkerURL) {
+            return
+        }
         let healthProvider: @Sendable () -> String = { [probe, binaryVersion, binaryGitSha, contractVersion] in
             let health = probe.health(binaryVersion: binaryVersion, binaryGitSha: binaryGitSha, contractVersion: contractVersion)
             guard let data = try? CoreJSON.encode(health) else { return "{}" }
@@ -224,6 +230,42 @@ public final class ServeDaemon: @unchecked Sendable {
             await group.next()
             group.cancelAll()
         }
+    }
+
+    /// The supervised-host proof inducer. Exact bytes prevent an accidental
+    /// empty or hand-written file from standing the daemon down. Consumption is
+    /// deliberately before the log and clean return: a subsequent `serve repair`
+    /// must be able to start a healthy daemon on its first attempt.
+    static func consumeStandDownMarkerIfRequested(at markerURL: URL) -> Bool {
+        let markerContents: Data
+        do {
+            markerContents = try Data(contentsOf: markerURL)
+        } catch {
+            return false
+        }
+
+        guard markerContents == Data("stand-down".utf8) else {
+            return false
+        }
+
+        do {
+            try FileManager.default.removeItem(at: markerURL)
+        } catch {
+            Self.writeToStandardError(
+                "alln serve: refusing stand-down because marker could not be consumed at \(markerURL.path): \(error)"
+            )
+            return false
+        }
+
+        // launchd routes stderr to ~/Library/Logs/Allnighter/serve.log.
+        Self.writeToStandardError(
+            "SERVE_STAND_DOWN: consumed startup marker at \(markerURL.path); exiting 0 before scheduler registration"
+        )
+        return true
+    }
+
+    private static func writeToStandardError(_ message: String) {
+        FileHandle.standardError.write(Data((message + "\n").utf8))
     }
 
     /// Blocks until SIGINT or SIGTERM. SIGTERM settles receipts then re-raises

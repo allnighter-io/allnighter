@@ -7,6 +7,7 @@
 #
 # Destructive (founder approval):
 #   --mutate-product-agent crash-restart — TERM then KILL; assert §4.2 restart contract.
+#   --mutate-product-agent stand-down — exit 0 once; assert no launchd respawn and repair recovery.
 #   --mutate-product-agent update — real vA→vB rebuild via rebuild_cli.sh; assert §8 item 4 update half.
 set -uo pipefail
 
@@ -18,6 +19,9 @@ THROTTLE_INTERVAL_SEC=30
 HEALTH_BUDGET_SEC=15
 RESPAWN_DEADLINE_SEC=90
 HEALTH_AFTER_RESPAWN_DEADLINE_SEC=20
+# This must exceed the plist's 30s ThrottleInterval; a shorter quiet period
+# cannot distinguish "stood down" from a delayed respawn.
+NO_RESPAWN_WINDOW_SEC=35
 # Matches ServeStatusJSON.activeHealthStartupCeiling (ASR-S03f4).
 STARTING_CEILING_SEC=10
 POLL_INTERVAL_SEC=1
@@ -36,6 +40,7 @@ usage() {
   echo "       $(basename "$0") --assert identity-and-receipts" >&2
   echo "       $(basename "$0") --assert cold-install" >&2
   echo "       $(basename "$0") --mutate-product-agent crash-restart" >&2
+  echo "       $(basename "$0") --mutate-product-agent stand-down" >&2
   echo "       $(basename "$0") --mutate-product-agent update" >&2
   echo "       $(basename "$0") --mutate-product-agent update-rollback" >&2
   exit 2
@@ -110,6 +115,8 @@ read_status_fields() {
   STATUS_SUPERVISOR_PID="$(json_field supervisor.pid "$json" 2>/dev/null || true)"
   STATUS_SUPERVISOR_LABEL="$(json_field supervisor.label "$json" 2>/dev/null || true)"
   STATUS_BINARY_PATH="$(json_field binary.path "$json" 2>/dev/null || true)"
+  STATUS_SUPERVISOR_LAST_EXIT_CODE="$(json_field supervisor.lastExitCode "$json" 2>/dev/null || true)"
+  STATUS_RECOVERY_COMMAND="$(json_field recovery.command "$json" 2>/dev/null || true)"
 }
 
 host_is_healthy() {
@@ -189,6 +196,18 @@ count_loaded_agents() {
   else
     echo 0
   fi
+}
+
+launchctl_last_exit_code() {
+  local label="$1" listing
+  listing="$(launchctl print "gui/$(id -u)/$label" 2>/dev/null)" || return 1
+  python3 - "$listing" <<'PY'
+import re, sys
+match = re.search(r"^\s*last exit code = (\d+)$", sys.argv[1], re.MULTILINE)
+if not match:
+    raise SystemExit(1)
+print(match.group(1))
+PY
 }
 
 count_dock_allnighter_processes() {
@@ -486,8 +505,142 @@ mutate_crash_restart() {
   report_host_state "$json"
 }
 
+assert_stand_down_state() {
+  local label="$1" json="$2" launchctl_exit daemon_count
+  read_status_fields "$json"
+
+  if [[ "$STATUS_STATE" != "degraded" ]]; then
+    fail "$label: serve status must be degraded after deliberate exit 0 (saw $STATUS_STATE)"
+  else
+    pass "$label: serve status is degraded"
+  fi
+  if [[ "$STATUS_SUPERVISOR_LOADED" != "true" ]]; then
+    fail "$label: LaunchAgent must remain loaded after stand-down (saw $STATUS_SUPERVISOR_LOADED)"
+  else
+    pass "$label: LaunchAgent remains loaded"
+  fi
+  if [[ "$STATUS_SUPERVISOR_LAST_EXIT_CODE" != "0" ]]; then
+    fail "$label: status supervisor.lastExitCode must be 0 (saw ${STATUS_SUPERVISOR_LAST_EXIT_CODE:-<missing>})"
+  else
+    pass "$label: status supervisor.lastExitCode=0"
+  fi
+  if [[ "$STATUS_RECOVERY_COMMAND" != "alln serve repair" ]]; then
+    fail "$label: recovery.command must be 'alln serve repair' (saw ${STATUS_RECOVERY_COMMAND:-<missing>})"
+  else
+    pass "$label: status supplies the working recovery command"
+  fi
+  if [[ -z "$STATUS_BINARY_PATH" ]]; then
+    fail "$label: status omitted binary.path; cannot inspect daemon absence"
+  else
+    daemon_count="$(count_daemon_processes "$STATUS_BINARY_PATH")"
+    if [[ "$daemon_count" -ne 0 ]]; then
+      fail "$label: expected no canonical daemon after stand-down, saw $daemon_count"
+    else
+      pass "$label: no canonical daemon process"
+    fi
+  fi
+  if [[ -z "$STATUS_SUPERVISOR_LABEL" ]]; then
+    fail "$label: status omitted supervisor.label"
+  elif ! launchctl_exit="$(launchctl_last_exit_code "$STATUS_SUPERVISOR_LABEL")"; then
+    fail "$label: launchctl print did not expose a last exit code"
+  elif [[ "$launchctl_exit" != "0" ]]; then
+    fail "$label: launchctl last exit code must be 0 (saw $launchctl_exit)"
+  else
+    pass "$label: launchctl last exit code=0"
+  fi
+}
+
+wait_for_stand_down() {
+  local deadline=$((SECONDS + HEALTH_AFTER_RESPAWN_DEADLINE_SEC)) json
+  while [[ $SECONDS -lt $deadline ]]; do
+    if json="$(fetch_serve_status_json)"; then
+      read_status_fields "$json"
+      if [[ "$STATUS_STATE" == "degraded" && "$STATUS_SUPERVISOR_LAST_EXIT_CODE" == "0" ]]; then
+        printf '%s' "$json"
+        return 0
+      fi
+    fi
+    sleep "$POLL_INTERVAL_SEC"
+  done
+  fail "stand-down: timed out after ${HEALTH_AFTER_RESPAWN_DEADLINE_SEC}s waiting for degraded status with lastExitCode 0"
+  return 1
+}
+
+observe_no_respawn() {
+  local initial_json="$1" deadline=$((SECONDS + NO_RESPAWN_WINDOW_SEC)) json
+  log "stand-down: observing for ${NO_RESPAWN_WINDOW_SEC}s, longer than ThrottleInterval ${THROTTLE_INTERVAL_SEC}s"
+  while [[ $SECONDS -lt $deadline ]]; do
+    if ! json="$(fetch_serve_status_json)"; then
+      fail "stand-down: status JSON disappeared during no-respawn observation"
+      return 1
+    fi
+    assert_stand_down_state "stand-down no-respawn observation" "$json" || true
+    if [[ "$FAILURES" -ne 0 ]]; then
+      return 1
+    fi
+    sleep "$POLL_INTERVAL_SEC"
+  done
+  pass "stand-down: no respawn observed for ${NO_RESPAWN_WINDOW_SEC}s (> ${THROTTLE_INTERVAL_SEC}s ThrottleInterval)"
+}
+
+mutate_stand_down() {
+  MUTATING=true
+  local json
+
+  log "mutating mode: stand-down (one self-consuming exit-0 marker)"
+  if ! json="$(ensure_healthy_or_fail "stand-down before-state")"; then
+    return 1
+  fi
+  read_status_fields "$json"
+  if [[ -e "$STAND_DOWN_MARKER" ]]; then
+    fail "stand-down: refusing to overwrite pre-existing marker $STAND_DOWN_MARKER"
+    return 1
+  fi
+  if [[ ! -d "$(dirname "$STAND_DOWN_MARKER")" ]]; then
+    fail "stand-down: coordinator directory is missing for marker $STAND_DOWN_MARKER"
+    return 1
+  fi
+
+  printf '%s' 'stand-down' >"$STAND_DOWN_MARKER" || {
+    fail "stand-down: could not write marker $STAND_DOWN_MARKER"
+    return 1
+  }
+  log "stand-down: wrote exact marker at $STAND_DOWN_MARKER; restarting via alln serve repair"
+  if ! alln serve repair; then
+    fail "stand-down: alln serve repair failed while starting marked daemon"
+    return 1
+  fi
+  if ! json="$(wait_for_stand_down)"; then
+    return 1
+  fi
+  if [[ -e "$STAND_DOWN_MARKER" ]]; then
+    fail "stand-down: marker remains after exit; repair would wedge into another stand-down ($STAND_DOWN_MARKER)"
+    return 1
+  fi
+  pass "stand-down: marker was consumed before daemon exit"
+  assert_stand_down_state "stand-down initial state" "$json" || true
+  observe_no_respawn "$json" || return 1
+
+  log "stand-down: invoking documented recovery command alln serve repair"
+  if ! alln serve repair; then
+    fail "stand-down: recovery command failed"
+    return 1
+  fi
+  if ! wait_for_host_healthy "stand-down recovery"; then
+    fail "stand-down: recovery did not restore healthy host"
+    return 1
+  fi
+  json="$(fetch_serve_status_json)" || {
+    fail "stand-down: could not read status after recovery"
+    return 1
+  }
+  assert_singularity "stand-down after-recovery" "$json" || true
+  pass "stand-down: documented recovery restored one healthy daemon and one loaded agent"
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+STAND_DOWN_MARKER="$HOME/Library/Application Support/Allnighter/Coordinator/stand-down"
 STAGED_COPY_PATH="$HOME/Library/Application Support/Allnighter/CLI/alln"
 PATH_SYMLINK="$HOME/.local/bin/alln"
 CANONICAL_INSTALL_DIR="$HOME/.local/share/allnighter/bin"
@@ -1697,7 +1850,7 @@ if [[ -n "$ASSERT_SCENARIO" && "$ASSERT_SCENARIO" != "identity-and-receipts" && 
   usage
 fi
 
-if [[ -n "$SCENARIO" && "$SCENARIO" != "crash-restart" && "$SCENARIO" != "update" && "$SCENARIO" != "update-rollback" ]]; then
+if [[ -n "$SCENARIO" && "$SCENARIO" != "crash-restart" && "$SCENARIO" != "stand-down" && "$SCENARIO" != "update" && "$SCENARIO" != "update-rollback" ]]; then
   log "unknown scenario: $SCENARIO"
   usage
 fi
@@ -1717,6 +1870,8 @@ elif [[ "$ASSERT_SCENARIO" == "cold-install" ]]; then
   assert_cold_install || true
 elif [[ "$SCENARIO" == "crash-restart" ]]; then
   mutate_crash_restart || true
+elif [[ "$SCENARIO" == "stand-down" ]]; then
+  mutate_stand_down || true
 elif [[ "$SCENARIO" == "update" ]]; then
   mutate_update || true
 elif [[ "$SCENARIO" == "update-rollback" ]]; then

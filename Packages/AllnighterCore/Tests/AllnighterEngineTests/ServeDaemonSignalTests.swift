@@ -54,4 +54,35 @@ final class ServeDaemonSignalTests: XCTestCase {
         XCTAssertFalse(ServeDaemon.shouldReraiseSIGTERM(after: SIGINT))
         XCTAssertFalse(ServeDaemon.shouldReraiseSIGTERM(after: nil))
     }
+
+    func testExactStandDownMarkerIsConsumedBeforeCleanExit() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let marker = directory.appendingPathComponent("stand-down")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try Data("stand-down".utf8).write(to: marker)
+        let daemon = ServeDaemon(binaryVersion: "test", standDownMarkerURL: marker)
+
+        try await daemon.runUntilSignal()
+
+        XCTAssertFalse(FileManager.default.fileExists(atPath: marker.path))
+    }
+
+    func testOnlyExactStandDownMarkerContentInduces() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let marker = directory.appendingPathComponent("stand-down")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try Data().write(to: marker)
+        XCTAssertFalse(ServeDaemon.consumeStandDownMarkerIfRequested(at: marker))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path))
+
+        try Data("stand-down\n".utf8).write(to: marker)
+        XCTAssertFalse(ServeDaemon.consumeStandDownMarkerIfRequested(at: marker))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path))
+    }
 }
