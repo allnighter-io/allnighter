@@ -13,11 +13,26 @@ and sign the QA files.
 
 ## Setup (once)
 
-On **this** Mac, send the binary over:
+**Pin the build first.** A gate that cannot name the commit it tested is not
+evidence. On **this** Mac, with a clean tree:
+
+```bash
+git status --short          # must be empty. If not, stop -- do not test a half state.
+git rev-parse --short HEAD  # write this down; it is the gate's build identity
+bash scripts/rebuild_cli.sh # the binary must be built FROM that commit
+alln version --json         # record; must agree with the sha above
+```
+
+Then send that exact binary over:
 
 ```bash
 scp ~/.local/share/allnighter/bin/alln <othermac>:~/alln-new
 ```
+
+The other Mac must run the binary built from the recorded commit, and every
+JSON file you send back carries `binaryGitSha` so I can prove it did. If the
+tree was dirty, or the binary predates the commit, the gate records a build that
+never existed and the result means nothing.
 
 On the **other** Mac:
 
