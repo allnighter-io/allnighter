@@ -70,6 +70,7 @@ public final class ServeDaemon: @unchecked Sendable {
     private let pmTurnWakeScheduler: PMTurnWakeScheduler
     private let wakeDependencies: WakeDependencies?
     private let remoteDependencies: RemoteDependencies?
+    private let receipts: ServeRuntimeReceipts
     private let daemonId: String
     private let startedAt: Date
 
@@ -78,6 +79,7 @@ public final class ServeDaemon: @unchecked Sendable {
         binaryGitSha: String = AllnighterBuildInfo.gitSha,
         contractVersion: String = ContractRegistry.contractVersion,
         store: ServeDaemonStore = ServeDaemonStore(),
+        receipts: ServeRuntimeReceipts = ServeRuntimeReceipts(),
         server: LoopbackHealthServer = LoopbackHealthServer(),
         pmTurnWakeScheduler: PMTurnWakeScheduler = PMTurnWakeScheduler(),
         wakeDependencies: WakeDependencies? = nil,
@@ -87,6 +89,7 @@ public final class ServeDaemon: @unchecked Sendable {
         self.binaryGitSha = binaryGitSha
         self.contractVersion = contractVersion
         self.store = store
+        self.receipts = receipts
         self.server = server
         self.probe = ServeDaemonProbe(store: store)
         self.pmTurnWakeScheduler = pmTurnWakeScheduler
@@ -130,6 +133,7 @@ public final class ServeDaemon: @unchecked Sendable {
             group.addTask {
                 await self.pmTurnWakeScheduler.run { shutdown.isCancelled }
             }
+            _ = receipts.register(schedulerId: "pmTurnWake", daemonId: daemonId, pid: ProcessInfo.processInfo.processIdentifier, startedAt: startedAt)
             if let wake = wakeDependencies {
                 group.addTask {
                     let scheduler = PendingWakeScheduler(
@@ -140,6 +144,7 @@ public final class ServeDaemon: @unchecked Sendable {
                     )
                     await scheduler.run { shutdown.isCancelled }
                 }
+                _ = receipts.register(schedulerId: "pendingWake", daemonId: daemonId, pid: ProcessInfo.processInfo.processIdentifier, startedAt: startedAt)
                 group.addTask {
                     let boost = BoostSeedScheduler(
                         registry: wake.registry,
@@ -149,6 +154,7 @@ public final class ServeDaemon: @unchecked Sendable {
                     )
                     await boost.run { shutdown.isCancelled }
                 }
+                _ = receipts.register(schedulerId: "boostSeed", daemonId: daemonId, pid: ProcessInfo.processInfo.processIdentifier, startedAt: startedAt)
                 group.addTask { [daemonId] in
                     let service = RunService(
                         models: wake.models,
@@ -167,6 +173,7 @@ public final class ServeDaemon: @unchecked Sendable {
                     )
                     await reconciler.run { shutdown.isCancelled }
                 }
+                _ = receipts.register(schedulerId: "vendorBackoff", daemonId: daemonId, pid: ProcessInfo.processInfo.processIdentifier, startedAt: startedAt)
                 group.addTask {
                     // Capacity refresh without the Dock app (Probe_Freshness
                     // §0.2). No-ops while the app is refreshing, because both
@@ -174,10 +181,12 @@ public final class ServeDaemon: @unchecked Sendable {
                     // recency — see CapacityRefreshScheduler.
                     await CapacityRefreshScheduler().run { shutdown.isCancelled }
                 }
+                _ = receipts.register(schedulerId: "capacityRefresh", daemonId: daemonId, pid: ProcessInfo.processInfo.processIdentifier, startedAt: startedAt)
                 group.addTask {
                     // Probe_Freshness founder B 2026-08-09
                     await ProbeRecordRefreshScheduler().run { shutdown.isCancelled }
                 }
+                _ = receipts.register(schedulerId: "probeRecordRefresh", daemonId: daemonId, pid: ProcessInfo.processInfo.processIdentifier, startedAt: startedAt)
                 group.addTask {
                     let notifications = NotificationScheduler(
                         commandRunner: wake.commandRunner,
@@ -186,11 +195,13 @@ public final class ServeDaemon: @unchecked Sendable {
                     )
                     await notifications.run { shutdown.isCancelled }
                 }
+                _ = receipts.register(schedulerId: "notifications", daemonId: daemonId, pid: ProcessInfo.processInfo.processIdentifier, startedAt: startedAt)
             }
             if let remote = remoteDependencies {
                 group.addTask {
                     await remote.coordinator.run { shutdown.isCancelled }
                 }
+                _ = receipts.register(schedulerId: "cloudRelay", daemonId: daemonId, pid: ProcessInfo.processInfo.processIdentifier, startedAt: startedAt)
             }
             await group.next()
             group.cancelAll()
