@@ -75,8 +75,15 @@ final class ServeLifecycleEnableTests: XCTestCase {
         let plist = h.writtenPlists[0].plist
         XCTAssertEqual(plist.label, ServeLaunchAgentStatus.label)
         XCTAssertEqual(plist.programArguments, [h.stagedURL.path, "serve"])
-        XCTAssertTrue(plist.keepAlive)
-        XCTAssertTrue(plist.runAtLoad)
+        XCTAssertEqual(plist.runAtLoad, true)
+        XCTAssertEqual(plist.keepAlive.successfulExit, false)
+        XCTAssertEqual(plist.throttleInterval, 30)
+        XCTAssertEqual(plist.processType, "Background")
+        XCTAssertFalse(plist.workingDirectory.isEmpty)
+        XCTAssertFalse(plist.standardOutPath.isEmpty)
+        XCTAssertFalse(plist.standardErrorPath.isEmpty)
+        XCTAssertTrue(plist.environmentVariables.path.hasSuffix(":/usr/bin:/bin:/usr/sbin:/sbin"))
+        XCTAssertFalse(plist.environmentVariables.home.isEmpty)
         XCTAssertTrue(result.plistWritten)
         XCTAssertTrue(result.bootstrapped)
     }
@@ -163,17 +170,94 @@ final class ServeLifecycleEnableTests: XCTestCase {
         XCTAssertEqual(decoded, result)
     }
 
-    /// The written plist encodes the launchd keys launchd expects.
+    /// The written plist encodes every §4.2 property with the correct
+    /// launchd key names. KeepAlive is asserted against the serialized
+    /// bytes — not just the decoded Swift struct — because a Codable
+    /// shape that round-trips in Swift can still emit the wrong plist
+    /// type. The test must fail if KeepAlive degrades to `<true/>`.
     func testAgentPlistEncodesLaunchdKeys() throws {
-        let plist = ServeLifecycle.AgentPlist(label: ServeLaunchAgentStatus.label,
-                                              programArguments: ["/x/alln", "serve"],
-                                              keepAlive: true, runAtLoad: true)
-        let data = try PropertyListEncoder().encode(plist)
+        let env = ServeLifecycle.AgentPlist.EnvironmentDict(
+            path: "/staged/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            home: "/Users/test"
+        )
+        let plist = ServeLifecycle.AgentPlist(
+            label: ServeLaunchAgentStatus.label,
+            programArguments: ["/staged/alln", "serve"],
+            workingDirectory: "/tmp/probe-scratch",
+            standardOutPath: "/tmp/logs/stdout.log",
+            standardErrorPath: "/tmp/logs/stderr.log",
+            runAtLoad: true,
+            environmentVariables: env
+        )
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .xml
+        let data = try encoder.encode(plist)
         let decoded = try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+
         XCTAssertEqual(decoded?["Label"] as? String, ServeLaunchAgentStatus.label)
-        XCTAssertEqual(decoded?["ProgramArguments"] as? [String], ["/x/alln", "serve"])
-        XCTAssertEqual(decoded?["KeepAlive"] as? Bool, true)
+        XCTAssertEqual(decoded?["ProgramArguments"] as? [String], ["/staged/alln", "serve"])
+        XCTAssertEqual(decoded?["WorkingDirectory"] as? String, "/tmp/probe-scratch")
+        XCTAssertEqual(decoded?["StandardOutPath"] as? String, "/tmp/logs/stdout.log")
+        XCTAssertEqual(decoded?["StandardErrorPath"] as? String, "/tmp/logs/stderr.log")
         XCTAssertEqual(decoded?["RunAtLoad"] as? Bool, true)
+        XCTAssertEqual(decoded?["ThrottleInterval"] as? Int, 30)
+        XCTAssertEqual(decoded?["ProcessType"] as? String, "Background")
+
+        let envVars = decoded?["EnvironmentVariables"] as? [String: String]
+        XCTAssertEqual(envVars?["PATH"], "/staged/bin:/usr/bin:/bin:/usr/sbin:/sbin")
+        XCTAssertEqual(envVars?["HOME"], "/Users/test")
+
+        let keepAliveDict = decoded?["KeepAlive"] as? [String: Any]
+        XCTAssertNotNil(keepAliveDict, "KeepAlive must be a dictionary, not a bare Bool")
+        XCTAssertEqual(keepAliveDict?["SuccessfulExit"] as? Bool, false)
+
+        let xmlString = String(data: data, encoding: .utf8)!
+        guard let keepAliveRange = xmlString.range(of: "<key>KeepAlive</key>") else {
+            XCTFail("KeepAlive key missing from serialized plist")
+            return
+        }
+        let afterKeepAliveKey = xmlString[keepAliveRange.upperBound...]
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        XCTAssertTrue(afterKeepAliveKey.hasPrefix("<dict>"),
+                       "KeepAlive must serialize as <dict>, got: \(afterKeepAliveKey.prefix(30))")
+        XCTAssertTrue(xmlString.contains("<key>SuccessfulExit</key>"),
+                       "KeepAlive dict must contain SuccessfulExit")
+        XCTAssertTrue(xmlString.contains("<false/>"),
+                       "KeepAlive SuccessfulExit must be false")
+    }
+
+    /// Fails if KeepAlive would serialize as `<true/>` — regression guard
+    /// against a Codable shape that round-trips in Swift but emits the
+    /// wrong plist type for launchd.
+    func testKeepAliveIsNeverBareTrue() throws {
+        let env = ServeLifecycle.AgentPlist.EnvironmentDict(
+            path: "/staged/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+            home: "/Users/test"
+        )
+        let plist = ServeLifecycle.AgentPlist(
+            label: ServeLaunchAgentStatus.label,
+            programArguments: ["/staged/alln", "serve"],
+            workingDirectory: "/tmp/probe-scratch",
+            standardOutPath: "/tmp/logs/stdout.log",
+            standardErrorPath: "/tmp/logs/stderr.log",
+            environmentVariables: env
+        )
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .xml
+        let data = try encoder.encode(plist)
+        let xmlString = String(data: data, encoding: .utf8)!
+        guard let keepAliveKeyRange = xmlString.range(of: "<key>KeepAlive</key>") else {
+            XCTFail("KeepAlive key missing")
+            return
+        }
+        let suffix = xmlString[keepAliveKeyRange.upperBound...]
+        if let nextKeyRange = suffix.range(of: "<key>") {
+            let between = xmlString[keepAliveKeyRange.upperBound..<nextKeyRange.lowerBound]
+            XCTAssertFalse(between.contains("<true/>"),
+                           "KeepAlive must not serialize as <true/>: \(between)")
+        }
+        XCTAssertFalse(xmlString.contains("<key>KeepAlive</key><true/>"),
+                       "KeepAlive must be a dict, not bare true")
     }
 
     // MARK: - disable()

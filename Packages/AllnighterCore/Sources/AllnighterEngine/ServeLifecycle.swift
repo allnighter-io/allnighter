@@ -61,26 +61,78 @@ public struct ServeLifecycle: Sendable {
 
     // MARK: - SC-S04b enable / disable
 
-    /// The product-owned LaunchAgent plist shape (SC-S04b). Keys match
-    /// launchd's expected plist keys via the coding keys.
+    /// The product-owned LaunchAgent plist shape (SC-S04b, ASR-S02b canonical).
+    /// Keys match launchd's expected plist keys via the coding keys.
+    /// KeepAlive is a dictionary (`{ SuccessfulExit = false }`), never a bare
+    /// `Bool` — a deliberate exit 0 stands down instead of respawning forever.
     public struct AgentPlist: Codable, Equatable, Sendable {
         public var label: String
         public var programArguments: [String]
-        public var keepAlive: Bool
+        public var workingDirectory: String
+        public var standardOutPath: String
+        public var standardErrorPath: String
         public var runAtLoad: Bool
+        public var keepAlive: KeepAliveDict
+        public var throttleInterval: Int
+        public var processType: String
+        public var environmentVariables: EnvironmentDict
 
-        public init(label: String, programArguments: [String], keepAlive: Bool, runAtLoad: Bool) {
+        public struct KeepAliveDict: Codable, Equatable, Sendable {
+            public var successfulExit: Bool
+
+            public init(successfulExit: Bool = false) {
+                self.successfulExit = successfulExit
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case successfulExit = "SuccessfulExit"
+            }
+        }
+
+        public struct EnvironmentDict: Codable, Equatable, Sendable {
+            public var path: String
+            public var home: String
+
+            public init(path: String, home: String) {
+                self.path = path
+                self.home = home
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case path = "PATH"
+                case home = "HOME"
+            }
+        }
+
+        public init(label: String, programArguments: [String],
+                    workingDirectory: String, standardOutPath: String,
+                    standardErrorPath: String, runAtLoad: Bool = true,
+                    keepAlive: KeepAliveDict = KeepAliveDict(),
+                    throttleInterval: Int = 30, processType: String = "Background",
+                    environmentVariables: EnvironmentDict) {
             self.label = label
             self.programArguments = programArguments
-            self.keepAlive = keepAlive
+            self.workingDirectory = workingDirectory
+            self.standardOutPath = standardOutPath
+            self.standardErrorPath = standardErrorPath
             self.runAtLoad = runAtLoad
+            self.keepAlive = keepAlive
+            self.throttleInterval = throttleInterval
+            self.processType = processType
+            self.environmentVariables = environmentVariables
         }
 
         enum CodingKeys: String, CodingKey {
             case label = "Label"
             case programArguments = "ProgramArguments"
-            case keepAlive = "KeepAlive"
+            case workingDirectory = "WorkingDirectory"
+            case standardOutPath = "StandardOutPath"
+            case standardErrorPath = "StandardErrorPath"
             case runAtLoad = "RunAtLoad"
+            case keepAlive = "KeepAlive"
+            case throttleInterval = "ThrottleInterval"
+            case processType = "ProcessType"
+            case environmentVariables = "EnvironmentVariables"
         }
     }
 
@@ -231,8 +283,15 @@ public struct ServeLifecycle: Sendable {
                                 stagedBytesReplaced: bytesReplaced, plistWritten: false, bootstrapped: false,
                                 detail: "\(Self.label) enable failed: bootout of prior registration failed: \(error)")
         }
+        let logDir = Self.defaultLogDirectory()
+        let stagedDir = URL(fileURLWithPath: stagedPath).deletingLastPathComponent().path
         let plist = AgentPlist(label: Self.label, programArguments: [stagedPath, "serve"],
-                               keepAlive: true, runAtLoad: true)
+                               workingDirectory: AllnighterPaths.probeScratch.path,
+                               standardOutPath: logDir.appendingPathComponent("alln-serve-stdout.log").path,
+                               standardErrorPath: logDir.appendingPathComponent("alln-serve-stderr.log").path,
+                               environmentVariables: AgentPlist.EnvironmentDict(
+                                    path: "\(stagedDir):/usr/bin:/bin:/usr/sbin:/sbin",
+                                    home: FileManager.default.homeDirectoryForCurrentUser.path))
         do {
             try writePlist(plistURL, plist)
         } catch {
@@ -249,7 +308,7 @@ public struct ServeLifecycle: Sendable {
         }
         return EnableResult(outcome: .enabled, stagedBinaryPath: stagedPath,
                             stagedBytesReplaced: bytesReplaced, plistWritten: true, bootstrapped: true,
-                            detail: "\(Self.label) enabled: LaunchAgent runs staged binary \(stagedPath) serve (KeepAlive, RunAtLoad)")
+                            detail: "\(Self.label) enabled: LaunchAgent runs staged binary \(stagedPath) serve")
     }
 
     /// `alln serve disable` (SC-S04b): boot out the agent and delete the
@@ -318,8 +377,15 @@ public struct ServeLifecycle: Sendable {
                                  rebound: false,
                                  detail: "\(Self.label) refresh failed: bootout of prior registration failed: \(error)")
         }
+        let logDir2 = Self.defaultLogDirectory()
+        let stagedDir2 = staging.url.deletingLastPathComponent().path
         let plist = AgentPlist(label: Self.label, programArguments: [staging.url.path, "serve"],
-                                keepAlive: true, runAtLoad: true)
+                               workingDirectory: AllnighterPaths.probeScratch.path,
+                               standardOutPath: logDir2.appendingPathComponent("alln-serve-stdout.log").path,
+                               standardErrorPath: logDir2.appendingPathComponent("alln-serve-stderr.log").path,
+                               environmentVariables: AgentPlist.EnvironmentDict(
+                                    path: "\(stagedDir2):/usr/bin:/bin:/usr/sbin:/sbin",
+                                    home: FileManager.default.homeDirectoryForCurrentUser.path))
         do {
             try writePlist(plistURL, plist)
         } catch {
@@ -396,15 +462,27 @@ public struct ServeLifecycle: Sendable {
         throw BootoutError(terminationStatus: process.terminationStatus, message: message)
     }
 
-    /// Live plist writer: XML property list, LaunchAgents directory created,
-    /// atomic write. Never called from unit tests — tests inject `writePlist`.
+    /// Live plist writer: XML property list, required directories created
+    /// first (ASR-S02b: launchd fails the spawn when WorkingDirectory is
+    /// missing), atomic write. Never called from unit tests — tests inject
+    /// `writePlist`.
     private static func liveWritePlist(url: URL, plist: AgentPlist) throws {
         let encoder = PropertyListEncoder()
         encoder.outputFormat = .xml
         let data = try encoder.encode(plist)
+        try FileManager.default.createDirectory(at: URL(fileURLWithPath: plist.workingDirectory),
+                                                withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: URL(fileURLWithPath: plist.standardOutPath).deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         try data.write(to: url, options: .atomic)
+    }
+
+    /// Default log directory: `~/Library/Logs/Allnighter/`
+    public static func defaultLogDirectory() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/Allnighter", isDirectory: true)
     }
 
     /// Live `launchctl bootstrap gui/<uid> <plist-path>`. Never called from

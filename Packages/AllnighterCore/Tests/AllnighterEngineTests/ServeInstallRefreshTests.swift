@@ -83,7 +83,7 @@ final class ServeInstallRefreshTests: XCTestCase {
         XCTAssertEqual(h.writtenPlists.count, 1)
         let plist = h.writtenPlists[0].plist
         XCTAssertEqual(plist.programArguments, [h.stagedURL.path, "serve"])
-        XCTAssertTrue(plist.keepAlive)
+        XCTAssertEqual(plist.keepAlive.successfulExit, false)
         XCTAssertTrue(plist.runAtLoad)
         XCTAssertEqual(h.bootstrapCalls, [h.plistURL.path])
     }
