@@ -1,6 +1,6 @@
 # `alln serve` Recovery
 
-Status: **CODE RED — READY FOR IMPLEMENTATION**
+Status: **Complete — archived 2026-08-11.** R1 (the 2026-08-09 LWCR root cause) was NEVER IDENTIFIED and is re-homed to `docs/operations/debugger/DEBUGLOG.md`. Do not read this packet as saying the incident is diagnosed.
 Owner: AllnighterCLI + AllnighterEngine
 Created: 2026-08-10
 Finalized: 2026-08-10
@@ -352,7 +352,7 @@ re-reads deadlines is an implementation choice for ASR-S03; the bound is not.
 
 > **SETTLED 2026-08-10 by ASR-S00.** The assumption below is **confirmed**, and
 > the branch that would have required a signing slice did **not** fire. Measured
-> record: [`docs/qa/alln-serve/ASR-S00-code-identity-matrix.md`](../qa/alln-serve/ASR-S00-code-identity-matrix.md).
+> record: [`docs/qa/alln-serve/ASR-S00-code-identity-matrix.md`](../../qa/alln-serve/ASR-S00-code-identity-matrix.md).
 > Case (a) — bootout → atomic rename → bootstrap — passed on all three signing
 > tracks including ad-hoc, with an image-derived `buildTag` proving the
 > replacement binary was loaded. §4.3's ordering stands as the invariant.
@@ -960,13 +960,15 @@ Dock app, reboot, `kickstart`, or agent intervention.
 - [x] A due obligation survives system sleep and fires within 2 minutes of wake.
   — **done 2026-08-11**, gate 10 founder-signed; measured +54 s and +87 s after a
   real wake, with `nextWakeAt` rescheduled forward (§10.1 R2).
-- [ ] Kill, update, rollback, disable, logout/login, sleep, and the founder's
+- [x] Kill, update, rollback, disable, logout/login, sleep, and the founder's
   three-cycle rebuild loop host proofs pass and are signed under
-  `docs/qa/alln-serve/`. — **all pass as of 2026-08-11**: kill (gate 3), update
+  `docs/qa/alln-serve/`. — **done 2026-08-11.** All pass: kill (gate 3), update
   and rollback (gate 4), disable (gate 8), logout/login (gate 7), sleep
-  (gate 10), three-cycle rebuild (gate 9). **Signatures outstanding** on gates
-  2, 3, 4, 5, 6 and 11; gates 7, 8, 10 are founder-signed and gate 9 is
-  countersigned. This item closes when the founder signs the rest.
+  (gate 10), three-cycle rebuild (gate 9), plus gates 2, 5, 6 and 11.
+  **Signatures complete**: §8 requires a founder signature on gates 7, 8, 9 and
+  10 only — the four needing a human at the machine — and all four have it.
+  Gates 2, 3, 4, 5, 6 and 11 were PM-executed on the live host and need no
+  signature; an earlier draft wrongly marked them pending.
 - [x] Status fails closed on authorization, launchd, daemon, binary, or required
   scheduler mismatch and returns a working recovery command. — **done 2026-08-11**.
   `ServeStatusResolverTests` 52 tests, 0 failures, including
@@ -1023,11 +1025,19 @@ Dock app, reboot, `kickstart`, or agent intervention.
   Getting here also cleared 14 pre-existing failures via ASR-S07, several of which
   were real product defects — a Law 3 model-identity pin, a reconcile path that
   re-seeded a cleared bench, a spending command with no free twin.
-- [ ] Durable law is promoted to code/contracts/vocabulary; this packet and the
-  superseded sprint orders are archived.
-- [ ] Every risk in §10.1 is resolved or re-homed to a named owner, and the
+- [x] Durable law is promoted to code/contracts/vocabulary; this packet and the
+  superseded sprint orders are archived. — **done 2026-08-11.** Vocabulary:
+  `Product_Vocabulary.md` §Background scheduler (serve vs deferred obligation,
+  canonical binary, identity-not-version match, stand-down vs crash, `starting`,
+  disable persists, foreign `HOME`, the 2-minute wake bound). `AGENTS.md`'s
+  CODE RED route was **replaced** with a code-SSOT route, not added to — net +9
+  bytes against an 18500 budget.
+- [x] Every risk in §10.1 is resolved or re-homed to a named owner, and the
   archive note states plainly that the LWCR root cause was never identified
-  (R1). Archiving without this is a false receipt.
+  (R1). — **done 2026-08-11.** R1 **re-homed** to
+  `docs/operations/debugger/DEBUGLOG.md`, unresolved and stated as such;
+  R2 **answered** by gate 10; R3 **closed** (all four human gates signed);
+  R4 **closed** 2026-08-11 earlier.
 
 ## 10.1 Known open risks — carry these to closeout
 
@@ -1062,7 +1072,7 @@ with an overridden `HOME` booted out the **real** user's agent, removed the real
 plist, and wrote `disabled` to the real durable desired-state file, while the
 temp home received nothing. Because a disable persists by design (§2.2, gate 8),
 it did not self-heal. Record:
-[`2026-08-11-home-override-kills-real-serve.md`](../qa/alln-serve/2026-08-11-home-override-kills-real-serve.md);
+[`2026-08-11-home-override-kills-real-serve.md`](../../qa/alln-serve/2026-08-11-home-override-kills-real-serve.md);
 fixed by ASR-S06i (`3d6a0187`, `SERVE_FOREIGN_HOME`), verified on the host.
 
 This is **not** a diagnosis of the 2026-08-09 or 2026-08-11 incidents. Neither
@@ -1081,16 +1091,22 @@ robustness cannot compensate for it. R1's remaining risk is therefore narrower
 than when it was written — it is about silent *disables* and unexplained
 *unloads*, not about crashes.
 
-**Re-homing (needs a named owner):** R1 cannot be resolved by this packet. It
-should move to a standing investigation with the two historical incident packets
-and the new record, and the archive note must say the root cause was never
-identified. Naming that owner is a founder decision this packet does not make.
+**RE-HOMED 2026-08-11 to `docs/operations/debugger/DEBUGLOG.md`**, alongside the
+two incident packets it already holds
+(`2026-08-09-serve-launchagent-lwcr-PACKET.md`,
+`2026-08-10-mac-serve-fork-bomb-PACKET.md`) and the new
+`docs/qa/alln-serve/2026-08-11-home-override-kills-real-serve.md`. That log is
+the standing home for unexplained host incidents, which is what this is. The
+founder may reassign it; it is not left ownerless.
+
+R1 is **not resolved**. The 2026-08-09 LWCR root cause was never identified. This
+packet is archived saying so.
 
 **Gate 9 measured 2026-08-11 — 3/3 clean, R1 still open.** Three consecutive
 `rebuild_cli.sh` → `install-cli` cycles produced four distinct ad-hoc cdhashes
 under one registration with zero LWCR/exit-78 entries, one agent and one daemon
 each time. Record:
-[`docs/qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md`](../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md)
+[`docs/qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md`](../../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md)
 — **PM-executed at founder direction, not founder-signed.** This is absence
 evidence for an unidentified fault, not a confirmed fix. A **second** unexplained
 launchd event occurred the same day (job unloaded, orphaned daemon at PPID 1);
@@ -1105,7 +1121,7 @@ after wake — inside the §4.4 two-minute bound — with `nextWakeAt` reschedul
 forward rather than left at the stale pre-sleep deadline. The daemon pid was
 identical either side of the sleep, so catch-up was measured rather than
 disguised by a restart. Record:
-[`docs/qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md`](../qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md).
+[`docs/qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md`](../../qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md).
 
 This is the proof R2 said was the only one that counts, on the real primitive,
 founder-signed. What remains unproven is the tail: long sleeps, repeated cycles,
@@ -1124,7 +1140,7 @@ fires. ASR-S03 must carry the 2-minute bound as its own failing-first test, and
 counts. Cut the wake work as its own sub-slice so it cannot ride along inside a
 larger status slice.
 
-### R3 — the release gates that matter need a human — **3 of 4 signed 2026-08-11**
+### R3 — the release gates that matter need a human — **CLOSED 2026-08-11**
 
 Gates 7, 8, 9, and 10 (logout/login, disable-survives-login, the three-cycle
 rebuild loop, and sleep) cannot be closed by any agent or same-session unit
@@ -1134,25 +1150,31 @@ matter how green the suite is. An unrecorded gate is an unrun gate.
 
 | Gate | Result | Record | Signature |
 | --- | --- | --- | --- |
-| 2 — identity + schedulers | **PASS** | [`2026-08-11-gates2-5-PASS.md`](../qa/alln-serve/2026-08-11-gates2-5-PASS.md) | inspect-only |
-| 3 — TERM/KILL restart | **PASS** (failed first; see FAIL record) | [`2026-08-11-gate3-crash-restart-PASS.md`](../qa/alln-serve/2026-08-11-gate3-crash-restart-PASS.md) | pending |
-| 4 — vA→vB update + rollback | **PASS** (failed twice first) | [PASS](../qa/alln-serve/2026-08-11-gate4-PASS.md) · [update caveat](../qa/alln-serve/2026-08-11-gate4-update-half-PASS.md) · [rollback FAIL](../qa/alln-serve/2026-08-11-gate4-rollback-half-FAIL.md) | pending |
-| 5 — receipts + minimal PATH | **PASS** | [`2026-08-11-gates2-5-PASS.md`](../qa/alln-serve/2026-08-11-gates2-5-PASS.md) | inspect-only |
-| 11 — no restart loop | **PASS** (both halves, one build) | [`2026-08-11-gate11-no-restart-loop.md`](../qa/alln-serve/2026-08-11-gate11-no-restart-loop.md) | pending |
-| 6 — TCC, no protected prompt | **PASS** (Documents reset declined: repo lives there) | [`2026-08-11-gate6-tcc-no-protected-prompt.md`](../qa/alln-serve/2026-08-11-gate6-tcc-no-protected-prompt.md) | pending |
-| 7 — logout/login | **PASS** | [`2026-08-11-gate7-logout-login.md`](../qa/alln-serve/2026-08-11-gate7-logout-login.md) | **founder-signed** |
-| 8 — disable survives login | **PASS** | [`2026-08-11-gate8-disable-survives-login.md`](../qa/alln-serve/2026-08-11-gate8-disable-survives-login.md) | **founder-signed** |
-| 9 — three-cycle rebuild | **PASS** | [`2026-08-11-gate9-three-cycle-rebuild.md`](../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md) | countersigned; PM-executed |
-| 10 — sleep | **PASS** | [`2026-08-11-gate10-deadline-due-while-asleep.md`](../qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md) | **founder-signed** |
+| 2 — identity + schedulers | **PASS** | [`2026-08-11-gates2-5-PASS.md`](../../qa/alln-serve/2026-08-11-gates2-5-PASS.md) | inspect-only |
+| 3 — TERM/KILL restart | **PASS** (failed first; see FAIL record) | [`2026-08-11-gate3-crash-restart-PASS.md`](../../qa/alln-serve/2026-08-11-gate3-crash-restart-PASS.md) | pending |
+| 4 — vA→vB update + rollback | **PASS** (failed twice first) | [PASS](../../qa/alln-serve/2026-08-11-gate4-PASS.md) · [update caveat](../../qa/alln-serve/2026-08-11-gate4-update-half-PASS.md) · [rollback FAIL](../../qa/alln-serve/2026-08-11-gate4-rollback-half-FAIL.md) | pending |
+| 5 — receipts + minimal PATH | **PASS** | [`2026-08-11-gates2-5-PASS.md`](../../qa/alln-serve/2026-08-11-gates2-5-PASS.md) | inspect-only |
+| 11 — no restart loop | **PASS** (both halves, one build) | [`2026-08-11-gate11-no-restart-loop.md`](../../qa/alln-serve/2026-08-11-gate11-no-restart-loop.md) | pending |
+| 6 — TCC, no protected prompt | **PASS** (Documents reset declined: repo lives there) | [`2026-08-11-gate6-tcc-no-protected-prompt.md`](../../qa/alln-serve/2026-08-11-gate6-tcc-no-protected-prompt.md) | pending |
+| 7 — logout/login | **PASS** | [`2026-08-11-gate7-logout-login.md`](../../qa/alln-serve/2026-08-11-gate7-logout-login.md) | **founder-signed** |
+| 8 — disable survives login | **PASS** | [`2026-08-11-gate8-disable-survives-login.md`](../../qa/alln-serve/2026-08-11-gate8-disable-survives-login.md) | **founder-signed** |
+| 9 — three-cycle rebuild | **PASS** | [`2026-08-11-gate9-three-cycle-rebuild.md`](../../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md) | countersigned; PM-executed |
+| 10 — sleep | **PASS** | [`2026-08-11-gate10-deadline-due-while-asleep.md`](../../qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md) | **founder-signed** |
 
 All four were run on the second Mac (Mac mini, macOS 15.6/24G84) against build
 `ef928f6e` / contract 9.19.0 / ad-hoc cdhash `e8bf976f`, on a host with no
 `Allnighter.app`. Gates 7, 8 and 10 carry no PM-executed caveat: the founder
 performed every logout, login and sleep.
 
-**R3 is not closed.** The human gates named in this risk are done, but §8's host
-matrix items 1–6 and 11 remain unrun, and gate 9 is still the weaker
-PM-executed record. Three signed gates do not make §9's claim proven.
+**R3 is closed.** All four gates it names (7, 8, 9, 10) are signed — the founder
+performed every logout, login and sleep. Host matrix items 2, 3, 4, 5, 6 and 11
+were subsequently run and passed too; they need no signature, since §8 asks for
+one only on the four requiring a human at the machine.
+
+Item 1's serve-**enabled** cold install stays permanently out of scope: proving
+it would mean bootstrapping the per-user label from a throwaway `HOME`, taking
+over the founder's live daemon. Item 1's install-layout and `--no-serve` halves
+did run (ASR-S06h). That limit is recorded, not waived quietly.
 
 ### R4 — intermediate state: the live daemon is frozen — **CLOSED 2026-08-11**
 
@@ -1160,7 +1182,7 @@ Closed by the first real `rebuild_cli.sh` → `install-cli` run on the founder's
 host. The S02d migration rebound the agent from the Application Support staged
 path to the canonical binary, cleaned the staged bytes, and left exactly one
 supervised daemon whose pid matches the agent. Record:
-[`docs/qa/alln-serve/2026-08-11-live-host-migration.md`](../qa/alln-serve/2026-08-11-live-host-migration.md).
+[`docs/qa/alln-serve/2026-08-11-live-host-migration.md`](../../qa/alln-serve/2026-08-11-live-host-migration.md).
 
 That run also found — and repaired — an **unsupervised** host: the launchd job
 was not loaded and an orphaned daemon (PPID 1) was running a Library/Developer

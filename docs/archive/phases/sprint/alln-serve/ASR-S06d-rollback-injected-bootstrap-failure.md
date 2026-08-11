@@ -7,7 +7,7 @@ host matrix item 4, §4.3 steps 7–8 (restore on failure, delete rollback bytes
 only after health), §7 (`install -> enabled`).
 Prior: [`ASR-S06c`](ASR-S06c-update-identity-host-proof.md) passed the update
 half; record
-[`2026-08-11-gate4-update-half-PASS.md`](../../../qa/alln-serve/2026-08-11-gate4-update-half-PASS.md).
+[`2026-08-11-gate4-update-half-PASS.md`](../../../../qa/alln-serve/2026-08-11-gate4-update-half-PASS.md).
 
 ## 1. What is unproven
 

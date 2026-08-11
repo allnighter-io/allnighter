@@ -128,7 +128,7 @@ the problem.
 
 ## Follow-up
 
-[`ASR-S06i`](../../phases/sprint/alln-serve/ASR-S06i-serve-lifecycle-refuses-foreign-home.md)
+[`ASR-S06i`](../../archive/phases/sprint/alln-serve/ASR-S06i-serve-lifecycle-refuses-foreign-home.md)
 
 ## Signature
 

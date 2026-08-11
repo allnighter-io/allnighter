@@ -5,7 +5,7 @@ Priority: **P0 — §4.3 step 7 is half-implemented and gate 4 fails because of 
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §4.3
 steps 7–8, §7 (`install -> enabled`).
 Failing gate record:
-[`2026-08-11-gate4-rollback-half-FAIL.md`](../../../qa/alln-serve/2026-08-11-gate4-rollback-half-FAIL.md).
+[`2026-08-11-gate4-rollback-half-FAIL.md`](../../../../qa/alln-serve/2026-08-11-gate4-rollback-half-FAIL.md).
 
 ## 1. The defect, measured on the live host
 

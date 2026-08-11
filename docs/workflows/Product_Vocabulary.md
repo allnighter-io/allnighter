@@ -122,6 +122,27 @@ holds the PM chair.** `step` (submit the next PM decision) is accepted only in
 status `awaitingPM` and errors on the *status* for any other state — never on
 the *occupant*. Every future loop operation follows this rule.
 
+## Background scheduler vocabulary (promoted from ASR, 2026-08-11)
+
+Hard cutover. Code SSOT: `ServeLifecycle`, `ServeDaemon`, `ServeStatusJSON`,
+`CanonicalCLIInstall`. Host proofs: `docs/qa/alln-serve/`.
+
+| Term | Meaning |
+| --- | --- |
+| **Background scheduler** (`alln serve`) | One supervised per-user daemon, started by launchd via the LaunchAgent `com.allnighter.resident-coordinator`. Owns deferred obligations only. Never owns run semantics. |
+| **Deferred obligation** | Work `serve` wakes for: pending wake, PM turn wake, boost seed, vendor backoff, notifications, capacity refresh, probe record refresh. **`alln run` does not depend on serve** — attended work runs with serve dead or disabled. |
+| **Canonical binary** | `~/.local/share/allnighter/bin/alln`. PATH symlink, LaunchAgent `program`, health, and update all name this one path. |
+| **Binary match** | Decided by recorded **code identity**, never by version string. An unrecorded or not-yet-reported identity is *unknown*, never a mismatch. |
+| **Stand-down** | Daemon exit `0`. launchd must **not** respawn it (`KeepAlive = { SuccessfulExit = false }`), and `serve status` shows `degraded` with `lastExitCode: 0` and a recovery command. A stood-down daemon is never silently absent. |
+| **Crash** | Signal death or nonzero exit. launchd **does** respawn, after `ThrottleInterval` (30 s). |
+| **`starting`** | Bounded transient: supervisor loaded, daemon not yet through its first health handshake. Not `degraded`, and never prescribes a command that restarts the daemon. |
+| **Disable persists** | A user disable survives logout/login and is never undone by a later install. Only `alln serve enable` reverses it. |
+| **Foreign `HOME`** | Serve lifecycle is per-**user**, not per-`HOME`. A lifecycle command run with a `HOME` that is not the account home refuses (`SERVE_FOREIGN_HOME`) and mutates nothing. `serve status` stays readable. |
+
+Wake bound: a deadline that comes due during system sleep fires **within 2
+minutes of wake** — deadlines are wall-clock and re-evaluated on wake, not
+timer-relative.
+
 ## Machine layer
 
 One primitive: **run a team** (a solo agent is a team of one). A team carries

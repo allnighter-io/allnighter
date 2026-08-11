@@ -85,7 +85,7 @@ Proof command / founder test:
 
 Historical code floor for this bug is archived under
 `docs/archive/phases/Serve_Continuity.md`; forward recovery is
-`docs/phases/Alln_Serve_Hotfixes.md`:
+`docs/archive/phases/Alln_Serve_Hotfixes.md`:
 
 | Slice | Commit (approx) | What |
 | --- | --- | --- |

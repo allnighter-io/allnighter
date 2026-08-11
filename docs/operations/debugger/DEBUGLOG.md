@@ -702,3 +702,41 @@ Seam: read surfaces (`ps`/`status`/`result`) -> `reconcileAll` -> `reconcileRunD
 Proof: `KillSettlementTests.testReconcileOnReadNeverSignalsTerminalWithLiveOwnership` (spy hook asserts zero signals and no journal restamp while the contradiction is still reported); `KillSettlementTests.testInProcessCoordinatorIsNotLiveOwnership`; `testReconcileForceKillsTerminalWithLiveOwnership` now opts in explicitly. Full `swift test`: 2637 tests, 18 failures all pre-existing in `BootstrapTests`/`RecipeCatalogTests`/`SeatCountConsistencyTests` (in-progress `BuiltInTeams` edits), none in ownership/reconcile.
 Pattern candidate: Detection and action are separate privileges. A read-only surface may name a contradiction; only an explicitly invoked operator command may signal a process. Adding a kill to a primitive that a read path already calls silently arms every caller.
 What was the agent allowed to do that must never be allowed again: Add a `SIGKILL` path to a shared reconcile primitive without enumerating its callers, and introduce a second liveness predicate that silently disagrees with the documented one it duplicates.
+
+## 2026-08-11 — R1 re-homed here: the 2026-08-09 LWCR root cause is still unidentified
+
+The `alln serve` Recovery packet (ASR) closed and archived today at
+`docs/archive/phases/Alln_Serve_Hotfixes.md`. Its §10.1 **R1 did not close**, and
+this log is now its home.
+
+**What R1 is.** On 2026-08-09 the LaunchAgent wedged with a lightweight code
+requirement error before Swift `main` ran. ASR-S00 tested the packet's own
+theory — replacing an ad-hoc binary's bytes under a loaded KeepAlive agent — on
+three signing tracks and it did **not** reproduce. The cause is unknown.
+
+**What changed today, and what did not.** Two mechanisms that produce R1's
+observable state (job not loaded / no process / no explanation) were found and
+fixed:
+
+- SIGTERM made the daemon exit `0`, which `KeepAlive = { SuccessfulExit = false }`
+  correctly treats as a stand-down, so launchd never respawned it. Gate 3 record;
+  fixed in ASR-S06b.
+- Running any serve lifecycle command with an overridden `HOME` booted out the
+  real user's agent and wrote `disabled` to the real desired-state file. Record
+  `docs/qa/alln-serve/2026-08-11-home-override-kills-real-serve.md`; fixed in
+  ASR-S06i (`SERVE_FOREIGN_HOME`).
+
+Neither is a diagnosis of the 2026-08-09 incident. Neither historical event
+recorded an exit code or the environment of the process that ran before it, so
+the link cannot be confirmed. A **third** unexplained event occurred 2026-08-11
+(desired state found `disabled` at 21:02:47Z during delegated work) and a
+controlled re-test did not reproduce it.
+
+**Standing note.** Founder ruling 2026-08-11: an unattributed *crash* is
+acceptable provided serve recovers, which gates 3 and 11 prove it does. That does
+**not** cover the *disable* class — a disable persists by design and never
+self-recovers. R1's live risk is therefore silent disables and unexplained
+unloads, not crashes.
+
+Related: `2026-08-09-serve-launchagent-lwcr-PACKET.md`,
+`2026-08-10-mac-serve-fork-bomb-PACKET.md`, `docs/qa/alln-serve/`.

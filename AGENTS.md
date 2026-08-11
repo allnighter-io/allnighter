@@ -100,7 +100,7 @@ Root docs are the source of truth. Read the relevant one before changing that ar
 | **Visual** design, brand, styling, tokens, mocks, prototypes | `docs/design-system/readme.md` + `docs/design-system/production.md` |
 | **Building** a UI surface (SwiftUI window/view/component) | `docs/gui/GUI_Workflow.md`, then the routed GUI docs + surface brief |
 | Shared models, worker drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `02`/`04` as scoped |
-| Background scheduler / `alln serve` dead, stale, orphaned, or launching the app | **CODE RED:** `docs/phases/Alln_Serve_Hotfixes.md`. Serve owns scheduling, never run semantics; first slice is the native launchd harness. |
+| Background scheduler / `alln serve` dead, stale, or disabled | Code SSOT: `ServeLifecycle`, `ServeDaemon`, `ServeStatusJSON`. Vocabulary: `Product_Vocabulary.md` §Background scheduler. Serve owns scheduling, never run semantics. |
 | Historical MVP Mac app shell, run loop, what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md` |
 | Judgment chain / Review Board (RB0–RB6) | `docs/mvp/RB0_Judgment_Workflow_Overview.md` + routed RB docs |
 | New feature, rough product idea, founder note | `docs/workflows/SSOT_Founder_Input_Workflow.md` → `docs/workflows/SSOT_Feature_Workflow.md` |

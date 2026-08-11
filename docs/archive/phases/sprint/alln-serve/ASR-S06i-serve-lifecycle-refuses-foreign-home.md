@@ -7,7 +7,7 @@ SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §2.1
 the project law *"A command that returns without queued work must leave none
 behind … refuse loudly."*
 Evidence:
-[`2026-08-11-home-override-kills-real-serve.md`](../../../qa/alln-serve/2026-08-11-home-override-kills-real-serve.md).
+[`2026-08-11-home-override-kills-real-serve.md`](../../../../qa/alln-serve/2026-08-11-home-override-kills-real-serve.md).
 
 ## 1. The defect
 

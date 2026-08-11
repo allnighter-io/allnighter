@@ -99,7 +99,7 @@ recorded in the follow-up slice, not a host problem.
 
 ## Follow-up
 
-[`ASR-S06b`](../../phases/sprint/alln-serve/ASR-S06b-sigterm-must-restart.md) —
+[`ASR-S06b`](../../archive/phases/sprint/alln-serve/ASR-S06b-sigterm-must-restart.md) —
 make `SIGTERM` re-raise under the default handler so launchd observes signal
 death, and teach the gate script that `starting` is not a failure state.
 

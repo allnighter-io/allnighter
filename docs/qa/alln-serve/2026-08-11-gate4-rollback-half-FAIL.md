@@ -96,7 +96,7 @@ remove. Folded into the fix slice.
 
 ## Follow-up
 
-[`ASR-S06e`](../../phases/sprint/alln-serve/ASR-S06e-restore-the-binary-on-failed-install.md)
+[`ASR-S06e`](../../archive/phases/sprint/alln-serve/ASR-S06e-restore-the-binary-on-failed-install.md)
 
 ## Reproduce
 

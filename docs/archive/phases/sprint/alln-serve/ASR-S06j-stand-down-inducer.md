@@ -5,7 +5,7 @@ Priority: **P2 — gate 11's stand-down half is only evidenced on a superseded b
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §4.2
 (restart contract, stand-down visibility), §8 host matrix item **11**.
 Evidence:
-[`2026-08-11-gate11-no-restart-loop.md`](../../../qa/alln-serve/2026-08-11-gate11-no-restart-loop.md).
+[`2026-08-11-gate11-no-restart-loop.md`](../../../../qa/alln-serve/2026-08-11-gate11-no-restart-loop.md).
 
 ## 1. Why this exists
 

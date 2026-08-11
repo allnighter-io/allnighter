@@ -4,7 +4,7 @@ Status: **ready**
 Priority: **P2 — §2.2 disclosure obligation unmet on the `--no-serve` path.**
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §2.2.
 Evidence:
-[`2026-08-11-home-override-kills-real-serve.md`](../../../qa/alln-serve/2026-08-11-home-override-kills-real-serve.md)
+[`2026-08-11-home-override-kills-real-serve.md`](../../../../qa/alln-serve/2026-08-11-home-override-kills-real-serve.md)
 §"Second, smaller finding" — found by the ASR-S06h cold-install gate.
 
 ## 1. The gap

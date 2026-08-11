@@ -3,8 +3,8 @@
 Date: 2026-08-10
 Host: founder Mac
 macOS: 15.6.1 (24G90), arm64
-Work order: `docs/phases/sprint/alln-serve/ASR-S00-launchd-isolation-harness.md`
-SSOT: `docs/phases/Alln_Serve_Hotfixes.md` §8 ASR-S00, §4.5, §4.6, §4.2
+Work order: `docs/archive/phases/sprint/alln-serve/ASR-S00-launchd-isolation-harness.md`
+SSOT: `docs/archive/phases/Alln_Serve_Hotfixes.md` §8 ASR-S00, §4.5, §4.6, §4.2
 
 ## Verdict: ALL 16 CHECKS PASSED
 
@@ -129,7 +129,7 @@ identity discriminant.
 
 ## 6. Product delta — which branch conditions fired
 
-From `docs/phases/Alln_Serve_Hotfixes.md` §8 ASR-S00 branch conditions and §10
+From `docs/archive/phases/Alln_Serve_Hotfixes.md` §8 ASR-S00 branch conditions and §10
 first checkbox:
 
 **§4.5 code-identity assumption (the load-bearing assumption): CONFIRMED.**
