@@ -84,6 +84,8 @@ final class ServeLifecycleEnableTests: XCTestCase {
                     if let bootstrapError { throw bootstrapError }
                 },
                 homeDirectory: homeURL,
+                realHomeDirectory: homeURL,
+                effectiveHomeDirectory: homeURL,
                 canonicalBinaryURL: canonicalURL,
                 canonicalBinaryExists: { [self] _ in canonicalExists },
                 readDesiredState: { [self] _ in injectedReading },
@@ -229,6 +231,97 @@ final class ServeLifecycleEnableTests: XCTestCase {
         XCTAssertTrue(h.deletedURLs.contains(h.plistURL))
     }
 
+    func testForeignHomeDisableRefusesBeforeByteForByteMutation() async throws {
+        let h = Harness()
+        h.createPlistFile()
+        let realHome = URL(fileURLWithPath: "/tmp/real-home-\(UUID().uuidString)")
+        let foreignHome = URL(fileURLWithPath: "/tmp/foreign-home-\(UUID().uuidString)")
+        let realDesiredState = ServeDesiredState.storeURL(homeDirectory: realHome)
+        try FileManager.default.createDirectory(at: realDesiredState.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("real-desired-state".utf8).write(to: realDesiredState)
+        let beforePlist = try Data(contentsOf: h.plistURL)
+        let beforeDesiredState = try Data(contentsOf: realDesiredState)
+        defer {
+            try? FileManager.default.removeItem(at: h.plistURL)
+            try? FileManager.default.removeItem(at: realHome)
+        }
+
+        let lifecycle = ServeLifecycle(
+            plistURL: h.plistURL,
+            bootout: { _ in h.bootoutCalls.append("bootout") },
+            plistExists: { _ in true },
+            removePlist: { url in h.deletedURLs.append(url) },
+            writePlist: { url, plist in h.writtenPlists.append((url, plist)) },
+            bootstrap: { _ in h.bootstrapCalls.append("bootstrap") },
+            homeDirectory: realHome,
+            realHomeDirectory: realHome,
+            effectiveHomeDirectory: foreignHome,
+            canonicalBinaryURL: h.canonicalURL,
+            canonicalBinaryExists: { _ in true },
+            readDesiredState: { _ in .present(state: .enabled, updatedAt: Date()) },
+            writeDesiredState: { state, home in h.desiredWrites.append((state, home)); return .success(()) },
+            verifyJobLoaded: { _ in false },
+            sleep: { _ in },
+            clock: { h.clockTime }
+        )
+
+        let results = [
+            await lifecycle.enable(),
+            await lifecycle.disable(),
+            await lifecycle.restart(),
+            await lifecycle.repair(),
+        ]
+
+        XCTAssertTrue(results.allSatisfy { $0.outcome == .failed })
+        XCTAssertTrue(results.allSatisfy { $0.detail.contains("SERVE_FOREIGN_HOME") })
+        XCTAssertTrue(results.allSatisfy { $0.detail.contains(realHome.path) })
+        XCTAssertTrue(results.allSatisfy { $0.detail.contains(foreignHome.path) })
+        XCTAssertEqual(try Data(contentsOf: h.plistURL), beforePlist)
+        XCTAssertEqual(try Data(contentsOf: realDesiredState), beforeDesiredState)
+        XCTAssertTrue(h.bootoutCalls.isEmpty)
+        XCTAssertTrue(h.deletedURLs.isEmpty)
+        XCTAssertTrue(h.writtenPlists.isEmpty)
+        XCTAssertTrue(h.bootstrapCalls.isEmpty)
+        XCTAssertTrue(h.desiredWrites.isEmpty)
+    }
+
+    func testSymlinkCanonicalHomePathsDoNotRefuse() async throws {
+        let h = Harness()
+        h.injectedReading = .present(state: .disabled, updatedAt: Date())
+        let realHome = URL(fileURLWithPath: "/tmp/real-home-\(UUID().uuidString)")
+        let aliasHome = URL(fileURLWithPath: "/tmp/home-alias-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: realHome, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: aliasHome, withDestinationURL: realHome)
+        defer {
+            try? FileManager.default.removeItem(at: aliasHome)
+            try? FileManager.default.removeItem(at: realHome)
+        }
+        let lifecycle = ServeLifecycle(
+            plistURL: h.plistURL,
+            bootout: { _ in h.bootoutCalls.append("bootout") },
+            plistExists: { _ in false },
+            removePlist: { _ in },
+            writePlist: { _, _ in },
+            bootstrap: { _ in },
+            homeDirectory: realHome,
+            realHomeDirectory: realHome,
+            effectiveHomeDirectory: aliasHome,
+            canonicalBinaryURL: h.canonicalURL,
+            canonicalBinaryExists: { _ in true },
+            readDesiredState: { _ in h.injectedReading },
+            writeDesiredState: { state, home in h.desiredWrites.append((state, home)); return .success(()) },
+            verifyJobLoaded: { _ in false },
+            sleep: { _ in },
+            clock: { h.clockTime }
+        )
+
+        let result = await lifecycle.disable()
+
+        XCTAssertEqual(result.outcome, .disabled)
+        XCTAssertFalse(result.detail.contains("SERVE_FOREIGN_HOME"))
+        XCTAssertEqual(h.desiredWrites.map(\.state), [.disabled])
+    }
+
     func testDisableBootoutPrecedesPlistRemoval() async {
         final class Ordering: @unchecked Sendable {
             var events: [String] = []
@@ -246,6 +339,8 @@ final class ServeLifecycleEnableTests: XCTestCase {
             writePlist: { _, _ in },
             bootstrap: { _ in },
             homeDirectory: h.homeURL,
+            realHomeDirectory: h.homeURL,
+            effectiveHomeDirectory: h.homeURL,
             canonicalBinaryURL: h.canonicalURL,
             canonicalBinaryExists: { _ in true },
             readDesiredState: { _ in .present(state: .disabled, updatedAt: Date()) },
@@ -650,6 +745,8 @@ final class ServeLifecycleEnableTests: XCTestCase {
                 events.bootstrapped = true
             },
             homeDirectory: h.homeURL,
+            realHomeDirectory: h.homeURL,
+            effectiveHomeDirectory: h.homeURL,
             canonicalBinaryURL: h.canonicalURL,
             canonicalBinaryExists: { _ in true },
             readDesiredState: { _ in .present(state: .enabled, updatedAt: Date()) },

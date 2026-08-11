@@ -129,6 +129,15 @@ final class ContractRegistryTests: XCTestCase {
         XCTAssertEqual(reg.processExitCode(forErrorCode: "RUN_ID_IN_USE"), 1)
     }
 
+    func testServeForeignHomeErrorSpecRegistered() {
+        let spec = reg.errors.first { $0.code == "SERVE_FOREIGN_HOME" }
+        XCTAssertNotNil(spec)
+        XCTAssertEqual(spec?.ruleId, "serve.foreign_home")
+        XCTAssertEqual(spec?.requiresManual, true)
+        XCTAssertEqual(spec?.retryable, false)
+        XCTAssertEqual(reg.processExitCode(forErrorCode: "SERVE_FOREIGN_HOME"), 1)
+    }
+
     func testDoctorChecksAndEventsAreCompleteAndUnique() {
         let checks = reg.doctorChecks.map(\.name)
         XCTAssertEqual(checks.count, Set(checks).count, "duplicate doctor check")

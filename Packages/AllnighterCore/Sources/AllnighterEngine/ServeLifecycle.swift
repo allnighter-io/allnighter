@@ -158,6 +158,10 @@ public struct ServeLifecycle: Sendable {
     private let installTransactionBootstrap: @Sendable (String) throws -> Void
 
     public let homeDirectory: URL
+    /// The account home launchd scopes its single per-user label to.
+    public let realHomeDirectory: URL
+    /// The caller's effective home, which may come from `HOME` in a test harness.
+    public let effectiveHomeDirectory: URL
     public let canonicalBinaryURL: URL
     public let canonicalBinaryExists: @Sendable (URL) -> Bool
     public let readDesiredState: @Sendable (URL) -> ServeDesiredState.Reading
@@ -172,14 +176,15 @@ public struct ServeLifecycle: Sendable {
     public let removeStagedBytes: @Sendable (URL) throws -> Void
 
     public init(
-        plistURL: URL = FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/LaunchAgents/\(ServeLifecycle.label).plist"),
+        plistURL: URL? = nil,
         bootout: (@Sendable (String) throws -> Void)? = nil,
         plistExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) },
         removePlist: @escaping @Sendable (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) },
         writePlist: (@Sendable (URL, AgentPlist) throws -> Void)? = nil,
         bootstrap: (@Sendable (String) throws -> Void)? = nil,
-        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        homeDirectory: URL? = nil,
+        realHomeDirectory: URL? = nil,
+        effectiveHomeDirectory: URL? = nil,
         canonicalBinaryURL: URL? = nil,
         canonicalBinaryExists: (@Sendable (URL) -> Bool)? = nil,
         readDesiredState: (@Sendable (URL) -> ServeDesiredState.Reading)? = nil,
@@ -192,7 +197,10 @@ public struct ServeLifecycle: Sendable {
         stagedBytesExist: (@Sendable (URL) -> Bool)? = nil,
         removeStagedBytes: (@Sendable (URL) throws -> Void)? = nil
     ) {
-        self.plistURL = plistURL
+        let resolvedRealHome = realHomeDirectory ?? homeDirectory ?? FileManager.default.homeDirectoryForCurrentUser
+        let resolvedHome = homeDirectory ?? resolvedRealHome
+        self.plistURL = plistURL ?? resolvedHome
+            .appendingPathComponent("Library/LaunchAgents/\(ServeLifecycle.label).plist")
         self.bootout = bootout ?? Self.liveBootout
         self.plistExists = plistExists
         self.removePlist = removePlist
@@ -200,8 +208,12 @@ public struct ServeLifecycle: Sendable {
         let baseBootstrap = bootstrap ?? Self.liveBootstrap
         self.bootstrap = baseBootstrap
         self.installTransactionBootstrap = Self.makeInstallTransactionBootstrap(base: baseBootstrap)
-        self.homeDirectory = homeDirectory
-        self.canonicalBinaryURL = canonicalBinaryURL ?? CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: homeDirectory)
+        self.homeDirectory = resolvedHome
+        self.realHomeDirectory = resolvedRealHome
+        self.effectiveHomeDirectory = effectiveHomeDirectory ?? (homeDirectory == nil
+            ? Self.effectiveHomeDirectoryFromEnvironment()
+            : resolvedHome)
+        self.canonicalBinaryURL = canonicalBinaryURL ?? CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: resolvedHome)
         self.canonicalBinaryExists = canonicalBinaryExists ?? { FileManager.default.isExecutableFile(atPath: $0.path) }
         self.readDesiredState = readDesiredState ?? { ServeDesiredState.read(homeDirectory: $0) }
         self.writeDesiredState = writeDesiredState ?? { ServeDesiredState.write($0, homeDirectory: $1) }
@@ -217,6 +229,10 @@ public struct ServeLifecycle: Sendable {
     // MARK: - Four verbs
 
     public func enable() async -> ConvergenceResult {
+        await _performLifecycle { await _enable() }
+    }
+
+    private func _enable() async -> ConvergenceResult {
         switch writeDesiredState(.enabled, homeDirectory) {
         case .failure(let f):
             return ConvergenceResult(outcome: .failed, desiredStateReading: "write-failed",
@@ -230,6 +246,10 @@ public struct ServeLifecycle: Sendable {
     }
 
     public func disable() async -> ConvergenceResult {
+        await _performLifecycle { await _disable() }
+    }
+
+    private func _disable() async -> ConvergenceResult {
         switch writeDesiredState(.disabled, homeDirectory) {
         case .failure(let f):
             return ConvergenceResult(outcome: .failed, desiredStateReading: "write-failed",
@@ -243,6 +263,10 @@ public struct ServeLifecycle: Sendable {
     }
 
     public func restart() async -> ConvergenceResult {
+        await _performLifecycle { await _restart() }
+    }
+
+    private func _restart() async -> ConvergenceResult {
         let reading = readDesiredState(homeDirectory)
         let readingLabel = _labelForReading(reading)
 
@@ -301,7 +325,7 @@ public struct ServeLifecycle: Sendable {
     }
 
     public func repair() async -> ConvergenceResult {
-        return await converge()
+        await _performLifecycle { await converge() }
     }
 
     // MARK: - Convergence
@@ -603,6 +627,36 @@ public struct ServeLifecycle: Sendable {
 
     // MARK: - Helpers
 
+    /// The sole lifecycle admission gate. A LaunchAgent label belongs to a user,
+    /// not a HOME directory, so a foreign HOME must never mutate that user's slot.
+    private func _performLifecycle(_ operation: () async -> ConvergenceResult) async -> ConvergenceResult {
+        let effective = Self._canonicalPath(effectiveHomeDirectory)
+        let real = Self._canonicalPath(realHomeDirectory)
+        guard effective == real else {
+            return ConvergenceResult(
+                outcome: .failed,
+                desiredStateReading: "foreign-home",
+                canonicalBinaryPath: canonicalBinaryURL.path,
+                plistWritten: false,
+                bootstrapped: false,
+                registryVerified: false,
+                detail: "SERVE_FOREIGN_HOME: refusing serve lifecycle for effective HOME \(effective); the per-user launchd label belongs to real home \(real). Use the real HOME and retry."
+            )
+        }
+        return await operation()
+    }
+
+    private static func _canonicalPath(_ url: URL) -> String {
+        url.resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
+    public static func effectiveHomeDirectoryFromEnvironment() -> URL {
+        guard let home = ProcessInfo.processInfo.environment["HOME"], !home.isEmpty else {
+            return FileManager.default.homeDirectoryForCurrentUser
+        }
+        return URL(fileURLWithPath: home)
+    }
+
     private func _labelForReading(_ reading: ServeDesiredState.Reading) -> String {
         switch reading {
         case .absent: return "absent"
@@ -612,7 +666,7 @@ public struct ServeLifecycle: Sendable {
     }
 
     private func _makePlist() -> AgentPlist {
-        let logDir = Self.defaultLogDirectory()
+        let logDir = Self.defaultLogDirectory(homeDirectory: homeDirectory)
         let binDir = canonicalBinaryURL.deletingLastPathComponent().path
         return AgentPlist(
             label: Self.label,
@@ -708,8 +762,8 @@ public struct ServeLifecycle: Sendable {
 
     // MARK: - Default log directory
 
-    public static func defaultLogDirectory() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
+    public static func defaultLogDirectory(homeDirectory: URL = ServeLifecycle.effectiveHomeDirectoryFromEnvironment()) -> URL {
+        homeDirectory
             .appendingPathComponent("Library/Logs/Allnighter", isDirectory: true)
     }
 
