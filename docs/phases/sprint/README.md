@@ -73,7 +73,7 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 
 | ASR-S02b | [`alln-serve/ASR-S02b-canonical-plist-shape.md`](alln-serve/ASR-S02b-canonical-plist-shape.md) | **done** — `1b834ec7` (20 tests) |
 
-| ASR-S02c | [`alln-serve/ASR-S02c-convergence-transaction.md`](alln-serve/ASR-S02c-convergence-transaction.md) | **in_progress** |
+| ASR-S02c | [`alln-serve/ASR-S02c-convergence-transaction.md`](alln-serve/ASR-S02c-convergence-transaction.md) | **done** — `44c897f5` (78 tests, `alln` builds) |
 | ASR-S02d | [`alln-serve/ASR-S02d-live-host-rebind.md`](alln-serve/ASR-S02d-live-host-rebind.md) | **ready** — first slice whose path changes the live agent; closes §10.1 R4 |
 
 ASR-S02 cut: **a** desired state (done), **b** plist shape (done), **c**

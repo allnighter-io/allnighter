@@ -87,7 +87,16 @@ Packages/AllnighterCore/Tests/AllnighterEngineTests/ServeLifecycleEnableTests.sw
    - a genuine bootout failure aborts the install before the bytes change, which
      is the intended behavior — the canonical bytes stay as they were.
 
-5. **Say what happened.** The convergence result reports whether a migration
+5. **Bootout failures are currently swallowed.** ASR-S02c's converge writes
+   `do { try bootout(label) } catch { }` on every path. That is right for a
+   not-loaded label but wrong for a real failure: convergence then writes the
+   plist and bootstraps anyway, which can leave two registrations. Distinguish
+   the two — treat "not loaded / no such service" as success and a genuine
+   bootout failure as a convergence failure that restores and returns, rather
+   than proceeding. The migration in Step 2 depends on this: migrating after a
+   failed bootout is how a host ends up with two agents.
+
+6. **Say what happened.** The convergence result reports whether a migration
    occurred, the path migrated from, and whether staged bytes were removed. A
    migration is a notable event on a real host; it is logged and surfaced, never
    silent.
