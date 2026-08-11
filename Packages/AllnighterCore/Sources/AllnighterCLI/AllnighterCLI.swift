@@ -773,6 +773,7 @@ struct AllnighterCLI {
     /// enabled verifies; disabled cleans up without reinstalling. Exit non-zero
     /// on failed, degraded, or missing canonical binary.
     private static func runServeRepair(_ opts: Options) async {
+        ProtectedCWDEscape.escapeIfNeeded()
         let report = await ServeLifecycle().repair()
         if opts.flag("json") {
             print(jsonString(report))
@@ -788,6 +789,7 @@ struct AllnighterCLI {
     /// converge (canonical binary, plist, bootstrap, bounded verify). Exit
     /// non-zero unless `.enabled`.
     private static func runServeEnable(_ opts: Options) async {
+        ProtectedCWDEscape.escapeIfNeeded()
         let result = await ServeLifecycle().enable()
         if opts.flag("json") {
             print(jsonString(result))
@@ -803,6 +805,7 @@ struct AllnighterCLI {
     /// converge: bootout + plist delete, leaving no orphan. Exit non-zero
     /// on failed or degraded.
     private static func runServeDisable(_ opts: Options) async {
+        ProtectedCWDEscape.escapeIfNeeded()
         let result = await ServeLifecycle().disable()
         if opts.flag("json") {
             print(jsonString(result))
@@ -2742,6 +2745,7 @@ struct AllnighterCLI {
     }
 
     static func runInstallCLI(_ args: [String]) async {
+        ProtectedCWDEscape.escapeIfNeeded()
         let opts = Options(args)
         let env = ProcessInfo.processInfo.environment
         let noServeFlag = opts.flag("no-serve")

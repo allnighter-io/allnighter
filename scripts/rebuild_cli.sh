@@ -53,6 +53,15 @@ if [[ ! -x "$ALLN_BIN" ]]; then
   exit 1
 fi
 
+# Belt: leave a Documents/Desktop/Downloads checkout cwd before install-cli
+# so the foreground `alln` never inherits a protected folder (CLI_Install_Documents_CWD_TCC).
+PROBE_SCRATCH="$HOME/Library/Application Support/Allnighter/ProbeScratch"
+if mkdir -p "$PROBE_SCRATCH" 2>/dev/null; then
+  cd "$PROBE_SCRATCH"
+else
+  cd "$HOME"
+fi
+
 # Delegate install to install-cli (ASR-S01c). Only pass --path when the
 # caller supplied an explicit override via ALLNIGHTER_CLI_INSTALL_DIR.
 if [[ -n "${ALLNIGHTER_CLI_INSTALL_DIR:-}" ]]; then
