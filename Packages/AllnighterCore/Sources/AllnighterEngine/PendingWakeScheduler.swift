@@ -25,6 +25,8 @@ public struct DefaultPendingWakeSleeper: PendingWakeSleeper {
 
 /// Resident one-shot wake loop for due workerChat Wake Tickets (WTK-S03).
 public struct PendingWakeScheduler: Sendable {
+    public static let progressId = "pendingWake"
+
     public var store: PendingStore
     public var models: [Model]
     public var registry: DriverRegistry
@@ -33,6 +35,7 @@ public struct PendingWakeScheduler: Sendable {
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
     public var jitterSeconds: TimeInterval
+    public var progress: any SchedulerProgressReporting
     private let _overshootBox = OvershootBox()
 
     private final class OvershootBox: @unchecked Sendable {
@@ -51,7 +54,8 @@ public struct PendingWakeScheduler: Sendable {
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
         sleeper: any PendingWakeSleeper = WakeSafeWaiter(),
-        jitterSeconds: TimeInterval = 60
+        jitterSeconds: TimeInterval = 60,
+        progress: any SchedulerProgressReporting = NoOpSchedulerProgress()
     ) {
         self.store = store
         self.models = models
@@ -61,6 +65,7 @@ public struct PendingWakeScheduler: Sendable {
         self.now = now
         self.sleeper = sleeper
         self.jitterSeconds = jitterSeconds
+        self.progress = progress
     }
 
     /// Runs until `isCancelled` returns true. Reloads Pending truth before each attempt.
@@ -71,7 +76,9 @@ public struct PendingWakeScheduler: Sendable {
 
             let plan = PendingWakePlanner.plan(items: items, now: now())
             if let dueId = plan.dueItemId {
+                progress.attempting(id: Self.progressId)
                 await runOneWake(itemId: dueId, isCancelled: isCancelled)
+                progress.succeeded(id: Self.progressId)
                 continue
             }
 
@@ -80,8 +87,13 @@ public struct PendingWakeScheduler: Sendable {
                 continue
             }
             do {
+                progress.waiting(id: Self.progressId, until: nextWake)
                 try await recordOvershoot { try await sleeper.sleep(until: nextWake, jitterSeconds: jitterSeconds) }
             } catch {
+                progress.failed(
+                    id: Self.progressId,
+                    error: "pendingWake sleep failed: \(error.localizedDescription)"
+                )
                 break
             }
         }

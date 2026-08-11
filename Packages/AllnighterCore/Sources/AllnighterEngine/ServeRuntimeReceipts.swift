@@ -169,23 +169,4 @@ public struct ServeRuntimeReceipts: Sendable {
 
         return .success(())
     }
-
-    public func register(
-        schedulerId: String,
-        daemonId: String,
-        pid: Int32,
-        startedAt: Date,
-        fileManager: FileManager = .default
-    ) -> Result<Void, Failure> {
-        var rows: [SchedulerRow]
-        switch read(fileManager: fileManager) {
-        case .present(_, _, _, let existingRows):
-            var updated = existingRows.filter { $0.id != schedulerId }
-            updated.append(SchedulerRow(id: schedulerId, state: .registered))
-            rows = updated
-        case .absent, .unreadable:
-            rows = [SchedulerRow(id: schedulerId, state: .registered)]
-        }
-        return write(daemonId: daemonId, pid: pid, startedAt: startedAt, rows: rows, fileManager: fileManager)
-    }
 }
