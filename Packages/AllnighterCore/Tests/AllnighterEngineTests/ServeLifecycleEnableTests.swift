@@ -17,7 +17,8 @@ final class ServeLifecycleEnableTests: XCTestCase {
         var bootoutError: Error?
         var bootstrapError: Error?
         /// Decremented on each bootstrap call; throws until exhausted.
-        var bootstrapFailuresRemaining: Int = 0
+        /// nil = permanent failure while `bootstrapError` is set; N = fail N calls then succeed.
+        var bootstrapFailuresRemaining: Int?
         var writeError: Error?
         var deleteError: Error?
 
@@ -66,9 +67,17 @@ final class ServeLifecycleEnableTests: XCTestCase {
                 },
                 bootstrap: { [self] path in
                     bootstrapCalls.append(path)
-                    if bootstrapFailuresRemaining > 0 {
-                        bootstrapFailuresRemaining -= 1
-                        throw bootstrapError ?? ServeLifecycle.BootstrapError(terminationStatus: 1, message: "Bootstrap failed")
+                    // `nil` budget = fail every call while `bootstrapError` is set
+                    // (permanent failure). A set budget = fail exactly that many
+                    // calls, then succeed — which is how a test distinguishes a
+                    // transient bootstrap failure whose restore recovers from one
+                    // that does not.
+                    if let remaining = bootstrapFailuresRemaining {
+                        if remaining > 0 {
+                            bootstrapFailuresRemaining = remaining - 1
+                            throw bootstrapError ?? ServeLifecycle.BootstrapError(terminationStatus: 1, message: "Bootstrap failed")
+                        }
+                        return
                     }
                     if let bootstrapError { throw bootstrapError }
                 },
