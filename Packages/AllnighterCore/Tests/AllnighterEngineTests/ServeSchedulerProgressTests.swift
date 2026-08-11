@@ -177,6 +177,7 @@ final class ServeSchedulerProgressTests: XCTestCase {
         progress.succeeded(id: "pendingWake")
         progress.failed(id: "pendingWake", error: "x")
         progress.waiting(id: "pendingWake", until: t1)
+        progress.stopped(id: "pendingWake")
     }
 
     func testAllPathsAreInsideTempRoot() {

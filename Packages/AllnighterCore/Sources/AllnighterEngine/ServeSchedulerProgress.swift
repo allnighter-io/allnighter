@@ -8,6 +8,8 @@ public protocol SchedulerProgressReporting: Sendable {
     func succeeded(id: String)
     func failed(id: String, error: String)
     func waiting(id: String, until: Date)
+    /// Deliberate stop — daemon shutdown or cancellation, not a scheduler failure.
+    func stopped(id: String)
 }
 
 /// No-op reporter so unwired schedulers and existing construction sites compile unchanged.
@@ -19,6 +21,7 @@ public struct NoOpSchedulerProgress: SchedulerProgressReporting {
     public func succeeded(id: String) {}
     public func failed(id: String, error: String) {}
     public func waiting(id: String, until: Date) {}
+    public func stopped(id: String) {}
 }
 
 /// Single serialized owner of the scheduler row set. Holds rows in memory and
@@ -86,6 +89,34 @@ public final class ServeSchedulerProgress: SchedulerProgressReporting, @unchecke
             row.state = .waiting
             row.nextWakeAt = until
         }
+    }
+
+    public func stopped(id: String) {
+        mutate(id: id) { row in
+            row.state = .stopped
+            row.lastError = nil
+        }
+    }
+
+    /// Exit-path honesty: every known row becomes `stopped` so `runtime.json`
+    /// does not claim a live working daemon after clean shutdown.
+    public func markAllStopped() {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard !rowsById.isEmpty else { return }
+        for id in rowsById.keys {
+            rowsById[id]?.state = .stopped
+            rowsById[id]?.lastError = nil
+        }
+        let rows = rowsById.values.sorted { $0.id < $1.id }
+        _ = receipts.write(
+            daemonId: daemonId,
+            pid: pid,
+            startedAt: startedAt,
+            rows: rows,
+            fileManager: fileManager
+        )
     }
 
     private func mutate(

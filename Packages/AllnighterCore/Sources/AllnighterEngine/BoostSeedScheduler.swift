@@ -53,10 +53,14 @@ public struct BoostSeedScheduler: Sendable {
                         progress.waiting(id: Self.progressId, until: next)
                         try await sleeper.sleep(until: next, jitterSeconds: 0)
                     } catch {
-                        progress.failed(
-                            id: Self.progressId,
-                            error: "boostSeed sleep failed: \(error.localizedDescription)"
-                        )
+                        if error is CancellationError || isCancelled() {
+                            progress.stopped(id: Self.progressId)
+                        } else {
+                            progress.failed(
+                                id: Self.progressId,
+                                error: "boostSeed sleep failed: \(error.localizedDescription)"
+                            )
+                        }
                         break
                     }
                     continue
@@ -67,10 +71,14 @@ public struct BoostSeedScheduler: Sendable {
                 progress.waiting(id: Self.progressId, until: fallbackUntil)
                 try await sleeper.sleep(until: fallbackUntil, jitterSeconds: 0)
             } catch {
-                progress.failed(
-                    id: Self.progressId,
-                    error: "boostSeed sleep failed: \(error.localizedDescription)"
-                )
+                if error is CancellationError || isCancelled() {
+                    progress.stopped(id: Self.progressId)
+                } else {
+                    progress.failed(
+                        id: Self.progressId,
+                        error: "boostSeed sleep failed: \(error.localizedDescription)"
+                    )
+                }
                 break
             }
         }

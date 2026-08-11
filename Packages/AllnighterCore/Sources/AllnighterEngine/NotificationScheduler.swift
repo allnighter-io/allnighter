@@ -55,6 +55,8 @@ public struct DeliveredNotificationLedgerStore: Sendable {
 /// mutation, no write-lock interaction, ever (see the packet's §Inference
 /// bans).
 public struct NotificationScheduler: Sendable {
+    public static let progressId = "notifications"
+
     public var threadStore: ThreadStore
     public var runStore: RunStore
     public var loopStore: LoopStateStore
@@ -66,6 +68,7 @@ public struct NotificationScheduler: Sendable {
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
     public var pollInterval: TimeInterval
+    public var progress: any SchedulerProgressReporting
 
     public init(
         threadStore: ThreadStore = ThreadStore(),
@@ -78,7 +81,8 @@ public struct NotificationScheduler: Sendable {
         registry: DriverRegistry,
         now: @escaping @Sendable () -> Date = Date.init,
         sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
-        pollInterval: TimeInterval = 10
+        pollInterval: TimeInterval = 10,
+        progress: any SchedulerProgressReporting = NoOpSchedulerProgress()
     ) {
         self.threadStore = threadStore
         self.runStore = runStore
@@ -91,6 +95,7 @@ public struct NotificationScheduler: Sendable {
         self.now = now
         self.sleeper = sleeper
         self.pollInterval = pollInterval
+        self.progress = progress
     }
 
     /// Runs until `isCancelled` returns true. The very first tick's `before`
@@ -106,6 +111,7 @@ public struct NotificationScheduler: Sendable {
         var ledger = ledgerStore.load()
 
         while !isCancelled() {
+            progress.attempting(id: Self.progressId)
             let tickTime = now()
             let result = await tick(
                 previousThreads: previousThreads,
@@ -120,11 +126,22 @@ public struct NotificationScheduler: Sendable {
             previousRelayStreams = result.relayStreams
             previousLoopParks = result.loopParks
             ledger = result.ledger
+            progress.succeeded(id: Self.progressId)
 
             guard !isCancelled() else { break }
+            let sleepUntil = now().addingTimeInterval(pollInterval)
             do {
-                try await sleeper.sleep(until: now().addingTimeInterval(pollInterval), jitterSeconds: 0)
+                progress.waiting(id: Self.progressId, until: sleepUntil)
+                try await sleeper.sleep(until: sleepUntil, jitterSeconds: 0)
             } catch {
+                if error is CancellationError || isCancelled() {
+                    progress.stopped(id: Self.progressId)
+                } else {
+                    progress.failed(
+                        id: Self.progressId,
+                        error: "notifications sleep failed: \(error.localizedDescription)"
+                    )
+                }
                 break
             }
         }

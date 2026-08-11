@@ -121,10 +121,14 @@ public struct VendorBackoffReconciler: Sendable {
                 progress.waiting(id: Self.progressId, until: target)
                 try await sleeper.sleep(until: target, jitterSeconds: 0)
             } catch {
-                progress.failed(
-                    id: Self.progressId,
-                    error: "vendorBackoff sleep failed: \(error.localizedDescription)"
-                )
+                if error is CancellationError || isCancelled() {
+                    progress.stopped(id: Self.progressId)
+                } else {
+                    progress.failed(
+                        id: Self.progressId,
+                        error: "vendorBackoff sleep failed: \(error.localizedDescription)"
+                    )
+                }
                 break
             }
         }

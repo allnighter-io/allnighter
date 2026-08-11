@@ -77,10 +77,14 @@ public struct ProbeRecordRefreshScheduler: Sendable {
                 progress.waiting(id: Self.progressId, until: sleepUntil)
                 try await sleeper.sleep(until: sleepUntil, jitterSeconds: tickJitterSeconds)
             } catch {
-                progress.failed(
-                    id: Self.progressId,
-                    error: "probeRecordRefresh sleep failed: \(error.localizedDescription)"
-                )
+                if error is CancellationError || isCancelled() {
+                    progress.stopped(id: Self.progressId)
+                } else {
+                    progress.failed(
+                        id: Self.progressId,
+                        error: "probeRecordRefresh sleep failed: \(error.localizedDescription)"
+                    )
+                }
                 break
             }
         }

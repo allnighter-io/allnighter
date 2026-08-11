@@ -8,6 +8,8 @@ public struct ServeRuntimeReceipts: Sendable {
         case running
         case waiting
         case failed
+        /// Deliberate stop (daemon shutdown / task cancellation) — not a failure.
+        case stopped
     }
 
     public struct SchedulerRow: Codable, Equatable, Sendable {

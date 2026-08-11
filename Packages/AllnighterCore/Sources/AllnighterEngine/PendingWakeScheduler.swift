@@ -90,10 +90,14 @@ public struct PendingWakeScheduler: Sendable {
                 progress.waiting(id: Self.progressId, until: nextWake)
                 try await recordOvershoot { try await sleeper.sleep(until: nextWake, jitterSeconds: jitterSeconds) }
             } catch {
-                progress.failed(
-                    id: Self.progressId,
-                    error: "pendingWake sleep failed: \(error.localizedDescription)"
-                )
+                if error is CancellationError || isCancelled() {
+                    progress.stopped(id: Self.progressId)
+                } else {
+                    progress.failed(
+                        id: Self.progressId,
+                        error: "pendingWake sleep failed: \(error.localizedDescription)"
+                    )
+                }
                 break
             }
         }

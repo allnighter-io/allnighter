@@ -119,17 +119,20 @@ public final class ServeDaemon: @unchecked Sendable {
             contractVersion: contractVersion
         )
         try store.save(record)
-        defer {
-            server.stop()
-            store.clear()
-        }
-
         let progress = ServeSchedulerProgress(
             receipts: receipts,
             daemonId: daemonId,
             pid: ProcessInfo.processInfo.processIdentifier,
             startedAt: startedAt
         )
+        // Mark rows stopped (not clear): existing registration proofs read
+        // runtime.json after exit; absent would break them, and stopped is an
+        // honest "daemon stood down" receipt for S03f.
+        defer {
+            server.stop()
+            store.clear()
+            progress.markAllStopped()
+        }
 
         let shutdown = ShutdownFlag()
         await withTaskGroup(of: Void.self) { group in
@@ -138,7 +141,9 @@ public final class ServeDaemon: @unchecked Sendable {
                 shutdown.fire()
             }
             group.addTask {
-                await self.pmTurnWakeScheduler.run { shutdown.isCancelled }
+                var scheduler = self.pmTurnWakeScheduler
+                scheduler.progress = progress
+                await scheduler.run { shutdown.isCancelled }
             }
             progress.registered(id: "pmTurnWake")
             if let wake = wakeDependencies {
@@ -201,7 +206,8 @@ public final class ServeDaemon: @unchecked Sendable {
                     let notifications = NotificationScheduler(
                         commandRunner: wake.commandRunner,
                         models: wake.models,
-                        registry: wake.registry
+                        registry: wake.registry,
+                        progress: progress
                     )
                     await notifications.run { shutdown.isCancelled }
                 }
@@ -211,6 +217,8 @@ public final class ServeDaemon: @unchecked Sendable {
                 group.addTask {
                     await remote.coordinator.run { shutdown.isCancelled }
                 }
+                // cloudRelay stays registered: it runs behind RemoteMacAgentCoordinating,
+                // so the daemon cannot observe passes without inventing progress.
                 progress.registered(id: "cloudRelay")
             }
             await group.next()

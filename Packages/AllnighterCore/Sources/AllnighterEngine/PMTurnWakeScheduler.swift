@@ -146,6 +146,8 @@ public struct PMTurnWakeReceiptLedgerStore: Sendable {
 /// turns are discovered directly from Runs/ and Relays/ so a crash between the
 /// subject write and any higher-level index never loses a wake.
 public struct PMTurnWakeScheduler: Sendable {
+    public static let progressId = "pmTurnWake"
+
     public struct InvocationResult: Sendable, Equatable {
         public var succeeded: Bool
         public var message: String?
@@ -166,6 +168,7 @@ public struct PMTurnWakeScheduler: Sendable {
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
     public var pollInterval: TimeInterval
+    public var progress: any SchedulerProgressReporting
 
     public init(
         runsRootDirectory: URL = AllnighterPaths.runs,
@@ -175,7 +178,8 @@ public struct PMTurnWakeScheduler: Sendable {
         invoke: Invoker? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
-        pollInterval: TimeInterval = 5
+        pollInterval: TimeInterval = 5,
+        progress: any SchedulerProgressReporting = NoOpSchedulerProgress()
     ) {
         self.runsRootDirectory = runsRootDirectory
         self.loopsRootDirectory = loopsRootDirectory
@@ -185,12 +189,29 @@ public struct PMTurnWakeScheduler: Sendable {
         self.now = now
         self.sleeper = sleeper
         self.pollInterval = pollInterval
+        self.progress = progress
     }
 
     public func run(isCancelled: @escaping @Sendable () -> Bool) async {
         while !isCancelled() {
+            progress.attempting(id: Self.progressId)
             tick()
-            try? await sleeper.sleep(until: now().addingTimeInterval(pollInterval), jitterSeconds: 0)
+            progress.succeeded(id: Self.progressId)
+            let sleepUntil = now().addingTimeInterval(pollInterval)
+            do {
+                progress.waiting(id: Self.progressId, until: sleepUntil)
+                try await sleeper.sleep(until: sleepUntil, jitterSeconds: 0)
+            } catch {
+                if error is CancellationError || isCancelled() {
+                    progress.stopped(id: Self.progressId)
+                } else {
+                    progress.failed(
+                        id: Self.progressId,
+                        error: "pmTurnWake sleep failed: \(error.localizedDescription)"
+                    )
+                }
+                break
+            }
         }
     }
 
