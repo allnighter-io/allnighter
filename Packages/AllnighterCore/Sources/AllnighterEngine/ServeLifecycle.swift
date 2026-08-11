@@ -1,45 +1,22 @@
 import Foundation
+import AllnighterCore
 
-/// Product-owned **removal** of the unsupported CODE_RED LaunchAgent
-/// (`com.allnighter.resident-coordinator`) — SC-S01, docs/phases/Serve_Continuity.md
-/// §3.2/§4. The hand-dropped KeepAlive plist predates lifecycle ownership and
-/// thrashes (spawn scheduled / EX_CONFIG 78 / LWCR) instead of supervising;
-/// `remove` boots the label out of launchd and deletes the plist.
+/// ASR-S02c — convergent supervisor transaction.
 ///
-/// SC-S04b adds product-owned **enable/disable**: `enable` writes a
-/// product-owned LaunchAgent plist aimed at the **staged stable binary**
-/// (`ServeStableBinary` destination — never the `~/.local/bin` adhoc debug
-/// symlink), booting out any leftover CODE_RED registration first;
-/// `disable` is removal (bootout + plist delete), leaving no orphan. Enable
-/// is explicit opt-in. Callers observe with `ServeLaunchAgentStatus`
-/// (SC-S00); `remove`/`repair` stay for orphan cleanup.
+/// `enable`, `disable`, `restart`, and `repair` converge through one owner that
+/// reads desired state, writes the plist pointing `ProgramArguments` at the
+/// canonical binary (`~/.local/share/allnighter/bin/alln`), refuses to act on an
+/// unreadable desired state, verifies registration (not health) within a bounded
+/// wait, and restores the prior working registration when convergence fails.
+///
+/// The staged-binary path and `ServeStableBinary` staging are no longer part of
+/// the convergence path. All launchctl seams are injected — no test may run a
+/// real `launchctl` or touch the real LaunchAgents directory.
 public struct ServeLifecycle: Sendable {
     public static let label = ServeLaunchAgentStatus.label
 
-    public enum RemovalOutcome: String, Codable, Sendable {
-        /// Bootout settled (or the job was not loaded) and the plist is gone.
-        case removed
-        /// Nothing was installed — no-op success.
-        case absent
-        /// Bootout or plist deletion failed; the orphan may still be live.
-        case failed
-    }
+    // MARK: - Errors
 
-    public struct RemovalResult: Codable, Equatable, Sendable {
-        public var outcome: RemovalOutcome
-        public var bootoutAttempted: Bool
-        public var plistDeleted: Bool
-        public var detail: String
-
-        public init(outcome: RemovalOutcome, bootoutAttempted: Bool, plistDeleted: Bool, detail: String) {
-            self.outcome = outcome
-            self.bootoutAttempted = bootoutAttempted
-            self.plistDeleted = plistDeleted
-            self.detail = detail
-        }
-    }
-
-    /// `launchctl bootout` failed for a reason other than "not loaded".
     public struct BootoutError: Error, Equatable, Sendable {
         public let terminationStatus: Int32
         public let message: String
@@ -49,7 +26,6 @@ public struct ServeLifecycle: Sendable {
         }
     }
 
-    /// `launchctl bootstrap` refused the plist.
     public struct BootstrapError: Error, Equatable, Sendable {
         public let terminationStatus: Int32
         public let message: String
@@ -59,12 +35,8 @@ public struct ServeLifecycle: Sendable {
         }
     }
 
-    // MARK: - SC-S04b enable / disable
+    // MARK: - Plist shape
 
-    /// The product-owned LaunchAgent plist shape (SC-S04b, ASR-S02b canonical).
-    /// Keys match launchd's expected plist keys via the coding keys.
-    /// KeepAlive is a dictionary (`{ SuccessfulExit = false }`), never a bare
-    /// `Bool` — a deliberate exit 0 stands down instead of respawning forever.
     public struct AgentPlist: Codable, Equatable, Sendable {
         public var label: String
         public var programArguments: [String]
@@ -136,57 +108,55 @@ public struct ServeLifecycle: Sendable {
         }
     }
 
-    public enum EnableOutcome: String, Codable, Sendable {
-        /// Staged binary present, plist written, agent bootstrapped.
+    // MARK: - Convergence result
+
+    public enum ConvergenceOutcome: String, Codable, Sendable {
         case enabled
-        /// Staging, bootout, plist write, or bootstrap failed; the agent is
-        /// not supervised (a partially written plist may still be on disk).
+        case disabled
+        case degraded
         case failed
+        case missingCanonicalBinary
     }
 
-    public struct EnableResult: Codable, Equatable, Sendable {
-        public var outcome: EnableOutcome
-        public var stagedBinaryPath: String
-        public var stagedBytesReplaced: Bool
+    public struct ConvergenceResult: Codable, Equatable, Sendable {
+        public var outcome: ConvergenceOutcome
+        public var desiredStateReading: String
+        public var canonicalBinaryPath: String
         public var plistWritten: Bool
         public var bootstrapped: Bool
+        public var registryVerified: Bool
         public var detail: String
 
-        public init(outcome: EnableOutcome, stagedBinaryPath: String, stagedBytesReplaced: Bool,
-                    plistWritten: Bool, bootstrapped: Bool, detail: String) {
+        public init(outcome: ConvergenceOutcome, desiredStateReading: String,
+                    canonicalBinaryPath: String, plistWritten: Bool, bootstrapped: Bool,
+                    registryVerified: Bool, detail: String) {
             self.outcome = outcome
-            self.stagedBinaryPath = stagedBinaryPath
-            self.stagedBytesReplaced = stagedBytesReplaced
+            self.desiredStateReading = desiredStateReading
+            self.canonicalBinaryPath = canonicalBinaryPath
             self.plistWritten = plistWritten
             self.bootstrapped = bootstrapped
+            self.registryVerified = registryVerified
             self.detail = detail
         }
     }
 
+    // MARK: - Injected dependencies
+
     public let plistURL: URL
-    /// Boots the label out of `gui/<uid>`. "Not loaded / no such service" is
-    /// success for removal; any other failure throws. Injectable — unit tests
-    /// must never run a live bootout against the host.
     public let bootout: @Sendable (String) throws -> Void
     public let plistExists: @Sendable (URL) -> Bool
     public let removePlist: @Sendable (URL) throws -> Void
-
-    /// Where the stable copy lives (SC-S04a destination). The agent's
-    /// `ProgramArguments` always points here — never at the `~/.local/bin`
-    /// adhoc debug symlink.
-    public let stagedBinaryURL: URL
-    /// The running executable to stage from when no staged copy exists yet.
-    public let currentExecutableURL: URL
-    public let stagedBinaryExists: @Sendable (URL) -> Bool
-    /// `(source, destination) -> staging result`; default is
-    /// `ServeStableBinary.stage`. Injectable for tests.
-    public let stage: @Sendable (URL, URL) -> Result<ServeStableBinary.StagingResult, ServeStableBinary.Failure>
-    /// Writes the agent plist (creating the LaunchAgents directory).
-    /// Injectable — unit tests capture the plist instead of touching the host.
     public let writePlist: @Sendable (URL, AgentPlist) throws -> Void
-    /// `launchctl bootstrap gui/<uid> <plist-path>`. Injectable — unit tests
-    /// must never run a live bootstrap against the host.
     public let bootstrap: @Sendable (String) throws -> Void
+
+    public let homeDirectory: URL
+    public let canonicalBinaryURL: URL
+    public let canonicalBinaryExists: @Sendable (URL) -> Bool
+    public let readDesiredState: @Sendable (URL) -> ServeDesiredState.Reading
+    public let writeDesiredState: @Sendable (ServeDesiredState.State, URL) -> Result<Void, ServeDesiredState.Failure>
+    public let verifyJobLoaded: @Sendable (String) -> Bool
+    public let sleep: @Sendable (TimeInterval) async throws -> Void
+    public let clock: @Sendable () -> Date
 
     public init(
         plistURL: URL = FileManager.default.homeDirectoryForCurrentUser
@@ -194,255 +164,313 @@ public struct ServeLifecycle: Sendable {
         bootout: (@Sendable (String) throws -> Void)? = nil,
         plistExists: @escaping @Sendable (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) },
         removePlist: @escaping @Sendable (URL) throws -> Void = { try FileManager.default.removeItem(at: $0) },
-        stagedBinaryURL: URL = ServeStableBinary.defaultDestinationURL(),
-        currentExecutableURL: URL = Bundle.main.executableURL
-            ?? URL(fileURLWithPath: CommandLine.arguments.first ?? "alln"),
-        stagedBinaryExists: @escaping @Sendable (URL) -> Bool = {
-            FileManager.default.isExecutableFile(atPath: $0.path)
-        },
-        stage: @escaping @Sendable (URL, URL) -> Result<ServeStableBinary.StagingResult, ServeStableBinary.Failure> = {
-            ServeStableBinary.stage(from: $0, to: $1)
-        },
         writePlist: (@Sendable (URL, AgentPlist) throws -> Void)? = nil,
-        bootstrap: (@Sendable (String) throws -> Void)? = nil
+        bootstrap: (@Sendable (String) throws -> Void)? = nil,
+        homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
+        canonicalBinaryURL: URL? = nil,
+        canonicalBinaryExists: (@Sendable (URL) -> Bool)? = nil,
+        readDesiredState: (@Sendable (URL) -> ServeDesiredState.Reading)? = nil,
+        writeDesiredState: (@Sendable (ServeDesiredState.State, URL) -> Result<Void, ServeDesiredState.Failure>)? = nil,
+        verifyJobLoaded: (@Sendable (String) -> Bool)? = nil,
+        sleep: (@Sendable (TimeInterval) async throws -> Void)? = nil,
+        clock: (@Sendable () -> Date)? = nil
     ) {
         self.plistURL = plistURL
         self.bootout = bootout ?? Self.liveBootout
         self.plistExists = plistExists
         self.removePlist = removePlist
-        self.stagedBinaryURL = stagedBinaryURL
-        self.currentExecutableURL = currentExecutableURL
-        self.stagedBinaryExists = stagedBinaryExists
-        self.stage = stage
         self.writePlist = writePlist ?? Self.liveWritePlist
         self.bootstrap = bootstrap ?? Self.liveBootstrap
+        self.homeDirectory = homeDirectory
+        self.canonicalBinaryURL = canonicalBinaryURL ?? CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: homeDirectory)
+        self.canonicalBinaryExists = canonicalBinaryExists ?? { FileManager.default.isExecutableFile(atPath: $0.path) }
+        self.readDesiredState = readDesiredState ?? { ServeDesiredState.read(homeDirectory: $0) }
+        self.writeDesiredState = writeDesiredState ?? { ServeDesiredState.write($0, homeDirectory: $1) }
+        self.verifyJobLoaded = verifyJobLoaded ?? Self.liveVerifyJobLoaded
+        self.sleep = sleep ?? { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
+        self.clock = clock ?? { Date() }
     }
 
-    /// Full `alln serve repair` orchestration, testable with fixtures: absent
-    /// observation is a no-op success (no bootout, no delete); anything else —
-    /// wedged, running, or an orphan plist that will not print — is removed.
-    public func repair(observation: ServeLaunchAgentStatus.Observation) -> RepairReport {
-        guard observation.state != .absent else {
-            return RepairReport(outcome: .absent, observedState: observation.state,
-                                observedDetail: observation.detail, removal: nil)
-        }
-        let removal = remove()
-        return RepairReport(outcome: removal.outcome, observedState: observation.state,
-                            observedDetail: observation.detail, removal: removal)
-    }
+    // MARK: - Four verbs
 
-    public struct RepairReport: Codable, Equatable, Sendable {
-        public var outcome: RemovalOutcome
-        public var observedState: ServeLaunchAgentStatus.State
-        public var observedDetail: String
-        /// Nil when the observation was absent (no-op) — nothing was attempted.
-        public var removal: RemovalResult?
-
-        public init(outcome: RemovalOutcome, observedState: ServeLaunchAgentStatus.State,
-                    observedDetail: String, removal: RemovalResult?) {
-            self.outcome = outcome
-            self.observedState = observedState
-            self.observedDetail = observedDetail
-            self.removal = removal
+    public func enable() async -> ConvergenceResult {
+        switch writeDesiredState(.enabled, homeDirectory) {
+        case .failure(let f):
+            return ConvergenceResult(outcome: .failed, desiredStateReading: "write-failed",
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) enable failed: could not write desired state: \(f.message)")
+        case .success:
+            return await converge()
         }
     }
 
-    /// `alln serve enable` (SC-S04b, opt-in): ensure the staged stable binary
-    /// exists (staging from the running executable when missing), boot out any
-    /// leftover CODE_RED registration, write the product plist with
-    /// `ProgramArguments = [stagedPath, "serve"]`, and bootstrap it into
-    /// `gui/<uid>`. Structured outcome; a real staging/bootout/write/bootstrap
-    /// failure reads `failed`, never `enabled`.
-    public func enable() -> EnableResult {
-        // The login helper must never supervise the adhoc debug symlink — its
-        // cdhash changes every rebuild and is exactly the CODE_RED landmine.
-        guard !stagedBinaryURL.path.contains("/.local/bin/") else {
-            return EnableResult(outcome: .failed, stagedBinaryPath: stagedBinaryURL.path,
-                                stagedBytesReplaced: false, plistWritten: false, bootstrapped: false,
-                                detail: "refusing to supervise the debug symlink path \(stagedBinaryURL.path) — staged binary must live under Application Support")
+    public func disable() async -> ConvergenceResult {
+        switch writeDesiredState(.disabled, homeDirectory) {
+        case .failure(let f):
+            return ConvergenceResult(outcome: .failed, desiredStateReading: "write-failed",
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) disable failed: could not write desired state: \(f.message)")
+        case .success:
+            return await converge()
         }
-        var stagedPath = stagedBinaryURL.path
-        var bytesReplaced = false
-        if !stagedBinaryExists(stagedBinaryURL) {
-            switch stage(currentExecutableURL, stagedBinaryURL) {
-            case .failure(let failure):
-                return EnableResult(outcome: .failed, stagedBinaryPath: stagedPath,
-                                    stagedBytesReplaced: false, plistWritten: false, bootstrapped: false,
-                                    detail: "\(Self.label) enable failed: could not stage stable binary: \(failure)")
-            case .success(let staging):
-                stagedPath = staging.url.path
-                bytesReplaced = staging.bytesWereReplaced
+    }
+
+    public func restart() async -> ConvergenceResult {
+        let reading = readDesiredState(homeDirectory)
+        let readingLabel = _labelForReading(reading)
+
+        if case .unreadable(let reason) = reading {
+            return ConvergenceResult(outcome: .degraded, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) restart refused: desired state unreadable — \(reason)")
+        }
+
+        guard reading.effectiveState == .enabled else {
+            return ConvergenceResult(outcome: .degraded, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) restart refused: desired state is not enabled")
+        }
+
+        do { try bootout(Self.label) } catch { }
+
+        let plist = _makePlist()
+        do {
+            try writePlist(plistURL, plist)
+        } catch {
+            return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) restart failed: plist write: \(error)")
+        }
+        do {
+            try bootstrap(plistURL.path)
+        } catch {
+            return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: true, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) restart failed: bootstrap: \(error)")
+        }
+
+        let verified = await _boundedVerify(expectedLoaded: true)
+        return ConvergenceResult(outcome: .enabled, desiredStateReading: readingLabel,
+                                 canonicalBinaryPath: canonicalBinaryURL.path,
+                                 plistWritten: true, bootstrapped: true,
+                                 registryVerified: verified,
+                                 detail: "\(Self.label) restarted: agent \(verified ? "registered" : "unverified")")
+    }
+
+    public func repair() async -> ConvergenceResult {
+        return await converge()
+    }
+
+    // MARK: - Convergence
+
+    private func converge() async -> ConvergenceResult {
+        let reading = readDesiredState(homeDirectory)
+        let readingLabel = _labelForReading(reading)
+
+        switch reading {
+        case .unreadable(let reason):
+            return ConvergenceResult(outcome: .degraded, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) cannot converge: desired state unreadable — \(reason)")
+
+        case .present(.disabled, _):
+            do { try bootout(Self.label) } catch { }
+
+            var plistRemoved = false
+            if plistExists(plistURL) {
+                do {
+                    try removePlist(plistURL)
+                    plistRemoved = true
+                } catch {
+                    return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                             canonicalBinaryPath: canonicalBinaryURL.path,
+                                             plistWritten: false, bootstrapped: false,
+                                             registryVerified: false,
+                                             detail: "\(Self.label) converge disabled: plist delete failed: \(error)")
+                }
             }
-        }
-        // Migrate/replace any leftover CODE_RED registration for this label
-        // before writing the product plist — never leave two registrations.
-        do {
-            try bootout(Self.label)
-        } catch {
-            return EnableResult(outcome: .failed, stagedBinaryPath: stagedPath,
-                                stagedBytesReplaced: bytesReplaced, plistWritten: false, bootstrapped: false,
-                                detail: "\(Self.label) enable failed: bootout of prior registration failed: \(error)")
-        }
-        let logDir = Self.defaultLogDirectory()
-        let stagedDir = URL(fileURLWithPath: stagedPath).deletingLastPathComponent().path
-        let plist = AgentPlist(label: Self.label, programArguments: [stagedPath, "serve"],
-                               workingDirectory: AllnighterPaths.probeScratch.path,
-                               standardOutPath: logDir.appendingPathComponent("alln-serve-stdout.log").path,
-                               standardErrorPath: logDir.appendingPathComponent("alln-serve-stderr.log").path,
-                               environmentVariables: AgentPlist.EnvironmentDict(
-                                    path: "\(stagedDir):/usr/bin:/bin:/usr/sbin:/sbin",
-                                    home: FileManager.default.homeDirectoryForCurrentUser.path))
-        do {
-            try writePlist(plistURL, plist)
-        } catch {
-            return EnableResult(outcome: .failed, stagedBinaryPath: stagedPath,
-                                stagedBytesReplaced: bytesReplaced, plistWritten: false, bootstrapped: false,
-                                detail: "\(Self.label) enable failed: plist write failed: \(error)")
-        }
-        do {
-            try bootstrap(plistURL.path)
-        } catch {
-            return EnableResult(outcome: .failed, stagedBinaryPath: stagedPath,
-                                stagedBytesReplaced: bytesReplaced, plistWritten: true, bootstrapped: false,
-                                detail: "\(Self.label) enable failed: bootstrap failed: \(error)")
-        }
-        return EnableResult(outcome: .enabled, stagedBinaryPath: stagedPath,
-                            stagedBytesReplaced: bytesReplaced, plistWritten: true, bootstrapped: true,
-                            detail: "\(Self.label) enabled: LaunchAgent runs staged binary \(stagedPath) serve")
-    }
 
-    /// `alln serve disable` (SC-S04b): boot out the agent and delete the
-    /// plist — plain removal, leaving no orphan. Reuses `remove()`.
-    public func disable() -> RemovalResult {
-        remove()
-    }
+            let stopped = await _boundedVerify(expectedLoaded: false)
+            return ConvergenceResult(outcome: .disabled, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: stopped,
+                                     detail: "\(Self.label) disabled: bootout settled, plist \(plistRemoved ? "removed" : "absent"), \(stopped ? "stopped verified" : "stopped unverified")")
 
-    // MARK: - SC-S02 install-cli refresh
+        case .absent:
+            if !canonicalBinaryExists(canonicalBinaryURL) {
+                return ConvergenceResult(outcome: .missingCanonicalBinary, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: false, bootstrapped: false,
+                                         registryVerified: false,
+                                         detail: "SERVE_INSTALL_FAILED: canonical binary not found at \(canonicalBinaryURL.path) — run `alln install-cli` first")
+            }
 
-    public enum RefreshOutcome: String, Codable, Sendable {
-        case refreshed
-        case refreshedAndRebound
-        case failed
-    }
+            let priorPlistBytes: Data?
+            if plistExists(plistURL) {
+                priorPlistBytes = try? Data(contentsOf: plistURL)
+            } else {
+                priorPlistBytes = nil
+            }
 
-    public struct RefreshResult: Codable, Equatable, Sendable {
-        public var outcome: RefreshOutcome
-        public var staged: Bool
-        public var bytesReplaced: Bool
-        public var rebound: Bool
-        public var detail: String
+            do { try bootout(Self.label) } catch { }
 
-        public init(outcome: RefreshOutcome, staged: Bool, bytesReplaced: Bool,
-                    rebound: Bool, detail: String) {
-            self.outcome = outcome
-            self.staged = staged
-            self.bytesReplaced = bytesReplaced
-            self.rebound = rebound
-            self.detail = detail
-        }
-    }
-
-    /// SC-S02 — called after `install-cli` succeeds: always stages the current
-    /// executable to the stable binary path (even if a prior copy exists). If a
-    /// product LaunchAgent plist is already installed (opt-in), rebinds it
-    /// (bootout + rewrite ProgramArguments=[stagedPath,"serve"] + bootstrap) so
-    /// KeepAlive starts the fresh image. If no plist is present, no agent is
-    /// created — opt-in stays opt-in. Refuses `/.local/bin/`.
-    public func refreshAfterInstall() -> RefreshResult {
-        guard !stagedBinaryURL.path.contains("/.local/bin/") else {
-            return RefreshResult(outcome: .failed, staged: false, bytesReplaced: false,
-                                 rebound: false,
-                                 detail: "\(Self.label) refresh refused: staged path \(stagedBinaryURL.path) is under /.local/bin/")
-        }
-        let staging: ServeStableBinary.StagingResult
-        switch stage(currentExecutableURL, stagedBinaryURL) {
-        case .failure(let failure):
-            return RefreshResult(outcome: .failed, staged: false, bytesReplaced: false,
-                                 rebound: false,
-                                 detail: "\(Self.label) refresh failed: could not stage stable binary: \(failure)")
-        case .success(let result):
-            staging = result
-        }
-        guard plistExists(plistURL) else {
-            return RefreshResult(outcome: .refreshed, staged: true,
-                                 bytesReplaced: staging.bytesWereReplaced,
-                                 rebound: false,
-                                 detail: "\(Self.label) staged binary refreshed; no LaunchAgent installed — nothing to rebind")
-        }
-        do {
-            try bootout(Self.label)
-        } catch {
-            return RefreshResult(outcome: .failed, staged: true,
-                                 bytesReplaced: staging.bytesWereReplaced,
-                                 rebound: false,
-                                 detail: "\(Self.label) refresh failed: bootout of prior registration failed: \(error)")
-        }
-        let logDir2 = Self.defaultLogDirectory()
-        let stagedDir2 = staging.url.deletingLastPathComponent().path
-        let plist = AgentPlist(label: Self.label, programArguments: [staging.url.path, "serve"],
-                               workingDirectory: AllnighterPaths.probeScratch.path,
-                               standardOutPath: logDir2.appendingPathComponent("alln-serve-stdout.log").path,
-                               standardErrorPath: logDir2.appendingPathComponent("alln-serve-stderr.log").path,
-                               environmentVariables: AgentPlist.EnvironmentDict(
-                                    path: "\(stagedDir2):/usr/bin:/bin:/usr/sbin:/sbin",
-                                    home: FileManager.default.homeDirectoryForCurrentUser.path))
-        do {
-            try writePlist(plistURL, plist)
-        } catch {
-            return RefreshResult(outcome: .failed, staged: true,
-                                 bytesReplaced: staging.bytesWereReplaced,
-                                 rebound: false,
-                                 detail: "\(Self.label) refresh failed: plist rewrite failed: \(error)")
-        }
-        do {
-            try bootstrap(plistURL.path)
-        } catch {
-            return RefreshResult(outcome: .failed, staged: true,
-                                 bytesReplaced: staging.bytesWereReplaced,
-                                 rebound: false,
-                                 detail: "\(Self.label) refresh failed: bootstrap failed: \(error)")
-        }
-        return RefreshResult(outcome: .refreshedAndRebound, staged: true,
-                             bytesReplaced: staging.bytesWereReplaced, rebound: true,
-                             detail: "\(Self.label) staged binary refreshed and LaunchAgent rebound to \(staging.url.path)")
-    }
-
-    /// Boot out the label (ignoring not-loaded) and delete the plist if one is
-    /// installed. Structured outcome; never fakes success — a real bootout or
-    /// delete failure reads `failed`, not `removed`.
-    public func remove() -> RemovalResult {
-        var bootoutFailure: String?
-        do {
-            try bootout(Self.label)
-        } catch {
-            bootoutFailure = "\(error)"
-        }
-        var plistDeleted = false
-        var deleteFailure: String?
-        if plistExists(plistURL) {
+            let absentPlist = _makePlist()
             do {
-                try removePlist(plistURL)
-                plistDeleted = true
+                try writePlist(plistURL, absentPlist)
             } catch {
-                deleteFailure = "\(error)"
+                if let priorBytes = priorPlistBytes {
+                    try? priorBytes.write(to: plistURL, options: .atomic)
+                    try? bootstrap(plistURL.path)
+                }
+                return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: false, bootstrapped: false,
+                                         registryVerified: false,
+                                         detail: "\(Self.label) converge enabled: plist write failed — prior registration restored: \(error)")
             }
+
+            do {
+                try bootstrap(plistURL.path)
+            } catch {
+                if let priorBytes = priorPlistBytes {
+                    try? priorBytes.write(to: plistURL, options: .atomic)
+                    try? bootstrap(plistURL.path)
+                } else {
+                    try? removePlist(plistURL)
+                }
+                return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: true, bootstrapped: false,
+                                         registryVerified: false,
+                                         detail: "\(Self.label) converge enabled: bootstrap failed — prior registration restored: \(error)")
+            }
+
+            let absentVerified = await _boundedVerify(expectedLoaded: true)
+            return ConvergenceResult(outcome: .enabled, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: true, bootstrapped: true,
+                                     registryVerified: absentVerified,
+                                     detail: "\(Self.label) enabled (migrated from absent): agent registered at \(canonicalBinaryURL.path)")
+
+        case .present(.enabled, _):
+            guard canonicalBinaryExists(canonicalBinaryURL) else {
+                return ConvergenceResult(outcome: .missingCanonicalBinary, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: false, bootstrapped: false,
+                                         registryVerified: false,
+                                         detail: "SERVE_INSTALL_FAILED: canonical binary not found at \(canonicalBinaryURL.path) — run `alln install-cli` first")
+            }
+
+            let priorPlistBytes: Data?
+            if plistExists(plistURL) {
+                priorPlistBytes = try? Data(contentsOf: plistURL)
+            } else {
+                priorPlistBytes = nil
+            }
+
+            do { try bootout(Self.label) } catch { }
+
+            let plist = _makePlist()
+            do {
+                try writePlist(plistURL, plist)
+            } catch {
+                if let priorBytes = priorPlistBytes {
+                    try? priorBytes.write(to: plistURL, options: .atomic)
+                    try? bootstrap(plistURL.path)
+                }
+                return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: false, bootstrapped: false,
+                                         registryVerified: false,
+                                         detail: "\(Self.label) converge enabled: plist write failed — prior registration restored: \(error)")
+            }
+
+            do {
+                try bootstrap(plistURL.path)
+            } catch {
+                if let priorBytes = priorPlistBytes {
+                    try? priorBytes.write(to: plistURL, options: .atomic)
+                    try? bootstrap(plistURL.path)
+                } else {
+                    try? removePlist(plistURL)
+                }
+                return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: true, bootstrapped: false,
+                                         registryVerified: false,
+                                         detail: "\(Self.label) converge enabled: bootstrap failed — prior registration restored: \(error)")
+            }
+
+            let verified = await _boundedVerify(expectedLoaded: true)
+            return ConvergenceResult(outcome: .enabled, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: true, bootstrapped: true,
+                                     registryVerified: verified,
+                                     detail: "\(Self.label) enabled: agent registered at \(canonicalBinaryURL.path)")
         }
-        if let bootoutFailure {
-            return RemovalResult(outcome: .failed, bootoutAttempted: true, plistDeleted: plistDeleted,
-                                 detail: "\(Self.label) bootout failed: \(bootoutFailure)")
-        }
-        if let deleteFailure {
-            return RemovalResult(outcome: .failed, bootoutAttempted: true, plistDeleted: false,
-                                 detail: "\(Self.label) plist delete failed: \(deleteFailure)")
-        }
-        let plistNote = plistDeleted ? "plist deleted" : "no plist installed"
-        return RemovalResult(outcome: .removed, bootoutAttempted: true, plistDeleted: plistDeleted,
-                             detail: "\(Self.label) removed: bootout settled, \(plistNote)")
     }
 
-    /// Live `launchctl bootout gui/<uid>/<label>`. Never called from unit
-    /// tests — tests inject `bootout` fixtures. "Could not find service" /
-    /// "not loaded" means there was nothing to boot out: success for removal.
+    // MARK: - Helpers
+
+    private func _labelForReading(_ reading: ServeDesiredState.Reading) -> String {
+        switch reading {
+        case .absent: return "absent"
+        case .present(let state, _): return "present(\(state.rawValue))"
+        case .unreadable: return "unreadable"
+        }
+    }
+
+    private func _makePlist() -> AgentPlist {
+        let logDir = Self.defaultLogDirectory()
+        let binDir = canonicalBinaryURL.deletingLastPathComponent().path
+        return AgentPlist(
+            label: Self.label,
+            programArguments: [canonicalBinaryURL.path, "serve"],
+            workingDirectory: AllnighterPaths.probeScratch.path,
+            standardOutPath: logDir.appendingPathComponent("alln-serve-stdout.log").path,
+            standardErrorPath: logDir.appendingPathComponent("alln-serve-stderr.log").path,
+            environmentVariables: AgentPlist.EnvironmentDict(
+                path: "\(binDir):/usr/bin:/bin:/usr/sbin:/sbin",
+                home: homeDirectory.path
+            )
+        )
+    }
+
+    private func _boundedVerify(expectedLoaded: Bool, timeout: TimeInterval = 10) async -> Bool {
+        let deadline = clock().addingTimeInterval(timeout)
+        while clock() < deadline {
+            if verifyJobLoaded(Self.label) == expectedLoaded {
+                return true
+            }
+            do { try await sleep(0.1) } catch { break }
+        }
+        return verifyJobLoaded(Self.label) == expectedLoaded
+    }
+
+    // MARK: - Default log directory
+
+    public static func defaultLogDirectory() -> URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/Allnighter", isDirectory: true)
+    }
+
+    // MARK: - Live launchctl (never called from unit tests)
+
     private static func liveBootout(label: String) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
@@ -462,10 +490,6 @@ public struct ServeLifecycle: Sendable {
         throw BootoutError(terminationStatus: process.terminationStatus, message: message)
     }
 
-    /// Live plist writer: XML property list, required directories created
-    /// first (ASR-S02b: launchd fails the spawn when WorkingDirectory is
-    /// missing), atomic write. Never called from unit tests — tests inject
-    /// `writePlist`.
     private static func liveWritePlist(url: URL, plist: AgentPlist) throws {
         let encoder = PropertyListEncoder()
         encoder.outputFormat = .xml
@@ -479,14 +503,6 @@ public struct ServeLifecycle: Sendable {
         try data.write(to: url, options: .atomic)
     }
 
-    /// Default log directory: `~/Library/Logs/Allnighter/`
-    public static func defaultLogDirectory() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/Allnighter", isDirectory: true)
-    }
-
-    /// Live `launchctl bootstrap gui/<uid> <plist-path>`. Never called from
-    /// unit tests — tests inject `bootstrap` fixtures.
     private static func liveBootstrap(plistPath: String) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
@@ -500,5 +516,16 @@ public struct ServeLifecycle: Sendable {
         guard process.terminationStatus != 0 else { return }
         let message = String(decoding: data, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
         throw BootstrapError(terminationStatus: process.terminationStatus, message: message)
+    }
+
+    private static func liveVerifyJobLoaded(label: String) -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
+        process.arguments = ["print", "gui/\(getuid())/\(label)"]
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
+        process.waitUntilExit()
+        return process.terminationStatus == 0
     }
 }

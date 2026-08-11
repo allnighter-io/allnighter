@@ -637,15 +637,15 @@ struct AllnighterCLI {
     static func runServe(_ args: [String]) async {
         let opts = Options(args)
         if opts.positional.first == "repair" {
-            runServeRepair(opts)
+            await runServeRepair(opts)
             return
         }
         if opts.positional.first == "enable" {
-            runServeEnable(opts)
+            await runServeEnable(opts)
             return
         }
         if opts.positional.first == "disable" {
-            runServeDisable(opts)
+            await runServeDisable(opts)
             return
         }
         if opts.flag("health") {
@@ -764,57 +764,50 @@ struct AllnighterCLI {
         }
     }
 
-    /// `alln serve repair [--json]` — SC-S01 removal of the unsupported
-    /// CODE_RED LaunchAgent (`com.allnighter.resident-coordinator`). Observes
-    /// with SC-S00's `ServeLaunchAgentStatus` (the wedge rule lives there);
-    /// absent is a no-op success, anything else (wedged or an installed orphan
-    /// plist) is removed via `ServeLifecycle.remove` (bootout + plist delete).
-    /// Never starts serve and never registers a replacement agent (SC-S04).
-    /// Exit 0 on removed/absent, non-zero on failed.
-    private static func runServeRepair(_ opts: Options) {
-        let report = ServeLifecycle().repair(observation: ServeLaunchAgentStatus().observe())
-        let detail = report.removal?.detail
-            ?? "no \(ServeLaunchAgentStatus.label) LaunchAgent installed — nothing to remove"
+    /// `alln serve repair [--json]` — ASR-S02c convergence to recorded desired
+    /// state. Unreadable desired state is degraded; enabled reinstalls and
+    /// enabled verifies; disabled cleans up without reinstalling. Exit non-zero
+    /// on failed, degraded, or missing canonical binary.
+    private static func runServeRepair(_ opts: Options) async {
+        let report = await ServeLifecycle().repair()
         if opts.flag("json") {
             print(jsonString(report))
         } else {
-            let stream = report.outcome == .failed ? FileHandle.standardError : FileHandle.standardOutput
-            stream.write(Data("serve repair \(report.outcome.rawValue): \(detail)\n".utf8))
-            if report.outcome == .removed {
-                print("serve not started — run `alln serve` in a terminal to start the background scheduler.")
-            }
+            let stream = report.outcome == .failed || report.outcome == .degraded || report.outcome == .missingCanonicalBinary
+                ? FileHandle.standardError : FileHandle.standardOutput
+            stream.write(Data("serve repair \(report.outcome.rawValue): \(report.detail)\n".utf8))
         }
-        if report.outcome == .failed { exit(1) }
+        if report.outcome != .enabled && report.outcome != .disabled { exit(1) }
     }
 
-    /// `alln serve enable [--json]` — SC-S04b product-owned LaunchAgent
-    /// (opt-in start-at-login). Stages the stable binary when missing, boots
-    /// out any leftover CODE_RED registration, writes the product plist aimed
-    /// at the staged binary, and bootstraps it. Exit 0 on enabled, non-zero
-    /// on failed.
-    private static func runServeEnable(_ opts: Options) {
-        let result = ServeLifecycle().enable()
+    /// `alln serve enable [--json]` — ASR-S02c write desired enabled then
+    /// converge (canonical binary, plist, bootstrap, bounded verify). Exit
+    /// non-zero unless `.enabled`.
+    private static func runServeEnable(_ opts: Options) async {
+        let result = await ServeLifecycle().enable()
         if opts.flag("json") {
             print(jsonString(result))
         } else {
-            let stream = result.outcome == .failed ? FileHandle.standardError : FileHandle.standardOutput
+            let stream = result.outcome == .failed || result.outcome == .degraded || result.outcome == .missingCanonicalBinary
+                ? FileHandle.standardError : FileHandle.standardOutput
             stream.write(Data("serve enable \(result.outcome.rawValue): \(result.detail)\n".utf8))
         }
-        if result.outcome == .failed { exit(1) }
+        if result.outcome != .enabled { exit(1) }
     }
 
-    /// `alln serve disable [--json]` — SC-S04b unregisters the LaunchAgent:
-    /// bootout + plist delete, leaving no orphan. Exit 0 on removed/absent,
-    /// non-zero on failed.
-    private static func runServeDisable(_ opts: Options) {
-        let result = ServeLifecycle().disable()
+    /// `alln serve disable [--json]` — ASR-S02c write desired disabled then
+    /// converge: bootout + plist delete, leaving no orphan. Exit non-zero
+    /// on failed or degraded.
+    private static func runServeDisable(_ opts: Options) async {
+        let result = await ServeLifecycle().disable()
         if opts.flag("json") {
             print(jsonString(result))
         } else {
-            let stream = result.outcome == .failed ? FileHandle.standardError : FileHandle.standardOutput
+            let stream = result.outcome == .failed || result.outcome == .degraded
+                ? FileHandle.standardError : FileHandle.standardOutput
             stream.write(Data("serve disable \(result.outcome.rawValue): \(result.detail)\n".utf8))
         }
-        if result.outcome == .failed { exit(1) }
+        if result.outcome != .disabled { exit(1) }
     }
 
     private static func printDoctorHuman(_ r: DoctorResult, full: Bool) {
