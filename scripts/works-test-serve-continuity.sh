@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Works Test for alln serve host continuity (ASR-S06a gate 3, ASR-S06c gate 4 update half,
-# ASR-S06d gate 4 rollback half).
+# ASR-S06d gate 4 rollback half, ASR-S06f gates 2 and 5).
 #
 # Default: inspect-only — reads `alln serve status --json`, reports host state,
 # never signals or mutates. Exit non-zero only when the host is not healthy.
@@ -33,6 +33,7 @@ fail() { echo "works-test-serve-continuity: FAIL — $*" >&2; FAILURES=$((FAILUR
 
 usage() {
   echo "Usage: $(basename "$0")" >&2
+  echo "       $(basename "$0") --assert identity-and-receipts" >&2
   echo "       $(basename "$0") --mutate-product-agent crash-restart" >&2
   echo "       $(basename "$0") --mutate-product-agent update" >&2
   echo "       $(basename "$0") --mutate-product-agent update-rollback" >&2
@@ -480,9 +481,30 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 STAGED_COPY_PATH="$HOME/Library/Application Support/Allnighter/CLI/alln"
 PATH_SYMLINK="$HOME/.local/bin/alln"
-CANONICAL_BINARY="$HOME/.local/share/allnighter/bin/alln"
+CANONICAL_INSTALL_DIR="$HOME/.local/share/allnighter/bin"
+CANONICAL_BINARY="$CANONICAL_INSTALL_DIR/alln"
 ROLLBACK_BINARY="${CANONICAL_BINARY}.rollback"
 PLIST_PATH="$HOME/Library/LaunchAgents/com.allnighter.resident-coordinator.plist"
+DOCK_APP_PATH="/Applications/Allnighter.app"
+
+# §4.4 two-minute wake bound — ceiling for receipt observation, not a hardcoded guess.
+RECEIPT_MAX_WINDOW_SEC=120
+RECEIPT_WAKE_PADDING_SEC=15
+
+REQUIRED_SCHEDULER_IDS=(
+  pendingWake
+  pmTurnWake
+  boostSeed
+  vendorBackoff
+  notifications
+  capacityRefresh
+  probeRecordRefresh
+)
+
+RECEIPT_SCHEDULER_IDS=(
+  capacityRefresh
+  probeRecordRefresh
+)
 
 # Print cdhash on stdout only (for $(...) capture). Diagnostics on stderr.
 binary_cdhash() {
@@ -815,10 +837,474 @@ mutate_update_rollback() {
   report_host_state "$json"
 }
 
+launchctl_agent_program() {
+  local label="$1"
+  local listing
+  listing="$(launchctl print "gui/$(id -u)/$label" 2>/dev/null)" || true
+  python3 - "$listing" <<'PY'
+import sys
+for line in sys.argv[1].splitlines():
+    trimmed = line.strip()
+    if trimmed.startswith("program = "):
+        print(trimmed.split(" = ", 1)[1])
+        break
+PY
+}
+
+read_plist_daemon_path() {
+  python3 - "$PLIST_PATH" <<'PY'
+import plistlib, sys
+with open(sys.argv[1], "rb") as f:
+    plist = plistlib.load(f)
+print(plist.get("EnvironmentVariables", {}).get("PATH", ""))
+PY
+}
+
+assert_identity_item2() {
+  local label="$1"
+  local json="$2"
+  local matches expected_sha running_sha binary_path agent_program
+  local canonical_real binary_real missing
+
+  read_status_fields "$json"
+
+  if [[ "$STATUS_STATE" != "healthy" ]]; then
+    fail "$label: state must be healthy (saw $STATUS_STATE)"
+  else
+    pass "$label: state=healthy"
+  fi
+
+  matches="$(json_field binary.matches "$json" 2>/dev/null || true)"
+  expected_sha="$(json_field binary.expectedGitSha "$json" 2>/dev/null || true)"
+  running_sha="$(json_field binary.runningGitSha "$json" 2>/dev/null || true)"
+  binary_path="$(json_field binary.path "$json" 2>/dev/null || true)"
+
+  if [[ "$matches" != "true" ]]; then
+    fail "$label: binary.matches must be true (saw $matches)"
+  else
+    pass "$label: binary.matches=true"
+  fi
+
+  if [[ -z "$expected_sha" || -z "$running_sha" ]]; then
+    fail "$label: missing expectedGitSha or runningGitSha"
+  elif [[ "$running_sha" != "$expected_sha" ]]; then
+    fail "$label: runningGitSha ($running_sha) != expectedGitSha ($expected_sha)"
+  else
+    pass "$label: runningGitSha == expectedGitSha ($running_sha)"
+  fi
+
+  canonical_real="$(python3 - "$CANONICAL_BINARY" <<'PY'
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+)"
+  binary_real="$(python3 - "$binary_path" <<'PY'
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+)"
+
+  if [[ "$binary_real" != "$canonical_real" ]]; then
+    fail "$label: binary.path ($binary_path -> $binary_real) != canonical ($CANONICAL_BINARY -> $canonical_real)"
+  else
+    pass "$label: binary.path matches canonical ($canonical_real)"
+  fi
+
+  if [[ -z "$STATUS_SUPERVISOR_LABEL" ]]; then
+    fail "$label: missing supervisor.label in status JSON"
+    return 1
+  fi
+
+  agent_program="$(launchctl_agent_program "$STATUS_SUPERVISOR_LABEL")"
+  if [[ -z "$agent_program" ]]; then
+    fail "$label: could not read program from launchctl print for $STATUS_SUPERVISOR_LABEL"
+  else
+    local agent_real
+    agent_real="$(python3 - "$agent_program" <<'PY'
+import os, sys
+print(os.path.realpath(sys.argv[1]))
+PY
+)"
+    if [[ "$agent_real" != "$canonical_real" ]]; then
+      fail "$label: launchctl program ($agent_program -> $agent_real) != canonical ($canonical_real)"
+    else
+      pass "$label: launchctl program matches canonical binary ($agent_real)"
+    fi
+  fi
+
+  if [[ -z "$STATUS_DAEMON_PID" || -z "$STATUS_SUPERVISOR_PID" ]]; then
+    fail "$label: missing daemon or supervisor pid"
+  elif [[ "$STATUS_DAEMON_PID" != "$STATUS_SUPERVISOR_PID" ]]; then
+    fail "$label: daemon pid ($STATUS_DAEMON_PID) != supervisor pid ($STATUS_SUPERVISOR_PID)"
+  else
+    pass "$label: daemon pid == supervisor pid ($STATUS_DAEMON_PID)"
+  fi
+
+  missing="$(python3 - "$json" "${REQUIRED_SCHEDULER_IDS[@]}" <<'PY'
+import json, sys
+data = json.loads(sys.argv[1])
+required = sys.argv[2:]
+present = {row.get("id") for row in data.get("schedulers", []) if isinstance(row, dict)}
+missing = [sid for sid in required if sid not in present]
+print(",".join(missing))
+PY
+)"
+  if [[ -n "$missing" ]]; then
+    fail "$label: missing required scheduler id(s): $missing"
+  else
+    pass "$label: all seven required scheduler ids present"
+  fi
+
+  local cloud_relay_state
+  cloud_relay_state="$(python3 - "$json" <<'PY'
+import json, sys
+data = json.loads(sys.argv[1])
+present = {row.get("id") for row in data.get("schedulers", []) if isinstance(row, dict)}
+print("present" if "cloudRelay" in present else "absent")
+PY
+)"
+  if [[ "$cloud_relay_state" == "present" ]]; then
+    log "$label: optional scheduler cloudRelay is present"
+  else
+    log "$label: optional scheduler cloudRelay omitted (not a failure)"
+  fi
+}
+
+assert_identity_item5_plist_path() {
+  local label="$1"
+  local plist_path daemon_path
+
+  if [[ ! -f "$PLIST_PATH" ]]; then
+    fail "$label: plist missing at $PLIST_PATH"
+    return 1
+  fi
+
+  daemon_path="$(read_plist_daemon_path)"
+  log "$label: plist EnvironmentVariables.PATH=$daemon_path"
+
+  if [[ -z "$daemon_path" ]]; then
+    fail "$label: plist EnvironmentVariables.PATH is missing"
+    return 1
+  fi
+
+  if [[ ":$daemon_path:" != *":$CANONICAL_INSTALL_DIR:"* ]]; then
+    fail "$label: plist PATH does not contain canonical install dir ($CANONICAL_INSTALL_DIR)"
+  else
+    pass "$label: plist PATH contains canonical install dir"
+  fi
+
+  if [[ ":$daemon_path:" == *":/opt/homebrew/bin:"* ]]; then
+    fail "$label: plist PATH contains login-shell-only path /opt/homebrew/bin"
+  else
+    pass "$label: plist PATH does not contain /opt/homebrew/bin"
+  fi
+}
+
+report_dock_app_state() {
+  local label="$1"
+  local dock_count app_exists
+
+  dock_count="$(count_dock_allnighter_processes)"
+  if [[ "$dock_count" -ne 0 ]]; then
+    fail "$label: expected zero Allnighter.app processes, saw $dock_count"
+  else
+    pass "$label: zero Allnighter.app processes"
+  fi
+
+  if [[ -d "$DOCK_APP_PATH" ]]; then
+    log "$label: $DOCK_APP_PATH exists on disk (reported only; not an assertion)"
+  else
+    log "$label: $DOCK_APP_PATH is absent on disk (reported only; not an assertion)"
+  fi
+}
+
+observe_receipts_advance() {
+  local label="$1"
+  local initial_json="$2"
+  local plan_json budget_sec
+
+  plan_json="$(python3 - "$initial_json" "$RECEIPT_MAX_WINDOW_SEC" "$RECEIPT_WAKE_PADDING_SEC" "${RECEIPT_SCHEDULER_IDS[@]}" <<'PY'
+import json, sys, time
+from datetime import datetime, timezone
+
+data = json.loads(sys.argv[1])
+max_window = float(sys.argv[2])
+padding = float(sys.argv[3])
+watch_ids = sys.argv[4:]
+now = time.time()
+
+def parse_iso(value):
+    if not value:
+        return None
+    text = value.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(text).timestamp()
+    except ValueError:
+        return None
+
+def scheduler_row(schedulers, sid):
+    for row in schedulers:
+        if isinstance(row, dict) and row.get("id") == sid:
+            return row
+    return None
+
+schedulers = data.get("schedulers", [])
+plan = {
+    "watch": [],
+    "skip": [],
+    "initial_success": {},
+}
+
+for sid in watch_ids:
+    row = scheduler_row(schedulers, sid)
+    if row is None:
+        plan["skip"].append({"id": sid, "reason": "scheduler row missing"})
+        continue
+    initial = row.get("lastSuccessAt")
+    plan["initial_success"][sid] = initial
+    next_wake_raw = row.get("nextWakeAt")
+    next_wake = parse_iso(next_wake_raw)
+    if next_wake is None:
+        plan["skip"].append({
+            "id": sid,
+            "reason": "no nextWakeAt",
+            "lastSuccessAt": initial,
+        })
+        continue
+    secs_until = next_wake - now
+    if secs_until > max_window:
+        plan["skip"].append({
+            "id": sid,
+            "reason": "nextWakeAt beyond window",
+            "nextWakeAt": next_wake_raw,
+            "secsUntil": round(secs_until, 1),
+            "lastSuccessAt": initial,
+        })
+        continue
+    required_budget = max(secs_until, 0) + padding
+    if required_budget > max_window:
+        plan["skip"].append({
+            "id": sid,
+            "reason": "nextWakeAt beyond window",
+            "nextWakeAt": next_wake_raw,
+            "secsUntil": round(max(secs_until, 0), 1),
+            "requiredBudgetSec": round(required_budget, 1),
+            "lastSuccessAt": initial,
+        })
+        continue
+    plan["watch"].append({
+        "id": sid,
+        "nextWakeAt": next_wake_raw,
+        "secsUntil": round(max(secs_until, 0), 1),
+    })
+
+if plan["watch"]:
+    budget = min(
+        max_window,
+        max(item["secsUntil"] for item in plan["watch"]) + padding,
+    )
+    plan["budgetSec"] = round(budget, 1)
+else:
+    plan["budgetSec"] = 0
+
+print(json.dumps(plan))
+PY
+)"
+
+  if [[ -z "$plan_json" ]]; then
+    fail "$label: could not derive receipt observation plan"
+    return 1
+  fi
+
+  python3 - "$plan_json" "$RECEIPT_MAX_WINDOW_SEC" <<'PY' | while IFS= read -r line; do
+import json, sys
+plan = json.loads(sys.argv[1])
+max_window = sys.argv[2]
+for item in plan.get("skip", []):
+    sid = item["id"]
+    reason = item["reason"]
+    if reason == "no nextWakeAt":
+        print(f"SKIP {sid}: no nextWakeAt — skipping advance check (lastSuccessAt={item.get('lastSuccessAt')})")
+    elif reason == "nextWakeAt beyond window":
+        required = item.get("requiredBudgetSec")
+        if required is not None:
+            print(
+                f"SKIP {sid}: nextWakeAt {item.get('nextWakeAt')} needs {required}s budget "
+                f"({item.get('secsUntil')}s until wake + padding), beyond {max_window}s window — skipping advance check"
+            )
+        else:
+            print(
+                f"SKIP {sid}: nextWakeAt {item.get('nextWakeAt')} is {item.get('secsUntil')}s out, "
+                f"beyond {max_window}s window — skipping advance check"
+            )
+    else:
+        print(f"SKIP {sid}: {reason}")
+for item in plan.get("watch", []):
+    print(f"WATCH {item['id']}: nextWakeAt={item.get('nextWakeAt')} secsUntil={item.get('secsUntil')}")
+if plan.get("budgetSec"):
+    print(f"BUDGET {plan['budgetSec']}")
+PY
+    case "$line" in
+      SKIP*)
+        log "$label: ${line#SKIP }"
+        ;;
+      WATCH*)
+        log "$label: ${line#WATCH }"
+        ;;
+      BUDGET*)
+        log "$label: receipt wait budget=${line#BUDGET }s (derived from nextWakeAt, max window=${RECEIPT_MAX_WINDOW_SEC}s)"
+        ;;
+    esac
+  done
+
+  budget_sec="$(python3 - "$plan_json" <<'PY'
+import json, sys
+plan = json.loads(sys.argv[1])
+print(plan.get("budgetSec", 0))
+PY
+)"
+
+  local watch_count
+  watch_count="$(python3 - "$plan_json" <<'PY'
+import json, sys
+plan = json.loads(sys.argv[1])
+print(len(plan.get("watch", [])))
+PY
+)"
+
+  if [[ "$watch_count" -eq 0 ]]; then
+    pass "$label: receipt advance checks skipped (no deadline fell within ${RECEIPT_MAX_WINDOW_SEC}s window)"
+    return 0
+  fi
+
+  local deadline=$((SECONDS + ${budget_sec%.*} + 1))
+  local json result_json
+
+  while [[ $SECONDS -lt $deadline ]]; do
+    if ! json="$(fetch_serve_status_json)"; then
+      sleep "$POLL_INTERVAL_SEC"
+      continue
+    fi
+    result_json="$(python3 - "$json" "$plan_json" <<'PY'
+import json, sys
+
+status = json.loads(sys.argv[1])
+plan = json.loads(sys.argv[2])
+
+def scheduler_row(schedulers, sid):
+    for row in schedulers:
+        if isinstance(row, dict) and row.get("id") == sid:
+            return row
+    return None
+
+schedulers = status.get("schedulers", [])
+advanced = []
+pending = []
+for item in plan.get("watch", []):
+    sid = item["id"]
+    before = plan["initial_success"].get(sid)
+    row = scheduler_row(schedulers, sid)
+    after = row.get("lastSuccessAt") if row else None
+    if after and after != before:
+        advanced.append(sid)
+    else:
+        pending.append({
+            "id": sid,
+            "lastSuccessAt": after,
+            "nextWakeAt": row.get("nextWakeAt") if row else None,
+        })
+
+print(json.dumps({"advanced": advanced, "pending": pending, "done": len(pending) == 0}))
+PY
+)"
+    local done
+    done="$(python3 - "$result_json" <<'PY'
+import json, sys
+print("true" if json.loads(sys.argv[1]).get("done") else "false")
+PY
+)"
+    if [[ "$done" == "true" ]]; then
+      pass "$label: receipt(s) advanced within ${budget_sec}s budget: $(python3 - "$result_json" <<'PY'
+import json, sys
+print(", ".join(json.loads(sys.argv[1]).get("advanced", [])))
+PY
+)"
+      return 0
+    fi
+    sleep "$POLL_INTERVAL_SEC"
+  done
+
+  if ! json="$(fetch_serve_status_json)"; then
+    fail "$label: timed out after ${budget_sec}s waiting for receipt advance and could not re-read status"
+    return 1
+  fi
+
+  local timeout_detail
+  timeout_detail="$(python3 - "$json" "$plan_json" <<'PY'
+import json, sys
+status = json.loads(sys.argv[1])
+plan = json.loads(sys.argv[2])
+
+def scheduler_row(schedulers, sid):
+    for row in schedulers:
+        if isinstance(row, dict) and row.get("id") == sid:
+            return row
+    return None
+
+schedulers = status.get("schedulers", [])
+lines = []
+for item in plan.get("watch", []):
+    sid = item["id"]
+    before = plan["initial_success"].get(sid)
+    row = scheduler_row(schedulers, sid)
+    after = row.get("lastSuccessAt") if row else None
+    if not after or after == before:
+        lines.append(
+            f"{sid} lastSuccessAt still {after!r}, nextWakeAt={row.get('nextWakeAt') if row else None!r}"
+        )
+print("\n".join(lines))
+PY
+)"
+  if [[ -n "$timeout_detail" ]]; then
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      fail "$label: receipt did not advance within ${budget_sec}s budget — $line"
+    done <<< "$timeout_detail"
+  else
+    fail "$label: receipt did not advance within ${budget_sec}s budget"
+  fi
+}
+
+assert_identity_and_receipts() {
+  local json
+
+  log "inspect-only mode: identity-and-receipts (gates 2 and 5; no mutation)"
+
+  if ! json="$(fetch_serve_status_json)"; then
+    fail "identity-and-receipts: could not read serve status"
+    return 1
+  fi
+
+  report_host_state "$json"
+  assert_identity_item2 "gate-2" "$json" || true
+  assert_identity_item5_plist_path "gate-5-path" || true
+  report_dock_app_state "gate-5-dock" || true
+  observe_receipts_advance "gate-5-receipts" "$json" || true
+}
+
 # --- argument parsing ---
 SCENARIO=""
+ASSERT_SCENARIO=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --assert)
+      shift
+      if [[ $# -lt 1 ]]; then
+        usage
+      fi
+      ASSERT_SCENARIO="$1"
+      shift
+      ;;
     --mutate-product-agent)
       shift
       if [[ $# -lt 1 ]]; then
@@ -837,15 +1323,27 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+if [[ -n "$ASSERT_SCENARIO" && "$ASSERT_SCENARIO" != "identity-and-receipts" ]]; then
+  log "unknown assert scenario: $ASSERT_SCENARIO"
+  usage
+fi
+
 if [[ -n "$SCENARIO" && "$SCENARIO" != "crash-restart" && "$SCENARIO" != "update" && "$SCENARIO" != "update-rollback" ]]; then
   log "unknown scenario: $SCENARIO"
   usage
 fi
 
+if [[ -n "$ASSERT_SCENARIO" && -n "$SCENARIO" ]]; then
+  log "cannot combine --assert and --mutate-product-agent"
+  usage
+fi
+
 require_alln || true
 
-if [[ -z "$SCENARIO" ]]; then
+if [[ -z "$SCENARIO" && -z "$ASSERT_SCENARIO" ]]; then
   inspect_only || true
+elif [[ "$ASSERT_SCENARIO" == "identity-and-receipts" ]]; then
+  assert_identity_and_receipts || true
 elif [[ "$SCENARIO" == "crash-restart" ]]; then
   mutate_crash_restart || true
 elif [[ "$SCENARIO" == "update" ]]; then
