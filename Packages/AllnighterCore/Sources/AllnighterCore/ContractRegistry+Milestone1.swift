@@ -43,7 +43,8 @@ public extension ContractRegistry {
     // neverScanned) so curl|sh agents learn to run `alln detect` from the menu.
     // ASR-S03f2b: minor — `serve status` command; `serve --health` and
     // `serve status` emit `ServeStatusJSON` v2 (was CoordinatorHealth v1 on `--health`).
-    static let contractVersion = "9.19.0"
+    // ASR-S05c: minor — register `alln uninstall [--json] [--yes]`.
+    static let contractVersion = "9.20.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -227,6 +228,17 @@ public extension ContractRegistry {
                 FlagSpec("no-serve", summary: "Do not enable the background scheduler after install."),
             ],
             outputSchema: .installCLIJSON, exampleIds: ["install_cli_json"]
+        ),
+        CommandSpec(
+            "uninstall",
+            summary: "Disable serve, boot out the LaunchAgent, then remove install-created CLI and scheduler artifacts. Never removes user data under Application Support.",
+            milestone: .m1,
+            flags: [
+                FlagSpec("json", summary: "Structured per-artifact uninstall report (requires --yes)."),
+                FlagSpec("yes", summary: "Confirm removal of install-created artifacts without an interactive prompt."),
+            ],
+            flagConstraints: [FlagConstraint(.requires, "json", "yes")],
+            effects: EffectProfile(destructive: .always)
         ),
         CommandSpec(
             "models", summary: "List model catalog and Bench state (catalog ids). Prefer `alln menu --json` to discover selectable models.", milestone: .m1,

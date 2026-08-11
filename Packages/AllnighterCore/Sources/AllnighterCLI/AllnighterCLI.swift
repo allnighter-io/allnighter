@@ -122,6 +122,7 @@ struct AllnighterCLI {
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "bootstrap": runBootstrap(args)
         case "install-cli": await runInstallCLI(args)
+        case "uninstall": await runUninstall(args)
         case "version": runVersion(args)
         case "update": runUpdate(args)
         case "ps": await runOwnershipPs(args)
@@ -2658,6 +2659,85 @@ struct AllnighterCLI {
             ))
         } else {
             print(Bootstrap.render(host: host, binaryPath: ctx.binaryPath, onPath: ctx.onPath))
+        }
+    }
+
+    static func runUninstall(_ args: [String]) async {
+        let opts = Options(args)
+        let env = ProcessInfo.processInfo.environment
+        let homeDirectory = InstallCLI.resolvedHomeDirectory(environment: env)
+        let effectiveHome = ServeLifecycle.effectiveHomeDirectoryFromEnvironment()
+        let realHome = FileManager.default.homeDirectoryForCurrentUser
+
+        let request = UninstallCLI.Request(
+            json: opts.flag("json"),
+            yes: opts.flag("yes"),
+            homeDirectory: homeDirectory,
+            effectiveHomeDirectory: effectiveHome,
+            realHomeDirectory: realHome,
+            disableServe: {
+                let result = await ServeLifecycle(
+                    homeDirectory: homeDirectory,
+                    realHomeDirectory: realHome,
+                    effectiveHomeDirectory: effectiveHome
+                ).disable()
+                if result.desiredStateReading == "foreign-home" {
+                    return UninstallCLI.DisableServeReport(
+                        succeeded: false,
+                        detail: result.detail,
+                        errorCode: "SERVE_FOREIGN_HOME"
+                    )
+                }
+                if result.outcome != .disabled {
+                    return UninstallCLI.DisableServeReport(
+                        succeeded: false,
+                        detail: result.detail,
+                        errorCode: "SERVE_INSTALL_FAILED"
+                    )
+                }
+                return UninstallCLI.DisableServeReport(succeeded: true, detail: result.detail)
+            },
+            readConfirmation: {
+                if opts.flag("yes") || opts.flag("json") { return true }
+                FileHandle.standardError.write(Data(
+                    """
+                    This removes the installed alln binary, PATH symlink (when it points at that binary), \
+                    LaunchAgent, desired-state marker, runtime receipt, and serve logs.
+                    Runs, threads, projects, presets, skills, and credentials stay on disk.
+                    Type 'yes' to confirm:
+                    
+                    """.utf8
+                ))
+                guard let line = readLine(strippingNewline: true)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines) else {
+                    return false
+                }
+                return line.lowercased() == "yes"
+            }
+        )
+
+        switch await UninstallCLI.run(request) {
+        case .refused(let code, let message):
+            if opts.flag("json") {
+                emitFailure(code: code, message: message)
+            } else {
+                FileHandle.standardError.write(Data("\(message)\n".utf8))
+            }
+            exit(ContractRegistry.milestone1.processExitCode(forErrorCode: code))
+        case .failed(let code, let message):
+            if opts.flag("json") {
+                emitFailure(code: code, message: message)
+            } else {
+                FileHandle.standardError.write(Data("uninstall failed: \(message)\n".utf8))
+            }
+            exit(ContractRegistry.milestone1.processExitCode(forErrorCode: code))
+        case .completed(let json):
+            if opts.flag("json") {
+                print(jsonString(json))
+            } else {
+                print(UninstallCLI.humanReport(json))
+            }
+            exit(json.success ? ExitCode.success : ExitCode.runFailed)
         }
     }
 
