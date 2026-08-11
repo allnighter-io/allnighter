@@ -435,15 +435,53 @@ final class ServeStatusResolverTests: XCTestCase {
         XCTAssertEqual(decoded, status)
     }
 
-    func testStoppedRowDoesNotAloneDegradeWhenOtherwiseHealthy() {
-        // stopped pairs with supervisor; under a live matching handshake it is
-        // not painted as scheduler failure (stand-down is a supervisor pattern).
+    func testStoppedRequiredSchedulerUnderLiveDaemonIsDegraded() {
+        // One required `.stopped` under a live matching handshake is enough to
+        // degrade; recovery must name that scheduler id (not a generic code).
         var input = healthyInput()
-        input.receipt = .present(daemonId: "d1", pid: 1234, startedAt: t0,
-                                 rows: requiredRows(state: .stopped))
-        // Still has live pid + matching handshake — stopped alone is not failure.
+        var rows = requiredRows()
+        rows = rows.map { row in
+            var r = row
+            if r.id == "capacityRefresh" { r.state = .stopped }
+            return r
+        }
+        input.receipt = .present(daemonId: "d1", pid: 1234, startedAt: t0, rows: rows)
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_SCHEDULER_STOPPED:capacityRefresh")
+    }
+
+    func testStoppedOptionalSchedulerUnderLiveDaemonStaysHealthy() {
+        var input = healthyInput()
+        var rows = requiredRows()
+        rows.append(
+            ServeRuntimeReceipts.SchedulerRow(
+                id: "cloudRelay",
+                state: .stopped,
+                lastAttemptAt: t0,
+                lastSuccessAt: t0,
+                lastError: nil,
+                nextWakeAt: t1
+            )
+        )
+        input.receipt = .present(daemonId: "d1", pid: 1234, startedAt: t0, rows: rows)
         let status = ServeStatusJSON.resolve(input)
         XCTAssertEqual(status.state, .healthy)
+        XCTAssertNil(status.recovery)
+    }
+
+    func testStoppedRequiredWithoutMatchingHandshakeUnchangedStandDown() {
+        // Shutdown / no handshake: stopped rows must not reroute the supervisor
+        // stand-down decision that already existed before this slice.
+        var input = healthyInput()
+        input.supervisor.pid = nil
+        input.supervisor.lastExitCode = 0
+        input.activeHealth = .noResponse(reason: "stood down")
+        input.receipt = .present(daemonId: "d1", pid: 1234, startedAt: t0,
+                                 rows: requiredRows(state: .stopped))
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_STAND_DOWN")
     }
 
     // MARK: - Fixtures

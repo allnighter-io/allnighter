@@ -281,7 +281,8 @@ public struct ServeStatusJSON: Equatable, Sendable {
         )
 
         let (daemon, healthMatched) = resolveDaemon(input: input)
-        let (schedulers, missingRequired, failedRequired) = resolveSchedulers(input.receipt)
+        let (schedulers, missingRequired, failedRequired, stoppedRequired) =
+            resolveSchedulers(input.receipt)
 
         let desired: DesiredState
         let desiredUnknown: String?
@@ -309,6 +310,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
             receipt: input.receipt,
             missingRequired: missingRequired,
             failedRequired: failedRequired,
+            stoppedRequired: stoppedRequired,
             converging: input.converging,
             activeObligationCount: input.activeObligationCount
         )
@@ -405,25 +407,36 @@ public struct ServeStatusJSON: Equatable, Sendable {
 
     private static func resolveSchedulers(
         _ receipt: ServeRuntimeReceipts.Reading
-    ) -> (schedulers: [Scheduler], missingRequired: [String], failedRequired: [String]) {
+    ) -> (
+        schedulers: [Scheduler],
+        missingRequired: [String],
+        failedRequired: [String],
+        stoppedRequired: [String]
+    ) {
         switch receipt {
         case .absent, .unreadable:
-            return ([], ServeRuntimeReceipts.requiredSchedulerIds.sorted(), [])
+            return ([], ServeRuntimeReceipts.requiredSchedulerIds.sorted(), [], [])
         case .present(_, _, _, let rows):
             let byId = Dictionary(uniqueKeysWithValues: rows.map { ($0.id, $0) })
             var missing: [String] = []
             var failed: [String] = []
+            var stopped: [String] = []
             for id in ServeRuntimeReceipts.requiredSchedulerIds.sorted() {
                 guard let row = byId[id] else {
                     missing.append(id)
                     continue
                 }
-                // `stopped` is stand-down, not failure — pair with supervisor.
+                // Required `stopped` under a live matching handshake is
+                // degradation (decideState). Without a live handshake, stand-down
+                // stays on the supervisor path — do not treat as `.failed`.
                 if row.state == .failed {
                     failed.append(id)
+                } else if row.state == .stopped {
+                    stopped.append(id)
                 }
             }
-            // Optional ids (cloudRelay): omit when absent; never paint failed.
+            // Optional ids (cloudRelay): omit when absent; never paint failed;
+            // stopped optional never degrades.
             let projected: [Scheduler] = rows
                 .filter { row in
                     ServeRuntimeReceipts.requiredSchedulerIds.contains(row.id)
@@ -439,7 +452,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
                         nextWakeAt: $0.nextWakeAt
                     )
                 }
-            return (projected, missing, failed)
+            return (projected, missing, failed, stopped)
         }
     }
 
@@ -455,6 +468,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
         receipt: ServeRuntimeReceipts.Reading,
         missingRequired: [String],
         failedRequired: [String],
+        stoppedRequired: [String],
         converging: Bool,
         activeObligationCount: Int
     ) -> Decision {
@@ -521,7 +535,8 @@ public struct ServeStatusJSON: Equatable, Sendable {
                             obligations: activeObligationCount)
         }
 
-        // Narrow healthy: all six conditions.
+        // Narrow healthy: all six conditions, plus no stopped required rows
+        // under the live matching handshake this healthy path already requires.
         let isHealthy = desired == .enabled
             && supervisor.authorization == .enabled
             && loaded
@@ -529,6 +544,7 @@ public struct ServeStatusJSON: Equatable, Sendable {
             && binaryMatches
             && missingRequired.isEmpty
             && failedRequired.isEmpty
+            && stoppedRequired.isEmpty
 
         if isHealthy {
             return Decision(state: .healthy, recovery: nil)
@@ -546,6 +562,16 @@ public struct ServeStatusJSON: Equatable, Sendable {
         if !failedRequired.isEmpty {
             return degraded("SERVE_SCHEDULER_FAILED", "alln serve repair",
                             obligations: activeObligationCount)
+        }
+        // Live matching handshake + required `stopped` is a contradiction, not
+        // stand-down. Name the stopped ids. Without a matching handshake, leave
+        // the supervisor/stand-down path above to decide.
+        if loaded && healthMatched && !stoppedRequired.isEmpty {
+            return degraded(
+                "SERVE_SCHEDULER_STOPPED:\(stoppedRequired.joined(separator: ","))",
+                "alln serve repair",
+                obligations: activeObligationCount
+            )
         }
         if !loaded {
             return degraded("SERVE_SUPERVISOR_NOT_LOADED", "alln serve repair",
