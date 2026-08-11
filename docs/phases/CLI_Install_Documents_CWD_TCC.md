@@ -1,9 +1,9 @@
 # CLI Install Documents CWD TCC
 
-Status: **OPEN — recommended fix (v2)** · no code authorized until founder accepts  
-Second opinion: DeepSeek V4 Pro run `995670FC` — **agree-with-amendments** (folded in below)  
-Owner: CLI install / serve continuity (`install-cli`, `rebuild_cli.sh`, LaunchAgent)  
-Created: 2026-08-11 · Updated: 2026-08-11 (v2)  
+Status: **OPEN — implementation-ready (v3)** · no code until founder accepts  
+Reviews: DeepSeek V4 Pro `995670FC` (v2) · Composer 2.5 `58EF327B` (adversarial final — gems below)  
+Owner: CLI install / serve continuity  
+Created: 2026-08-11 · Updated: 2026-08-11 (v3)  
 Related: archived `Launch_Authority_TCC_Hotfix.md`,
 `docs/operations/debugger/2026-07-24-resident-run-tcc-PACKET.md`,
 `docs/qa/alln-serve/2026-08-11-gate6-tcc-no-protected-prompt.md`,
@@ -11,167 +11,143 @@ archived `Alln_Serve_Hotfixes.md` §3 / gate 6
 
 ## Symptom
 
-After `scripts/uninstall-allnighter.sh` + `scripts/rebuild_cli.sh` (CLI-only
-reinstall), macOS shows:
+`bash scripts/rebuild_cli.sh` from `~/Documents/GitHub/Allnighter` → macOS:
 
 > “alln” would like to access files in your Documents folder.
 
-Attributed to **`alln`**, not `Allnighter.app`. Dogfood checkout lives at
-`~/Documents/GitHub/Allnighter`.
+Attributed to **`alln`**, not `Allnighter.app`.
 
-## Verdict
+## First principles
 
-**Avoidable install-path footgun — not unavoidable OS tax on every CLI install.**
+1. Documents TCC fires when a process **touches** a protected folder (CWD
+   resolve, `getcwd`, relative opens, spawn inheritance)—not because the
+   binary was built nearby or the LaunchAgent plist looks correct.
+2. `rebuild_cli.sh` builds outside Documents, then `exec`s `install-cli`
+   with the shell still in the Documents checkout → foreground `alln`
+   inherits that CWD.
+3. `ServeLifecycle` live `launchctl` helpers use `Process()` **without**
+   `currentDirectoryURL` (unlike `CapacityPaneReader` / probe paths that
+   already set ProbeScratch) → children inherit the same CWD.
+4. Daemon child is already fine (`WorkingDirectory = ProbeScratch` in
+   plist). The bug is the **foreground** install/enable process and its
+   immediate children.
+5. Separate from resident Team runs whose `repoRoot` is under Documents.
 
-Separate from the open resident/project-Documents problem (real Team runs whose
-`repoRoot` is under `~/Documents`). Do not conflate the two.
+Amplifier (not root cause): uninstall + fresh ad-hoc-signed `alln` can be a
+**new TCC client** with no prior consent row; first protected-folder touch
+surfaces the dialog.
 
-## Mechanism (corrected in v2)
+## What already landed / what lies
 
-The TCC trigger is **not** “`alln` read a file inside the checkout.” The
-**foreground** `alln install-cli` process inherits a CWD under `~/Documents`.
-On `exec`, or on filesystem syscalls that resolve that CWD (including
-`getcwd` / `FileManager.default.currentDirectoryPath`), the kernel treats the
-process as accessing a protected folder and prompts.
-
-A foreground process whose CWD is under `~/Documents` can trigger this on
-`exec` alone — code identity does **not** gate this prompt the way Full Disk
-Access / Automation categories do. Even an identical binary would prompt when
-started with a Documents CWD. (v1 overstated ad-hoc CDHash churn as the reason
-prior “Allow” fails; strike that framing.)
-
-The LaunchAgent plist’s `WorkingDirectory = ProbeScratch` only covers the
-**daemon child** launched by `launchd`. It does **not** cover the foreground
-install process that writes that plist.
-
-## What already landed (and the hole)
-
-| Mitigation | Status | Effect |
+| Mitigation | Covers | Does not cover |
 | --- | --- | --- |
-| Build scratch outside Documents (`ALLNIGHTER_CLI_SCRATCH`) | Shipped | Binary image not born under Documents |
-| Canonical home `~/.local/share/allnighter/bin/alln` | Shipped | PATH + serve share one install |
-| Refuse Documents/Desktop/Downloads **candidates** | Shipped | `CanonicalCLIInstall.refusalReason` |
-| LaunchAgent `WorkingDirectory = ProbeScratch` + minimal PATH | Shipped | **Daemon child only** — foreground `install-cli` is not covered by this plist key |
-| ASR gate 6 “no protected prompt” | **Partial PASS** | Desktop/Downloads reset + empirical quiet; **Documents TCC never reset** (repo lives there) |
+| Scratch build + canonical `~/.local/share/.../alln` | Binary location | Inherited CWD |
+| Refuse Documents **candidates** | Installing a binary that *lives* under Documents | Running install *from* a Documents CWD |
+| LaunchAgent `WorkingDirectory` | Daemon child only | Foreground `install-cli` / `serve enable` |
+| Gate 6 Desktop/Downloads reset | Those two folders | **Documents** (never reset). Gate 6 evidence §2 (string grep for “Documents”) is **void for CWD safety** |
 
-The remaining hole: `rebuild_cli.sh` builds outside Documents, then
-`exec "$ALLN_BIN" install-cli` while the **shell CWD is still the Documents
-checkout**. Foreground `alln` inherits that CWD.
+## Entry-point matrix
 
-## Trigger chain (code)
+| Entry | Today | Fixed by |
+| --- | --- | --- |
+| `rebuild_cli.sh` → `install-cli` | Documents CWD | **P1** (required) + **P0** optional belt |
+| `alln install-cli` from Cursor/agent in repo | Documents CWD | **P1** |
+| `alln serve enable\|repair\|disable` from Documents CWD | Same unguarded `Process()` | **P1** (must cover serve-mutate, not only install-cli) |
+| `get-alln.sh` / `curl \| sh` from Documents terminal | No CWD escape | **P1** |
+| `check-fast.sh` auto-heal → `rebuild_cli` | Same as rebuild | **P1** / **P0** |
+| `alln run` with `repoRoot` under Documents | By design | **Out of scope** (resident packet) |
 
-```text
-rebuild_cli.sh          # CWD = Documents checkout
-  → exec alln install-cli
-    → CanonicalCLIInstall.install()
-      → beforeBytesChange → ServeLifecycle.liveBootout  # spawn launchctl; inherits CWD
-    → convergeServeAfterInstall()
-      → ServeLifecycle().enable()                       # spawn launchctl bootstrap/verify; inherits CWD
-```
+## Implementation plan (one owner)
 
-Each `Process()` from a Documents CWD can independently surface the prompt.
-No checkout file read is required.
+### P1 — Product seam (required, single owner)
 
-Evidence anchors:
-- `scripts/rebuild_cli.sh` (final `exec … install-cli`)
-- `AllnighterCLI.swift` `runInstallCLI` / `beforeBytesChange` bootout /
+Add one shared helper (reuse `AllnighterPaths.ensuredProbeScratchPath()` —
+do **not** hardcode ProbeScratch a third time) that escapes
+Documents/Desktop/Downloads CWD before any install or serve-mutate work.
+
+Call it at the top of:
+
+- `runInstallCLI` — **before** `InstallCLI.run` / `beforeBytesChange` /
   `convergeServeAfterInstall`
-- `CanonicalCLIInstall.swift` `refusalReason` (candidate path only — not CWD)
+- `serve enable` / `repair` / `disable` handlers — **before**
+  `ServeLifecycle().enable()` / `repair()` / `disable()`
 
-## Truth owner / lie-prone layer
+**Acceptable alternative (narrower):** set
+`process.currentDirectoryURL = ProbeScratch` on the three
+`ServeLifecycle` live `Process()` sites only (`liveBootout` /
+`liveBootstrap` / `liveVerifyJobLoaded`), matching `CapacityPaneReader`.
+Use this **only if** proven that the parent never resolves protected CWD
+before the first spawn; otherwise prefer the shared escape helper (covers
+parent `getcwd` too).
 
-- **Truth owner:** process CWD of any foreground `alln` that runs install and
-  serve enable — especially `rebuild_cli.sh` → `install-cli` →
-  `beforeBytesChange` / `convergeServeAfterInstall`.
-- **Lie-prone layer:** gate 6 PASS banner (Documents half waived); “binary not
-  under Documents ⇒ no Documents TCC”; “LaunchAgent WorkingDirectory is set ⇒
-  install is quiet.”
+Do **not** ship both P1 variants as mandatory. Pick one; the other is
+optional belt if a residual is measured.
 
-## Recommended fix (do this)
+### P0 — Dogfood script belt (optional, not paired mandatory)
 
-### S01 — Escape Documents CWD before any `alln` work in rebuild
+In `scripts/rebuild_cli.sh`, `cd` to ProbeScratch (create via same path
+helper / mkdir) **before** `exec … install-cli`. Cheap contract for agents
+reading the script. **Not required** if P1 covers all `install-cli`
+entry points.
 
-In `scripts/rebuild_cli.sh`, after resolving `ALLN_BIN` and **before**
-`install-cli`:
+### Cut from v2 (do not implement)
 
-1. Ensure ProbeScratch exists
-   (`~/Library/Application Support/Allnighter/ProbeScratch`).
-2. `cd` there (or `$HOME` if ProbeScratch cannot be created).
-3. Then run `"$ALLN_BIN" install-cli` (do not inherit the checkout CWD).
+- Mandatory dual S01+S02 for the same hop
+- Optional stderr “escaped CWD” disclosure as a slice requirement
+- S03 / gate 6 Documents re-close as a **blocking** promote item
+- Global chdir in `AllnighterCLI.main` (breaks intentional repo-scoped
+  `alln run` / `ps`)
 
-Same rule for any other script that exec’s a freshly built `alln` from a
-Documents checkout. Cold-install fixture proof already isolates via scratch
-`HOME` / `ALLN_INSTALL_DIR` (`scripts/test-get-alln.sh` — `assert_scratch_home`,
-`HOME="$home_dir"`).
+### Founder host measurement (non-blocking)
 
-### S02 — Defense in depth inside `install-cli`
+Outside-Documents clone + `tccutil reset SystemPolicyDocumentsFolder` +
+`rebuild_cli` / `install-cli` with **zero** Documents prompt. Record as
+empirical closure; do **not** require Documents reset on the dogfood
+Documents checkout (bricks the session). Do **not** treat gate 6 grep or
+daemon plist inspection as Documents TCC proof.
 
-At the **top** of `runInstallCLI` (before `InstallCLI.run` / any serve work):
+## Works Test (split claims)
 
-1. If `FileManager.default.currentDirectoryPath` resolves under
-   `~/Documents`, `~/Desktop`, or `~/Downloads`, **chdir** to ProbeScratch
-   (create if needed) before any further filesystem / serve work.
-2. Optional disclosure (stderr, one line): escaped protected CWD → ProbeScratch.
-3. Do **not** require FDA, entitlements, or “Allow” copy as the fix.
+**Structural (CI / agent wall — required):**
 
-Placement requirement: chdir must happen **before** the `beforeBytesChange`
-bootout closure (`AllnighterCLI.swift` ~2769) and **before**
-`convergeServeAfterInstall` (~2805) spawns serve enable children. One chdir at
-the top of `runInstallCLI` covers both.
+1. After P1, before first `launchctl` spawn on install / serve-enable path,
+   process CWD is outside Documents/Desktop/Downloads **or** injected
+   `Process` seam asserts `currentDirectoryURL == ProbeScratch`.
+2. Unit coverage of the shared helper / seam (wall-reachable; fail if
+   protected CWD left in place).
 
-### S03 — Re-close gate 6 for Documents
+**Empirical (founder-only, non-blocking):**
 
-After S01/S02, re-measure the Documents half. Prefer a checkout **outside**
-Documents so a Documents TCC reset does not brick the working tree session.
+3. Outside-Documents host (or safe Documents reset) → no “alln” Documents
+   prompt on `rebuild_cli` / `install-cli` / `serve enable`.
+4. Canonical paths + serve healthy unchanged.
 
-```bash
-tccutil reset SystemPolicyDocumentsFolder
-bash scripts/rebuild_cli.sh
-alln serve status --json
-# Expect: zero “alln” Documents prompts; serve healthy; canonical paths unchanged
-```
+Do **not** label (1)/(2) as “no TCC prompt” proof.
 
-Do not waive Documents again under a PASS banner.
+## Non-goals
 
-### Non-goals
-
-- Full Disk Access / broad TCC entitlements.
-- Solving resident Team runs whose project root is under Documents (separate
-  packet / harness).
-- Moving the git checkout out of Documents as the only fix (nice for dogfood;
-  not the product fix).
-- Disabling default `install-cli` → serve enable to “avoid” TCC.
-- Changing `ServeLifecycle` to chdir the daemon path (not needed — it already
-  writes LaunchAgent `WorkingDirectory` to ProbeScratch; the hole is the
-  **foreground** install process).
-
-## Works Test
-
-**WARNING:** Resetting `SystemPolicyDocumentsFolder` on a host where the git
-checkout lives under `~/Documents` may brick the terminal session. Preferred
-proof: disposable or permanent clone outside Documents (e.g. `~/src/Allnighter`).
-That is the only low-risk empirical Documents reset path.
-
-1. `tccutil reset SystemPolicyDocumentsFolder` (or host with no prior grant).
-2. From a Documents checkout **or** after S01/S02, run `bash scripts/rebuild_cli.sh`
-   (post-fix, Documents checkout must still be quiet because of chdir).
-3. **No** Documents prompt attributed to `alln`.
-4. `command -v alln` → canonical home; `alln serve status` healthy;
-   LaunchAgent `WorkingDirectory` still ProbeScratch.
-5. Unit/script proof: rebuild or install-cli path asserts post-chdir CWD is
-   outside Documents/Desktop/Downloads (wall-reachable; not mock-only).
+- FDA / entitlements / “click Allow” copy
+- Resident `repoRoot` under Documents
+- Move git checkout as the only fix
+- Disable default `install-cli → serve enable` to avoid TCC
+- Treat Desktop/Downloads as this slice’s symptom (Documents is the
+  measured dogfood bug; shared helper may include all three for reuse)
 
 ## Done when
 
-- S01 + S02 landed.
-- Gate 6 Documents half re-measured (empirical outside-Documents host or
-  chdir-safe reset) and the waiver is removed or narrowed to a dated residual.
-- This packet promoted/archived; durable note stays in operations debugger or
-  serve install docs — not living law in `phases/`.
+- **P1** landed with one clear owner (escape helper **or** ServeLifecycle
+  `currentDirectoryURL` — not both mandatory).
+- Entry-point matrix rows for install-cli + serve-mutate are green under
+  structural Works Test.
+- Gate 6 Documents banner narrowed: Desktop/Downloads only until founder
+  empirical row lands (optional).
+- Packet archived after promote; durable note → operations debugger /
+  serve install docs.
 
 ## Changelog
 
 | Ver | Change |
 | --- | --- |
-| v1 | Initial recommended fix (inherited CWD + S01–S03). |
-| v2 | DeepSeek V4 Pro (`995670FC`): correct TCC mechanism (CWD/`exec`, not CDHash); name full trigger chain including `beforeBytesChange` / `convergeServeAfterInstall`; foreground vs daemon LaunchAgent note; S02 placement requirement; cite `test-get-alln.sh`; Works Test operational warning; non-goal: no ServeLifecycle chdir. |
+| v1 | Inherited CWD diagnosis; dual S01/S02 + gate 6 re-close. |
+| v2 | DeepSeek: CWD/`exec` framing over CDHash; trigger chain; foreground vs daemon. |
+| v3 | Composer 2.5 (`58EF327B`) gems: first-principles restatement; drop “exec alone” / dual mandatory; one product owner (install **and** serve-mutate); optional rebuild `cd` only; entry-point matrix; void gate 6 grep for Documents; split structural vs empirical Works Test; reuse `ensuredProbeScratchPath`; demote Documents reset to founder-only; note fresh ad-hoc identity as amplifier. |

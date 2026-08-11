@@ -65,7 +65,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
 | [`Alln_Serve_Hotfixes.md`](Alln_Serve_Hotfixes.md) | **CODE RED — READY FOR IMPLEMENTATION** | Final CLI-only recovery packet. Supersedes Serve Continuity: one canonical installed binary, one launchd user agent, verified install/update/repair, no detached auto-launch, no app scheduler ownership. ASR-S00 native harness first. |
-| [`CLI_Install_Documents_CWD_TCC.md`](CLI_Install_Documents_CWD_TCC.md) | **OPEN — recommended fix (v2)** | `rebuild_cli` → `install-cli` inherits Documents checkout CWD; foreground `exec`/launchctl from that CWD surfaces “alln would like Documents.” Fix: chdir ProbeScratch before install + install-cli defense-in-depth; re-close gate 6 Documents half. DeepSeek V4 Pro second opinion folded in (`995670FC`). Not the resident project-root TCC problem. |
+| [`CLI_Install_Documents_CWD_TCC.md`](CLI_Install_Documents_CWD_TCC.md) | **OPEN — implementation-ready (v3)** | Foreground `install-cli` / serve-mutate inherit Documents CWD; daemon plist does not cover that. **P1** one Swift owner (escape helper or ServeLifecycle ProbeScratch `currentDirectoryURL`); **P0** optional `rebuild_cli` `cd`. Composer 2.5 audit `58EF327B`. |
 
 ### Forward feature packets
 
