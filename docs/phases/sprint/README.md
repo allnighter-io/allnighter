@@ -82,6 +82,8 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S04a | [`alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md`](alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md) | **done** — `6bacc609` (Grok 4.5, 25 files, 82 tests) |
 | ASR-S04a2 | [`alln-serve/ASR-S04a2-gate-pending-wake.md`](alln-serve/ASR-S04a2-gate-pending-wake.md) | **done** — `69d2f1f8` + data-loss fix `ddb039ef` (77 tests) |
 
+| ASR-S04b | [`alln-serve/ASR-S04b-architecture-gate.md`](alln-serve/ASR-S04b-architecture-gate.md) | **ready** — rules + seeded violations |
+
 **S04a2 lesson — do not repeat.** The work order said "assert the store is
 byte-for-byte unchanged on refusal." That is right when the gate *precedes* the
 work (an `add`) and **wrong** when it *follows* it. The seat correctly relocated
