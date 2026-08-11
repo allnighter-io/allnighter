@@ -6,9 +6,10 @@ confirm launchd does not respawn and `serve status` reports `degraded` with the
 reason. Then induce a crash and confirm it does respawn."
 Host: second Mac (Mac mini), macOS 15.6 (24G84), arm64. Ad-hoc track.
 
-**Read the sourcing carefully.** The two halves were observed on two different
-builds, and no single build has demonstrated both on the product label. That is
-recorded here rather than smoothed over.
+**Status: PASS.** Both halves are proven on build `aa8df6ff` — see "CLOSED"
+below. This file is written in two layers on purpose: the original partial
+finding, which recorded that the halves came from two different builds, is kept
+below the closure rather than rewritten. The gap was real when it was written.
 
 ## The restart contract under test (§4.2)
 
