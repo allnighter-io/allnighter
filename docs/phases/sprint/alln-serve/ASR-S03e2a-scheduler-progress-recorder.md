@@ -1,6 +1,6 @@
 # ASR-S03e2a — serialized scheduler progress recorder
 
-Status: **ready**
+Status: **done** — `69a52bbd` (Cursor Grok 4.5)
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §6
 (each row records attempt / success / error / next wake), §7 (`daemon ->
 scheduler` inference ban).
@@ -174,3 +174,20 @@ Additive. `runtime.json` gains movement in one row; nothing reads it yet
 agent, plist, canonical binary, and every scheduler's timing are untouched. If
 this slice were reverted, the receipt returns to eight static `registered` rows —
 exactly today's state.
+
+## 11. Closeout — 2026-08-11
+
+Landed `69a52bbd`. Independently re-verified by the PM outside the seat's own
+report: 35 tests pass under the §8 filter.
+
+**The kill test can fail.** §9 asked for failing-first proof, which the seat
+could not literally give because it deleted `register` in the same commit. So
+the negative proof was taken the other way: removing the `NSLock` from
+`ServeSchedulerProgress.mutate` makes
+`testConcurrentRegisterOfDifferentIdsKeepsEveryId` terminate with an uncaught
+NSException rather than pass. The lock was restored; the tree is clean. A gate
+that has been made to fail on demand counts as the §7 negative proof.
+
+Carried forward, not blocking: `succeeded` leaves the row in `running`, so a
+scheduler that succeeds and never wakes again reads `running` indefinitely.
+`lastSuccessAt` still tells the truth, and S03f decides how status renders it.
