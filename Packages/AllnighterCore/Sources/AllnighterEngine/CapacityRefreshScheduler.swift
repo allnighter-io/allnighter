@@ -41,6 +41,8 @@ public enum CapacityRefreshAttempt: Sendable, Equatable {
 /// observation.
 public struct CapacityRefreshScheduler: Sendable {
 
+    public static let progressId = "capacityRefresh"
+
     /// How often to *check*. Deliberately much shorter than the freshness
     /// window, so a refresh lands promptly after the app quits rather than up to
     /// a full window later.
@@ -73,6 +75,7 @@ public struct CapacityRefreshScheduler: Sendable {
     public var refresh: @Sendable (CapacityProbeScope) async -> CapacityRefreshAttempt
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
+    public var progress: any SchedulerProgressReporting
 
     public init(
         featureSettings: CapacityFeatureSettingsPersistence = CapacityFeatureSettingsPersistence(),
@@ -81,7 +84,8 @@ public struct CapacityRefreshScheduler: Sendable {
         refresh: (@Sendable (CapacityProbeScope) async -> CapacityRefreshAttempt)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
-        tickJitterSeconds: TimeInterval = 60
+        tickJitterSeconds: TimeInterval = 60,
+        progress: any SchedulerProgressReporting = NoOpSchedulerProgress()
     ) {
         self.featureSettings = featureSettings
         self.historyStore = historyStore
@@ -90,6 +94,7 @@ public struct CapacityRefreshScheduler: Sendable {
         self.now = now
         self.sleeper = sleeper
         self.tickJitterSeconds = tickJitterSeconds
+        self.progress = progress
     }
 
     private static func defaultRefresh(
@@ -124,6 +129,7 @@ public struct CapacityRefreshScheduler: Sendable {
                     inFlight.terminateIfHeld()
                     break
                 }
+                progress.attempting(id: Self.progressId)
                 inFlight.store(scope)
                 let result = await Self.awaitRefreshUntilCancelled(
                     scope: scope,
@@ -140,6 +146,7 @@ public struct CapacityRefreshScheduler: Sendable {
                 case .benchFailure:
                     consecutiveBenchFailures += 1
                 }
+                progress.succeeded(id: Self.progressId)
             } else {
                 didRefresh = false
             }
@@ -158,8 +165,15 @@ public struct CapacityRefreshScheduler: Sendable {
             }
 
             do {
+                progress.waiting(id: Self.progressId, until: sleepUntil)
                 try await sleeper.sleep(until: sleepUntil, jitterSeconds: tickJitterSeconds)
-            } catch { break }
+            } catch {
+                progress.failed(
+                    id: Self.progressId,
+                    error: "capacityRefresh sleep failed: \(error.localizedDescription)"
+                )
+                break
+            }
         }
         inFlight.terminateIfHeld()
     }

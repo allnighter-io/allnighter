@@ -158,7 +158,8 @@ public final class ServeDaemon: @unchecked Sendable {
                         registry: wake.registry,
                         models: wake.models,
                         commandRunner: wake.commandRunner,
-                        invocations: wake.invocations
+                        invocations: wake.invocations,
+                        progress: progress
                     )
                     await boost.run { shutdown.isCancelled }
                 }
@@ -177,7 +178,8 @@ public final class ServeDaemon: @unchecked Sendable {
                     let reconciler = VendorBackoffReconciler(
                         runStore: wake.runStore,
                         runService: service,
-                        coordinatorId: daemonId
+                        coordinatorId: daemonId,
+                        progress: progress
                     )
                     await reconciler.run { shutdown.isCancelled }
                 }
@@ -187,12 +189,12 @@ public final class ServeDaemon: @unchecked Sendable {
                     // §0.2). No-ops while the app is refreshing, because both
                     // write the same durable history and this loop reads its
                     // recency — see CapacityRefreshScheduler.
-                    await CapacityRefreshScheduler().run { shutdown.isCancelled }
+                    await CapacityRefreshScheduler(progress: progress).run { shutdown.isCancelled }
                 }
                 progress.registered(id: "capacityRefresh")
                 group.addTask {
                     // Probe_Freshness founder B 2026-08-09
-                    await ProbeRecordRefreshScheduler().run { shutdown.isCancelled }
+                    await ProbeRecordRefreshScheduler(progress: progress).run { shutdown.isCancelled }
                 }
                 progress.registered(id: "probeRecordRefresh")
                 group.addTask {

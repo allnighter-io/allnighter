@@ -15,6 +15,8 @@ import AllnighterCore
 /// old timestamps, manufacturing evidence no probe produced.
 public struct ProbeRecordRefreshScheduler: Sendable {
 
+    public static let progressId = "probeRecordRefresh"
+
     /// How often to check. Matches `CapacityRefreshScheduler.tickInterval`.
     public static let tickInterval: TimeInterval = 5 * 60
 
@@ -24,6 +26,7 @@ public struct ProbeRecordRefreshScheduler: Sendable {
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
     public var tickJitterSeconds: TimeInterval
+    public var progress: any SchedulerProgressReporting
 
     public init(
         recordLoader: @escaping @Sendable () -> [ToolProbeRecord] = { SetupStore().load().records },
@@ -31,7 +34,8 @@ public struct ProbeRecordRefreshScheduler: Sendable {
         smoke: (@Sendable () async -> Void)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
-        tickJitterSeconds: TimeInterval = 0
+        tickJitterSeconds: TimeInterval = 0,
+        progress: any SchedulerProgressReporting = NoOpSchedulerProgress()
     ) {
         self.recordLoader = recordLoader
         self.parkedLoader = parkedLoader
@@ -39,6 +43,7 @@ public struct ProbeRecordRefreshScheduler: Sendable {
         self.now = now
         self.sleeper = sleeper
         self.tickJitterSeconds = tickJitterSeconds
+        self.progress = progress
     }
 
     /// True when records are empty OR any non-parked record has `lastProbeAt`
@@ -62,13 +67,22 @@ public struct ProbeRecordRefreshScheduler: Sendable {
             let records = recordLoader()
             let parked = parkedLoader()
             if shouldSmoke(records: records, now: now(), parked: parked) {
+                progress.attempting(id: Self.progressId)
                 await smoke()
+                progress.succeeded(id: Self.progressId)
             }
             if isCancelled() { break }
             let sleepUntil = now().addingTimeInterval(Self.tickInterval)
             do {
+                progress.waiting(id: Self.progressId, until: sleepUntil)
                 try await sleeper.sleep(until: sleepUntil, jitterSeconds: tickJitterSeconds)
-            } catch { break }
+            } catch {
+                progress.failed(
+                    id: Self.progressId,
+                    error: "probeRecordRefresh sleep failed: \(error.localizedDescription)"
+                )
+                break
+            }
         }
     }
 

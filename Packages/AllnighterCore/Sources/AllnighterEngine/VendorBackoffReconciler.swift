@@ -57,24 +57,29 @@ public enum VendorBackoffWakePlanner {
 /// Resident in-process park reconciler. It leases one due journal, then calls
 /// `RunService` directly; it never shells out to `alln run`.
 public struct VendorBackoffReconciler: Sendable {
+    public static let progressId = "vendorBackoff"
+
     public var runStore: RunStore
     public var runService: RunService
     public var coordinatorId: String
     public var now: @Sendable () -> Date
     public var sleeper: any PendingWakeSleeper
+    public var progress: any SchedulerProgressReporting
 
     public init(
         runStore: RunStore = RunStore(),
         runService: RunService,
         coordinatorId: String,
         now: @escaping @Sendable () -> Date = Date.init,
-        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper()
+        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
+        progress: any SchedulerProgressReporting = NoOpSchedulerProgress()
     ) {
         self.runStore = runStore
         self.runService = runService
         self.coordinatorId = coordinatorId
         self.now = now
         self.sleeper = sleeper
+        self.progress = progress
     }
 
     /// Reconcile at most one source-scoped readiness nomination.
@@ -88,6 +93,7 @@ public struct VendorBackoffReconciler: Sendable {
                 coordinatorId: coordinatorId,
                 now: now()
               ) != nil else { return nil }
+        progress.attempting(id: Self.progressId)
         let result = await runService.resumeParkedRun(
             runId: runId,
             coordinatorId: coordinatorId
@@ -102,6 +108,7 @@ public struct VendorBackoffReconciler: Sendable {
             failed.warnings.append("vendor wake escalation: \(error.code)")
             _ = try? runStore.save(failed, models: [])
         }
+        progress.succeeded(id: Self.progressId)
         return runId
     }
 
@@ -111,8 +118,13 @@ public struct VendorBackoffReconciler: Sendable {
             let plan = VendorBackoffWakePlanner.plan(runs: runStore.list(), now: now())
             let target = plan.nextWakeAt ?? now().addingTimeInterval(60)
             do {
+                progress.waiting(id: Self.progressId, until: target)
                 try await sleeper.sleep(until: target, jitterSeconds: 0)
             } catch {
+                progress.failed(
+                    id: Self.progressId,
+                    error: "vendorBackoff sleep failed: \(error.localizedDescription)"
+                )
                 break
             }
         }

@@ -3,6 +3,8 @@ import AllnighterCore
 
 /// Resident loop: fire utilization seeds at `SEED_FIRES_AT` for enabled sources.
 public struct BoostSeedScheduler: Sendable {
+    public static let progressId = "boostSeed"
+
     public var settingsPersistence: BoostWindowSettingsPersistence
     public var seedLedger: UtilizationSeedLedger
     public var registry: DriverRegistry
@@ -12,6 +14,7 @@ public struct BoostSeedScheduler: Sendable {
     public var now: @Sendable () -> Date
     public var calendar: Calendar
     public var sleeper: any PendingWakeSleeper
+    public var progress: any SchedulerProgressReporting
 
     public init(
         settingsPersistence: BoostWindowSettingsPersistence = BoostWindowSettingsPersistence(),
@@ -22,7 +25,8 @@ public struct BoostSeedScheduler: Sendable {
         invocations: [String: ToolInvocation] = [:],
         now: @escaping @Sendable () -> Date = Date.init,
         calendar: Calendar = .current,
-        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper()
+        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper(),
+        progress: any SchedulerProgressReporting = NoOpSchedulerProgress()
     ) {
         self.settingsPersistence = settingsPersistence
         self.seedLedger = seedLedger
@@ -33,6 +37,7 @@ public struct BoostSeedScheduler: Sendable {
         self.now = now
         self.calendar = calendar
         self.sleeper = sleeper
+        self.progress = progress
     }
 
     public func run(isCancelled: @escaping @Sendable () -> Bool) async {
@@ -40,13 +45,34 @@ public struct BoostSeedScheduler: Sendable {
             let settings = settingsPersistence.load()
             if settings.enabled, let next = nextSeedDate(settings: settings) {
                 if next <= now() {
+                    progress.attempting(id: Self.progressId)
                     await fireDueSeeds(settings: settings)
+                    progress.succeeded(id: Self.progressId)
                 } else {
-                    do { try await sleeper.sleep(until: next, jitterSeconds: 0) } catch { break }
+                    do {
+                        progress.waiting(id: Self.progressId, until: next)
+                        try await sleeper.sleep(until: next, jitterSeconds: 0)
+                    } catch {
+                        progress.failed(
+                            id: Self.progressId,
+                            error: "boostSeed sleep failed: \(error.localizedDescription)"
+                        )
+                        break
+                    }
                     continue
                 }
             }
-            do { try await sleeper.sleep(until: now().addingTimeInterval(60), jitterSeconds: 0) } catch { break }
+            let fallbackUntil = now().addingTimeInterval(60)
+            do {
+                progress.waiting(id: Self.progressId, until: fallbackUntil)
+                try await sleeper.sleep(until: fallbackUntil, jitterSeconds: 0)
+            } catch {
+                progress.failed(
+                    id: Self.progressId,
+                    error: "boostSeed sleep failed: \(error.localizedDescription)"
+                )
+                break
+            }
         }
     }
 
