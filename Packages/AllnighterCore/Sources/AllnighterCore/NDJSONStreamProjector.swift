@@ -365,7 +365,10 @@ public enum NDJSONStreamProjector {
             case .done:
                 add("workerAnswered", endAt, EventData(agentId: agent.id, durationMs: answer.result.timing.durationMs))
             case .failed, .timedOut:
-                add("workerFailed", endAt, EventData(agentId: agent.id, error: workerError(answer, runId: run.id)))
+                add("workerFailed", endAt, EventData(
+                    agentId: agent.id,
+                    error: workerError(answer, runId: run.id, modelId: agent.modelId)
+                ))
             default:
                 break   // queued/running/skipped/cancelled: no terminal worker event
             }
@@ -456,7 +459,11 @@ public enum NDJSONStreamProjector {
                 case WorkerAnswerStatus.failed.rawValue, WorkerAnswerStatus.timedOut.rawValue:
                     return ("workerFailed", runId, EventData(agentId: workerId, error: ErrorEnvelope(
                         code: to == WorkerAnswerStatus.timedOut.rawValue ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
-                        message: str("reason") ?? "worker did not produce an answer",
+                        message: workerFailureMessage(
+                            reason: str("reason") ?? "worker did not produce an answer",
+                            modelId: str("modelId"),
+                            isAgentFailure: to == WorkerAnswerStatus.failed.rawValue
+                        ),
                         requiresManual: false, retryable: true, runId: runId.isEmpty ? nil : runId, agentId: workerId)))
                 default:
                     return nil   // queued / skipped / cancelled — no terminal worker event
@@ -592,11 +599,38 @@ public enum NDJSONStreamProjector {
         return f.string(from: date)
     }
 
-    private static func workerError(_ a: TeamAnswer, runId: String) -> ErrorEnvelope {
+    private static func workerError(_ a: TeamAnswer, runId: String, modelId: String?) -> ErrorEnvelope {
         ErrorEnvelope(
             code: a.result.status == .timedOut ? "TEAM_RUN_TIMEOUT" : "AGENT_FAILED",
-            message: a.result.errorReason ?? "worker did not produce an answer",
+            message: workerFailureMessage(
+                reason: a.result.errorReason ?? "worker did not produce an answer",
+                modelId: modelId,
+                isAgentFailure: a.result.status == .failed
+            ),
             requiresManual: false, retryable: true, runId: runId, agentId: a.memberId
         )
+    }
+
+    /// A vendor's own `resource_exhausted` error from Cursor's Composer backend
+    /// is availability evidence for that model, not a quota verdict. The source
+    /// comes solely from the Core model catalog: model-id text is never parsed.
+    /// Every unknown source or unmatched string returns the original bytes.
+    private static func workerFailureMessage(
+        reason: String,
+        modelId: String?,
+        isAgentFailure: Bool
+    ) -> String {
+        guard isAgentFailure,
+              let modelId,
+              let model = ModelCatalog.get(modelId),
+              model.driverId == "cursor_agent",
+              reason.range(
+                of: #"RetriableError:\s*\[resource_exhausted\]\s*Error"#,
+                options: [.regularExpression, .caseInsensitive]
+              ) != nil
+        else {
+            return reason
+        }
+        return "Cursor's \(model.displayName) model is unavailable. Vendor error: \(reason)"
     }
 }
