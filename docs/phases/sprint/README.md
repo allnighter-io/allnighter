@@ -78,7 +78,11 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S03c | [`alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md`](alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md) | **done** — `4edd61be` (37 tests); zero scheduler files edited |
 
 | ASR-S03d | [`alln-serve/ASR-S03d-active-health-handshake.md`](alln-serve/ASR-S03d-active-health-handshake.md) | **done** — `ff90583b` + wiring fix `0612b8ec` (25 tests) |
-| ASR-S03e | [`alln-serve/ASR-S03e-scheduler-receipts.md`](alln-serve/ASR-S03e-scheduler-receipts.md) | **ready** — builds `runtime.json` |
+| ASR-S03e | [`alln-serve/ASR-S03e-scheduler-receipts.md`](alln-serve/ASR-S03e-scheduler-receipts.md) | **done** — `254cfeae` (26 tests) |
+| ASR-S04a | [`alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md`](alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md) | **ready** — **Grok 4.5** seat; deletions + `ServeRequirement` coupled |
+
+Still open in ASR-S03: **S03e2** per-scheduler attempt/success/error (receipts
+currently prove registration, not progress) and **S03f** `ServeStatusJSON` v2.
 
 **Live-host milestone:** the first `rebuild_cli.sh` → `install-cli` on the
 founder's Mac ran the S02d migration for real and closed §10.1 R4. Record:
