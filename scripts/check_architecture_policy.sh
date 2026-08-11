@@ -107,7 +107,13 @@ PY
     app-scheduling-violation)
       printf 'let s = CapacityRefreshScheduler()\n' > "$fixture/Apps/AllnighterMac/Sources/AppViolation.swift" ;;
     serve-spawn-violation)
-      printf 'alln serve\n' >> "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
+      # ASR-S04c: the rule now requires a spawn CONTEXT, not a bare mention, so
+      # that the ASR-S05 help topic and the CLI usage string stop false-failing.
+      # This fixture must therefore seed a real spawn. A bare `alln serve` line
+      # is a mention and is correctly accepted — seeding one here would make the
+      # negative self-test unable to fail, which is the thing it exists to prevent.
+      printf 'let p = Process(); p.arguments = ["alln", "serve"]\n' \
+        >> "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
   esac
   if python3 "$VALIDATOR" --root "$fixture" --policy "$fixture/config/architecture-policy.json" >/dev/null 2>&1; then
     fail "self-test accepted violating fixture: $name"
