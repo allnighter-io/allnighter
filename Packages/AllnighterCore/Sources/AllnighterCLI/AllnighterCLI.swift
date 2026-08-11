@@ -2717,12 +2717,9 @@ struct AllnighterCLI {
                 print(InstallCLI.humanLine(json))
             }
 
-            if let source = noServeSource {
-                if source == "flag" {
-                    print("serve: skipped (--no-serve)")
-                } else {
-                    print("serve: skipped (ALLN_NO_SERVE)")
-                }
+            if noServeSource != nil {
+                // Opt-out disclosure is part of InstallCLI.humanLine; persist the
+                // explicit disabled desired state here.
                 _ = persistServeDisabled(homeDirectory: request.homeDirectory)
             } else {
                 await convergeServeAfterInstall(homeDirectory: request.homeDirectory)

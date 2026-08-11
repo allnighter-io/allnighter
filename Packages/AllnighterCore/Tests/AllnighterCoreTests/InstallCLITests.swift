@@ -591,4 +591,87 @@ final class InstallCLITests: XCTestCase {
         }
         XCTAssertEqual(json.noServeSource, "environment")
     }
+
+    // MARK: - ASR-S05a serve disclosure
+
+    func testOptOutDisclosureNamesNotInstalledAndEnableCommand() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, noServeSource: "flag"))
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        let line = InstallCLI.humanLine(json)
+        XCTAssertTrue(line.contains("was not installed"), "missing 'was not installed' in: \(line)")
+        XCTAssertTrue(line.contains("per-user background scheduler"), "missing scheduler mention in: \(line)")
+        XCTAssertTrue(line.contains("deferred obligations"), "missing deferred obligations in: \(line)")
+        XCTAssertTrue(line.contains("pending wake"), "missing pending wake in: \(line)")
+        XCTAssertTrue(line.contains("PM turn wake"), "missing PM turn wake in: \(line)")
+        XCTAssertTrue(line.contains("boost seed"), "missing boost seed in: \(line)")
+        XCTAssertTrue(line.contains("vendor backoff"), "missing vendor backoff in: \(line)")
+        XCTAssertTrue(line.contains("notifications"), "missing notifications in: \(line)")
+        XCTAssertTrue(line.contains("capacity refresh"), "missing capacity refresh in: \(line)")
+        XCTAssertTrue(line.contains("probe record refresh"), "missing probe record refresh in: \(line)")
+        XCTAssertTrue(line.contains("`alln serve enable`"), "missing enable command in: \(line)")
+        XCTAssertTrue(line.contains("`alln run` still works"), "missing run reassurance in: \(line)")
+    }
+
+    func testEnvironmentOptOutDisclosureUsesEnvLabel() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir, noServeSource: "environment"))
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        let line = InstallCLI.humanLine(json)
+        XCTAssertTrue(line.contains("ALLN_NO_SERVE"), "missing env label in: \(line)")
+        XCTAssertFalse(line.contains("--no-serve"), "flag label should not appear for env source in: \(line)")
+    }
+
+    func testEnabledPathDisclosureNamesInstalledAndDisableCommand() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(binary: binary, installDir: installDir))
+        guard case .installed(let json) = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        let line = InstallCLI.humanLine(json)
+        XCTAssertTrue(line.contains("installed a per-user background scheduler"), "missing installed claim in: \(line)")
+        XCTAssertTrue(line.contains("deferred obligations"), "missing deferred obligations in: \(line)")
+        XCTAssertTrue(line.contains("pending wake"), "missing pending wake in: \(line)")
+        XCTAssertTrue(line.contains("`alln serve disable`"), "missing disable command in: \(line)")
+        XCTAssertTrue(line.contains("`alln run` still works without it"), "missing run reassurance in: \(line)")
+    }
+
+    func testJSONEnvelopeStructureUnchanged() throws {
+        let json = InstallCLI.JSON(
+            schemaVersion: 2,
+            action: .installed,
+            path: "/home/.local/bin/alln",
+            target: "/home/.local/share/allnighter/bin/alln",
+            onPath: true,
+            canonicalPath: "/home/.local/share/allnighter/bin/alln",
+            rollbackPath: "/home/.local/share/allnighter/bin/alln.rollback",
+            codeIdentity: "abc123",
+            version: "1.0.0",
+            noServeSource: "flag"
+        )
+        let data = try CoreJSON.encode(json)
+        let object = try JSONSerialization.jsonObject(with: data)
+        let dict = object as? [String: Any]
+        XCTAssertNotNil(dict, "encoded JSON must be an object")
+        let keys = Set(dict?.keys ?? [String: Any]().keys)
+        XCTAssertEqual(keys, [
+            "schemaVersion",
+            "action",
+            "path",
+            "target",
+            "onPath",
+            "canonicalPath",
+            "rollbackPath",
+            "codeIdentity",
+            "version",
+            "noServeSource"
+        ])
+    }
 }

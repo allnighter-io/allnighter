@@ -317,9 +317,32 @@ public enum InstallCLI {
             return pathLine
                 + canonicalLine
                 + "\nNext: run `alln menu --json`; if benchTally.nextAction is set, run that command once."
+                + serveDisclosure(noServeSource: json.noServeSource)
         case .printed:
             return pathLine
         }
+    }
+
+    /// Human disclosure for the serve scheduler, tied to the install transaction.
+    /// §2.2 requires the install to say what was (or was not) installed, why it
+    /// exists, and how to change it later. Keep this to three or four lines.
+    public static func serveDisclosure(noServeSource: String?) -> String {
+        let schedulerSummary = "pending wake, PM turn wake, boost seed, vendor backoff, notifications, capacity refresh, and probe record refresh"
+        if let source = noServeSource {
+            let optOutLabel = source == "flag" ? "--no-serve" : "ALLN_NO_SERVE"
+            return """
+
+serve: skipped (\(optOutLabel)). The per-user background scheduler was not installed.
+It would handle deferred obligations: \(schedulerSummary).
+`alln run` still works; only deferred scheduling is affected. Enable later with `alln serve enable`.
+"""
+        }
+        return """
+
+serve: enabled. Allnighter installed a per-user background scheduler for deferred obligations.
+It handles: \(schedulerSummary).
+`alln run` still works without it. Disable with `alln serve disable`.
+"""
     }
 
     // MARK: - Private
