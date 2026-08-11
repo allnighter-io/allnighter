@@ -167,12 +167,13 @@ Examples: `update_check`.
 
 ### `alln install-cli`
 
-Symlink the running `alln` binary onto PATH (running the command is consent).
+Symlink the running `alln` binary onto PATH (running the command is consent). The background scheduler is enabled by default; opt out with --no-serve.
 
 Flags:
 - `--path <path>` — Install directory override (default /usr/local/bin if writable, else ~/.local/bin).
 - `--print` — Print install instructions only (legacy print-only behavior).
 - `--json` — Structured { action, path, target, onPath }.
+- `--no-serve` — Do not enable the background scheduler after install.
 
 Output schema: `installCLIJSON`.
 
@@ -830,7 +831,6 @@ Flags:
 - `--answer <string>` — The founder's answer to the escalation (required).
 - `--until <time>` — Hard stop HH:MM (local) for the resumed stretch.
 - `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
-- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--dry-run` — Resolve the loop id, founder answer, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state.
 - `--no-wait` — Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud. Mutually exclusive with --dry-run.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command. Mutually exclusive with --dry-run.
@@ -883,7 +883,6 @@ Arguments:
 Flags:
 - `--max-rounds <integer>` — Round ceiling for the adopted agent-PM stretch — counts TOTAL rounds including prior ones (default 20). Ignored for `caller`.
 - `--until <time>` — Hard stop HH:MM (local) for the adopted agent-PM stretch. Ignored for `caller`.
-- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch (agent-PM path).
 - `--dry-run` — Resolve the loop id, requested PM occupant, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state (no occupant change).
 - `--no-wait` — Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud. Mutually exclusive with --dry-run.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command. Mutually exclusive with --dry-run.
@@ -911,7 +910,6 @@ Flags:
 - `--until <time>` — Hard stop HH:MM (local).
 - `--max-rounds <integer>` — Round ceiling (default 20).
 - `--idle-timeout <integer>` — Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).
-- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
@@ -943,7 +941,6 @@ Flags:
 - `--answer <string>` — The founder's answer to the escalation (required).
 - `--until <time>` — Hard stop HH:MM (local) for the resumed stretch.
 - `--max-rounds <integer>` — Round ceiling for the resumed stretch (default 20).
-- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
@@ -961,7 +958,6 @@ Flags:
 - `--pm-model <id>` — The spawned PM seat's model id (required).
 - `--max-rounds <integer>` — Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20).
 - `--until <time>` — Hard stop HH:MM (local) for the adopted stretch.
-- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--no-wait` — Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement).
@@ -1007,7 +1003,6 @@ Flags:
 - `--note <string>` — Optional closing note for done/escalate verdicts.
 - `--no-wait` — Return after dispatch with delivery.path=wait and an exact `pilot status --wait-for parked` command. Run it once for the parked PM Turn; a killed `pilot watch` is not failure.
 - `--delivery <string>` — Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.
-- `--no-auto-serve` — Do not auto-start the background notifier (alln serve) for this dispatch.
 - `--json` — Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (or, with --no-wait, a single delivery acknowledgement).
 
 Mutually exclusive: `--file`, `--handover-file`.
@@ -1179,7 +1174,7 @@ Examples: `export_contracts_check`.
 
 ### `alln serve`
 
-Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it. `alln loop step`/`start`/`resume`/`pm` auto-start it in the background unless `--no-auto-serve`/`ALLN_NO_AUTO_SERVE` is set.
+Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Continuity is the supervised LaunchAgent (`alln serve enable` / install default); ordinary commands never spawn a detached substitute. Start it in a terminal for diagnostics; Ctrl+C stops a foreground instance.
 
 Flags:
 - `--health` — Read-only serve health; does not start serve.
@@ -1819,6 +1814,10 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `UTILIZATION_SOURCE_UNCONFIGURED` | yes | no | `usage` | Add the source to Boost window appliesTo, then retry. |
 | `UTILIZATION_AUTH_REQUIRED` | yes | no | `operational` | Sign in to the named CLI, then retry the seed. |
 | `UTILIZATION_BILLING_PROMPT` | yes | no | `operational` | Resolve billing on the provider, then retry. |
+| `SERVE_REQUIRES_APPROVAL` | yes | no | `operational` | Open System Settings > General > Login Items & Extensions and enable com.allnighter.resident-coordinator, then run `alln serve enable`. |
+| `SERVE_SERVICE_STATUS_UNKNOWN` | yes | no | `operational` | SMAppService returned an unrecognized status. Run `alln serve enable` to attempt manual enable; if the macOS version is newer than expected, this may require an Allnighter update. |
+| `SERVE_UNAVAILABLE` | yes | yes | `operational` | Run `alln serve repair` (or `alln serve enable` if desired state is disabled), then retry the deferred-obligation write. |
+| `SERVE_DISABLED_BY_USER` | yes | no | `operational` | The user explicitly disabled serve. Re-enable with `alln serve enable` if desired. |
 
 ## NDJSON events
 

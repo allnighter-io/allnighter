@@ -694,7 +694,6 @@ public extension ContractRegistry {
                 FlagSpec("answer", takesValue: true, valueType: "string", summary: "The founder's answer to the escalation (required)."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the resumed stretch."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the resumed stretch (default 20)."),
-                FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("dry-run", summary: "Resolve the loop id, founder answer, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `loop resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud. Mutually exclusive with --dry-run."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command. Mutually exclusive with --dry-run."),
@@ -752,7 +751,6 @@ public extension ContractRegistry {
             flags: [
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the adopted agent-PM stretch — counts TOTAL rounds including prior ones (default 20). Ignored for `caller`."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted agent-PM stretch. Ignored for `caller`."),
-                FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch (agent-PM path)."),
                 FlagSpec("dry-run", summary: "Resolve the loop id, requested PM occupant, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state (no occupant change)."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `loop pm` verb in a detached child (agent-PM path); return only after the child durably claims delivery. A refusal fails loud. Mutually exclusive with --dry-run."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command. Mutually exclusive with --dry-run."),
@@ -779,7 +777,6 @@ public extension ContractRegistry {
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling (default 20)."),
                 FlagSpec("idle-timeout", takesValue: true, valueType: "integer", summary: "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7)."),
-                FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `pair relay` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud and spawns nothing."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
@@ -805,7 +802,6 @@ public extension ContractRegistry {
                 FlagSpec("answer", takesValue: true, valueType: "string", summary: "The founder's answer to the escalation (required)."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the resumed stretch."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the resumed stretch (default 20)."),
-                FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
@@ -820,7 +816,6 @@ public extension ContractRegistry {
                 FlagSpec("pm-model", takesValue: true, valueType: "id", summary: "The spawned PM seat's model id (required)."),
                 FlagSpec("max-rounds", takesValue: true, valueType: "integer", summary: "Round ceiling for the adopted stretch — counts TOTAL rounds including the piloted ones already on the log (default 20)."),
                 FlagSpec("until", takesValue: true, valueType: "time", summary: "Hard stop HH:MM (local) for the adopted stretch."),
-                FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `relay adopt` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal fails loud."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final LoopJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
@@ -859,7 +854,6 @@ public extension ContractRegistry {
                 FlagSpec("note", takesValue: true, valueType: "string", summary: "Optional closing note for done/escalate verdicts."),
                 FlagSpec("no-wait", summary: "Return after dispatch with delivery.path=wait and an exact `pilot status --wait-for parked` command. Run it once for the parked PM Turn; a killed `pilot watch` is not failure."),
                 FlagSpec("delivery", takesValue: true, valueType: "string", summary: "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command."),
-                FlagSpec("no-auto-serve", summary: "Do not auto-start the background notifier (alln serve) for this dispatch."),
                 FlagSpec("json", summary: "Emit NDJSON RelayProgressJSON events, then a final PilotHandoffJSON envelope (or, with --no-wait, a single delivery acknowledgement)."),
             ],
             mutuallyExclusiveFlags: [["file", "handover-file"], ["file", "handover-stdin"], ["handover-file", "handover-stdin"]],
@@ -975,7 +969,7 @@ public extension ContractRegistry {
             exampleIds: ["export_contracts_check"]
         ),
         CommandSpec(
-            "serve", summary: "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it. `alln loop step`/`start`/`resume`/`pm` auto-start it in the background unless `--no-auto-serve`/`ALLN_NO_AUTO_SERVE` is set.", milestone: .m1,
+            "serve", summary: "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Continuity is the supervised LaunchAgent (`alln serve enable` / install default); ordinary commands never spawn a detached substitute. Start it in a terminal for diagnostics; Ctrl+C stops a foreground instance.", milestone: .m1,
             flags: [
                 FlagSpec("health", summary: "Read-only serve health; does not start serve."),
                 FlagSpec("json", summary: "Structured CoordinatorHealth output."),
@@ -1512,7 +1506,7 @@ public extension ContractRegistry {
         // SERVE recovery (ASR-S02e)
         ErrorSpec("SERVE_REQUIRES_APPROVAL", ruleId: "serve.requires.approval", agentAction: "Open System Settings > General > Login Items & Extensions and enable com.allnighter.resident-coordinator, then run `alln serve enable`.", requiresManual: true, retryable: false, explain: "The background scheduler LaunchAgent requires user approval in Login Items. Allnighter never bypasses this."),
         ErrorSpec("SERVE_SERVICE_STATUS_UNKNOWN", ruleId: "serve.service_status.unknown", agentAction: "SMAppService returned an unrecognized status. Run `alln serve enable` to attempt manual enable; if the macOS version is newer than expected, this may require an Allnighter update.", requiresManual: true, retryable: false, explain: "SMAppService.statusForLegacyPlist returned a raw status not known to this build. The authorization posture cannot be determined, so serve is not bootstrapped. Fail-closed per the fail-closed inference ban."),
-        ErrorSpec("SERVE_UNAVAILABLE", ruleId: "serve.unavailable", agentAction: "Run `alln serve enable` after the install completes.", requiresManual: true, retryable: true, explain: "The background scheduler could not be auto-enabled because the ServiceManagement authorization check is unavailable on this macOS version. Enable it manually after install."),
+        ErrorSpec("SERVE_UNAVAILABLE", ruleId: "serve.unavailable", agentAction: "Run `alln serve repair` (or `alln serve enable` if desired state is disabled), then retry the deferred-obligation write.", requiresManual: true, retryable: true, explain: "The supervised background scheduler is not actively healthy (active handshake failed or service not running). A deferred obligation was not written; attended work is unaffected."),
         ErrorSpec("SERVE_DISABLED_BY_USER", ruleId: "serve.disabled.by_user", agentAction: "The user explicitly disabled serve. Re-enable with `alln serve enable` if desired.", requiresManual: true, retryable: false, explain: "The background scheduler was explicitly disabled by the user. A later install or update will not re-enable it."),
     ]
 

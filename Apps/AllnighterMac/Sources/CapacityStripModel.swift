@@ -4,10 +4,11 @@ import AllnighterEngine
 
 /// Mac launch-surface owner for the capacity strip.
 ///
-/// **SSOT:** `CapacityResidentService` (CWB-S01a) — every acquire goes through
-/// `requestRefresh(reason:)`; the resident owns single-flight, supersede, and
-/// the 2-minute floor. Launch paints the resident snapshot when one exists,
-/// else placeholders. Probes never run on the main actor.
+/// **SSOT for explicit acquire:** `CapacityResidentService.requestRefresh`
+/// (single-flight, supersede, 2-minute floor). Launch paints the resident
+/// snapshot when one exists, else placeholders — never a silent probe.
+/// Periodic / wake capacity refresh is **not** owned here; serve hosts
+/// `CapacityRefreshScheduler` (ASR-S04a / §2.4). Probes never run on the main actor.
 @MainActor
 @Observable
 final class CapacityStripModel {
@@ -25,10 +26,12 @@ final class CapacityStripModel {
     private(set) var notReadyOrParked: Set<String> = []
     /// When set, the model is fixture-seeded and live acquire is skipped on appear.
     private(set) var isFixtureSeeded = false
-    /// Scheduler health as the resident reports it — never inferred from age.
+    /// Freshness for the header line. The app no longer arms a periodic
+    /// deadline loop (`armed` stays false); age comes from the last settle
+    /// or explicit user refresh only.
     private(set) var freshness = CapacityResidentService.Freshness(armed: false, lastSettledAt: nil)
-    /// CWB-S01b feature ON/OFF. OFF: the strip renders the Enable CTA instead
-    /// of rows, and no acquire ever starts (resident enforces zero probes).
+    /// Feature ON/OFF (persisted). OFF: the strip renders the Enable CTA
+    /// instead of rows, and no acquire starts.
     private(set) var featureEnabled = true
 
     /// The one refresh funnel. Shared instance in the Dock app; tests inject
@@ -200,9 +203,15 @@ final class CapacityStripModel {
         now: Date
     ) -> String {
         if isRefreshingAll { return "Checking…" }
-        guard freshness.armed else { return "Auto-checks stopped" }
-        guard let sampled = benchObservedAt ?? freshness.lastSettledAt else { return "Checking…" }
-        return "Checked \(CapacityStripRenderer.elapsedLabel(from: sampled, to: now))"
+        // App does not own periodic checks (serve does). Prefer observed age
+        // from the last explicit refresh / durable paint over "armed" timers.
+        if let sampled = benchObservedAt ?? freshness.lastSettledAt {
+            return "Checked \(CapacityStripRenderer.elapsedLabel(from: sampled, to: now))"
+        }
+        if freshness.armed {
+            return "Checking…"
+        }
+        return "Refresh for live numbers"
     }
 
     // MARK: - Clock
@@ -247,7 +256,9 @@ final class CapacityStripModel {
     func loadLive(notReadyOrParked: Set<String> = []) async {
         guard !isFixtureSeeded else { return }
         self.notReadyOrParked = notReadyOrParked
-        featureEnabled = await resident.isEnabled
+        // Feature flag is local/persisted UI state — do not arm the resident's
+        // deadline scheduler (serve owns periodic refresh).
+        featureEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
         guard featureEnabled else {
             isRefreshingAll = false
             windows = []
@@ -257,7 +268,9 @@ final class CapacityStripModel {
             return
         }
         isRefreshingAll = false
-        freshness = await resident.currentFreshness()
+        let residentFreshness = await resident.currentFreshness()
+        // Never report app-owned auto-checks as armed.
+        freshness = .init(armed: false, lastSettledAt: residentFreshness.lastSettledAt)
         startClock()
         if let settled = await resident.currentSnapshot() {
             let paintedNow = Date()
@@ -277,22 +290,27 @@ final class CapacityStripModel {
         }
     }
 
-    /// Enable CTA: turn the feature on (persisted via the resident) and load.
+    /// Enable CTA: persist ON and one-shot refresh. Does **not** arm an
+    /// app-side deadline scheduler (serve owns periodic capacity).
     func enableFeature() {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.resident.setEnabled(true)
+            try? CapacityFeatureSettingsPersistence().saveEnabled(true)
+            // Keep resident able to honor explicit requestRefresh without
+            // starting its 30m loop: setEnabled(true) would arm the scheduler.
+            // requestRefresh only needs `enabled == true`; default shared is ON.
             self.featureEnabled = true
             await self.loadLive()
+            self.refreshAll()
         }
     }
 
-    /// Turn the feature off: resident scoped-cancels in-flight probes, stops
-    /// the scheduler, and drops the snapshot (no memo-as-live).
+    /// Turn the feature off: stop local paint and persist OFF. Does not own
+    /// a wake observer or periodic probe loop.
     func disableFeature() {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.resident.setEnabled(false)
+            try? CapacityFeatureSettingsPersistence().saveEnabled(false)
             self.featureEnabled = false
             self.windows = []
             self.refreshingSources = []
@@ -326,7 +344,7 @@ final class CapacityStripModel {
     /// the in-flight generation (resident single-flight); an in-flight targeted
     /// seat refresh is superseded by the resident with a scoped terminate.
     func refreshAll() {
-        guard !isFixtureSeeded else { return }
+        guard !isFixtureSeeded, featureEnabled else { return }
         refreshAllTask?.cancel()
         refreshAllGeneration += 1
         let generation = refreshAllGeneration
@@ -345,14 +363,15 @@ final class CapacityStripModel {
             self.now = bench.now
             self.windows = bench.windows
             self.needsLiveRefresh = false
-            self.freshness = await self.resident.currentFreshness()
+            // Explicit refresh settle time only — never report app scheduler armed.
+            self.freshness = .init(armed: false, lastSettledAt: bench.now)
         }
     }
 
     /// Targeted seat acquire through the resident funnel. Same-seat taps
     /// coalesce; a different seat takes its turn after the in-flight settle.
     func refreshSource(_ source: String) {
-        guard !isFixtureSeeded else { return }
+        guard !isFixtureSeeded, featureEnabled else { return }
         if let message = CapacityAcquisition.validateRefreshSourceId(source) {
             _ = message
             return
@@ -376,7 +395,7 @@ final class CapacityStripModel {
             self.now = bench.now
             self.windows = Self.merge(prior: self.windows, acquired: bench.windows, refreshedSource: source)
             self.needsLiveRefresh = false
-            self.freshness = await self.resident.currentFreshness()
+            self.freshness = .init(armed: false, lastSettledAt: bench.now)
         }
     }
 

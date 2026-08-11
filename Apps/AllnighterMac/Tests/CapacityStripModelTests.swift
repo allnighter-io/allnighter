@@ -357,28 +357,28 @@ final class CapacityStripModelTests: XCTestCase {
         }
     }
 
-    func testFreshnessLineSaysStoppedWhenNothingIsScheduling() {
+    func testFreshnessLinePromptsRefreshWhenNoSample() {
         let model = CapacityStripModel()
         model.seedFixture(windows: [], now: CapacityStripFixtures.now)
         model.disableFeature()
-        // Freshness must come from the resident's armed flag, never from data
-        // age — a long legitimate deadline wait looks identical to a dead loop.
+        // App no longer arms a periodic loop (serve owns that). No sample →
+        // explicit Refresh CTA, not a false "scheduler stopped" claim.
         XCTAssertEqual(
             CapacityStripModel.freshnessLine(
-                freshness: .init(armed: false, lastSettledAt: CapacityStripFixtures.now),
+                freshness: .init(armed: false, lastSettledAt: nil),
                 isRefreshingAll: false,
                 benchObservedAt: nil,
                 now: CapacityStripFixtures.now
             ),
-            "Auto-checks stopped"
+            "Refresh for live numbers"
         )
     }
 
-    func testFreshnessLineReportsAgeWhileArmed() {
+    func testFreshnessLineReportsAgeFromLastSettle() {
         let settled = CapacityStripFixtures.now
         XCTAssertEqual(
             CapacityStripModel.freshnessLine(
-                freshness: .init(armed: true, lastSettledAt: settled),
+                freshness: .init(armed: false, lastSettledAt: settled),
                 isRefreshingAll: false,
                 benchObservedAt: nil,
                 now: settled.addingTimeInterval(4 * 60)
@@ -403,7 +403,7 @@ final class CapacityStripModelTests: XCTestCase {
                 now: settled
             ),
             "Checking…",
-            "an in-flight manual refresh outranks a stopped scheduler"
+            "an in-flight manual refresh outranks idle copy"
         )
     }
 

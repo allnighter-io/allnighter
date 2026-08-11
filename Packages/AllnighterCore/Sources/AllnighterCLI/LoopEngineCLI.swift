@@ -27,8 +27,8 @@ enum LoopEngineCLI {
         }
         _ = DetachedDispatch.validateWakeDelivery(opts)
 
-        // URN-S02: guarantee a live notifier before dispatching a real dev turn.
-        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
+        // Attended path: runs now and returns its own result (INFORM-never-BLOCK).
+        // Deferred wake delivery is gated only on the --no-wait --delivery wake path.
 
         let coordinator = LoopDispatch.makeCoordinator(runtime: runtime)
         let emitJSON = opts.flag("json")
@@ -204,8 +204,8 @@ enum LoopEngineCLI {
         guard !args.isEmpty else { usage("relay-resume --relay <id> --answer <text> [--until HH:MM] [--max-rounds N] [--no-wait] [--json]") }
         let opts = Options(args)
 
-        // LOOP-TWIN: free twin — resolve + report only. Never ServeAutoLaunch,
-        // DetachedDispatch, coordinator.resume, or durable state writes.
+        // LOOP-TWIN: free twin — resolve + report only. Never DetachedDispatch,
+        // coordinator.resume, or durable state writes.
         if opts.flag("dry-run") {
             let payload = await dryRunResume(
                 opts: opts, stateStore: stateStore, projectStore: projectStore
@@ -232,8 +232,7 @@ enum LoopEngineCLI {
         }
         _ = DetachedDispatch.validateWakeDelivery(opts)
 
-        // URN-S02: guarantee a live notifier before dispatching a real dev turn.
-        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
+        // Attended resume — not gated by serve health.
 
         let coordinator = LoopDispatch.makeCoordinator(runtime: runtime)
         let emitJSON = opts.flag("json")
@@ -414,10 +413,7 @@ enum LoopEngineCLI {
         }
         _ = DetachedDispatch.validateWakeDelivery(opts)
 
-        // URN-S02: guarantee a live notifier before dispatching a real dev turn.
-        // Reachable both directly (`alln loop adopt`) and via `runRelay`'s
-        // early redirect — this is the only place the check runs for adopt.
-        ServeAutoLaunchCLI.reportToStderr(ServeAutoLaunchCLI.ensureRunning(opts))
+        // Attended adopt — not gated by serve health.
 
         let coordinator = LoopDispatch.makeCoordinator(runtime: runtime)
         let emitJSON = opts.flag("json")
@@ -445,7 +441,15 @@ enum LoopEngineCLI {
 
     /// Shared `--no-wait` accept wait: spawn same argv minus `--no-wait`, ack only after
     /// the child writes `DetachedHandoff` accepted/refused.
+    ///
+    /// `--delivery wake` is a deferred obligation the supervised daemon claims —
+    /// refuse loudly via `ServeRequirement` before any handoff write when serve
+    /// is not actively healthy (queue-honesty). Plain `--no-wait` is not gated:
+    /// the detached child runs now and returns its own result.
     private static func awaitDetachedAcceptance(cwd: String, json: Bool, wakeDelivery: Bool) async {
+        if wakeDelivery {
+            requireServeForDeferredObligation(reason: "pmTurnWake")
+        }
         do {
             switch try DetachedDispatch.launchAndAwaitAcceptance(cwd: cwd, arguments: DetachedDispatch.childArguments()) {
             case .accepted(let id, let pid):
@@ -460,6 +464,13 @@ enum LoopEngineCLI {
             }
         } catch {
             AllnighterCLI.fail(code: "INTERNAL_ERROR", message: "could not dispatch background relay: \(error)")
+        }
+    }
+
+    /// Single product refusal for a deferred obligation that only serve will claim.
+    private static func requireServeForDeferredObligation(reason: String) {
+        if case .failure(let refusal) = ServeRequirement().require(reason: reason) {
+            AllnighterCLI.fail(code: refusal.code, message: refusal.message)
         }
     }
 

@@ -676,7 +676,7 @@ struct AllnighterCLI {
         case .refuse(let pid, let version):
             FileHandle.standardError.write(Data(
                 ("alln serve: already running (pid \(pid), \(version), same build) — nothing to do.\n"
-                 + "Stop it with `kill \(pid)` if you want a fresh one.\n").utf8))
+                 + "Use `alln serve restart` for a supervised restart, or `alln serve repair` if health is wrong.\n").utf8))
             exit(0)
         case .supersede(let pid, let version, let sha):
             FileHandle.standardError.write(Data(

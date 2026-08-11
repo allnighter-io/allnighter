@@ -107,6 +107,10 @@ public enum RetiredVocabulary {
         "inspect queue ticket and progressStale",
         "inspect run.json",
         "events.jsonl",
+        // ASR-S04a — detached auto-launch deleted; supervised LaunchAgent only.
+        // These must fail loudly rather than be silently ignored as unknown flags.
+        "--no-auto-serve",
+        "ALLN_NO_AUTO_SERVE",
     ]
 
     /// Underscore tool ids that must never appear as callable ids in agent-visible

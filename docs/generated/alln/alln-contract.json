@@ -661,6 +661,11 @@
           "name" : "json",
           "summary" : "Structured { action, path, target, onPath }.",
           "takesValue" : false
+        },
+        {
+          "name" : "no-serve",
+          "summary" : "Do not enable the background scheduler after install.",
+          "takesValue" : false
         }
       ],
       "menuAction" : false,
@@ -671,7 +676,7 @@
       "name" : "install-cli",
       "outputSchema" : "installCLIJSON",
       "spendsQuota" : false,
-      "summary" : "Symlink the running `alln` binary onto PATH (running the command is consent).",
+      "summary" : "Symlink the running `alln` binary onto PATH (running the command is consent). The background scheduler is enabled by default; opt out with --no-serve.",
       "visibility" : "public"
     },
     {
@@ -3021,11 +3026,6 @@
           "valueType" : "integer"
         },
         {
-          "name" : "no-auto-serve",
-          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
-          "takesValue" : false
-        },
-        {
           "name" : "dry-run",
           "summary" : "Resolve the loop id, founder answer, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state.",
           "takesValue" : false
@@ -3213,11 +3213,6 @@
           "valueType" : "time"
         },
         {
-          "name" : "no-auto-serve",
-          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch (agent-PM path).",
-          "takesValue" : false
-        },
-        {
           "name" : "dry-run",
           "summary" : "Resolve the loop id, requested PM occupant, seats, and readiness; report LoopStartDryRunJSON; exit 0; spend nothing, start no worker, mutate no durable state (no occupant change).",
           "takesValue" : false
@@ -3335,11 +3330,6 @@
           "summary" : "Override the dev seat's per-turn worker idle-stall budget in seconds (default = driver manifest timeout). Reuses PO-F5's `alln run --idle-timeout` plumbing (PO-F7).",
           "takesValue" : true,
           "valueType" : "integer"
-        },
-        {
-          "name" : "no-auto-serve",
-          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
-          "takesValue" : false
         },
         {
           "name" : "no-wait",
@@ -3474,11 +3464,6 @@
           "valueType" : "integer"
         },
         {
-          "name" : "no-auto-serve",
-          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
-          "takesValue" : false
-        },
-        {
           "name" : "no-wait",
           "summary" : "Spawn the same registered `relay-resume` verb in a detached child; return only after the child durably claims with delivery.path=wait and the exact terminal status waiter. A refusal (e.g. RELAY_ROUND_IN_FLIGHT) fails loud.",
           "takesValue" : false
@@ -3553,11 +3538,6 @@
           "summary" : "Hard stop HH:MM (local) for the adopted stretch.",
           "takesValue" : true,
           "valueType" : "time"
-        },
-        {
-          "name" : "no-auto-serve",
-          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
-          "takesValue" : false
         },
         {
           "name" : "no-wait",
@@ -3767,11 +3747,6 @@
           "summary" : "Detached delivery path. Only `wake` is supported and requires machine-level pmTurnWake.command.",
           "takesValue" : true,
           "valueType" : "string"
-        },
-        {
-          "name" : "no-auto-serve",
-          "summary" : "Do not auto-start the background notifier (alln serve) for this dispatch.",
-          "takesValue" : false
         },
         {
           "name" : "json",
@@ -4398,7 +4373,7 @@
       "name" : "serve",
       "outputSchema" : "coordinatorHealth",
       "spendsQuota" : false,
-      "summary" : "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Start it in a terminal; Ctrl+C stops it. `alln loop step`\/`start`\/`resume`\/`pm` auto-start it in the background unless `--no-auto-serve`\/`ALLN_NO_AUTO_SERVE` is set.",
+      "summary" : "Optional background scheduler (Pending wake, Boost seeding, vendor-backoff continuation, cloud relay) — and posts local notifications when a run, team run, or Delivery Loop round lands or needs an answer. It owns no run semantics: `alln run` never needs it. Continuity is the supervised LaunchAgent (`alln serve enable` \/ install default); ordinary commands never spawn a detached substitute. Start it in a terminal for diagnostics; Ctrl+C stops a foreground instance.",
       "visibility" : "public"
     },
     {
@@ -7456,6 +7431,42 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "utilization.billing.prompt"
+    },
+    {
+      "agentAction" : "Open System Settings > General > Login Items & Extensions and enable com.allnighter.resident-coordinator, then run `alln serve enable`.",
+      "code" : "SERVE_REQUIRES_APPROVAL",
+      "exitClass" : "operational",
+      "explain" : "The background scheduler LaunchAgent requires user approval in Login Items. Allnighter never bypasses this.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "serve.requires.approval"
+    },
+    {
+      "agentAction" : "SMAppService returned an unrecognized status. Run `alln serve enable` to attempt manual enable; if the macOS version is newer than expected, this may require an Allnighter update.",
+      "code" : "SERVE_SERVICE_STATUS_UNKNOWN",
+      "exitClass" : "operational",
+      "explain" : "SMAppService.statusForLegacyPlist returned a raw status not known to this build. The authorization posture cannot be determined, so serve is not bootstrapped. Fail-closed per the fail-closed inference ban.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "serve.service_status.unknown"
+    },
+    {
+      "agentAction" : "Run `alln serve repair` (or `alln serve enable` if desired state is disabled), then retry the deferred-obligation write.",
+      "code" : "SERVE_UNAVAILABLE",
+      "exitClass" : "operational",
+      "explain" : "The supervised background scheduler is not actively healthy (active handshake failed or service not running). A deferred obligation was not written; attended work is unaffected.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "serve.unavailable"
+    },
+    {
+      "agentAction" : "The user explicitly disabled serve. Re-enable with `alln serve enable` if desired.",
+      "code" : "SERVE_DISABLED_BY_USER",
+      "exitClass" : "operational",
+      "explain" : "The background scheduler was explicitly disabled by the user. A later install or update will not re-enable it.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "serve.disabled.by_user"
     }
   ],
   "events" : [

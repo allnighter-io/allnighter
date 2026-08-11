@@ -385,7 +385,7 @@ enum LoopCLI {
             )
         }
 
-        // LOOP-TWIN: free twin — no coordinator, no ServeAutoLaunch, no durable writes.
+        // LOOP-TWIN: free twin — no coordinator, no durable writes.
         if opts.flag("dry-run") {
             let payload = await dryRunStep(
                 loopId: loopId,
@@ -567,7 +567,7 @@ enum LoopCLI {
         let loopId = opts.positional[0]
         let occupant = opts.positional[1]
 
-        // LOOP-TWIN: free twin — no adopt, no ServeAutoLaunch, no durable writes.
+        // LOOP-TWIN: free twin — no adopt, no durable writes.
         if opts.flag("dry-run") {
             let payload = await dryRunPm(
                 loopId: loopId,

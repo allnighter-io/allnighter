@@ -244,7 +244,7 @@ extension DetachedDispatch {
         .init(path: "wake")
     }
 
-    /// Validates Path C before any detached process or auto-serve launch occurs.
+    /// Validates Path C before any detached process is launched.
     /// Returns true only for the one supported delivery value (`wake`).
     static func validateWakeDelivery(_ opts: Options) -> Bool {
         let raw = opts.value("delivery") ?? (opts.flag("delivery") ? "" : nil)

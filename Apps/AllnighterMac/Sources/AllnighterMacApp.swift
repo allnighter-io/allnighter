@@ -13,12 +13,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
     }
 
-    /// CWB-S01b: NSWorkspace wake → resident `.wake` trigger. Retained for the
-    /// app's lifetime; the process exit removes it.
-    private var capacityWakeObserver: NSObjectProtocol?
-
     /// CWB-S02: read-only `capacity.sock` server. Bound at launch while the
     /// app runs (ON or OFF — OFF answers `disabled`); unlinked on quit.
+    /// Periodic capacity refresh and wake ownership live in `alln serve`
+    /// (`CapacityRefreshScheduler`); the Dock app does not host them (ASR-S04a).
     private var capacitySocketServer: CapacitySocketServer?
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -79,7 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard !Self.isTesting else { return }   // stay accessory under XCTest
         // Circuit breaker: `…/Allnighter.app/…/Allnighter serve` must never become
         // another Dock app (2026-08-10 mac-serve-fork-bomb). Serve is CLI-only.
-        if ServeAutoLaunch.isServeArgv() {
+        if Self.isServeArgv() {
             FileHandle.standardError.write(Data(
                 "Allnighter.app cannot run `serve`; use the `alln` CLI binary.\n".utf8
             ))
@@ -106,23 +104,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // ONB-S02b: keep Application Support/Recipes in sync with the bundled cards
         // so Finder / agents find them without opening Settings.
         RecipeInstallMirror.sync()
-        // CWB-S01b: capacity feature — apply persisted ON/OFF. ON re-arms the
-        // 30m deadline scheduler without an immediate vendor-CLI wave (Launch
-        // Authority TCC: cold launch is process-quiet). OFF means zero probes
-        // and a disabled snapshot. Wake remains the other always-wired trigger.
-        //
-        // Do NOT ServeAutoLaunch `alln serve` from the Dock app here: a Process
-        // child inherits Allnighter's TCC identity, so serve-hosted capacity
-        // probes paint Documents/Downloads/network dialogs as "Allnighter" on
-        // first open. Demand heal stays on `alln run` / Loop; continuity across
-        // logout is ServeLifecycle LaunchAgent (explicit enable), not app spawn.
+        // ASR-S04a / §2.4: the Dock app does not own periodic capacity/probe
+        // scheduling or a wake observer. Serve (`CapacityRefreshScheduler` /
+        // `ProbeRecordRefreshScheduler`) owns that. The app keeps: durable
+        // history paint, explicit user refresh, and a read-only status socket.
         let capacityEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
-        Task { await CapacityResidentService.shared.setEnabled(capacityEnabled) }
-        capacityWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didWakeNotification, object: nil, queue: nil
-        ) { _ in
-            Task { await CapacityResidentService.shared.notifyWake() }
-        }
         // CWB-S02: bind the read-only capacity.sock fast path. Serving is a
         // pure read of the resident's last published answer — the socket never
         // starts an acquire. OFF answers `disabled` (never a stale snapshot);
@@ -153,6 +139,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             ))
         }
         #endif
+    }
+
+    /// True when argv is a detached `serve` invocation. The Dock app must never
+    /// honor this — it is not the CLI and must not demand-heal-spawn itself.
+    static func isServeArgv(_ arguments: [String] = CommandLine.arguments) -> Bool {
+        Array(arguments.dropFirst()).first == "serve"
     }
 
     /// Build a standard AppKit main menu (App · Edit · Window). The Edit items use the

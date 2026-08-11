@@ -76,10 +76,10 @@ final class RunNoWaitTests: HermeticSupportTestCase {
     }
 
     func testChildArgumentsStripsOnlyNoWait() {
-        let parentArgv = ["run", "fix the bug", "--project", ".", "--no-wait", "--json", "--no-auto-serve"]
+        let parentArgv = ["run", "fix the bug", "--project", ".", "--no-wait", "--json", "--read-only"]
         XCTAssertEqual(
             DetachedDispatch.childArguments(from: parentArgv),
-            ["run", "fix the bug", "--project", ".", "--json", "--no-auto-serve"]
+            ["run", "fix the bug", "--project", ".", "--json", "--read-only"]
         )
     }
 

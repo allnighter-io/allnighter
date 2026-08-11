@@ -97,11 +97,11 @@ final class DetachedDispatchTests: XCTestCase {
         XCTAssertEqual(DetachedDispatch.childArguments(from: argv), argv)
     }
 
-    func testChildArgumentsPreservesNoAutoServe() {
-        let argv = ["pair", "relay-resume", "--relay", "relay_1", "--answer", "go", "--no-wait", "--no-auto-serve"]
+    func testChildArgumentsPreservesOtherFlagsWhileStrippingNoWait() {
+        let argv = ["pair", "relay-resume", "--relay", "relay_1", "--answer", "go", "--no-wait", "--json"]
         XCTAssertEqual(
             DetachedDispatch.childArguments(from: argv),
-            ["pair", "relay-resume", "--relay", "relay_1", "--answer", "go", "--no-auto-serve"]
+            ["pair", "relay-resume", "--relay", "relay_1", "--answer", "go", "--json"]
         )
     }
 

@@ -71,8 +71,8 @@ final class RSCHostileDetachedTests: XCTestCase {
         }
     }
 
-    /// `childArguments` strips only `--no-wait`; `--no-auto-serve` must reach the child argv.
-    func testChildProcessReceivesNoAutoServeAfterChildArguments() throws {
+    /// `childArguments` strips only `--no-wait`; sibling flags must reach the child argv.
+    func testChildProcessReceivesPreservedFlagsAfterChildArguments() throws {
         let marker = tmp.appendingPathComponent("argv-marker.txt")
         let script = tmp.appendingPathComponent("argv-probe.sh")
         let scriptBody = """
@@ -86,10 +86,10 @@ final class RSCHostileDetachedTests: XCTestCase {
 
         let parentArgv = [
             "pair", "relay-resume", "--relay", "relay_1", "--answer", "go",
-            "--no-wait", "--no-auto-serve", "--json"
+            "--no-wait", "--json"
         ]
         let childArgv = DetachedDispatch.childArguments(from: parentArgv)
-        XCTAssertTrue(childArgv.contains("--no-auto-serve"))
+        XCTAssertTrue(childArgv.contains("--json"))
         XCTAssertFalse(childArgv.contains("--no-wait"))
 
         let acceptance = try DetachedDispatch.launchAndAwaitAcceptance(
@@ -102,7 +102,7 @@ final class RSCHostileDetachedTests: XCTestCase {
             return XCTFail("expected accepted, got \(acceptance)")
         }
         let recorded = try String(contentsOf: marker, encoding: .utf8)
-        XCTAssertTrue(recorded.contains("--no-auto-serve"), "child argv must preserve --no-auto-serve: \(recorded)")
+        XCTAssertTrue(recorded.contains("--json"), "child argv must preserve --json: \(recorded)")
         XCTAssertFalse(recorded.contains("--no-wait"), "child argv must not contain --no-wait: \(recorded)")
     }
 
