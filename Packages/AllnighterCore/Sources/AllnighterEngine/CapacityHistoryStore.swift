@@ -164,10 +164,6 @@ public struct CapacityHistoryStore: Sendable {
     /// without a used-% or `resetAt` (identity requires a reset boundary).
     /// Never acquires capacity — caller supplies what is already known.
     public func record(_ windows: [CapacityWindow], now: Date) throws {
-        // `now` is part of the no-clock-reads contract; observation times come
-        // from each window. Reserved for future retention policy.
-        _ = now
-
         let recordable = windows.compactMap(Self.seed(from:))
         guard !recordable.isEmpty else { return }
 
@@ -175,9 +171,9 @@ public struct CapacityHistoryStore: Sendable {
         for (sourceId, seeds) in bySource {
             try mergeAndWrite(sourceId: sourceId, seeds: seeds)
         }
-        // CAP-S07: record never writes derived freshness stamps — only per-source
-        // window files. Serve refresh owns `_newest_success.json` via
-        // `CapacityRefreshScheduler`.
+        // CRS-S05: derived stamp from stored windows only — no acquisition.
+        // Serve may also refresh via `CapacityRefreshScheduler.rebuildStampIfNeeded`.
+        try refreshNewestSuccessStamp(now: now)
     }
 
     // MARK: - CRS-S05 Newest-success stamp (O(1) serve freshness)

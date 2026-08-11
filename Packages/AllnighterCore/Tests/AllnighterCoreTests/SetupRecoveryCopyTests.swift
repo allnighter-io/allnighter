@@ -339,7 +339,12 @@ final class SetupRecoveryCopyTests: XCTestCase {
         )
         let row = try XCTUnwrap(list.drivers.first)
         XCTAssertEqual(row.status, "notReady")
-        XCTAssertTrue(row.probeDetail?.contains("kimi login") == true, row.probeDetail ?? "")
+        // Driver list keeps probeDetail short for the 25 KiB menu budget; the
+        // runnable login command lives on freshness.nextAction (see DriverListProjector).
+        XCTAssertEqual(
+            row.probeDetail,
+            "Installed but signed out — sign in to use its models."
+        )
         XCTAssertEqual(row.freshness.nextAction.command, "kimi login")
     }
 }

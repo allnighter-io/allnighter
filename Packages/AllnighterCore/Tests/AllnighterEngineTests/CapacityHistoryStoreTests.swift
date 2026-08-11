@@ -486,8 +486,9 @@ final class CapacityHistoryStoreTests: XCTestCase {
         )
         let names = Set(storeFiles.map(\.lastPathComponent))
         XCTAssertTrue(names.contains("codex.json"))
+        XCTAssertTrue(names.contains("_newest_success.json"))
         XCTAssertTrue(names.contains("canary-home"))
-        XCTAssertEqual(names.count, 2, "record must not create vendor-side artifacts outside store files")
+        XCTAssertEqual(names.count, 3, "record may write store files only — never vendor-side artifacts")
 
         let canaryAttrsAfter = try FileManager.default.attributesOfItem(atPath: canaryRollout.path)
         let canaryMtimeAfter = canaryAttrsAfter[.modificationDate] as? Date
