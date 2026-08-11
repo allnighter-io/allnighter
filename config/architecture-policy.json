@@ -90,6 +90,17 @@
     }
   ],
   "forbiddenServeProcessPattern": "alln serve",
+  "serveSpawnContextPatterns": [
+    "Process\\(",
+    "\\.executableURL",
+    "\\.arguments\\s*=",
+    "posix_spawn",
+    "execv",
+    "execve",
+    "/bin/sh",
+    "/bin/bash",
+    "launchPath"
+  ],
   "serveSpawnAllowedFiles": [
     "Packages/AllnighterCore/Sources/AllnighterEngine/ServeLifecycle.swift"
   ]

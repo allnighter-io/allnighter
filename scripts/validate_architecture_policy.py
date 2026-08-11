@@ -20,6 +20,7 @@ REQUIRED_KEYS = {
     "residentProductionLineCeiling", "residentCloseoutLineBudget", "founderOwnedPaths",
     "forbiddenProductionFiles",
     "scopedForbiddenPatterns", "forbiddenServeProcessPattern", "serveSpawnAllowedFiles",
+    "serveSpawnContextPatterns",
 }
 
 
@@ -31,9 +32,8 @@ def fail(message: str) -> None:
     raise PolicyViolation(message)
 
 
-def strip_swift_comments(text: str) -> str:
+def strip_swift_line_and_block_comments(text: str) -> str:
     text = re.sub(r"/\*.*?\*/", " ", text, flags=re.DOTALL)
-    text = re.sub(r'"(?:\\.|[^"\\])*"', ' "" ', text)
     lines = []
     for line in text.split("\n"):
         idx = line.find("//")
@@ -41,6 +41,56 @@ def strip_swift_comments(text: str) -> str:
             line = line[:idx]
         lines.append(line)
     return "\n".join(lines)
+
+
+def strip_swift_literals(text: str) -> str:
+    text = strip_swift_line_and_block_comments(text)
+    text = re.sub(r'"""(?:\\.|[^"\\]|"(?!""))*"""', ' "" ', text, flags=re.DOTALL)
+    text = re.sub(r'"(?:\\.|[^"\\])*"', ' "" ', text)
+    return text
+
+
+def strip_swift_comments(text: str) -> str:
+    return strip_swift_literals(text)
+
+
+def serve_target_pattern(serve_pattern: str) -> str:
+    parts = [re.escape(part) for part in serve_pattern.split()]
+    if len(parts) == 2:
+        joined = r"\s+".join(parts)
+        return (
+            rf"(?:{joined}|{parts[0]}\"\s*,\s*\"{parts[1]}\"|"
+            rf"\"{parts[0]}\s+{parts[1]}\")"
+        )
+    return re.escape(serve_pattern)
+
+
+def serve_spawn_patterns(serve_pattern: str, context_patterns: list[str]) -> list[str]:
+    serve_target = serve_target_pattern(serve_pattern)
+    window = 900
+    patterns = [
+        rf"Process\s*\(\)[\s\S]{{0,{window}}}?\.arguments\s*=\s*\[[^\]]*{serve_target}",
+        rf"Process\s*\(\)[\s\S]{{0,{window}}}?{serve_target}[\s\S]{{0,{window}}}?\.arguments\s*=",
+        rf"\.executableURL[\s\S]{{0,600}}?{serve_target}",
+        (
+            rf"\.executableURL[\s\S]{{0,600}}?alln[\s\S]{{0,400}}?"
+            rf"\.arguments\s*=\s*\[[^\]]*\"serve\""
+        ),
+        rf"(?:posix_spawn|execv(?:e)?)\s*\([\s\S]{{0,700}}?{serve_target}",
+        rf"(?:/bin/sh|/bin/bash|launchPath\s*=)[\s\S]{{0,700}}?{serve_target}",
+    ]
+    for indicator in context_patterns:
+        patterns.append(rf"{indicator}[\s\S]{{0,{window}}}?{serve_target}")
+        patterns.append(rf"{serve_target}[\s\S]{{0,{window}}}?{indicator}")
+    return patterns
+
+
+def has_forbidden_serve_spawn(text: str, serve_pattern: str, context_patterns: list[str]) -> bool:
+    code = strip_swift_line_and_block_comments(text)
+    for pattern in serve_spawn_patterns(serve_pattern, context_patterns):
+        if re.search(pattern, code, re.DOTALL | re.IGNORECASE):
+            return True
+    return False
 
 
 def load_policy(path: pathlib.Path) -> dict:
@@ -113,13 +163,14 @@ def validate(root: pathlib.Path, policy_path: pathlib.Path) -> None:
     serve_pattern = policy.get("forbiddenServeProcessPattern")
     if serve_pattern:
         allowed_paths = {root / name for name in policy.get("serveSpawnAllowedFiles", [])}
+        context_patterns = policy.get("serveSpawnContextPatterns", [])
         for path in scan_files:
             if path.suffix != ".swift":
                 continue
             if path in allowed_paths:
                 continue
-            stripped = strip_swift_comments(path.read_text(errors="ignore"))
-            if serve_pattern in stripped:
+            source = path.read_text(errors="ignore")
+            if has_forbidden_serve_spawn(source, serve_pattern, context_patterns):
                 fail(f"forbidden serve spawn pattern {serve_pattern!r} in {path.relative_to(root)}")
 
     # CR-S06 deleted the resident execution control plane outright, so the
@@ -186,11 +237,62 @@ def validate(root: pathlib.Path, policy_path: pathlib.Path) -> None:
         fail("closeout LOC target cannot exceed the current phase ceiling")
 
 
+SERVE_SPAWN_VIOLATION_FIXTURE = """\
+private func rogueServeSpawn() {
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/local/bin/alln")
+    process.arguments = ["serve"]
+}
+"""
+
+SERVE_MENTION_FIXTURE = """\
+private func serveUsageHelp() {
+    print("usage: alln serve [--health --json] | alln serve status [--json]")
+    let body = \"\"\"
+    check `alln serve status --json` and run `alln serve repair`
+    \"\"\"
+}
+"""
+
+
+def run_serve_spawn_self_test(policy_path: pathlib.Path) -> None:
+    policy = load_policy(policy_path)
+    serve_pattern = policy["forbiddenServeProcessPattern"]
+    context_patterns = policy["serveSpawnContextPatterns"]
+
+    if not has_forbidden_serve_spawn(SERVE_SPAWN_VIOLATION_FIXTURE, serve_pattern, context_patterns):
+        fail("self-test accepted violating fixture: serve-spawn-violation")
+
+    if has_forbidden_serve_spawn(SERVE_MENTION_FIXTURE, serve_pattern, context_patterns):
+        fail("self-test rejected legitimate fixture: serve-spawn-mention")
+
+    print("architecture-policy: serve-spawn seeded failure caught (Process + arguments -> serve)")
+    print("architecture-policy: serve-spawn help/usage mention passes")
+
+
 def main() -> int:
+    repo_root = pathlib.Path(__file__).resolve().parent.parent
+    default_policy = repo_root / "config" / "architecture-policy.json"
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--root", type=pathlib.Path, required=True)
-    parser.add_argument("--policy", type=pathlib.Path, required=True)
+    parser.add_argument("--self-test", action="store_true", help="prove serve-spawn rule catches spawns, not mentions")
+    parser.add_argument("--root", type=pathlib.Path)
+    parser.add_argument("--policy", type=pathlib.Path)
     args = parser.parse_args()
+
+    run_fixture_proof = args.self_test or len(sys.argv) == 1
+    if run_fixture_proof:
+        try:
+            run_serve_spawn_self_test((args.policy or default_policy).resolve())
+        except PolicyViolation as error:
+            print(f"architecture-policy: {error}", file=sys.stderr)
+            return 1
+        if args.root is None:
+            return 0
+
+    if args.root is None or args.policy is None:
+        parser.error("--root and --policy are required for repository validation")
+
     try:
         validate(args.root.resolve(), args.policy.resolve())
     except PolicyViolation as error:
