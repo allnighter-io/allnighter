@@ -1038,6 +1038,38 @@ any investigation available today.
 **Closeout requirement:** this packet is archived stating the root cause was
 never identified. It must not be archived implying the incident is fixed.
 
+**2026-08-11 update — one mechanism found and fixed, R1 still open.**
+
+A defect was found that produces R1's exact observable state (LaunchAgent not
+loaded, no process, no explanation): running any `alln` serve lifecycle command
+with an overridden `HOME` booted out the **real** user's agent, removed the real
+plist, and wrote `disabled` to the real durable desired-state file, while the
+temp home received nothing. Because a disable persists by design (§2.2, gate 8),
+it did not self-heal. Record:
+[`2026-08-11-home-override-kills-real-serve.md`](../qa/alln-serve/2026-08-11-home-override-kills-real-serve.md);
+fixed by ASR-S06i (`3d6a0187`, `SERVE_FOREIGN_HOME`), verified on the host.
+
+This is **not** a diagnosis of the 2026-08-09 or 2026-08-11 incidents. Neither
+recorded the environment of the process that ran before it, so the link cannot be
+confirmed. What can be said: one way to produce that state existed, was tripped
+twice by accident in a single session, and no longer works.
+
+A **third** unexplained event also occurred on 2026-08-11 — desired state found
+`disabled` at 21:02:47Z during delegated work, with a controlled re-test of the
+obvious cause failing to reproduce it. Unattributed, recorded as such.
+
+**Founder ruling 2026-08-11:** an unattributed *crash* is acceptable provided
+serve recovers, which gates 3 and 11 prove it does. That ruling does **not**
+cover the disable class: a disable persists by design and never self-recovers, so
+robustness cannot compensate for it. R1's remaining risk is therefore narrower
+than when it was written — it is about silent *disables* and unexplained
+*unloads*, not about crashes.
+
+**Re-homing (needs a named owner):** R1 cannot be resolved by this packet. It
+should move to a standing investigation with the two historical incident packets
+and the new record, and the archive note must say the root cause was never
+identified. Naming that owner is a founder decision this packet does not make.
+
 **Gate 9 measured 2026-08-11 — 3/3 clean, R1 still open.** Three consecutive
 `rebuild_cli.sh` → `install-cli` cycles produced four distinct ad-hoc cdhashes
 under one registration with zero LWCR/exit-78 entries, one agent and one daemon
