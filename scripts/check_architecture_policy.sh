@@ -70,13 +70,9 @@ assert_fails() {
     forbidden-living)
       printf 'ProjectMirror\n' >> "$fixture/docs/phases/guide.md" ;;
     resident-operation)
-      # CR-S06 deleted the control plane, so this rule inverts: declaring the
-      # operation union at its old path must be red.
       printf 'public enum ResidentExecutionOperation {\n    case rogue(String)\n}\n' \
         > "$fixture/Packages/AllnighterCore/Sources/AllnighterCore/ResidentExecution.swift" ;;
     resident-operation-renamed)
-      # …and so must declaring it anywhere else, under any prefix. A rename is
-      # how this would actually come back.
       printf 'public enum SneakyResidentExecutionOperation {\n    case rogue(String)\n}\n' \
         > "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/Sneaky.swift" ;;
     resident-file-returned)
@@ -89,9 +85,6 @@ assert_fails() {
     founder-path)
       rm "$fixture/docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md" ;;
     phase-loc)
-      # The declared resident file set is now empty, so the ceiling can only be
-      # violated by a policy that readmits a file. Prove the LOC rule still
-      # bites on the policy the validator actually reads.
       python3 - "$fixture" <<'PY'
 import json, pathlib, sys
 root = pathlib.Path(sys.argv[1])
@@ -109,16 +102,48 @@ PY
       printf 'let service = RunService(\n)\nawait service.run(request)\nResidentExecutionOperation\n' > "$fixture/Packages/AllnighterCore/Sources/AllnighterCLI/RunCLI.swift" ;;
     alternate-root-field)
       sed -i '' 's/public struct RunRequest { var repoRoot: String }/public struct RunRequest { var repoRoot: String; var projectMirrorRoot: String }/' "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
+    app-serve-lifecycle-violation)
+      printf 'let s = ServeLifecycle()\n' > "$fixture/Apps/AllnighterMac/Sources/AppViolation.swift" ;;
+    app-scheduling-violation)
+      printf 'let s = CapacityRefreshScheduler()\n' > "$fixture/Apps/AllnighterMac/Sources/AppViolation.swift" ;;
+    serve-spawn-violation)
+      printf 'alln serve\n' >> "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
   esac
   if python3 "$VALIDATOR" --root "$fixture" --policy "$fixture/config/architecture-policy.json" >/dev/null 2>&1; then
     fail "self-test accepted violating fixture: $name"
   fi
 }
 
+assert_passes() {
+  local name="$1"
+  local fixture="$tmp/$name"
+  write_fixture "$fixture"
+  case "$name" in
+    app-serve-lifecycle-legitimate)
+      printf '// ServeLifecycle is mentioned in a comment\n' > "$fixture/Apps/AllnighterMac/Sources/AppLegitimate.swift" ;;
+    app-scheduling-legitimate)
+      printf '/// docs: CapacityRefreshScheduler owns the refresh tick\n' > "$fixture/Apps/AllnighterMac/Sources/AppLegitimate.swift" ;;
+    serve-spawn-legitimate)
+      printf '// alln serve spawn only from lifecycle\n' >> "$fixture/Packages/AllnighterCore/Sources/AllnighterEngine/RunService.swift" ;;
+  esac
+  if ! python3 "$VALIDATOR" --root "$fixture" --policy "$fixture/config/architecture-policy.json" >/dev/null 2>&1; then
+    fail "self-test rejected legitimate fixture: $name"
+  fi
+}
+
 valid="$tmp/valid"
 write_fixture "$valid"
 python3 "$VALIDATOR" --root "$valid" --policy "$valid/config/architecture-policy.json" >/dev/null
+
 for category in forbidden-production forbidden-living resident-operation resident-operation-renamed resident-file-returned run-owner-count canonical-root founder-path phase-loc adapter-missing-direct-run adapter-resident-operation alternate-root-field; do
+  assert_fails "$category"
+done
+
+for category in app-serve-lifecycle-legitimate app-scheduling-legitimate serve-spawn-legitimate; do
+  assert_passes "$category"
+done
+
+for category in app-serve-lifecycle-violation app-scheduling-violation serve-spawn-violation; do
   assert_fails "$category"
 done
 

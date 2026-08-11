@@ -19,6 +19,7 @@ REQUIRED_KEYS = {
     "directAdapterFile", "canonicalRootField", "residentProductionFiles",
     "residentProductionLineCeiling", "residentCloseoutLineBudget", "founderOwnedPaths",
     "forbiddenProductionFiles",
+    "scopedForbiddenPatterns", "forbiddenServeProcessPattern", "serveSpawnAllowedFiles",
 }
 
 
@@ -28,6 +29,18 @@ class PolicyViolation(Exception):
 
 def fail(message: str) -> None:
     raise PolicyViolation(message)
+
+
+def strip_swift_comments(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", " ", text, flags=re.DOTALL)
+    text = re.sub(r'"(?:\\.|[^"\\])*"', ' "" ', text)
+    lines = []
+    for line in text.split("\n"):
+        idx = line.find("//")
+        if idx >= 0:
+            line = line[:idx]
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def load_policy(path: pathlib.Path) -> dict:
@@ -40,7 +53,7 @@ def load_policy(path: pathlib.Path) -> dict:
         fail(f"policy is missing declared rules: {', '.join(missing)}")
     if policy["version"] != 1:
         fail("unsupported policy version")
-    for key in REQUIRED_KEYS - {"version", "residentProductionLineCeiling", "residentCloseoutLineBudget", "runSemanticsOwner", "runSemanticsOwnerFile", "directAdapterFile", "canonicalRootField"}:
+    for key in REQUIRED_KEYS - {"version", "residentProductionLineCeiling", "residentCloseoutLineBudget", "runSemanticsOwner", "runSemanticsOwnerFile", "directAdapterFile", "canonicalRootField", "forbiddenServeProcessPattern"}:
         if not isinstance(policy[key], list):
             fail(f"policy rule {key} must be a list")
     return policy
@@ -82,6 +95,32 @@ def validate(root: pathlib.Path, policy_path: pathlib.Path) -> None:
         for path in scan_files:
             if term in path.read_text(errors="ignore"):
                 fail(f"forbidden term {term!r} found in {path.relative_to(root)}")
+
+    for pattern_spec in policy.get("scopedForbiddenPatterns", []):
+        scope_root = root / pattern_spec["scope"]
+        if not scope_root.is_dir():
+            continue
+        scope_files = [p for p in scope_root.rglob("*") if p.is_file()]
+        exc_root = [root / name for name in policy["excludedPaths"]]
+        for path in scope_files:
+            if any(path == ex or ex in path.parents for ex in exc_root):
+                continue
+            stripped = strip_swift_comments(path.read_text(errors="ignore"))
+            for term in pattern_spec["forbidden"]:
+                if term in stripped:
+                    fail(f"forbidden term {term!r} in scope {pattern_spec['scope']!r} found in {path.relative_to(root)} [{pattern_spec['label']}]")
+
+    serve_pattern = policy.get("forbiddenServeProcessPattern")
+    if serve_pattern:
+        allowed_paths = {root / name for name in policy.get("serveSpawnAllowedFiles", [])}
+        for path in scan_files:
+            if path.suffix != ".swift":
+                continue
+            if path in allowed_paths:
+                continue
+            stripped = strip_swift_comments(path.read_text(errors="ignore"))
+            if serve_pattern in stripped:
+                fail(f"forbidden serve spawn pattern {serve_pattern!r} in {path.relative_to(root)}")
 
     # CR-S06 deleted the resident execution control plane outright, so the
     # operation rule inverts: instead of pinning an allowed set, the gate now

@@ -2,7 +2,8 @@
   "version": 1,
   "productionPaths": [
     "Packages/AllnighterCore/Sources",
-    "scripts"
+    "scripts",
+    "Apps/AllnighterMac/Sources"
   ],
   "livingTeachingPaths": [
     "AGENTS.md",
@@ -75,5 +76,21 @@
     "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorInstall.swift",
     "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentCoordinatorRestart.swift",
     "Packages/AllnighterCore/Sources/AllnighterEngine/ResidentDoctorService.swift"
+  ],
+  "scopedForbiddenPatterns": [
+    {
+      "scope": "Apps/AllnighterMac/Sources",
+      "forbidden": ["ServeLifecycle", "ServeInstallation", "launchctl", "SMAppService", "alln serve"],
+      "label": "app-serve-lifecycle"
+    },
+    {
+      "scope": "Apps/AllnighterMac/Sources",
+      "forbidden": ["CapacityRefreshScheduler", "ProbeRecordRefreshScheduler"],
+      "label": "app-scheduling"
+    }
+  ],
+  "forbiddenServeProcessPattern": "alln serve",
+  "serveSpawnAllowedFiles": [
+    "Packages/AllnighterCore/Sources/AllnighterEngine/ServeLifecycle.swift"
   ]
 }
