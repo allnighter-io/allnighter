@@ -138,6 +138,9 @@ public enum Bootstrap {
         if let sameVendor = host.sameVendorNote {
             lines.append(sameVendor)
         }
+        lines.append(
+            "- Deferred work (pending wake, loop wakes, notifications, capacity refresh) needs `alln serve`; check `alln serve status --json`; `alln help get serve` explains it."
+        )
         lines.append(TeachingSnippet.wrap())
         return lines.joined(separator: "\n")
     }

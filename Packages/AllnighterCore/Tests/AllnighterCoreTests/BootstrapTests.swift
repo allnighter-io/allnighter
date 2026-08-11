@@ -162,11 +162,25 @@ final class BootstrapTests: XCTestCase {
     func testSnippetStaysWithinLineBudget() {
         let onPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(onPathLines.count, 10, "on-path snippet grew past ≤10 budget")
+        XCTAssertLessThanOrEqual(onPathLines.count, 11, "on-path snippet grew past ≤11 budget")
 
         let offPathLines = Bootstrap.snippet(binaryPath: sampleBinary, onPath: false)
             .split(separator: "\n", omittingEmptySubsequences: false)
-        XCTAssertLessThanOrEqual(offPathLines.count, 11, "off-path snippet grew past ≤11 budget")
+        XCTAssertLessThanOrEqual(offPathLines.count, 12, "off-path snippet grew past ≤12 budget")
+    }
+
+    func testEveryHostSnippetMentionsServeOnce() {
+        let serveLine =
+            "- Deferred work (pending wake, loop wakes, notifications, capacity refresh) needs `alln serve`; check `alln serve status --json`; `alln help get serve` explains it."
+        for host in Bootstrap.Host.allCases {
+            let s = Bootstrap.snippet(binaryPath: sampleBinary, onPath: true, host: host)
+            XCTAssertEqual(
+                s.components(separatedBy: serveLine).count - 1,
+                1,
+                "\(host.rawValue) must carry the serve line exactly once"
+            )
+            XCTAssertFalse(s.contains("`alln run`"), "\(host.rawValue) must not imply run needs serve")
+        }
     }
 
     func testSnippetIsSharedSSOTWithHelpService() {
