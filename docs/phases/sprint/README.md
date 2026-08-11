@@ -77,6 +77,8 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S03b | [`alln-serve/ASR-S03b-wake-safe-park-wake.md`](alln-serve/ASR-S03b-wake-safe-park-wake.md) | **done** — `3799cdd0` (9 tests) + [deadline inventory](../../qa/alln-serve/ASR-S03b-deadline-inventory.md) |
 | ASR-S03c | [`alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md`](alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md) | **done** — `4edd61be` (37 tests); zero scheduler files edited |
 
+| ASR-S03d | [`alln-serve/ASR-S03d-active-health-handshake.md`](alln-serve/ASR-S03d-active-health-handshake.md) | **ready** — kills the `pid -> listening` lie |
+
 **Slice sizing (founder 2026-08-10):** S03c carried four deliverables and ran
 ~13 min with no visible progress, which reads as hung. Cap a routed order at
 ~2 deliverables; a failing-first test counts as one. The rest of ASR-S03 is
