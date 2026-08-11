@@ -89,6 +89,12 @@ pmset -g log | grep -iE "Entering Sleep|Wake from"   # prove the deadline fell i
 ## Signature
 
 Recorded by the PM agent; sleep/wake performed by the founder at the machine.
-Per §8 the founder is the signer.
+Per §8 the founder is the signer. No PM-executed caveat applies: the sleep and
+wake the gate tests were the founder's, and `pmset` corroborates both
+independently of anything the agent did.
 
-**Signed:** _pending founder countersignature._
+**Signed: founder, 2026-08-11.**
+
+This closes §10.1 **R2**'s "only proof that counts" — a real sleep past a real
+deadline. R2's design concern (every scheduler is a `Task.sleep` poll) is
+answered for this case by measurement, not by a fake-clock test.

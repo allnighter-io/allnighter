@@ -943,10 +943,14 @@ Dock app, reboot, `kickstart`, or agent intervention.
   launchd and health still name the staged path until ASR-S02.
 - [ ] No exit path produces a KeepAlive respawn loop; stand-down is visible in
   status rather than silent.
-- [ ] A due obligation survives system sleep and fires within 2 minutes of wake.
+- [x] A due obligation survives system sleep and fires within 2 minutes of wake.
+  — **done 2026-08-11**, gate 10 founder-signed; measured +54 s and +87 s after a
+  real wake, with `nextWakeAt` rescheduled forward (§10.1 R2).
 - [ ] Kill, update, rollback, disable, logout/login, sleep, and the founder's
   three-cycle rebuild loop host proofs pass and are signed under
-  `docs/qa/alln-serve/`.
+  `docs/qa/alln-serve/`. — **logout/login, disable and sleep signed 2026-08-11**
+  (gates 7, 8, 10); three-cycle rebuild countersigned but PM-executed (gate 9);
+  **kill, update and rollback still unrun** (§8 host matrix 3, 4).
 - [ ] Status fails closed on authorization, launchd, daemon, binary, or required
   scheduler mismatch and returns a working recovery command.
 - [ ] Scheduler-dependent commands never leave new background obligations when
@@ -998,7 +1002,23 @@ evidence for an unidentified fault, not a confirmed fix. A **second** unexplaine
 launchd event occurred the same day (job unloaded, orphaned daemon at PPID 1);
 there are now two unexplained events, not one.
 
-### R2 — sleep/wake is the least-designed obligation in the packet
+### R2 — sleep/wake is the least-designed obligation in the packet — **ANSWERED 2026-08-11, founder-signed**
+
+**Gate 10 passed on a real sleep.** `capacityRefresh` (due 16:04:44Z) and
+`probeRecordRefresh` (due 16:04:36Z) both fell strictly inside a genuine system
+sleep (`pmset`: slept 16:02:00Z, woke 16:12:27Z) and fired **+54 s** and **+87 s**
+after wake — inside the §4.4 two-minute bound — with `nextWakeAt` rescheduled
+forward rather than left at the stale pre-sleep deadline. The daemon pid was
+identical either side of the sleep, so catch-up was measured rather than
+disguised by a restart. Record:
+[`docs/qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md`](../qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md).
+
+This is the proof R2 said was the only one that counts, on the real primitive,
+founder-signed. What remains unproven is the tail: long sleeps, repeated cycles,
+and dark/maintenance wake. R2 is answered for the designed bound, not retired as
+a topic.
+
+
 
 §4.4 states a bound — a due obligation fires within 2 minutes of system wake —
 but deliberately leaves the mechanism to ASR-S03, and every scheduler today is a
@@ -1010,13 +1030,29 @@ fires. ASR-S03 must carry the 2-minute bound as its own failing-first test, and
 counts. Cut the wake work as its own sub-slice so it cannot ride along inside a
 larger status slice.
 
-### R3 — the release gates that matter need a human
+### R3 — the release gates that matter need a human — **3 of 4 signed 2026-08-11**
 
 Gates 7, 8, 9, and 10 (logout/login, disable-survives-login, the three-cycle
 rebuild loop, and sleep) cannot be closed by any agent or same-session unit
 test. They are the gates that actually prove §9's user-visible claim. Until they
 are recorded and signed under `docs/qa/alln-serve/`, the claim is unproven no
 matter how green the suite is. An unrecorded gate is an unrun gate.
+
+| Gate | Result | Record | Signature |
+| --- | --- | --- | --- |
+| 7 — logout/login | **PASS** | [`2026-08-11-gate7-logout-login.md`](../qa/alln-serve/2026-08-11-gate7-logout-login.md) | **founder-signed** |
+| 8 — disable survives login | **PASS** | [`2026-08-11-gate8-disable-survives-login.md`](../qa/alln-serve/2026-08-11-gate8-disable-survives-login.md) | **founder-signed** |
+| 9 — three-cycle rebuild | **PASS** | [`2026-08-11-gate9-three-cycle-rebuild.md`](../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md) | countersigned; PM-executed |
+| 10 — sleep | **PASS** | [`2026-08-11-gate10-deadline-due-while-asleep.md`](../qa/alln-serve/2026-08-11-gate10-deadline-due-while-asleep.md) | **founder-signed** |
+
+All four were run on the second Mac (Mac mini, macOS 15.6/24G84) against build
+`ef928f6e` / contract 9.19.0 / ad-hoc cdhash `e8bf976f`, on a host with no
+`Allnighter.app`. Gates 7, 8 and 10 carry no PM-executed caveat: the founder
+performed every logout, login and sleep.
+
+**R3 is not closed.** The human gates named in this risk are done, but §8's host
+matrix items 1–6 and 11 remain unrun, and gate 9 is still the weaker
+PM-executed record. Three signed gates do not make §9's claim proven.
 
 ### R4 — intermediate state: the live daemon is frozen — **CLOSED 2026-08-11**
 

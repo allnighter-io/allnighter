@@ -90,4 +90,9 @@ launchctl print gui/$(id -u)/com.allnighter.resident-coordinator
 
 Recorded by the PM agent. Per §8 the founder is the signer.
 
-**Signed:** _pending founder countersignature._
+The founder performed the logout and login personally at the machine. Unlike
+gate 9, no part of this gate was PM-executed: the agent captured before/after
+state and corroborating launchd evidence, and the human action that the gate
+exists to test was the founder's. There is no PM-executed caveat on this record.
+
+**Signed: founder, 2026-08-11.**

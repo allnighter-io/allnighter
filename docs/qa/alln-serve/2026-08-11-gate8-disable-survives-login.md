@@ -94,6 +94,12 @@ alln serve enable --json          # restore, then confirm healthy
 ## Signature
 
 Recorded by the PM agent; logout/login performed by the founder at the machine.
-Per §8 the founder is the signer.
+Per §8 the founder is the signer. No PM-executed caveat applies: the human
+action the gate tests was the founder's.
 
-**Signed:** _pending founder countersignature._
+**Signed: founder, 2026-08-11.**
+
+The signature covers the measurement, not a claim of completeness. The two items
+under "What this does NOT prove" stand — in particular, the byte-replacing
+`install-cli` path was untested at signing time, and it is the path that failed
+later the same day (`ASR-S02f`).
