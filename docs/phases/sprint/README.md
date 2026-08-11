@@ -68,32 +68,32 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S01b | [`alln-serve/ASR-S01b-install-onto-canonical.md`](alln-serve/ASR-S01b-install-onto-canonical.md) | **done** — `91cad2de` (44 tests) |
 | ASR-S01c | [`alln-serve/ASR-S01c-installer-scripts-converge.md`](alln-serve/ASR-S01c-installer-scripts-converge.md) | **done** — `fa8dc145` (16 assertions) |
 | ASR-S01d | [`alln-serve/ASR-S01d-honor-home-env.md`](alln-serve/ASR-S01d-honor-home-env.md) | **done** — `1f3e1add` (50 unit + installer proof) |
-
 | ASR-S02a | [`alln-serve/ASR-S02a-desired-state-store.md`](alln-serve/ASR-S02a-desired-state-store.md) | **done** — `aa67241f` + `e9c1b195` (20 tests) |
-
 | ASR-S02b | [`alln-serve/ASR-S02b-canonical-plist-shape.md`](alln-serve/ASR-S02b-canonical-plist-shape.md) | **done** — `1b834ec7` (20 tests) |
-
 | ASR-S02c | [`alln-serve/ASR-S02c-convergence-transaction.md`](alln-serve/ASR-S02c-convergence-transaction.md) | **done** — `44c897f5` (78 tests, `alln` builds) |
 | ASR-S02d | [`alln-serve/ASR-S02d-live-host-rebind.md`](alln-serve/ASR-S02d-live-host-rebind.md) | **done** — `9bbf95ad` (98 tests); verify-then-delete confirmed in source |
+| ASR-S02e | [`alln-serve/ASR-S02e-install-enables-by-default.md`](alln-serve/ASR-S02e-install-enables-by-default.md) | **done** — `daa3ea53` + `32051a64` (38 tests) |
+| ASR-S03a | [`alln-serve/ASR-S03a-wake-safe-deadlines.md`](alln-serve/ASR-S03a-wake-safe-deadlines.md) | **in_progress** — isolates §10.1 R2 |
 
-ASR-S02 cut: **a** desired state (done), **b** plist shape (done), **c**
-convergence transaction, **d** live-host rebind off the staged path, **e**
-install-time default enablement + `--no-serve`.
+**ASR-S01 and ASR-S02 are complete.** PATH, launchd, and update now name one
+canonical binary; install converges serve to the user's desired state and
+migrates a host off the Application Support staged path verify-then-delete.
 
-**Carry into ASR-S02c:** `ServeDesiredState.Reading.unreadable` currently reports
-`effectiveState == .enabled`. That is safe only because the reading stays
-distinguishable — S02c must treat `.unreadable` as *do not converge*, report
-`degraded`, and never bootstrap off it. Converging on a corrupt file would
-re-enable a service the user disabled (§7 `user disable -> repair`).
+Carried forward:
 
-**ASR-S01 is complete.** PATH and canonical bytes have one owner. Next: ASR-S02
-convergent supervisor lifecycle — it owns the live-host rebind off the
-Application Support staged path and must close the frozen-daemon gap S01b left.
+- The `SMAppService` authorization read landed in `AllnighterCLI`, not
+  `ServeLifecycle`. Fold it into the Engine when ASR-S04 touches this area so the
+  Mac app can reuse it.
+- `ServeStableBinary` the **type** still exists — `ServeAutoLaunch` references it
+  and both die in ASR-S04. S02d retired the staged *bytes*, not the type.
+- §10.1 R4 (frozen daemon) closes the first time the founder runs
+  `alln install-cli`, which triggers the S02d migration.
 
-ASR-S01 is cut into sub-slices: **S01a** canonical binary owner (this),
-**S01b** rewire `InstallCLI.run` + CLI JSON onto the canonical path, **S01c**
-`get-alln.sh` / `rebuild_cli.sh` converge on `install-cli`. `ServeStableBinary`
-is deleted in ASR-S02/S04 once its callers move, never in S01.
+Remaining ASR queue: rest of **S03** (active loopback health, scheduler
+receipts, `ServeStatusJSON` v2, daemon-side exit contract), **S04** (delete
+`ServeAutoLaunch` + app scheduler ownership, build `ServeRequirement`,
+architecture gate proven by a seeded violation), **S05** (contracts, teaching,
+uninstall), **S06** (host gates — 7/8/9/10 need the founder).
 
 _None other code work orders active — CT-S04 done; archive S123 when ready._
 
