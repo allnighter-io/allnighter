@@ -98,6 +98,34 @@ neither the consequence nor `alln serve enable`.
 Restored. `alln serve enable` → `healthy`, pid 43895, `binary.matches: true`,
 real desired-state back to `enabled`.
 
+## Fixed and verified on the live host — `3d6a0187` (ASR-S06i)
+
+`ServeLifecycle` now routes every mutating path through one admission check that
+compares symlink-canonical homes and refuses before touching anything:
+
+```text
+$ HOME=$(mktemp -d) alln serve disable
+serve disable failed: SERVE_FOREIGN_HOME: refusing serve lifecycle for effective
+HOME /var/folders/…/alln-foreign.GSVnIb; the per-user launchd label belongs to
+real home /Users/openclaw. Use the real HOME and retry.
+```
+
+Measured after the fix, on the live host:
+
+| Check | Result |
+| --- | --- |
+| `serve disable` under foreign HOME | refuses, **exit 1** |
+| `serve enable` under foreign HOME | refuses, **exit 1** |
+| `serve repair` under foreign HOME | refuses, **exit 1** |
+| real LaunchAgent | **still loaded** |
+| real plist | **still present** |
+| real desired-state | **still `enabled`** |
+| `serve status --json` under foreign HOME | **still readable**, `healthy`, exit 0 |
+
+Observation is not mutation, so status stays allowed — the INFORM-never-BLOCK
+law. The refusal names both paths so a caller sees immediately that its `HOME` is
+the problem.
+
 ## Follow-up
 
 [`ASR-S06i`](../../phases/sprint/alln-serve/ASR-S06i-serve-lifecycle-refuses-foreign-home.md)
