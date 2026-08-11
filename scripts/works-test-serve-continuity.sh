@@ -488,8 +488,17 @@ PLIST_PATH="$HOME/Library/LaunchAgents/com.allnighter.resident-coordinator.plist
 DOCK_APP_PATH="/Applications/Allnighter.app"
 
 # §4.4 two-minute wake bound — ceiling for receipt observation, not a hardcoded guess.
-RECEIPT_MAX_WINDOW_SEC=120
-RECEIPT_WAKE_PADDING_SEC=15
+# Must exceed capacityRefresh's cadence (~5 min) plus padding, or the gate's one
+# load-bearing assertion is skipped every time and gate 5 becomes a proof that
+# cannot fail. 120s was too small: every observed run skipped the check.
+RECEIPT_MAX_WINDOW_SEC=480
+# Grace after a declared nextWakeAt before calling a receipt stalled. Measured on
+# this host: capacityRefresh with nextWakeAt 20:14:49 attempted at 20:15:05 (16s
+# late — poll-loop tick plus jitter) and recorded success at 20:15:15 (26s late —
+# the vendor CLI spawn itself takes ~10s). 15s failed a healthy scheduler. This
+# is tolerance for tick lateness and work duration, NOT a §4.4 wake bound, which
+# is 2 minutes and is gate 10's business.
+RECEIPT_WAKE_PADDING_SEC=90
 
 REQUIRED_SCHEDULER_IDS=(
   pendingWake
@@ -1313,8 +1322,11 @@ PY
       fi
     fi
   else
+    # Not a pass. Gate 5's one load-bearing assertion did not run, so the gate
+    # did not prove what it exists to prove. Report it as skipped and fail --
+    # a green result here would be a proof that could not fail.
     final_json="$initial_json"
-    pass "$label: capacityRefresh advance check skipped (nextWakeAt beyond ${RECEIPT_MAX_WINDOW_SEC}s window)"
+    fail "$label: capacityRefresh advance check did NOT RUN (nextWakeAt beyond ${RECEIPT_MAX_WINDOW_SEC}s window) — gate 5 unproven, not passed"
   fi
 
   classify_json="$(python3 - "$final_json" "$plan_json" "$capacity_advanced" "$RECEIPT_WAKE_PADDING_SEC" <<'PY'
