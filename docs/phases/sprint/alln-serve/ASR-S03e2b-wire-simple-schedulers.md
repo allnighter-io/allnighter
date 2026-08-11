@@ -1,6 +1,6 @@
 # ASR-S03e2b — wire the four simple schedulers to progress
 
-Status: **ready**
+Status: **done** — `e1e7448d` (Cursor Composer 2.5)
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §6, §7
 (`daemon -> scheduler` inference ban).
 
@@ -104,3 +104,18 @@ scripts/swift-test.sh --filter 'ServeSchedulerProgressWiringTests|ServeScheduler
 Additive. Four rows in `runtime.json` gain movement; nothing reads them yet
 (`ServeStatusJSON` v2 is S03f), so no command's output changes. Scheduler timing
 is untouched, so the live daemon behaves identically.
+
+## 10. Closeout — 2026-08-11
+
+Landed `e1e7448d`. Re-verified outside the seat: 92 tests green under the §7
+filter. Diff audit confirms no sleep interval, jitter value, or cancellation
+check changed — the `-`/`+` pairs are trailing commas from the added `progress:`
+parameter, and `break` is preserved in every restructured catch.
+
+**PM audit found one defect, carried into S03e2c:** every wired catch reports a
+thrown sleep as `failed`, but the common way sleep throws is daemon shutdown
+(`CancellationError`). `ServeDaemon`'s `defer` clears `coordinator.json` and not
+`runtime.json`, so a clean stop leaves four rows durably `failed` — which S03f
+would read as `degraded` on a healthy host. Cancellation is the daemon being
+told to stop, not a scheduler failing. Fixed first in
+[`ASR-S03e2c`](ASR-S03e2c-wire-remaining-and-cancellation.md).
