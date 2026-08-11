@@ -56,6 +56,50 @@ final class ServeStatusGathererTests: XCTestCase {
         XCTAssertNotNil(gathered.status.daemon.activeHealthRespondedAt)
     }
 
+    /// ASR-S03f3: empty expected identity from the install record is forwarded
+    /// honestly; with equal git sha the resolver stays healthy (not MISMATCH).
+    func testEmptyExpectedIdentityFromInstallRecordIsHealthyNotMismatch() {
+        let root = makeTempRoot()
+        defer { removeIfPresent(root) }
+
+        let gatherer = makeGatherer(
+            root: root,
+            healthTransport: matchingHealthTransport(),
+            expectedCodeIdentity: CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: nil),
+            runningCodeIdentity: CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: "1.0.1")
+        )
+        let gathered = gatherer.gather()
+
+        XCTAssertEqual(
+            gathered.input.binary.expectedCodeIdentity,
+            CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: nil)
+        )
+        // Version may come from the daemon record overlay; cdhash stays nil.
+        XCTAssertNil(gathered.input.binary.runningCodeIdentity?.cdhash)
+        XCTAssertNil(ServeStatusJSON.comparableCdhash(gathered.input.binary.expectedCodeIdentity))
+        XCTAssertEqual(gathered.status.state, .healthy)
+        XCTAssertTrue(gathered.status.binary.matches)
+        XCTAssertNil(gathered.status.recovery)
+        XCTAssertNotEqual(gathered.status.recovery?.reasonCode, "SERVE_BINARY_MISMATCH")
+    }
+
+    /// ASR-S03f3: gatherer still surfaces a recorded cdhash when present.
+    func testRecordedExpectedCdhashIsForwarded() {
+        let root = makeTempRoot()
+        defer { removeIfPresent(root) }
+
+        let gatherer = makeGatherer(
+            root: root,
+            healthTransport: matchingHealthTransport(),
+            expectedCodeIdentity: .init(cdhash: cdhashA, version: "1.0.0"),
+            runningCodeIdentity: .init(cdhash: cdhashA, version: "1.0.0")
+        )
+        let gathered = gatherer.gather()
+        XCTAssertEqual(gathered.input.binary.expectedCodeIdentity?.cdhash, cdhashA)
+        XCTAssertEqual(gathered.status.state, .healthy)
+        XCTAssertTrue(gathered.status.binary.matches)
+    }
+
     // MARK: - Four distinct failure-to-read observations
 
     func testDesiredStateUnreadableMapsToUnknownNotAbsent() {
@@ -316,13 +360,19 @@ final class ServeStatusGathererTests: XCTestCase {
         healthTransport: @escaping ServeHealthClient.Transport,
         launchAgentListing: String = "state = running\npid = 1234\n",
         readDesiredState: (@Sendable () -> ServeDesiredState.Reading)? = nil,
-        receiptReading: ServeRuntimeReceipts.Reading? = nil
+        receiptReading: ServeRuntimeReceipts.Reading? = nil,
+        expectedCodeIdentity: CanonicalCLIInstall.CodeIdentity? = nil,
+        runningCodeIdentity: CanonicalCLIInstall.CodeIdentity? = nil
     ) -> ServeStatusGatherer {
         let fixtureT0 = t0
         let fixtureShaA = shaA
         let fixtureCdhashA = cdhashA
         let fixtureCanonicalPath = canonicalPath
         let fixtureLabel = label
+        let resolvedExpected = expectedCodeIdentity
+            ?? CanonicalCLIInstall.CodeIdentity(cdhash: fixtureCdhashA, version: "1.0.0")
+        let resolvedRunning = runningCodeIdentity
+            ?? CanonicalCLIInstall.CodeIdentity(cdhash: fixtureCdhashA, version: "1.0.0")
         let coordDir = root.appendingPathComponent("Coordinator", isDirectory: true)
         let homeDir = root.appendingPathComponent("Home", isDirectory: true)
         let plistURL = homeDir
@@ -383,10 +433,10 @@ final class ServeStatusGathererTests: XCTestCase {
                 ServeStatusGatherer.CanonicalInstallReading(
                     path: fixtureCanonicalPath,
                     expectedGitSha: fixtureShaA,
-                    expectedCodeIdentity: .init(cdhash: fixtureCdhashA, version: "1.0.0")
+                    expectedCodeIdentity: resolvedExpected
                 )
             },
-            readRunningCodeIdentity: { _ in .init(cdhash: fixtureCdhashA, version: "1.0.0") },
+            readRunningCodeIdentity: { _ in resolvedRunning },
             activeObligationCount: { 0 },
             converging: { false }
         )

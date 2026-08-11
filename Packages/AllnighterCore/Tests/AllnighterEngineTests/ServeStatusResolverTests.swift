@@ -126,6 +126,95 @@ final class ServeStatusResolverTests: XCTestCase {
         XCTAssertEqual(status.recovery?.reasonCode, "SERVE_BINARY_MISMATCH")
     }
 
+    /// ASR-S03f3: empty/absent expected identity is unrecorded, not a mismatch.
+    /// Equal git sha + otherwise healthy ⇒ healthy (reachable-to-green).
+    func testUnrecordedExpectedIdentityWithEqualShaIsHealthy() {
+        var input = healthyInput()
+        input.binary.expectedCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: nil)
+        input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: "1.0.1")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .healthy)
+        XCTAssertTrue(status.binary.matches)
+        XCTAssertNil(status.recovery)
+        XCTAssertNotEqual(status.recovery?.reasonCode, "SERVE_BINARY_MISMATCH")
+    }
+
+    /// ASR-S03f3: version-only identities are not comparable (§7).
+    func testVersionOnlyIdentitiesAreUnrecordedNotMismatch() {
+        var input = healthyInput()
+        input.binary.expectedCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: "1.0.1")
+        input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: "1.0.1")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(
+            ServeStatusJSON.compareCodeIdentity(
+                expected: input.binary.expectedCodeIdentity,
+                running: input.binary.runningCodeIdentity
+            ),
+            .unrecorded
+        )
+        XCTAssertEqual(status.state, .healthy)
+        XCTAssertTrue(status.binary.matches)
+        XCTAssertNil(status.recovery)
+    }
+
+    /// ASR-S03f3: one known cdhash + other side missing ⇒ unrecorded, not differs.
+    func testAsymmetricUnrecordedIdentityIsNotMismatch() {
+        var input = healthyInput()
+        input.binary.expectedCodeIdentity = nil
+        input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: cdhashA, version: "1.0.1")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(
+            ServeStatusJSON.compareCodeIdentity(
+                expected: input.binary.expectedCodeIdentity,
+                running: input.binary.runningCodeIdentity
+            ),
+            .unrecorded
+        )
+        XCTAssertEqual(status.state, .healthy)
+        XCTAssertTrue(status.binary.matches)
+        XCTAssertNotEqual(status.recovery?.reasonCode, "SERVE_BINARY_MISMATCH")
+    }
+
+    /// ASR-S03f3: two known differing identities still set MISMATCH + repair.
+    func testKnownDifferingIdentitiesStillBinaryMismatch() {
+        var input = healthyInput()
+        input.binary.expectedCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: cdhashA, version: "1.0.0")
+        input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: cdhashB, version: "1.0.0")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertFalse(status.binary.matches)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_BINARY_MISMATCH")
+        XCTAssertEqual(status.recovery?.command, "alln serve repair")
+    }
+
+    /// ASR-S03f3: sha/path disagreement with unrecorded identity names
+    /// SERVE_BINARY_IDENTITY_UNRECORDED + install-cli (repair cannot record).
+    func testUnrecordedIdentityWithShaMismatchUsesIdentityUnrecordedRecovery() {
+        var input = healthyInput()
+        input.binary.expectedCodeIdentity = nil
+        input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: "1.0.1")
+        input.binary.runningGitSha = shaB
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .degraded)
+        XCTAssertFalse(status.binary.matches)
+        XCTAssertEqual(status.recovery?.reasonCode, "SERVE_BINARY_IDENTITY_UNRECORDED")
+        XCTAssertEqual(status.recovery?.command, "alln install-cli")
+        XCTAssertNotEqual(status.recovery?.reasonCode, "SERVE_BINARY_MISMATCH")
+    }
+
+    /// ASR-S03f3: correctly installed host with empty install-record identity
+    /// is reachable-to-green (not stuck degraded forever).
+    func testUnrecordedIdentityReachableToGreen() {
+        var input = healthyInput()
+        // Live-host shape from the work order: empty expected, version-only running.
+        input.binary.expectedCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: nil)
+        input.binary.runningCodeIdentity = CanonicalCLIInstall.CodeIdentity(cdhash: nil, version: "1.0.1")
+        let status = ServeStatusJSON.resolve(input)
+        XCTAssertEqual(status.state, .healthy, "unrecorded + equal sha must not stick the host degraded")
+        XCTAssertTrue(status.binary.matches)
+        XCTAssertNil(status.recovery)
+    }
+
     /// Ban: KeepAlive can always restart safely.
     /// Negative proof: stand-down (loaded, exit 0, no process) ⇒ degraded, not respawn/healthy.
     func testBan_exitToRestart_standDownIsDegradedNotHealthy() {

@@ -86,15 +86,16 @@ public struct ServeStatusGatherer: Sendable {
         self.readCanonicalInstall = readCanonicalInstall ?? {
             Self.defaultCanonicalInstallReading(homeDirectory: resolvedHome)
         }
-        let runner = processRunner ?? { _, _ in
-            (stdout: "", stderr: "process runner not configured", exitCode: -1)
-        }
+        let runner = processRunner ?? Self.defaultProcessRunner
         self.readRunningCodeIdentity = readRunningCodeIdentity ?? { path in
             guard FileManager.default.fileExists(atPath: path) else { return nil }
             let cdhash = CanonicalCLIInstall.computeCDHash(
                 candidateURL: URL(fileURLWithPath: path),
                 processRunner: runner
             )
+            // Honest observation: cdhash when codesign yields one; never invent
+            // identity from a version string alone (resolver treats version-only
+            // as unrecorded / not comparable).
             return CanonicalCLIInstall.CodeIdentity(cdhash: cdhash, version: nil)
         }
         self.processRunner = runner
@@ -246,12 +247,43 @@ public struct ServeStatusGatherer: Sendable {
         var expectedIdentity: CanonicalCLIInstall.CodeIdentity?
         if let data = try? Data(contentsOf: identityURL),
            let record = try? CoreJSON.decode(InstalledBinaryRecord.self, from: data) {
+            // Surface whatever the install transaction recorded — including an
+            // empty identity. The resolver treats a missing/empty cdhash as
+            // unrecorded, never as a positive mismatch.
             expectedIdentity = record.identity
         }
         return CanonicalInstallReading(
             path: path,
             expectedGitSha: AllnighterBuildInfo.gitSha,
             expectedCodeIdentity: expectedIdentity
+        )
+    }
+
+    /// Live `codesign -dvvv` for running-identity cdhash. Default was a stub that
+    /// always failed, so status permanently saw version-only running identity.
+    private static func defaultProcessRunner(
+        _ launchPath: String,
+        _ arguments: [String]
+    ) -> (stdout: String, stderr: String, exitCode: Int32) {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: launchPath)
+        process.arguments = arguments
+        let stdoutPipe = Pipe()
+        let stderrPipe = Pipe()
+        process.standardOutput = stdoutPipe
+        process.standardError = stderrPipe
+        do {
+            try process.run()
+        } catch {
+            return (stdout: "", stderr: error.localizedDescription, exitCode: -1)
+        }
+        let stdoutData = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        return (
+            stdout: String(decoding: stdoutData, as: UTF8.self),
+            stderr: String(decoding: stderrData, as: UTF8.self),
+            exitCode: process.terminationStatus
         )
     }
 

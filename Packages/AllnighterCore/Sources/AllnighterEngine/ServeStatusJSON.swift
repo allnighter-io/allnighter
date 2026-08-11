@@ -304,7 +304,8 @@ public struct ServeStatusJSON: Equatable, Sendable {
             supervisor: input.supervisor,
             loadedKnown: loadedKnown,
             loaded: loaded,
-            binaryMatches: binary.matches,
+            binary: binary,
+            binaryObservation: input.binary,
             healthMatched: healthMatched,
             activeHealth: input.activeHealth,
             receipt: input.receipt,
@@ -345,8 +346,42 @@ public struct ServeStatusJSON: Equatable, Sendable {
         )
     }
 
-    /// Identity, not version string. False when either git sha or cdhash differs,
-    /// or when either side is unknown. App-bundle paths never match (§7 CLI→app).
+    /// Code-identity comparison: equal, differs, or unrecorded.
+    /// A `version`-only identity is not comparable (§7 version→identity ban).
+    /// Absence of a comparable cdhash is unrecorded — never "differs".
+    enum CodeIdentityRelation: Equatable, Sendable {
+        case equal
+        case differs
+        case unrecorded
+    }
+
+    /// Non-empty cdhash only. Version strings never prove sameness.
+    static func comparableCdhash(_ identity: CanonicalCLIInstall.CodeIdentity?) -> String? {
+        guard let hash = identity?.cdhash?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !hash.isEmpty else {
+            return nil
+        }
+        return hash
+    }
+
+    static func compareCodeIdentity(
+        expected: CanonicalCLIInstall.CodeIdentity?,
+        running: CanonicalCLIInstall.CodeIdentity?
+    ) -> CodeIdentityRelation {
+        switch (comparableCdhash(expected), comparableCdhash(running)) {
+        case (let expectedHash?, let runningHash?) where expectedHash == runningHash:
+            return .equal
+        case (_?, _?):
+            return .differs
+        default:
+            return .unrecorded
+        }
+    }
+
+    /// Binary agreement for `matches` / healthy. False only when a difference is
+    /// observed (app-bundle path, unequal git sha, or two known differing
+    /// cdhashes). Unrecorded identity with equal git sha is not a mismatch —
+    /// absence yields no observation, never an inferred failure.
     private static func binaryMatches(_ obs: BinaryObservation) -> Bool {
         if obs.path.split(separator: "/").contains(where: { $0.hasSuffix(".app") }) {
             return false
@@ -356,13 +391,38 @@ public struct ServeStatusJSON: Equatable, Sendable {
               expectedSha == runningSha else {
             return false
         }
-        guard let expectedHash = obs.expectedCodeIdentity?.cdhash,
-              let runningHash = obs.runningCodeIdentity?.cdhash,
-              !expectedHash.isEmpty,
-              expectedHash == runningHash else {
+        switch compareCodeIdentity(
+            expected: obs.expectedCodeIdentity,
+            running: obs.runningCodeIdentity
+        ) {
+        case .equal, .unrecorded:
+            return true
+        case .differs:
             return false
         }
-        return true
+    }
+
+    /// Recovery when `matches` is false. `SERVE_BINARY_MISMATCH` only for two
+    /// known differing identities (or sha/path disagreement with a comparable
+    /// pair that did not differ). Unrecorded alone never reaches here when
+    /// git shas are equal; if sha/path fails while identity is unrecorded,
+    /// name that with `SERVE_BINARY_IDENTITY_UNRECORDED` + `alln install-cli`
+    /// — repair does not record an identity.
+    static func binaryMismatchRecovery(
+        expected: CanonicalCLIInstall.CodeIdentity?,
+        running: CanonicalCLIInstall.CodeIdentity?
+    ) -> Recovery {
+        switch compareCodeIdentity(expected: expected, running: running) {
+        case .differs:
+            return Recovery(reasonCode: "SERVE_BINARY_MISMATCH", command: "alln serve repair")
+        case .unrecorded:
+            return Recovery(
+                reasonCode: "SERVE_BINARY_IDENTITY_UNRECORDED",
+                command: "alln install-cli"
+            )
+        case .equal:
+            return Recovery(reasonCode: "SERVE_BINARY_MISMATCH", command: "alln serve repair")
+        }
     }
 
     private static func resolveDaemon(input: Input) -> (Daemon, healthMatched: Bool) {
@@ -462,7 +522,8 @@ public struct ServeStatusJSON: Equatable, Sendable {
         supervisor: SupervisorObservation,
         loadedKnown: Bool?,
         loaded: Bool,
-        binaryMatches: Bool,
+        binary: Binary,
+        binaryObservation: BinaryObservation,
         healthMatched: Bool,
         activeHealth: ActiveHealthObservation,
         receipt: ServeRuntimeReceipts.Reading,
@@ -537,11 +598,14 @@ public struct ServeStatusJSON: Equatable, Sendable {
 
         // Narrow healthy: all six conditions, plus no stopped required rows
         // under the live matching handshake this healthy path already requires.
+        // Unrecorded code identity with equal git sha yields matches == true
+        // (absence is not a mismatch), so a correctly installed host is not
+        // stuck degraded when the install record has no comparable cdhash.
         let isHealthy = desired == .enabled
             && supervisor.authorization == .enabled
             && loaded
             && healthMatched
-            && binaryMatches
+            && binary.matches
             && missingRequired.isEmpty
             && failedRequired.isEmpty
             && stoppedRequired.isEmpty
@@ -551,8 +615,12 @@ public struct ServeStatusJSON: Equatable, Sendable {
         }
 
         // Degraded — name why (priority order).
-        if !binaryMatches {
-            return degraded("SERVE_BINARY_MISMATCH", "alln serve repair",
+        if !binary.matches {
+            let recovery = binaryMismatchRecovery(
+                expected: binaryObservation.expectedCodeIdentity,
+                running: binaryObservation.runningCodeIdentity
+            )
+            return degraded(recovery.reasonCode, recovery.command,
                             obligations: activeObligationCount)
         }
         if !missingRequired.isEmpty {
