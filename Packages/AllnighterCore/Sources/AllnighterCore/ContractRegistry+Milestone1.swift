@@ -217,11 +217,12 @@ public extension ContractRegistry {
             exampleIds: ["update_check"]
         ),
         CommandSpec(
-            "install-cli", summary: "Symlink the running `alln` binary onto PATH (running the command is consent).", milestone: .m1,
+            "install-cli", summary: "Symlink the running `alln` binary onto PATH (running the command is consent). The background scheduler is enabled by default; opt out with --no-serve.", milestone: .m1,
             flags: [
                 FlagSpec("path", takesValue: true, valueType: "path", summary: "Install directory override (default /usr/local/bin if writable, else ~/.local/bin)."),
                 FlagSpec("print", summary: "Print install instructions only (legacy print-only behavior)."),
                 FlagSpec("json", summary: "Structured { action, path, target, onPath }."),
+                FlagSpec("no-serve", summary: "Do not enable the background scheduler after install."),
             ],
             outputSchema: .installCLIJSON, exampleIds: ["install_cli_json"]
         ),
@@ -1508,6 +1509,10 @@ public extension ContractRegistry {
         ErrorSpec("UTILIZATION_SOURCE_UNCONFIGURED", ruleId: "utilization.source.unconfigured", agentAction: "Add the source to Boost window appliesTo, then retry.", requiresManual: true, retryable: false, explain: "The source is not included in the Boost window appliesTo list.", exitClass: .usage),
         ErrorSpec("UTILIZATION_AUTH_REQUIRED", ruleId: "utilization.auth.required", agentAction: "Sign in to the named CLI, then retry the seed.", requiresManual: true, retryable: false, explain: "The seed stopped on an auth prompt. Allnighter never auto-confirms sign-in."),
         ErrorSpec("UTILIZATION_BILLING_PROMPT", ruleId: "utilization.billing.prompt", agentAction: "Resolve billing on the provider, then retry.", requiresManual: true, retryable: false, explain: "The seed stopped on a billing or quota prompt. Allnighter never auto-confirms payment."),
+        // SERVE recovery (ASR-S02e)
+        ErrorSpec("SERVE_REQUIRES_APPROVAL", ruleId: "serve.requires.approval", agentAction: "Open System Settings > General > Login Items & Extensions and enable com.allnighter.resident-coordinator, then run `alln serve enable`.", requiresManual: true, retryable: false, explain: "The background scheduler LaunchAgent requires user approval in Login Items. Allnighter never bypasses this."),
+        ErrorSpec("SERVE_UNAVAILABLE", ruleId: "serve.unavailable", agentAction: "Run `alln serve enable` after the install completes.", requiresManual: true, retryable: true, explain: "The background scheduler could not be auto-enabled because the ServiceManagement authorization check is unavailable on this macOS version. Enable it manually after install."),
+        ErrorSpec("SERVE_DISABLED_BY_USER", ruleId: "serve.disabled.by_user", agentAction: "The user explicitly disabled serve. Re-enable with `alln serve enable` if desired.", requiresManual: true, retryable: false, explain: "The background scheduler was explicitly disabled by the user. A later install or update will not re-enable it."),
     ]
 
     // MARK: - Doctor checks (stable names)

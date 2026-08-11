@@ -428,7 +428,33 @@ final class ServeLifecycleTests: XCTestCase {
         XCTAssertTrue(result.detail.contains("prior registration restored"))
         XCTAssertTrue(h.writtenPlists.isEmpty)
 
-        let restored = try? Data(contentsOf: h.plistURL)
-        XCTAssertEqual(restored, priorBytes)
+        let restorted = try? Data(contentsOf: h.plistURL)
+        XCTAssertEqual(restorted, priorBytes)
+    }
+
+    // MARK: - ASR-S02e install-enables-by-default
+
+    func testAbsentDesiredStateEnableWritesEnabledAndConverges() async {
+        let h = Harness()
+        h.injectedReading = .absent
+        h.jobIsLoaded = true
+        let result = await h.lifecycle.enable()
+        XCTAssertEqual(result.outcome, .enabled, "absent state must converge to enabled")
+        XCTAssertEqual(result.desiredStateReading, "absent")
+        XCTAssertTrue(h.bootstrapCalls.count >= 1, "must bootstrap after absent→enable")
+        XCTAssertEqual(h.desiredWrites.count, 1)
+        if let write = h.desiredWrites.first {
+            XCTAssertEqual(write.state, .enabled, "absent→enable must write desired state as enabled")
+        }
+        XCTAssertTrue(result.detail.contains("migrated from absent"), "must report migration from absent")
+    }
+
+    func testExplicitDisabledDoesNotBootstrap() async {
+        let h = Harness()
+        h.injectedReading = .present(state: .disabled, updatedAt: Date())
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .disabled, "explicit disabled must stay disabled")
+        XCTAssertTrue(h.bootstrapCalls.isEmpty, "no bootstrap when explicitly disabled")
+        XCTAssertEqual(result.desiredStateReading, "present(disabled)")
     }
 }

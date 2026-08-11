@@ -505,4 +505,14 @@ final class InstallCLITests: XCTestCase {
         XCTAssertTrue(beforeBytesCalled)
         XCTAssertFalse(fm.fileExists(atPath: canonicalURL.path), "canonical bytes must not exist when beforeBytesChange fails")
     }
+
+    // MARK: - ASR-S02e --no-serve flag
+
+    func testNoServeIsRegisteredBooleanFlag() {
+        let spec = ContractRegistry.milestone1.commands.first { $0.name == "install-cli" }
+        XCTAssertNotNil(spec, "missing CommandSpec for install-cli")
+        let flag = spec?.flags.first { $0.name == "no-serve" }
+        XCTAssertNotNil(flag, "install-cli missing --no-serve FlagSpec")
+        XCTAssertFalse(flag?.takesValue ?? true, "--no-serve must be boolean (no value consumed)")
+    }
 }

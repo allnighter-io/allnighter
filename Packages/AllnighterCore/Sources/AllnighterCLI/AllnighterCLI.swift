@@ -1,6 +1,7 @@
 import Foundation
 import AllnighterCore
 import AllnighterEngine
+import ServiceManagement
 #if canImport(Darwin)
 import Darwin
 #endif
@@ -120,7 +121,7 @@ struct AllnighterCLI {
         case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "bootstrap": runBootstrap(args)
-        case "install-cli": runInstallCLI(args)
+        case "install-cli": await runInstallCLI(args)
         case "version": runVersion(args)
         case "update": runUpdate(args)
         case "ps": await runOwnershipPs(args)
@@ -2596,7 +2597,7 @@ struct AllnighterCLI {
         }
     }
 
-    static func runInstallCLI(_ args: [String]) {
+    static func runInstallCLI(_ args: [String]) async {
         let opts = Options(args)
         let env = ProcessInfo.processInfo.environment
         let request = InstallCLI.Request(
@@ -2640,6 +2641,12 @@ struct AllnighterCLI {
             } else {
                 print(InstallCLI.humanLine(json))
             }
+
+            if opts.flag("no-serve") {
+                print("serve: skipped (--no-serve)")
+            } else {
+                await convergeServeAfterInstall(homeDirectory: request.homeDirectory)
+            }
         case .failed(let code, let message):
             switch code {
             case "CLI_USAGE_ERROR":
@@ -2651,6 +2658,61 @@ struct AllnighterCLI {
             default:
                 fail(code: code, message: message)
             }
+        }
+    }
+
+    /// ASR-S02e — after install, converge serve unless desired state is explicitly
+    /// disabled. Absent desired state → enable by default; SMAppService
+    /// requiresApproval exits 77; older OS / API error → unavailable (never inferred).
+    private static func convergeServeAfterInstall(homeDirectory: URL) async {
+        let reading = ServeDesiredState.read(homeDirectory: homeDirectory)
+
+        switch reading {
+        case .present(.disabled, _):
+            print("serve: desired state is disabled — not enabling (use `alln serve enable` to re-enable)")
+
+        case .unreadable(let reason):
+            FileHandle.standardError.write(Data("serve: desired state unreadable (\(reason)) — not enabling\n".utf8))
+
+        case .absent:
+            guard serveAuthorizationPermitsEnable() else { return }
+            await enableAndPrint()
+
+        case .present(.enabled, _):
+            await enableAndPrint()
+        }
+    }
+
+    private enum ServeAuthorization {
+        case authorized
+        case requiresApproval
+        case unavailable
+    }
+
+    private static func serveAuthorizationPermitsEnable() -> Bool {
+        let plistURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/LaunchAgents/\(ServeLifecycle.label).plist")
+        let status = SMAppService.statusForLegacyPlist(at: plistURL)
+        switch status {
+        case .requiresApproval:
+            emitFailure(
+                code: "SERVE_REQUIRES_APPROVAL",
+                message: "serve background item requires user approval: open System Settings > General > Login Items & Extensions and enable com.allnighter.resident-coordinator, then run `alln serve enable`."
+            )
+            exit(77)
+        case .enabled, .notFound, .notRegistered:
+            return true
+        @unknown default:
+            return true
+        }
+    }
+
+    private static func enableAndPrint() async {
+        let result = await ServeLifecycle().enable()
+        let stream = result.outcome == .enabled ? FileHandle.standardOutput : FileHandle.standardError
+        stream.write(Data("serve \(result.outcome.rawValue): \(result.detail)\n".utf8))
+        if result.outcome != .enabled {
+            exit(1)
         }
     }
 

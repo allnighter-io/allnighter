@@ -315,4 +315,40 @@ final class ServeDesiredStateTests: XCTestCase {
         let f = ServeDesiredState.Failure(code: "X", message: "Y")
         let _: @Sendable () -> ServeDesiredState.Failure = { f }
     }
+
+    // MARK: - ASR-S02e install-enables-by-default invariants
+
+    func testExplicitDisabledIsNotAbsent() {
+        _ = ServeDesiredState.write(.disabled, homeDirectory: homeURL, clock: fixedClock)
+        let reading = ServeDesiredState.read(homeDirectory: homeURL, clock: fixedClock)
+        switch reading {
+        case .absent:
+            XCTFail("explicit disabled must not read as absent")
+        case .present(let state, _):
+            XCTAssertEqual(state, .disabled)
+            XCTAssertEqual(reading.effectiveState, .disabled)
+        case .unreadable:
+            XCTFail("should not be unreadable")
+        }
+    }
+
+    func testAbsentEffectiveStateEnabledDisabledEffectiveStateDisabled() {
+        let absentReading = ServeDesiredState.read(homeDirectory: homeURL)
+        XCTAssertEqual(absentReading.effectiveState, .enabled,
+                       "absent effective state must be .enabled (install-enables-by-default)")
+
+        _ = ServeDesiredState.write(.disabled, homeDirectory: homeURL, clock: fixedClock)
+        let disabledReading = ServeDesiredState.read(homeDirectory: homeURL, clock: fixedClock)
+        XCTAssertEqual(disabledReading.effectiveState, .disabled,
+                       "explicit disabled effective state must be .disabled (never inferred as enabled)")
+
+        switch absentReading {
+        case .absent: break
+        default: XCTFail("absent reading must be .absent")
+        }
+        switch disabledReading {
+        case .present(.disabled, _): break
+        default: XCTFail("disabled reading must be .present(.disabled)")
+        }
+    }
 }
