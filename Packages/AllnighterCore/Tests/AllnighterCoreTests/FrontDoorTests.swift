@@ -5,23 +5,32 @@ final class FrontDoorTests: XCTestCase {
     private var supportRoot: URL!
     private var previousSupportDir: String?
 
-    override func setUp() {
-        super.setUp()
-        supportRoot = FileManager.default.temporaryDirectory
-            .appendingPathComponent(UUID().uuidString, isDirectory: true)
-        previousSupportDir = ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"]
+    private func isolatedRosterURL() -> URL {
+        AllnighterSupportRoot.config
+            .appendingPathComponent("model_roster.json")
+            .standardizedFileURL
+    }
+
+    private func establishIsolatedSupportRoot() {
         setenv("ALLNIGHTER_SUPPORT_DIR", supportRoot.path, 1)
         CatalogRoots.overrideForTesting(
             teams: supportRoot.appendingPathComponent("Catalogs/teams", isDirectory: true),
             skills: supportRoot.appendingPathComponent("Catalogs/skills", isDirectory: true),
             models: supportRoot.appendingPathComponent("Catalogs/models", isDirectory: true))
-        ModelCatalog.overrideRosterForTesting(
-            fileURL: supportRoot
-                .appendingPathComponent("Config", isDirectory: true)
-                .appendingPathComponent("model_roster.json"))
+        ModelCatalog.overrideRosterForTesting(fileURL: isolatedRosterURL())
+    }
+
+    override func setUp() {
+        super.setUp()
+        OpenCodeModelGate.overrideGoConnectedForTesting(false)
+        supportRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        previousSupportDir = ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"]
+        establishIsolatedSupportRoot()
     }
 
     override func tearDown() {
+        OpenCodeModelGate.overrideGoConnectedForTesting(nil)
         CatalogRoots.resetTestingOverrides()
         ModelCatalog.resetTestingOverrides()
         if let previousSupportDir {
@@ -67,8 +76,30 @@ final class FrontDoorTests: XCTestCase {
     }
 
     func testEmptyBenchModelsJSONIncludesCounselNotBareArray() throws {
+        // Only FrontDoor test that exercises ModelCatalog roster APIs. Persist a
+        // cleared bench (empty enabled + catalog already seen) under the isolated
+        // support root, then prove bench projection stays empty and emits counsel.
+        establishIsolatedSupportRoot()
+        let rosterURL = isolatedRosterURL()
+        XCTAssertTrue(
+            rosterURL.path.hasPrefix(supportRoot.standardizedFileURL.path),
+            "roster must resolve under isolated support root, got \(rosterURL.path)")
+        let clearedBench = ModelRosterState(
+            enabledModelIds: [],
+            catalogSeenModelIds: ModelCatalog.builtIns.map(\.id))
+        try ModelCatalog.saveRosterForTesting(clearedBench)
+        XCTAssertEqual(
+            ModelRosterPersistence(fileURL: rosterURL).load()?.enabledModelIds,
+            [],
+            "isolated roster file must persist an empty bench")
+
         let registry = DriverRegistry([])
-        try ModelCatalog.saveRosterForTesting(ModelRosterState(enabledModelIds: []))
+        XCTAssertTrue(
+            AllnighterSupportRoot.config.path.hasPrefix(supportRoot.standardizedFileURL.path),
+            "ALLNIGHTER_SUPPORT_DIR must stay redirected before benchModels; got \(AllnighterSupportRoot.config.path)")
+        XCTAssertTrue(
+            ModelCatalog.benchModels(registry: registry).isEmpty,
+            "ModelCatalog must read the isolated roster, not the host bench")
 
         var defs = ModelCatalog.list()
         let enabled = Set(ModelCatalog.benchModels(registry: registry).map(\.id))

@@ -145,7 +145,8 @@ public enum ModelCatalog {
     nonisolated(unsafe) private static var rosterPersistenceOverride: ModelRosterPersistence?
 
     public static func overrideRosterForTesting(fileURL: URL) {
-        rosterPersistenceOverride = ModelRosterPersistence(fileURL: fileURL)
+        rosterPersistenceOverride = ModelRosterPersistence(
+            fileURL: fileURL.standardizedFileURL)
     }
 
     public static func saveRosterForTesting(_ state: ModelRosterState) throws {
@@ -523,14 +524,20 @@ public enum ModelCatalog {
             }
         } else if roster.openCodeGoDefaultsSeeded != true {
             // First unlock after Go connect: seed every default-on Go seat onto the bench.
-            for def in definitions where OpenCodeModelGate.isGoCatalogSeat(def) && def.defaultEnabled {
-                if !roster.enabledModelIds.contains(def.id) {
-                    roster.enabledModelIds.append(def.id)
-                    changed = true
+            // Never reseat a bench the user (or an empty-bench front door) cleared —
+            // catalogSeenModelIds populated with enabled empty means "seen, intentionally off".
+            let clearedBench = roster.enabledModelIds.isEmpty
+                && !(roster.catalogSeenModelIds?.isEmpty ?? true)
+            if !clearedBench {
+                for def in definitions where OpenCodeModelGate.isGoCatalogSeat(def) && def.defaultEnabled {
+                    if !roster.enabledModelIds.contains(def.id) {
+                        roster.enabledModelIds.append(def.id)
+                        changed = true
+                    }
                 }
+                roster.openCodeGoDefaultsSeeded = true
+                changed = true
             }
-            roster.openCodeGoDefaultsSeeded = true
-            changed = true
         }
 
         if roster.catalogSeenModelIds == nil || roster.catalogSeenModelIds?.isEmpty == true {
@@ -585,8 +592,17 @@ public enum ModelCatalog {
         }
     }
 
+    private static func rosterFileURL() -> URL {
+        AllnighterSupportRoot.config
+            .appendingPathComponent("model_roster.json")
+            .standardizedFileURL
+    }
+
     private static func rosterPersistence() -> ModelRosterPersistence {
-        rosterPersistenceOverride ?? ModelRosterPersistence()
+        if let override = rosterPersistenceOverride {
+            return override
+        }
+        return ModelRosterPersistence(fileURL: rosterFileURL())
     }
 
     private static func validateDriver(_ driverId: String, registry: DriverRegistry) throws {
