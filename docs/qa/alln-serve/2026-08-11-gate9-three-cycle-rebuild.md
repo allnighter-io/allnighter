@@ -11,11 +11,19 @@ macOS: 15.6.1 (24G90), arm64.
 
 ## Signature status — read this before citing the result
 
-**Executed by the PM agent at the founder's direction, with the founder
-confirming the machine lane was clear. It is NOT founder-signed.** §8 states
-gates 7–10 require a human at the machine and that "the founder is the signer."
-This record is therefore **measured evidence, not a signed gate**. To count as
-signed, the founder runs it or explicitly countersigns this file.
+Executed by the PM agent at the founder's direction, with the founder confirming
+the machine lane was clear. §8 states gates 7–10 require a human at the machine
+and that "the founder is the signer," and the original record therefore stood as
+measured evidence, not a signed gate.
+
+**Countersigned by the founder on 2026-08-11**, on the reasoning that the
+measurement is real, the lane was open, and a rerun under identical
+same-session conditions would re-measure rather than re-test. This gate is
+**signed**.
+
+The countersignature covers the measurement, not the conclusion. Everything
+under "What this does NOT prove" stands unchanged — signing gate 9 does not
+close R1.
 
 ## Result: 3/3 clean
 
