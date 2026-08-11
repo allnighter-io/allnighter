@@ -183,6 +183,15 @@ public struct LoopCoordinator: Sendable {
     /// `VendorBackoffReconciler`/`PendingWakeScheduler` already use, so tests can
     /// supply a fake instead of a real multi-hour `Task.sleep`.
     private let sleeper: any PendingWakeSleeper
+    private let _sleepOvershootBox = OvershootBox()
+
+    private final class OvershootBox: @unchecked Sendable {
+        var value: TimeInterval?
+    }
+
+    public var lastSleepOvershoot: TimeInterval? {
+        _sleepOvershootBox.value
+    }
 
     /// How long a blocked dev turn waits on the execution lane before failing with
     /// `laneBusy`. Generous: normal holders finish in minutes; this is the wedged-holder
@@ -203,7 +212,7 @@ public struct LoopCoordinator: Sendable {
         ),
         now: @escaping @Sendable () -> Date = Date.init,
         idFactory: @escaping @Sendable () -> String = LoopCoordinator.mintLoopId,
-        sleeper: any PendingWakeSleeper = DefaultPendingWakeSleeper()
+        sleeper: any PendingWakeSleeper = WakeSafeWaiter()
     ) {
         self.runService = runService
         self.gitObserver = gitObserver
@@ -2300,15 +2309,17 @@ public struct LoopCoordinator: Sendable {
         return now() >= until
     }
 
-    private func sleepClampedToDeadline(_ config: Config, seconds: Int) async {
-        var sleepNs = UInt64(max(0, seconds)) * 1_000_000_000
+    func sleepClampedToDeadline(_ config: Config, seconds: Int) async {
+        var effectiveSeconds = TimeInterval(max(0, seconds))
         if let until = config.until {
             let remaining = until.timeIntervalSince(now())
             if remaining <= 0 { return }
-            sleepNs = min(sleepNs, UInt64(max(0, remaining) * 1_000_000_000))
+            effectiveSeconds = min(effectiveSeconds, remaining)
         }
-        if sleepNs > 0 {
-            try? await Task.sleep(nanoseconds: sleepNs)
+        let deadline = now().addingTimeInterval(effectiveSeconds)
+        try? await sleeper.sleep(until: deadline, jitterSeconds: 0)
+        if let waiter = sleeper as? WakeSafeWaiter {
+            _sleepOvershootBox.value = waiter.lastOvershoot
         }
     }
 }
