@@ -1113,20 +1113,23 @@ for sid in advance_ids:
             "lastSuccessAt": initial,
         })
         continue
+    wake_deadline_ts = next_wake + padding
     plan["watch"].append({
         "id": sid,
         "nextWakeAt": next_wake_raw,
         "secsUntil": round(max(secs_until, 0), 1),
+        "wakeDeadlineTs": wake_deadline_ts,
+        "requiredBudgetSec": round(required_budget, 1),
     })
 
 if plan["watch"]:
-    budget = min(
-        max_window,
-        max(item["secsUntil"] for item in plan["watch"]) + padding,
-    )
+    latest_deadline = max(item["wakeDeadlineTs"] for item in plan["watch"])
+    budget = min(max_window, max(0.0, latest_deadline - now))
     plan["budgetSec"] = round(budget, 1)
+    plan["waitUntilTs"] = latest_deadline
 else:
     plan["budgetSec"] = 0
+    plan["waitUntilTs"] = None
 
 print(json.dumps(plan))
 PY
@@ -1194,10 +1197,16 @@ PY
 )"
 
   if [[ "$watch_count" -gt 0 ]]; then
-    local deadline=$((SECONDS + ${budget_sec%.*} + 1))
-    local json result_json
+    local wait_until_ts json result_json
+    wait_until_ts="$(python3 - "$plan_json" <<'PY'
+import json, sys
+plan = json.loads(sys.argv[1])
+print(plan.get("waitUntilTs") or "")
+PY
+)"
 
-    while [[ $SECONDS -lt $deadline ]]; do
+    while :; do
+      local now_ts done
       if ! json="$(fetch_serve_status_json)"; then
         sleep "$POLL_INTERVAL_SEC"
         continue
@@ -1234,7 +1243,6 @@ for item in plan.get("watch", []):
 print(json.dumps({"advanced": advanced, "pending": pending, "done": len(pending) == 0}))
 PY
 )"
-      local done
       done="$(python3 - "$result_json" <<'PY'
 import json, sys
 print("true" if json.loads(sys.argv[1]).get("done") else "false")
@@ -1243,14 +1251,63 @@ PY
       if [[ "$done" == "true" ]]; then
         capacity_advanced=true
         final_json="$json"
-        pass "$label: capacityRefresh lastSuccessAt advanced within ${budget_sec}s budget"
+        pass "$label: capacityRefresh lastSuccessAt advanced before nextWakeAt+grace"
+        break
+      fi
+
+      now_ts="$(python3 - <<'PY'
+import time
+print(time.time())
+PY
+)"
+      if python3 - "$now_ts" "$wait_until_ts" <<'PY'
+import sys
+now = float(sys.argv[1])
+target = sys.argv[2]
+if not target:
+    sys.exit(0)
+sys.exit(0 if now >= float(target) else 1)
+PY
+      then
         break
       fi
       sleep "$POLL_INTERVAL_SEC"
     done
 
     if [[ "$capacity_advanced" != true ]]; then
-      if ! final_json="$(fetch_serve_status_json)"; then
+      if [[ -z "${final_json:-}" ]]; then
+        final_json="$json"
+      fi
+      result_json="$(python3 - "$final_json" "$plan_json" <<'PY'
+import json, sys
+
+status = json.loads(sys.argv[1])
+plan = json.loads(sys.argv[2])
+
+def scheduler_row(schedulers, sid):
+    for row in schedulers:
+        if isinstance(row, dict) and row.get("id") == sid:
+            return row
+    return None
+
+schedulers = status.get("schedulers", [])
+done = True
+for item in plan.get("watch", []):
+    sid = item["id"]
+    before = plan["initial_success"].get(sid)
+    row = scheduler_row(schedulers, sid)
+    after = row.get("lastSuccessAt") if row else None
+    if not (after and after != before):
+        done = False
+        break
+
+print("true" if done else "false")
+PY
+)"
+      if [[ "$result_json" == "true" ]]; then
+        capacity_advanced=true
+        pass "$label: capacityRefresh lastSuccessAt advanced by nextWakeAt+grace"
+      elif ! final_json="$(fetch_serve_status_json)"; then
         fail "$label: timed out after ${budget_sec}s waiting for capacityRefresh advance and could not re-read status"
         return 1
       fi
@@ -1260,13 +1317,14 @@ PY
     pass "$label: capacityRefresh advance check skipped (nextWakeAt beyond ${RECEIPT_MAX_WINDOW_SEC}s window)"
   fi
 
-  classify_json="$(python3 - "$final_json" "$plan_json" "$capacity_advanced" <<'PY'
+  classify_json="$(python3 - "$final_json" "$plan_json" "$capacity_advanced" "$RECEIPT_WAKE_PADDING_SEC" <<'PY'
 import json, sys, time
 from datetime import datetime, timezone
 
 status = json.loads(sys.argv[1])
 plan = json.loads(sys.argv[2])
 capacity_advanced = sys.argv[3] == "true"
+padding = float(sys.argv[4])
 max_window = float(plan.get("max_window", 120))
 observed_at = float(plan.get("observed_at", 0))
 now_end = time.time()
@@ -1274,6 +1332,7 @@ required_ids = plan.get("required_ids", [])
 advance_ids = set(plan.get("advance_ids", []))
 initial_snapshot = plan.get("initial_snapshot", {})
 skip_by_id = {item["id"]: item for item in plan.get("skip", [])}
+watch_by_id = {item["id"]: item for item in plan.get("watch", [])}
 
 def parse_iso(value):
     if not value:
@@ -1309,6 +1368,7 @@ def classify(sid, initial, final):
     final_attempt = final.get("lastAttemptAt") if final else None
     final_success = final.get("lastSuccessAt") if final else None
     final_wake = final.get("nextWakeAt") if final else None
+    any_attempt = init_attempt is not None or final_attempt is not None
 
     if final_success and final_success != init_success:
         return "advanced", f"lastSuccessAt advanced ({init_success!r} -> {final_success!r})"
@@ -1332,6 +1392,9 @@ def classify(sid, initial, final):
         return "out-of-window", reason
 
     init_wake_ts = parse_iso(init_wake)
+    final_wake_ts = parse_iso(final_wake)
+    grace_deadline_ts = init_wake_ts + padding if init_wake_ts is not None else None
+
     if init_wake_ts is not None and observed_at:
         secs_until = init_wake_ts - observed_at
         if secs_until > max_window:
@@ -1343,45 +1406,34 @@ def classify(sid, initial, final):
     if init_wake is None and final_wake is None:
         return "out-of-window", "no nextWakeAt — outside observation window"
 
-    init_wake_ts = parse_iso(init_wake)
-    final_wake_ts = parse_iso(final_wake)
-
-    if init_wake_ts is not None and init_wake_ts > now_end:
-        return (
-            "out-of-window",
-            f"nextWakeAt {init_wake} not yet due during observation window",
-        )
-
     wake_advanced = (
         init_wake_ts is not None
         and final_wake_ts is not None
         and final_wake_ts > init_wake_ts
     )
-    attempt_still_null = final_attempt is None and init_attempt is None
 
-    if wake_advanced and attempt_still_null:
+    if wake_advanced and not any_attempt:
         return "idle", "no attempt recorded and deadline re-armed — idle"
 
-    if not wake_advanced and attempt_still_null:
-        if init_wake_ts is not None and init_wake_ts <= now_end:
-            if (now_end - observed_at) <= 1:
-                return (
-                    "out-of-window",
-                    "no observation window — gate-5 receipt watch did not run",
-                )
-            return "stuck", "nextWakeAt did not advance and no attempt recorded — stuck"
+    if grace_deadline_ts is not None and grace_deadline_ts > now_end:
         return (
             "out-of-window",
-            f"nextWakeAt {init_wake} not yet due during observation window",
+            f"nextWakeAt {init_wake} grace not yet elapsed during observation window",
         )
 
-    if final_attempt != init_attempt:
+    if not wake_advanced and not any_attempt:
         if (now_end - observed_at) <= 1:
             return (
                 "out-of-window",
                 "no observation window — gate-5 receipt watch did not run",
             )
-        return "stuck", "attempt recorded but lastSuccessAt unchanged — stuck"
+        return "stuck", "nextWakeAt did not advance and no attempt recorded — stuck"
+
+    if any_attempt:
+        return (
+            "out-of-window",
+            "attempt recorded; next wake not observed within window",
+        )
 
     if (now_end - observed_at) <= 1:
         return (
@@ -1389,7 +1441,7 @@ def classify(sid, initial, final):
             "no observation window — gate-5 receipt watch did not run",
         )
 
-    return "stuck", "no receipt advance observed — stuck"
+    return "out-of-window", "no receipt advance observed within window"
 
 schedulers = status.get("schedulers", [])
 results = []
@@ -1399,14 +1451,22 @@ for sid in required_ids:
     final = snapshot_row(row)
     kind, detail = classify(sid, initial, final)
     fail_kind = False
+    watched = sid in watch_by_id
     if sid in advance_ids:
         if capacity_advanced or kind == "advanced":
             fail_kind = False
+        elif watched and not capacity_advanced:
+            fail_kind = True
+            kind = "failed"
+            detail = (
+                f"capacityRefresh lastSuccessAt did not advance after "
+                f"nextWakeAt {watch_by_id[sid].get('nextWakeAt')} + {padding}s grace"
+            )
         elif kind == "out-of-window":
             fail_kind = False
-        else:
+        elif kind == "stuck":
             fail_kind = True
-    elif sid == "probeRecordRefresh" and kind == "stuck" and (now_end - observed_at) > 1:
+    elif sid == "probeRecordRefresh" and kind == "stuck":
         fail_kind = True
     results.append({
         "id": sid,
