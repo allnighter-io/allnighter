@@ -387,6 +387,34 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertNil(r.selectedSectionId, "unknown section is dropped, topic still returned")
     }
 
+    /// ASR-S05b — serve narrative topic is gettable and findable by §8 search terms.
+    func testServeTopicExistsAndSearchTermsRoute() throws {
+        let topic = try XCTUnwrap(HelpTopicRegistry.topic(id: "serve"))
+        XCTAssertEqual(HelpService.get(topic: "serve").topic?.id, "serve")
+
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        for term in [
+            "serve", "scheduler", "background", "login", "launchagent",
+            "capacity stale", "pending stuck", "notification", "repair",
+        ] {
+            XCTAssertEqual(top(term), "serve", "search '\(term)' should route to serve")
+        }
+
+        let prose = ([topic.summary, topic.bodyMarkdown]
+                     + topic.sections.map { $0.title + " " + $0.bodyMarkdown }).joined(separator: "\n")
+        XCTAssertTrue(prose.contains("alln run"), "serve must name alln run")
+        XCTAssertTrue(prose.contains("does not depend on serve"),
+                      "serve must state alln run does not depend on serve")
+        XCTAssertTrue(prose.contains("persist"), "serve must call out disable persistence")
+        XCTAssertTrue(prose.contains("2 minutes"), "serve must state the post-wake bound")
+        XCTAssertTrue(prose.contains("alln serve repair"), "serve must teach repair")
+        XCTAssertTrue(prose.contains("degraded"), "serve must explain degraded")
+        XCTAssertTrue(prose.contains("recovery.command"), "serve must point at recovery.command")
+        if let hit = RetiredVocabulary.proseContainsDenyTerm(prose) {
+            XCTFail("serve topic uses retired vocabulary '\(hit)' in public prose")
+        }
+    }
+
     /// FCS-S07 — detect / tally / Cursor IDE vs Agent must be findable via help search.
     func testSearchRoutesDetectTallyAndCursorIDEQueries() {
         func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }

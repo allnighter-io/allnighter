@@ -804,6 +804,75 @@ public enum HelpTopicRegistry {
             schemaRefs: ["contractDoc"],
             needsLiveCheck: false),
 
+        HelpTopic(
+            id: "serve", title: "Background scheduler (serve)", audience: .both,
+            summary: "`alln serve` is the supervised per-user background scheduler (launchd LaunchAgent). `alln run` does not need it; deferred obligations do. Check with `alln serve status --json`; recover with `alln serve repair`.",
+            bodyMarkdown: """
+            `alln serve` is one supervised per-user background scheduler. macOS launchd \
+            starts it through the LaunchAgent `com.allnighter.resident-coordinator` — no Dock \
+            app and no foreground terminal required for day-to-day operation.
+
+            ## What depends on serve
+
+            **`alln run` does not depend on serve.** Foreground team runs and chats work \
+            without it. Only **deferred** obligations do:
+
+            - pending wake (`pendingWake`)
+            - PM turn wake (`pmTurnWake`)
+            - boost seed (`boostSeed`)
+            - vendor backoff continuation (`vendorBackoff`)
+            - local notifications for settled runs and loops (`notifications`)
+            - capacity strip refresh (`capacityRefresh`)
+            - probe record refresh (`probeRecordRefresh`)
+
+            If serve is unhealthy, attended work still runs; pending wakes, loop \
+            notifications, capacity refresh, and similar background duties may stall.
+
+            ## What survives logout, sleep, and crash
+
+            Host-proven on a second Mac (macOS 15.6, ad-hoc signing track):
+
+            - **Logout/login:** after a full console logout/login, serve returned \
+            `healthy` without the user launching anything — new daemon pid, all seven \
+            schedulers registered.
+            - **Sleep:** scheduler deadlines that fell due during system sleep fired \
+            within **2 minutes** of wake (measured +54 s and +87 s on two schedulers).
+            - **Crash:** signal death (TERM/KILL) produced a launchd respawn and active \
+            health; respawn measured at 16–29 s (within the 30 s `ThrottleInterval`). \
+            Deliberate exit `0` stand-down does **not** respawn — status shows `degraded` \
+            with a reason and `recovery.command` (no respawn observed for 35 s, longer \
+            than `ThrottleInterval`).
+
+            ## `degraded` and recovery
+
+            When desired state is enabled but something is wrong — stand-down, missing \
+            supervisor, stale or nonresponding daemon, scheduler failure, binary \
+            mismatch — `state` is `degraded`. Run `alln serve status --json` and read \
+            `recovery.command` for the named recovery action (usually `alln serve repair`).
+
+            ## Commands
+
+            - `alln serve status --json` — read-only desired state, supervisor, daemon, \
+            scheduler rows, and recovery hint
+            - `alln serve repair` — converge plist and registration when enabled; first \
+            try for most broken states
+            - `alln serve disable` / `alln serve enable` — deliberate off/on
+
+            **A disable persists.** On a tested host, `alln serve disable` survived \
+            logout/login and `install-cli` did not silently re-enable it. If you disabled \
+            serve and forgot, deferred work will not wake until you run `alln serve enable`.
+            """,
+            aliases: [
+                "serve", "scheduler", "background", "login", "launchagent",
+                "capacity stale", "pending stuck", "notification", "repair",
+                "background scheduler", "launch agent", "serve degraded",
+                "serve status", "alln serve",
+            ],
+            relatedCommandNames: ["serve status", "serve repair", "serve enable", "serve disable", "serve"],
+            schemaRefs: ["serveStatusJSON"],
+            errorRefs: ["SERVE_UNAVAILABLE", "SERVE_DISABLED_BY_USER"],
+            needsLiveCheck: true),
+
         recipesHelpTopic,
     ]
 
