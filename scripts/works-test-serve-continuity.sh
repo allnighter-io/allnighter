@@ -16,6 +16,8 @@ THROTTLE_INTERVAL_SEC=30
 HEALTH_BUDGET_SEC=15
 RESPAWN_DEADLINE_SEC=90
 HEALTH_AFTER_RESPAWN_DEADLINE_SEC=20
+# Matches ServeStatusJSON.activeHealthStartupCeiling (ASR-S03f4).
+STARTING_CEILING_SEC=10
 POLL_INTERVAL_SEC=1
 
 log()  { echo "works-test-serve-continuity: $*"; }
@@ -106,6 +108,44 @@ host_is_healthy() {
     && [[ -n "$STATUS_DAEMON_PID" ]] \
     && [[ -n "$STATUS_HEALTH_AT" ]] \
     && [[ "$STATUS_SUPERVISOR_LOADED" == "true" ]]
+}
+
+host_is_starting() {
+  local json="$1"
+  read_status_fields "$json"
+  [[ "$STATUS_STATE" == "starting" ]]
+}
+
+# ASR-S03f4: `starting` is a bounded transient, not unhealthy. Wait out the
+# ceiling before declaring the host failed (cleanup after repair / respawn).
+wait_for_host_healthy() {
+  local label="$1"
+  local budget_sec="${2:-$((STARTING_CEILING_SEC + HEALTH_BUDGET_SEC))}"
+  local deadline=$((SECONDS + budget_sec))
+  local json
+
+  while [[ $SECONDS -lt $deadline ]]; do
+    if ! json="$(fetch_serve_status_json)"; then
+      sleep "$POLL_INTERVAL_SEC"
+      continue
+    fi
+    if host_is_healthy "$json"; then
+      return 0
+    fi
+    if host_is_starting "$json"; then
+      sleep "$POLL_INTERVAL_SEC"
+      continue
+    fi
+    return 1
+  done
+
+  if json="$(fetch_serve_status_json)" && host_is_healthy "$json"; then
+    return 0
+  fi
+  if [[ -n "${json:-}" ]] && host_is_starting "$json"; then
+    fail "$label: still starting after ${budget_sec}s ceiling"
+  fi
+  return 1
 }
 
 count_daemon_processes() {
@@ -245,13 +285,15 @@ attempt_host_repair() {
   else
     log "CLEANUP: alln serve repair completed"
   fi
-  local json
-  if json="$(fetch_serve_status_json)" && host_is_healthy "$json"; then
+  if wait_for_host_healthy "CLEANUP after repair"; then
+    local json
+    json="$(fetch_serve_status_json)"
     log "CLEANUP: host is healthy after repair"
     report_host_state "$json"
   else
     log "CLEANUP: host is still not healthy after repair — manual intervention required"
-    if [[ -n "${json:-}" ]]; then
+    local json
+    if json="$(fetch_serve_status_json)"; then
       report_host_state "$json"
     fi
   fi
@@ -261,8 +303,7 @@ cleanup() {
   if [[ "$MUTATING" != true ]]; then
     return 0
   fi
-  local json
-  if json="$(fetch_serve_status_json)" && host_is_healthy "$json"; then
+  if wait_for_host_healthy "CLEANUP"; then
     return 0
   fi
   attempt_host_repair

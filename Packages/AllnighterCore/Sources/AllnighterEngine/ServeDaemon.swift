@@ -226,17 +226,45 @@ public final class ServeDaemon: @unchecked Sendable {
         }
     }
 
-    /// Blocks until SIGINT or SIGTERM.
+    /// Blocks until SIGINT or SIGTERM. SIGTERM settles receipts then re-raises
+    /// under the default handler so launchd observes signal death (§4.2).
     public func runUntilSignal() async throws {
-        try await run(untilShutdown: Self.waitForShutdownSignal)
+        let received = ReceivedSignal()
+        try await run(untilShutdown: { await Self.waitForShutdownSignal(recording: received) })
+        if Self.shouldReraiseSIGTERM(after: received.number) {
+            Self.reraiseSIGTERMForLaunchdRestart()
+        }
     }
 
-    private static func waitForShutdownSignal() async {
+    /// Only SIGTERM re-raises; SIGINT is foreground Ctrl+C and exits 0.
+    static func shouldReraiseSIGTERM(after signalNumber: Int32?) -> Bool {
+        signalNumber == SIGTERM
+    }
+
+    /// Restores default SIGTERM disposition and delivers it to self. Test seam via `signalHooks`.
+    static func reraiseSIGTERMForLaunchdRestart(
+        hooks: ServeDaemonSignalHooks = signalHooks
+    ) -> Never {
+        performSIGTERMReraise(hooks: hooks)
+        exit(128 + SIGTERM)
+    }
+
+    /// Set default SIGTERM handler and raise on self. Separated for unit tests.
+    static func performSIGTERMReraise(hooks: ServeDaemonSignalHooks = signalHooks) {
+        _ = hooks.setSignal(SIGTERM, SIG_DFL)
+        _ = hooks.raiseSignal(SIGTERM)
+    }
+
+    /// Injectable `signal`/`raise` for unit tests (`@testable import`).
+    static var signalHooks = ServeDaemonSignalHooks.live
+
+    private static func waitForShutdownSignal(recording received: ReceivedSignal) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let resume = OnceResumer { continuation.resume() }
             let install: (Int32) -> Void = { sig in
                 let source = DispatchSource.makeSignalSource(signal: sig, queue: .global())
                 source.setEventHandler {
+                    received.set(sig)
                     source.cancel()
                     resume.fire()
                 }
@@ -246,6 +274,29 @@ public final class ServeDaemon: @unchecked Sendable {
             install(SIGINT)
             install(SIGTERM)
         }
+    }
+}
+
+/// Testable `signal`/`raise` hooks for §4.2 SIGTERM re-raise.
+struct ServeDaemonSignalHooks: Sendable {
+    var setSignal: @Sendable (Int32, sig_t) -> sig_t
+    var raiseSignal: @Sendable (Int32) -> Int32
+
+    static let live = ServeDaemonSignalHooks(
+        setSignal: signal,
+        raiseSignal: raise
+    )
+}
+
+/// Records which shutdown signal fired (at most one — first wins).
+final class ReceivedSignal: @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var number: Int32?
+
+    func set(_ sig: Int32) {
+        lock.lock()
+        if number == nil { number = sig }
+        lock.unlock()
     }
 }
 
