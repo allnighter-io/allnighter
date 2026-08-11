@@ -51,6 +51,14 @@ public enum CanonicalCLIInstall {
         return canonical.deletingLastPathComponent().appendingPathComponent("\(binaryName).rollback")
     }
 
+    public static func pathSymlinkURL(homeDirectory: URL) -> URL {
+        homeDirectory.appendingPathComponent(".local/bin/\(binaryName)")
+    }
+
+    public static func rollbackRecoveryCopyCommand(canonicalURL: URL, rollbackURL: URL) -> String {
+        "cp \"\(rollbackURL.path)\" \"\(canonicalURL.path)\""
+    }
+
     public static func identityRecordURL(homeDirectory: URL) -> URL {
         homeDirectory
             .appendingPathComponent("Library/Application Support/Allnighter", isDirectory: true)
@@ -211,5 +219,73 @@ public enum CanonicalCLIInstall {
 
         let reportRollback: URL? = canonicalExists ? rollbackURL : nil
         return .success(Report(canonicalURL: canonicalURL, alreadyCanonical: false, rollbackURL: reportRollback))
+    }
+
+    // MARK: - Failed install restore (ASR-S06e)
+
+    /// Single owner for §4.3 step 7 rollback: restore binary from `<canonical>.rollback`,
+    /// verify the PATH symlink, and restore prior plist bytes. Callers must bootstrap the
+    /// prior job only after this returns `.success`.
+    public static func restorePriorInstallState(
+        homeDirectory: URL,
+        plistURL: URL,
+        priorPlistBytes: Data?,
+        canonicalURL: URL? = nil,
+        fileManager: FileManager = .default
+    ) -> Result<Void, Failure> {
+        let canonicalURL = canonicalURL ?? canonicalBinaryURL(homeDirectory: homeDirectory)
+        let rollbackURL = canonicalURL.deletingLastPathComponent().appendingPathComponent("\(binaryName).rollback")
+        let symlinkURL = pathSymlinkURL(homeDirectory: homeDirectory)
+
+        if fileManager.fileExists(atPath: rollbackURL.path) {
+            if fileManager.fileExists(atPath: canonicalURL.path) {
+                do {
+                    try fileManager.removeItem(at: canonicalURL)
+                } catch {
+                    return .failure(Failure(
+                        code: "SERVE_ROLLBACK_FAILED",
+                        message: "could not remove candidate binary at \(canonicalURL.path): \(error.localizedDescription); recover with: \(rollbackRecoveryCopyCommand(canonicalURL: canonicalURL, rollbackURL: rollbackURL))"
+                    ))
+                }
+            }
+            do {
+                try fileManager.moveItem(at: rollbackURL, to: canonicalURL)
+            } catch {
+                return .failure(Failure(
+                    code: "SERVE_ROLLBACK_FAILED",
+                    message: "could not restore prior binary from \(rollbackURL.path) to \(canonicalURL.path): \(error.localizedDescription); recover with: \(rollbackRecoveryCopyCommand(canonicalURL: canonicalURL, rollbackURL: rollbackURL))"
+                ))
+            }
+        }
+
+        let canonicalResolved = canonicalURL.resolvingSymlinksInPath().standardizedFileURL.path
+        if fileManager.fileExists(atPath: symlinkURL.path) {
+            let symlinkResolved = symlinkURL.resolvingSymlinksInPath().standardizedFileURL.path
+            if symlinkResolved != canonicalResolved {
+                do {
+                    try fileManager.removeItem(at: symlinkURL)
+                    try fileManager.createSymbolicLink(atPath: symlinkURL.path, withDestinationPath: canonicalResolved)
+                } catch {
+                    return .failure(Failure(
+                        code: "SERVE_INSTALL_FAILED",
+                        message: "could not repair PATH symlink at \(symlinkURL.path): \(error.localizedDescription)"
+                    ))
+                }
+            }
+        }
+
+        if let priorBytes = priorPlistBytes {
+            do {
+                try fileManager.createDirectory(at: plistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try priorBytes.write(to: plistURL, options: .atomic)
+            } catch {
+                return .failure(Failure(
+                    code: "SERVE_INSTALL_FAILED",
+                    message: "could not restore prior plist at \(plistURL.path): \(error.localizedDescription)"
+                ))
+            }
+        }
+
+        return .success(())
     }
 }

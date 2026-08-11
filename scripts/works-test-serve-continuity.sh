@@ -690,6 +690,7 @@ mutate_update() {
 
 mutate_update_rollback() {
   MUTATING=true
+  local failures_before=$FAILURES
   local json before_pid before_sha before_cdhash before_binary_sha before_plist_sha
   local rebuild_log rebuild_ec running_sha matches rollback_present
 
@@ -808,7 +809,9 @@ mutate_update_rollback() {
     pass "update-rollback: no $ROLLBACK_BINARY left behind after health confirmed"
   fi
 
-  pass "update-rollback host proof passed (gate 4 rollback half; §4.3 step 7)"
+  if [[ "$FAILURES" -eq "$failures_before" ]]; then
+    pass "update-rollback host proof passed (gate 4 rollback half; §4.3 step 7)"
+  fi
   report_host_state "$json"
 }
 

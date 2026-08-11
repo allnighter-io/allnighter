@@ -310,6 +310,69 @@ final class CanonicalCLIInstallTests: XCTestCase {
         XCTAssertTrue(fm.fileExists(atPath: rollbackURL.path), "rollback must remain on disk after failed restore")
     }
 
+    // MARK: - Failed install restore (ASR-S06e)
+
+    func testRestorePriorInstallStateRestoresBinarySymlinkAndPlist() throws {
+        let h = home()
+        let canonicalURL = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: h)
+        let rollbackURL = CanonicalCLIInstall.rollbackBinaryURL(homeDirectory: h)
+        let symlinkURL = CanonicalCLIInstall.pathSymlinkURL(homeDirectory: h)
+        let plistURL = h.appendingPathComponent("Library/LaunchAgents/com.allnighter.resident-coordinator.plist")
+
+        let priorBytes = Data("prior-build\n".utf8)
+        let candidateBytes = Data("candidate-build\n".utf8)
+        let priorPlist = Data("prior-plist".utf8)
+
+        try fm.createDirectory(at: canonicalURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try fm.createDirectory(at: symlinkURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try priorBytes.write(to: rollbackURL)
+        try candidateBytes.write(to: canonicalURL)
+        try fm.createSymbolicLink(atPath: symlinkURL.path, withDestinationPath: canonicalURL.path)
+
+        let result = CanonicalCLIInstall.restorePriorInstallState(
+            homeDirectory: h,
+            plistURL: plistURL,
+            priorPlistBytes: priorPlist,
+            fileManager: fm
+        )
+        guard case .success = result else { return XCTFail("expected success, got \(result)") }
+
+        let restoredBinary = try Data(contentsOf: canonicalURL)
+        XCTAssertEqual(restoredBinary, priorBytes)
+
+        let resolvedSymlink = symlinkURL.resolvingSymlinksInPath().standardizedFileURL.path
+        let resolvedCanonical = canonicalURL.resolvingSymlinksInPath().standardizedFileURL.path
+        XCTAssertEqual(resolvedSymlink, resolvedCanonical)
+
+        let restoredPlist = try Data(contentsOf: plistURL)
+        XCTAssertEqual(restoredPlist, priorPlist)
+    }
+
+    func testRestorePriorInstallStateBinaryFailureKeepsRollbackAndNamesRecovery() throws {
+        let h = home()
+        let canonicalURL = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: h)
+        let rollbackURL = CanonicalCLIInstall.rollbackBinaryURL(homeDirectory: h)
+
+        try fm.createDirectory(at: canonicalURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("prior-build\n".utf8).write(to: rollbackURL)
+        try Data("candidate-build\n".utf8).write(to: canonicalURL)
+
+        let failingFM = RenameFailingFileManager()
+        failingFM.failOnCallIndex = 1
+
+        let result = CanonicalCLIInstall.restorePriorInstallState(
+            homeDirectory: h,
+            plistURL: h.appendingPathComponent("plist"),
+            priorPlistBytes: nil,
+            fileManager: failingFM
+        )
+        guard case .failure(let f) = result else { return XCTFail("expected failure, got \(result)") }
+        XCTAssertEqual(f.code, "SERVE_ROLLBACK_FAILED")
+        XCTAssertTrue(fm.fileExists(atPath: rollbackURL.path))
+        XCTAssertTrue(f.message.contains("cp \"\(rollbackURL.path)\""))
+        XCTAssertTrue(f.message.contains(canonicalURL.path))
+    }
+
     // MARK: - Identity
 
     func testDifferentCandidatesSameVersionDifferentCDHash() throws {

@@ -1,5 +1,7 @@
 import XCTest
+import CryptoKit
 @testable import AllnighterEngine
+import AllnighterCore
 
 /// ASR-S02c — convergent supervisor transaction: enable, disable, restart, repair
 /// all converge through one routine. Every launchd/file effect injected; no live
@@ -831,6 +833,47 @@ final class ServeLifecycleEnableTests: XCTestCase {
     }
 
     // MARK: - ASR-S06d bootstrap failure injection
+
+    /// ASR-S06e failing-first: after candidate bytes land, bootstrap failure must restore
+    /// the prior canonical binary from rollback before re-bootstrapping the prior job.
+    func testBootstrapFailureRestoresPriorBinaryBytesBeforeRebootstrap() async {
+        setenv("ALLNIGHTER_SERVE_TEST_INJECT", ServeLifecycle.testInjectBootstrapFailure, 1)
+        defer { unsetenv("ALLNIGHTER_SERVE_TEST_INJECT") }
+
+        let h = Harness()
+        h.createPlistFile()
+        let priorPlistBytes = try! Data(contentsOf: h.plistURL)
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.jobIsLoaded = true
+
+        let priorBytes = Data("prior-build-bytes\n".utf8)
+        let candidateBytes = Data("candidate-build-bytes\n".utf8)
+        let rollbackURL = h.canonicalURL.deletingLastPathComponent().appendingPathComponent("alln.rollback")
+        let symlinkURL = h.homeURL.appendingPathComponent(".local/bin/alln")
+
+        try! FileManager.default.createDirectory(at: h.canonicalURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try! FileManager.default.createDirectory(at: symlinkURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try! priorBytes.write(to: rollbackURL)
+        try! candidateBytes.write(to: h.canonicalURL)
+        try! FileManager.default.createSymbolicLink(atPath: symlinkURL.path, withDestinationPath: h.canonicalURL.path)
+
+        let priorSHA = SHA256.hash(data: priorBytes).map { String(format: "%02x", $0) }.joined()
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .failed)
+
+        let restoredBytes = try! Data(contentsOf: h.canonicalURL)
+        let restoredSHA = SHA256.hash(data: restoredBytes).map { String(format: "%02x", $0) }.joined()
+        XCTAssertEqual(restoredSHA, priorSHA, "canonical binary must match prior bytes after failed install rollback")
+
+        let resolvedSymlink = symlinkURL.resolvingSymlinksInPath().standardizedFileURL.path
+        let resolvedCanonical = h.canonicalURL.resolvingSymlinksInPath().standardizedFileURL.path
+        XCTAssertEqual(resolvedSymlink, resolvedCanonical, "PATH symlink must resolve to restored canonical binary")
+
+        let restoredPlist = try? Data(contentsOf: h.plistURL)
+        XCTAssertEqual(restoredPlist, priorPlistBytes)
+        XCTAssertTrue(result.registryVerified, "prior job must be re-bootstrapped after binary restore")
+    }
 
     func testBootstrapFailureInjectFailsInstallTransactionButRestoreBootstraps() async {
         setenv("ALLNIGHTER_SERVE_TEST_INJECT", ServeLifecycle.testInjectBootstrapFailure, 1)

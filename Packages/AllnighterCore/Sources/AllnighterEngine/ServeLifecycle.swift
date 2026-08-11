@@ -359,37 +359,37 @@ public struct ServeLifecycle: Sendable {
             }
 
             if let bootoutErr = _tryBootout() {
-                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: restored,
+                                         registryVerified: restore.restored,
                                          detail: _failureDetail(prefix: "converge enabled: bootout failed",
-                                                                error: bootoutErr.message, restored: restored))
+                                                                error: bootoutErr.message, restored: restore.restored, rollbackFailure: restore.rollbackFailure))
             }
 
             guard await _waitForBootoutSettled() else {
-                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: restored,
+                                         registryVerified: restore.restored,
                                          detail: _failureDetail(prefix: "converge enabled: bootout did not settle",
                                                                 error: "label still loaded in domain",
-                                                                restored: restored))
+                                                                restored: restore.restored, rollbackFailure: restore.rollbackFailure))
             }
 
             let absentPlist = _makePlist()
             do {
                 try writePlist(plistURL, absentPlist)
             } catch {
-                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: restored,
+                                         registryVerified: restore.restored,
                                          detail: _failureDetail(prefix: "converge enabled: plist write failed",
-                                                                error: "\(error)", restored: restored))
+                                                                error: "\(error)", restored: restore.restored, rollbackFailure: restore.rollbackFailure))
             }
 
             do {
@@ -398,13 +398,13 @@ public struct ServeLifecycle: Sendable {
                 if priorPlistBytes == nil {
                     try? removePlist(plistURL)
                 }
-                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: true, bootstrapped: false,
-                                         registryVerified: restored,
+                                         registryVerified: restore.restored,
                                          detail: _failureDetail(prefix: "converge enabled: bootstrap failed",
-                                                                error: "\(error)", restored: restored))
+                                                                error: "\(error)", restored: restore.restored, rollbackFailure: restore.rollbackFailure))
             }
 
             let absentVerified = await _boundedVerify(expectedLoaded: true)
@@ -443,37 +443,37 @@ public struct ServeLifecycle: Sendable {
             }
 
             if let bootoutErr = _tryBootout() {
-                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: restored,
+                                         registryVerified: restore.restored,
                                          detail: _failureDetail(prefix: "converge enabled: bootout failed",
-                                                                error: bootoutErr.message, restored: restored))
+                                                                error: bootoutErr.message, restored: restore.restored, rollbackFailure: restore.rollbackFailure))
             }
 
             guard await _waitForBootoutSettled() else {
-                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: restored,
+                                         registryVerified: restore.restored,
                                          detail: _failureDetail(prefix: "converge enabled: bootout did not settle",
                                                                 error: "label still loaded in domain",
-                                                                restored: restored))
+                                                                restored: restore.restored, rollbackFailure: restore.rollbackFailure))
             }
 
             let plist = _makePlist()
             do {
                 try writePlist(plistURL, plist)
             } catch {
-                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: false, bootstrapped: false,
-                                         registryVerified: restored,
+                                         registryVerified: restore.restored,
                                          detail: _failureDetail(prefix: "converge enabled: plist write failed",
-                                                                error: "\(error)", restored: restored))
+                                                                error: "\(error)", restored: restore.restored, rollbackFailure: restore.rollbackFailure))
             }
 
             do {
@@ -482,13 +482,13 @@ public struct ServeLifecycle: Sendable {
                 if priorPlistBytes == nil {
                     try? removePlist(plistURL)
                 }
-                let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+                let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
                 return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                          canonicalBinaryPath: canonicalBinaryURL.path,
                                          plistWritten: true, bootstrapped: false,
-                                         registryVerified: restored,
+                                         registryVerified: restore.restored,
                                          detail: _failureDetail(prefix: "converge enabled: bootstrap failed",
-                                                                error: "\(error)", restored: restored))
+                                                                error: "\(error)", restored: restore.restored, rollbackFailure: restore.rollbackFailure))
             }
 
             let verified = await _boundedVerify(expectedLoaded: true)
@@ -507,61 +507,67 @@ public struct ServeLifecycle: Sendable {
         let stagedPath = stagedBinaryURL.path
 
         if let bootoutErr = _tryBootout() {
-            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+            let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: false, bootstrapped: false,
-                                     registryVerified: restored,
+                                     registryVerified: restore.restored,
                                      detail: _failureDetail(prefix: "migration failed: bootout error",
-                                                            error: bootoutErr.message, restored: restored))
+                                                            error: bootoutErr.message, restored: restore.restored, rollbackFailure: restore.rollbackFailure))
         }
 
         guard await _waitForBootoutSettled() else {
-            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+            let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: false, bootstrapped: false,
-                                     registryVerified: restored,
+                                     registryVerified: restore.restored,
                                      detail: _failureDetail(prefix: "migration failed: bootout did not settle",
                                                             error: "label still loaded in domain",
-                                                            restored: restored))
+                                                            restored: restore.restored, rollbackFailure: restore.rollbackFailure))
         }
 
         let plist = _makePlist()
         do {
             try writePlist(plistURL, plist)
         } catch {
-            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+            let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: false, bootstrapped: false,
-                                     registryVerified: restored,
+                                     registryVerified: restore.restored,
                                      detail: _failureDetail(prefix: "migration failed: plist write",
-                                                            error: "\(error)", restored: restored))
+                                                            error: "\(error)", restored: restore.restored, rollbackFailure: restore.rollbackFailure))
         }
 
         do {
             try await _bootstrapWithBoundedRetry()
         } catch {
-            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+            let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: true, bootstrapped: false,
-                                     registryVerified: restored,
+                                     registryVerified: restore.restored,
                                      detail: _failureDetail(prefix: "migration failed: bootstrap",
-                                                            error: "\(error)", restored: restored))
+                                                            error: "\(error)", restored: restore.restored, rollbackFailure: restore.rollbackFailure))
         }
 
         let verified = await _boundedVerify(expectedLoaded: true)
         guard verified else {
-            let restored = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+            let restore = await _restorePriorRegistration(priorPlistBytes: priorPlistBytes)
+            let detail: String
+            if let rollbackFailure = restore.rollbackFailure {
+                detail = "\(Self.label) migration failed: verify — \(rollbackFailure.code): \(rollbackFailure.message)"
+            } else if restore.restored {
+                detail = "\(Self.label) migration failed: verify — prior registration restored"
+            } else {
+                detail = "\(Self.label) migration failed: verify — serve is not running; run `alln serve repair`"
+            }
             return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
                                      canonicalBinaryPath: canonicalBinaryURL.path,
                                      plistWritten: true, bootstrapped: true,
-                                     registryVerified: restored,
-                                     detail: restored
-                                        ? "\(Self.label) migration failed: verify — prior registration restored"
-                                        : "\(Self.label) migration failed: verify — serve is not running; run `alln serve repair`")
+                                     registryVerified: restore.restored,
+                                     detail: detail)
         }
 
         var removed = false
@@ -666,22 +672,34 @@ public struct ServeLifecycle: Sendable {
         }
     }
 
-    private func _restorePriorRegistration(priorPlistBytes: Data?) async -> Bool {
-        guard let priorBytes = priorPlistBytes else { return false }
-        do {
-            try priorBytes.write(to: plistURL, options: .atomic)
-        } catch {
-            return false
+    private func _restorePriorRegistration(priorPlistBytes: Data?) async -> (restored: Bool, rollbackFailure: CanonicalCLIInstall.Failure?) {
+        switch CanonicalCLIInstall.restorePriorInstallState(
+            homeDirectory: homeDirectory,
+            plistURL: plistURL,
+            priorPlistBytes: priorPlistBytes,
+            canonicalURL: canonicalBinaryURL
+        ) {
+        case .failure(let failure):
+            return (false, failure)
+        case .success:
+            break
         }
+
+        guard priorPlistBytes != nil else { return (false, nil) }
+
         do {
             try await _bootstrapWithBoundedRetry()
         } catch {
-            return false
+            return (false, nil)
         }
-        return await _boundedVerify(expectedLoaded: true)
+        let verified = await _boundedVerify(expectedLoaded: true)
+        return (verified, nil)
     }
 
-    private func _failureDetail(prefix: String, error: String, restored: Bool) -> String {
+    private func _failureDetail(prefix: String, error: String, restored: Bool, rollbackFailure: CanonicalCLIInstall.Failure? = nil) -> String {
+        if let rollbackFailure, rollbackFailure.code == "SERVE_ROLLBACK_FAILED" {
+            return "\(Self.label) \(prefix) — \(rollbackFailure.code): \(rollbackFailure.message)"
+        }
         if restored {
             return "\(Self.label) \(prefix) — prior registration restored: \(error)"
         }
