@@ -20,8 +20,13 @@ HEALTH_AFTER_RESPAWN_DEADLINE_SEC=20
 STARTING_CEILING_SEC=10
 POLL_INTERVAL_SEC=1
 
-log()  { echo "works-test-serve-continuity: $*"; }
-pass() { echo "works-test-serve-continuity: PASS — $*"; }
+# Diagnostics go to stderr, never stdout. Several helpers below return their
+# payload (a pid, a duration, a JSON blob) on stdout and are captured with
+# $(...); if log/pass wrote to stdout too, the caller would parse a log line as
+# data. That is exactly how the first gate 3 run lost the replacement pid and
+# then waited for health on an empty one.
+log()  { echo "works-test-serve-continuity: $*" >&2; }
+pass() { echo "works-test-serve-continuity: PASS — $*" >&2; }
 fail() { echo "works-test-serve-continuity: FAIL — $*" >&2; FAILURES=$((FAILURES + 1)); }
 
 usage() {

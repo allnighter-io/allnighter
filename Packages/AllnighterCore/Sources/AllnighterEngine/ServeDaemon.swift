@@ -241,22 +241,21 @@ public final class ServeDaemon: @unchecked Sendable {
         signalNumber == SIGTERM
     }
 
-    /// Restores default SIGTERM disposition and delivers it to self. Test seam via `signalHooks`.
-    static func reraiseSIGTERMForLaunchdRestart(
-        hooks: ServeDaemonSignalHooks = signalHooks
-    ) -> Never {
-        performSIGTERMReraise(hooks: hooks)
+    /// Restores default SIGTERM disposition and delivers it to self, so launchd
+    /// observes signal death rather than a clean exit (§4.2 restart contract).
+    ///
+    /// Not injectable: a test seam here would have to own process-wide signal
+    /// disposition, and the honest version of the assertion kills the test
+    /// runner. `shouldReraiseSIGTERM(after:)` carries the decision logic and is
+    /// unit-tested; this two-line delivery is proven by the gate 3 host proof
+    /// (`works-test-serve-continuity.sh --mutate-product-agent crash-restart`).
+    static func reraiseSIGTERMForLaunchdRestart() -> Never {
+        signal(SIGTERM, SIG_DFL)
+        raise(SIGTERM)
+        // Unreachable once the default disposition delivers; kept so the
+        // function is `Never` and a blocked signal still ends the process.
         exit(128 + SIGTERM)
     }
-
-    /// Set default SIGTERM handler and raise on self. Separated for unit tests.
-    static func performSIGTERMReraise(hooks: ServeDaemonSignalHooks = signalHooks) {
-        _ = hooks.setSignal(SIGTERM, SIG_DFL)
-        _ = hooks.raiseSignal(SIGTERM)
-    }
-
-    /// Injectable `signal`/`raise` for unit tests (`@testable import`).
-    static var signalHooks = ServeDaemonSignalHooks.live
 
     private static func waitForShutdownSignal(recording received: ReceivedSignal) async {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
@@ -275,17 +274,6 @@ public final class ServeDaemon: @unchecked Sendable {
             install(SIGTERM)
         }
     }
-}
-
-/// Testable `signal`/`raise` hooks for §4.2 SIGTERM re-raise.
-struct ServeDaemonSignalHooks: Sendable {
-    var setSignal: @Sendable (Int32, sig_t) -> sig_t
-    var raiseSignal: @Sendable (Int32) -> Int32
-
-    static let live = ServeDaemonSignalHooks(
-        setSignal: signal,
-        raiseSignal: raise
-    )
 }
 
 /// Records which shutdown signal fired (at most one — first wins).

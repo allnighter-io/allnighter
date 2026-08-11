@@ -1,0 +1,48 @@
+works-test-serve-continuity: mutating mode: crash-restart (TERM then KILL)
+works-test-serve-continuity: === TERM half: record before state ===
+works-test-serve-continuity: before: pid=99976 daemonId=a25998e4-2474-46ce-b106-a7eb4280c411 startedAt=2026-08-11T17:41:28Z supervisor.loaded=true
+works-test-serve-continuity: PASS — TERM before-signal: exactly one daemon process (/Users/openclaw/.local/share/allnighter/bin/alln)
+works-test-serve-continuity: PASS — TERM before-signal: exactly one loaded LaunchAgent (com.allnighter.resident-coordinator)
+works-test-serve-continuity: PASS — TERM before-signal: daemon pid == supervisor pid (99976)
+works-test-serve-continuity: PASS — TERM before-signal: zero Dock Allnighter processes
+works-test-serve-continuity: === TERM half: send TERM to pid 99976 ===
+works-test-serve-continuity: === TERM half: wait for replacement pid ===
+works-test-serve-continuity: replacement daemon pid 797 appeared 16s after signal (ThrottleInterval budget=30s)
+works-test-serve-continuity: PASS — time-to-respawn 16s is within ThrottleInterval (30s)
+works-test-serve-continuity: === TERM half: wait for active health on pid 797 ===
+works-test-serve-continuity: active health for pid 797 at 1s after replacement appeared (budget=15s)
+works-test-serve-continuity: PASS — time-to-health 1s is within 15s budget
+works-test-serve-continuity: TERM summary: time-to-respawn=16s time-to-health=1s (health budget=15s throttle=30s)
+works-test-serve-continuity: PASS — TERM produced replacement pid 99976 -> 797 with active health
+works-test-serve-continuity: PASS — TERM after-restart: exactly one daemon process (/Users/openclaw/.local/share/allnighter/bin/alln)
+works-test-serve-continuity: PASS — TERM after-restart: exactly one loaded LaunchAgent (com.allnighter.resident-coordinator)
+works-test-serve-continuity: PASS — TERM after-restart: daemon pid == supervisor pid (797)
+works-test-serve-continuity: PASS — TERM after-restart: zero Dock Allnighter processes
+works-test-serve-continuity: === KILL half: will signal new pid 797 from TERM restart ===
+works-test-serve-continuity: === KILL half: record before state ===
+works-test-serve-continuity: before: pid=797 daemonId=2a5ca4cc-14b1-4d7b-9196-ff0fd52ff7b4 startedAt=2026-08-11T17:41:57Z supervisor.loaded=true
+works-test-serve-continuity: PASS — KILL before-signal: exactly one daemon process (/Users/openclaw/.local/share/allnighter/bin/alln)
+works-test-serve-continuity: PASS — KILL before-signal: exactly one loaded LaunchAgent (com.allnighter.resident-coordinator)
+works-test-serve-continuity: PASS — KILL before-signal: daemon pid == supervisor pid (797)
+works-test-serve-continuity: PASS — KILL before-signal: zero Dock Allnighter processes
+works-test-serve-continuity: === KILL half: send KILL to pid 797 ===
+works-test-serve-continuity: === KILL half: wait for replacement pid ===
+works-test-serve-continuity: replacement daemon pid 1626 appeared 28s after signal (ThrottleInterval budget=30s)
+works-test-serve-continuity: PASS — time-to-respawn 28s is within ThrottleInterval (30s)
+works-test-serve-continuity: === KILL half: wait for active health on pid 1626 ===
+works-test-serve-continuity: active health for pid 1626 at 0s after replacement appeared (budget=15s)
+works-test-serve-continuity: PASS — time-to-health 0s is within 15s budget
+works-test-serve-continuity: KILL summary: time-to-respawn=28s time-to-health=0s (health budget=15s throttle=30s)
+works-test-serve-continuity: PASS — KILL produced replacement pid 797 -> 1626 with active health
+works-test-serve-continuity: PASS — KILL after-restart: exactly one daemon process (/Users/openclaw/.local/share/allnighter/bin/alln)
+works-test-serve-continuity: PASS — KILL after-restart: exactly one loaded LaunchAgent (com.allnighter.resident-coordinator)
+works-test-serve-continuity: PASS — KILL after-restart: daemon pid == supervisor pid (1626)
+works-test-serve-continuity: PASS — KILL after-restart: zero Dock Allnighter processes
+works-test-serve-continuity: PASS — host healthy after TERM and KILL restart halves
+works-test-serve-continuity: state=healthy desired supervisor.loaded=true
+works-test-serve-continuity: daemon pid=1626 daemonId=43ff1790-1319-4ef9-bf0b-ade4938df0ee startedAt=2026-08-11T17:42:28Z
+works-test-serve-continuity: daemon activeHealthRespondedAt=2026-08-11T17:42:29Z
+works-test-serve-continuity: supervisor pid=1626 label=com.allnighter.resident-coordinator
+works-test-serve-continuity: binary path=/Users/openclaw/.local/share/allnighter/bin/alln
+
+works-test-serve-continuity: ALL PASS
