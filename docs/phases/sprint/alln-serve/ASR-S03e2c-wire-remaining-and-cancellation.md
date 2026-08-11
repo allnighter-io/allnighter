@@ -1,6 +1,6 @@
 # ASR-S03e2c — wire the last two schedulers; cancellation is not failure
 
-Status: **ready**
+Status: **done** — `e99cb778` (Cursor Grok 4.5)
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §6, §7,
 and the project law *"Absence of a declared signal yields no observation, never
 an inferred one."*
@@ -130,3 +130,28 @@ Corrective and additive. The live daemon stops writing `failed` on clean
 shutdown — strictly more honest than today. Two more rows gain movement. Nothing
 reads the receipt yet (`ServeStatusJSON` v2 is S03f), so no command's output
 changes and scheduler timing is untouched.
+
+## 10. Closeout — 2026-08-11
+
+Landed `e99cb778`. Re-verified outside the seat: 77 tests green under the §7
+filter.
+
+Rulings the seat made, both sound:
+
+- **Shutdown marks rows `stopped` rather than clearing `runtime.json`.** Existing
+  registration proofs read the receipt after exit, so deleting it would break
+  them, and `stopped` is a truthful "daemon stood down" signal for S03f.
+- **`cloudRelay` stays `registered`**, with the comment at the registration site
+  explaining that the daemon cannot observe passes behind
+  `RemoteMacAgentCoordinating` without inventing them.
+
+A new `stopped` case was added to `SchedulerState`. S03f must treat it as a
+stand-down paired with the supervisor observation, never as a failure.
+
+**Carried note, deliberately not a slice.** `PMTurnWakeScheduler` previously
+used `try?` around its sleep — swallow and keep polling — and now breaks out of
+the loop on a sleep error. On the production path this is unreachable and
+correct: `DefaultPendingWakeSleeper` bottoms out in `Task.sleep`, which throws
+only `CancellationError`, and breaking on cancellation is right. It matters only
+for an injected sleeper that throws something else, which exists only in tests.
+Flagged here so a future reader does not rediscover it as a mystery.
