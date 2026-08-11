@@ -126,10 +126,13 @@ public struct ServeLifecycle: Sendable {
         public var bootstrapped: Bool
         public var registryVerified: Bool
         public var detail: String
+        public var migratedFrom: String?
+        public var stagedBytesRemoved: Bool
 
         public init(outcome: ConvergenceOutcome, desiredStateReading: String,
                     canonicalBinaryPath: String, plistWritten: Bool, bootstrapped: Bool,
-                    registryVerified: Bool, detail: String) {
+                    registryVerified: Bool, detail: String,
+                    migratedFrom: String? = nil, stagedBytesRemoved: Bool = false) {
             self.outcome = outcome
             self.desiredStateReading = desiredStateReading
             self.canonicalBinaryPath = canonicalBinaryPath
@@ -137,6 +140,8 @@ public struct ServeLifecycle: Sendable {
             self.bootstrapped = bootstrapped
             self.registryVerified = registryVerified
             self.detail = detail
+            self.migratedFrom = migratedFrom
+            self.stagedBytesRemoved = stagedBytesRemoved
         }
     }
 
@@ -158,6 +163,11 @@ public struct ServeLifecycle: Sendable {
     public let sleep: @Sendable (TimeInterval) async throws -> Void
     public let clock: @Sendable () -> Date
 
+    public let stagedBinaryURL: URL
+    public let readExistingPlistProgramArgument: @Sendable (URL) -> String?
+    public let stagedBytesExist: @Sendable (URL) -> Bool
+    public let removeStagedBytes: @Sendable (URL) throws -> Void
+
     public init(
         plistURL: URL = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/\(ServeLifecycle.label).plist"),
@@ -173,7 +183,11 @@ public struct ServeLifecycle: Sendable {
         writeDesiredState: (@Sendable (ServeDesiredState.State, URL) -> Result<Void, ServeDesiredState.Failure>)? = nil,
         verifyJobLoaded: (@Sendable (String) -> Bool)? = nil,
         sleep: (@Sendable (TimeInterval) async throws -> Void)? = nil,
-        clock: (@Sendable () -> Date)? = nil
+        clock: (@Sendable () -> Date)? = nil,
+        stagedBinaryURL: URL? = nil,
+        readExistingPlistProgramArgument: (@Sendable (URL) -> String?)? = nil,
+        stagedBytesExist: (@Sendable (URL) -> Bool)? = nil,
+        removeStagedBytes: (@Sendable (URL) throws -> Void)? = nil
     ) {
         self.plistURL = plistURL
         self.bootout = bootout ?? Self.liveBootout
@@ -189,6 +203,10 @@ public struct ServeLifecycle: Sendable {
         self.verifyJobLoaded = verifyJobLoaded ?? Self.liveVerifyJobLoaded
         self.sleep = sleep ?? { try await Task.sleep(nanoseconds: UInt64($0 * 1_000_000_000)) }
         self.clock = clock ?? { Date() }
+        self.stagedBinaryURL = stagedBinaryURL ?? ServeStableBinary.defaultDestinationURL()
+        self.readExistingPlistProgramArgument = readExistingPlistProgramArgument ?? Self.liveReadExistingPlistProgramArgument
+        self.stagedBytesExist = stagedBytesExist ?? { FileManager.default.fileExists(atPath: $0.path) }
+        self.removeStagedBytes = removeStagedBytes ?? { try FileManager.default.removeItem(at: $0) }
     }
 
     // MARK: - Four verbs
@@ -327,7 +345,17 @@ public struct ServeLifecycle: Sendable {
                 priorPlistBytes = nil
             }
 
-            do { try bootout(Self.label) } catch { }
+            if let bootoutErr = _tryBootout() {
+                if let priorBytes = priorPlistBytes {
+                    try? priorBytes.write(to: plistURL, options: .atomic)
+                    try? bootstrap(plistURL.path)
+                }
+                return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: false, bootstrapped: false,
+                                         registryVerified: false,
+                                         detail: "\(Self.label) converge enabled: bootout failed — prior registration restored: \(bootoutErr.message)")
+            }
 
             let absentPlist = _makePlist()
             do {
@@ -383,7 +411,29 @@ public struct ServeLifecycle: Sendable {
                 priorPlistBytes = nil
             }
 
-            do { try bootout(Self.label) } catch { }
+            let needsMigration: Bool = {
+                if !plistExists(plistURL) { return false }
+                guard let prog = readExistingPlistProgramArgument(plistURL) else { return false }
+                let resolved = URL(fileURLWithPath: prog).resolvingSymlinksInPath().standardizedFileURL.path
+                let stagedResolved = stagedBinaryURL.resolvingSymlinksInPath().standardizedFileURL.path
+                return resolved == stagedResolved
+            }()
+
+            if needsMigration {
+                return await _migrateFromStaged(readingLabel: readingLabel, priorPlistBytes: priorPlistBytes)
+            }
+
+            if let bootoutErr = _tryBootout() {
+                if let priorBytes = priorPlistBytes {
+                    try? priorBytes.write(to: plistURL, options: .atomic)
+                    try? bootstrap(plistURL.path)
+                }
+                return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                         canonicalBinaryPath: canonicalBinaryURL.path,
+                                         plistWritten: false, bootstrapped: false,
+                                         registryVerified: false,
+                                         detail: "\(Self.label) converge enabled: bootout failed — prior registration restored: \(bootoutErr.message)")
+            }
 
             let plist = _makePlist()
             do {
@@ -422,6 +472,99 @@ public struct ServeLifecycle: Sendable {
                                      plistWritten: true, bootstrapped: true,
                                      registryVerified: verified,
                                      detail: "\(Self.label) enabled: agent registered at \(canonicalBinaryURL.path)")
+        }
+    }
+
+    /// Step 2 ordered migration: bootout → write canonical plist → bootstrap →
+    /// verify → remove staged bytes. On any failure before removal, restore the
+    /// prior plist, re-bootstrap the prior job, and leave staged bytes untouched.
+    private func _migrateFromStaged(readingLabel: String, priorPlistBytes: Data?) async -> ConvergenceResult {
+        let stagedPath = stagedBinaryURL.path
+
+        if let bootoutErr = _tryBootout() {
+            if let priorBytes = priorPlistBytes {
+                try? priorBytes.write(to: plistURL, options: .atomic)
+                try? bootstrap(plistURL.path)
+            }
+            return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) migration failed: bootout error — prior registration restored: \(bootoutErr.message)")
+        }
+
+        let plist = _makePlist()
+        do {
+            try writePlist(plistURL, plist)
+        } catch {
+            if let priorBytes = priorPlistBytes {
+                try? priorBytes.write(to: plistURL, options: .atomic)
+                try? bootstrap(plistURL.path)
+            }
+            return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: false, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) migration failed: plist write — prior registration restored: \(error)")
+        }
+
+        do {
+            try bootstrap(plistURL.path)
+        } catch {
+            if let priorBytes = priorPlistBytes {
+                try? priorBytes.write(to: plistURL, options: .atomic)
+                try? bootstrap(plistURL.path)
+            } else {
+                try? removePlist(plistURL)
+            }
+            return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: true, bootstrapped: false,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) migration failed: bootstrap — prior registration restored: \(error)")
+        }
+
+        let verified = await _boundedVerify(expectedLoaded: true)
+        guard verified else {
+            if let priorBytes = priorPlistBytes {
+                try? priorBytes.write(to: plistURL, options: .atomic)
+                try? bootstrap(plistURL.path)
+            }
+            return ConvergenceResult(outcome: .failed, desiredStateReading: readingLabel,
+                                     canonicalBinaryPath: canonicalBinaryURL.path,
+                                     plistWritten: true, bootstrapped: true,
+                                     registryVerified: false,
+                                     detail: "\(Self.label) migration failed: verify — prior registration restored")
+        }
+
+        var removed = false
+        if stagedBytesExist(stagedBinaryURL) {
+            do {
+                try removeStagedBytes(stagedBinaryURL)
+                removed = true
+            } catch {
+                // staged removal failure is non-fatal after successful migration
+            }
+        }
+
+        let suffix = removed ? "staged bytes cleaned" : "staged bytes left on disk"
+        return ConvergenceResult(outcome: .enabled, desiredStateReading: readingLabel,
+                                 canonicalBinaryPath: canonicalBinaryURL.path,
+                                 plistWritten: true, bootstrapped: true,
+                                 registryVerified: verified, detail: "\(Self.label) migrated from \(stagedPath) to \(canonicalBinaryURL.path) — \(suffix)",
+                                 migratedFrom: stagedPath, stagedBytesRemoved: removed)
+    }
+
+    /// Attempt bootout; returns nil on success/not-loaded, or a BootoutError
+    /// on a genuine failure.
+    private func _tryBootout() -> BootoutError? {
+        do {
+            try bootout(Self.label)
+            return nil
+        } catch let e as BootoutError {
+            return e
+        } catch {
+            return BootoutError(terminationStatus: -1, message: "\(error)")
         }
     }
 
@@ -471,7 +614,7 @@ public struct ServeLifecycle: Sendable {
 
     // MARK: - Live launchctl (never called from unit tests)
 
-    private static func liveBootout(label: String) throws {
+    public static func liveBootout(label: String) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/launchctl")
         process.arguments = ["bootout", "gui/\(getuid())/\(label)"]
@@ -527,5 +670,12 @@ public struct ServeLifecycle: Sendable {
         try? process.run()
         process.waitUntilExit()
         return process.terminationStatus == 0
+    }
+
+    private static func liveReadExistingPlistProgramArgument(_ url: URL) -> String? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any] else { return nil }
+        guard let args = plist["ProgramArguments"] as? [String], let first = args.first else { return nil }
+        return first
     }
 }

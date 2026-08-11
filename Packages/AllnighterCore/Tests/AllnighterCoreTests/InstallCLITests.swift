@@ -440,4 +440,69 @@ final class InstallCLITests: XCTestCase {
         XCTAssertEqual(json.target, expectedCanonical)
         XCTAssertTrue(fm.fileExists(atPath: expectedCanonical), "canonical binary must exist at \(expectedCanonical)")
     }
+
+    // MARK: - beforeBytesChange wiring (ASR-S02d Step 4)
+
+    func testBeforeBytesChangeWiredThroughCanonicalInstall() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+
+        var beforeBytesCalled = false
+
+        let mockInstall: (URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure> = { candidate, home, _, fm in
+            let result = CanonicalCLIInstall.install(
+                candidateURL: candidate,
+                homeDirectory: home,
+                fileManager: fm,
+                beforeBytesChange: {
+                    beforeBytesCalled = true
+                    return .success(())
+                }
+            )
+            return result
+        }
+
+        let outcome = InstallCLI.run(request(
+            binary: binary,
+            installDir: installDir,
+            canonicalInstall: mockInstall
+        ))
+        guard case .installed = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        XCTAssertTrue(beforeBytesCalled, "beforeBytesChange must be called through canonicalInstall wiring")
+    }
+
+    func testBeforeBytesChangeFailureAbortsInstallBytesUnchanged() throws {
+        let binary = try makeBinary()
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let canonicalURL = CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot)
+
+        var beforeBytesCalled = false
+
+        let mockInstall: (URL, URL, String?, FileManager) -> Result<CanonicalCLIInstall.Report, CanonicalCLIInstall.Failure> = { candidate, home, _, fm in
+            let result = CanonicalCLIInstall.install(
+                candidateURL: candidate,
+                homeDirectory: home,
+                fileManager: fm,
+                beforeBytesChange: {
+                    beforeBytesCalled = true
+                    return .failure(CanonicalCLIInstall.Failure(code: "SERVE_INSTALL_FAILED", message: "hook abort"))
+                }
+            )
+            return result
+        }
+
+        let outcome = InstallCLI.run(request(
+            binary: binary,
+            installDir: installDir,
+            canonicalInstall: mockInstall
+        ))
+        guard case .failed(let code, _) = outcome else {
+            return XCTFail("expected failed, got \(outcome)")
+        }
+        XCTAssertEqual(code, "SERVE_INSTALL_FAILED")
+        XCTAssertTrue(beforeBytesCalled)
+        XCTAssertFalse(fm.fileExists(atPath: canonicalURL.path), "canonical bytes must not exist when beforeBytesChange fails")
+    }
 }

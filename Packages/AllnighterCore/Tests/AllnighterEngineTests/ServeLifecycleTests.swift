@@ -13,6 +13,7 @@ final class ServeLifecycleTests: XCTestCase {
         var writtenPlists: [(url: URL, plist: ServeLifecycle.AgentPlist)] = []
         var deletedURLs: [URL] = []
         var desiredWrites: [(state: ServeDesiredState.State, home: URL)] = []
+        var stagedBytesDeletedURLs: [URL] = []
 
         var bootoutError: Error?
         var bootstrapError: Error?
@@ -23,10 +24,20 @@ final class ServeLifecycleTests: XCTestCase {
         var desiredWriteResult: Result<Void, ServeDesiredState.Failure> = .success(())
         var canonicalExists = true
         var jobIsLoaded = false
+        var injectedPlistProgramArgument: String?
+        var stagedBytesPresent = false
+        var stagedRemoveError: Error?
 
         let plistURL = URL(fileURLWithPath: "/tmp/\(UUID().uuidString).plist")
         let homeURL = URL(fileURLWithPath: "/tmp/home-\(UUID().uuidString)")
-        let canonicalURL = URL(fileURLWithPath: "/tmp/canonical-\(UUID().uuidString)/alln")
+        let canonicalURL: URL
+        let stagedBinaryURL: URL
+
+        init(canonicalBase: String = "/tmp/canonical-\(UUID().uuidString)") {
+            let dir = URL(fileURLWithPath: canonicalBase)
+            canonicalURL = dir.appendingPathComponent("alln")
+            stagedBinaryURL = URL(fileURLWithPath: "/tmp/staged-\(UUID().uuidString)/alln")
+        }
 
         var lifecycle: ServeLifecycle {
             ServeLifecycle(
@@ -58,7 +69,14 @@ final class ServeLifecycleTests: XCTestCase {
                 },
                 verifyJobLoaded: { [self] _ in jobIsLoaded },
                 sleep: { _ in },
-                clock: { Date() }
+                clock: { Date() },
+                stagedBinaryURL: stagedBinaryURL,
+                readExistingPlistProgramArgument: { [self] _ in injectedPlistProgramArgument },
+                stagedBytesExist: { [self] _ in stagedBytesPresent },
+                removeStagedBytes: { [self] url in
+                    if let stagedRemoveError { throw stagedRemoveError }
+                    stagedBytesDeletedURLs.append(url)
+                }
             )
         }
 
@@ -375,5 +393,42 @@ final class ServeLifecycleTests: XCTestCase {
         let result = await h.lifecycle.repair()
         XCTAssertEqual(result.desiredStateReading, "present(enabled)")
         XCTAssertEqual(result.outcome, .enabled)
+    }
+
+    // MARK: - Bootout error distinguishes genuine failure from not-loaded (Step 5)
+
+    func testEnableBootoutFailureAbortsAndRestores() async {
+        let h = Harness()
+        h.createPlistFile()
+        let priorBytes = try! Data(contentsOf: h.plistURL)
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.bootoutError = ServeLifecycle.BootoutError(terminationStatus: 1, message: "Boot-out failed: 5: Input/output error")
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertTrue(result.detail.contains("bootout failed"))
+        XCTAssertTrue(result.detail.contains("prior registration restored"))
+        XCTAssertTrue(h.writtenPlists.isEmpty, "no plist written after bootout failure")
+        XCTAssertTrue(h.bootstrapCalls.count >= 1, "prior job must be re-bootstrapped")
+
+        let restored = try? Data(contentsOf: h.plistURL)
+        XCTAssertNotNil(restored)
+        XCTAssertEqual(restored, priorBytes, "prior plist bytes must be restored after bootout failure")
+    }
+
+    func testAbsentBootoutFailureAbortsAndRestores() async {
+        let h = Harness()
+        h.createPlistFile()
+        let priorBytes = try! Data(contentsOf: h.plistURL)
+        h.bootoutError = ServeLifecycle.BootoutError(terminationStatus: 1, message: "Boot-out failed: 5: Input/output error")
+
+        let result = await h.lifecycle.enable()
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertTrue(result.detail.contains("bootout failed"))
+        XCTAssertTrue(result.detail.contains("prior registration restored"))
+        XCTAssertTrue(h.writtenPlists.isEmpty)
+
+        let restored = try? Data(contentsOf: h.plistURL)
+        XCTAssertEqual(restored, priorBytes)
     }
 }

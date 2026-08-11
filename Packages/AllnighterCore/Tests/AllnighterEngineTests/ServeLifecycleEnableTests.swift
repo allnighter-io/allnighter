@@ -12,6 +12,7 @@ final class ServeLifecycleEnableTests: XCTestCase {
         var writtenPlists: [(url: URL, plist: ServeLifecycle.AgentPlist)] = []
         var deletedURLs: [URL] = []
         var desiredWrites: [(state: ServeDesiredState.State, home: URL)] = []
+        var stagedBytesDeletedURLs: [URL] = []
 
         var bootoutError: Error?
         var bootstrapError: Error?
@@ -25,14 +26,19 @@ final class ServeLifecycleEnableTests: XCTestCase {
         var recordedSleeps: [TimeInterval] = []
         var clockTime: Date
         var clockAdvance: TimeInterval = 0
+        var injectedPlistProgramArgument: String?
+        var stagedBytesPresent = false
+        var stagedRemoveError: Error?
 
         let plistURL = URL(fileURLWithPath: "/tmp/\(UUID().uuidString).plist")
         let homeURL = URL(fileURLWithPath: "/tmp/home-\(UUID().uuidString)")
         let canonicalURL: URL
+        let stagedBinaryURL: URL
 
         init(canonicalBase: String = "/tmp/canonical-\(UUID().uuidString)") {
             let dir = URL(fileURLWithPath: canonicalBase)
             canonicalURL = dir.appendingPathComponent("alln")
+            stagedBinaryURL = URL(fileURLWithPath: "/tmp/staged-\(UUID().uuidString)/alln")
             clockTime = Date(timeIntervalSince1970: 1_000_000)
         }
 
@@ -69,7 +75,14 @@ final class ServeLifecycleEnableTests: XCTestCase {
                     recordedSleeps.append(d)
                     clockTime = clockTime.addingTimeInterval(d)
                 },
-                clock: { [self] in clockTime }
+                clock: { [self] in clockTime },
+                stagedBinaryURL: stagedBinaryURL,
+                readExistingPlistProgramArgument: { [self] _ in injectedPlistProgramArgument },
+                stagedBytesExist: { [self] _ in stagedBytesPresent },
+                removeStagedBytes: { [self] url in
+                    if let stagedRemoveError { throw stagedRemoveError }
+                    stagedBytesDeletedURLs.append(url)
+                }
             )
         }
 
@@ -530,5 +543,218 @@ final class ServeLifecycleEnableTests: XCTestCase {
         let result = await h.lifecycle.enable()
         XCTAssertEqual(result.outcome, .disabled)
         XCTAssertTrue(result.registryVerified)
+    }
+
+    // MARK: - Migration: staged → canonical (ASR-S02d)
+
+    func testMigrationDetectedWhenPlistPointsAtStagedPath() async {
+        let h = Harness()
+        h.createPlistFile()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.stagedBinaryURL.path
+        h.stagedBytesPresent = true
+        h.jobIsLoaded = true
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .enabled)
+        XCTAssertEqual(result.migratedFrom, h.stagedBinaryURL.path)
+        XCTAssertTrue(result.stagedBytesRemoved)
+        XCTAssertTrue(h.stagedBytesDeletedURLs.contains(h.stagedBinaryURL))
+    }
+
+    func testMigrationFollowsOrderedSequence() async {
+        let h = Harness()
+        h.createPlistFile()
+
+        final class Events: @unchecked Sendable {
+            var list: [String] = []
+        }
+        let events = Events()
+
+        let lifecycle = ServeLifecycle(
+            plistURL: h.plistURL,
+            bootout: { _ in events.list.append("bootout") },
+            plistExists: { _ in true },
+            removePlist: { _ in },
+            writePlist: { _, _ in events.list.append("write-plist") },
+            bootstrap: { _ in events.list.append("bootstrap") },
+            homeDirectory: h.homeURL,
+            canonicalBinaryURL: h.canonicalURL,
+            canonicalBinaryExists: { _ in true },
+            readDesiredState: { _ in .present(state: .enabled, updatedAt: Date()) },
+            writeDesiredState: { _, _ in .success(()) },
+            verifyJobLoaded: { _ in true },
+            sleep: { _ in },
+            clock: { Date() },
+            stagedBinaryURL: h.stagedBinaryURL,
+            readExistingPlistProgramArgument: { _ in h.stagedBinaryURL.path },
+            stagedBytesExist: { _ in true },
+            removeStagedBytes: { _ in events.list.append("remove-staged-bytes") }
+        )
+
+        _ = await lifecycle.repair()
+        XCTAssertEqual(events.list, ["bootout", "write-plist", "bootstrap", "remove-staged-bytes"],
+                       "migration must follow Step 2 order: bootout → write plist → bootstrap → verify → remove staged bytes")
+    }
+
+    func testNoMigrationWhenAlreadyCanonical() async {
+        let h = Harness()
+        h.createPlistFile()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.canonicalURL.path
+        h.stagedBytesPresent = true
+        h.jobIsLoaded = true
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .enabled)
+        XCTAssertNil(result.migratedFrom)
+        XCTAssertFalse(result.stagedBytesRemoved)
+        XCTAssertTrue(h.stagedBytesDeletedURLs.isEmpty, "staged bytes must not be removed on non-migration path")
+    }
+
+    func testMigrationFailureRestoresPriorPlistAndLeavesStagedBytes() async {
+        let h = Harness()
+        h.createPlistFile()
+        let priorBytes = try! Data(contentsOf: h.plistURL)
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.stagedBinaryURL.path
+        h.stagedBytesPresent = true
+        h.bootstrapError = ServeLifecycle.BootstrapError(terminationStatus: 1, message: "Bootstrap failed")
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertTrue(result.detail.contains("migration failed"))
+        XCTAssertTrue(result.detail.contains("prior registration restored"))
+        XCTAssertFalse(result.stagedBytesRemoved)
+        XCTAssertTrue(h.stagedBytesDeletedURLs.isEmpty, "staged bytes must remain on failed migration")
+
+        let restored = try? Data(contentsOf: h.plistURL)
+        XCTAssertEqual(restored, priorBytes)
+    }
+
+    func testMigrationBootoutFailureRestoresAndLeavesStagedBytes() async {
+        let h = Harness()
+        h.createPlistFile()
+        let priorBytes = try! Data(contentsOf: h.plistURL)
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.stagedBinaryURL.path
+        h.stagedBytesPresent = true
+        h.bootoutError = ServeLifecycle.BootoutError(terminationStatus: 1, message: "Boot-out failed")
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertTrue(result.detail.contains("migration failed"))
+        XCTAssertTrue(result.detail.contains("bootout error"))
+        XCTAssertTrue(h.stagedBytesDeletedURLs.isEmpty, "staged bytes must remain after migration bootout failure")
+        XCTAssertTrue(h.writtenPlists.isEmpty, "no plist written after migration bootout failure")
+
+        let restored = try? Data(contentsOf: h.plistURL)
+        XCTAssertEqual(restored, priorBytes)
+    }
+
+    func testMigrationPlistWriteFailureRestoresAndLeavesStagedBytes() async {
+        let h = Harness()
+        h.createPlistFile()
+        let priorBytes = try! Data(contentsOf: h.plistURL)
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.stagedBinaryURL.path
+        h.stagedBytesPresent = true
+        h.writeError = CocoaError(.fileWriteNoPermission)
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertTrue(h.stagedBytesDeletedURLs.isEmpty)
+
+        let restored = try? Data(contentsOf: h.plistURL)
+        XCTAssertEqual(restored, priorBytes)
+    }
+
+    func testMigrationVerifyFailureRestoresAndLeavesStagedBytes() async {
+        let h = Harness()
+        h.createPlistFile()
+        let priorBytes = try! Data(contentsOf: h.plistURL)
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.stagedBinaryURL.path
+        h.stagedBytesPresent = true
+        h.jobIsLoaded = false
+        h.advanceClockBeyond(12.0)
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .failed)
+        XCTAssertTrue(result.detail.contains("migration failed"))
+        XCTAssertTrue(result.detail.contains("verify"))
+        XCTAssertFalse(result.stagedBytesRemoved)
+        XCTAssertTrue(h.stagedBytesDeletedURLs.isEmpty)
+
+        let restored = try? Data(contentsOf: h.plistURL)
+        XCTAssertEqual(restored, priorBytes)
+    }
+
+    func testMigrationResultReportsMigratedFrom() async {
+        let h = Harness()
+        h.createPlistFile()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.stagedBinaryURL.path
+        h.stagedBytesPresent = true
+        h.jobIsLoaded = true
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.migratedFrom, h.stagedBinaryURL.path)
+        XCTAssertTrue(result.stagedBytesRemoved)
+        XCTAssertTrue(result.detail.contains("migrated from"))
+        XCTAssertTrue(result.detail.contains("staged bytes cleaned"))
+    }
+
+    func testMigrationReportsStagedBytesLeftWhenRemovalFails() async {
+        let h = Harness()
+        h.createPlistFile()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.stagedBinaryURL.path
+        h.stagedBytesPresent = true
+        h.stagedRemoveError = CocoaError(.fileWriteNoPermission)
+        h.jobIsLoaded = true
+
+        let result = await h.lifecycle.repair()
+        XCTAssertEqual(result.outcome, .enabled)
+        XCTAssertEqual(result.migratedFrom, h.stagedBinaryURL.path)
+        XCTAssertFalse(result.stagedBytesRemoved)
+        XCTAssertTrue(result.detail.contains("staged bytes left on disk"))
+    }
+
+    func testDisableNeverRemovesStagedBytes() async {
+        let h = Harness()
+        h.createPlistFile()
+        h.injectedReading = .present(state: .disabled, updatedAt: Date())
+        h.stagedBytesPresent = true
+
+        let result = await h.lifecycle.disable()
+        XCTAssertEqual(result.outcome, .disabled)
+        XCTAssertFalse(result.stagedBytesRemoved)
+        XCTAssertTrue(h.stagedBytesDeletedURLs.isEmpty)
+    }
+
+    func testRestartNeverRemovesStagedBytes() async {
+        let h = Harness()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.stagedBytesPresent = true
+
+        let result = await h.lifecycle.restart()
+        XCTAssertEqual(result.outcome, .enabled)
+        XCTAssertFalse(result.stagedBytesRemoved)
+        XCTAssertTrue(h.stagedBytesDeletedURLs.isEmpty)
+    }
+
+    func testConvergenceResultCodableRoundTripMigration() async throws {
+        let h = Harness()
+        h.createPlistFile()
+        h.injectedReading = .present(state: .enabled, updatedAt: Date())
+        h.injectedPlistProgramArgument = h.stagedBinaryURL.path
+        h.stagedBytesPresent = true
+        h.jobIsLoaded = true
+        let result = await h.lifecycle.repair()
+        let decoded = try JSONDecoder().decode(ServeLifecycle.ConvergenceResult.self,
+                                               from: JSONEncoder().encode(result))
+        XCTAssertEqual(decoded.migratedFrom, result.migratedFrom)
+        XCTAssertEqual(decoded.stagedBytesRemoved, result.stagedBytesRemoved)
     }
 }

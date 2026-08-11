@@ -2604,7 +2604,25 @@ struct AllnighterCLI {
             pathOverride: opts.value("path"),
             printOnly: opts.flag("print"),
             pathEnvironment: env["PATH"],
-            homeDirectory: InstallCLI.resolvedHomeDirectory(environment: env)
+            homeDirectory: InstallCLI.resolvedHomeDirectory(environment: env),
+            canonicalInstall: { candidate, home, version, fm in
+                CanonicalCLIInstall.install(
+                    candidateURL: candidate,
+                    homeDirectory: home,
+                    version: version,
+                    fileManager: fm,
+                    beforeBytesChange: {
+                        do {
+                            try ServeLifecycle.liveBootout(label: ServeLifecycle.label)
+                            return .success(())
+                        } catch let e as ServeLifecycle.BootoutError {
+                            return .failure(CanonicalCLIInstall.Failure(code: "SERVE_INSTALL_FAILED", message: "serve bootout before install failed: \(e.message)"))
+                        } catch {
+                            return .failure(CanonicalCLIInstall.Failure(code: "SERVE_INSTALL_FAILED", message: "serve bootout before install failed: \(error)"))
+                        }
+                    }
+                )
+            }
         )
         switch InstallCLI.run(request) {
         case .printed(let json):
