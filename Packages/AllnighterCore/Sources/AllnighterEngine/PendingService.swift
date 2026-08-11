@@ -357,7 +357,15 @@ public struct PendingService: Sendable {
         item.attempts[attemptIndex] = attempt
         item.lease = nil
         item.updatedAt = timestamp
-        try requireServeForDeferredObligation(whenWakeScheduled: item.resume?.wakeAfter)
+
+        if item.resume?.wakeAfter != nil {
+            let result = serveRequirement.require(reason: "pendingWakeSettlement")
+            if case .failure(let refusal) = result {
+                item.resume?.wakeAfter = nil
+                try store.save(item)
+                throw refusal
+            }
+        }
         try store.save(item)
         return item
     }
@@ -434,7 +442,15 @@ public struct PendingService: Sendable {
         item.attempts[attemptIndex] = attempt
         item.lease = nil
         item.updatedAt = timestamp
-        try requireServeForDeferredObligation(whenWakeScheduled: item.resume?.wakeAfter)
+
+        if item.resume?.wakeAfter != nil {
+            let result = serveRequirement.require(reason: "pendingWakeSettlement")
+            if case .failure(let refusal) = result {
+                item.resume?.wakeAfter = nil
+                try store.save(item)
+                throw refusal
+            }
+        }
         try store.save(item)
         return item
     }
@@ -534,13 +550,5 @@ public struct PendingService: Sendable {
         }
         try store.save(updated)
         return updated
-    }
-
-    private func requireServeForDeferredObligation(whenWakeScheduled wakeAfter: Date?) throws {
-        guard let wakeAfter else { return }
-        _ = wakeAfter
-        if case .failure(let refusal) = serveRequirement.require(reason: "pendingWakeSettlement") {
-            throw refusal
-        }
     }
 }

@@ -390,8 +390,6 @@ final class ServeRequirementTests: XCTestCase {
         let item = try service.add(.init(prompt: "test", workerToken: "serve-test-model", submit: true, origin: .cli))
         let id = item.id
 
-        let beforeData = try Data(contentsOf: service.store.itemURL(for: id))
-
         let running = try service.beginRun(id: id)
         XCTAssertEqual(running.status, .running)
         XCTAssertEqual(running.attempts.count, 1)
@@ -405,10 +403,13 @@ final class ServeRequirementTests: XCTestCase {
             XCTAssertEqual(refusal.reason, "pendingWakeSettlement")
         }
 
-        let afterData = try Data(contentsOf: service.store.itemURL(for: id))
-        XCTAssertNotEqual(beforeData, afterData, "beginRun mutated the store; settleRun gate fires after mutation, store reflects beginRun state")
-        let afterItem = try XCTUnwrap(try service.store.load(id: id))
-        XCTAssertEqual(afterItem.status, .running, "settleRun must not persist status change")
+        let afterItem = try XCTUnwrap(service.store.load(id: id))
+        XCTAssertEqual(afterItem.status, .pending, "settle must persist status change even on refusal")
+        XCTAssertEqual(afterItem.attempts[0].status, .blocked, "attempt outcome must be persisted")
+        XCTAssertNotNil(afterItem.attempts[0].completedAt, "completedAt must be set")
+        XCTAssertNil(afterItem.lease, "lease must be released even on refusal")
+        XCTAssertNotNil(afterItem.resume, "resume reason must be preserved")
+        XCTAssertNil(afterItem.resume?.wakeAfter, "wakeAfter must be cleared on refusal")
     }
 
     func testSettleRunWakeScheduledSucceedsWhenServeHealthy() throws {
@@ -497,6 +498,14 @@ final class ServeRequirementTests: XCTestCase {
             XCTAssertTrue(refusal.message.contains(ServeRequirement.recoveryCommand))
             XCTAssertEqual(refusal.reason, "pendingWakeSettlement")
         }
+
+        let afterItem = try XCTUnwrap(service.store.load(id: id))
+        XCTAssertEqual(afterItem.status, .pending, "settle must persist status change even on refusal")
+        XCTAssertEqual(afterItem.attempts[0].status, .blocked, "attempt outcome must be persisted")
+        XCTAssertNotNil(afterItem.attempts[0].completedAt, "completedAt must be set")
+        XCTAssertNil(afterItem.lease, "lease must be released even on refusal")
+        XCTAssertNotNil(afterItem.resume, "resume reason must be preserved")
+        XCTAssertNil(afterItem.resume?.wakeAfter, "wakeAfter must be cleared on refusal")
     }
 
     func testPendingAddSucceedsRegardlessOfServeHealth() throws {
