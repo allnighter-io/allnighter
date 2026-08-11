@@ -1839,6 +1839,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `SERVE_SERVICE_STATUS_UNKNOWN` | yes | no | `operational` | SMAppService returned an unrecognized status. Run `alln serve enable` to attempt manual enable; if the macOS version is newer than expected, this may require an Allnighter update. |
 | `SERVE_UNAVAILABLE` | yes | yes | `operational` | Run `alln serve repair` (or `alln serve enable` if desired state is disabled), then retry the deferred-obligation write. |
 | `SERVE_DISABLED_BY_USER` | yes | no | `operational` | The user explicitly disabled serve. Re-enable with `alln serve enable` if desired. |
+| `SERVE_INSTALL_FAILED` | yes | yes | `operational` | Read the message for the failing step, then run `alln serve repair`. If the canonical binary is missing, run `alln install-cli` first. |
 | `SERVE_FOREIGN_HOME` | yes | no | `operational` | Run the serve lifecycle command with the real user HOME shown in the error. A per-user launchd label cannot safely be managed from a foreign HOME. |
 
 ## NDJSON events

@@ -334,6 +334,7 @@
           "takesValue" : false
         }
       ],
+      "freeTwinCommand" : "alln doctor --json",
       "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
@@ -7548,6 +7549,15 @@
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "serve.disabled.by_user"
+    },
+    {
+      "agentAction" : "Read the message for the failing step, then run `alln serve repair`. If the canonical binary is missing, run `alln install-cli` first.",
+      "code" : "SERVE_INSTALL_FAILED",
+      "exitClass" : "operational",
+      "explain" : "A serve install\/uninstall step failed — bootout before a byte change, plist write, or registration. The transaction reports the failing step rather than continuing; §4.3 restores the prior binary, symlink and plist on failure.",
+      "requiresManual" : true,
+      "retryable" : true,
+      "ruleId" : "serve.install.failed"
     },
     {
       "agentAction" : "Run the serve lifecycle command with the real user HOME shown in the error. A per-user launchd label cannot safely be managed from a foreign HOME.",
