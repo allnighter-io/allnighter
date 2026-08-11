@@ -1008,7 +1008,19 @@ test. They are the gates that actually prove §9's user-visible claim. Until the
 are recorded and signed under `docs/qa/alln-serve/`, the claim is unproven no
 matter how green the suite is. An unrecorded gate is an unrun gate.
 
-### R4 — intermediate state: the live daemon is frozen
+### R4 — intermediate state: the live daemon is frozen — **CLOSED 2026-08-11**
+
+Closed by the first real `rebuild_cli.sh` → `install-cli` run on the founder's
+host. The S02d migration rebound the agent from the Application Support staged
+path to the canonical binary, cleaned the staged bytes, and left exactly one
+supervised daemon whose pid matches the agent. Record:
+[`docs/qa/alln-serve/2026-08-11-live-host-migration.md`](../qa/alln-serve/2026-08-11-live-host-migration.md).
+
+That run also found — and repaired — an **unsupervised** host: the launchd job
+was not loaded and an orphaned daemon (PPID 1) was running a Library/Developer
+debug build. The cause of the bootout was not identified and is recorded as
+unknown, not guessed.
+
 
 Between ASR-S01b (`91cad2de`) and ASR-S02c, `install-cli` updates the canonical
 binary and PATH while the loaded agent keeps running its already-staged bytes,
