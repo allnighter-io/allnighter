@@ -1044,8 +1044,11 @@ matter how green the suite is. An unrecorded gate is an unrun gate.
 
 | Gate | Result | Record | Signature |
 | --- | --- | --- | --- |
+| 2 — identity + schedulers | **PASS** | [`2026-08-11-gates2-5-PASS.md`](../qa/alln-serve/2026-08-11-gates2-5-PASS.md) | inspect-only |
 | 3 — TERM/KILL restart | **PASS** (failed first; see FAIL record) | [`2026-08-11-gate3-crash-restart-PASS.md`](../qa/alln-serve/2026-08-11-gate3-crash-restart-PASS.md) | pending |
 | 4 — vA→vB update + rollback | **PASS** (failed twice first) | [PASS](../qa/alln-serve/2026-08-11-gate4-PASS.md) · [update caveat](../qa/alln-serve/2026-08-11-gate4-update-half-PASS.md) · [rollback FAIL](../qa/alln-serve/2026-08-11-gate4-rollback-half-FAIL.md) | pending |
+| 5 — receipts + minimal PATH | **PASS** | [`2026-08-11-gates2-5-PASS.md`](../qa/alln-serve/2026-08-11-gates2-5-PASS.md) | inspect-only |
+| 11 — no restart loop | crash half PASS; stand-down half on a superseded build | [`2026-08-11-gate11-no-restart-loop.md`](../qa/alln-serve/2026-08-11-gate11-no-restart-loop.md) | pending |
 | 7 — logout/login | **PASS** | [`2026-08-11-gate7-logout-login.md`](../qa/alln-serve/2026-08-11-gate7-logout-login.md) | **founder-signed** |
 | 8 — disable survives login | **PASS** | [`2026-08-11-gate8-disable-survives-login.md`](../qa/alln-serve/2026-08-11-gate8-disable-survives-login.md) | **founder-signed** |
 | 9 — three-cycle rebuild | **PASS** | [`2026-08-11-gate9-three-cycle-rebuild.md`](../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md) | countersigned; PM-executed |
