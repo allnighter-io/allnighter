@@ -78,6 +78,7 @@ context that makes it readable.
 Packages/AllnighterCore/Sources/AllnighterCore/ContractRegistry+Milestone1.swift
 Packages/AllnighterCore/Sources/AllnighterCore/NDJSONStreamProjector.swift
 Packages/AllnighterCore/Tests/AllnighterCoreTests/VendorUnavailableTests.swift   (new)
+Packages/AllnighterCore/Sources/AllnighterCore/ThreadAgentPresentation.swift     (only if the driver resolver must be threaded through)
 ```
 
 If the honest place to classify this turns out to be in AgentOS rather than
@@ -94,6 +95,20 @@ slice changes **words only**. Routing is `VendorSubstitutionPolicy`'s job and is
 out of scope.
 
 ## 7. Steps
+
+0. **Getting the source without inferring it.** The projection layer carries
+   `modelId`, not `sourceId` — a first attempt at this slice stopped here,
+   correctly refusing to infer the source from model text. It does not have to.
+   The model catalog already owns the mapping: `ModelDiscoveryProvider` exposes
+   `driverId`, and `CursorAgentCLIInstall.driverId == "cursor_agent"`. Resolving
+   `modelId → driverId` through the catalog is an **authoritative lookup in the
+   owning registry**, not a guess, and it satisfies the source-scoping law.
+
+   Parsing the model *string* (`"model_cursor_…" contains "cursor"`) is the
+   forbidden thing. A catalog lookup is not. If the catalog is not reachable from
+   the projection site, inject a resolver closure rather than reaching across
+   layers — and if a model resolves to no driver, that is **unrecorded**: fall
+   straight to step 2 and change nothing.
 
 1. **A vendor-unavailable reading is source-scoped or it does not exist.** The
    pattern that recognises Cursor's shape may only ever be consulted for
