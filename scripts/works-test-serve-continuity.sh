@@ -34,6 +34,7 @@ fail() { echo "works-test-serve-continuity: FAIL — $*" >&2; FAILURES=$((FAILUR
 usage() {
   echo "Usage: $(basename "$0")" >&2
   echo "       $(basename "$0") --assert identity-and-receipts" >&2
+  echo "       $(basename "$0") --assert cold-install" >&2
   echo "       $(basename "$0") --mutate-product-agent crash-restart" >&2
   echo "       $(basename "$0") --mutate-product-agent update" >&2
   echo "       $(basename "$0") --mutate-product-agent update-rollback" >&2
@@ -311,6 +312,14 @@ attempt_host_repair() {
 
 cleanup() {
   unset ALLNIGHTER_SERVE_TEST_INJECT 2>/dev/null || true
+  if [[ -n "${COLD_INSTALL_HOME:-}" ]]; then
+    if [[ "$COLD_INSTALL_HOME" == "${COLD_INSTALL_HOME_PREFIX:-__never__}"* && -d "$COLD_INSTALL_HOME" ]]; then
+      rm -rf "$COLD_INSTALL_HOME"
+      log "cold-install: removed throwaway HOME $COLD_INSTALL_HOME"
+    else
+      log "cold-install: refusing to remove non-mktemp HOME ${COLD_INSTALL_HOME:-<empty>}"
+    fi
+  fi
   if [[ "$MUTATING" != true ]]; then
     return 0
   fi
@@ -539,6 +548,121 @@ PY
 binary_sha256() {
   local path="$1"
   shasum -a 256 "$path" | awk '{print $1}'
+}
+
+# Gate 1 intentionally exercises only the serve-opt-out path.  The product
+# LaunchAgent label belongs to this user, not to HOME, so registering it from a
+# throwaway HOME would replace the founder's real coordinator.
+COLD_INSTALL_HOME=""
+COLD_INSTALL_HOME_PREFIX="${TMPDIR:-/tmp}/alln-cold-install."
+
+snapshot_real_agent() {
+  local label="com.allnighter.resident-coordinator"
+  local output
+  if output="$(launchctl print "gui/$(id -u)/$label" 2>&1)"; then
+    printf 'loaded=1\n'
+    printf 'program=%s\n' "$(printf '%s\n' "$output" | sed -n 's/^[[:space:]]*program = //p' | head -n 1)"
+    printf 'pid=%s\n' "$(printf '%s\n' "$output" | sed -n 's/^[[:space:]]*pid = //p' | head -n 1)"
+  else
+    printf 'loaded=0\nprogram=\npid=\n'
+  fi
+}
+
+snapshot_field() {
+  local snapshot="$1" field="$2"
+  printf '%s\n' "$snapshot" | sed -n "s/^${field}=//p" | head -n 1
+}
+
+assert_cold_install_bench_unchanged() {
+  local before="$1" real_binary_sha="$2" temp_home="$3"
+  local after before_loaded after_loaded before_program after_program before_pid after_pid after_sha print_output
+
+  after="$(snapshot_real_agent)"
+  before_loaded="$(snapshot_field "$before" loaded)"
+  after_loaded="$(snapshot_field "$after" loaded)"
+  before_program="$(snapshot_field "$before" program)"
+  after_program="$(snapshot_field "$after" program)"
+  before_pid="$(snapshot_field "$before" pid)"
+  after_pid="$(snapshot_field "$after" pid)"
+  after_sha="$(binary_sha256 "$CANONICAL_BINARY")"
+
+  [[ "$after_loaded" == "$before_loaded" ]] || fail "cold-install bench protection: real agent loaded state changed ($before_loaded -> $after_loaded)"
+  [[ "$after_program" == "$before_program" ]] || fail "cold-install bench protection: real agent program changed ($before_program -> $after_program)"
+  [[ "$after_pid" == "$before_pid" ]] || fail "cold-install bench protection: real daemon pid changed ($before_pid -> $after_pid)"
+  [[ "$after_sha" == "$real_binary_sha" ]] || fail "cold-install bench protection: real canonical binary sha256 changed ($real_binary_sha -> $after_sha)"
+
+  if print_output="$(launchctl print "gui/$(id -u)/com.allnighter.resident-coordinator" 2>&1)" \
+    && printf '%s' "$print_output" | grep -F -- "$temp_home" >/dev/null; then
+    fail "cold-install bench protection: temp HOME appears in real LaunchAgent: $temp_home"
+  else
+    pass "cold-install bench protection: real LaunchAgent print contains no temp HOME"
+  fi
+}
+
+assert_cold_install() {
+  # This snapshot is deliberately first: nothing below may create the temp HOME
+  # or invoke install-cli before the real per-user LaunchAgent is recorded.
+  local real_agent_before real_binary_sha source_binary install_output install_ec
+  local temp_canonical temp_symlink temp_desired temp_plist_dir desired_state
+  real_agent_before="$(snapshot_real_agent)"
+  real_binary_sha="$(binary_sha256 "$CANONICAL_BINARY")"
+  source_binary="$(command -v alln)"
+
+  log "cold-install bench protection before: $(printf '%s' "$real_agent_before" | tr '\n' ' ') canonicalSha256=$real_binary_sha"
+  COLD_INSTALL_HOME="$(mktemp -d "${COLD_INSTALL_HOME_PREFIX}XXXXXX")" || {
+    fail "cold-install: mktemp -d failed"
+    return 1
+  }
+  temp_canonical="$COLD_INSTALL_HOME/.local/share/allnighter/bin/alln"
+  temp_symlink="$COLD_INSTALL_HOME/.local/bin/alln"
+  temp_desired="$COLD_INSTALL_HOME/Library/Application Support/Allnighter/serve-desired-state.json"
+  temp_plist_dir="$COLD_INSTALL_HOME/Library/LaunchAgents"
+
+  install_output="$(HOME="$COLD_INSTALL_HOME" "$source_binary" install-cli --no-serve 2>&1)"
+  install_ec=$?
+  log "cold-install: used documented --no-serve opt-out (not ALLN_NO_SERVE=1); install output follows verbatim:"
+  printf '%s\n' "$install_output" >&2
+  if [[ "$install_ec" -ne 0 ]]; then
+    fail "cold-install: install-cli --no-serve failed (exit $install_ec)"
+    assert_cold_install_bench_unchanged "$real_agent_before" "$real_binary_sha" "$COLD_INSTALL_HOME"
+    return 1
+  fi
+
+  [[ -x "$temp_canonical" ]] || fail "cold-install: canonical binary missing or not executable at $temp_canonical"
+  if cmp -s "$source_binary" "$temp_canonical"; then
+    pass "cold-install: canonical binary is byte-identical to source binary"
+  else
+    fail "cold-install: canonical binary differs from source binary"
+  fi
+  if [[ "$(python3 - "$temp_symlink" "$temp_canonical" <<'PY'
+import os, sys
+print(os.path.realpath(sys.argv[1]) == os.path.realpath(sys.argv[2]))
+PY
+)" == "True" ]]; then
+    pass "cold-install: PATH symlink resolves to temp canonical binary"
+  else
+    fail "cold-install: PATH symlink does not resolve to $temp_canonical"
+  fi
+  [[ -f "$temp_desired" ]] || fail "cold-install: desired-state file missing at $temp_desired"
+  desired_state="$(cat "$temp_desired" 2>/dev/null || true)"
+  if printf '%s' "$desired_state" | grep -Eq '"enabled"[[:space:]]*:[[:space:]]*false|"state"[[:space:]]*:[[:space:]]*"disabled"'; then
+    pass "cold-install: desired-state records disabled opt-out"
+  else
+    fail "cold-install: desired-state does not record disabled opt-out: $desired_state"
+  fi
+  if [[ ! -e "$temp_plist_dir/com.allnighter.resident-coordinator.plist" ]]; then
+    pass "cold-install: no LaunchAgent plist was written in throwaway HOME"
+  else
+    fail "cold-install: LaunchAgent plist was written in throwaway HOME"
+  fi
+  if printf '%s' "$install_output" | grep -Eqi 'background scheduler.*not installed|not installed.*background scheduler' \
+    && printf '%s' "$install_output" | grep -Eqi 'alln serve enable'; then
+    pass "cold-install: opt-out disclosure says scheduler was not installed and how to enable it"
+  else
+    fail "cold-install: missing required opt-out scheduler disclosure"
+  fi
+
+  assert_cold_install_bench_unchanged "$real_agent_before" "$real_binary_sha" "$COLD_INSTALL_HOME"
 }
 
 assert_no_staged_copy() {
@@ -1568,7 +1692,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -n "$ASSERT_SCENARIO" && "$ASSERT_SCENARIO" != "identity-and-receipts" ]]; then
+if [[ -n "$ASSERT_SCENARIO" && "$ASSERT_SCENARIO" != "identity-and-receipts" && "$ASSERT_SCENARIO" != "cold-install" ]]; then
   log "unknown assert scenario: $ASSERT_SCENARIO"
   usage
 fi
@@ -1589,6 +1713,8 @@ if [[ -z "$SCENARIO" && -z "$ASSERT_SCENARIO" ]]; then
   inspect_only || true
 elif [[ "$ASSERT_SCENARIO" == "identity-and-receipts" ]]; then
   assert_identity_and_receipts || true
+elif [[ "$ASSERT_SCENARIO" == "cold-install" ]]; then
+  assert_cold_install || true
 elif [[ "$SCENARIO" == "crash-restart" ]]; then
   mutate_crash_restart || true
 elif [[ "$SCENARIO" == "update" ]]; then
