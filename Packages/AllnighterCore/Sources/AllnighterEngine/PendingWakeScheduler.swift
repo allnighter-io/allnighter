@@ -7,14 +7,19 @@ public protocol PendingWakeSleeper: Sendable {
 }
 
 public struct DefaultPendingWakeSleeper: PendingWakeSleeper {
-    public init() {}
+    private let waiter: WakeSafeWaiter
+
+    public init(
+        now: @escaping @Sendable () -> Date = Date.init,
+        performSleep: @escaping @Sendable (TimeInterval) async throws -> Void = { interval in
+            try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+        }
+    ) {
+        self.waiter = WakeSafeWaiter(maxNapSeconds: 60, now: now, performSleep: performSleep)
+    }
 
     public func sleep(until: Date, jitterSeconds: TimeInterval) async throws {
-        let jitter = jitterSeconds > 0 ? TimeInterval(Int.random(in: 0...Int(jitterSeconds))) : 0
-        let target = until.addingTimeInterval(jitter)
-        let interval = target.timeIntervalSinceNow
-        guard interval > 0 else { return }
-        try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+        try await waiter.sleep(until: until, jitterSeconds: jitterSeconds)
     }
 }
 

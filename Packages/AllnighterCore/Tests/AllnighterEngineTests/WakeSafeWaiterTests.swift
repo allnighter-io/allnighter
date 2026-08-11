@@ -284,6 +284,204 @@ final class WakeSafeWaiterTests: XCTestCase {
         XCTAssertGreaterThan(overshoot, 0, "Overshoot should be non-zero after simulated sleep gap, got \(overshoot)")
     }
 
+    func testDefaultPendingWakeSleeperSurvivesSleepGap() async throws {
+        let clock = TestClock(epoch)
+        let sleepLog = SleepLog()
+        let deadline = clock.time.addingTimeInterval(4 * 3600)
+
+        let sleepClosure: @Sendable (TimeInterval) async throws -> Void = { duration in
+            sleepLog.record(duration)
+            if sleepLog.count == 1 {
+                clock.advance(by: 6 * 3600)
+            }
+        }
+
+        let sleeper = DefaultPendingWakeSleeper(
+            now: { clock.time },
+            performSleep: sleepClosure
+        )
+
+        try await sleeper.sleep(until: deadline, jitterSeconds: 0)
+
+        XCTAssertGreaterThanOrEqual(clock.time, deadline, "Clock should be past deadline after simulated sleep")
+        XCTAssertEqual(sleepLog.count, 1, "Should return within ONE nap of the advance, got \(sleepLog.count) naps")
+        let firstDuration = try XCTUnwrap(sleepLog.durations.first)
+        XCTAssertLessThanOrEqual(firstDuration, 60, "Each nap must be bounded by maxNapSeconds (60), got \(firstDuration)")
+    }
+
+    func testDefaultPendingWakeSleeperJitterPreserved() async throws {
+        let clock = TestClock(epoch)
+        let deadline = clock.time.addingTimeInterval(300)
+        let sleepLog = SleepLog()
+        let jitterSeconds: TimeInterval = 60
+
+        let sleepClosure: @Sendable (TimeInterval) async throws -> Void = { duration in
+            sleepLog.record(duration)
+            clock.advance(by: duration)
+        }
+
+        let sleeper = DefaultPendingWakeSleeper(
+            now: { clock.time },
+            performSleep: sleepClosure
+        )
+
+        try await sleeper.sleep(until: deadline, jitterSeconds: jitterSeconds)
+
+        let totalSlept = sleepLog.durations.reduce(0, +)
+        XCTAssertGreaterThan(totalSlept, 300, "Total slept must exceed the un-jittered deadline")
+        for duration in sleepLog.durations {
+            XCTAssertLessThanOrEqual(duration, 60, "Each nap bounded by maxNapSeconds")
+        }
+    }
+
+    func testVendorBackoffReconcilerDefaultSleeperWakeSafe() async throws {
+        let clock = TestClock(epoch)
+        let sleepLog = SleepLog()
+
+        let sleepClosure: @Sendable (TimeInterval) async throws -> Void = { duration in
+            sleepLog.record(duration)
+            clock.advance(by: duration)
+            if sleepLog.count == 1 {
+                clock.advance(by: 3600)
+            }
+        }
+
+        let sleeper = DefaultPendingWakeSleeper(
+            now: { clock.time },
+            performSleep: sleepClosure
+        )
+
+        let model = Model(id: "test_model", displayName: "Test", modelLabel: "m", driverId: "test_driver", role: .both, enabled: true)
+        let registry = DriverRegistry([
+            DriverManifest(
+                id: "test_driver",
+                displayName: "Test Driver",
+                kind: .headlessCLI,
+                detectCommand: "test --version",
+                smokeTestCommand: "test smoke {{model}}",
+                smokeTestExpect: "READY",
+                invoke: .init(
+                    command: "test",
+                    args: ["-p", "{{prompt}}"],
+                    promptVia: .arg,
+                    env: [:],
+                    workingDir: nil,
+                    timeoutSeconds: 2
+                ),
+                output: .init()
+            )
+        ])
+
+        let runStoreDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-vbr-test-\(UUID().uuidString)")
+        let service = RunService(
+            models: [model],
+            registry: registry,
+            runStore: RunStore(rootDirectory: runStoreDir),
+            commandRunner: MockCommandRunner(scripts: [:]),
+            defaultSettings: { DefaultModelSettings() },
+            probeRecords: { [] }
+        )
+
+        let reconciler = VendorBackoffReconciler(
+            runStore: RunStore(rootDirectory: runStoreDir),
+            runService: service,
+            coordinatorId: "test-coord",
+            now: { clock.time },
+            sleeper: sleeper
+        )
+
+        let task = Task {
+            await reconciler.run(isCancelled: { Task.isCancelled })
+        }
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+        task.cancel()
+        _ = await task.value
+
+        XCTAssertFalse(sleepLog.durations.isEmpty, "Scheduler should have called sleeper at least once")
+        for duration in sleepLog.durations {
+            XCTAssertLessThanOrEqual(duration, 60, "DefaultPendingWakeSleeper nap bounded, got \(duration)")
+        }
+    }
+
+    func testBoostSeedSchedulerDefaultSleeperWakeSafe() async throws {
+        var utcCalendar = Calendar(identifier: .gregorian)
+        utcCalendar.timeZone = TimeZone(identifier: "UTC")!
+
+        let midnight = Date(timeIntervalSince1970: 1_700_000_000)
+        let fourAM = midnight.addingTimeInterval(4 * 3600)
+
+        let clock = TestClock(fourAM)
+        let sleepLog = SleepLog()
+
+        let sleepClosure: @Sendable (TimeInterval) async throws -> Void = { duration in
+            sleepLog.record(duration)
+            clock.advance(by: duration)
+            if sleepLog.count == 1 {
+                clock.advance(by: 6 * 3600)
+            }
+        }
+
+        let sleeper = DefaultPendingWakeSleeper(
+            now: { clock.time },
+            performSleep: sleepClosure
+        )
+
+        let settingsDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("alln-bss-test-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: settingsDir, withIntermediateDirectories: true)
+        let settingsFile = settingsDir.appendingPathComponent("boost_window_settings.json")
+        let seedFile = settingsDir.appendingPathComponent("utilization_seed_events.json")
+
+        var settings = BoostWindowSettings(enabled: true, windowStart: 8 * 60, appliesTo: ["claude_code"])
+        settings.normalize()
+        let settingsData = try CoreJSON.encode(settings)
+        try settingsData.write(to: settingsFile, options: .atomic)
+
+        let model = Model(id: "test_model", displayName: "Test", modelLabel: "m", driverId: "test_driver", role: .both, enabled: true)
+        let registry = DriverRegistry([
+            DriverManifest(
+                id: "test_driver",
+                displayName: "Test Driver",
+                kind: .headlessCLI,
+                detectCommand: "test --version",
+                smokeTestCommand: "test smoke {{model}}",
+                smokeTestExpect: "READY",
+                invoke: .init(
+                    command: "test",
+                    args: ["-p", "{{prompt}}"],
+                    promptVia: .arg,
+                    env: [:],
+                    workingDir: nil,
+                    timeoutSeconds: 2
+                ),
+                output: .init()
+            )
+        ])
+
+        let scheduler = BoostSeedScheduler(
+            settingsPersistence: BoostWindowSettingsPersistence(fileURL: settingsFile),
+            seedLedger: UtilizationSeedLedger(fileURL: seedFile),
+            registry: registry,
+            models: [model],
+            now: { clock.time },
+            calendar: utcCalendar,
+            sleeper: sleeper
+        )
+
+        let task = Task {
+            await scheduler.run(isCancelled: { Task.isCancelled })
+        }
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+        task.cancel()
+        _ = await task.value
+
+        XCTAssertFalse(sleepLog.durations.isEmpty, "Scheduler should have called sleeper at least once")
+        for duration in sleepLog.durations {
+            XCTAssertLessThanOrEqual(duration, 60, "DefaultPendingWakeSleeper nap bounded, got \(duration)")
+        }
+    }
+
     func testLoopCoordinatorShortParkNoSleepGap() async throws {
         let clock = TestClock(epoch)
         let sleepLog = SleepLog()

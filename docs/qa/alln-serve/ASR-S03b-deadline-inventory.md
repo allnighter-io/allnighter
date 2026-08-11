@@ -23,21 +23,16 @@ portion, ASR-S04) are listed and marked, not fixed.
 | `LoopCoordinator.swift:2210` | `sleepUntil` — vendor park claim/adopt loop polls at 2s intervals clamped to `config.until`. Default `WakeSafeWaiter`. | 2s | **wake-safe** |
 | `PendingWakeScheduler.swift:78` | `sleeper.sleep(until: nextWake)` — wake-ticket deadline. Default `WakeSafeWaiter`. Records overshoot. | Variable (planned wake time + 60s jitter) | **wake-safe** |
 | `PendingWakeScheduler.swift:74` | `sleeper.sleep(until: now()+300)` — fallback when no pending items. Default `WakeSafeWaiter`. | 300s | **wake-safe** |
-| `VendorBackoffReconciler.swift:114` | `sleeper.sleep(until: target)` — per-vendor backoff wake deadline. Default `DefaultPendingWakeSleeper`. | Variable (backoff plan) or 60s fallback | **not wake-safe** |
-| `BoostSeedScheduler.swift:45` | `sleeper.sleep(until: next)` — exact calendar fire time. Default `DefaultPendingWakeSleeper`. | Hours (calendar-driven) | **not wake-safe** |
-| `BoostSeedScheduler.swift:49` | `sleeper.sleep(until: now()+60)` — fallback poll when no seed scheduled. Default `DefaultPendingWakeSleeper`. | 60s | **not wake-safe** |
-| `CapacityRefreshScheduler.swift:161` | `sleeper.sleep(until: sleepUntil)` — periodic capacity tick. Default `DefaultPendingWakeSleeper`. | 300s (normal) or variable backoff | **not wake-safe** |
-| `NotificationScheduler.swift:126` | `sleeper.sleep(until: now()+pollInterval)` — notification poll tick. Default `DefaultPendingWakeSleeper`. | 10s | **not wake-safe** |
-| `PMTurnWakeScheduler.swift:193` | `sleeper.sleep(until: now()+pollInterval)` — PM turn wake hook poll. Default `DefaultPendingWakeSleeper`. | 5s | **not wake-safe** |
-| `ProbeRecordRefreshScheduler.swift:70` | `sleeper.sleep(until: sleepUntil)` — periodic probe smoke. Default `DefaultPendingWakeSleeper`. | 300s | **not wake-safe** |
+| `VendorBackoffReconciler.swift:114` | `sleeper.sleep(until: target)` — per-vendor backoff wake deadline. Default `DefaultPendingWakeSleeper`. | Variable (backoff plan) or 60s fallback | **wake-safe** |
+| `BoostSeedScheduler.swift:45` | `sleeper.sleep(until: next)` — exact calendar fire time. Default `DefaultPendingWakeSleeper`. | Hours (calendar-driven) | **wake-safe** |
+| `BoostSeedScheduler.swift:49` | `sleeper.sleep(until: now()+60)` — fallback poll when no seed scheduled. Default `DefaultPendingWakeSleeper`. | 60s | **wake-safe** |
+| `CapacityRefreshScheduler.swift:161` | `sleeper.sleep(until: sleepUntil)` — periodic capacity tick. Default `DefaultPendingWakeSleeper`. | 300s (normal) or variable backoff | **wake-safe** |
+| `NotificationScheduler.swift:126` | `sleeper.sleep(until: now()+pollInterval)` — notification poll tick. Default `DefaultPendingWakeSleeper`. | 10s | **wake-safe** |
+| `PMTurnWakeScheduler.swift:193` | `sleeper.sleep(until: now()+pollInterval)` — PM turn wake hook poll. Default `DefaultPendingWakeSleeper`. | 5s | **wake-safe** |
+| `ProbeRecordRefreshScheduler.swift:70` | `sleeper.sleep(until: sleepUntil)` — periodic probe smoke. Default `DefaultPendingWakeSleeper`. | 300s | **wake-safe** |
 
-> All six `DefaultPendingWakeSleeper` sites compute one `timeIntervalSinceNow`
-> duration up front and sleep it in a single `Task.sleep`. A system sleep that
-> outlasts the interval is not detected until the full original duration
-> elapses. None of these six schedulers would be affected by a 5-hour park
-> because their intervals are seconds/minutes, but any sleep longer than the
-> computed interval leaves the scheduler unresponsive for `overshoot - interval`
-> after wake.
+> ~~All six `DefaultPendingWakeSleeper` sites compute one `timeIntervalSinceNow`
+> duration up front and sleep it in a single `Task.sleep`.~~ **S03c**: `DefaultPendingWakeSleeper` now delegates to `WakeSafeWaiter` (maxNap=60s), so all seven sites above are wake-safe without editing the schedulers themselves. Verified by blast radius tests on `VendorBackoffReconciler` and `BoostSeedScheduler`.
 
 | File:line | What it waits for | Typical duration | Verdict |
 |---|---|---|---|
@@ -86,19 +81,40 @@ portion, ASR-S04) are listed and marked, not fixed.
 | `PendingWakeScheduler` | `WakeSafeWaiter()` | **wake-safe** — S03a |
 | `LoopCoordinator` | `WakeSafeWaiter()` | **wake-safe** — S03a (sleepUntil) + S03b (sleepClampedToDeadline) |
 
-## Sites still using DefaultPendingWakeSleeper (not yet converted)
+## Sites still using DefaultPendingWakeSleeper (all wake-safe since S03c)
 
 | Scheduler | Line | Interval | Wake-Gap Risk |
 |---|---|---|---|
-| `VendorBackoffReconciler` | 71 | Variable / 60s fallback | Vendor backoff deadlines; 5-hour park would be missed by hours |
-| `BoostSeedScheduler` | 25 | Hourly+ / 60s fallback | Calendar fires could be delayed past the window |
-| `CapacityRefreshScheduler` | 83 | 300s / variable backoff | Misses refresh tick after sleep > 5 min |
-| `NotificationScheduler` | 80 | 10s | Minor — 10s poll recovers quickly |
-| `PMTurnWakeScheduler` | 177 | 5s | Minor — 5s poll recovers quickly |
-| `ProbeRecordRefreshScheduler` | 33 | 300s | Misses probe smoke tick after sleep > 5 min |
+| `VendorBackoffReconciler` | 71 | Variable / 60s fallback | **wake-safe** — S03c (DefaultPendingWakeSleeper → WakeSafeWaiter) |
+| `BoostSeedScheduler` | 25 | Hourly+ / 60s fallback | **wake-safe** — S03c (DefaultPendingWakeSleeper → WakeSafeWaiter) |
+| `CapacityRefreshScheduler` | 83 | 300s / variable backoff | **wake-safe** — S03c (DefaultPendingWakeSleeper → WakeSafeWaiter) |
+| `NotificationScheduler` | 80 | 10s | **wake-safe** — S03c (DefaultPendingWakeSleeper → WakeSafeWaiter) |
+| `PMTurnWakeScheduler` | 177 | 5s | **wake-safe** — S03c (DefaultPendingWakeSleeper → WakeSafeWaiter) |
+| `ProbeRecordRefreshScheduler` | 33 | 300s | **wake-safe** — S03c (DefaultPendingWakeSleeper → WakeSafeWaiter) |
 
 ## Sites being removed by later slice
 
 | Site | Slice | Note |
 |---|---|---|
 | `CapacityResidentService` periodic scheduler (`waitForFire`, acquire floor) | ASR-S04 §2.4 | Listed for completeness; do not fix. |
+
+## Changes since S03c (2026-08-10)
+
+S03c reimplemented `DefaultPendingWakeSleeper` to delegate to `WakeSafeWaiter`
+(maxNap=60s), flipping **seven** rows from *not wake-safe* to *wake-safe* with
+one symbol change and zero scheduler edits:
+
+1. `VendorBackoffReconciler` (verified via blast radius test constructing
+   scheduler with `DefaultPendingWakeSleeper` and simulated sleep gap over
+   `sleeper.sleep(until:target)`).
+2. `BoostSeedScheduler` (verified via blast radius test with same pattern).
+3. `CapacityRefreshScheduler` — uses `DefaultPendingWakeSleeper()`, now
+   internally wake-safe.
+4. `NotificationScheduler` — same.
+5. `PMTurnWakeScheduler` — same.
+6. `ProbeRecordRefreshScheduler` — same.
+
+Rows **not** touched:
+- `RemoteMacAgentCoordinator` — different sleeper protocol, out of scope.
+- `CapacityResidentService` — being removed by ASR-S04.
+- All non-obligation rows (SandboxHandoffRunner, ExecutionLane, ServeDaemonAdmission, etc.).
