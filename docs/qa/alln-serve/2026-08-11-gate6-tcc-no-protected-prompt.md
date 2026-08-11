@@ -9,6 +9,13 @@ Related incident: `docs/operations/debugger/2026-08-10-first-launch-tcc-popups-P
 and §3's finding that `serve enable` could read a debug binary from a Documents
 checkout via `Data(contentsOf:)`.
 
+> **Follow-up (same day):** inherited **Documents CWD** on foreground
+> `install-cli` / serve-mutate was a separate hole from candidate-path refusal.
+> Evidence §2 (string grep) does not prove CWD safety. Fix shipped in
+> `ProtectedCWDEscape` (`b65a2ea2`); see archived
+> `docs/archive/phases/CLI_Install_Documents_CWD_TCC.md`. Desktop/Downloads
+> empirical half of this gate still stands; Documents reset remains founder-only.
+
 ## Result: PASS
 
 Four independent lines of evidence.
