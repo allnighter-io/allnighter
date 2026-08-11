@@ -1,0 +1,93 @@
+{
+  "binary" : {
+    "expectedCodeIdentity" : {
+
+    },
+    "expectedGitSha" : "c4df8b83e2be6fe83d4276cdf6e8fc1c604fc920",
+    "matches" : false,
+    "path" : "\/Users\/openclaw\/.local\/share\/allnighter\/bin\/alln",
+    "runningCodeIdentity" : {
+      "cdhash" : "9e5e2f8333ee24dcd3bf378a34b13fa41b55e66b"
+    },
+    "runningGitSha" : null
+  },
+  "daemon" : {
+    "activeHealthRespondedAt" : null,
+    "daemonId" : "8c54b639-8135-4d4f-b314-c9fecd35eda1",
+    "pid" : 85621,
+    "startedAt" : "2026-08-11T15:59:36Z"
+  },
+  "desiredState" : "enabled",
+  "recovery" : {
+    "command" : "alln serve status --json",
+    "reasonCode" : "SERVE_UNKNOWN_SUPERVISOR"
+  },
+  "schedulers" : [
+    {
+      "id" : "boostSeed",
+      "lastAttemptAt" : null,
+      "lastError" : null,
+      "lastSuccessAt" : null,
+      "nextWakeAt" : "2026-08-11T16:22:39Z",
+      "state" : "stopped"
+    },
+    {
+      "id" : "capacityRefresh",
+      "lastAttemptAt" : "2026-08-11T16:18:57Z",
+      "lastError" : null,
+      "lastSuccessAt" : "2026-08-11T16:19:05Z",
+      "nextWakeAt" : "2026-08-11T16:24:05Z",
+      "state" : "stopped"
+    },
+    {
+      "id" : "notifications",
+      "lastAttemptAt" : "2026-08-11T16:22:32Z",
+      "lastError" : null,
+      "lastSuccessAt" : "2026-08-11T16:22:32Z",
+      "nextWakeAt" : "2026-08-11T16:22:42Z",
+      "state" : "stopped"
+    },
+    {
+      "id" : "pendingWake",
+      "lastAttemptAt" : null,
+      "lastError" : null,
+      "lastSuccessAt" : null,
+      "nextWakeAt" : null,
+      "state" : "stopped"
+    },
+    {
+      "id" : "pmTurnWake",
+      "lastAttemptAt" : "2026-08-11T16:22:32Z",
+      "lastError" : null,
+      "lastSuccessAt" : "2026-08-11T16:22:32Z",
+      "nextWakeAt" : "2026-08-11T16:22:37Z",
+      "state" : "stopped"
+    },
+    {
+      "id" : "probeRecordRefresh",
+      "lastAttemptAt" : "2026-08-11T16:13:11Z",
+      "lastError" : null,
+      "lastSuccessAt" : "2026-08-11T16:13:54Z",
+      "nextWakeAt" : "2026-08-11T16:23:57Z",
+      "state" : "stopped"
+    },
+    {
+      "id" : "vendorBackoff",
+      "lastAttemptAt" : null,
+      "lastError" : null,
+      "lastSuccessAt" : null,
+      "nextWakeAt" : "2026-08-11T16:22:39Z",
+      "state" : "stopped"
+    }
+  ],
+  "schemaVersion" : 2,
+  "state" : "degraded",
+  "supervisor" : {
+    "authorization" : "enabled",
+    "kind" : "launchAgent",
+    "label" : "com.allnighter.resident-coordinator",
+    "lastExitCode" : null,
+    "loaded" : false,
+    "pid" : null
+  }
+}

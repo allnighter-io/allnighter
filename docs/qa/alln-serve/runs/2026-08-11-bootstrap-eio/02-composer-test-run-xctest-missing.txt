@@ -1,0 +1,42 @@
+[406/451] Compiling AllnighterCoreTests RemoteMediaFetcherTests.swift
+/Users/openclaw/Documents/GitHub/Allnighter/Packages/AllnighterCore/Tests/AllnighterCoreTests/ACPMessageTests.swift:1:8: error: no such module 'XCTest'
+  1 | import XCTest
+    |        `- error: no such module 'XCTest'
+  2 | @testable import AllnighterCore
+  3 | 
+[407/451] Compiling AllnighterCoreTests RemoteMediaRelayTests.swift
+/Users/openclaw/Documents/GitHub/Allnighter/Packages/AllnighterCore/Tests/AllnighterCoreTests/ACPMessageTests.swift:1:8: error: no such module 'XCTest'
+  1 | import XCTest
+    |        `- error: no such module 'XCTest'
+  2 | @testable import AllnighterCore
+  3 | 
+[408/451] Compiling AllnighterCoreTests RemotePairingPayloadTests.swift
+/Users/openclaw/Documents/GitHub/Allnighter/Packages/AllnighterCore/Tests/AllnighterCoreTests/ACPMessageTests.swift:1:8: error: no such module 'XCTest'
+  1 | import XCTest
+    |        `- error: no such module 'XCTest'
+  2 | @testable import AllnighterCore
+  3 | 
+[409/451] Compiling AllnighterCoreTests RemotePairingRelayTests.swift
+/Users/openclaw/Documents/GitHub/Allnighter/Packages/AllnighterCore/Tests/AllnighterCoreTests/ACPMessageTests.swift:1:8: error: no such module 'XCTest'
+  1 | import XCTest
+    |        `- error: no such module 'XCTest'
+  2 | @testable import AllnighterCore
+  3 | 
+[409/451] Linking alln
+[410/451] Applying alln
+error: emit-module command failed with exit code 1 (use -v to see invocation)
+[412/661] Emitting module AllnighterCLITests
+/Users/openclaw/Documents/GitHub/Allnighter/Packages/AllnighterCore/Tests/AllnighterCLITests/ServeStatusCLITests.swift:1:8: error: no such module 'XCTest'
+  1 | import XCTest
+    |        `- error: no such module 'XCTest'
+  2 | import AllnighterCore
+  3 | @testable import AllnighterEngine
+[413/661] Compiling AllnighterCLITests ServeStatusCLITests.swift
+/Users/openclaw/Documents/GitHub/Allnighter/Packages/AllnighterCore/Tests/AllnighterCLITests/ServeStatusCLITests.swift:1:8: error: no such module 'XCTest'
+  1 | import XCTest
+    |        `- error: no such module 'XCTest'
+  2 | import AllnighterCore
+  3 | @testable import AllnighterEngine
+error: fatalError
+=== xcode-select -p ===
+/Library/Developer/CommandLineTools
