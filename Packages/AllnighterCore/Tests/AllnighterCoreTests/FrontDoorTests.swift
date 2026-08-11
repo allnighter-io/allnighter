@@ -16,7 +16,9 @@ final class FrontDoorTests: XCTestCase {
             skills: supportRoot.appendingPathComponent("Catalogs/skills", isDirectory: true),
             models: supportRoot.appendingPathComponent("Catalogs/models", isDirectory: true))
         ModelCatalog.overrideRosterForTesting(
-            fileURL: supportRoot.appendingPathComponent("Config/model_roster.json"))
+            fileURL: supportRoot
+                .appendingPathComponent("Config", isDirectory: true)
+                .appendingPathComponent("model_roster.json"))
     }
 
     override func tearDown() {
@@ -66,8 +68,7 @@ final class FrontDoorTests: XCTestCase {
 
     func testEmptyBenchModelsJSONIncludesCounselNotBareArray() throws {
         let registry = DriverRegistry([])
-        let rosterURL = AllnighterSupportRoot.config.appendingPathComponent("model_roster.json")
-        try ModelRosterPersistence(fileURL: rosterURL).save(ModelRosterState(enabledModelIds: []))
+        try ModelCatalog.saveRosterForTesting(ModelRosterState(enabledModelIds: []))
 
         var defs = ModelCatalog.list()
         let enabled = Set(ModelCatalog.benchModels(registry: registry).map(\.id))

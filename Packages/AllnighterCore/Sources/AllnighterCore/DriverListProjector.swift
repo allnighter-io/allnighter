@@ -51,12 +51,13 @@ public enum DriverListProjector {
                     } else {
                         status = "notReady"
                         let recovery = SetupRecoveryCopy.recovery(for: record, manifest: manifest)
-                        detail = recovery.detail
-                            ?? shortProbeDetail(
-                                record.status,
-                                vendorReset: vendorResetsBySource[manifest.id],
-                                driverId: manifest.id
-                            )
+                        // Inform-only probeDetail stays short; recovery.detail carries
+                        // install/sign-in prose on freshness.nextAction instead.
+                        detail = shortProbeDetail(
+                            record.status,
+                            vendorReset: vendorResetsBySource[manifest.id],
+                            driverId: manifest.id
+                        )
                         recoveryNext = recovery.nextAction
                     }
                 } else {

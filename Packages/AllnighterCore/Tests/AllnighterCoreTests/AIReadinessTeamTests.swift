@@ -191,7 +191,8 @@ final class AIReadinessTeamTests: XCTestCase {
     func testLoopScoutPrefersNonOpenCodeModel() {
         let team = BuiltInTeams.team("code_ai_readiness")!
         let loop = team.agentSpecs.first { $0.skillId == "readiness_loop_scout" }
-        XCTAssertEqual(loop?.preferredModelId, "model_gpt_sol")
+        XCTAssertNil(loop?.preferredModelId, "Law 3: loop scout must not pin model identity")
+        XCTAssertTrue(loop?.fallbackModelIds?.contains("model_gpt_sol") ?? false)
         XCTAssertFalse(loop?.fallbackModelIds?.contains(where: { $0.contains("opencode") }) ?? false)
     }
 

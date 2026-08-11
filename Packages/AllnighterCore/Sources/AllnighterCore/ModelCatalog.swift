@@ -148,6 +148,10 @@ public enum ModelCatalog {
         rosterPersistenceOverride = ModelRosterPersistence(fileURL: fileURL)
     }
 
+    public static func saveRosterForTesting(_ state: ModelRosterState) throws {
+        try rosterPersistence().save(state)
+    }
+
     public static func resetTestingOverrides() {
         rosterPersistenceOverride = nil
     }
@@ -529,7 +533,7 @@ public enum ModelCatalog {
             changed = true
         }
 
-        if roster.catalogSeenModelIds == nil {
+        if roster.catalogSeenModelIds == nil || roster.catalogSeenModelIds?.isEmpty == true {
             roster.catalogSeenModelIds = Array(catalogIds)
             // Legacy backfill only for pre-tracking rosters that still have seats on
             // the bench. An explicitly empty enabled list is a cleared bench — do not
@@ -552,6 +556,14 @@ public enum ModelCatalog {
         let newcomers = catalogIds.subtracting(seen).sorted()
         if newcomers.isEmpty {
             if changed { try rosterPersistence().save(roster) }
+            return
+        }
+        // Same cleared-bench rule as the first-seen path above: catalogSeenModelIds
+        // may be `[]` from an older save while enabled stayed empty — still must not
+        // silently reseat default-on newcomers.
+        if roster.enabledModelIds.isEmpty {
+            roster.catalogSeenModelIds = Array(catalogIds)
+            try rosterPersistence().save(roster)
             return
         }
         for id in newcomers {

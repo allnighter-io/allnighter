@@ -175,7 +175,9 @@ public struct CapacityHistoryStore: Sendable {
         for (sourceId, seeds) in bySource {
             try mergeAndWrite(sourceId: sourceId, seeds: seeds)
         }
-        try refreshNewestSuccessStamp(now: now)
+        // CAP-S07: record never writes derived freshness stamps — only per-source
+        // window files. Serve refresh owns `_newest_success.json` via
+        // `CapacityRefreshScheduler`.
     }
 
     // MARK: - CRS-S05 Newest-success stamp (O(1) serve freshness)

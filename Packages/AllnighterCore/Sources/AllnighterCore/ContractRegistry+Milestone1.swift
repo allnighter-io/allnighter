@@ -140,7 +140,8 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Structured DetectJSON for agents: per-source status, detail, fixCommand, benchTally, nextActions."),
             ],
             outputSchema: .none,
-            spendsQuota: true
+            spendsQuota: true,
+            freeTwinCommand: "alln doctor --json"
         ),
         CommandSpec(
             "capacity",

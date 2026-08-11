@@ -20,6 +20,18 @@ public enum ModelListProjector {
         let recordsByDriver = Dictionary(uniqueKeysWithValues:
             probeRecords.map { ($0.driverId, $0) })
         let manifestIDs = Set(registry.all.map(\.id))
+        if definitions.isEmpty {
+            let catalogCount = ModelCatalog.list(driverId: driverId).count
+            let (counsel, nextActions) = AgentFrontDoor.emptyModelsCounsel(
+                benchOnly: benchOnly, driverId: driverId, catalogCount: catalogCount)
+            return ModelListJSON(
+                contractVersion: ContractRegistry.contractVersion,
+                models: [],
+                diagnostics: diagnostics,
+                counsel: counsel,
+                nextActions: nextActions
+            )
+        }
         let resolved = ModelCatalog.resolvedModels(registry: registry)
         let enabledMap = Dictionary(uniqueKeysWithValues: resolved.map { ($0.id, $0.enabled) })
         let entries = definitions.sorted { $0.id < $1.id }.map { def -> ModelListJSON.Entry in

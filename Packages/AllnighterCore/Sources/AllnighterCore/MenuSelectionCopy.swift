@@ -155,12 +155,12 @@ public enum MenuSelectionCopy {
         // `--seat` moves to dontUseWhen, which has the headroom, rather than
         // being dropped.
         "run": Pair(
-            useWhen: "Ask a worker/team; --read-only to investigate",
-            dontUseWhen: "Not catalog write; teams duplicate/edit; --seat staffs crew"
+            useWhen: "Ask worker/team; --read-only to investigate",
+            dontUseWhen: "Not catalog write; teams duplicate/edit; --seat"
         ),
         "teams duplicate": Pair(
             useWhen: "Copy a shipped team, edit it",
-            dontUseWhen: "Not one-off staffing; run --seat"
+            dontUseWhen: "Not staffing; run --seat"
         ),
         "teams new": Pair(
             useWhen: "Create novel team from TeamPreset JSON",
@@ -227,7 +227,7 @@ public enum MenuSelectionCopy {
         ),
         "fusion": Pair(
             useWhen: "Fusion control: same prompt, fixed panel",
-            dontUseWhen: "Differentiated seats; use code_spec_review"
+            dontUseWhen: "Different seats; code_spec_review"
         ),
         "code_spec_review_min": Pair(
             useWhen: "Lean spec check before you build",
@@ -235,15 +235,15 @@ public enum MenuSelectionCopy {
         ),
         "code_doc_review": Pair(
             useWhen: "One-model doc/spec feedback, no mutator queue",
-            dontUseWhen: "Build or edit code; use Auto or Build a Slice"
+            dontUseWhen: "Build/edit code; use Auto or Build a Slice"
         ),
         "code_spec_review": Pair(
             useWhen: "Harden a spec before you build",
-            dontUseWhen: "Review only, no edits"
+            dontUseWhen: "Review only; no edits"
         ),
         "code_spec_review_max": Pair(
             useWhen: "Deep review: launch/hard specs",
-            dontUseWhen: "Review only, no edits"
+            dontUseWhen: "Review only; no edits"
         ),
         "code_release_proof": Pair(
             useWhen: "Prove the owner-visible claim",
@@ -286,8 +286,8 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not implementing; signal only"
         ),
         "code_ai_readiness": Pair(
-            useWhen: "First Code Team: audit how workable your repo is for agents",
-            dontUseWhen: "Not a mutating fixer; it reports gaps, you decide what to fix"
+            useWhen: "Audit agent workability (first Code Team)",
+            dontUseWhen: "Not mutating; reports gaps, you decide"
         ),
     ]
 
@@ -456,7 +456,7 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not implementing; Spec Review"
         ),
         "get-another-model-to-implement-this": Pair(
-            useWhen: "You PM; a model builds (loop start --pm caller)",
+            useWhen: "You PM; a model builds (loop --pm caller)",
             dontUseWhen: "Not single ask; run --model"
         ),
         "get-sols-take-without-changing-files": Pair(

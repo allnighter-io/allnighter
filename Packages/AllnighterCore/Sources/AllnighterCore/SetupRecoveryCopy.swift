@@ -56,7 +56,7 @@ public enum SetupRecoveryCopy {
                 }
                 return "Cursor Agent CLI not installed — install it to use Composer."
             }
-            return "Not installed."
+            return "Not installed"
         case .probeFailed:
             return probeFailedAttention(driverId: driverId, reason: probeReason)
         case .rateLimited:

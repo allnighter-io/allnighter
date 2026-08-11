@@ -474,10 +474,12 @@ public enum BuiltInTeams {
                 ("readiness_strength_scout", .answer)
             ], tags: [.code])
             if let idx = rows.firstIndex(where: { $0.skillId == "readiness_loop_scout" }) {
+                // Law 3: express need via fallback pool, not pinned model identity.
+                // Non-OpenCode preference stays in fallbackModelIds (no opencode ids).
                 rows[idx] = row(
                     "readiness_loop_scout", .answer,
-                    preferred: gptSol,
-                    fallbacks: [sonnet, opus, cursorGrok, kimi, gemini],
+                    fallbacks: [gptSol, sonnet, opus, cursorGrok, kimi, gemini],
+                    tags: [.code],
                     fallback: .anyReady
                 )
             }
