@@ -80,7 +80,17 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S03d | [`alln-serve/ASR-S03d-active-health-handshake.md`](alln-serve/ASR-S03d-active-health-handshake.md) | **done** — `ff90583b` + wiring fix `0612b8ec` (25 tests) |
 | ASR-S03e | [`alln-serve/ASR-S03e-scheduler-receipts.md`](alln-serve/ASR-S03e-scheduler-receipts.md) | **done** — `254cfeae` (26 tests) |
 | ASR-S04a | [`alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md`](alln-serve/ASR-S04a-delete-autolaunch-build-requirement.md) | **done** — `6bacc609` (Grok 4.5, 25 files, 82 tests) |
-| ASR-S04a2 | [`alln-serve/ASR-S04a2-gate-pending-wake.md`](alln-serve/ASR-S04a2-gate-pending-wake.md) | **ready** — closes the one gap S04a reported |
+| ASR-S04a2 | [`alln-serve/ASR-S04a2-gate-pending-wake.md`](alln-serve/ASR-S04a2-gate-pending-wake.md) | **done** — `69d2f1f8` + data-loss fix `ddb039ef` (77 tests) |
+
+**S04a2 lesson — do not repeat.** The work order said "assert the store is
+byte-for-byte unchanged on refusal." That is right when the gate *precedes* the
+work (an `add`) and **wrong** when it *follows* it. The seat correctly relocated
+the gate to `settleRun`/`settleTeamRun` (the real `resume.wakeAfter` writer) but
+carried the assertion along, so a refusal discarded a completed run's attempt
+outcome and left a stale lease — and 77 tests defended it, because they encoded
+the wrong requirement. Queue honesty means *do not queue work no daemon will
+claim*; it never means *discard the result of work already done*. Correct shape:
+clear the obligation, **save**, then throw.
 
 **S04a §2.3 audit result** (Grok's own table, reported honestly):
 Loop `--delivery wake` **gated**; attended loop/run **not gated** (correct);
