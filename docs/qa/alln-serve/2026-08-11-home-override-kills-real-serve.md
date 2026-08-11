@@ -134,4 +134,9 @@ the problem.
 
 Recorded by the PM agent from a controlled reproduction on the live host.
 
-**Signed:** _pending founder countersignature._
+**No founder signature required.** §8 names gates **7, 8, 9 and 10** as the
+ones needing a human at the machine, and only those. This gate was executed
+and measured by the PM agent on the live host; the record above is the
+evidence. An earlier draft of this file carried a "pending founder
+countersignature" line — that was ceremony this packet does not ask for, and
+it is removed.
