@@ -1,4 +1,4 @@
-# ASR-S06 gate 11 — no restart loop — **crash half PASS; stand-down half observed on a superseded build**
+# ASR-S06 gate 11 — no restart loop — **PASS, both halves on one build**
 
 Date: 2026-08-11 (UTC)
 Gate: §8 ASR-S06 **gate 11** — "induce a persistent stand-down (exit `0`) and
@@ -76,7 +76,42 @@ That is the platform behaviour proven independently of Allnighter's daemon. What
 the product label adds is that Allnighter's own status surfaces it correctly,
 which the stand-down observation above shows.
 
-## Verdict
+## CLOSED 2026-08-11 — both halves proven on build `aa8df6ff`
+
+ASR-S06j added a self-consuming stand-down marker: a file in the coordinator
+directory containing exactly `stand-down`, which the daemon deletes **before**
+exiting `0`, so `alln serve repair` recovers on the first try rather than
+restarting into another stand-down.
+
+`works-test-serve-continuity.sh --mutate-product-agent stand-down`:
+
+| Assertion | Result |
+| --- | --- |
+| no canonical daemon process | PASS |
+| LaunchAgent **remains loaded** | PASS |
+| `launchctl` `last exit code = 0` | PASS |
+| `serve status` reports `degraded` | PASS |
+| `supervisor.lastExitCode: 0` | PASS |
+| status supplies a working recovery command | PASS |
+| **no respawn for 35 s** (> 30 s `ThrottleInterval`) | PASS |
+| documented recovery restored one healthy daemon and one agent | PASS |
+
+The 35 s window is the point: anything shorter than `ThrottleInterval` would
+prove nothing, because launchd would not have respawned yet either way.
+
+`--mutate-product-agent crash-restart` re-run on the **same build**:
+
+```text
+TERM summary: time-to-respawn=17s time-to-health=0s
+KILL summary: time-to-respawn=29s time-to-health=1s
+ALL PASS
+```
+
+So both directions of §4.2 now hold on one build, on the product label:
+exit `0` → no respawn, visible as `degraded` with a reason; signal death →
+respawn with active health. The split-build gap recorded below is closed.
+
+## Verdict (as first recorded — superseded above, kept for the record)
 
 | Half | Status | Label | Build |
 | --- | --- | --- | --- |
