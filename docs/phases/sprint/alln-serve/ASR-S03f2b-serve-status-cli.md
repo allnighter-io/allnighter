@@ -1,6 +1,6 @@
 # ASR-S03f2b — `alln serve status` emits v2, with §5.3 exit codes
 
-Status: **ready**
+Status: **done** — `2f1ee6a4` (Cursor Composer 2.5)
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §5.1
 (commands), §5.2 (v2 + five states), §5.3 (exit codes).
 
@@ -122,3 +122,34 @@ cutover, and ASR-S05 owns sweeping the teaching that still describes v1.
       `ServeHealthClient` still parses a live daemon's response.
 - [ ] `ContractRegistry` lists `serve status`; catalog validation passes.
 - [ ] No test writes outside a temp directory. One commit, explicit paths.
+
+## 11. Closeout — 2026-08-11
+
+Landed `2f1ee6a4`. Re-verified outside the seat: 69 tests green, exit 0.
+
+`CoordinatorHealth` and the loopback `/health` body are untouched, so the
+handshake the gatherer depends on still works. `serve status` is registered in
+`ContractRegistry` with a new `serveStatusJSON` payload kind.
+
+Scope expanded beyond the Touch-only list by three files, all forced and all
+correct: `Package.swift` gained the `AllnighterCLITests` test target the new
+test file needs, `ContractRegistry+Milestone1.swift` is where the command list
+actually lives, and the `team_run.json` fixture carries the contract hash. Noted
+rather than reverted.
+
+**Green Wall flake — unresolved, watch it.** Two invocations of
+`scripts/swift-test.sh` returned only `alln-test-guard: raw 'swift test' is
+blocked` — once with exit 0 after 55 lines of build output, once with exit 1 and
+no output at all — while identical invocations before and after ran clean to 69
+green. Mechanism established: `scripts/allnighter_test_token.py` mints
+**single-use** HMAC markers under `.alln-test.tokens/`, the wrapper mints one per
+invocation and burns it during cleanup, and the shim refuses any `swift test`
+whose marker is absent. `.alln-test.tokens/` currently holds 22 orphaned markers
+dating to 2026-07-31, so tokens are being minted and never consumed.
+
+The intermittency itself is **not root-caused**, and is recorded that way rather
+than guessed at. It matters because a proof wall that intermittently refuses can
+also intermittently appear to pass: the first failing run exited **0** with no
+test executed, which a `tail`-based check would read as success. Any closeout
+that greps for a test count rather than trusting the exit code is safe; one that
+trusts exit code alone is not.
