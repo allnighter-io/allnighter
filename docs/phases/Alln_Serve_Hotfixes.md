@@ -941,8 +941,12 @@ Dock app, reboot, `kickstart`, or agent intervention.
   identity — not version string — decides `binary.matches`. — **install side done
   2026-08-10** (ASR-S01a–d: `d60efa8a`, `91cad2de`, `fa8dc145`, `1f3e1add`);
   launchd and health still name the staged path until ASR-S02.
-- [ ] No exit path produces a KeepAlive respawn loop; stand-down is visible in
-  status rather than silent.
+- [x] No exit path produces a KeepAlive respawn loop; stand-down is visible in
+  status rather than silent. — **done 2026-08-11**, gate 3 (`476e9d80`). SIGTERM
+  now dies by signal and launchd restarts (`runs` 1→2→3); admission refusal and
+  unrecoverable configuration still exit `0` and still do not respawn;
+  stand-down surfaced as `degraded` + `lastExitCode: 0` + `SERVE_STAND_DOWN`
+  throughout. The respawn-loop half is proven by ASR-S00 on the real primitive.
 - [x] A due obligation survives system sleep and fires within 2 minutes of wake.
   — **done 2026-08-11**, gate 10 founder-signed; measured +54 s and +87 s after a
   real wake, with `nextWakeAt` rescheduled forward (§10.1 R2).
@@ -1040,6 +1044,7 @@ matter how green the suite is. An unrecorded gate is an unrun gate.
 
 | Gate | Result | Record | Signature |
 | --- | --- | --- | --- |
+| 3 — TERM/KILL restart | **PASS** (failed first; see FAIL record) | [`2026-08-11-gate3-crash-restart-PASS.md`](../qa/alln-serve/2026-08-11-gate3-crash-restart-PASS.md) | pending |
 | 7 — logout/login | **PASS** | [`2026-08-11-gate7-logout-login.md`](../qa/alln-serve/2026-08-11-gate7-logout-login.md) | **founder-signed** |
 | 8 — disable survives login | **PASS** | [`2026-08-11-gate8-disable-survives-login.md`](../qa/alln-serve/2026-08-11-gate8-disable-survives-login.md) | **founder-signed** |
 | 9 — three-cycle rebuild | **PASS** | [`2026-08-11-gate9-three-cycle-rebuild.md`](../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md) | countersigned; PM-executed |
