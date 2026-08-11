@@ -1,0 +1,91 @@
+{
+  "binary" : {
+    "expectedCodeIdentity" : {
+
+    },
+    "expectedGitSha" : "ef928f6e76bcbb4fbe27335419650810bc76b795",
+    "matches" : true,
+    "path" : "\/Users\/openclaw\/.local\/share\/allnighter\/bin\/alln",
+    "runningCodeIdentity" : {
+      "cdhash" : "e8bf976f73b11885cd3d32f26a650a22f6c39f62",
+      "version" : "1.0.1"
+    },
+    "runningGitSha" : "ef928f6e76bcbb4fbe27335419650810bc76b795"
+  },
+  "daemon" : {
+    "activeHealthRespondedAt" : "2026-08-11T15:59:51Z",
+    "daemonId" : "8c54b639-8135-4d4f-b314-c9fecd35eda1",
+    "pid" : 85621,
+    "startedAt" : "2026-08-11T15:59:36Z"
+  },
+  "desiredState" : "enabled",
+  "recovery" : null,
+  "schedulers" : [
+    {
+      "id" : "boostSeed",
+      "lastAttemptAt" : null,
+      "lastError" : null,
+      "lastSuccessAt" : null,
+      "nextWakeAt" : "2026-08-11T16:00:36Z",
+      "state" : "registered"
+    },
+    {
+      "id" : "capacityRefresh",
+      "lastAttemptAt" : "2026-08-11T15:59:36Z",
+      "lastError" : null,
+      "lastSuccessAt" : "2026-08-11T15:59:44Z",
+      "nextWakeAt" : "2026-08-11T16:04:44Z",
+      "state" : "waiting"
+    },
+    {
+      "id" : "notifications",
+      "lastAttemptAt" : "2026-08-11T15:59:46Z",
+      "lastError" : null,
+      "lastSuccessAt" : "2026-08-11T15:59:46Z",
+      "nextWakeAt" : "2026-08-11T15:59:56Z",
+      "state" : "waiting"
+    },
+    {
+      "id" : "pendingWake",
+      "lastAttemptAt" : null,
+      "lastError" : null,
+      "lastSuccessAt" : null,
+      "nextWakeAt" : null,
+      "state" : "registered"
+    },
+    {
+      "id" : "pmTurnWake",
+      "lastAttemptAt" : "2026-08-11T15:59:46Z",
+      "lastError" : null,
+      "lastSuccessAt" : "2026-08-11T15:59:46Z",
+      "nextWakeAt" : "2026-08-11T15:59:51Z",
+      "state" : "waiting"
+    },
+    {
+      "id" : "probeRecordRefresh",
+      "lastAttemptAt" : null,
+      "lastError" : null,
+      "lastSuccessAt" : null,
+      "nextWakeAt" : "2026-08-11T16:04:36Z",
+      "state" : "waiting"
+    },
+    {
+      "id" : "vendorBackoff",
+      "lastAttemptAt" : null,
+      "lastError" : null,
+      "lastSuccessAt" : null,
+      "nextWakeAt" : "2026-08-11T16:00:36Z",
+      "state" : "waiting"
+    }
+  ],
+  "schemaVersion" : 2,
+  "state" : "healthy",
+  "supervisor" : {
+    "authorization" : "enabled",
+    "kind" : "launchAgent",
+    "label" : "com.allnighter.resident-coordinator",
+    "lastExitCode" : null,
+    "loaded" : true,
+    "pid" : 85621
+  }
+}
