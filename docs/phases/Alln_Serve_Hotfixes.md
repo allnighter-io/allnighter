@@ -962,8 +962,13 @@ Dock app, reboot, `kickstart`, or agent intervention.
 - [ ] The app contains no serve lifecycle and no periodic capacity/probe host.
 - [ ] Detached auto-launch and its opt-out grammar are deleted and deny-listed.
 - [ ] Install, doctor, help search, bootstrap teaching, and uninstall agree.
-- [ ] TCC proof shows no protected-folder prompt on the supported install/start
-  path.
+- [x] TCC proof shows no protected-folder prompt on the supported install/start
+  path. — **done 2026-08-11**, gate 6. Install *refuses* a Documents-resident
+  candidate (`INSTALL_CANDIDATE_REFUSED`); the only protected-folder reference on
+  the install/serve path is that refusal; program, WorkingDirectory and PATH are
+  all outside protected space; and a full rebuild → install → serve cycle after
+  resetting Desktop and Downloads produced zero TCC events. Documents was not
+  reset because the repo lives there — stated in the record, not skipped.
 - [ ] Focused proofs and `bash scripts/check.sh` pass.
 - [ ] Durable law is promoted to code/contracts/vocabulary; this packet and the
   superseded sprint orders are archived.
@@ -1049,6 +1054,7 @@ matter how green the suite is. An unrecorded gate is an unrun gate.
 | 4 — vA→vB update + rollback | **PASS** (failed twice first) | [PASS](../qa/alln-serve/2026-08-11-gate4-PASS.md) · [update caveat](../qa/alln-serve/2026-08-11-gate4-update-half-PASS.md) · [rollback FAIL](../qa/alln-serve/2026-08-11-gate4-rollback-half-FAIL.md) | pending |
 | 5 — receipts + minimal PATH | **PASS** | [`2026-08-11-gates2-5-PASS.md`](../qa/alln-serve/2026-08-11-gates2-5-PASS.md) | inspect-only |
 | 11 — no restart loop | **PASS** (both halves, one build) | [`2026-08-11-gate11-no-restart-loop.md`](../qa/alln-serve/2026-08-11-gate11-no-restart-loop.md) | pending |
+| 6 — TCC, no protected prompt | **PASS** (Documents reset declined: repo lives there) | [`2026-08-11-gate6-tcc-no-protected-prompt.md`](../qa/alln-serve/2026-08-11-gate6-tcc-no-protected-prompt.md) | pending |
 | 7 — logout/login | **PASS** | [`2026-08-11-gate7-logout-login.md`](../qa/alln-serve/2026-08-11-gate7-logout-login.md) | **founder-signed** |
 | 8 — disable survives login | **PASS** | [`2026-08-11-gate8-disable-survives-login.md`](../qa/alln-serve/2026-08-11-gate8-disable-survives-login.md) | **founder-signed** |
 | 9 — three-cycle rebuild | **PASS** | [`2026-08-11-gate9-three-cycle-rebuild.md`](../qa/alln-serve/2026-08-11-gate9-three-cycle-rebuild.md) | countersigned; PM-executed |
