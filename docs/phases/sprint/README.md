@@ -73,7 +73,8 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S02c | [`alln-serve/ASR-S02c-convergence-transaction.md`](alln-serve/ASR-S02c-convergence-transaction.md) | **done** — `44c897f5` (78 tests, `alln` builds) |
 | ASR-S02d | [`alln-serve/ASR-S02d-live-host-rebind.md`](alln-serve/ASR-S02d-live-host-rebind.md) | **done** — `9bbf95ad` (98 tests); verify-then-delete confirmed in source |
 | ASR-S02e | [`alln-serve/ASR-S02e-install-enables-by-default.md`](alln-serve/ASR-S02e-install-enables-by-default.md) | **done** — `daa3ea53` + `32051a64` (38 tests) |
-| ASR-S03a | [`alln-serve/ASR-S03a-wake-safe-deadlines.md`](alln-serve/ASR-S03a-wake-safe-deadlines.md) | **in_progress** — isolates §10.1 R2 |
+| ASR-S03a | [`alln-serve/ASR-S03a-wake-safe-deadlines.md`](alln-serve/ASR-S03a-wake-safe-deadlines.md) | **done** — `96b685a6` (11 tests); failing-first observed (`14400.0 > 60.0`) |
+| ASR-S03b | [`alln-serve/ASR-S03b-wake-safe-park-wake.md`](alln-serve/ASR-S03b-wake-safe-park-wake.md) | **ready** — park wake + deadline inventory |
 
 **ASR-S01 and ASR-S02 are complete.** PATH, launchd, and update now name one
 canonical binary; install converges serve to the user's desired state and
