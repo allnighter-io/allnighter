@@ -75,7 +75,13 @@ SSOT: [`Alln_Serve_Hotfixes.md`](../Alln_Serve_Hotfixes.md) §8. One order at a 
 | ASR-S02e | [`alln-serve/ASR-S02e-install-enables-by-default.md`](alln-serve/ASR-S02e-install-enables-by-default.md) | **done** — `daa3ea53` + `32051a64` (38 tests) |
 | ASR-S03a | [`alln-serve/ASR-S03a-wake-safe-deadlines.md`](alln-serve/ASR-S03a-wake-safe-deadlines.md) | **done** — `96b685a6` (11 tests); failing-first observed (`14400.0 > 60.0`) |
 | ASR-S03b | [`alln-serve/ASR-S03b-wake-safe-park-wake.md`](alln-serve/ASR-S03b-wake-safe-park-wake.md) | **done** — `3799cdd0` (9 tests) + [deadline inventory](../../qa/alln-serve/ASR-S03b-deadline-inventory.md) |
-| ASR-S03c | [`alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md`](alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md) | **ready** — one symbol fixes the 7 remaining sites |
+| ASR-S03c | [`alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md`](alln-serve/ASR-S03c-default-sleeper-is-wake-safe.md) | **done** — `4edd61be` (37 tests); zero scheduler files edited |
+
+**Slice sizing (founder 2026-08-10):** S03c carried four deliverables and ran
+~13 min with no visible progress, which reads as hung. Cap a routed order at
+~2 deliverables; a failing-first test counts as one. The rest of ASR-S03 is
+split accordingly: **S03d** active loopback health, **S03e** scheduler receipts,
+**S03f** `ServeStatusJSON` v2.
 
 **ASR-S01 and ASR-S02 are complete.** PATH, launchd, and update now name one
 canonical binary; install converges serve to the user's desired state and
