@@ -1,6 +1,6 @@
 # ASR-S03f1 — `ServeStatusJSON` v2 shape and state resolver
 
-Status: **ready**
+Status: **done, one rule corrected** — `41f39215` (Cursor Grok 4.5)
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §5.2
 (the v2 shape and the five states) and §7 (every inference ban this resolver
 must refuse to make).
@@ -150,3 +150,29 @@ scripts/swift-test.sh --filter 'ServeStatusResolverTests'
 
 Inert. This slice adds a type and a function that nothing calls yet. No command
 changes, no daemon behavior changes, no file on disk changes.
+
+## 11. Closeout — 2026-08-11
+
+Landed `41f39215`. Re-verified outside the seat: 34 tests green, exit 0. Purity
+confirmed by inspection — `FileManager`, `Process`, `URLSession`, and `Date()`
+appear in the file only inside the doc comment asserting their absence. Scope
+held to the two permitted files.
+
+Coverage matches the work order: 12 `testBan_*` cases (one per §7 row), 9 named
+scenarios, 6 healthy-drop cases, 3 fail-closed cases, and a §5.2 key round-trip.
+
+**One rule is wrong and is corrected in
+[`ASR-S03f1b`](ASR-S03f1b-stopped-required-scheduler-degrades.md).**
+`testStoppedRowDoesNotAloneDegradeWhenOtherwiseHealthy` asserts that every
+required scheduler `stopped`, with the daemon still answering the handshake,
+resolves to `healthy`. That is the "serve is running but nothing is happening"
+wedge — the answer §5.2 exists to stop status from giving. The shutdown
+reasoning behind it does not apply, because at shutdown the handshake dies and
+the supervisor path already returns `degraded`.
+
+**Tooling note.** Two `scripts/swift-test.sh` invocations returned the
+`alln-test-guard: raw 'swift test' is blocked` refusal instead of running, while
+a third identical invocation ran clean to exit 0. The wrapper is the only
+sanctioned path to the Green Wall, so an intermittent refusal is worth watching.
+Not diagnosed further here; recorded so a second sighting is recognised as a
+pattern rather than a one-off.
