@@ -107,11 +107,15 @@ public struct CoordinatorHealth: Codable, Equatable, Sendable {
         public var listening: Bool
         public var host: String
         public var port: Int?
+        /// Reason when `listening` is false: a mismatch, connection failure, or
+        /// timeout surfaced by `ServeHealthClient`. Omitted for the happy path.
+        public var detail: String?
 
-        public init(listening: Bool, host: String = "127.0.0.1", port: Int? = nil) {
+        public init(listening: Bool, host: String = "127.0.0.1", port: Int? = nil, detail: String? = nil) {
             self.listening = listening
             self.host = host
             self.port = port
+            self.detail = detail
         }
     }
 }

@@ -42,7 +42,8 @@ public struct ServeDaemonProbe: Sendable {
     public func health(
         binaryVersion: String,
         binaryGitSha: String = AllnighterBuildInfo.gitSha,
-        contractVersion: String = ContractRegistry.contractVersion
+        contractVersion: String = ContractRegistry.contractVersion,
+        healthClient: ServeHealthClient? = nil
     ) -> CoordinatorHealth {
         let runsWritable = Self.directoryWritable(runsDirectory)
         let journal = CoordinatorHealth.Journal(
@@ -79,6 +80,44 @@ public struct ServeDaemonProbe: Sendable {
                 launchAgent: launchAgentHealth
             )
         }
+
+        let loopback: CoordinatorHealth.Loopback
+        if let client = healthClient {
+            switch client.probe(host: record.loopbackHost, port: record.loopbackPort) {
+            case .success(let response):
+                if response.daemonId == record.daemonId && response.pid == record.pid {
+                    loopback = .init(listening: true, host: record.loopbackHost, port: Int(record.loopbackPort))
+                } else {
+                    let mismatch: String
+                    if response.daemonId != record.daemonId && response.pid != record.pid {
+                        mismatch = "daemonId mismatch (\(response.daemonId) != \(record.daemonId)) and pid mismatch (\(response.pid) != \(record.pid))"
+                    } else if response.daemonId != record.daemonId {
+                        mismatch = "daemonId mismatch (\(response.daemonId) != \(record.daemonId))"
+                    } else {
+                        mismatch = "pid mismatch (\(response.pid) != \(record.pid)) — recycled pid"
+                    }
+                    loopback = .init(listening: false, host: record.loopbackHost, port: Int(record.loopbackPort), detail: mismatch)
+                }
+            case .failure(let failure):
+                let reason: String
+                switch failure {
+                case .nonLoopbackHost(let addr):
+                    reason = "non-loopback host: \(addr)"
+                case .connectionRefused(let addr):
+                    reason = "connection refused at \(addr)"
+                case .timeout(let addr):
+                    reason = "timeout at \(addr)"
+                case .non200Status(let code, let addr):
+                    reason = "HTTP \(code) at \(addr)"
+                case .unparseableBody(let detail):
+                    reason = "unparseable body: \(detail)"
+                }
+                loopback = .init(listening: false, host: record.loopbackHost, port: Int(record.loopbackPort), detail: reason)
+            }
+        } else {
+            loopback = .init(listening: true, host: record.loopbackHost, port: Int(record.loopbackPort))
+        }
+
         return CoordinatorHealth(
             state: .available,
             daemonId: record.daemonId,
@@ -88,7 +127,7 @@ public struct ServeDaemonProbe: Sendable {
             binaryVersion: record.binaryVersion,
             binaryGitSha: record.binaryGitSha,
             journal: journal,
-            loopback: .init(listening: true, host: record.loopbackHost, port: Int(record.loopbackPort)),
+            loopback: loopback,
             activeObligationCount: activeObligations,
             launchAgent: launchAgentHealth
         )
