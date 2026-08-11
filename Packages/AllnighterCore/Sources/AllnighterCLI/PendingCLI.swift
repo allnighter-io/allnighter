@@ -261,6 +261,9 @@ enum PendingCLI {
     }
 
     private static func emitPendingError(_ error: Error) -> Never {
+        if let refusal = error as? ServeRequirement.Refusal {
+            AllnighterCLI.fail(code: refusal.code, message: refusal.message)
+        }
         let code: String
         let message: String
         if let err = error as? PendingServiceError {

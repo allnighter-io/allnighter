@@ -1,5 +1,6 @@
 import XCTest
 import AllnighterCore
+import AgentOSTeam
 @testable import AllnighterEngine
 
 /// ASR-S04a — `ServeRequirement` is the only product refusal for serve
@@ -313,5 +314,210 @@ final class ServeRequirementTests: XCTestCase {
         let cli = sourcesRoot.appendingPathComponent("AllnighterCLI/ServeAutoLaunchCLI.swift")
         XCTAssertFalse(FileManager.default.fileExists(atPath: engine.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: cli.path))
+    }
+
+    // MARK: - Pending wake settlement gate (ASR-S04a2)
+
+    private static let testModel = Model(id: "serve-test-model", displayName: "Test Model", modelLabel: "test", driverId: "test_driver", role: .both)
+
+    private func makeUnhealthyRequirement() -> ServeRequirement {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("serve-requirement-\(UUID().uuidString)", isDirectory: true)
+        let coordDir = root.appendingPathComponent("Coordinator", isDirectory: true)
+        try? FileManager.default.createDirectory(at: coordDir, withIntermediateDirectories: true)
+        let store = ServeDaemonStore(directory: coordDir)
+        let probe = ServeDaemonProbe(store: store)
+        let client = ServeHealthClient(transport: transportReturning(statusCode: 200, body: "{}"))
+        return ServeRequirement(probe: probe, healthClient: client, binaryVersion: "0.1.0")
+    }
+
+    private func makeHealthyRequirement() throws -> ServeRequirement {
+        let root = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("serve-requirement-\(UUID().uuidString)", isDirectory: true)
+        let coordDir = root.appendingPathComponent("Coordinator", isDirectory: true)
+        try FileManager.default.createDirectory(at: coordDir, withIntermediateDirectories: true)
+        let store = ServeDaemonStore(directory: coordDir)
+        let pid: Int32 = 5555
+        try store.save(.init(
+            daemonId: "daemon-pw",
+            pid: pid,
+            startedAt: Date(),
+            loopbackHost: "127.0.0.1",
+            loopbackPort: 18743,
+            binaryVersion: "0.1.0",
+            contractVersion: "1.0.0"
+        ))
+        let probe = ServeDaemonProbe(store: store, processAlive: { $0 == pid })
+        let client = ServeHealthClient(transport: transportReturning(
+            statusCode: 200,
+            body: healthJSON(daemonId: "daemon-pw", pid: pid)
+        ))
+        return ServeRequirement(probe: probe, healthClient: client, binaryVersion: "0.1.0")
+    }
+
+    private func makePendingService(rootDirectory: URL, requirement: ServeRequirement, now: Date = Date()) -> PendingService {
+        PendingService(
+            store: PendingStore(rootDirectory: rootDirectory),
+            models: [Self.testModel],
+            idFactory: { "pw-test-\(UUID().uuidString.lowercased())" },
+            now: { now },
+            serveRequirement: requirement
+        )
+    }
+
+    private func makeBlockedOutcome(kind: CapacityObservationKind = .cooldown) -> WorkerRunOutcome {
+        WorkerRunOutcome(
+            status: .failed,
+            capacityObservation: CapacityObservation(
+                kind: kind,
+                source: "test",
+                sourceConfidence: .structured,
+                rawSnippet: "test block",
+                observedAt: Date(),
+                wakeAfter: Date().addingTimeInterval(60)
+            )
+        )
+    }
+
+    func testSettleRunWakeScheduledRefusesWhenServeUnhealthy() throws {
+        let pendingRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("pending-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: pendingRoot) }
+        let requirement = makeUnhealthyRequirement()
+        let now = Date()
+        let service = makePendingService(rootDirectory: pendingRoot, requirement: requirement, now: now)
+
+        let item = try service.add(.init(prompt: "test", workerToken: "serve-test-model", submit: true, origin: .cli))
+        let id = item.id
+
+        let beforeData = try Data(contentsOf: service.store.itemURL(for: id))
+
+        let running = try service.beginRun(id: id)
+        XCTAssertEqual(running.status, .running)
+        XCTAssertEqual(running.attempts.count, 1)
+
+        do {
+            _ = try service.settleRun(id: id, attemptIndex: 0, outcome: makeBlockedOutcome(), transcriptRef: nil)
+            XCTFail("wake-scheduled settleRun must refuse when serve unhealthy")
+        } catch let refusal as ServeRequirement.Refusal {
+            XCTAssertEqual(refusal.code, ServeRequirement.errorCode)
+            XCTAssertTrue(refusal.message.contains(ServeRequirement.recoveryCommand))
+            XCTAssertEqual(refusal.reason, "pendingWakeSettlement")
+        }
+
+        let afterData = try Data(contentsOf: service.store.itemURL(for: id))
+        XCTAssertNotEqual(beforeData, afterData, "beginRun mutated the store; settleRun gate fires after mutation, store reflects beginRun state")
+        let afterItem = try XCTUnwrap(try service.store.load(id: id))
+        XCTAssertEqual(afterItem.status, .running, "settleRun must not persist status change")
+    }
+
+    func testSettleRunWakeScheduledSucceedsWhenServeHealthy() throws {
+        let pendingRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("pending-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: pendingRoot) }
+        let requirement = try makeHealthyRequirement()
+        let now = Date()
+        let service = makePendingService(rootDirectory: pendingRoot, requirement: requirement, now: now)
+
+        let item = try service.add(.init(prompt: "test", workerToken: "serve-test-model", submit: true, origin: .cli))
+        let id = item.id
+        _ = try service.beginRun(id: id)
+
+        let settled = try service.settleRun(id: id, attemptIndex: 0, outcome: makeBlockedOutcome(), transcriptRef: nil)
+        XCTAssertEqual(settled.status, .pending, "capacity block returns to pending")
+        XCTAssertNotNil(settled.resume?.wakeAfter, "must set wakeAfter")
+        XCTAssertEqual(settled.attempts.first?.status, .blocked)
+    }
+
+    func testSettleRunNonWakeSucceedsRegardlessOfServeHealth() throws {
+        let pendingRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("pending-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: pendingRoot) }
+        let requirement = makeUnhealthyRequirement()
+        let now = Date()
+        let service = makePendingService(rootDirectory: pendingRoot, requirement: requirement, now: now)
+
+        let item = try service.add(.init(prompt: "test", workerToken: "serve-test-model", submit: true, origin: .cli))
+        let id = item.id
+        _ = try service.beginRun(id: id)
+
+        let settled = try service.settleRun(
+            id: id,
+            attemptIndex: 0,
+            outcome: WorkerRunOutcome(status: .timedOut, errorReason: "timeout"),
+            transcriptRef: nil
+        )
+        XCTAssertEqual(settled.status, .pending, "timeout returns to pending without wake scheduling")
+        XCTAssertNil(settled.resume?.wakeAfter, "timeout sets no wakeAfter — must not be gated")
+    }
+
+    func testSettleTeamRunWakeScheduledRefusesWhenServeUnhealthy() throws {
+        let pendingRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("pending-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: pendingRoot) }
+        let requirement = makeUnhealthyRequirement()
+        let now = Date()
+        let service = makePendingService(rootDirectory: pendingRoot, requirement: requirement, now: now)
+
+        let item = try service.add(.init(prompt: "test", workerToken: "serve-test-model", submit: true, origin: .cli))
+        let id = item.id
+        _ = try service.beginRun(id: id)
+
+        let teamRun = TeamRun(
+            id: "tr-\(UUID().uuidString)",
+            prompt: "test",
+            status: .failed,
+            answers: [
+                TeamAnswer(
+                    memberId: "test-worker",
+                    modelId: "serve-test-model",
+                    role: "answer",
+                    result: WorkerRunOutcome(
+                        status: .failed,
+                        errorReason: "capacity",
+                        capacityObservation: CapacityObservation(
+                            kind: .providerBusy,
+                            source: "test",
+                            sourceConfidence: .structured,
+                            rawSnippet: "busy",
+                            observedAt: Date(),
+                            wakeAfter: Date().addingTimeInterval(60)
+                        )
+                    )
+                )
+            ],
+            createdAt: now
+        )
+
+        do {
+            _ = try service.settleTeamRun(id: id, attemptIndex: 0, run: teamRun, transcriptRef: nil)
+            XCTFail("wake-scheduled settleTeamRun must refuse when serve unhealthy")
+        } catch let refusal as ServeRequirement.Refusal {
+            XCTAssertEqual(refusal.code, ServeRequirement.errorCode)
+            XCTAssertTrue(refusal.message.contains(ServeRequirement.recoveryCommand))
+            XCTAssertEqual(refusal.reason, "pendingWakeSettlement")
+        }
+    }
+
+    func testPendingAddSucceedsRegardlessOfServeHealth() throws {
+        let pendingRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("pending-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: pendingRoot) }
+        let requirement = makeUnhealthyRequirement()
+        let service = makePendingService(rootDirectory: pendingRoot, requirement: requirement)
+
+        let item = try service.add(.init(prompt: "test", workerToken: "serve-test-model"))
+        XCTAssertEqual(item.status, .draft, "add with serve dead must succeed — no wake scheduling on add")
+    }
+
+    func testPendingAddWithSubmitSucceedsRegardlessOfServeHealth() throws {
+        let pendingRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("pending-test-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: pendingRoot) }
+        let requirement = makeUnhealthyRequirement()
+        let service = makePendingService(rootDirectory: pendingRoot, requirement: requirement)
+
+        let item = try service.add(.init(prompt: "test", workerToken: "serve-test-model", submit: true))
+        XCTAssertEqual(item.status, .pending, "add --submit with serve dead must succeed — no wake scheduling on add")
     }
 }

@@ -17,17 +17,20 @@ public struct PendingService: Sendable {
     public let models: [Model]
     private let idFactory: @Sendable () -> String
     private let now: @Sendable () -> Date
+    private let serveRequirement: ServeRequirement
 
     public init(
         store: PendingStore,
         models: [Model],
         idFactory: @escaping @Sendable () -> String = { "pending_\(UUID().uuidString.lowercased())" },
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        serveRequirement: ServeRequirement = ServeRequirement()
     ) {
         self.store = store
         self.models = models
         self.idFactory = idFactory
         self.now = now
+        self.serveRequirement = serveRequirement
     }
 
     // MARK: - Add
@@ -354,6 +357,7 @@ public struct PendingService: Sendable {
         item.attempts[attemptIndex] = attempt
         item.lease = nil
         item.updatedAt = timestamp
+        try requireServeForDeferredObligation(whenWakeScheduled: item.resume?.wakeAfter)
         try store.save(item)
         return item
     }
@@ -430,6 +434,7 @@ public struct PendingService: Sendable {
         item.attempts[attemptIndex] = attempt
         item.lease = nil
         item.updatedAt = timestamp
+        try requireServeForDeferredObligation(whenWakeScheduled: item.resume?.wakeAfter)
         try store.save(item)
         return item
     }
@@ -529,5 +534,13 @@ public struct PendingService: Sendable {
         }
         try store.save(updated)
         return updated
+    }
+
+    private func requireServeForDeferredObligation(whenWakeScheduled wakeAfter: Date?) throws {
+        guard let wakeAfter else { return }
+        _ = wakeAfter
+        if case .failure(let refusal) = serveRequirement.require(reason: "pendingWakeSettlement") {
+            throw refusal
+        }
     }
 }
