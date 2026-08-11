@@ -1,6 +1,6 @@
 # ASR-S03f1b — a stopped required scheduler under a live daemon is degraded
 
-Status: **ready**
+Status: **done** — `bd0e1800` (Cursor Grok 4.5)
 SSOT: [`docs/phases/Alln_Serve_Hotfixes.md`](../../Alln_Serve_Hotfixes.md) §5.2
 (top-level state answers "is useful scheduling alive?"), §7
 (`daemon -> scheduler`: a process answering does not mean schedulers work).
@@ -120,3 +120,19 @@ scripts/swift-test.sh --filter 'ServeStatusResolverTests'
 
 Inert. The resolver is still called by nothing (CLI wiring is S03f2). No
 command's output changes, no daemon behavior changes.
+
+## 11. Closeout — 2026-08-11
+
+Landed `bd0e1800`. Re-verified outside the seat: 36 tests green, exit 0.
+
+The red-first proof was taken as asked — the commit message records seeing
+`testStoppedRequiredSchedulerUnderLiveDaemonIsDegraded` fail against `41f39215`
+before any source changed.
+
+The rule is precise, which was the risk here. `healthy` now additionally
+requires `stoppedRequired.isEmpty`, and the new degraded branch is gated on
+`loaded && healthMatched`, so a stopped row with no matching handshake still
+resolves through the untouched supervisor/stand-down path. Three tests hold the
+three cases apart: required-stopped-live degrades and names the ids,
+optional-stopped-live stays healthy, required-stopped-without-handshake is
+unchanged.
