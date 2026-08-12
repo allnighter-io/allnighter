@@ -312,7 +312,10 @@ final class CapacityStripRendererTests: XCTestCase {
         let projected = rows(from: windows)
         let line = table(CapacityStripRenderer.renderPlain(rows: projected, now: now))
             .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
-        XCTAssertTrue(line.contains("unknown"), "expected unknown short cell: \(line)")
+        XCTAssertTrue(
+            line.contains("not checked yet") || line.contains("not yet"),
+            "expected unsampled short cell: \(line)"
+        )
 
         let jsonRow = CapacityStripRenderer.json(rows: projected, now: now).rows[0]
         XCTAssertFalse(jsonRow.shortWindowNone)
@@ -388,7 +391,7 @@ final class CapacityStripRendererTests: XCTestCase {
             .split(separator: "\n").first { $0.contains("Claude") }.map(String.init) ?? ""
         XCTAssertTrue(grokLine.contains("n/a"), grokLine)
         XCTAssertFalse(grokLine.contains("unknown"), grokLine)
-        XCTAssertTrue(claudeLine.contains("unknown"), claudeLine)
+        XCTAssertTrue(claudeLine.contains("unknown") || claudeLine.contains("not yet"), claudeLine)
         XCTAssertFalse(claudeLine.contains("n/a"), claudeLine)
     }
 
@@ -423,7 +426,8 @@ final class CapacityStripRendererTests: XCTestCase {
         XCTAssertTrue(plain.contains("parser failed"), plain)
         // Compact day stamp — never mid-cut year as "parser failed 202".
         XCTAssertFalse(plain.contains("parser failed 202"), plain)
-        XCTAssertTrue(plain.contains("never sampled"), plain)
+        XCTAssertTrue(plain.contains("not checked yet"), plain)
+        XCTAssertFalse(plain.contains("never sampled"), plain)
     }
 
     // MARK: - Age on every row
@@ -647,5 +651,219 @@ final class CapacityStripRendererTests: XCTestCase {
             $0.contains("Antigravity") || $0.contains("Gemini") || $0.contains("Claude/GPT")
         }
         XCTAssertGreaterThanOrEqual(agyLines.count, 2, plain)
+    }
+
+    func testNotConfiguredOpenCodeGoSaysNotSetUpAndCarriesConfigureCommand() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .notConfigured,
+                source: "opencode_go",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape,
+                planTier: "Go"
+            ),
+        ]
+        let projected = rows(from: windows)
+        let plain = CapacityStripRenderer.renderPlain(rows: projected, now: now)
+        XCTAssertTrue(plain.contains("not set up"), plain)
+        XCTAssertTrue(plain.contains(CapacityUnknownRemedy.configureOpenCodeGoCommand), plain)
+        XCTAssertFalse(plain.contains("never sampled"), plain)
+
+        let jsonRow = CapacityStripRenderer.json(rows: projected, now: now)
+            .rows.first { $0.source == "opencode_go" }
+        XCTAssertEqual(jsonRow?.unknownReason, .notConfigured)
+        XCTAssertEqual(jsonRow?.nextAction?.kind, "configureCapacity")
+        XCTAssertEqual(jsonRow?.nextAction?.command, CapacityUnknownRemedy.configureOpenCodeGoCommand)
+        XCTAssertNil(jsonRow?.dashboardRemainingPercent)
+    }
+
+    func testNotInstalledRowSaysNotInstalledAndCarriesInstallCommand() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .notInstalled,
+                source: "agy",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            ),
+        ]
+        let projected = rows(from: windows)
+        let plain = CapacityStripRenderer.renderPlain(rows: projected, now: now)
+        XCTAssertTrue(plain.contains("not installed"), plain)
+
+        let jsonRow = CapacityStripRenderer.json(rows: projected, now: now)
+            .rows.first { $0.source == "agy" }
+        XCTAssertEqual(jsonRow?.unknownReason, .notInstalled)
+        if let next = jsonRow?.nextAction {
+            XCTAssertEqual(next.kind, "installCLI")
+            XCTAssertFalse(next.command.isEmpty)
+        }
+    }
+
+    func testOverlayPromotesNeverSampledDashboardToNotConfigured() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .neverSampled,
+                source: "opencode_go",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape,
+                planTier: "Go"
+            ),
+            CapacityWindow.unknown(
+                reason: .neverSampled,
+                source: "bailian_token_plan",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape
+            ),
+        ]
+        let refined = CapacityUnknownRefinement.overlayKnownCauses(
+            windows,
+            now: now,
+            pathEnvironment: "/tmp/alln-empty-path",
+            homeDirectory: URL(fileURLWithPath: "/tmp/alln-empty-home", isDirectory: true),
+            probeRecords: []
+        )
+        XCTAssertEqual(refined[0].unknownReason, .notConfigured)
+        XCTAssertEqual(refined[1].unknownReason, .notConfigured)
+    }
+
+    func testOverlayInstallRecordBeatsDashboardNotConfigured() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .notConfigured,
+                source: "bailian_token_plan",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape
+            ),
+            CapacityWindow.unknown(
+                reason: .neverSampled,
+                source: "opencode_go",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape,
+                planTier: "Go"
+            ),
+            CapacityWindow.unknown(
+                reason: .neverSampled,
+                source: "agy",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            ),
+        ]
+        let refined = CapacityUnknownRefinement.overlayKnownCauses(
+            windows,
+            now: now,
+            pathEnvironment: "/tmp/alln-empty-path",
+            homeDirectory: URL(fileURLWithPath: "/tmp/alln-empty-home", isDirectory: true),
+            probeRecords: [
+                ToolProbeRecord(driverId: "qwen", status: .notInstalled, lastProbeAt: now),
+                ToolProbeRecord(
+                    driverId: "opencode",
+                    status: .ready(version: "1.18.16"),
+                    lastProbeAt: now
+                ),
+                ToolProbeRecord(driverId: "antigravity", status: .notInstalled, lastProbeAt: now),
+            ]
+        )
+        XCTAssertEqual(refined[0].unknownReason, .notInstalled)
+        XCTAssertEqual(refined[1].unknownReason, .notConfigured)
+        XCTAssertEqual(refined[2].unknownReason, .notInstalled)
+    }
+
+    func testOverlayPtyMissingBinaryStillNotInstalledWithoutRecord() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .neverSampled,
+                source: "agy",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .tuiProbe
+            ),
+        ]
+        let refined = CapacityUnknownRefinement.overlayKnownCauses(
+            windows,
+            now: now,
+            pathEnvironment: "/tmp/alln-empty-path",
+            homeDirectory: URL(fileURLWithPath: "/tmp/alln-empty-home", isDirectory: true),
+            probeRecords: []
+        )
+        XCTAssertEqual(refined[0].unknownReason, .notInstalled)
+    }
+
+    func testOverlayDoesNotInventNotInstalledWithoutAProbeRecord() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .notConfigured,
+                source: "bailian_token_plan",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape
+            ),
+        ]
+        let refined = CapacityUnknownRefinement.overlayKnownCauses(
+            windows,
+            now: now,
+            pathEnvironment: "/tmp/alln-empty-path",
+            homeDirectory: URL(fileURLWithPath: "/tmp/alln-empty-home", isDirectory: true),
+            probeRecords: []
+        )
+        XCTAssertEqual(refined[0].unknownReason, .notConfigured)
+    }
+
+    func testCapacitySourceDriverIdsMapDashboardSeatsToTheCLI() {
+        XCTAssertEqual(CapacityUnknownRemedy.driverId(forCapacitySource: "agy"), "antigravity")
+        XCTAssertEqual(CapacityUnknownRemedy.driverId(forCapacitySource: "opencode_go"), "opencode")
+        XCTAssertEqual(
+            CapacityUnknownRemedy.driverId(forCapacitySource: "bailian_token_plan"),
+            "qwen"
+        )
+        XCTAssertEqual(CapacityUnknownRemedy.driverId(forCapacitySource: "codex"), "codex")
+    }
+
+    func testNotInstalledBailianQwenCarriesQwenInstallCommandNotConfigure() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .notInstalled,
+                source: "bailian_token_plan",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape
+            ),
+        ]
+        let jsonRow = CapacityStripRenderer.json(rows: rows(from: windows), now: now)
+            .rows.first { $0.source == "bailian_token_plan" }
+        XCTAssertEqual(jsonRow?.unknownReason, .notInstalled)
+        XCTAssertEqual(jsonRow?.nextAction?.kind, "installCLI")
+        XCTAssertNotEqual(jsonRow?.nextAction?.command, CapacityUnknownRemedy.configureBailianCommand)
+        let command = jsonRow?.nextAction?.command ?? ""
+        XCTAssertFalse(command.isEmpty)
+        XCTAssertFalse(command.contains("bailian-token-plan"), command)
+        let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
+        XCTAssertTrue(plain.contains("not installed"), plain)
+        XCTAssertFalse(plain.contains("not set up"), plain)
+    }
+
+    func testNotConfiguredBailianQwenCarriesConfigureCommand() {
+        let windows = [
+            CapacityWindow.unknown(
+                reason: .notConfigured,
+                source: "bailian_token_plan",
+                scope: .weekly,
+                observedAt: now,
+                sourceTier: .dashboardScrape
+            ),
+        ]
+        let jsonRow = CapacityStripRenderer.json(rows: rows(from: windows), now: now)
+            .rows.first { $0.source == "bailian_token_plan" }
+        XCTAssertEqual(jsonRow?.unknownReason, .notConfigured)
+        XCTAssertEqual(jsonRow?.nextAction?.command, CapacityUnknownRemedy.configureBailianCommand)
+        let plain = CapacityStripRenderer.renderPlain(rows: rows(from: windows), now: now)
+        XCTAssertTrue(plain.contains("Qwen"), plain)
+        XCTAssertTrue(plain.contains("not set up"), plain)
     }
 }

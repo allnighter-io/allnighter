@@ -67,21 +67,36 @@ public enum CapacityFetch {
         // when the Go seat is the explicit target — but never when some other
         // single seat was targeted, so `--source grok` does not quietly make a
         // network request to opencode.ai.
-        let wantsDashboard = refreshSource == nil
+        let wantsGo = refreshSource == nil
             || refreshSource == CapacityAcquisition.dogfoodSourceId
-        let dashboardWindows = wantsDashboard
+        let wantsBailian = refreshSource == nil
+            || refreshSource == CapacityAcquisition.bailianTokenPlanSourceId
+        let goWindows = wantsGo
             ? OpenCodeGoCapacityExecutor.execute(now: now).windows
             : []
-        // REPLACE the acquisition placeholder for the Go seat rather than
-        // appending after it. CapacityAcquisition emits a neverSampled row for
-        // every benchSourceOrder member, Go included, and the projection takes
-        // the FIRST unknownReason it sees for a source. Appending therefore let
-        // the placeholder win and painted a real authRequired or schemaDrift as
-        // "never sampled" — inventing the CAUSE, which reads as "not set up yet"
-        // and hides that the cookie is dead or the page shape moved.
-        let allWindows = dashboardWindows.isEmpty
-            ? windows
-            : windows.filter { $0.source != CapacityAcquisition.dogfoodSourceId } + dashboardWindows
+        let bailianWindows = wantsBailian
+            ? BailianTokenPlanCapacityExecutor.execute(now: now).windows
+            : []
+        // REPLACE the acquisition placeholder for each dashboard seat rather
+        // than appending after it. CapacityAcquisition emits a neverSampled
+        // row for every benchSourceOrder member, and the projection takes the
+        // FIRST unknownReason it sees for a source. Appending therefore let
+        // the placeholder win and painted a real notConfigured / authRequired
+        // as "never sampled".
+        var allWindows = windows
+        if !goWindows.isEmpty {
+            allWindows = allWindows.filter { $0.source != CapacityAcquisition.dogfoodSourceId }
+                + goWindows
+        }
+        if !bailianWindows.isEmpty {
+            allWindows = allWindows.filter { $0.source != CapacityAcquisition.bailianTokenPlanSourceId }
+                + bailianWindows
+        }
+        allWindows = CapacityUnknownRefinement.overlayKnownCauses(
+            allWindows,
+            now: now,
+            probeRecords: SetupStore().load().records
+        )
         var historyWriteFailed = false
         do {
             try historyStore.record(allWindows, now: now)

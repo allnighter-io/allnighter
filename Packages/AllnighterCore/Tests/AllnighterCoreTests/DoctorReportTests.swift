@@ -17,7 +17,15 @@ final class DoctorReportTests: XCTestCase {
     ]
 
     private func inputs(full: Bool, configOK: Bool = true, runsOK: Bool = true, coordinator: DoctorResult.Coordinator? = nil) -> DoctorReport.Inputs {
-        .init(binaryVersion: "0.1.0", contractVersion: "1.0.0", configDirWritable: configOK, runsDirWritable: runsOK, coordinator: coordinator, full: full)
+        .init(
+            binaryVersion: "0.1.0",
+            contractVersion: "1.0.0",
+            configDirWritable: configOK,
+            runsDirWritable: runsOK,
+            coordinator: coordinator,
+            full: full,
+            openCodeGoCapacity: .failure(.notConfigured)
+        )
     }
     private func check(_ r: DoctorResult, _ name: String) -> DoctorResult.Check? { r.checks.first { $0.name == name } }
 
@@ -135,6 +143,43 @@ final class DoctorReportTests: XCTestCase {
         let r = DoctorReport.build(models: models, manifests: manifests, records: records, inputs: base)
         // Parked Codex is excluded from supported — one ready of one supported → allReady.
         XCTAssertEqual(check(r, "benchReadyCount")?.detail, "1 CLI ready (allReady)")
+    }
+
+    func testOpenCodeGoCapacityNotSetUpSurfacesConfigureCommand() {
+        let records = [
+            ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1.2"), version: "1.2", lastProbeAt: t),
+        ]
+        let r = DoctorReport.build(
+            models: models, manifests: manifests, records: records, inputs: inputs(full: false))
+        let check = check(r, "source.opencode_go.configured")
+        XCTAssertEqual(check?.status, .degraded)
+        XCTAssertEqual(check?.detail, "OpenCode Go capacity not set up")
+        XCTAssertEqual(check?.fixCommand, CapacityUnknownRemedy.configureOpenCodeGoCommand)
+        XCTAssertTrue(
+            r.nextActions.contains {
+                $0.kind == "configureCapacity"
+                    && $0.command == CapacityUnknownRemedy.configureOpenCodeGoCommand
+            },
+            "\(r.nextActions)"
+        )
+    }
+
+    func testOpenCodeGoCapacityConfiguredIsQuiet() {
+        var base = inputs(full: false)
+        base.openCodeGoCapacity = .success(
+            OpenCodeGoCredentialStore.Resolved(
+                credentials: .init(workspaceId: "wrk_test", authCookie: "secret"),
+                source: .encryptedFile
+            )
+        )
+        let records = [
+            ToolProbeRecord(driverId: "claude_code", status: .ready(version: "1.2"), version: "1.2", lastProbeAt: t),
+        ]
+        let r = DoctorReport.build(
+            models: models, manifests: manifests, records: records, inputs: base)
+        let check = check(r, "source.opencode_go.configured")
+        XCTAssertEqual(check?.status, .ok)
+        XCTAssertFalse(r.nextActions.contains { $0.kind == "configureCapacity" })
     }
 
     func testDoctorKeepsDistinctRepairNextActions() {

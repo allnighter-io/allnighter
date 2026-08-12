@@ -183,7 +183,7 @@ final class BailianTokenPlanCapacityExecutorTests: XCTestCase {
             credentialsResolver: { .failure(.notConfigured) }
         )
         XCTAssertFalse(outcome.diagnostics.attempted)
-        XCTAssertTrue(outcome.windows.allSatisfy { $0.unknownReason == .neverSampled })
+        XCTAssertTrue(outcome.windows.allSatisfy { $0.unknownReason == .notConfigured })
     }
 
     func testAuthHTTPStatusMapsToAuthRequired() {

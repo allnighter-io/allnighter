@@ -44,7 +44,10 @@ public extension ContractRegistry {
     // ASR-S03f2b: minor — `serve status` command; `serve --health` and
     // `serve status` emit `ServeStatusJSON` v2 (was CoordinatorHealth v1 on `--health`).
     // ASR-S05c: minor — register `alln uninstall [--json] [--yes]`.
-    static let contractVersion = "9.20.0"
+    // OCG-SETUP: minor — `opencode-go configure --from-chrome` FlagSpec (easy
+    // path was implemented but undeclared); honest file-store summary; additive
+    // `CapacityStripJSONRow.nextAction` + `source.opencode_go.configured` doctor check.
+    static let contractVersion = "9.21.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -166,16 +169,18 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "opencode-go configure",
-            summary: "Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Writes a secret to the macOS Keychain — never prints it. The safe non-interactive form pipes the cookie via stdin with --workspace-id; --cookie also works but exposes the value in shell history.",
+            summary: "Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Easiest: --from-chrome (one Chrome Safe Storage prompt — Chrome's cookie-jar key, not our store). Persists a 0600 AES-GCM file plus machine.key under Application Support — never Keychain for our secret, never prints the cookie. --workspace-id is optional when exactly one id is discoverable from OpenCode state or browser history.",
             milestone: .m1,
-            trigger: "Use before first `alln capacity --source opencode_go` to configure the dashboard seat. The cookie comes from a logged-in browser: DevTools → Application → Cookies → copy the `auth` value.",
-            example: "echo '<cookie>' | alln opencode-go configure --workspace-id wrk_…",
-            antiExample: "Do NOT pass --cookie with the raw auth value — it lands in shell history and process listings. Pipe via stdin or let the interactive prompt read it with echo disabled.",
+            trigger: "Use before first `alln capacity --source opencode_go` when the OpenCode Go row reads not set up. Prefer `alln opencode-go configure --from-chrome` (log into opencode.ai in Chrome first).",
+            example: "alln opencode-go configure --from-chrome",
+            antiExample: "Do NOT pass --cookie with the raw auth value — it lands in shell history and process listings. Use --from-chrome, pipe via stdin, or let the interactive prompt read it with echo disabled.",
             flags: [
-                FlagSpec("workspace-id", takesValue: true, valueType: "string", summary: "Workspace ID from the dashboard URL (wrk_…). Required in non-interactive stdin mode."),
-                FlagSpec("cookie", takesValue: true, valueType: "string", summary: "Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer piping via stdin)."),
+                FlagSpec("from-chrome", summary: "EASIEST — import the opencode.ai auth cookie from Chrome. Prompts once for Chrome Safe Storage (Chrome's key). Discovers the workspace id from OpenCode state or browser history when unique."),
+                FlagSpec("workspace-id", takesValue: true, valueType: "string", summary: "Workspace ID from the dashboard URL (wrk_…). Optional when exactly one id is found in local OpenCode state or Chromium history; required when discovery is empty or ambiguous."),
+                FlagSpec("cookie", takesValue: true, valueType: "string", summary: "Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer --from-chrome or piping via stdin)."),
                 FlagSpec("json", summary: "Emit structured output."),
             ],
+            mutuallyExclusiveFlags: [["from-chrome", "cookie"]],
             spendsQuota: false,
             effects: EffectProfile(
                 workerStart: .never,
@@ -189,7 +194,7 @@ public extension ContractRegistry {
             "opencode-go status",
             summary: "Check whether OpenCode Go dashboard credentials are configured and usable. Distinguishes not-configured from configured-but-unusable (different recovery paths).",
             milestone: .m1,
-            trigger: "Use to diagnose why `alln capacity` shows opencode_go as neverSampled or authRequired — the status output names the exact recovery path.",
+            trigger: "Use to diagnose why `alln capacity` shows OpenCode Go as not set up or authRequired — the status output names the exact recovery path.",
             example: "alln opencode-go status",
             antiExample: "Do NOT guess the status from the capacity strip alone — run status for the exact failure reason and recovery action.",
             flags: [
@@ -1546,6 +1551,10 @@ public extension ContractRegistry {
         DoctorCheckSpec("runsDir", meaning: "Run journal dir exists and is writable."),
         DoctorCheckSpec("sources", meaning: "Known source manifests load."),
         DoctorCheckSpec("source.<sourceId>.installed", meaning: "Source CLI/runtime exists."),
+        DoctorCheckSpec(
+            "source.opencode_go.configured",
+            meaning: "OpenCode Go dashboard credentials are stored for capacity metering (file AES-GCM, not Keychain)."
+        ),
         DoctorCheckSpec("source.<sourceId>.auth", meaning: "Source auth appears valid when safely probeable."),
         DoctorCheckSpec("source.<sourceId>.headlessTrust", meaning: "Headless trust/mutation posture is declared for sources that require it."),
         DoctorCheckSpec("source.<sourceId>.smoke", meaning: "Bounded smoke test when --full."),

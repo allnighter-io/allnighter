@@ -69,7 +69,8 @@ final class OpenCodeGoCapacityExecutorTests: XCTestCase {
         )
         XCTAssertFalse(outcome.diagnostics.attempted)
         XCTAssertFalse(outcome.diagnostics.ok)
-        XCTAssertTrue(outcome.windows.allSatisfy { $0.unknownReason == .neverSampled })
+        XCTAssertEqual(outcome.diagnostics.failureKind, "not_configured")
+        XCTAssertTrue(outcome.windows.allSatisfy { $0.unknownReason == .notConfigured })
     }
 
     func testAuthHTTPStatusMapsToAuthRequired() {
@@ -674,6 +675,83 @@ final class OpenCodeGoWorkspaceDiscoveryTests: XCTestCase {
         let empty = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("ocg-empty-\(UUID().uuidString)", isDirectory: true)
         XCTAssertNil(OpenCodeGoCredentialStore.discoverWorkspaceId(home: empty))
+    }
+
+    func testDiscoversUniqueIdFromCopiedChromeHistory() throws {
+        let home = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("ocg-hist-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let profile = home
+            .appendingPathComponent("Library/Application Support/Google/Chrome/Default", isDirectory: true)
+        try FileManager.default.createDirectory(at: profile, withIntermediateDirectories: true)
+        let history = profile.appendingPathComponent("History")
+        try writeChromeHistory(
+            at: history,
+            urls: [
+                "https://opencode.ai/workspace/wrk_01KZAKC3FS66DE4V0CG7YESNC3/go",
+                "https://opencode.ai/workspace/wrk_01KZAKC3FS66DE4V0CG7YESNC3/settings",
+            ]
+        )
+        XCTAssertEqual(
+            OpenCodeGoCredentialStore.discoverWorkspaceId(home: home),
+            "wrk_01KZAKC3FS66DE4V0CG7YESNC3"
+        )
+    }
+
+    func testHistoryAcrossBrowsersDeclinesWhenTwoDistinctIds() throws {
+        let home = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("ocg-hist-ambig-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let chrome = home
+            .appendingPathComponent("Library/Application Support/Google/Chrome/Default", isDirectory: true)
+        let brave = home
+            .appendingPathComponent("Library/Application Support/BraveSoftware/Brave-Browser/Default", isDirectory: true)
+        try FileManager.default.createDirectory(at: chrome, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: brave, withIntermediateDirectories: true)
+        try writeChromeHistory(
+            at: chrome.appendingPathComponent("History"),
+            urls: ["https://opencode.ai/workspace/wrk_01KZAKC3FS66DE4V0CG7YESNC3/go"]
+        )
+        try writeChromeHistory(
+            at: brave.appendingPathComponent("History"),
+            urls: ["https://opencode.ai/workspace/wrk_01AAAAAAAAAAAAAAAAAAAAAAAA/go"]
+        )
+        XCTAssertNil(OpenCodeGoCredentialStore.discoverWorkspaceId(home: home))
+    }
+
+    func testOpenCodeStateAndHistoryMustAgreeOnOneId() throws {
+        let home = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("ocg-hist-agree-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: home) }
+        let state = home.appendingPathComponent(".local/share/opencode", isDirectory: true)
+        try FileManager.default.createDirectory(at: state, withIntermediateDirectories: true)
+        try Data("wrk_01KZAKC3FS66DE4V0CG7YESNC3".utf8)
+            .write(to: state.appendingPathComponent("auth.json"))
+        let chrome = home
+            .appendingPathComponent("Library/Application Support/Google/Chrome/Default", isDirectory: true)
+        try FileManager.default.createDirectory(at: chrome, withIntermediateDirectories: true)
+        try writeChromeHistory(
+            at: chrome.appendingPathComponent("History"),
+            urls: ["https://opencode.ai/workspace/wrk_01KZAKC3FS66DE4V0CG7YESNC3/go"]
+        )
+        XCTAssertEqual(
+            OpenCodeGoCredentialStore.discoverWorkspaceId(home: home),
+            "wrk_01KZAKC3FS66DE4V0CG7YESNC3"
+        )
+    }
+
+    private func writeChromeHistory(at url: URL, urls: [String]) throws {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        let inserts = urls
+            .map { "insert into urls (url) values ('\($0)');" }
+            .joined(separator: " ")
+        proc.arguments = [url.path, "create table urls (url text); \(inserts)"]
+        let err = Pipe()
+        proc.standardError = err
+        try proc.run()
+        proc.waitUntilExit()
+        XCTAssertEqual(proc.terminationStatus, 0)
     }
 }
 

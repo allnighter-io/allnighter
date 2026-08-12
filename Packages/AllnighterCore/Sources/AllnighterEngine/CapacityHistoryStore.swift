@@ -301,6 +301,8 @@ public struct CapacityHistoryStore: Sendable {
         case .expired: return "expired"
         case .disabled: return "disabled"
         case .authRequired: return "authRequired"
+        case .notConfigured: return "notConfigured"
+        case .notInstalled: return "notInstalled"
         }
     }
 

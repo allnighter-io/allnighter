@@ -500,7 +500,7 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "opencode_go_capacity", title: "OpenCode Go Capacity", audience: .both,
-            summary: "The OpenCode Go dashboard seat meters remaining credits via a browser cookie. Configure first with `alln opencode-go configure`, then meter with `alln capacity --source opencode_go`.",
+            summary: "The OpenCode Go dashboard seat meters remaining credits via a browser cookie. Easiest setup: `alln opencode-go configure --from-chrome`, then meter with `alln capacity --source opencode_go`.",
             bodyMarkdown: """
             The OpenCode Go plan is metered through a dashboard scrape: `alln capacity` \
             fetches remaining credits for a workspace by sending your auth cookie to the \
@@ -509,14 +509,20 @@ public enum HelpTopicRegistry {
 
             ## Credential setup
 
-            `alln opencode-go configure` saves an encrypted credential to the macOS Keychain. \
-            You need two pieces:
+            `alln opencode-go configure` writes a random `Config/machine.key` plus an \
+            AES-GCM `Config/opencode_go.enc` (both 0600). That is our store — not the \
+            Keychain. The cookie is never printed.
 
-            1. **Workspace ID** — from the dashboard URL: `opencode.ai/workspace/<wrk_…>/go`
-            2. **Auth cookie** — from a logged-in browser: DevTools → Application → Cookies → \
-               copy the `auth` value
+            **EASIEST:** log into https://opencode.ai in Chrome, then:
+            ```
+            alln opencode-go configure --from-chrome
+            ```
+            Workspace id is discovered from local OpenCode state or Chromium history \
+            when exactly one `wrk_…` is present. macOS may ask once for Chrome's \
+            **Safe Storage** key so the cookie jar can be decrypted — that is Chrome's \
+            key, unavoidable for a Chrome cookie import, and acceptable.
 
-            **Safe (primary):** pipe the cookie via stdin so it never lands in shell history:
+            **Manual:** pipe the cookie via stdin so it never lands in shell history:
             ```
             echo '<cookie>' | alln opencode-go configure --workspace-id wrk_…
             ```
@@ -536,10 +542,11 @@ public enum HelpTopicRegistry {
 
             Status distinguishes two states that need different recovery:
 
-            - `neverSampled` / `not configured` — nothing saved yet. Run `alln opencode-go configure`.
+            - `not configured` / strip **not set up** — nothing saved yet. Run \
+              `alln opencode-go configure --from-chrome`.
             - `authRequired` / `decryptFailed` — a credential exists but is unusable (expired \
               cookie, rotated machine key). Run `alln opencode-go status` to confirm the \
-              exact error, then re-run `alln opencode-go configure` with a fresh cookie. \
+              exact error, then re-run `alln opencode-go configure --from-chrome`. \
               Never guess which recovery path — the status output names it.
 
             ## Metering

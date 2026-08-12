@@ -36,7 +36,7 @@ public enum BailianTokenPlanCapacityExecutor {
             if case .failure(.decryptFailed) = credsResult {
                 windows = unknownWindows(reason: .authRequired(observedAt: now), at: now)
             } else {
-                windows = neverSampledWindows(at: now)
+                windows = unknownWindows(reason: .notConfigured, at: now)
             }
             let diagnostics = ScrapeDiagnostics(
                 attempted: false,
@@ -95,20 +95,6 @@ public enum BailianTokenPlanCapacityExecutor {
     }
 
     // MARK: - Internals
-
-    private static func neverSampledWindows(at now: Date) -> [CapacityWindow] {
-        let tier = CapacityAcquisitionTier.dashboardScrape
-        return [CapacityWindowScope.fiveHour, .weekly].map {
-            CapacityWindow.unknown(
-                reason: .neverSampled,
-                source: BailianTokenPlanCapacityProbe.sourceId,
-                scope: $0,
-                observedAt: now,
-                sourceTier: tier,
-                planTier: "Personal"
-            )
-        }
-    }
 
     private static func unknownWindows(
         reason: CapacityUnknownReason,

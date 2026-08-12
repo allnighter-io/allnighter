@@ -18,7 +18,7 @@ enum OpenCodeGoCLI {
         default:
             AllnighterCLI.fail(
                 code: "CLI_USAGE_ERROR",
-                message: "usage: echo '<cookie>' | alln opencode-go configure --workspace-id <wrk_…> | alln opencode-go status [--json]"
+                message: "usage: alln opencode-go configure --from-chrome | echo '<cookie>' | alln opencode-go configure --workspace-id <wrk_…> | alln opencode-go status [--json]"
             )
         }
     }
@@ -29,13 +29,30 @@ enum OpenCodeGoCLI {
         let opts = Options(args)
         let interactive = isatty(STDIN_FILENO) == 1
 
-        // The machine usually already knows the workspace — the OpenCode CLI
-        // stores it. Ask only when discovery is ambiguous or comes up empty.
-        let discovered = OpenCodeGoCredentialStore.discoverWorkspaceId()
-        if !interactive, opts.value("workspace-id") == nil, discovered == nil {
+        if opts.flag("from-chrome"), opts.value("cookie") != nil {
             AllnighterCLI.fail(
                 code: "CLI_USAGE_ERROR",
-                message: "non-interactive stdin and no workspace id found in local OpenCode state: pass --workspace-id",
+                message: "--from-chrome and --cookie are mutually exclusive — the whole point of --from-chrome is to never hand-paste a cookie"
+            )
+        }
+
+        // The machine usually already knows the workspace — OpenCode CLI state
+        // or a unique Chromium history hit. Ask only when discovery is
+        // ambiguous or comes up empty, and never guess between two ids.
+        let discovered = OpenCodeGoCredentialStore.discoverWorkspaceId()
+        let missingDiscoveryMessage =
+            "could not discover a unique OpenCode workspace id from local OpenCode state or browser history. Pass --workspace-id wrk_… (from the dashboard URL opencode.ai/workspace/<wrk_…>/go)."
+        if opts.flag("from-chrome"), opts.value("workspace-id") == nil, discovered == nil {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: missingDiscoveryMessage,
+                suggestions: ["alln opencode-go configure --from-chrome --workspace-id <wrk_…>"]
+            )
+        }
+        if !interactive, !opts.flag("from-chrome"), opts.value("workspace-id") == nil, discovered == nil {
+            AllnighterCLI.fail(
+                code: "CLI_USAGE_ERROR",
+                message: "non-interactive stdin and no workspace id found in local OpenCode state or browser history: pass --workspace-id",
                 suggestions: ["alln opencode-go configure --workspace-id <wrk_…>"]
             )
         }
@@ -43,7 +60,7 @@ enum OpenCodeGoCLI {
         if let explicit = opts.value("workspace-id") {
             workspaceId = explicit.trimmingCharacters(in: .whitespacesAndNewlines)
         } else if let discovered {
-            warn("using workspace \(discovered) discovered from local OpenCode state — pass --workspace-id to override")
+            warn("using workspace \(discovered) discovered from local OpenCode state or browser history — pass --workspace-id to override")
             workspaceId = discovered
         } else {
             workspaceId = readLine(prompt: "Workspace ID (wrk_…): ")?
@@ -52,12 +69,6 @@ enum OpenCodeGoCLI {
 
         let cookie: String
         if opts.flag("from-chrome") {
-            if opts.value("cookie") != nil {
-                AllnighterCLI.fail(
-                    code: "CLI_USAGE_ERROR",
-                    message: "--from-chrome and --cookie are mutually exclusive — the whole point of --from-chrome is to never hand-paste a cookie"
-                )
-            }
             cookie = configureFromChrome()
         } else if let flagValue = opts.value("cookie") {
             warn("WARNING: --cookie puts the session token in shell history and process listings. Pipe via stdin or set \(OpenCodeGoCredentialStore.authCookieEnv).")
@@ -71,9 +82,9 @@ enum OpenCodeGoCLI {
                 code: "CLI_USAGE_ERROR",
                 message: "non-interactive stdin with no cookie: pipe value to stdin, pass --cookie, or set \(OpenCodeGoCredentialStore.authCookieEnv)",
                 suggestions: [
+                    "alln opencode-go configure --from-chrome",
                     "echo '<cookie>' | alln opencode-go configure --workspace-id <wrk_…>",
                     "alln opencode-go configure --workspace-id <wrk_…> --cookie <auth>",
-                    "alln opencode-go configure --from-chrome --workspace-id <wrk_…>"
                 ]
             )
         }
@@ -154,7 +165,7 @@ enum OpenCodeGoCLI {
             print("Credential: \(payload.credentialSource ?? "-")")
         } else {
             print("OpenCode Go capacity: not usable — \(payload.error ?? "unknown")")
-            print("Fix: alln opencode-go configure")
+            print("Fix: \(CapacityUnknownRemedy.configureOpenCodeGoCommand)")
         }
         // --dogfood was retired for this source at promotion (OCG-S08); the seat
         // is a normal bench member now. Teaching the dead flag here would send

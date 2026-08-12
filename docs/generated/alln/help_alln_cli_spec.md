@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.20.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.21.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -118,12 +118,15 @@ Output schema: `capacityStripJSON`.
 
 ### `alln opencode-go configure`
 
-Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Writes a secret to the macOS Keychain — never prints it. The safe non-interactive form pipes the cookie via stdin with --workspace-id; --cookie also works but exposes the value in shell history.
+Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Easiest: --from-chrome (one Chrome Safe Storage prompt — Chrome's cookie-jar key, not our store). Persists a 0600 AES-GCM file plus machine.key under Application Support — never Keychain for our secret, never prints the cookie. --workspace-id is optional when exactly one id is discoverable from OpenCode state or browser history.
 
 Flags:
-- `--workspace-id <string>` — Workspace ID from the dashboard URL (wrk_…). Required in non-interactive stdin mode.
-- `--cookie <string>` — Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer piping via stdin).
+- `--from-chrome` — EASIEST — import the opencode.ai auth cookie from Chrome. Prompts once for Chrome Safe Storage (Chrome's key). Discovers the workspace id from OpenCode state or browser history when unique.
+- `--workspace-id <string>` — Workspace ID from the dashboard URL (wrk_…). Optional when exactly one id is found in local OpenCode state or Chromium history; required when discovery is empty or ambiguous.
+- `--cookie <string>` — Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer --from-chrome or piping via stdin).
 - `--json` — Emit structured output.
+
+Mutually exclusive: `--from-chrome`, `--cookie`.
 
 ### `alln opencode-go status`
 

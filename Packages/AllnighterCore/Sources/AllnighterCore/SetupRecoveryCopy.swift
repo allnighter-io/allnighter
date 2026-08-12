@@ -245,8 +245,8 @@ public enum SetupRecoveryCopy {
             return 0 // installed, needs auth
         case "repairProbe", "confirmPath", "runDoctorFull":
             return 1 // installed, needs a step
-        case "installCLI":
-            return 2 // not installed / not detected
+        case "installCLI", "configureCapacity":
+            return 2 // not installed / not detected / dashboard not set up
         case "detectCLIs":
             return 3
         default:

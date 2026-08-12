@@ -1133,7 +1133,8 @@ final class CapacityAcquisitionTests: XCTestCase {
     }
 
     func testLiveProbeMissingBinaryIsSpawnFailedNotZero() {
-        // Force a non-existent binary — spawn fails closed with a distinct reason.
+        // A named path that does not exist is a spawn failure (we tried to
+        // launch something). A missing PATH install is `notInstalled`.
         let windows = CapacityProbe.windows(
             source: "agy",
             now: now,
@@ -1146,6 +1147,18 @@ final class CapacityAcquisitionTests: XCTestCase {
         XCTAssertNil(windows[0].remainingPercent)
         XCTAssertNotEqual(windows[0].unknownReason, .vendorExposesNothing)
         XCTAssertNotEqual(windows[0].unknownReason, .parserFailed(observedAt: now))
+    }
+
+    func testUnresolvedExecutableIsNotInstalledNotSpawnFailed() {
+        let windows = CapacityProbe.windows(
+            source: "agy",
+            now: now,
+            timeout: 2,
+            pathEnvironment: "/tmp/alln-empty-path-\(UUID().uuidString)",
+            homeDirectory: URL(fileURLWithPath: "/tmp/alln-empty-home-\(UUID().uuidString)", isDirectory: true)
+        )
+        XCTAssertEqual(windows[0].unknownReason, .notInstalled)
+        XCTAssertNil(windows[0].usedPercent)
     }
 
     #if os(macOS)

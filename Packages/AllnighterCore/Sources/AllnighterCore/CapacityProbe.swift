@@ -552,7 +552,7 @@ public enum CapacityProbe {
         ) {
             executable = resolved
         } else {
-            return [unknown(source: source, reason: .spawnFailed(observedAt: now), now: now)]
+            return [unknown(source: source, reason: .notInstalled, now: now)]
         }
 
         // agy's own print-mode JSON channel is the primary acquisition path —

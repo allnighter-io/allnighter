@@ -81,7 +81,7 @@ public enum OpenCodeGoCapacityExecutor {
             if case .failure(.decryptFailed) = credsResult {
                 windows = unknownWindows(reason: .authRequired(observedAt: now), at: now)
             } else {
-                windows = neverSampledWindows(at: now)
+                windows = unknownWindows(reason: .notConfigured, at: now)
             }
             let diagnostics = ScrapeDiagnostics(
                 attempted: false,
@@ -137,20 +137,6 @@ public enum OpenCodeGoCapacityExecutor {
     }
 
     // MARK: - Internals
-
-    private static func neverSampledWindows(at now: Date) -> [CapacityWindow] {
-        let tier = CapacityAcquisitionTier.dashboardScrape
-        return [CapacityWindowScope.fiveHour, .weekly, .monthly].map {
-            CapacityWindow.unknown(
-                reason: .neverSampled,
-                source: OpenCodeGoCapacityProbe.sourceId,
-                scope: $0,
-                observedAt: now,
-                sourceTier: tier,
-                planTier: "Go"
-            )
-        }
-    }
 
     private static func unknownWindows(
         reason: CapacityUnknownReason,

@@ -418,7 +418,7 @@
       "visibility" : "public"
     },
     {
-      "antiExample" : "Do NOT pass --cookie with the raw auth value — it lands in shell history and process listings. Pipe via stdin or let the interactive prompt read it with echo disabled.",
+      "antiExample" : "Do NOT pass --cookie with the raw auth value — it lands in shell history and process listings. Use --from-chrome, pipe via stdin, or let the interactive prompt read it with echo disabled.",
       "args" : [
 
       ],
@@ -429,7 +429,7 @@
         "repoWrite" : "never",
         "workerStart" : "never"
       },
-      "example" : "echo '<cookie>' | alln opencode-go configure --workspace-id wrk_…",
+      "example" : "alln opencode-go configure --from-chrome",
       "exampleIds" : [
 
       ],
@@ -438,14 +438,19 @@
       ],
       "flags" : [
         {
+          "name" : "from-chrome",
+          "summary" : "EASIEST — import the opencode.ai auth cookie from Chrome. Prompts once for Chrome Safe Storage (Chrome's key). Discovers the workspace id from OpenCode state or browser history when unique.",
+          "takesValue" : false
+        },
+        {
           "name" : "workspace-id",
-          "summary" : "Workspace ID from the dashboard URL (wrk_…). Required in non-interactive stdin mode.",
+          "summary" : "Workspace ID from the dashboard URL (wrk_…). Optional when exactly one id is found in local OpenCode state or Chromium history; required when discovery is empty or ambiguous.",
           "takesValue" : true,
           "valueType" : "string"
         },
         {
           "name" : "cookie",
-          "summary" : "Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer piping via stdin).",
+          "summary" : "Auth cookie value (WARNING: exposes the session token in shell history and process listings — prefer --from-chrome or piping via stdin).",
           "takesValue" : true,
           "valueType" : "string"
         },
@@ -458,13 +463,16 @@
       "menuAction" : false,
       "milestone" : "m1",
       "mutuallyExclusiveFlags" : [
-
+        [
+          "from-chrome",
+          "cookie"
+        ]
       ],
       "name" : "opencode-go configure",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Writes a secret to the macOS Keychain — never prints it. The safe non-interactive form pipes the cookie via stdin with --workspace-id; --cookie also works but exposes the value in shell history.",
-      "trigger" : "Use before first `alln capacity --source opencode_go` to configure the dashboard seat. The cookie comes from a logged-in browser: DevTools → Application → Cookies → copy the `auth` value.",
+      "summary" : "Save encrypted OpenCode Go dashboard credentials for the capacity scrape. Easiest: --from-chrome (one Chrome Safe Storage prompt — Chrome's cookie-jar key, not our store). Persists a 0600 AES-GCM file plus machine.key under Application Support — never Keychain for our secret, never prints the cookie. --workspace-id is optional when exactly one id is discoverable from OpenCode state or browser history.",
+      "trigger" : "Use before first `alln capacity --source opencode_go` when the OpenCode Go row reads not set up. Prefer `alln opencode-go configure --from-chrome` (log into opencode.ai in Chrome first).",
       "visibility" : "public"
     },
     {
@@ -502,7 +510,7 @@
       "outputSchema" : "none",
       "spendsQuota" : false,
       "summary" : "Check whether OpenCode Go dashboard credentials are configured and usable. Distinguishes not-configured from configured-but-unusable (different recovery paths).",
-      "trigger" : "Use to diagnose why `alln capacity` shows opencode_go as neverSampled or authRequired — the status output names the exact recovery path.",
+      "trigger" : "Use to diagnose why `alln capacity` shows OpenCode Go as not set up or authRequired — the status output names the exact recovery path.",
       "visibility" : "public"
     },
     {
@@ -6247,7 +6255,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.20.0",
+  "contractVersion" : "9.21.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -6280,6 +6288,10 @@
     {
       "meaning" : "Source CLI\/runtime exists.",
       "name" : "source.<sourceId>.installed"
+    },
+    {
+      "meaning" : "OpenCode Go dashboard credentials are stored for capacity metering (file AES-GCM, not Keychain).",
+      "name" : "source.opencode_go.configured"
     },
     {
       "meaning" : "Source auth appears valid when safely probeable.",

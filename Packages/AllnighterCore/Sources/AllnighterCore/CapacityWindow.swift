@@ -73,6 +73,10 @@ public enum CapacityUnknownReason: Sendable, Equatable, Codable {
     case disabled
     /// Dashboard scrape returned 401/403 or positive login-page evidence (OpenCode Go).
     case authRequired(observedAt: Date)
+    /// Dashboard credential is missing — the seat is not set up. Never 0%.
+    case notConfigured
+    /// Vendor CLI is not installed (binary not on PATH or known paths).
+    case notInstalled
 }
 
 /// Paid spend that is **not** a percentage — cursor dollars, grok on-demand

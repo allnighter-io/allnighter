@@ -71,24 +71,130 @@ public enum OpenCodeGoCredentialStore {
         ]
     }
 
-    /// Recover the workspace id from local OpenCode CLI state so setup does not
-    /// have to ask for something the machine already knows.
+    /// Chromium user-data roots that exist on a typical Mac. History DBs are
+    /// plaintext SQLite (no Keychain). Cookie values are a different store.
+    public static func chromiumUserDataRoots(home: URL) -> [URL] {
+        let appSupport = home.appendingPathComponent(
+            "Library/Application Support", isDirectory: true
+        )
+        return [
+            appSupport.appendingPathComponent("Google/Chrome", isDirectory: true),
+            appSupport.appendingPathComponent("BraveSoftware/Brave-Browser", isDirectory: true),
+            appSupport.appendingPathComponent("Microsoft Edge", isDirectory: true),
+            appSupport.appendingPathComponent("Arc/User Data", isDirectory: true),
+        ]
+    }
+
+    /// Recover the workspace id from local OpenCode CLI state and Chromium
+    /// history so setup does not have to ask for something the machine already
+    /// knows.
     ///
     /// The id is NOT a secret — it is a path segment in the dashboard URL — so
-    /// reading it costs nothing in exposure. Scanned bytewise for the `wrk_`
-    /// token rather than parsed, because `opencode.db` is SQLite and its schema
-    /// is not ours to depend on. Returns nil unless exactly one distinct id is
-    /// present: two would mean a genuine choice, and guessing which workspace
-    /// to meter is precisely the kind of silent inference this project bans.
+    /// reading it costs nothing in exposure. OpenCode state is scanned bytewise
+    /// for the `wrk_` token rather than parsed, because `opencode.db` is SQLite
+    /// and its schema is not ours to depend on. Browser History is copied then
+    /// read read-only (Chrome holds a lock on the live file). Returns nil
+    /// unless exactly one distinct id is present across every source: two
+    /// would mean a genuine choice, and guessing which workspace to meter is
+    /// precisely the kind of silent inference this project bans.
     public static func discoverWorkspaceId(
-        home: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true)
+        home: URL = URL(fileURLWithPath: NSHomeDirectory(), isDirectory: true),
+        fileManager: FileManager = .default
     ) -> String? {
         var found = Set<String>()
         for url in opencodeStateFiles(home: home) {
             guard let data = try? Data(contentsOf: url) else { continue }
             found.formUnion(workspaceIds(in: data))
         }
+        for url in chromiumHistoryDatabases(home: home, fileManager: fileManager) {
+            found.formUnion(workspaceIdsFromHistoryDatabase(at: url, fileManager: fileManager))
+        }
         return found.count == 1 ? found.first : nil
+    }
+
+    /// `History` files under every Chromium profile that exists on this home.
+    static func chromiumHistoryDatabases(
+        home: URL,
+        fileManager: FileManager
+    ) -> [URL] {
+        var out: [URL] = []
+        for root in chromiumUserDataRoots(home: home) {
+            guard let kids = try? fileManager.contentsOfDirectory(
+                at: root,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            ) else { continue }
+            for profile in kids {
+                let history = profile.appendingPathComponent("History")
+                if fileManager.fileExists(atPath: history.path) {
+                    out.append(history)
+                }
+            }
+        }
+        return out
+    }
+
+    /// Copy the History DB (Chrome holds a lock) and read it read-only.
+    /// Never logs URL query strings — we only harvest `wrk_` path segments.
+    static func workspaceIdsFromHistoryDatabase(
+        at url: URL,
+        fileManager: FileManager
+    ) -> Set<String> {
+        let tempDir = fileManager.temporaryDirectory
+            .appendingPathComponent("alln-chromium-history-\(UUID().uuidString)", isDirectory: true)
+        do {
+            try fileManager.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        } catch {
+            return []
+        }
+        defer { try? fileManager.removeItem(at: tempDir) }
+
+        let dest = tempDir.appendingPathComponent("History")
+        do {
+            try fileManager.copyItem(at: url, to: dest)
+        } catch {
+            return []
+        }
+        // WAL/SHM sit beside History. Copy when present so a locked live DB
+        // still yields recent visits after the snapshot.
+        for suffix in ["-wal", "-shm"] {
+            let side = URL(fileURLWithPath: url.path + suffix)
+            if fileManager.fileExists(atPath: side.path) {
+                try? fileManager.copyItem(
+                    at: side,
+                    to: URL(fileURLWithPath: dest.path + suffix)
+                )
+            }
+        }
+
+        if let queried = workspaceIdsFromHistorySQLite(at: dest), !queried.isEmpty {
+            return queried
+        }
+        guard let data = try? Data(contentsOf: dest) else { return [] }
+        return workspaceIds(in: data)
+    }
+
+    /// Prefer a targeted URL query over a whole-file byte scan.
+    private static func workspaceIdsFromHistorySQLite(at url: URL) -> Set<String>? {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/sqlite3")
+        proc.arguments = [
+            "-readonly",
+            url.path,
+            "select url from urls where url like '%opencode.ai%'",
+        ]
+        let outPipe = Pipe()
+        proc.standardOutput = outPipe
+        proc.standardError = Pipe()
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+        } catch {
+            return nil
+        }
+        guard proc.terminationStatus == 0 else { return nil }
+        let output = (try? outPipe.fileHandleForReading.readToEnd()) ?? Data()
+        return workspaceIds(in: output)
     }
 
     /// `wrk_` followed by the id's alphanumeric body, scanned over raw bytes.

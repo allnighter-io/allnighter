@@ -109,7 +109,7 @@ public enum CapacityHydration {
             switch window.unknownReason {
             case .parserFailed, .spawnFailed, .probeTimeout, .emptyCapture, .vendorExposesNothing, .authRequired:
                 return true
-            case .neverSampled, .expired, .disabled, .none:
+            case .neverSampled, .expired, .disabled, .notConfigured, .notInstalled, .none:
                 return false
             }
         }

@@ -42,6 +42,8 @@ public struct CapacityStripJSONRow: Sendable, Equatable, Codable {
     public let observedAt: Date?
     public let observedAgeSeconds: Double?
     public let unknownReason: CapacityStripUnknownKind?
+    /// Same shape as `benchTally.nextAction` when the unknown has a known fix.
+    public let nextAction: AgentSurfaceNextAction?
     public let pools: [CapacityStripJSONPool]
 
     public init(
@@ -58,6 +60,7 @@ public struct CapacityStripJSONRow: Sendable, Equatable, Codable {
         observedAt: Date?,
         observedAgeSeconds: Double?,
         unknownReason: CapacityStripUnknownKind?,
+        nextAction: AgentSurfaceNextAction? = nil,
         pools: [CapacityStripJSONPool]
     ) {
         self.source = source
@@ -73,6 +76,7 @@ public struct CapacityStripJSONRow: Sendable, Equatable, Codable {
         self.observedAt = observedAt
         self.observedAgeSeconds = observedAgeSeconds
         self.unknownReason = unknownReason
+        self.nextAction = nextAction
         self.pools = pools
     }
 }
@@ -123,6 +127,8 @@ public enum CapacityStripUnknownKind: String, Sendable, Equatable, Codable {
     case expired
     case disabled
     case authRequired
+    case notConfigured
+    case notInstalled
 }
 
 // MARK: - Renderer
@@ -436,6 +442,22 @@ public enum CapacityStripRenderer {
             lines.append(line)
         }
 
+        var seenCommands = Set<String>()
+        var remedies: [AgentSurfaceNextAction] = []
+        for row in orderedRows {
+            guard let reason = row.unknownReason,
+                  let next = CapacityUnknownRemedy.nextAction(source: row.source, reason: reason),
+                  seenCommands.insert(next.command).inserted
+            else { continue }
+            remedies.append(next)
+        }
+        if !remedies.isEmpty {
+            lines.append("")
+            for next in remedies {
+                lines.append("→ \(next.command)")
+            }
+        }
+
         return lines.joined(separator: "\n") + "\n"
     }
 
@@ -524,6 +546,9 @@ public enum CapacityStripRenderer {
             observedAt: observed,
             observedAgeSeconds: age,
             unknownReason: row.unknownReason.map(stripUnknownKind),
+            nextAction: row.unknownReason.flatMap {
+                CapacityUnknownRemedy.nextAction(source: row.source, reason: $0)
+            },
             pools: row.pools.map { pool in
                 let s = shortPresentation(pool: pool, row: row)
                 return CapacityStripJSONPool(
@@ -719,11 +744,11 @@ public enum CapacityStripRenderer {
             // ("unknown — parser failed 202…"). Full ISO lives in JSON/observedAt.
             return "unknown — parser failed \(dayStampCompact(at))"
         case .neverSampled:
-            return "unknown — never sampled"
+            return "not checked yet"
         case .spawnFailed(let at):
-            return "unknown — spawn failed \(dayStampCompact(at))"
+            return "spawn failed \(dayStampCompact(at))"
         case .probeTimeout(let at):
-            return "unknown — probe timeout \(dayStampCompact(at))"
+            return "probe timeout \(dayStampCompact(at))"
         case .emptyCapture(let at):
             return "unknown — empty capture \(dayStampCompact(at))"
         case .expired(let at):
@@ -732,6 +757,10 @@ public enum CapacityStripRenderer {
             return "disabled — capacity feature OFF"
         case .authRequired(let at):
             return "unknown — auth required \(dayStampCompact(at))"
+        case .notConfigured:
+            return "not set up"
+        case .notInstalled:
+            return "not installed"
         }
     }
 
@@ -739,13 +768,15 @@ public enum CapacityStripRenderer {
         switch reason {
         case .vendorExposesNothing: return "unknown"
         case .parserFailed: return "parse fail"
-        case .neverSampled: return "unknown"
+        case .neverSampled: return "not yet"
         case .spawnFailed: return "spawn fail"
         case .probeTimeout: return "timeout"
         case .emptyCapture: return "empty"
         case .expired: return "expired"
         case .disabled: return "disabled"
         case .authRequired: return "auth req"
+        case .notConfigured: return "not set up"
+        case .notInstalled: return "not inst"
         }
     }
 
@@ -818,6 +849,8 @@ public enum CapacityStripRenderer {
         case .expired: return .expired
         case .disabled: return .disabled
         case .authRequired: return .authRequired
+        case .notConfigured: return .notConfigured
+        case .notInstalled: return .notInstalled
         }
     }
 

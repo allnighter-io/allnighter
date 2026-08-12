@@ -44,6 +44,9 @@ public enum DoctorReport {
         public var update: ReleaseUpdateInfo?
         /// Parked driver ids — same set menu uses so doctor bench tallies agree.
         public var parked: Set<String>
+        /// Injectable so tests can state configured / not configured without
+        /// reading the developer's real credential file. `nil` loads the store.
+        public var openCodeGoCapacity: Result<OpenCodeGoCredentialStore.Resolved, OpenCodeGoCredentialStore.LoadError>?
 
         public init(
             binaryVersion: String,
@@ -63,7 +66,8 @@ public enum DoctorReport {
             pilot: PilotContext? = nil,
             teachingInputs: [TeachingInstalledCheck.TargetInput]? = nil,
             update: ReleaseUpdateInfo? = nil,
-            parked: Set<String> = []
+            parked: Set<String> = [],
+            openCodeGoCapacity: Result<OpenCodeGoCredentialStore.Resolved, OpenCodeGoCredentialStore.LoadError>? = nil
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -83,6 +87,7 @@ public enum DoctorReport {
             self.teachingInputs = teachingInputs
             self.update = update
             self.parked = parked
+            self.openCodeGoCapacity = openCodeGoCapacity
         }
     }
 
@@ -152,6 +157,7 @@ public enum DoctorReport {
         if let go = openCodeGoCheck(records: records) {
             checks.append(go)
         }
+        checks.append(openCodeGoCapacityCheck(inputs: inputs))
 
         // Cursor shell allowlist — read-only vendor config; never mutated.
         let shellAllowlist = CursorShellAllowlist.check(
@@ -249,6 +255,10 @@ public enum DoctorReport {
                 // Quotas-free doctor: don't push smoke/sign-in until --full, except install.
                 if !inputs.full, recovery.statusKind != "notInstalled" { continue }
                 nextActions.append(next)
+            }
+            if let goNext = openCodeGoCapacityNextAction(inputs: inputs),
+               seen.insert("\(goNext.kind)\u{1F}\(goNext.command)").inserted {
+                nextActions.append(goNext)
             }
             nextActions.sort {
                 let p0 = SetupRecoveryCopy.nextActionPriority(kind: $0.kind)
@@ -396,6 +406,50 @@ public enum DoctorReport {
             )
         default:
             return .init(name: key, status: .notChecked, detail: "auth not determined")
+        }
+    }
+
+    private static func resolveOpenCodeGoCapacity(
+        inputs: Inputs
+    ) -> Result<OpenCodeGoCredentialStore.Resolved, OpenCodeGoCredentialStore.LoadError> {
+        inputs.openCodeGoCapacity ?? OpenCodeGoCredentialStore.load()
+    }
+
+    private static func openCodeGoCapacityNextAction(inputs: Inputs) -> AgentSurfaceNextAction? {
+        switch resolveOpenCodeGoCapacity(inputs: inputs) {
+        case .success:
+            return nil
+        case .failure(.decryptFailed):
+            return CapacityUnknownRemedy.configureAction(for: CapacityAcquisition.dogfoodSourceId)
+        case .failure:
+            return CapacityUnknownRemedy.configureAction(for: CapacityAcquisition.dogfoodSourceId)
+        }
+    }
+
+    private static func openCodeGoCapacityCheck(inputs: Inputs) -> DoctorResult.Check {
+        switch resolveOpenCodeGoCapacity(inputs: inputs) {
+        case .success(let resolved):
+            return .init(
+                name: "source.opencode_go.configured",
+                status: .ok,
+                detail: "OpenCode Go capacity credentials stored (\(resolved.source.rawValue))"
+            )
+        case .failure(.decryptFailed):
+            return .init(
+                name: "source.opencode_go.configured",
+                status: .degraded,
+                detail: "OpenCode Go capacity credential exists but cannot be decrypted — re-run configure",
+                fixCommand: CapacityUnknownRemedy.configureOpenCodeGoCommand,
+                requiresManual: true
+            )
+        case .failure:
+            return .init(
+                name: "source.opencode_go.configured",
+                status: .degraded,
+                detail: "OpenCode Go capacity not set up",
+                fixCommand: CapacityUnknownRemedy.configureOpenCodeGoCommand,
+                requiresManual: true
+            )
         }
     }
 
