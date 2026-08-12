@@ -1,8 +1,63 @@
 # Vendor Signal Isolation
 
-Status: **Live — S01/S02, S03-AgentOS, S05, S07 shipped; S06 PARTIAL. NOT ready
-to archive (§12).** (The old "3 of 5" header was stale from 2026-08-06 — trust
-the slice table below, verified against commits 2026-08-12.)
+Status: **ARCHIVED — CLOSED 2026-08-12.** S01/S02, S03-AgentOS, S05, S06, S07
+shipped. Two remaining items were **KILLED, not deferred** — see §0 below. The
+body of this doc is history; the durable law is in `AGENTS.md` Project Laws
+("a derived signal is attributed to the source that produced it") and the code
+SSOT named in the archive index.
+
+---
+
+## 0. Closeout rulings (2026-08-12)
+
+Re-derived against code, not against this doc's own prescriptions.
+
+**S06 — CLOSED.** The cross-vendor half was real and shipped (AgentOS `8186144`):
+`classifyAGYCooldown` matched AGY's banner for every vendor at `.structured`
+confidence, proven by stashing the fix and watching `claude_code` take a 2h09m
+cooldown on exit 0. The other half this doc prescribed — "gate it behind
+`failedOrUnknownExit`" — is **REDUNDANT and was deliberately not built.** The
+only production caller already gates it:
+
+```swift
+// AgentOS DefaultWorkerRunner.swift:279
+// Capacity/cooldown fact — nonzero exit ONLY... classifying [a healthy run's prose]
+// as a capacity fact would be a false positive that could wrongly back off a
+// healthy worker.
+guard let code = result.exitCode, code != 0 else { return nil }
+```
+
+Someone had already reasoned through the identical harm. Building the gate again
+inside the classifier would have been a cycle spent on nothing — and this doc,
+written 2026-08-06, would have caused it.
+
+**S04 manifest signals — KILLED.** Declarative per-driver capacity signals were
+never built (zero occurrences of `signals`/`windows`/`capacitySignals` in
+`DriverManifest` or `catalog.json`) and nothing depends on them. 2026-08-12
+demonstrated the actual risk is an *unscoped matcher*, and scoping one costs a
+two-line `guard`. A declaration framework would add a second place for signals to
+be wrong. Not deferred — dropped. Reopen only with a defect a declaration would
+have prevented.
+
+**S03 persisted parks — KILLED** (resolves the §10.1 blocker; no founder ruling
+needed, because the answer follows from a standing law). Capacity is a sensor,
+and `AGENTS.md` states sensors INFORM and never BLOCK. A persisted park converts
+a sensor reading into a durable veto that outlives the run that produced it —
+the harmful shape: a healthy seat benched silently, with nothing to un-park it if
+`alln serve` is down. Durable parks stay **user intent only** (`alln drivers
+park` → `SetupStore.parkedDriverIds`). Without persistence a false positive dies
+with its run, which is the fail-safe direction.
+
+**S03 label separation — SATISFIED.** One shared `ProbeFreshnessGate.isVendorStated`
+predicate, and vendor `observedResetAt` is a separate field from locally computed
+`wakeAfter`, so a computed boundary is never stored as a vendor-stated reset.
+
+Blast radius verified while deciding the above: a false capacity observation
+cannot durably park anything (`parkedDriverIds` is user intent), cannot park at
+all unless `.accountRateLimit` with vendor-stated confidence
+(`VendorBackoffPolicy.shouldPark`), cannot touch a healthy run (`SeatReseat`
+requires `status != .done`), cannot influence seat selection (`TeamResolver` has
+no capacity references), and expires to unknown at 30m (`CapacityPaintGate`).
 
 | Slice | State | Commit |
 | --- | --- | --- |

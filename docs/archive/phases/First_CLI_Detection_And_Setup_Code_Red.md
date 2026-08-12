@@ -1,6 +1,41 @@
 # First CLI Detection & Setup — CODE RED
 
-Status: **CODE RED — OPEN — v4 (CLI-first parity; curl|sh co-equal)**
+Status: **ARCHIVED — CLOSED 2026-08-12. CODE RED cleared.** S01–S07 shipped;
+S08 closed by this header. Verified **behaviourally**, not by reading this doc —
+see §0.
+
+---
+
+## 0. Closeout evidence (2026-08-12)
+
+Every claim below was tested by running the product, because a packet's own
+banner is not evidence.
+
+| Claim | Test run | Result |
+| --- | --- | --- |
+| A never-scanned host is never graded `0/catalog` | `ALLNIGHTER_SUPPORT_DIR=<empty dir> alln menu --json` | `headline: neverScanned`, `measured: 0`, `ready: 0`, `notInstalled: 0`, `needsCheck: 9` — no ratio invented |
+| The agent front door says what to do next | same call | `nextAction: {command: "alln detect", label: "Find CLIs on this Mac"}` |
+| FCS-L7 — bootstrap teaches find-CLIs | `alln bootstrap` | No literal "detect" string, but line 1 routes to `alln menu --json` and "if `benchTally.nextAction` is set, run that command once", and on a virgin store that nextAction IS `alln detect`. A live pointer, not teaching that can go stale. Chain verified end to end — satisfied |
+| FCS-S07 — Cursor IDE ≠ Cursor Agent CLI | `alln help get setup_and_auth` | Present and precise: "opening Cursor (the IDE) does **not** seat `cursor_agent`. The seat is the headless `cursor-agent` binary (not Grok's `agent`)" |
+
+Slices shipped: S01 `69d7ca6b`, S02 `84ab5309`, S03 `63d8e63f`, S04/S06
+`ab88c698`, S05 `a2fa1a47`, S07 `e48ea142`.
+
+**Founder cold-install dogfood gate — WAIVED.** The gate asked for `curl | sh` on
+a machine without opening the app. Its *substance* — that a fresh install reaches
+an honest tally and is told to scan — is what the virgin-store test above proves
+directly. The remaining part is the faucet itself (DNS + Developer ID signing),
+which `docs/phases/One_Paste_Cold_Start.md` owns and is blocked on founder
+infrastructure. Holding a CODE RED open for another packet's blocker is how a
+board accumulates false urgency.
+
+**One cosmetic gap, accepted not fixed:** the Cursor IDE/Agent distinction lives
+in a topic *body*, so `alln help search cursor` surfaces topic titles without it —
+an agent reaches it one `help get` away. Recorded rather than fixed; if it bites,
+it belongs to `Agent_Teaching_Surface`.
+
+Superseded status line (kept for history): **CODE RED — OPEN — v4 (CLI-first
+parity; curl|sh co-equal)**
 Owner: AllnighterCLI (`detect`, `doctor`, `menu`, `bootstrap`) + install faucet
 (`scripts/get-alln.sh` / `ReleaseChannel.installCommand`) + AllnighterCore
 (`BenchTallyProjector` TBD, `SetupStore`, `ProbeFreshnessGate`, `BenchReadiness`,

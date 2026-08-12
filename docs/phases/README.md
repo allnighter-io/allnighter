@@ -34,9 +34,10 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 ### Active priorities (founder-ordered)
 
-| Doc | Status | Next action |
-| --- | --- | --- |
-| [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — S01–S07 SHIPPED; only S08 closeout remains** | Verified against commits, not the packet banner: S01 `69d7ca6b`, S02 `84ab5309`, S03 `63d8e63f`, S04/S06 `ab88c698`, S05 `a2fa1a47`, S07 `e48ea142`. **Next action is FCS-S08 only**: promote tally + first-scan/detect authority into `setup/00`+`01`, log the FCS-L* laws in the debugger backlog, re-point AGENTS routing at the code SSOT, archive. Closeout also owes the founder dogfood gate — `curl \| sh` path *without opening the app*, plus the virgin-app path. |
+**No CODE RED is open.** Both closed 2026-08-12: First CLI Detection & Setup
+(verified by running the product) and `alln serve` Recovery (2026-08-11). Nothing
+in this board is currently top-priority — the next item should come from using
+the product, not from picking the next row here.
 
 > **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
 > **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
@@ -69,7 +70,6 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 | Doc | Status | Notes |
 | --- | --- | --- |
-| [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) | **Live — S01/S02, S03-AgentOS, S05, S07 shipped; S06 PARTIAL** | Capacity signals must be owned per source. AgentOS `6f66bdd`, `1d0f64f`, `8186144`; Allnighter `bc2311ea`, `1a425085`, `c912f174`. **S06 (2026-08-12):** AGY matcher scoped to `antigravity` and Kimi's usage limit now classified (scoped to `kimi`) — but the `failedOrUnknownExit` gate the slice also called for did NOT ship, so a vendor's own limit prose on its own exit-0 run still classifies (§12.1a). Open: S03 label separation, S04 manifest signals, S06 exit-code gate. S03 persisted parks blocked on a founder ruling (§10.1). |
 | [`Agent_Teaching_Surface.md`](Agent_Teaching_Surface.md) | Open — sequenced after Vendor Signal Isolation | `alln bootstrap` teaching block ships retired vocabulary; narrow the paste, gate the block, add a delegation help topic. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
@@ -105,6 +105,8 @@ Verified against code/commits; full index:
 
 | Packet | Why archived | Successor |
 | --- | --- | --- |
+| [`First_CLI_Detection_And_Setup_Code_Red.md`](../archive/phases/First_CLI_Detection_And_Setup_Code_Red.md) | **CLOSED (2026-08-12) — CODE RED cleared.** S01–S07 shipped; S08 closed. Verified by RUNNING the product, not by reading the packet: a virgin store yields `neverScanned` (never `0/9`) with `nextAction: alln detect`; bootstrap teaches find-CLIs via the live nextAction; Cursor IDE ≠ Agent CLI teaching present. Cold-install dogfood gate WAIVED — its substance is proven, and the faucet belongs to One_Paste_Cold_Start. | Code SSOT: `BenchTallyProjector`, `MenuCatalog`, `DoctorReport`, `SourceProbeService`, `ProbeRecordMerge`; law promoted to `setup/01_CLI_Detection_Auth_And_Bench.md` |
+| [`Vendor_Signal_Isolation.md`](../archive/phases/Vendor_Signal_Isolation.md) | **CLOSED (2026-08-12).** S01/S02, S03-AgentOS, S05, S06, S07 shipped. **S06's prescribed exit-code gate was NOT built — it is redundant** (`DefaultWorkerRunner.swift:279` already classifies on nonzero exit only). **S04 manifest signals KILLED** (unbuilt, nothing depends on it; scoping a matcher costs a two-line guard, a declaration framework adds a second place to be wrong). **S03 persisted parks KILLED** — a sensor may not become a durable veto; durable parks stay user intent. | Code SSOT: AgentOS `CapacityClassifier`, `VendorBackoffPolicy`, `CapacityPaintGate`, `SeatReseat`; law in `AGENTS.md` Project Laws |
 | [`Alln_Serve_Hotfixes.md`](../archive/phases/Alln_Serve_Hotfixes.md) | **CLOSED (2026-08-11)** — 15/15 done-when; one canonical binary, one launchd agent, verified install/update/repair, no detached auto-launch. **§10.1 R1 did NOT close**: the 2026-08-09 LWCR root cause is still unidentified and was re-homed to the debug log. | Code SSOT: `ServeLifecycle`, `ServeDaemon`, `ServeStatusJSON`, `CanonicalCLIInstall`; vocabulary `Product_Vocabulary.md` §Background scheduler; open risk in `docs/operations/debugger/DEBUGLOG.md` |
 | [`CLI_Install_Documents_TCC_Adhoc_Waive.md`](../archive/phases/CLI_Install_Documents_TCC_Adhoc_Waive.md) | **CLOSED — WAIVED (2026-08-11)** — the residual Documents prompt on CLI reinstall is ad-hoc CDHash dogfood, not a signed first-user install bug. No further escape layers. | Code SSOT: `ProtectedCWDEscape` (`b65a2ea2`) |
 | [`First_Launch_CLI_Strip.md`](../archive/phases/First_Launch_CLI_Strip.md) | **CLOSED (2026-08-10)** — FLCS-S01: home marketing chips use `setupCards` (not `composeBench` models); Find-my-team suppresses gray wall; green/amber/gray via `StatusDot`; tap → `openCLISetup`. Not capacity. | Code SSOT: `HomeMarketingCLIStrip`, `HomeMarketingEmptyState` / `HomeView`, `RootView.openCLISetup`; proof `HomeMarketingCLIStripTests` |
@@ -184,6 +186,7 @@ Open questions:
 | Work | Read first |
 | --- | --- |
 | Capacity strip, `alln capacity`, warm pool, stale % | [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) — Spec Review Min Ready; S00a scoped kill → Dock 30m silent schedule |
+| Bench tally / never-scanned host / a seat wrongly shown missing | Archived [`First_CLI_Detection_And_Setup_Code_Red.md`](../archive/phases/First_CLI_Detection_And_Setup_Code_Red.md); law in [`setup/01_CLI_Detection_Auth_And_Bench.md`](setup/01_CLI_Detection_Auth_And_Bench.md); code SSOT `BenchTallyProjector`, `ProbeRecordMerge` |
 | `alln menu` hides seats / stale readiness / probe freshness | Archived [`Probe_Freshness.md`](../archive/phases/Probe_Freshness.md); code SSOT `ProbeFreshnessGate`, `ProbeRecordRefreshScheduler` |
 | `alln run` fails from Codex, handoff host missing, stale handoff work | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) |
 | Plan-time quota routing, loop park-yield, cross-vendor arbitrage | Archived [`Quota_Aware_Bench_Continuity.md`](../archive/phases/Quota_Aware_Bench_Continuity.md); vocabulary `Product_Vocabulary.md` §Quota-aware bench; code SSOT `LoopCoordinator.resolveCapacityPark`, `VendorBackoffReconciler` |
