@@ -64,7 +64,7 @@ final class CapacityClassifierTests: XCTestCase {
 
     func testAGYCooldownUntilTimestamp() {
         let stderr = "capacity exhausted: cooldown active until 2026-06-19T12:00:00Z"
-        let obs = CapacityClassifier.classify(input(sourceId: "agy", stderr: stderr))
+        let obs = CapacityClassifier.classify(input(sourceId: "antigravity", stderr: stderr))
         XCTAssertEqual(obs?.kind, .cooldown)
         XCTAssertEqual(obs?.sourceConfidence, .structured)
         XCTAssertNotNil(obs?.observedResetAt)
