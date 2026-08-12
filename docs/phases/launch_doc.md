@@ -16,18 +16,16 @@ a work queue.
 
 ## The three
 
-### 1. Public docs tell the truth *(legal done 2026-08-12; marketing still open)*
+### 1. Legal docs tell the truth *(done 2026-08-12 in this repo)*
 
 Do not promise tools or apps that are not in the binary.
 
-**Legal (this slice):** EULA / ToS / Privacy v1.1 — dropped Aider (driver
-rejected 2026-06-26); iOS is "when available," not included. Site HTML in
-`Ikiro/allnighter` still needs a mirror before the pages go live.
+EULA / ToS / Privacy v1.1 — dropped Aider (driver rejected 2026-06-26); iOS is
+"when available," not included.
 
-**Still open:** marketing copy (`Launch_Positioning_And_Copy.md`,
-`Pricing_Recommendation.md`, Growth playbook, homepage) still lists Aider,
-bundles iPhone in the $8 offer, and uses retired pilot/relay nouns. Same pass,
-same rule: shipped drivers only, Mac-first, overnight is not the pitch.
+This repo is the legal source. It does not publish allnighter.io — that site
+lives in a separate repo. `docs/marketing/` is internal positioning, not the
+live site; it is not a launch gate.
 
 ### 2. A stranger can install it
 
@@ -67,8 +65,6 @@ When you start charging, *then* build the ledger described in
 | Work | Read first |
 | --- | --- |
 | Legal source | `docs/legal/` (v1.1, 2026-08-12) |
-| Site mirror after legal edits | `docs/legal/README.md` § Keeping the site in sync |
-| Marketing claim pass | `docs/marketing/` |
 | Public install | `One_Paste_Cold_Start.md` OPC-S05 |
 | First-launch TCC | `docs/operations/debugger/DEBUGLOG.md` 2026-08-10 |
 | Capacity warming lie | `docs/operations/debugger/DEBUGLOG.md` 2026-08-12 |
