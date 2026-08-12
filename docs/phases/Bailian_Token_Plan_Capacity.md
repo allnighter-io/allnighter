@@ -1,36 +1,5 @@
 # Bailian Token Plan Capacity
 
-> ## FOUNDER RULING — KILLED 2026-08-12: feature creep
->
-> **"I don't do long fanouts and I do not do unattended loops. Kill it. Archive
-> it. It is feature creep."**
->
-> The value chain for predictive capacity is: measure quota -> trust the
-> measurement -> **let it change a decision** -> save time or money. Link 3 does
-> not exist and was not wanted. Verified 2026-08-12: `TeamResolver` has zero
-> capacity references, and `alln menu --json` emits no `capacity` key (plan-time
-> routing was OFF, gated on a trust gate for a consumer nobody had asked for).
->
-> The two cases that could have justified prediction — a long fan-out dying
-> mid-run, and an unattended loop picking a dry seat — are both explicitly not
-> how this founder works.
->
-> **What stays, and why it is enough:** runtime park/substitute is REACTIVE and
-> evidence-based — the vendor states the limit at the moment of failure
-> (`CapacityClassifier` -> `VendorBackoffPolicy.shouldPark` -> substitute). It
-> needs no percentages, no strip, no prediction. And the strip already answers
-> "unknown - never sampled" instead of fabricating, which is the property that
-> actually protects the user.
->
-> Do not reopen without a decision that capacity should influence seat
-> **selection**. If that decision is ever made, the work is the credential-free
-> native channels, not soak tests on the PTY path.
-> Killed specifically: further work on the Alibaba Token Plan quota API. Same
-> class - a vendor-specific quota reader feeding the same unread dashboard. The
-> existing `--dogfood --source bailian_token_plan` spike stays where it is; it is
-> not extended.
-
-
 Status: **SPIKE — dogfood only (`--dogfood --source bailian_token_plan`)**
 Owner: AllnighterCore (JSON API acquisition + parser) + AllnighterCLI (capacity +
 `bailian-token-plan` setup)
