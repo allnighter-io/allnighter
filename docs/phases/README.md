@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-08-10
+Updated: 2026-08-12
 
 ## Purpose
 
@@ -36,7 +36,7 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
-| [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — OPEN v4** | CLI-first parity: curl\|sh users co-equal with Mac app. Shared `BenchTallyProjector`; **S01 Core → S02 CLI menu/doctor/detect + install teach detect → S03 Mac chrome**. Never `0/catalog` when unscanned. FCS-L7: bootstrap must teach find-CLIs. Domain stays `get.allnighter.io` unless One_Paste cutover. |
+| [`First_CLI_Detection_And_Setup_Code_Red.md`](First_CLI_Detection_And_Setup_Code_Red.md) | **CODE RED — S01–S07 SHIPPED; only S08 closeout remains** | Verified against commits, not the packet banner: S01 `69d7ca6b`, S02 `84ab5309`, S03 `63d8e63f`, S04/S06 `ab88c698`, S05 `a2fa1a47`, S07 `e48ea142`. **Next action is FCS-S08 only**: promote tally + first-scan/detect authority into `setup/00`+`01`, log the FCS-L* laws in the debugger backlog, re-point AGENTS routing at the code SSOT, archive. Closeout also owes the founder dogfood gate — `curl \| sh` path *without opening the app*, plus the virgin-app path. |
 
 > **Founder-ordered queue (re-ordered 2026-08-08 PM)** — work in this order:
 > **QUEUE COMPLETE 2026-08-09.** ~~**1.** OpenCode attach~~ · ~~**2.** Seat
@@ -60,17 +60,16 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **4 · Ollama — v7 (packet 1 of 3); OCL-S00 pipe PASS; code unauthorized** | **Dev builds only until fully ready** (founder). Headline: *a frontier seat plans; local seats execute* (§2.4 delegation asymmetry). Split 2026-08-09 — firewall and second-Mac moved out, scope back to detect · seat · honest run · both bodies. Still blocked on `--no-commit` honesty, serve attach, Claude-local isolation design, mid-tier capability proof. |
 | [`Context_Firewall.md`](Context_Firewall.md) | **SPEC — packet 2 of 3; no code authorized** | Per-root `egress: open\|abstracted\|local_only` + verbatim egress ledger. Claim is **auditable, never sanitised** (§4.1) — copy review is a blocking test. Blocked on root-less dispatch design (§6) and packet 1's outcome-honesty bug. Regulated tier is bottom-up optionality, not roadmap (§3.3). |
 | [`Second_Mac_Bench.md`](Second_Mac_Bench.md) | **V2 STUB — packet 3 of 3; not started** | Scope fence for the two-machine problem. Shelved LAN architecture stays shelved; three narrow doors recorded (D1 remote inference URL only). Cannot open until packets 1 and 2 land + a founder ruling names the door. |
-| [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — S00a then scheduler** | One 30m freshness clock; scoped kill before timer. Background schedulers on `alln serve` (reconciled 2026-08-09). |
-| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed; founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
- [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
+| [`Capacity_Warm_Bench.md`](Capacity_Warm_Bench.md) | **OPEN — resident trust gate only** | S00/S00a/S00b/S01a/S01b/S02/S03 shipped (`0011c690`, `b464ca49`, `f4171d17`, `97293696`, `7187c99b`, `683e924d`, `d3e3d359`) plus app-closed refresh `038e27a3`. What remains is the packet's own trust gate: 2 of 8 rows proven, 1 recorder shipped, 5 need founder dogfood. |
+| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed (`0ac02589`); founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
+| [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
-| [`Alln_Serve_Hotfixes.md`](Alln_Serve_Hotfixes.md) | **CODE RED — READY FOR IMPLEMENTATION** | Final CLI-only recovery packet. Supersedes Serve Continuity: one canonical installed binary, one launchd user agent, verified install/update/repair, no detached auto-launch, no app scheduler ownership. ASR-S00 native harness first. |
 
 ### Forward feature packets
 
 | Doc | Status | Notes |
 | --- | --- | --- |
-| [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) | **Live — 3 of 5 slices shipped** | Capacity signals must be owned per source. S01/S02 + S03-AgentOS shipped (AgentOS `6f66bdd`, `1d0f64f`); S05 shipped (`bc2311ea`). Open: label separation, S04 manifest signals, S06 AGY scoping. S03 persisted parks blocked on a founder ruling (§10.1). |
+| [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) | **Live — S01/S02, S03-AgentOS, S05, S07 shipped** | Capacity signals must be owned per source. AgentOS `6f66bdd`, `1d0f64f`; Allnighter `bc2311ea`, `1a425085`. Open: S03 label separation, S04 manifest signals, S06 AGY scoping (`classifyAGYCooldown` is the same unscoped defect class, found by the closeout audit). S03 persisted parks blocked on a founder ruling (§10.1). Packet header still says "3 of 5" — trust this row and §12, not that banner. |
 | [`Agent_Teaching_Surface.md`](Agent_Teaching_Surface.md) | Open — sequenced after Vendor Signal Isolation | `alln bootstrap` teaching block ships retired vocabulary; narrow the paste, gate the block, add a delegation help topic. |
 | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) | **Ready for Implementation — not started** | Browser `/go` HTTP scrape (not PTY); separate `OpenCodeGoCapacity*` modules; encrypted credential file (no Keychain). v1: capacity strip only. |
 | [`Composer_File_References.md`](Composer_File_References.md) | Backend built; Mac `@` palette forward | FR-S04 palette + GUI proof remain. |
@@ -84,6 +83,8 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`Share_To_Research.md`](Share_To_Research.md) | Draft — not started | iOS share sheet → Mac Research run. |
 | [`Buzz_Harness_Spike.md`](Buzz_Harness_Spike.md) | SPIKE — deferred | Receipt prerequisite met; strategy in `docs/strategy/`. |
 | [`Contradiction_Pass.md`](Contradiction_Pass.md) | **NOT AUTHORIZED** | Extends `docs/operations/Spec_Review.md`; do not start without founder ruling. |
+| [`Bailian_Token_Plan_Capacity.md`](Bailian_Token_Plan_Capacity.md) | **SPIKE — dogfood only** | Alibaba Token Plan Personal quota via JSON API (`--dogfood --source bailian_token_plan`). Was orphaned off this board until 2026-08-12; listed so it is not rediscovered as a surprise. |
+| [`Scarcity_Aware_Routing.md`](Scarcity_Aware_Routing.md) | **Brainstorm — NO slice authorized** | Read §3 rejected list first. Was orphaned off this board until 2026-08-12. |
 | [`Pricing_Change_Process.md`](Pricing_Change_Process.md) | Standing process | Offer SSOT: `docs/marketing/Pricing_Recommendation.md`. |
 
 ### Subdirectories
@@ -94,8 +95,8 @@ Archived phase docs are **history**, not the owner of keepable invariants.
 | [`copy/`](copy/README.md) | Draft — unbuilt | Copy lane work orders. |
 | [`ios/`](ios/README.md) | **Parked** | Future remote PM; must not block Mac delivery. |
 | [`parked/`](parked/README.md) | **Parked** | Premature scheduler ideas (e.g. utilization admission). |
-| [`sprint/`](sprint/README.md) | **Serve Recovery: ASR-S00 next** | Old SC orders are superseded evidence. Cut one ASR work order from `Alln_Serve_Hotfixes.md` §8, beginning with the native launchd harness. |
-| `wiring/`, `mockups/` | Design-handoff assets | Pixel reference for composer/setup/send-to-team surfaces. |
+| [`sprint/`](sprint/README.md) | **No active queue** | ASR complete and archived (2026-08-11); SC orders are superseded historical evidence — do not resume either. Cut a new order from whichever packet you are actually working. |
+| `wiring/` | Design-handoff assets | Pixel reference for composer/setup/send-to-team surfaces. (`mockups/` was listed here until 2026-08-12 and does not exist.) |
 
 ## Recently archived
 
@@ -104,6 +105,8 @@ Verified against code/commits; full index:
 
 | Packet | Why archived | Successor |
 | --- | --- | --- |
+| [`Alln_Serve_Hotfixes.md`](../archive/phases/Alln_Serve_Hotfixes.md) | **CLOSED (2026-08-11)** — 15/15 done-when; one canonical binary, one launchd agent, verified install/update/repair, no detached auto-launch. **§10.1 R1 did NOT close**: the 2026-08-09 LWCR root cause is still unidentified and was re-homed to the debug log. | Code SSOT: `ServeLifecycle`, `ServeDaemon`, `ServeStatusJSON`, `CanonicalCLIInstall`; vocabulary `Product_Vocabulary.md` §Background scheduler; open risk in `docs/operations/debugger/DEBUGLOG.md` |
+| [`CLI_Install_Documents_TCC_Adhoc_Waive.md`](../archive/phases/CLI_Install_Documents_TCC_Adhoc_Waive.md) | **CLOSED — WAIVED (2026-08-11)** — the residual Documents prompt on CLI reinstall is ad-hoc CDHash dogfood, not a signed first-user install bug. No further escape layers. | Code SSOT: `ProtectedCWDEscape` (`b65a2ea2`) |
 | [`First_Launch_CLI_Strip.md`](../archive/phases/First_Launch_CLI_Strip.md) | **CLOSED (2026-08-10)** — FLCS-S01: home marketing chips use `setupCards` (not `composeBench` models); Find-my-team suppresses gray wall; green/amber/gray via `StatusDot`; tap → `openCLISetup`. Not capacity. | Code SSOT: `HomeMarketingCLIStrip`, `HomeMarketingEmptyState` / `HomeView`, `RootView.openCLISetup`; proof `HomeMarketingCLIStripTests` |
 | [`Probe_Freshness.md`](../archive/phases/Probe_Freshness.md) | **CLOSED (2026-08-09)** — PF-S00…S03b: expire-at-projection, disclosure, vendor-signal sibling, serve capacity refresh, `lastDetectedAt` split + run capability clock, founder B periodic full probe smoke (`ProbeRecordRefreshScheduler`). | Code SSOT: `ProbeFreshnessGate`, `ProbeFreshnessDisclosure`, `SourceProbeService`, `CensusIngest`, `ProbeRecordRefreshScheduler`, `RunService`; vocabulary: `Product_Vocabulary.md` §Probe freshness |
 | [`OpenCode_Long_Run_Continuity.md`](../archive/phases/OpenCode_Long_Run_Continuity.md) | **CLOSED (2026-08-09)** — S123 long-run/concurrent continuity; CT follow-up archived with parent. CT-10 deferred. | Help `opencode_headless_completion`; code SSOT AgentOS `OpenCodeServeClient` / `OpenCodeSSEParser` / `OpenCodeRoutingWorkerRunner` |
@@ -195,8 +198,8 @@ Open questions:
 | Send to team / delegation surface | [`Team_Delegation_Surface.md`](Team_Delegation_Surface.md) + `docs/gui/surfaces/send-to-team/brief.md` |
 | Persistent chat / thread backend | [`Persistent_Work_Threads.md`](Persistent_Work_Threads.md) |
 | First-run setup, CLI detection | [`setup/README.md`](setup/README.md) |
-| `alln serve` dead / orphan LaunchAgent / capacity stale with app closed / app launch storm | [`Alln_Serve_Hotfixes.md`](Alln_Serve_Hotfixes.md) — CODE RED; ASR-S00 native launchd harness first |
-| Sprint work orders (one-slice agents) | [`sprint/README.md`](sprint/README.md) — old Serve Continuity orders are superseded; cut one ASR order from the final packet |
+| `alln serve` dead / orphan LaunchAgent / capacity stale with app closed / app launch storm | Code SSOT `ServeLifecycle`, `ServeDaemon`, `ServeStatusJSON`, `CanonicalCLIInstall`; vocabulary `Product_Vocabulary.md` §Background scheduler. Archived [`Alln_Serve_Hotfixes.md`](../archive/phases/Alln_Serve_Hotfixes.md). **Silent disables / unexplained unloads are NOT closed** — see `docs/operations/debugger/DEBUGLOG.md` 2026-08-11 (R1) |
+| Sprint work orders (one-slice agents) | [`sprint/README.md`](sprint/README.md) — no active queue; ASR archived, SC superseded |
 | Built MVP / run model law | `docs/mvp/README.md` + code `RunService.swift` |
 | Sprint execution and closeout | `docs/operations/Execution-Playbook.md` |
 | **Anything shipped & archived** | [`docs/archive/phases/README.md`](../archive/phases/README.md) |
