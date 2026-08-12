@@ -16,7 +16,7 @@ is brand/domain only.
 
 | Doc | Role |
 | --- | --- |
-| `AGENTS.md` | Agent/human/CI router and project laws (read first) |
+| `AGENTS.md` | Agent/human/CI router (read first). Full laws: `docs/operations/Project_Laws.md` |
 | `docs/WORKING_RULES.md` | MVP boundary, platform laws, credential posture |
 | `docs/mvp/README.md` | Built MVP foundation and Council slice truth |
 | `docs/phases/README.md` | Active post-MVP phase router |
@@ -25,7 +25,8 @@ is brand/domain only.
 
 ## Platform Split
 
-Standing law lives in `AGENTS.md` (Project Laws) and `docs/WORKING_RULES.md`.
+Standing law lives in `docs/operations/Project_Laws.md` (compact restatement
+in `AGENTS.md` § Project Laws) and `docs/WORKING_RULES.md`.
 This section summarizes; if anything here conflicts, those docs win — link them,
 do not restate a second truth.
 
@@ -34,7 +35,7 @@ do not restate a second truth.
 - runs team/worker orchestration and lane management;
 - exposes a local HTTP/WebSocket API for remote clients;
 - product shell is a standalone Dock app; the menu bar is status / quick
-  controls only (`AGENTS.md` Project Laws);
+  controls only (`docs/operations/Project_Laws.md`);
 - uses the user's existing CLI subscriptions/logins only — never stores or
   requests API keys / BYOK (`docs/WORKING_RULES.md` Security Boundary). Vendor
   CLIs keep their own Keychain items; Allnighter does not read or copy them.
@@ -42,7 +43,7 @@ do not restate a second truth.
 **iOS app (companion, parked)** — `Apps/AllnighteriOS/`:
 
 - connects only to the user's own Mac over Tailscale / local network by default
-  (`AGENTS.md` Project Laws); no mandatory third-party coordination cloud;
+  (`docs/operations/Project_Laws.md`); no mandatory third-party coordination cloud;
 - mirrors active runs and floor-manager controls when built;
 - no durable run truth on device; Mac is source of record.
 - Product UI must not block Mac delivery (`docs/phases/ios/README.md`).

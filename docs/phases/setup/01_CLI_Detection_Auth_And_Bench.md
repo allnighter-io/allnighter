@@ -10,28 +10,12 @@ fixes today's **"works in my terminal, 0/1 healthy in the app"** disaster. The
 guiding principle: **Setup must be a thin skin over detection that already works
 on a real machine — never a beautiful wrapper around flaky probes.**
 
-> ### Standing law — the bench tally (promoted 2026-08-12 from the closed
-> First CLI Detection CODE RED, `docs/archive/phases/First_CLI_Detection_And_Setup_Code_Red.md`)
->
-> **Code SSOT: `BenchTallyProjector`.** CLI, GUI and agent surfaces all read it —
-> never a locally invented ratio.
->
-> 1. **An unscanned host is never graded.** No records ⇒ `neverScanned` with no
->    ratio. Never `0/9 ready`, which reads as "you own nothing" when the truth is
->    "nobody has looked yet". Buckets are `ready` / `needsStep` / `notInstalled` /
->    `needsCheck`, and a missing record is `needsCheck`, never `notInstalled`.
-> 2. **Failure to observe is not an observation of absence.** A pass that resolves
->    no path may not overwrite a prior `ready` record whose executable still
->    exists — `ProbeRecordMerge`, and every SetupStore writer routes through it.
->    A stale negative that no longer holds is a seat the user pays for, silently
->    benched.
-> 3. **Teach with a live pointer, not a copied instruction.** `alln bootstrap`
->    does not hardcode "run `alln detect`"; it routes to `alln menu --json` and
->    tells the caller to run `benchTally.nextAction`. Hardcoded teaching goes
->    stale; the live pointer cannot.
-> 4. **Cursor IDE ≠ Cursor Agent CLI.** Opening the IDE does not seat
->    `cursor_agent`; the seat is the headless `cursor-agent` binary (and not
->    Grok's `agent`). Detection and doctor never treat the IDE as the seat.
+> Standing law for the bench tally (unscanned host, `ProbeRecordMerge`, live
+> teaching pointer, Cursor IDE ≠ Agent CLI) lives in
+> `docs/operations/Project_Laws.md` §Bench tally. Code SSOT:
+> `BenchTallyProjector`, `ProbeRecordMerge`. This packet is the engineering
+> spec; do not treat it as the owner of those invariants. Origin: archived
+> `docs/archive/phases/First_CLI_Detection_And_Setup_Code_Red.md`.
 
 ---
 

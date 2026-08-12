@@ -28,7 +28,7 @@ In scope:
   (archived `docs/archive/phases/Unified_Run_Model.md`, enforced by
   `config/architecture-policy.json`);
 - Mac command center. Product shell is a Dock app; menu bar is status / quick
-  controls only (`AGENTS.md` Project Laws). iOS remote is parked
+  controls only (`docs/operations/Project_Laws.md`). iOS remote is parked
   (`docs/phases/ios/README.md`);
 - the user's existing CLI subscriptions/logins only — never API keys/BYOK;
 - pairing, run persistence, review and kill-switch controls.
@@ -69,14 +69,14 @@ Deferred from v1 (documented in `docs/phases/`):
 - Unsandboxed by design for process control and git operations.
 - Distributed via notarized DMG/PKG (Developer ID).
 - Standalone Dock app is the product shell; menu-bar / status-item is status and
-  quick controls only (`AGENTS.md` Project Laws).
+  quick controls only (`docs/operations/Project_Laws.md`).
 
 **iOS app — parked, not current scope (`docs/phases/ios/README.md`)**
 
 - Foundation prep may start; product UI is deferred and must not block macOS
   delivery.
 - When built: connects only to the user's own Mac over Tailscale / local network
-  by default (`AGENTS.md` Project Laws). No mandatory third-party coordination
+  by default (`docs/operations/Project_Laws.md`). No mandatory third-party coordination
   cloud.
 - No durable run truth on device; Mac is source of record and final
   authorizer.

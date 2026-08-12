@@ -2,9 +2,10 @@
 
 Status: **ARCHIVED — CLOSED 2026-08-12.** S01/S02, S03-AgentOS, S05, S06, S07
 shipped. Two remaining items were **KILLED, not deferred** — see §0 below. The
-body of this doc is history; the durable law is in `AGENTS.md` Project Laws
-("a derived signal is attributed to the source that produced it") and the code
-SSOT named in the archive index.
+body of this doc is history; the durable law is in
+`docs/operations/Project_Laws.md` §Vendor signals ("a derived signal is
+attributed to the source that produced it") and the code SSOT named in the
+archive index. Compact restatement: `AGENTS.md` § Project Laws.
 
 ---
 
@@ -1039,7 +1040,7 @@ the routed docs carry it regardless of when this packet closes.
 
 ### 12.3 Durable law promoted out of this packet
 
-Promoted to `AGENTS.md` § Project Laws — these outlive the packet:
+Promoted to `docs/operations/Project_Laws.md` §Vendor signals — these outlive the packet:
 
 - A derived signal is attributed to the source that produced it; a vendor's
   parser never answers for another vendor's output.

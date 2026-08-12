@@ -48,6 +48,14 @@ already known, they never go and ask. Code SSOT: `CapacityWindow`,
 `CapacityAcquisition`, `CapacityBenchProjection`, `CapacityStripRenderer`,
 `CapacityHistoryStore`, and the five `*CapacityLog` parsers.
 
+**Daily-use vs automated routing (2026-08-12).** Automated capacity influencing
+seat *selection* is killed (feature creep). `alln capacity` remains a daily-use
+surface: the founder reads the strip and routes work by hand. Never degrade
+acquisition for any source. "No code consumer" ≠ "no consumer". Reactive
+park/substitute (`VendorBackoffPolicy.shouldPark`, `SeatReseat`) is unchanged.
+Full law: `docs/operations/Project_Laws.md` §Capacity. Closed record: archived
+`docs/archive/phases/Capacity_Warm_Bench.md`.
+
 ## Quota-aware bench vocabulary (promoted from QABC, 2026-08-09)
 
 **Moat:** Anthropic can only see Anthropic's meter. Cross-vendor arbitrage is
@@ -81,11 +89,15 @@ Capacity is injected into Core, never acquired there. Code SSOT:
 Standing laws: readiness sensors **inform, never block** dispatch (`DispatchReadiness`).
 A meter and a declared vendor refusal are **different facts** — neither disproves
 the other. Expiry is read-time projection only; never mutate `cli_setup.json` from
-a read path. `alln serve` hosts two schedulers: `CapacityRefreshScheduler`
-(capacity store) and `ProbeRecordRefreshScheduler` (probe records, founder B
-periodic full smoke when stale). Code SSOT: `ProbeFreshnessGate`,
-`ProbeFreshnessDisclosure`, `SourceProbeService`, `CensusIngest`, `RunService`
-(capability clock writer), `ProbeRecordRefreshScheduler`.
+a read path. **Failure to observe is never observation of absence** — a pass
+that resolves no path may not overwrite a prior `ready` whose executable still
+exists (`ProbeRecordMerge`). `alln serve` hosts two schedulers:
+`CapacityRefreshScheduler` (capacity store) and `ProbeRecordRefreshScheduler`
+(probe records, founder B periodic full smoke when stale). Code SSOT:
+`ProbeFreshnessGate`, `ProbeFreshnessDisclosure`, `SourceProbeService`,
+`CensusIngest`, `RunService` (capability clock writer),
+`ProbeRecordRefreshScheduler`, `ProbeRecordMerge`. Full law:
+`docs/operations/Project_Laws.md` §Bench tally.
 
 **The `alln loop` grammar** — one object, one vocabulary, CLI and Mac alike:
 

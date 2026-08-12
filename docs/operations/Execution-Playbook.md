@@ -264,7 +264,7 @@ Before adding anything to `AGENTS.md` at closeout, apply this test:
 | Candidate | Where it goes |
 | --- | --- |
 | A route to the packet being archived | **Nowhere.** Archived packets are not routed from `AGENTS.md`; the archive index owns them. |
-| The packet's durable law | `AGENTS.md` § Project Laws — **only if** no code gate already enforces it. If code enforces it, the code is the SSOT and the law is a comment there. |
+| The packet's durable law | `docs/operations/Project_Laws.md` — **only if** no code gate already enforces it. If code enforces it, the code is the SSOT and the law is a comment there. Then a one-line route from `AGENTS.md` if a new task type needs it. Never paste the law body into `AGENTS.md`. |
 | Ops detail, commands, test procedure | This playbook. |
 | "How did we get here" narrative | The archived packet. It is history, not routing. |
 

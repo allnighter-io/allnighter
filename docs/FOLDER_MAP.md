@@ -44,7 +44,8 @@ if it is missing.
 
 ## File Roles
 
-- `AGENTS.md`: agent/human/CI router and project laws.
+- `AGENTS.md`: agent/human/CI router (byte-budgeted). Full project laws:
+  `docs/operations/Project_Laws.md`.
 - `ALLNIGHTER.md`: product spec index and platform summary (defers to AGENTS /
   WORKING_RULES on credentials, shell, and iOS transport).
 - `README.md`: human overview and doc index.
@@ -60,6 +61,7 @@ if it is missing.
 - `docs/design-system/`: standing visual/brand law (can be SSOT).
 - `docs/gui/`: GUI workflow and surface briefs (how to build UI — not visual SSOT).
 - `docs/operations/Execution-Playbook.md`: slice process and closeout checklist.
+- `docs/operations/Project_Laws.md`: standing product/engineering laws.
 - `docs/operations/TechStack.md`: stack + **wrapper** commands (never raw test runners).
 - `scripts/rebuild_cli.sh`: rebuild/install `alln`; AgentOS sibling gate.
 - `scripts/swift-test.sh` / `scripts/check.sh`: Green Wall wrappers.
