@@ -139,6 +139,12 @@
         "ready" : {
           "type" : "boolean"
         },
+        "resolvesTo" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "role" : {
           "type" : "string"
         },

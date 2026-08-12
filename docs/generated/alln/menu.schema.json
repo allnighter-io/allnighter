@@ -339,6 +339,12 @@
         "ref" : {
           "type" : "string"
         },
+        "resolvesTo" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "runTemplate" : {
           "type" : "string"
         },

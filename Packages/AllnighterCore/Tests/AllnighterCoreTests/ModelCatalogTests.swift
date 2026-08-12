@@ -61,7 +61,7 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertFalse(models.first { $0.id == "model_cursor_gpt_sol" }?.enabled ?? true,
                        "Cursor Sol is never on-Bench by default")
         XCTAssertTrue(models.first { $0.id == "model_gpt_sol" }?.enabled ?? false)
-        XCTAssertEqual(models.first { $0.id == "model_sonnet" }?.modelLabel, "claude-sonnet-5")
+        XCTAssertEqual(models.first { $0.id == "model_sonnet" }?.modelLabel, "sonnet")
         XCTAssertEqual(models.first { $0.id == "model_opus" }?.displayName, "Opus 5")
         XCTAssertEqual(models.first { $0.id == "model_fable" }?.displayName, "Fable 5")
         XCTAssertEqual(models.first { $0.id == "model_cursor_fable" }?.displayName, "Fable 5 (Cursor)")

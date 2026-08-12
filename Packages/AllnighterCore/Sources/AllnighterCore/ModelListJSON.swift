@@ -38,6 +38,8 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
         /// actually owns it. Defaults to the honest "never checked" state
         /// for call sites that predate this field and don't compute it.
         public var stale: Bool
+        /// Catalog pin this latest-pointer resolved to. Omitted on pins and aliases.
+        public var resolvesTo: String?
 
         public init(
             id: ModelID,
@@ -53,7 +55,8 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             state: String,
             capabilities: ModelCapabilities,
             headlessTrust: HeadlessTrustPolicy? = nil,
-            stale: Bool = ProbeFreshnessDisclosure.unknownModel.stale
+            stale: Bool = ProbeFreshnessDisclosure.unknownModel.stale,
+            resolvesTo: String? = nil
         ) {
             self.id = id
             self.displayName = displayName
@@ -69,6 +72,31 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             self.capabilities = capabilities
             self.headlessTrust = headlessTrust
             self.stale = stale
+            self.resolvesTo = resolvesTo
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id, displayName, modelLabel, driverId, driverName, role, origin
+            case enabled, ready, status, state, capabilities, headlessTrust, stale, resolvesTo
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encode(id, forKey: .id)
+            try c.encode(displayName, forKey: .displayName)
+            try c.encode(modelLabel, forKey: .modelLabel)
+            try c.encode(driverId, forKey: .driverId)
+            try c.encode(driverName, forKey: .driverName)
+            try c.encode(role, forKey: .role)
+            try c.encode(origin, forKey: .origin)
+            try c.encode(enabled, forKey: .enabled)
+            try c.encode(ready, forKey: .ready)
+            try c.encode(status, forKey: .status)
+            try c.encode(state, forKey: .state)
+            try c.encode(capabilities, forKey: .capabilities)
+            try c.encodeIfPresent(headlessTrust, forKey: .headlessTrust)
+            try c.encode(stale, forKey: .stale)
+            try c.encodeIfPresent(resolvesTo, forKey: .resolvesTo)
         }
     }
 

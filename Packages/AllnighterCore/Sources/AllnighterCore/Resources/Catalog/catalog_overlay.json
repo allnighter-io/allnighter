@@ -353,6 +353,24 @@
       },
       "defaultOn": true
     },
+    "model_grok_45": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "copy",
+          "image"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 91
+      },
+      "defaultOn": false
+    },
     "model_grok_46": {
       "caliber": {
         "capabilityTags": [

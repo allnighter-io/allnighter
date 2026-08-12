@@ -24,7 +24,10 @@ enum CatalogMerge {
                 defaultEnabled: overlayRow?.defaultOn ?? false,
                 defaultEffort: overlayRow?.defaultEffort.flatMap(EffortLevel.init(rawValue:)),
                 capabilities: capabilities,
-                effortVariants: materialized.effortVariants
+                effortVariants: materialized.effortVariants,
+                family: materialized.family,
+                generation: materialized.generation,
+                resolvedPinId: materialized.resolvedPinId
             )
         }
     }

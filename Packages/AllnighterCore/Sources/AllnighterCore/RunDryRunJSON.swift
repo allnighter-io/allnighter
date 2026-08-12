@@ -13,6 +13,10 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
     public var teamPresetId: String?
     public var teamDisplayName: String?
     public var modelId: String?
+    /// Catalog pin `modelId` resolved to when it is a family latest-pointer.
+    public var resolvedPinModelId: String?
+    /// Vendor label that would be passed to the driver.
+    public var resolvedModelLabel: String?
     /// `readOnly` or `mutating` — permission after selectors resolve (Law 7).
     public var writePolicy: String
     /// Resolved effect booleans for the spend twin.
@@ -137,6 +141,8 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
         teamPresetId: String? = nil,
         teamDisplayName: String? = nil,
         modelId: String? = nil,
+        resolvedPinModelId: String? = nil,
+        resolvedModelLabel: String? = nil,
         writePolicy: RunWritePolicy = .readOnly,
         effects: Effects,
         lane: String? = nil,
@@ -155,6 +161,8 @@ public struct RunDryRunJSON: Codable, Sendable, Equatable {
         self.teamPresetId = teamPresetId
         self.teamDisplayName = teamDisplayName
         self.modelId = modelId
+        self.resolvedPinModelId = resolvedPinModelId
+        self.resolvedModelLabel = resolvedModelLabel
         self.writePolicy = writePolicy.rawValue
         self.effects = effects
         self.lane = lane

@@ -251,6 +251,8 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         public var identitySummary: String?
         public var planWriterAgentId: String?
         public var reproduceCommand: String?
+        /// Derived catalog pins for explicit `--model` selectors (latest-pointer → generation).
+        public var modelPinFacts: [ModelPinFact]?
         /// Why a terminal run ended (`completed|failed|cancelled|reconciledOrphan|killed|unknown`).
         /// Actor-stamped only — never inferred. Nil while live (PO-S01 v2).
         public var endReason: String?
@@ -269,6 +271,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             teamPresetId: String? = nil, teamDisplayName: String? = nil, outputKind: String? = nil,
             modelId: String? = nil, writePolicy: String? = nil, identitySummary: String? = nil,
             planWriterAgentId: String? = nil, reproduceCommand: String? = nil,
+            modelPinFacts: [ModelPinFact]? = nil,
             endReason: String? = nil, blocker: BlockerJSON? = nil,
             attempts: [AttemptJSON] = []
         ) {
@@ -282,6 +285,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             self.writePolicy = writePolicy; self.identitySummary = identitySummary
             self.planWriterAgentId = planWriterAgentId
             self.reproduceCommand = reproduceCommand
+            self.modelPinFacts = modelPinFacts
             self.endReason = endReason
             self.blocker = blocker
             self.attempts = attempts
@@ -291,7 +295,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             case id, status, origin, originAgent, lane, type, effort, prompt, promptSource
             case createdAt, startedAt, completedAt, threadId, teamPresetId, teamDisplayName
             case outputKind, modelId, writePolicy, identitySummary, planWriterAgentId
-            case reproduceCommand, endReason, blocker, attempts
+            case reproduceCommand, modelPinFacts, endReason, blocker, attempts
         }
 
         public init(from decoder: Decoder) throws {
@@ -317,6 +321,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             identitySummary = try c.decodeIfPresent(String.self, forKey: .identitySummary)
             planWriterAgentId = try c.decodeIfPresent(String.self, forKey: .planWriterAgentId)
             reproduceCommand = try c.decodeIfPresent(String.self, forKey: .reproduceCommand)
+            modelPinFacts = try c.decodeIfPresent([ModelPinFact].self, forKey: .modelPinFacts)
             endReason = try c.decodeIfPresent(String.self, forKey: .endReason)
             blocker = try c.decodeIfPresent(BlockerJSON.self, forKey: .blocker)
             attempts = try c.decodeIfPresent([AttemptJSON].self, forKey: .attempts) ?? []

@@ -350,11 +350,23 @@
         "id" : {
           "type" : "string"
         },
+        "modelLabel" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "ready" : {
           "type" : "boolean"
         },
         "ref" : {
           "type" : "string"
+        },
+        "resolvesTo" : {
+          "type" : [
+            "string",
+            "null"
+          ]
         },
         "runTemplate" : {
           "type" : "string"

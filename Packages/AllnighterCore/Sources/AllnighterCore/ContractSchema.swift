@@ -86,6 +86,7 @@ public enum ContractSchema {
                 "modelId": nullable("string"), "writePolicy": nullable("string"),
                 "identitySummary": nullable("string"),
                 "planWriterAgentId": nullable("string"), "reproduceCommand": nullable("string"),
+                "modelPinFacts": arr(ref("ModelPinFact")),
                 "endReason": nullable("string"), "blocker": nullableRef("BlockerJSON"),
                 "attempts": arr(ref("RunAttempt")),
             ], required: ["id", "status", "origin", "prompt", "promptSource", "createdAt", "attempts"]),
@@ -227,6 +228,9 @@ public enum ContractSchema {
                 "openCommand": str,
             ], required: ["openCommand"]),
             "Audit": obj(["traceId": str], required: ["traceId"]),
+            "ModelPinFact": obj([
+                "requestedId": str, "pinId": str, "modelLabel": str,
+            ], required: ["requestedId", "pinId", "modelLabel"]),
         ]
         return schema
     }
@@ -445,6 +449,7 @@ public enum ContractSchema {
                 "capabilities": ref("ModelCapabilities"),
                 "headlessTrust": nullableRef("HeadlessTrustPolicy"),
                 "stale": bool,
+                "resolvesTo": nullable("string"),
             ], required: [
                 "id", "displayName", "modelLabel", "driverId", "driverName", "role", "origin",
                 "enabled", "ready", "status", "state", "capabilities", "stale",
@@ -926,6 +931,7 @@ public enum ContractSchema {
                 "capabilities": ref("ModelCapabilities"),
                 "runTemplate": str, "validateTemplate": str,
                 "stale": bool,
+                "resolvesTo": nullable("string"),
             ], required: [
                 "ref", "id", "displayName", "driverId", "enabled", "ready",
                 "capabilities", "runTemplate", "validateTemplate", "stale",
@@ -1044,6 +1050,8 @@ public enum ContractSchema {
                 "blockedReason": nullable("string"),
                 "capabilities": ref("ModelCapabilities"),
                 "runTemplate": str, "validateTemplate": str,
+                "modelLabel": nullable("string"),
+                "resolvesTo": nullable("string"),
                 "capacity": ref("Capacity"),
             ], required: [
                 "ref", "id", "displayName", "driverId", "driverName", "enabled", "ready",

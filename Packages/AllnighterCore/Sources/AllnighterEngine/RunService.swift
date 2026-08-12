@@ -1014,6 +1014,7 @@ public actor RunService {
                 outputKind: preset.outputKind, mutating: true, repoRoot: root,
                 laneContextOnly: laneContextOnly ? true : nil,
                 explicitModelIds: explicitModelIds,
+                modelPinFacts: ModelPinFact.facts(requestedIds: explicitModelIds, models: models),
                 resolvedBenchModelIds: readyModels().map(\.id).sorted(),
                 blocker: RunBlocker(resource: .repoWriteLock, scopeRoot: root),
                 clockBudgets: clockBudgets,
@@ -1131,6 +1132,7 @@ public actor RunService {
                 outputKind: preset.outputKind, mutating: false, repoRoot: root,
                 laneContextOnly: laneContextOnly ? true : nil,
                 explicitModelIds: explicitModelIds,
+                modelPinFacts: ModelPinFact.facts(requestedIds: explicitModelIds, models: models),
                 resolvedBenchModelIds: readyModels().map(\.id).sorted(),
                 clockBudgets: clockBudgets,
                 links: retryLinks)
@@ -1306,6 +1308,10 @@ public actor RunService {
             )
         )
         var payload = resolved.makeDryRunJSON()
+        if let id = payload.modelId, let model = models.first(where: { $0.id == id }) {
+            payload.resolvedPinModelId = model.replayModelId
+            payload.resolvedModelLabel = model.modelLabel
+        }
         // MR-S04: an explicit worker that resolved not-runnable teaches `alln models`.
         if !resolved.canStart, resolved.explicitModelChosen {
             let reason = resolved.blockedReason ?? ""
@@ -1591,6 +1597,7 @@ public actor RunService {
                 threadId: threadId, repoRoot: repoRoot,
                 laneContextOnly: laneContextOnly ? true : nil,
                 explicitModelIds: explicitModelIds,
+                modelPinFacts: ModelPinFact.facts(requestedIds: explicitModelIds, models: models),
                 resolvedBenchModelIds: bench.map(\.id).sorted(),
                 attempts: [RunAttempt(
                     attemptNumber: 1,
@@ -2458,6 +2465,7 @@ public actor RunService {
             r.lane = lane; r.effort = effort
             r.laneContextOnly = laneContextOnly ? true : nil
             r.explicitModelIds = explicitModelIds
+            r.modelPinFacts = ModelPinFact.facts(requestedIds: explicitModelIds, models: allModels)
             r.explicitSeatModelIds = explicitSeatModelIds
             r.resolvedBenchModelIds = bench.map(\.id).sorted()
             r.teamDisplayName = RunIdentity.teamDisplayName(

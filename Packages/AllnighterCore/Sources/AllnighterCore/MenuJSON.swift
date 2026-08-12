@@ -178,6 +178,30 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         /// `driverId`) instead of being copied onto every model that shares
         /// it — see `ModelListJSON.Entry.stale` for the full rationale.
         public var stale: Bool
+        /// Catalog pin this latest-pointer resolved to. Omitted on pins and aliases.
+        public var resolvesTo: String? = nil
+
+        private enum CodingKeys: String, CodingKey {
+            case ref, id, displayName, driverId, enabled, ready, blockedReason
+            case status, capabilityTags, runTemplate, validateTemplate, stale, resolvesTo
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var c = encoder.container(keyedBy: CodingKeys.self)
+            try c.encodeIfPresent(ref, forKey: .ref)
+            try c.encode(id, forKey: .id)
+            try c.encode(displayName, forKey: .displayName)
+            try c.encode(driverId, forKey: .driverId)
+            try c.encode(enabled, forKey: .enabled)
+            try c.encode(ready, forKey: .ready)
+            try c.encodeIfPresent(blockedReason, forKey: .blockedReason)
+            try c.encodeIfPresent(status, forKey: .status)
+            try c.encodeIfPresent(capabilityTags, forKey: .capabilityTags)
+            try c.encodeIfPresent(runTemplate, forKey: .runTemplate)
+            try c.encodeIfPresent(validateTemplate, forKey: .validateTemplate)
+            try c.encode(stale, forKey: .stale)
+            try c.encodeIfPresent(resolvesTo, forKey: .resolvesTo)
+        }
     }
 
     /// How to invoke any seat, stated once instead of per row.
@@ -435,6 +459,8 @@ public struct MenuShowJSON: Codable, Sendable, Equatable {
         public var capabilities: ModelCapabilities
         public var runTemplate: String
         public var validateTemplate: String
+        public var modelLabel: String?
+        public var resolvesTo: String?
         /// QABC-S00d — rows from the injected menu capacity narrowed to this
         /// model's source only. Nil when no capacity was injected or no row
         /// matches this model's driver.
@@ -453,6 +479,8 @@ public struct MenuShowJSON: Codable, Sendable, Equatable {
             capabilities: ModelCapabilities,
             runTemplate: String,
             validateTemplate: String,
+            modelLabel: String? = nil,
+            resolvesTo: String? = nil,
             capacity: MenuJSON.Capacity? = nil
         ) {
             self.ref = ref
@@ -467,6 +495,8 @@ public struct MenuShowJSON: Codable, Sendable, Equatable {
             self.capabilities = capabilities
             self.runTemplate = runTemplate
             self.validateTemplate = validateTemplate
+            self.modelLabel = modelLabel
+            self.resolvesTo = resolvesTo
             self.capacity = capacity
         }
     }

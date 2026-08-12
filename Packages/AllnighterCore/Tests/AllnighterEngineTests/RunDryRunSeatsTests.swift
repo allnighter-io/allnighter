@@ -92,7 +92,14 @@ final class RunDryRunSeatsTests: XCTestCase {
 
     func testLeadAndPreferredRowsCarryPreferredReason() {
         let team = BuiltInTeams.team("code_spec_review_max")!
+        // Scout prefers `model_grok_46` (native Grok 4.6). `model_grok` stays
+        // on the bench as the prior generation so this still proves preferred
+        // wins when two Grok generations are ready — not a family-diversity
+        // fill. A bench that only offered `model_grok` would honestly report
+        // `band+unusedFamily` (preferred id missing, same-driver lane fill).
         let ready: [Model] = [
+            Model(id: "model_grok_46", displayName: "Grok 4.6", modelLabel: "grok-4.6",
+                  driverId: "grok", role: .answerer),
             Model(id: "model_grok", displayName: "Grok", modelLabel: "grok",
                   driverId: "grok", role: .answerer),
             Model(id: "model_fable", displayName: "Fable", modelLabel: "fable",
@@ -102,6 +109,7 @@ final class RunDryRunSeatsTests: XCTestCase {
         ]
         let resolved = TeamResolver.resolve(
             team: team, requestLane: .code, requestEffort: .high, readyModels: ready)
+        XCTAssertEqual(resolved.scoutWorker?.modelId, "model_grok_46")
         XCTAssertEqual(resolved.scoutWorker?.seatingReason, "preferred")
         XCTAssertEqual(resolved.planWriter?.seatingReason, "preferred")
     }

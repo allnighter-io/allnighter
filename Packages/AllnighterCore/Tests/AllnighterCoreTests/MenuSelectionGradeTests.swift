@@ -3,6 +3,21 @@ import XCTest
 
 /// MR-S03 — selection-grade menu rows (authored useWhen/dontUseWhen + templates).
 final class MenuSelectionGradeTests: XCTestCase {
+
+    // Founder ruling 2026-08-12: "Expand the seat budget. If founder asks to
+    // add models we expand." ASR-S07 ("25600 is untouched; trimming copy is
+    // the get-to-green move") is overruled. The budget follows the bench.
+    //
+    // Per-seat MenuJSON cost from the two Grok 4.6 additions
+    // (`model_grok_46`, `model_cursor_grok_46`):
+    //   built-in  25,183 → 25,956 B  (+773 B / 2 seats = 387 B/seat)
+    //   realistic 28,014 → 28,788 B  (+774 B / 2 seats = 387 B/seat)
+    // Ceilings sized for ≥8 more seats at that cost, then rounded to a KiB
+    // boundary (30 KiB / 32 KiB). A normal model addition must not turn the
+    // wall red. Do not "fix" a future miss by cutting authored copy.
+    private static let builtInTier1MenuBudgetBytes = 30_720
+    private static let realisticTier1MenuBudgetBytes = 32_768
+
     /// Selection PROSE lives in `--detailed` after the stage-1 menu slimming, so
     /// every grading test below must project that tier to see it.
     private var menu: MenuJSON {
@@ -183,7 +198,7 @@ final class MenuSelectionGradeTests: XCTestCase {
         return MenuCatalog.project(teams: teams, modelEntries: modelEntries, detailed: detailed)
     }
 
-    func testPerRowBoundsAndBuiltInFixtureStillWithin25KiB() throws {
+    func testPerRowBoundsAndBuiltInFixtureWithinBudget() throws {
         let m = menu
         for action in m.actions {
             try MenuSelectionCopy.validateBounds(
@@ -209,27 +224,19 @@ final class MenuSelectionGradeTests: XCTestCase {
         }
         let data = try MenuCatalog.encodeCompact(
             MenuCatalog.project(teams: BuiltInTeams.all.filter { !$0.isLabTeam }))
-        // Measured 2026-08-05: built-in-only fixture compacts to 34,644 B after seven
-        // default-on OpenCode Go seats. Live bench (built-ins + real saved customs)
-        // compacts higher. The built-in fixture alone is not the surface QABC gates —
-        // see testPerRowBoundsAndRealisticCatalogWithinBudget below — but a tight
-        // ceiling here (~4% headroom over the measured value) still catches
-        // built-in bloat (new team/model/recipe authored copy) early.
-        // Tier-1 built-in fixture measures 32,168 B after the stage-1 slimming
-        // (was 36,934 B when this gated the pre-slim payload). Tightened rather
-        // than left slack: a budget above what ships stops gating growth.
-        // PF-S01 (2026-08-08): every model row gained `freshness`
-        // (checkedAt/ageMinutes/stale/evidenceSource/nextAction) — disclosure
-        // the Works Test requires on Tier-1, not `--detailed`-only. Measured
-        // 30,113 B; budget moved to 30 KiB (30,720 B), ~2% headroom.
-        // PF-S04 (2026-08-09): a model is never independently probed, so every
-        // model row was copying its driver's `freshness` object verbatim —
-        // measured 29 objects, only 9 distinct values. Model rows now carry
-        // only the decision bit (`stale`); the full disclosure stays once, on
-        // the driver row, reachable via the model row's existing `driverId`.
-        // Measured 25,183 B; budget lowered to 25 KiB (25,600 B), ~1.7%
-        // headroom — a budget left at the old value would stop gating growth.
-        XCTAssertLessThanOrEqual(data.count, 25600, "built-in Tier-1 MenuJSON \(data.count) exceeds 25 KiB")
+        // Total-payload gate for the built-in-only fixture. Per-row
+        // `validateBounds` above stays tight (one bloated useWhen/dontUseWhen
+        // is the real risk). This ceiling exists to catch runaway growth
+        // (catalog duplicated, a row repeated per model) — not routine seat
+        // additions. Founder ruling 2026-08-12 raised it from 25 KiB after
+        // Grok 4.6; see the class-level constants for the measured 387 B/seat
+        // and the 8-seat headroom math. 25,956 B measured; 30 KiB fits ~12
+        // further seats at that cost.
+        XCTAssertLessThanOrEqual(
+            data.count,
+            Self.builtInTier1MenuBudgetBytes,
+            "built-in Tier-1 MenuJSON \(data.count) exceeds \(Self.builtInTier1MenuBudgetBytes) B budget"
+        )
     }
 
     func testPerRowBoundsAndRealisticCatalogWithinBudget() throws {
@@ -247,25 +254,18 @@ final class MenuSelectionGradeTests: XCTestCase {
         }
         // No authored model copy left to bound-check (stage 3).
         let data = try MenuCatalog.encodeCompact(realisticMenu())
-        // Budget derivation (QABC-S00a, 2026-07-31): the built-in-only fixture
-        // that `testPerRowBoundsAndBuiltInFixtureStillWithin25KiB` gates does
-        // NOT protect the real agent-facing surface — live `alln menu --json`
-        // on this bench compacts to 35,027 B, above the old 32 KiB gate, and
-        // that weight is legitimate: runTemplate+validateTemplate across every
-        // model and team are 8,196 B (23%) so a cold agent can copy an exact
-        // command instead of constructing one — do not trim them. QABC-S00b
-        // adds a capacity decision row (~562 B compact). 40 KiB (40,960 B)
-        // covers the measured 35,027 B live bench plus the S00b capacity row
-        // plus headroom for a realistic number of saved custom teams/models,
-        // without being so loose it stops gating growth.
-        // PF-S01 (2026-08-08): `freshness` on every model row. Measured
-        // 33,964 B; budget moved to 34 KiB (34,816 B), ~2.5% headroom.
-        // PF-S04 (2026-08-09): model rows normalize `freshness` down to a
-        // single inline `stale` boolean (see the sibling test above for the
-        // measured duplication this removes); driver rows are unchanged.
-        // Measured 28,014 B; budget lowered to 28 KiB (28,672 B), ~2.3%
-        // headroom.
-        XCTAssertLessThanOrEqual(data.count, 28672, "realistic Tier-1 MenuJSON \(data.count) exceeds 28 KiB budget")
+        // Total-payload gate for the realistic (built-ins + 6 custom teams +
+        // 6 custom models) fixture — the closer stand-in for a live bench.
+        // Per-row `validateBounds` above stays tight. This ceiling catches
+        // runaway growth, not a normal model addition. Founder ruling
+        // 2026-08-12 raised it from 28 KiB after Grok 4.6; see the class-level
+        // constants. 28,788 B measured; 32 KiB fits ~10 further seats at
+        // 387 B/seat.
+        XCTAssertLessThanOrEqual(
+            data.count,
+            Self.realisticTier1MenuBudgetBytes,
+            "realistic Tier-1 MenuJSON \(data.count) exceeds \(Self.realisticTier1MenuBudgetBytes) B budget"
+        )
     }
 
     func testAuthoredBoundsRejectOversizedCustomRecord() {

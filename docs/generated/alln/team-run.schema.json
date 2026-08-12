@@ -597,6 +597,26 @@
       ],
       "type" : "object"
     },
+    "ModelPinFact" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "modelLabel" : {
+          "type" : "string"
+        },
+        "pinId" : {
+          "type" : "string"
+        },
+        "requestedId" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "requestedId",
+        "pinId",
+        "modelLabel"
+      ],
+      "type" : "object"
+    },
     "NextAction" : {
       "additionalProperties" : false,
       "properties" : {
@@ -1195,6 +1215,12 @@
             "string",
             "null"
           ]
+        },
+        "modelPinFacts" : {
+          "items" : {
+            "$ref" : "#\/$defs\/ModelPinFact"
+          },
+          "type" : "array"
         },
         "origin" : {
           "enum" : [

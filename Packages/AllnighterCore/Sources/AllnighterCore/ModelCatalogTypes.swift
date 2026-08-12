@@ -24,6 +24,9 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
     /// name (Antigravity, e.g. low → "Gemini 3.5 Flash (Low)"). nil = the model
     /// label is constant and effort (if any) is applied as a driver flag instead.
     public var effortVariants: [EffortLevel: String]?
+    public var family: String?
+    public var generation: Int?
+    public var resolvedPinId: String?
     public var createdAt: Date?
     public var updatedAt: Date?
     /// AgentOS ModelSmokeStatus raw value for custom models. nil = built-in / legacy (treated as trusted).
@@ -41,6 +44,9 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         defaultEffort: EffortLevel? = nil,
         capabilities: ModelCapabilities,
         effortVariants: [EffortLevel: String]? = nil,
+        family: String? = nil,
+        generation: Int? = nil,
+        resolvedPinId: String? = nil,
         createdAt: Date? = nil,
         updatedAt: Date? = nil,
         modelSmokeStatus: String? = nil,
@@ -56,6 +62,9 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         self.defaultEffort = defaultEffort
         self.capabilities = capabilities
         self.effortVariants = effortVariants
+        self.family = family
+        self.generation = generation
+        self.resolvedPinId = resolvedPinId
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.modelSmokeStatus = modelSmokeStatus

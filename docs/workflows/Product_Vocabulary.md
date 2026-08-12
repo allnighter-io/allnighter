@@ -162,6 +162,15 @@ product gates.
 | **Bench** | Models the user has available. |
 | **Parked** | A CLI the user has shelved — not probed, not seated, not in Needs attention, until put back **on the bench**. Not delete. CLI: `alln drivers park` / `unpark`. |
 | **Model** | Recognizable AI identity (Opus, Grok, …). CLI pin: `--model <model_id>`. |
+| **Pure name** | A catalog id that names a family without a generation (`model_grok`, `model_sonnet`). Always means the newest member of that family. |
+| **Pin** | A versioned id (`model_grok_46`) or a vendor alias that is already exact. Never rematerialized. |
+
+**Standing rule — a pure name is the newest in its family.** Two mechanisms, chosen per family, never mixed:
+
+1. **Vendor alias** — the CLI itself accepts a name that always means latest (`opus`, `sonnet`, `fable` on Claude Code). We store the alias. The vendor keeps it current. Verified 2026-08-12: Grok CLI has no such alias (only `grok-4.6` / `grok-4.5`); Kimi and Cursor Agent also have none.
+2. **Catalog-resolved** — pins declare `family` + integer `generation` in AgentOS `catalog.json`. A row with `family` and no `generation` is the pure name and inherits the highest declared generation. Generation is authored, never parsed from a label (`K3 > K2.7` would be `30 > 27`; Sol / Luna / Terra have no generation because they are siblings, not a ladder).
+
+The rule does **not** apply when there is no unambiguous order: GPT Sol/Luna/Terra, Composer vs Composer Fast, Kimi HighSpeed. Those families either have no pure name or stay an explicit choice. Availability / parking is `VendorSubstitutionPolicy`, unchanged. Code SSOT: AgentOS `FamilyLatest`, `CatalogLoader`; Allnighter `ModelPinFact` on the run journal. Replay uses the pin, never the pure name alone.
 | **Agent** | A staffed roster row: one **model** wearing one **skill** on a team. Count plural: **agents** (not models — four Auto seats are four agents, not four models). |
 | **Skill** | Hat / instruction profile a model wears. Shared by `skillId` across teams; the editable body is **skill.md** (the `template` field in catalog JSON). Same-ID overrides edit in place; **Restore** drops the override. Mac drill-in: **Edit skill**. |
 | **Type** | Optional subtype metadata inside a craft; not a Send-to-team selector. |

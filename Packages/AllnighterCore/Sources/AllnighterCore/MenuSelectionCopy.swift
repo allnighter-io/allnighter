@@ -329,8 +329,12 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not Sol; use model_gpt_sol"
         ),
         "model_grok": Pair(
-            useWhen: "Grok 4.5, web-aware, images",
-            dontUseWhen: "Prefer Grok 4.6; model_grok_46 or model_cursor_grok_46"
+            useWhen: "Latest Grok on the Grok CLI (catalog-resolved)",
+            dontUseWhen: "Need an exact generation; pin model_grok_46 or model_grok_45"
+        ),
+        "model_grok_45": Pair(
+            useWhen: "Pin Grok 4.5 exactly",
+            dontUseWhen: "Want latest Grok; use model_grok"
         ),
         "model_grok_46": Pair(
             useWhen: "Grok 4.6 frontier seat, web-aware, images",

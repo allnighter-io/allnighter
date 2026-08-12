@@ -174,6 +174,7 @@ public enum TeamRunJSONMapper {
                 modelId: workerModelId, lane: run.lane, mutating: run.mutating,
                 laneContextOnly: run.laneContextOnly == true),
             planWriterAgentId: plan?.writerAgentId, reproduceCommand: context.reproduceCommand,
+            modelPinFacts: run.modelPinFacts,
             endReason: run.endReason?.rawValue, blocker: blockerInfo, attempts: attempts
         )
 

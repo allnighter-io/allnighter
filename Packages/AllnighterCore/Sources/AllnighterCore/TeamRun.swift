@@ -145,6 +145,10 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// can't distinguish from default-team resolution. Optional so legacy `run.json`
     /// (no key) decodes to `nil`; `nil`/empty means no explicit `--model` was given.
     public var explicitModelIds: [String]? = nil
+    /// Derived catalog pin for each explicit `--model` at acceptance. Latest-pointers
+    /// land on the winning generation; pins and vendor aliases record identity.
+    /// Replay uses this, never `explicitModelIds` alone.
+    public var modelPinFacts: [ModelPinFact]? = nil
     /// RSO-S01 — ordered explicit `--seat` model ids at run acceptance. Distinct from
     /// `explicitModelIds` (single `--model` pin) and from resolved `workers`.
     public var explicitSeatModelIds: [String]? = nil
@@ -192,6 +196,14 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     /// Non-optional view of `links` for callers.
     public var runLinks: [RunLink] { links ?? [] }
 
+    /// `--model` ids a replay must use so a pure-name run stays on the same generation.
+    public var replayModelIds: [String] {
+        if let facts = modelPinFacts, !facts.isEmpty {
+            return facts.map(\.pinId)
+        }
+        return explicitModelIds ?? []
+    }
+
     public init(
         id: String,
         prompt: String,
@@ -220,6 +232,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         repoDelta: RepoDelta? = nil,
         laneContextOnly: Bool? = nil,
         explicitModelIds: [String]? = nil,
+        modelPinFacts: [ModelPinFact]? = nil,
         explicitSeatModelIds: [String]? = nil,
         resolvedBenchModelIds: [String]? = nil,
         requestedCommitMessage: String? = nil,
@@ -262,6 +275,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.repoDelta = repoDelta
         self.laneContextOnly = laneContextOnly
         self.explicitModelIds = explicitModelIds
+        self.modelPinFacts = modelPinFacts
         self.explicitSeatModelIds = explicitSeatModelIds
         self.resolvedBenchModelIds = resolvedBenchModelIds
         self.requestedCommitMessage = requestedCommitMessage

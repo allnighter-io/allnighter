@@ -121,7 +121,8 @@ public enum MenuCatalog {
                 capabilityTags: detailed ? entry.capabilities.capabilityTags.map(\.rawValue) : nil,
                 runTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --json" : nil,
                 validateTemplate: detailed ? "alln run \"{message}\" --model \(entry.id) --dry-run" : nil,
-                stale: entry.stale
+                stale: entry.stale,
+                resolvesTo: entry.resolvesTo
             )
         }
 
@@ -516,7 +517,8 @@ public enum MenuCatalog {
                 ready: false,
                 status: "notChecked",
                 state: enabled ? "onBench" : "available",
-                capabilities: ModelCatalog.capabilities(def.id)
+                capabilities: ModelCatalog.capabilities(def.id),
+                resolvesTo: def.resolvedPinId
             )
         }
     }
@@ -715,6 +717,8 @@ public enum MenuCatalog {
                 capabilities: entry.capabilities,
                 runTemplate: "alln run \"{message}\" --model \(entry.id) --json",
                 validateTemplate: "alln run \"{message}\" --model \(entry.id) --dry-run",
+                modelLabel: entry.modelLabel,
+                resolvesTo: entry.resolvesTo,
                 capacity: modelCapacity
             )
         )
