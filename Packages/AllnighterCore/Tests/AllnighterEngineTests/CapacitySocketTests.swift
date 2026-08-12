@@ -299,6 +299,60 @@ final class CapacitySocketTests: XCTestCase {
 
     // MARK: - Fast-path mapping (pure)
 
+    func testServesAsFreshSnapshotRejectsWarmingDisabledAndStale() {
+        let now = Date()
+        XCTAssertFalse(
+            CapacitySocketFastPath.servesAsFreshSnapshot(.warmingAnswer, now: now),
+            "warming / never-settled must miss so the CLI live-acquires"
+        )
+        XCTAssertFalse(
+            CapacitySocketFastPath.servesAsFreshSnapshot(.disabledAnswer, now: now),
+            "disabled is not a fresh reading; OFF is handled before the socket"
+        )
+
+        let settledAt = now.addingTimeInterval(-60)
+        let fresh = CapacitySocketSnapshot(
+            disabled: false, settledAt: settledAt, windows: [knownWindow(source: "codex", used: 10, at: settledAt)]
+        )
+        XCTAssertTrue(CapacitySocketFastPath.servesAsFreshSnapshot(fresh, now: now))
+
+        let justInside = CapacitySocketSnapshot(
+            disabled: false,
+            settledAt: now.addingTimeInterval(-(CapacityPaintGate.gateInterval - 1)),
+            windows: []
+        )
+        XCTAssertTrue(CapacitySocketFastPath.servesAsFreshSnapshot(justInside, now: now))
+
+        let atGate = CapacitySocketSnapshot(
+            disabled: false,
+            settledAt: now.addingTimeInterval(-CapacityPaintGate.gateInterval),
+            windows: []
+        )
+        XCTAssertFalse(
+            CapacitySocketFastPath.servesAsFreshSnapshot(atGate, now: now),
+            "age == paint gate must live-acquire, not serve expired unknowns"
+        )
+        let pastGate = CapacitySocketSnapshot(
+            disabled: false,
+            settledAt: now.addingTimeInterval(-(CapacityPaintGate.gateInterval + 1)),
+            windows: []
+        )
+        XCTAssertFalse(CapacitySocketFastPath.servesAsFreshSnapshot(pastGate, now: now))
+    }
+
+    func testServesAsFreshSnapshotUsesPaintGateClockOnly() {
+        XCTAssertEqual(CapacityPaintGate.gateInterval, 30 * 60)
+        let now = Date()
+        let settledAt = now.addingTimeInterval(-(CapacityPaintGate.gateInterval - 1))
+        let answer = CapacitySocketSnapshot(disabled: false, settledAt: settledAt, windows: [])
+        XCTAssertTrue(CapacitySocketFastPath.servesAsFreshSnapshot(answer, now: now))
+        XCTAssertFalse(
+            CapacitySocketFastPath.servesAsFreshSnapshot(
+                answer, now: now.addingTimeInterval(2)
+            )
+        )
+    }
+
     func testFastPathDisabledAnswerYieldsDisabledRows() {
         let now = Date()
         let bench = CapacitySocketFastPath.snapshot(from: .disabledAnswer, now: now)

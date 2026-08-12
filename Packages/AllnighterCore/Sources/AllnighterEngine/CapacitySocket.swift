@@ -18,8 +18,9 @@ import AllnighterCore
 // - App quit unlinks the socket; a hard kill leaves a stale file that the
 //   next launch reconciles by unlink-before-bind (we never claim sync crash
 //   cleanup).
-// - CLI: try the socket once; on miss / hang / bad version → one cold
-//   `CapacityFetch.liveSnapshot`. Never a retry loop against the socket.
+// - CLI: try the socket once; serve only a settled snapshot younger than
+//   the 30m paint gate. Warming, stale, miss, hang, or bad version → one
+//   cold `CapacityFetch.liveSnapshot`. Never a retry loop against the socket.
 
 // MARK: - Wire payload
 
@@ -63,9 +64,8 @@ public struct CapacitySocketSnapshot: Sendable, Equatable, Codable {
         disabled: true, settledAt: nil, windows: []
     )
 
-    /// App ON but no settle yet — the honest launch state. The fast path
-    /// renders this as `neverSampled` placeholders instead of cold-probing
-    /// into the resident's in-flight launch acquire.
+    /// App ON but no settle yet — the honest launch state. The CLI instant
+    /// path treats this as a miss and live-acquires (`servesAsFreshSnapshot`).
     public static let warmingAnswer = CapacitySocketSnapshot(
         disabled: false, settledAt: nil, windows: []
     )
@@ -90,11 +90,29 @@ public struct CapacitySocketSnapshot: Sendable, Equatable, Codable {
 /// from data already in memory.
 public enum CapacitySocketFastPath {
 
+    /// Instant path is only a *settled* snapshot younger than the paint gate.
+    ///
+    /// Warming (`settledAt == nil`) and settled-but-stale both miss — the
+    /// caller falls through to one live acquire. Disabled is also a miss;
+    /// feature OFF is handled before the socket is read. One clock:
+    /// `CapacityPaintGate.gateInterval` (30m).
+    public static func servesAsFreshSnapshot(
+        _ answer: CapacitySocketSnapshot,
+        now: Date
+    ) -> Bool {
+        guard !answer.disabled, let settledAt = answer.settledAt else { return false }
+        return now.timeIntervalSince(settledAt) < CapacityPaintGate.gateInterval
+    }
+
     /// - disabled answer → honest disabled rows (never a stale snapshot).
     /// - warming (no settle yet) → `neverSampled` launch placeholders.
     /// - settled → windows paint-gated at the caller's clock (age always
     ///   honest; a snapshot past the 30m gate expires client-side), then
     ///   completed against the CLI's own compiled bench roster.
+    ///
+    /// The CLI instant path calls this only after `servesAsFreshSnapshot`.
+    /// Warming/stale mapping stays so other readers can still name the
+    /// honest empty/expired state without inventing numbers.
     public static func snapshot(
         from answer: CapacitySocketSnapshot,
         now: Date

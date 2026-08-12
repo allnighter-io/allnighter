@@ -1,5 +1,29 @@
 # Debug Log
 
+## 2026-08-12 — `alln capacity` empty table (warming socket)
+
+Tier: T2 SSOT
+
+Symptom / repro: Dock app open; bare `alln capacity` prints warming placeholders
+for every seat. `--source kimi` live-acquires real numbers.
+
+Bug fingerprint:
+`alln capacity + capacity.sock warmingAnswer + CLI accepts any socket read`
+
+Truth owner: `CapacitySocketFastPath.servesAsFreshSnapshot` /
+`CapacityPaintGate.gateInterval`.
+
+Lie-prone layer: Successful AF_UNIX read treated as a capacity reading.
+
+RCA: Instant path since CWB-S02 maps warming (`settledAt == nil`) to
+`neverSampled` and returns. Exposed because ASR-S04a stopped arming the
+resident scheduler, so this app session never settles. Today's support-root /
+ProbeRecordMerge / classifier work is not on this path.
+
+Packet: `docs/operations/debugger/2026-08-12-capacity-warming-empty-table-PACKET.md`.
+Proof: `CapacitySocketTests/testServesAsFreshSnapshotRejectsWarmingDisabledAndStale`.
+
+---
 
 ## 2026-08-10 — Cursor missing from home strip after Find my team
 

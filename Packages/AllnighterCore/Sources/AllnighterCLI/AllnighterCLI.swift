@@ -447,11 +447,14 @@ struct AllnighterCLI {
         let featureEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
 
         // CWB-S02 fast path: one read of the resident snapshot over
-        // capacity.sock. Any failure (app quit, stale socket, hang, foreign
-        // schema version) → nil → one cold live acquire — never a retry.
-        let socketAnswer: CapacitySocketSnapshot? = (featureEnabled && refreshSource == nil && !shadowPaneReader)
-            ? CapacitySocketClient.read()
-            : nil
+        // capacity.sock. Instant only when settled and younger than the
+        // 30m paint gate. Warming, never-settled, stale, miss, hang, or
+        // foreign schema → nil → one cold live acquire — never a retry.
+        let socketAnswer: CapacitySocketSnapshot? = {
+            guard featureEnabled, refreshSource == nil, !shadowPaneReader else { return nil }
+            guard let answer = CapacitySocketClient.read() else { return nil }
+            return CapacitySocketFastPath.servesAsFreshSnapshot(answer, now: now) ? answer : nil
+        }()
 
         if featureEnabled {
             let target = refreshSource.map { " \($0)" } ?? ""
