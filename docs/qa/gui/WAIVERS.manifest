@@ -72,3 +72,4 @@ b1772529308f5bd3cf5d076f9b3fdb6ea913d57d  Apps/AllnighterMac/Sources/RelayThread
 9bbf7b03218854e2ca2323cd124afb9c3baf370e  Apps/AllnighterMac/Sources/ThreadRailComponents.swift  # LVC-S09 mechanical Relay* to Loop* symbol rename, zero visual change (2026-07-31)
 14309071d2d3449e57d505eff5afff3152983829  Apps/AllnighterMac/Sources/ThreadView.swift  # LVC-S09 mechanical Relay* to Loop* symbol rename, zero visual change (2026-07-31)
 cc820d56ce0aff0429c5c186994872122303603d  Apps/AllnighterMac/Sources/HomeView.swift  # CWB-S01a: loadLive call wrapped in Task (async resident), zero visual change (2026-08-03)
+d0f62a72262fbe0ebd84c3a3aead8f26816d8d9f  Apps/AllnighterMac/Sources/AllnighterMacApp.swift  # capacity.sock lifecycle only: AppDelegate binds the read-only socket after a settle instead of at launch (warming/disabled stay unbound). No SwiftUI view, layout, or rendering code touched — the hunk is socket bind/unlink plus comments. (2026-08-12)

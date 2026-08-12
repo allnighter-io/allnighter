@@ -70,6 +70,17 @@ public struct CapacitySocketSnapshot: Sendable, Equatable, Codable {
         disabled: false, settledAt: nil, windows: []
     )
 
+    /// Whether the Dock app may bind `capacity.sock` for this answer.
+    ///
+    /// Only a settled (non-disabled) snapshot is worth advertising. Warming
+    /// and disabled stay unbound so the CLI sees a miss and cold-acquires.
+    /// A socket that answers warming indefinitely is a trap: it looks alive
+    /// and serves nothing (2026-08-12). The Dock app has no settle path at
+    /// launch (ASR-S04a); `alln serve` refreshes independently.
+    public var shouldAdvertise: Bool {
+        !disabled && settledAt != nil
+    }
+
     public func encoded() -> Data {
         (try? CoreJSON.encode(self)) ?? Data()
     }
@@ -216,6 +227,24 @@ public final class CapacitySocketServer: @unchecked Sendable {
         lock.lock()
         payload = data
         lock.unlock()
+    }
+
+    /// Bind only when `snapshot.shouldAdvertise`; otherwise unlink.
+    ///
+    /// Update-before-bind so a client that races the listen never reads the
+    /// constructor's warming default. `start()` is idempotent here: an
+    /// already-running listener just receives the new payload.
+    public func applyAdvertisePolicy(_ snapshot: CapacitySocketSnapshot) throws {
+        if snapshot.shouldAdvertise {
+            update(snapshot)
+            do {
+                try start()
+            } catch StartError.alreadyRunning {
+                return
+            }
+        } else {
+            stop()
+        }
     }
 
     /// Bind + listen. Any pre-existing file at the path is unlinked first —

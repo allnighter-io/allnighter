@@ -13,10 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
     }
 
-    /// CWB-S02: read-only `capacity.sock` server. Bound at launch while the
-    /// app runs (ON or OFF — OFF answers `disabled`); unlinked on quit.
-    /// Periodic capacity refresh and wake ownership live in `alln serve`
-    /// (`CapacityRefreshScheduler`); the Dock app does not host them (ASR-S04a).
+    /// CWB-S02: read-only `capacity.sock` server. Bound only when the
+    /// resident has a settled snapshot to serve; warming/disabled stay
+    /// unbound so the CLI cold-acquires. Unlinked on quit. Periodic
+    /// refresh lives in `alln serve` (`CapacityRefreshScheduler`); the
+    /// Dock app does not host it and must not re-arm `setEnabled` (ASR-S04a).
     private var capacitySocketServer: CapacitySocketServer?
 
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
@@ -107,26 +108,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // ASR-S04a / §2.4: the Dock app does not own periodic capacity/probe
         // scheduling or a wake observer. Serve (`CapacityRefreshScheduler` /
         // `ProbeRecordRefreshScheduler`) owns that. The app keeps: durable
-        // history paint, explicit user refresh, and a read-only status socket.
-        let capacityEnabled = CapacityFeatureSettingsPersistence().loadEnabled()
-        // CWB-S02: bind the read-only capacity.sock fast path. Serving is a
-        // pure read of the resident's last published answer — the socket never
-        // starts an acquire. OFF answers `disabled` (never a stale snapshot);
-        // quit unlinks; a stale file after a hard kill is reconciled by
-        // unlink-before-bind here. A bind failure degrades to the honest cold
-        // CLI path, never a crash.
+        // history paint, explicit user refresh, and a read-only status socket
+        // that binds only after a settle (GUI Refresh / postRunSettled).
+        // Do not call setEnabled here — that re-arms vendor CLI spawns under
+        // the app's TCC identity.
         let socketServer = CapacitySocketServer()
-        do {
-            try socketServer.start()
-            socketServer.update(capacityEnabled ? .warmingAnswer : .disabledAnswer)
-            capacitySocketServer = socketServer
-            Task {
-                await CapacityResidentService.shared.setSocketPublisher { answer in
-                    socketServer.update(answer)
+        capacitySocketServer = socketServer
+        Task {
+            await CapacityResidentService.shared.setSocketPublisher { answer in
+                do {
+                    try socketServer.applyAdvertisePolicy(answer)
+                } catch {
+                    NSLog("capacity.sock bind failed: \(error.localizedDescription) — CLI cold path unaffected")
                 }
             }
-        } catch {
-            NSLog("capacity.sock bind failed: \(error.localizedDescription) — CLI cold path unaffected")
         }
         #if DEBUG
         // Grant fixture: request Screen Recording at launch, before SwiftUI paints.

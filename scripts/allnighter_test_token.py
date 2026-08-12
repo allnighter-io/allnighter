@@ -50,10 +50,10 @@ def _unsign(secret: bytes, token: str) -> bytes | None:
     return payload
 
 
-def mint(repo_root: str) -> str:
+def mint(repo_root: str, ttl_seconds: int = TTL_SECONDS) -> str:
     secret = _load_secret(repo_root)
     nonce = secrets.token_hex(16)
-    expires = int(time.time()) + TTL_SECONDS
+    expires = int(time.time()) + ttl_seconds
     payload = f"{expires}:{nonce}".encode("ascii")
     token = _sign(secret, payload)
     os.makedirs(_token_dir(repo_root), exist_ok=True)
@@ -63,25 +63,41 @@ def mint(repo_root: str) -> str:
     return token
 
 
-def validate_and_consume(repo_root: str, token: str) -> bool:
+def _expired_reason(expires: int, now: float) -> str:
+    overdue = now - expires
+    ago = f"{overdue:.1f}s" if overdue < 1 else f"{int(overdue)}s"
+    return f"token: expired {ago} ago (TTL {TTL_SECONDS}s)"
+
+
+def diagnose_and_maybe_consume(
+    repo_root: str, token: str, *, consume: bool
+) -> tuple[bool, str | None]:
+    """Return (ok, reason). reason is set only on denial."""
     if not token:
-        return False
+        return False, "token: no token in the environment"
     secret = _load_secret(repo_root)
     payload = _unsign(secret, token)
     if payload is None:
-        return False
+        return False, "token: present but signature invalid"
     try:
-        expires_text, nonce = payload.decode("ascii").split(":", 1)
+        expires_text, _nonce = payload.decode("ascii").split(":", 1)
         expires = int(expires_text)
     except (ValueError, UnicodeError):
-        return False
-    if time.time() > expires:
-        return False
+        return False, "token: present but signature invalid"
+    now = time.time()
+    if now > expires:
+        return False, _expired_reason(expires, now)
     marker = os.path.join(_token_dir(repo_root), hashlib.sha256(token.encode()).hexdigest())
     if not os.path.exists(marker):
-        return False
-    os.remove(marker)
-    return True
+        return False, "token: valid but already consumed (marker gone)"
+    if consume:
+        os.remove(marker)
+    return True, None
+
+
+def validate_and_consume(repo_root: str, token: str) -> bool:
+    ok, _reason = diagnose_and_maybe_consume(repo_root, token, consume=True)
+    return ok
 
 
 def burn(repo_root: str, token: str) -> None:
@@ -99,11 +115,16 @@ def main() -> int:
     command = sys.argv[1]
     repo_root = os.path.abspath(sys.argv[2])
     if command == "mint":
-        print(mint(repo_root))
+        ttl = int(sys.argv[3]) if len(sys.argv) > 3 else TTL_SECONDS
+        print(mint(repo_root, ttl_seconds=ttl))
         return 0
     if command == "validate":
         token = sys.argv[3] if len(sys.argv) > 3 else os.environ.get(ENV_VAR, "")
-        return 0 if validate_and_consume(repo_root, token) else 1
+        ok, reason = diagnose_and_maybe_consume(repo_root, token, consume=True)
+        if ok:
+            return 0
+        print(reason or "token: rejected", file=sys.stderr)
+        return 1
     if command == "burn":
         token = sys.argv[3] if len(sys.argv) > 3 else os.environ.get(ENV_VAR, "")
         burn(repo_root, token)

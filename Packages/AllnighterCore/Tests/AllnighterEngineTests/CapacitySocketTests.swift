@@ -239,6 +239,44 @@ final class CapacitySocketTests: XCTestCase {
         XCTAssertTrue(server.isRunning)
     }
 
+    /// Dock producer: bind only a settled snapshot. Warming (and disabled)
+    /// must leave the path unbound so the CLI cold-acquires instead of
+    /// reading a socket that will never settle.
+    func testAdvertisePolicyBindsOnlyWhenSettled() throws {
+        let url = tempSocketURL()
+        let server = CapacitySocketServer(path: url)
+        servers.append(server)
+
+        XCTAssertFalse(CapacitySocketSnapshot.warmingAnswer.shouldAdvertise)
+        XCTAssertFalse(CapacitySocketSnapshot.disabledAnswer.shouldAdvertise)
+
+        try server.applyAdvertisePolicy(.warmingAnswer)
+        XCTAssertFalse(server.isRunning, "warming must not bind")
+        XCTAssertNil(CapacitySocketClient.read(path: url, timeout: 0.3))
+
+        try server.applyAdvertisePolicy(.disabledAnswer)
+        XCTAssertFalse(server.isRunning, "disabled must not bind")
+        XCTAssertNil(CapacitySocketClient.read(path: url, timeout: 0.3))
+
+        let now = Date()
+        let settled = CapacitySocketSnapshot(
+            disabled: false,
+            settledAt: now,
+            windows: [knownWindow(source: "codex", used: 11, at: now)]
+        )
+        XCTAssertTrue(settled.shouldAdvertise)
+        try server.applyAdvertisePolicy(settled)
+        XCTAssertTrue(server.isRunning)
+        XCTAssertEqual(
+            CapacitySocketClient.read(path: url, timeout: 1.0)?.windows.first?.usedPercent,
+            11
+        )
+
+        try server.applyAdvertisePolicy(.warmingAnswer)
+        XCTAssertFalse(server.isRunning, "returning to warming must unlink")
+        XCTAssertNil(CapacitySocketClient.read(path: url, timeout: 0.3))
+    }
+
     // MARK: - Ship gate: spy 100× p95 <250 ms, zero PTYs
 
     func testHundredReadsZeroAcquiresP95Budget() async throws {

@@ -474,71 +474,37 @@ public enum CapacityPaneReader {
         return compareToParser(parsed: parsed, reading: reading, source: source, capture: capture, now: now)
     }
 
-    // MARK: - Shadow log
+    // MARK: - Shadow diagnostic (stdout only)
 
-    /// Where a caller writes a shadow disagreement, injectable so production
-    /// code and tests never share a sink.
+    /// Where a caller writes a shadow disagreement, injectable so tests can
+    /// record without printing. Production prints to stdout on the explicit
+    /// `--shadow-pane-reader` invocation — never a persisted ledger.
     public protocol ShadowDisagreementSink: Sendable {
         func append(_ disagreement: Disagreement)
     }
 
-    /// One append-only JSONL file, one line per disagreement.
-    public struct FileShadowDisagreementSink: ShadowDisagreementSink {
-        public let url: URL
-
-        public init(url: URL = CapacityPaneReader.defaultShadowLogURL) {
-            self.url = url
-        }
+    /// Prints one disagreement to stdout. Used only when
+    /// `alln capacity --shadow-pane-reader` actually fires.
+    public struct StdoutShadowDisagreementSink: ShadowDisagreementSink {
+        public init() {}
 
         public func append(_ disagreement: Disagreement) {
-            // Backstop, deliberately redundant with sink injection — the same
-            // shape as `CapacityAccuracyLedger.FileSink`, which exists
-            // because a forgotten injection once wrote 45 fake rows into the
-            // founder's real evidence file. Do not delete this as redundant.
-            guard !CapacityPaneReader.isRunningUnderTestRunner else { return }
-            CapacityPaneReader.write(disagreement, to: url)
+            CapacityPaneReader.writeDisagreementToStdout(disagreement)
         }
     }
 
-    public static var defaultShadowLogURL: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent(
-                "Library/Application Support/Allnighter/Capacity/shadow/disagreements.jsonl",
-                isDirectory: false
-            )
-    }
-
-    static var isRunningUnderTestRunner: Bool {
-        let env = ProcessInfo.processInfo.environment
-        if env["XCTestConfigurationFilePath"] != nil { return true }
-        if env["XCTestSessionIdentifier"] != nil { return true }
-        if env["SWIFT_TESTING_ENABLED"] != nil { return true }
-        if Bundle.main.bundlePath.contains(".xctest") { return true }
-        if ProcessInfo.processInfo.arguments.first?.contains(".xctest") == true { return true }
-        return false
-    }
-
-    /// Append one JSONL line. Best-effort: a write failure never propagates —
-    /// shadow logging must not be able to break capacity.
-    static func write(_ disagreement: Disagreement, to url: URL) {
-        do {
-            try FileManager.default.createDirectory(
-                at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            var line = try encoder.encode(disagreement)
-            line.append(0x0A)
-            if FileManager.default.fileExists(atPath: url.path) {
-                let handle = try FileHandle(forWritingTo: url)
-                defer { try? handle.close() }
-                try handle.seekToEnd()
-                try handle.write(contentsOf: line)
-            } else {
-                try line.write(to: url)
-            }
-        } catch {
-            // Best-effort log — never blocks or fails the capacity strip.
-        }
+    /// Best-effort stdout line. A write failure never propagates — the
+    /// diagnostic must not be able to break capacity.
+    static func writeDisagreementToStdout(
+        _ disagreement: Disagreement,
+        handle: FileHandle = .standardOutput
+    ) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        guard let json = try? encoder.encode(disagreement),
+              let jsonText = String(data: json, encoding: .utf8) else { return }
+        handle.write(Data("capacity: shadow-pane-reader disagreement \(jsonText)\n".utf8))
     }
 
     static func parseISO8601(_ text: String) -> Date? {

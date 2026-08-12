@@ -370,10 +370,10 @@ struct AllnighterCLI {
     /// surface). Forces a live probe and runs the model reader alongside the
     /// deterministic parser for whichever seats reach that branch this call —
     /// today that is only `cursor_agent` / `kimi`, the two without a native
-    /// channel — logging any disagreement to
-    /// `~/Library/Application Support/Allnighter/Capacity/shadow/disagreements.jsonl`.
+    /// channel — printing any disagreement to stdout on that invocation.
     /// Never published as a capacity value (Handover_Capacity_2026-08-08.md
-    /// §5); never reachable from `alln serve`'s background refresh.
+    /// §5); never reachable from `alln serve`'s background refresh; never
+    /// written to a persisted ledger.
     ///
     /// Unknown / disabled / expired are loud, never blocks (exit 0). Non-TTY
     /// path is plain ASCII, zero ANSI.
@@ -392,7 +392,7 @@ struct AllnighterCLI {
         // the model reader alongside the deterministic parser for whichever
         // sources reach that branch this invocation (in practice cursor_agent
         // / kimi — the two without a native channel, Capacity_Native_Channels
-        // §v5) and logs disagreements. Never wired into `alln serve`'s
+        // §v5) and prints disagreements to stdout. Never wired into `alln serve`'s
         // scheduler or the Mac resident's periodic refresh — see
         // `CapacityProbe.maybeRunShadow`. Forces a live probe (below), since
         // there is no capture text to shadow-compare against a cached socket

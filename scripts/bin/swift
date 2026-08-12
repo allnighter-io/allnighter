@@ -29,7 +29,11 @@ find_real_binary() {
 }
 
 deny_test() {
+  local reason="${1:-}"
   echo "alln-test-guard: raw 'swift test' is blocked in this repository." >&2
+  if [[ -n "$reason" ]]; then
+    echo "alln-test-guard: $reason" >&2
+  fi
   echo "alln-test-guard: use scripts/swift-test.sh instead (e.g. scripts/swift-test.sh --filter YourTests)." >&2
   echo "alln-test-guard: closeout only: bash scripts/check.sh" >&2
   exit 1
@@ -37,10 +41,11 @@ deny_test() {
 
 if [[ "${1:-}" == "test" ]]; then
   if [[ ! -f "$TOKEN_SCRIPT" ]]; then
-    deny_test
+    deny_test "token: validator missing ($TOKEN_SCRIPT)"
   fi
-  if ! python3 "$TOKEN_SCRIPT" validate "$ROOT" "${ALLNIGHTER_TEST_TOKEN:-}"; then
-    deny_test
+  validate_err=""
+  if ! validate_err="$(python3 "$TOKEN_SCRIPT" validate "$ROOT" "${ALLNIGHTER_TEST_TOKEN:-}" 2>&1)"; then
+    deny_test "${validate_err:-token: validator failed}"
   fi
 fi
 

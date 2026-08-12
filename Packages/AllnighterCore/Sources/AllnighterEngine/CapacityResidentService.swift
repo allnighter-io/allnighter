@@ -279,7 +279,8 @@ public actor CapacityResidentService {
     private var socketPublisher: @Sendable (CapacitySocketSnapshot) -> Void = { _ in }
 
     /// Wire the S02 socket publisher. Publishes the current answer immediately
-    /// so a server bound before the first settle never serves a void.
+    /// so the Dock app can bind only once a settled snapshot exists (warming
+    /// and disabled stay unbound).
     public func setSocketPublisher(
         _ publisher: @escaping @Sendable (CapacitySocketSnapshot) -> Void
     ) {

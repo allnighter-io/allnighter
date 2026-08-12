@@ -710,7 +710,7 @@ public enum CapacityProbe {
     /// Shadow-mode gate for the model reader (Handover_Capacity_2026-08-08.md
     /// §5 — approved; standing bet recorded there: *"It will show it is not
     /// needed. Insurance will break first."*). Runs the reader ALONGSIDE a
-    /// deterministic parse that already succeeded and logs a disagreement;
+    /// deterministic parse that already succeeded and prints a disagreement;
     /// `parsed` is a `let` at the call site and this function returns `Void`,
     /// so there is no path here that can change what ships.
     ///
@@ -729,7 +729,7 @@ public enum CapacityProbe {
     /// cannot introduce a capacity failure: `runShadowComparison` already
     /// returns nil on every one of those paths (same fail-closed contract as
     /// `CapacityPaneReader.read`), and this function has nothing left to do
-    /// but skip the log write.
+    /// but skip the stdout print.
     static func maybeRunShadow(
         shadowPaneReader: Bool,
         source: String,
@@ -738,7 +738,7 @@ public enum CapacityProbe {
         parsed: [CapacityWindow],
         now: Date,
         timeout: TimeInterval = 90,
-        sink: any CapacityPaneReader.ShadowDisagreementSink = CapacityPaneReader.FileShadowDisagreementSink()
+        sink: any CapacityPaneReader.ShadowDisagreementSink = CapacityPaneReader.StdoutShadowDisagreementSink()
     ) {
         guard shadowPaneReader else { return }
         guard let disagreement = CapacityPaneReader.runShadowComparison(

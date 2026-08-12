@@ -336,12 +336,17 @@ final class CapacityPaneReaderTests: XCTestCase {
         XCTAssertEqual(disagreement.kind, .modelSilent)
     }
 
-    // MARK: - Shadow log
+    // MARK: - Shadow diagnostic (stdout)
 
-    func testWriteAppendsJSONLLinesInOrder() throws {
+    func testStdoutWritesDecodableJSONLinesInOrder() throws {
         let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("alln-shadow-log-\(UUID().uuidString)", isDirectory: true)
-        let url = dir.appendingPathComponent("disagreements.jsonl")
+            .appendingPathComponent("alln-shadow-stdout-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appendingPathComponent("stdout.txt")
+        FileManager.default.createFile(atPath: url.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: url)
+        defer { try? handle.close() }
+
         let first = CapacityPaneReader.Disagreement(
             source: "cursor_agent", observedAt: now, kind: .valueMismatch,
             parserRemainingPercent: 52, parserResetAt: nil, modelRemainingPercent: 9,
@@ -352,38 +357,60 @@ final class CapacityPaneReaderTests: XCTestCase {
             parserRemainingPercent: 30, parserResetAt: nil, modelRemainingPercent: nil,
             modelConfident: nil, modelReason: nil, captureExcerpt: "two"
         )
-        CapacityPaneReader.write(first, to: url)
-        CapacityPaneReader.write(second, to: url)
+        CapacityPaneReader.writeDisagreementToStdout(first, handle: handle)
+        CapacityPaneReader.writeDisagreementToStdout(second, handle: handle)
+        try handle.synchronize()
 
         let contents = try String(contentsOf: url, encoding: .utf8)
         let lines = contents.split(separator: "\n", omittingEmptySubsequences: true)
         XCTAssertEqual(lines.count, 2)
 
+        let prefix = "capacity: shadow-pane-reader disagreement "
+        XCTAssertTrue(lines[0].hasPrefix(prefix))
+        XCTAssertTrue(lines[1].hasPrefix(prefix))
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let decodedFirst = try decoder.decode(CapacityPaneReader.Disagreement.self, from: Data(lines[0].utf8))
-        let decodedSecond = try decoder.decode(CapacityPaneReader.Disagreement.self, from: Data(lines[1].utf8))
+        let decodedFirst = try decoder.decode(
+            CapacityPaneReader.Disagreement.self,
+            from: Data(lines[0].dropFirst(prefix.count).utf8)
+        )
+        let decodedSecond = try decoder.decode(
+            CapacityPaneReader.Disagreement.self,
+            from: Data(lines[1].dropFirst(prefix.count).utf8)
+        )
         XCTAssertEqual(decodedFirst, first)
         XCTAssertEqual(decodedSecond, second)
     }
 
-    /// The production sink is a no-op under the test runner — same backstop
-    /// as `CapacityAccuracyLedger.FileSink`, so a forgotten injection cannot
-    /// write fake rows into the founder's real evidence file.
-    func testFileSinkNoOpsUnderTestRunner() {
+    /// Production diagnostic must not create a persisted ledger. The unread
+    /// Application Support JSONL sink is gone; stdout is the only output.
+    func testStdoutSinkDoesNotWritePersistedLedger() throws {
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("alln-shadow-sink-\(UUID().uuidString)", isDirectory: true)
-        let url = dir.appendingPathComponent("disagreements.jsonl")
-        let sink = CapacityPaneReader.FileShadowDisagreementSink(url: url)
-        sink.append(CapacityPaneReader.Disagreement(
-            source: "cursor_agent", observedAt: now, kind: .modelSilent,
-            parserRemainingPercent: 52, parserResetAt: nil, modelRemainingPercent: nil,
-            modelConfident: nil, modelReason: nil, captureExcerpt: "x"
-        ))
-        XCTAssertFalse(
-            FileManager.default.fileExists(atPath: url.path),
-            "FileShadowDisagreementSink must no-op under the test runner"
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let ledger = dir.appendingPathComponent("disagreements.jsonl")
+        let stdoutURL = dir.appendingPathComponent("stdout.txt")
+        FileManager.default.createFile(atPath: stdoutURL.path, contents: nil)
+        let handle = try FileHandle(forWritingTo: stdoutURL)
+        defer { try? handle.close() }
+
+        CapacityPaneReader.writeDisagreementToStdout(
+            CapacityPaneReader.Disagreement(
+                source: "cursor_agent", observedAt: now, kind: .modelSilent,
+                parserRemainingPercent: 52, parserResetAt: nil, modelRemainingPercent: nil,
+                modelConfident: nil, modelReason: nil, captureExcerpt: "x"
+            ),
+            handle: handle
         )
+
+        XCTAssertFalse(
+            FileManager.default.fileExists(atPath: ledger.path),
+            "shadow diagnostic must not write a disagreements.jsonl ledger"
+        )
+        let text = try String(contentsOf: stdoutURL, encoding: .utf8)
+        XCTAssertTrue(text.contains("shadow-pane-reader disagreement"))
+        XCTAssertTrue(text.contains("cursor_agent"))
     }
 
     #endif
