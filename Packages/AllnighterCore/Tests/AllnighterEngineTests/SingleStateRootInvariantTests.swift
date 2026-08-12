@@ -2,15 +2,20 @@ import XCTest
 import AllnighterCore
 @testable import AllnighterEngine
 
-/// CR-S05 proof wall: there is ONE durable state root, for every host.
+/// CR-S05 proof wall: there is ONE durable state root for production hosts.
 ///
 /// A restricted host (Codex, whose sandbox denies writes outside its workspace)
 /// used to be silently redirected to a per-thread temp tree. That handed it a
 /// parallel, empty product — no projects, no teams, no runs — which is how an
 /// agent concludes the real repository is unreachable and starts building byte
-/// transfer to explain it. The redirect is deleted; a host that cannot write the
-/// canonical root must fail honestly instead of being given another world.
-/// See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
+/// transfer to explain it. The Codex redirect is deleted; a host that cannot
+/// write the canonical root must fail honestly instead of being given another
+/// world. See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
+///
+/// Separately, XCTest hosts redirect to a per-process temp via
+/// `AllnighterSupportRoot` so tests cannot corrupt the developer's real
+/// Application Support tree. That redirect is test-only and must not be
+/// confused with the deleted Codex parallel-root.
 final class SingleStateRootInvariantTests: XCTestCase {
     private var saved: [String: String?] = [:]
 
@@ -43,12 +48,22 @@ final class SingleStateRootInvariantTests: XCTestCase {
                        "a restricted host must resolve the SAME durable state root")
         XCTAssertFalse(restricted.path.contains("Allnighter-Codex"),
                        "no per-thread temp state tree may be selected: \(restricted.path)")
-        XCTAssertTrue(restricted.path.hasSuffix("/Allnighter"),
-                      "the canonical root is Application Support/Allnighter: \(restricted.path)")
+        // Under XCTest the shared root is the process test redirect (not the
+        // real Application Support tree). That is the test/real-state seam,
+        // not a Codex fork — both "normal" and "restricted" still agree.
+        XCTAssertTrue(
+            AllnighterSupportRoot.isTestSupportRedirectActive,
+            "XCTest must activate the support-root redirect"
+        )
+        XCTAssertEqual(
+            restricted.standardizedFileURL,
+            AllnighterSupportRoot.activeTestSupportRoot?.standardizedFileURL,
+            "Codex env must not escape the test redirect: \(restricted.path)"
+        )
     }
 
-    /// Core mirrors Engine's resolution (Engine cannot depend on Core). They must
-    /// never disagree, or catalog state and run state split under the same host.
+    /// Core mirrors Engine's resolution. They must never disagree, or catalog
+    /// state and run state split under the same host.
     func testCoreAndEngineResolveTheSameRootUnderEveryHost() {
         setEnv("ALLNIGHTER_SUPPORT_DIR", nil)
         XCTAssertEqual(AllnighterSupportRoot.support.standardizedFileURL,

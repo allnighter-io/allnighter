@@ -16,14 +16,17 @@ import XCTest
 /// returned 0 failures, a hang, and 6 failures depending only on leftover state.
 ///
 /// `AllnighterPaths.support` honours `ALLNIGHTER_SUPPORT_DIR`, so redirecting it
-/// per-test is enough. Several classes already did this inline
-/// (`ExecutionLaneTests`, `RunServiceTests`, …); this is the same pattern, shared.
+/// per-test is enough for tests that need an isolated empty tree. Several classes
+/// already did this inline (`ExecutionLaneTests`, `RunServiceTests`, …); this is
+/// the same pattern, shared.
 ///
-/// **Deliberately NOT solved in `AllnighterPaths`.** Making the production path
-/// fall back to a temp dir when it detects a test would re-introduce exactly what
-/// CODE_RED deleted: a silent parallel empty product instead of an honest
-/// failure. See the comment on `AllnighterPaths.support`. Isolation belongs in
-/// the tests, not in the shipping path.
+/// **Process-wide XCTest redirect.** `AllnighterSupportRoot` also redirects the
+/// default support root under any XCTest host so a test that forgets this base
+/// class still cannot write
+/// `~/Library/Application Support/Allnighter/`. That process redirect is
+/// test-only (see `isRunningUnderTestHost`); it is not the deleted CODE_RED
+/// Codex parallel-root. This base class remains useful for a fresh per-test
+/// directory rather than sharing the process-wide test root.
 ///
 /// **Subclass contract — read this before overriding.** XCTest does NOT chain
 /// these for you. A subclass that overrides `setUpWithError()`/

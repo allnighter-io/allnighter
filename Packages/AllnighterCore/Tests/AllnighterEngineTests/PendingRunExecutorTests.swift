@@ -19,17 +19,58 @@ final class PendingRunExecutorTests: XCTestCase {
         try? FileManager.default.removeItem(at: root)
     }
 
+    private func serveHealthTransport(statusCode: Int, body: String) -> ServeHealthClient.Transport {
+        { _, _ in (Data(body.utf8), statusCode) }
+    }
+
+    private func serveHealthJSON(daemonId: String, pid: Int32) -> String {
+        """
+        {"daemonId":"\(daemonId)","pid":\(pid)}
+        """
+    }
+
+    private func makeHealthyServeRequirement(coordinatorRoot: URL) throws -> ServeRequirement {
+        let coordDir = coordinatorRoot.appendingPathComponent("Coordinator", isDirectory: true)
+        let runsDir = coordinatorRoot.appendingPathComponent("Runs", isDirectory: true)
+        try FileManager.default.createDirectory(at: coordDir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: runsDir, withIntermediateDirectories: true)
+        let store = ServeDaemonStore(directory: coordDir)
+        let pid: Int32 = 4242
+        try store.save(.init(
+            daemonId: "daemon-pending-test",
+            pid: pid,
+            startedAt: fixedNow,
+            loopbackHost: "127.0.0.1",
+            loopbackPort: 18743,
+            binaryVersion: "0.1.0",
+            contractVersion: "1.0.0"
+        ))
+        let probe = ServeDaemonProbe(
+            store: store,
+            runsDirectory: runsDir,
+            processAlive: { $0 == pid }
+        )
+        let client = ServeHealthClient(transport: serveHealthTransport(
+            statusCode: 200,
+            body: serveHealthJSON(daemonId: "daemon-pending-test", pid: pid)
+        ))
+        return ServeRequirement(probe: probe, healthClient: client, binaryVersion: "0.1.0")
+    }
+
     private func makeExecutor(
         scripts: [String: MockCommandRunner.Script],
-        manifests: [DriverManifest]? = nil
-    ) -> PendingRunExecutor {
+        manifests: [DriverManifest]? = nil,
+        serveRequirement: ServeRequirement? = nil
+    ) throws -> PendingRunExecutor {
         let store = PendingStore(rootDirectory: root)
         let now = fixedNow
+        let requirement = try serveRequirement ?? makeHealthyServeRequirement(coordinatorRoot: root)
         let service = PendingService(
             store: store,
             models: models,
             idFactory: { "pending_test_\(UUID().uuidString.prefix(8))" },
-            now: { now }
+            now: { now },
+            serveRequirement: requirement
         )
         let registry = DriverRegistry(manifests ?? [
             TestSupport.headlessManifest(id: "claude_code", command: "claude"),
@@ -48,7 +89,7 @@ final class PendingRunExecutorTests: XCTestCase {
     }
 
     func testWorkerChatRunSuccessSettlesDone() async throws {
-        let executor = makeExecutor(scripts: ["claude": .init(stdout: "Review complete.", exitCode: 0)])
+        let executor = try makeExecutor(scripts: ["claude": .init(stdout: "Review complete.", exitCode: 0)])
         let item = try addWorkerChat(executor)
 
         let settled = try await executor.run(id: item.id)
@@ -66,7 +107,7 @@ final class PendingRunExecutorTests: XCTestCase {
     }
 
     func testOrdinaryFailureSettlesFailed() async throws {
-        let executor = makeExecutor(scripts: ["claude": .init(stderr: "boom", exitCode: 1)])
+        let executor = try makeExecutor(scripts: ["claude": .init(stderr: "boom", exitCode: 1)])
         let item = try addWorkerChat(executor)
 
         let settled = try await executor.run(id: item.id)
@@ -80,7 +121,7 @@ final class PendingRunExecutorTests: XCTestCase {
 
     func testAccountRateLimitReturnsPendingWithCooldownResume() async throws {
         let stderr = #"{"type":"error","error":{"type":"rate_limit_error","message":"You've been rate limited","retry_after":9900}}"#
-        let executor = makeExecutor(scripts: ["claude": .init(stderr: stderr, exitCode: 1)])
+        let executor = try makeExecutor(scripts: ["claude": .init(stderr: stderr, exitCode: 1)])
         let item = try addWorkerChat(executor)
 
         let settled = try await executor.run(id: item.id)
@@ -98,7 +139,7 @@ final class PendingRunExecutorTests: XCTestCase {
 
     func testProviderBusyReturnsPendingWithProviderBusyResume() async throws {
         let stderr = #"{"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}"#
-        let executor = makeExecutor(scripts: ["claude": .init(stderr: stderr, exitCode: 1)])
+        let executor = try makeExecutor(scripts: ["claude": .init(stderr: stderr, exitCode: 1)])
         let item = try addWorkerChat(executor)
 
         let settled = try await executor.run(id: item.id)
@@ -114,7 +155,7 @@ final class PendingRunExecutorTests: XCTestCase {
     }
 
     func testAuthRequiredBlocksWithoutWakeTicket() async throws {
-        let executor = makeExecutor(scripts: ["claude": .init(stderr: "Error: not signed in — please run /login", exitCode: 1)])
+        let executor = try makeExecutor(scripts: ["claude": .init(stderr: "Error: not signed in — please run /login", exitCode: 1)])
         let item = try addWorkerChat(executor)
 
         let settled = try await executor.run(id: item.id)
@@ -129,7 +170,7 @@ final class PendingRunExecutorTests: XCTestCase {
     }
 
     func testManualRequiredBlocksWithoutWakeTicket() async throws {
-        let executor = makeExecutor(scripts: ["claude": .init(stderr: "awaiting manual paste from user", exitCode: 1)])
+        let executor = try makeExecutor(scripts: ["claude": .init(stderr: "awaiting manual paste from user", exitCode: 1)])
         let item = try addWorkerChat(executor)
 
         let settled = try await executor.run(id: item.id)
@@ -141,7 +182,7 @@ final class PendingRunExecutorTests: XCTestCase {
     }
 
     func testTimedOutClearsLeaseAndDoesNotLeaveRunning() async throws {
-        let executor = makeExecutor(scripts: ["claude": .init(forcesTimeout: true)])
+        let executor = try makeExecutor(scripts: ["claude": .init(forcesTimeout: true)])
         let item = try addWorkerChat(executor)
 
         let settled = try await executor.run(id: item.id)
@@ -152,7 +193,7 @@ final class PendingRunExecutorTests: XCTestCase {
     }
 
     func testDraftItemIsSubmittedBeforeRun() async throws {
-        let executor = makeExecutor(scripts: ["claude": .init(stdout: "ok", exitCode: 0)])
+        let executor = try makeExecutor(scripts: ["claude": .init(stdout: "ok", exitCode: 0)])
         let draft = try executor.service.add(.init(prompt: "Draft run", workerToken: "model_opus"))
 
         let settled = try await executor.run(id: draft.id)
@@ -162,7 +203,7 @@ final class PendingRunExecutorTests: XCTestCase {
     }
 
     func testTeamRunWithoutPresetIsRejected() async throws {
-        let executor = makeExecutor(scripts: [:])
+        let executor = try makeExecutor(scripts: [:])
         let item = try executor.service.add(.init(prompt: "Team", kind: .teamRun, workerToken: "model_opus", submit: true))
 
         do {
@@ -178,7 +219,7 @@ final class PendingRunExecutorTests: XCTestCase {
     }
 
     func testUnsupportedFollowUpKindIsRejected() async throws {
-        let executor = makeExecutor(scripts: [:])
+        let executor = try makeExecutor(scripts: [:])
         let item = try executor.service.add(.init(prompt: "Follow", kind: .followUp, workerToken: "model_opus", submit: true))
 
         do {
@@ -191,7 +232,7 @@ final class PendingRunExecutorTests: XCTestCase {
 
     func testCodexJSONLUsageLimitInStdout() async throws {
         let stdout = #"{"type":"error","message":"usage_limit_reached","resetsAt":"2026-06-19T12:00:00Z"}"#
-        let executor = makeExecutor(scripts: ["codex": .init(stdout: stdout, exitCode: 1)])
+        let executor = try makeExecutor(scripts: ["codex": .init(stdout: stdout, exitCode: 1)])
         let item = try executor.service.add(.init(prompt: "Codex limit", workerToken: "model_codex", submit: true))
 
         let settled = try await executor.run(id: item.id)

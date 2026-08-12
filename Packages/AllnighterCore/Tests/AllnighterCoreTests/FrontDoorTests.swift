@@ -51,9 +51,13 @@ final class FrontDoorTests: XCTestCase {
 
     /// Replaces `testCodexSandboxUsesStableThreadTempSupportRoot`, which locked in
     /// the deleted per-thread temp redirect. Founder ruling 2026-07-24 (CR-S05):
-    /// there is ONE durable state root for every host. A restricted host that
-    /// cannot write it fails honestly; it is never handed a parallel, empty
+    /// there is ONE durable state root for production hosts. A restricted host
+    /// that cannot write it fails honestly; it is never handed a parallel, empty
     /// product. See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
+    ///
+    /// Under XCTest the shared root is the process test redirect (test/real-state
+    /// seam) — that is intentional and must not be confused with the deleted
+    /// Codex parallel-root.
     func testCodexSandboxResolvesTheOneCanonicalSupportRoot() {
         let previousSandbox = ProcessInfo.processInfo.environment["CODEX_SANDBOX"]
         let previousThreadID = ProcessInfo.processInfo.environment["CODEX_THREAD_ID"]
@@ -69,10 +73,24 @@ final class FrontDoorTests: XCTestCase {
         }
 
         let root = AllnighterSupportRoot.support
-        XCTAssertFalse(root.path.hasPrefix(FileManager.default.temporaryDirectory.path),
-                       "a sandboxed host must not get a temp state tree: \(root.path)")
         XCTAssertFalse(root.path.contains("Allnighter-Codex"), root.path)
-        XCTAssertTrue(root.path.hasSuffix("/Allnighter"), root.path)
+        XCTAssertTrue(
+            AllnighterSupportRoot.isTestSupportRedirectActive,
+            "XCTest must activate the support-root redirect"
+        )
+        let real = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)
+            .first!
+            .appendingPathComponent("Allnighter", isDirectory: true)
+            .standardizedFileURL
+        XCTAssertNotEqual(
+            root.standardizedFileURL, real,
+            "Codex env under XCTest must not resolve the real user support root"
+        )
+        XCTAssertEqual(
+            root.standardizedFileURL,
+            AllnighterSupportRoot.activeTestSupportRoot?.standardizedFileURL,
+            "Codex env must not escape the test redirect: \(root.path)"
+        )
     }
 
     func testEmptyBenchModelsJSONIncludesCounselNotBareArray() throws {

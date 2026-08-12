@@ -1,5 +1,6 @@
 import XCTest
 import AllnighterCore
+import AllnighterEngine
 @testable import AllnighterMac
 
 /// ONB-S02b: Application Support mirror of bundled recipe cards.
@@ -59,9 +60,29 @@ final class RecipeInstallMirrorTests: XCTestCase {
     }
 
     func testDirectoryURLIsUnderApplicationSupportRecipes() {
+        let supportRoot = AllnighterPaths.support.standardizedFileURL
+        let directory = RecipeInstallMirror.directoryURL.standardizedFileURL
+        let expected = AllnighterPaths.recipes.standardizedFileURL
+
+        XCTAssertEqual(
+            directory,
+            expected,
+            "recipes mirror must resolve to AllnighterPaths.recipes; got \(directory.path)"
+        )
+        XCTAssertEqual(
+            directory.lastPathComponent,
+            "Recipes",
+            "recipes mirror must use the Recipes path component"
+        )
         XCTAssertTrue(
-            RecipeInstallMirror.directoryURL.path.hasSuffix("/Allnighter/Recipes")
-                || RecipeInstallMirror.directoryURL.path.hasSuffix("/Allnighter/Recipes/")
+            directory.path.hasPrefix(supportRoot.path + "/"),
+            "recipes mirror must sit under the one resolved support root; got \(directory.path)"
+        )
+        // Under XCTest the shared root is the process test redirect (test/real-state
+        // seam), not the real Application Support tree.
+        XCTAssertTrue(
+            AllnighterSupportRoot.isTestSupportRedirectActive,
+            "XCTest must activate the support-root redirect"
         )
     }
 

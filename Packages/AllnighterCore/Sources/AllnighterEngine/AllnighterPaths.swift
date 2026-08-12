@@ -1,23 +1,21 @@
 import Foundation
+import AllnighterCore
 
 /// Canonical on-disk locations under Application Support (see `00` §7). All
 /// engine stores resolve their roots here so runs, presets, and config share one
-/// `Allnighter/` tree and tests can redirect by passing explicit roots.
+/// `Allnighter/` tree. Explicit tests may still set `ALLNIGHTER_SUPPORT_DIR`;
+/// XCTest hosts are redirected automatically via `AllnighterSupportRoot`.
 public enum AllnighterPaths {
-    /// `~/Library/Application Support/Allnighter/`
-    public static var support: URL {
-        if let override = ProcessInfo.processInfo.environment["ALLNIGHTER_SUPPORT_DIR"], !override.isEmpty {
-            return URL(fileURLWithPath: (override as NSString).expandingTildeInPath, isDirectory: true)
-        }
+    /// When the XCTest support-root redirect is active (see
+    /// `AllnighterSupportRoot.activeTestSupportRoot`).
+    public static var activeTestSupportRoot: URL? {
+        AllnighterSupportRoot.activeTestSupportRoot
+    }
 
-        // ONE durable state root, for every host. The Codex per-thread temp
-        // fallback that used to live here is deleted: it handed a restricted host
-        // a parallel, empty product instead of failing honestly. This mirrors
-        // AllnighterSupportRoot (Engine cannot depend on Core) — keep them
-        // identical. See docs/archive/phases/CODE_RED_Core_Infrastructure_Repair.md.
-        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? URL(fileURLWithPath: NSTemporaryDirectory())
-        return base.appendingPathComponent("Allnighter", isDirectory: true)
+    /// `~/Library/Application Support/Allnighter/` in production; a per-process
+    /// temp directory under XCTest. Single resolver: `AllnighterSupportRoot`.
+    public static var support: URL {
+        AllnighterSupportRoot.support
     }
 
     /// `…/Allnighter/Runs/`
