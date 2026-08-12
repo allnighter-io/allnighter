@@ -1,5 +1,35 @@
 # Capacity Warm Bench
 
+> ## FOUNDER RULING — KILLED 2026-08-12: feature creep
+>
+> **"I don't do long fanouts and I do not do unattended loops. Kill it. Archive
+> it. It is feature creep."**
+>
+> The value chain for predictive capacity is: measure quota -> trust the
+> measurement -> **let it change a decision** -> save time or money. Link 3 does
+> not exist and was not wanted. Verified 2026-08-12: `TeamResolver` has zero
+> capacity references, and `alln menu --json` emits no `capacity` key (plan-time
+> routing was OFF, gated on a trust gate for a consumer nobody had asked for).
+>
+> The two cases that could have justified prediction — a long fan-out dying
+> mid-run, and an unattended loop picking a dry seat — are both explicitly not
+> how this founder works.
+>
+> **What stays, and why it is enough:** runtime park/substitute is REACTIVE and
+> evidence-based — the vendor states the limit at the moment of failure
+> (`CapacityClassifier` -> `VendorBackoffPolicy.shouldPark` -> substitute). It
+> needs no percentages, no strip, no prediction. And the strip already answers
+> "unknown - never sampled" instead of fabricating, which is the property that
+> actually protects the user.
+>
+> Do not reopen without a decision that capacity should influence seat
+> **selection**. If that decision is ever made, the work is the credential-free
+> native channels, not soak tests on the PTY path.
+> Killed specifically: the resident trust gate (8h soak, App Nap row, kill -9 row,
+> live canary vs vendor UI) and wiring `CapacityAccuracyLedger` to an acquisition
+> path. All of it certified numbers that changed no decision.
+
+
 Status: **OPEN — resident trust gate only. 2 of 8 rows proven, 1 recorder shipped, 5 are founder dogfood (see Trust gate progress below).**
 Owner: AllnighterEngine (`CapacityFetch`) + AllnighterMac
 (`CapacityResidentService`, **Dock app while open**) + AllnighterCLI
