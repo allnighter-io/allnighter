@@ -15,7 +15,8 @@ extension ThreadsViewModel {
             runStore: runStore,
             commandRunner: commandRunner,
             writeLock: writeLock,
-            invocations: AppSetupModel.invocations(from: toolStatuses)
+            invocations: AppSetupModel.invocations(from: toolStatuses),
+            routeOpenCodeToServe: routeOpenCodeToServe
         )
     }
 
@@ -281,7 +282,8 @@ extension ThreadsViewModel {
             registry: registry,
             runStore: runStore,
             commandRunner: commandRunner,
-            writeLock: writeLock
+            writeLock: writeLock,
+            routeOpenCodeToServe: routeOpenCodeToServe
         )
         _ = await service.resumeParkedRun(
             runId: runId,
@@ -332,7 +334,8 @@ extension ThreadsViewModel {
             registry: registry,
             runStore: runStore,
             commandRunner: commandRunner,
-            writeLock: writeLock
+            writeLock: writeLock,
+            routeOpenCodeToServe: routeOpenCodeToServe
         )
         _ = await service.substituteParkedRun(
             runId: runId,

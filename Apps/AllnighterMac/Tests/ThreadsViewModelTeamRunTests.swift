@@ -71,9 +71,13 @@ final class ThreadsViewModelTeamRunTests: XCTestCase {
             registry: config.registry,
             models: config.models,
             toolStatuses: toolStatuses,
-            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: CommandRunnerAsStreaming(commandRunner)),
+            runner: WorkerInvokerFactory.makeWorkerInvoker(
+                commandRunner: CommandRunnerAsStreaming(commandRunner),
+                routeOpenCodeToServe: false
+            ),
             commandRunner: commandRunner,
-            projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true))
+            projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true)),
+            routeOpenCodeToServe: false
         )
     }
 

@@ -224,6 +224,7 @@ public actor RunService {
     private let commandRunner: CommandRunner
     private let writeLock: RunWriteLockRegistry
     private let invocations: [String: ToolInvocation]
+    private let routeOpenCodeToServe: Bool
     private let now: @Sendable () -> Date
     /// ORS-S02a1 — always-on durable semantic event history (internal storage).
     /// Owned here so CLI output mode (`--stream` / `--json` / `--no-wait`) never
@@ -287,6 +288,7 @@ public actor RunService {
         commandRunner: CommandRunner = ProcessGroupCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()),
         writeLock: RunWriteLockRegistry = .shared,
         invocations: [String: ToolInvocation] = [:],
+        routeOpenCodeToServe: Bool = true,
         now: @escaping @Sendable () -> Date = Date.init,
         defaultSettings: @escaping @Sendable () -> DefaultModelSettings = { DefaultModelSettingsPersistence().load() },
         probeRecords: @escaping @Sendable () -> [ToolProbeRecord] = { SetupStore().load().records },
@@ -304,6 +306,7 @@ public actor RunService {
         self.commandRunner = commandRunner
         self.writeLock = writeLock
         self.invocations = invocations
+        self.routeOpenCodeToServe = routeOpenCodeToServe
         self.now = now
         self.loadDefaultSettings = defaultSettings
         self.loadProbeRecords = probeRecords
@@ -778,7 +781,8 @@ public actor RunService {
             commandRunner: (commandRunner as? StreamingCommandRunner)
                 ?? CommandRunnerAsStreaming(commandRunner),
             invocations: invocations,
-            defaultWorkingDirectory: root
+            defaultWorkingDirectory: root,
+            routeOpenCodeToServe: routeOpenCodeToServe
         )
         if let runDir = try? runStore.runDirectory(forRunId: runId) {
             ProcessOwnership.RuntimeOwnershipContext.shared.set(runDirectory: runDir)
@@ -1106,7 +1110,8 @@ public actor RunService {
         }
         let runner = WorkerInvokerFactory.makeWorkerInvoker(
             commandRunner: (commandRunner as? StreamingCommandRunner) ?? CommandRunnerAsStreaming(commandRunner),
-            invocations: invocations, defaultWorkingDirectory: root
+            invocations: invocations, defaultWorkingDirectory: root,
+            routeOpenCodeToServe: routeOpenCodeToServe
         )
 
         // ORS-P0-DEGRADE attach race: acknowledgement must not return until the

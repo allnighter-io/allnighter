@@ -44,8 +44,14 @@ final class ThreadsViewModelMutatingRunTests: XCTestCase {
             store: ThreadStore(rootDirectory: root),
             runStore: RunStore(rootDirectory: root.appendingPathComponent("runs", isDirectory: true)),
             registry: config.registry, models: config.models, toolStatuses: toolStatuses,
-            runner: WorkerInvokerFactory.makeWorkerInvoker(commandRunner: CommandRunnerAsStreaming(stub)), commandRunner: stub, writeLock: writeLock,
-            projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true))
+            runner: WorkerInvokerFactory.makeWorkerInvoker(
+                commandRunner: CommandRunnerAsStreaming(stub),
+                routeOpenCodeToServe: false
+            ),
+            commandRunner: stub,
+            writeLock: writeLock,
+            projectStore: ProjectStore(rootDirectory: root.appendingPathComponent("projects", isDirectory: true)),
+            routeOpenCodeToServe: false
         )
     }
 

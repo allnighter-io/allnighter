@@ -23,8 +23,12 @@ import AllnighterCore
 ///    literal command and never sets this field).
 /// 4. `AntigravityAwareWorkerRunner` — rewrites agy's terminal answer from its on-disk
 ///    transcript. Pass-through for every other driver.
-/// 5. `OpenCodeRoutingWorkerRunner` — routes `opencode` to the warm serve HTTP client
-///    instead of a spawned CLI; every other driver falls through to steps 1-4 above.
+/// 5. `OpenCodeRoutingWorkerRunner` (when `routeOpenCodeToServe` is true, the
+///    production default) — routes `opencode` to the warm serve HTTP client instead of a
+///    spawned CLI; every other driver falls through to steps 1-4 above. When
+///    `routeOpenCodeToServe` is false, this step is omitted so opencode seats use the
+///    injected `commandRunner` like every other driver (test doubles only — production
+///    call sites leave the default `true`).
 /// 6. `GatedWorkerRunner` — per-driver `DriverConcurrencyGate` + `gateWaitMs`. This
 ///    inverts the nesting a first reading of the four decorators' doc comments might
 ///    suggest (`OpenCodeRoutingWorkerRunner`'s own doc comment literally says to wrap
@@ -35,8 +39,8 @@ import AllnighterCore
 ///    `manifest.maxConcurrentSpawns`. Putting `OpenCodeRoutingWorkerRunner` outermost
 ///    would let its opencode branch bypass `GatedWorkerRunner` entirely (it returns
 ///    straight from its own HTTP client, never calling `inner`), silently ungating
-///    opencode. `GatedWorkerRunner` wrapping the router gates BOTH routes uniformly,
-///    matching today's behavior exactly.
+///    opencode. `GatedWorkerRunner` wrapping the router (or step 4 when step 5 is
+///    omitted) gates BOTH routes uniformly, matching today's behavior exactly.
 /// 7. `StallDiagnosisEnrichingWorkerRunner` — on `.timedOut`, replaces bare
 ///    `worker timed out` with a named stall cause from `stall_diagnosis.json`
 ///    when ProcessGroupCommandRunner diagnosed an auth-prompt / frozen child.
@@ -53,7 +57,8 @@ public enum WorkerInvokerFactory {
         invocations: [String: ToolInvocation] = [:],
         defaultWorkingDirectory: String? = nil,
         shellPath: String? = nil,
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        routeOpenCodeToServe: Bool = true
     ) -> any WorkerInvoking {
         let base = commandRunner
             ?? SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
@@ -62,8 +67,13 @@ public enum WorkerInvokerFactory {
         let defaultRunner = DefaultWorkerRunner(streamingRunner: spawnResolved, now: now)
         let stamped = InvocationKindStampingWorkerRunner(inner: defaultRunner, invocations: invocations)
         let agyAware = AntigravityAwareWorkerRunner(inner: stamped)
-        let openCodeRouted = OpenCodeRoutingWorkerRunner(inner: agyAware, now: now)
-        let gated = GatedWorkerRunner(inner: openCodeRouted, now: now)
+        let gated: GatedWorkerRunner
+        if routeOpenCodeToServe {
+            let openCodeRouted = OpenCodeRoutingWorkerRunner(inner: agyAware, now: now)
+            gated = GatedWorkerRunner(inner: openCodeRouted, now: now)
+        } else {
+            gated = GatedWorkerRunner(inner: agyAware, now: now)
+        }
         let enriched = StallDiagnosisEnrichingWorkerRunner(inner: gated)
         return DefaultWorkingDirectoryWorkerRunner(inner: enriched, defaultWorkingDirectory: defaultWorkingDirectory)
     }

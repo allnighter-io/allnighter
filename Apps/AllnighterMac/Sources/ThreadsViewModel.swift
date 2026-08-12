@@ -59,6 +59,9 @@ final class ThreadsViewModel {
     private let chatLivePartialObserver = ThreadSendCoordinator.LivePartialObserver()
     let registry: DriverRegistry
     let commandRunner: CommandRunner
+    /// When false, team/mutating runs built through `RunService` honor the injected
+    /// `commandRunner` for opencode seats (test doubles only).
+    let routeOpenCodeToServe: Bool
     /// Cached health truth (loaded once at launch, never probed here) — drives the
     /// ready bench the team resolver may draw from. Empty until setup has run.
     let toolStatuses: [ToolProbeRecord]
@@ -176,6 +179,7 @@ final class ThreadsViewModel {
         isAppActiveForReadClear: @escaping () -> Bool = {
             NSApplication.shared.isActive && NSApplication.shared.keyWindow != nil
         },
+        routeOpenCodeToServe: Bool = true,
         floorStatus: FloorManagerStatus? = nil,
         notificationPolicyStore: NotificationPolicyStore = NotificationPolicyStore(),
         notificationDelivery: (any ThreadNotificationDelivering)? = nil,
@@ -188,6 +192,7 @@ final class ThreadsViewModel {
         self.models = models
         self.toolStatuses = toolStatuses
         self.commandRunner = commandRunner ?? SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
+        self.routeOpenCodeToServe = routeOpenCodeToServe
         self.writeLock = writeLock
         self.projectStore = projectStore
         self.isAppActiveForReadClear = isAppActiveForReadClear
