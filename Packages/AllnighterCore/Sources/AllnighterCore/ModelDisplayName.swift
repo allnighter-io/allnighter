@@ -58,7 +58,7 @@ public enum ModelDisplayName {
             return "codex"
         case "model_grok", "model_grok_composer_25_fast":
             return "grok"
-        case "model_cursor_grok_45":
+        case "model_cursor_grok_45", "model_cursor_grok_46":
             return "cursor_agent"
         case "model_gemini", "model_gemini_pro", "model_agy_gptoss":
             return "antigravity"

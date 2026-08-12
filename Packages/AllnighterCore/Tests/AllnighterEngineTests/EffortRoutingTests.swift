@@ -93,7 +93,19 @@ final class EffortRoutingTests: XCTestCase {
         XCTAssertTrue(composer.supportsEffort(manifest: manifest("grok")))
     }
 
-    func testCursorGrokRoutesEffortViaModelLabel() throws {
+    func testCursorGrok46RoutesEffortViaModelLabel() throws {
+        let manifest = try Fixtures.manifest(.manifestCursor)
+        let def = ModelCatalog.builtIns.first { $0.id == "model_cursor_grok_46" }!
+        let model = Model(id: def.id, displayName: def.displayName, modelLabel: def.modelLabel,
+                          driverId: def.driverId, effortVariants: def.effortVariants)
+        let args = manifest.resolvedArgs(
+            .init(prompt: "hi", model: model.resolvedLabel(at: .high), effort: .high))
+        let modelIdx = try XCTUnwrap(args.firstIndex(of: "--model"))
+        XCTAssertEqual(args[modelIdx + 1], "cursor-grok-4.6-high")
+        XCTAssertFalse(args.contains("--reasoning-effort"))
+    }
+
+    func testCursorGrok45RoutesEffortViaModelLabel() throws {
         let manifest = try Fixtures.manifest(.manifestCursor)
         let def = ModelCatalog.builtIns.first { $0.id == "model_cursor_grok_45" }!
         let model = Model(id: def.id, displayName: def.displayName, modelLabel: def.modelLabel,

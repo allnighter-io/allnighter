@@ -16,7 +16,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
     private func catalog(ready: Set<String> = [
         "model_fable", "model_cursor_gpt_sol", "model_gpt_sol", "model_gpt_terra", "model_gpt_luna", "model_opus", "model_sonnet",
         "model_agy_opus", "model_agy_sonnet",
-        "model_kimi_k3", "model_kimi_k27", "model_cursor_grok_45", "model_grok", "model_cursor_composer_25",
+        "model_kimi_k3", "model_kimi_k27", "model_cursor_grok_45", "model_cursor_grok_46", "model_grok", "model_cursor_composer_25",
         "model_cursor_composer_25_fast", "model_gemini", "model_cursor_auto", "model_grok_composer_25_fast",
         "model_muse_spark_12", "model_muse_spark_12_contributor", "model_extra"
     ]) -> [ModelListJSON.Entry] {
@@ -35,6 +35,8 @@ final class DefaultSettingsProjectorTests: XCTestCase {
             entry("model_kimi_k27", "Kimi K2.7 Code", driver: "kimi", ready: ready.contains("model_kimi_k27")),
             entry("model_cursor_grok_45", "Cursor Grok 4.5", driver: "cursor_agent",
                   ready: ready.contains("model_cursor_grok_45")),
+            entry("model_cursor_grok_46", "Cursor Grok 4.6", driver: "cursor_agent",
+                  ready: ready.contains("model_cursor_grok_46")),
             entry("model_grok", "Grok 4.5", driver: "grok", ready: ready.contains("model_grok")),
             entry("model_cursor_composer_25", "Composer 2.5", driver: "cursor_agent",
                   ready: ready.contains("model_cursor_composer_25")),
@@ -60,12 +62,12 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         let frontier = p.tiers[0]
         XCTAssertTrue(frontier.isDefaultTier)
         XCTAssertEqual(frontier.members.map(\.id),
-                       ["model_fable", "model_gpt_sol", "model_kimi_k3"])
+                       ["model_fable", "model_gpt_sol", "model_kimi_k3", "model_cursor_grok_46"])
         XCTAssertEqual(frontier.defaultModelId, "model_fable")
         XCTAssertTrue(frontier.members[0].isTierDefault)
         XCTAssertFalse(frontier.members[1].isTierDefault)
-        XCTAssertEqual(frontier.substituteCount, 2)
-        XCTAssertEqual(frontier.readyCount, 3)
+        XCTAssertEqual(frontier.substituteCount, 3)
+        XCTAssertEqual(frontier.readyCount, 4)
 
         // Gemini spans Balanced + Economy.
         let balanced = p.tiers[1]

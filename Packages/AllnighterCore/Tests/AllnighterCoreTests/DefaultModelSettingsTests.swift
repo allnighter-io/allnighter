@@ -12,7 +12,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.tierDefault(.frontier), "model_fable")
         // Frontier: Fable + Codex Sol + Kimi K3. Cursor Sol is never seeded.
         XCTAssertEqual(s.tiers.frontier, [
-            "model_fable", "model_gpt_sol", "model_kimi_k3", "model_qwen_38_max",
+            "model_fable", "model_gpt_sol", "model_kimi_k3", "model_cursor_grok_46", "model_qwen_38_max",
             "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
         ])
         XCTAssertFalse(s.tiers.frontier.contains("model_cursor_gpt_sol"))
@@ -291,7 +291,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         let loaded = p.load()
         XCTAssertEqual(loaded.defaultTier, .balanced)
         XCTAssertFalse(loaded.allowHealthySubstitutions)
-        XCTAssertEqual(loaded.tiers.frontier, ["model_opus", "model_gpt_sol"], "intra-tier dup normalized away")
+        XCTAssertEqual(loaded.tiers.frontier, ["model_opus", "model_gpt_sol", "model_cursor_grok_46"], "intra-tier dup normalized away; fresh frontier backfill additive")
         XCTAssertEqual(loaded.tiers.balanced, ["model_opus", "model_sonnet"], "cross-tier membership preserved")
         XCTAssertNotNil(loaded.updatedAt)
     }
@@ -331,7 +331,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         let reset = try p.reset()
         XCTAssertEqual(reset.defaultTier, .frontier)
         XCTAssertEqual(reset.tiers.frontier, [
-            "model_fable", "model_gpt_sol", "model_kimi_k3", "model_qwen_38_max",
+            "model_fable", "model_gpt_sol", "model_kimi_k3", "model_cursor_grok_46", "model_qwen_38_max",
             "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
         ])
     }

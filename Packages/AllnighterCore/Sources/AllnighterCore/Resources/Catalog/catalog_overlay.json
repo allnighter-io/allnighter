@@ -258,6 +258,23 @@
       },
       "defaultOn": true
     },
+    "model_cursor_grok_46": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "copy"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 93
+      },
+      "defaultOn": true
+    },
     "model_fable": {
       "caliber": {
         "capabilityTags": [

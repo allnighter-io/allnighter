@@ -35,7 +35,7 @@ public enum BuiltInTeams {
     private static let gemini = "model_gemini"
     private static let sonnet = "model_sonnet"
     private static let kimi = "model_kimi_k3"
-    private static let cursorGrok = "model_cursor_grok_45"
+    private static let cursorGrok = "model_cursor_grok_46"
     private static let cursorAuto = "model_cursor_auto"
     /// External / X / web research scout (also high/mid value in rotations).
     private static let grok = "model_grok"

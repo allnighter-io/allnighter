@@ -231,6 +231,8 @@ final class BuiltInTeamsTests: XCTestCase {
             Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3", driverId: "kimi", role: .answerer),
             Model(id: "model_cursor_grok_45", displayName: "Cursor Grok 4.5", modelLabel: "cursor-grok-4.5-high",
                   driverId: "cursor_agent", role: .answerer),
+            Model(id: "model_cursor_grok_46", displayName: "Cursor Grok 4.6", modelLabel: "cursor-grok-4.6-high",
+                  driverId: "cursor_agent", role: .answerer),
         ]
         let team = BuiltInTeams.team("code_spec_review_max")!
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: ready)
@@ -299,7 +301,7 @@ final class BuiltInTeamsTests: XCTestCase {
         // automatic chain (paid Cursor quota — manual opt-in only).
         let expected = [
             "model_gpt_sol", "model_opus", "model_kimi_k3",
-            "model_cursor_grok_45", "model_grok",
+            "model_cursor_grok_46", "model_grok",
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
             "model_cursor_auto"
         ]
@@ -317,15 +319,15 @@ final class BuiltInTeamsTests: XCTestCase {
                   driverId: "grok", role: .answerer)
         ]
         let cursorOnly = [
-            Model(id: "model_cursor_grok_45", displayName: "Cursor Grok 4.5",
-                  modelLabel: "cursor-grok-4.5-high", driverId: "cursor_agent", role: .answerer),
+            Model(id: "model_cursor_grok_46", displayName: "Cursor Grok 4.6",
+                  modelLabel: "cursor-grok-4.6-high", driverId: "cursor_agent", role: .answerer),
             Model(id: "model_cursor_composer_25", displayName: "Composer 2.5",
                   modelLabel: "composer-2.5", driverId: "cursor_agent", role: .answerer)
         ]
 
         let scenarios: [(name: String, models: [Model], expectedLead: String)] = [
             ("Kimi + Grok", kimiAndGrok, "model_kimi_k3"),
-            ("Cursor only", cursorOnly, "model_cursor_grok_45")
+            ("Cursor only", cursorOnly, "model_cursor_grok_46")
         ]
         for scenario in scenarios {
             for id in ["code_spec_review_min", "code_spec_review", "code_spec_review_max"] {
