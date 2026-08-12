@@ -40,6 +40,7 @@ final class CatalogOverlayTests: XCTestCase {
                        ("model_gpt_sol", "model_cursor_gpt_sol"),
                        ("model_opus", "model_cursor_opus"),
                        ("model_grok", "model_cursor_grok_45"),
+                       ("model_grok_46", "model_cursor_grok_46"),
                        ("model_qwen_38_max", "model_opencode_qwen_38_max")] {
             XCTAssertEqual(caps[a]?.strengthRank, caps[b]?.strengthRank,
                            "\(a) and \(b) are the same model on different CLIs")

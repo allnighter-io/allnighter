@@ -38,7 +38,7 @@ public enum BuiltInTeams {
     private static let cursorGrok = "model_cursor_grok_46"
     private static let cursorAuto = "model_cursor_auto"
     /// External / X / web research scout (also high/mid value in rotations).
-    private static let grok = "model_grok"
+    private static let grok = "model_grok_46"
     /// OpenRouter Fusion budget panel (DRACO 64.7%): local catalog ids for
     /// Gemini 3 Flash + Kimi K2.6 + DeepSeek V4 Pro.
     private static let fusionDeepseek = "model_opencode_deepseek_v4_pro"

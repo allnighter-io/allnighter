@@ -11,7 +11,7 @@ final class SignalTeamWiringTests: XCTestCase {
     }
     private func fullBench() -> [Model] {
         [m("model_opus", "claude_code", .both), m("model_gpt_sol", "codex"),
-         m("model_gemini", "antigravity"), m("model_grok", "grok"),
+         m("model_gemini", "antigravity"), m("model_grok_46", "grok"),
          m("model_sonnet", "claude_code"), m("model_cursor_auto", "cursor_agent")]
     }
 
@@ -21,7 +21,7 @@ final class SignalTeamWiringTests: XCTestCase {
 
         XCTAssertTrue(r.isRunnable)
         // Stage 0: Grok scout.
-        XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
+        XCTAssertEqual(r.scoutWorker?.modelId, "model_grok_46")
         XCTAssertEqual(r.scoutWorker?.purpose, .scout)
         // Stage 1: three interpreters on three distinct drivers. The Lead reserves
         // the strongest ready flagship (GPT-5.6 Sol, rank 99 — first in the
@@ -30,7 +30,7 @@ final class SignalTeamWiringTests: XCTestCase {
         XCTAssertEqual(r.answerWorkers.count, 3)
         let drivers = Set(r.answerWorkers.map { w in fullBench().first { $0.id == w.modelId }!.driverId })
         XCTAssertEqual(drivers.count, 3)
-        XCTAssertEqual(r.answerWorkers.map(\.modelId), ["model_grok", "model_gemini", "model_opus"])
+        XCTAssertEqual(r.answerWorkers.map(\.modelId), ["model_grok_46", "model_gemini", "model_opus"])
         // Lead: strongest ready flagship (GPT-5.6 Sol), reserved from the worker pool.
         XCTAssertEqual(r.planWriter?.modelId, "model_gpt_sol")
     }

@@ -629,7 +629,7 @@ final class TeamResolverTests: XCTestCase {
             team: team, requestLane: .code, requestEffort: .high,
             readyModels: ready, capabilities: caps)
         XCTAssertTrue(r.isRunnable)
-        XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
+        XCTAssertEqual(r.scoutWorker?.modelId, "model_grok_46")
         let crew = (r.answerWorkers + r.reviewWorkers + (r.planWriter.map { [$0] } ?? []))
         XCTAssertFalse(crew.map(\.modelId).contains(haikuId))
         let families = crew.map { worker in

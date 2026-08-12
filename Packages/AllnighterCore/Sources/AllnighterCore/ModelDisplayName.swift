@@ -56,7 +56,7 @@ public enum ModelDisplayName {
         case "model_gpt_sol", "model_cursor_gpt_sol", "model_gpt_terra", "model_gpt_luna",
              "model_gpt_54", "model_gpt_54_mini", "model_gpt_spark":
             return "codex"
-        case "model_grok", "model_grok_composer_25_fast":
+        case "model_grok", "model_grok_46", "model_grok_composer_25_fast":
             return "grok"
         case "model_cursor_grok_45", "model_cursor_grok_46":
             return "cursor_agent"

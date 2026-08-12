@@ -26,9 +26,36 @@ final class EffortRoutingTests: XCTestCase {
     }
 
     func testGrokPassesReasoningEffortFlag() {
-        let args = manifest("grok").resolvedArgs(.init(prompt: "hi", model: "grok-4.5", effort: .high))
-        let idx = try! XCTUnwrap(args.firstIndex(of: "--reasoning-effort"))
+        XCTAssertNotNil(manifest("grok").invoke?.effortFlag, "Grok wires --reasoning-effort")
+    }
+
+    func testGrok46RoutesReasoningEffort() throws {
+        let def = ModelCatalog.builtIns.first { $0.id == "model_grok_46" }!
+        XCTAssertEqual(def.displayName, "Grok 4.6")
+        XCTAssertEqual(def.modelLabel, "grok-4.6")
+        let args = manifest("grok").resolvedArgs(.init(prompt: "hi", model: "grok-4.6", effort: .high))
+        let idx = try XCTUnwrap(args.firstIndex(of: "--reasoning-effort"))
         XCTAssertEqual(args[idx + 1], "high")
+        let modelIdx = try XCTUnwrap(args.firstIndex(of: "-m"))
+        XCTAssertEqual(args[modelIdx + 1], "grok-4.6")
+    }
+
+    func testGrok45RoutesReasoningEffort() throws {
+        let args = manifest("grok").resolvedArgs(.init(prompt: "hi", model: "grok-4.5", effort: .high))
+        let idx = try XCTUnwrap(args.firstIndex(of: "--reasoning-effort"))
+        XCTAssertEqual(args[idx + 1], "high")
+    }
+
+    func testGrokReasoningEffortMapsAllLevels() {
+        let m = manifest("grok")
+        func assertEffort(_ effort: EffortLevel, level: String) {
+            let args = m.resolvedArgs(.init(prompt: "hi", model: "grok-4.5", effort: effort))
+            let idx = try! XCTUnwrap(args.firstIndex(of: "--reasoning-effort"))
+            XCTAssertEqual(args[idx + 1], level)
+        }
+        assertEffort(.high, level: "high")
+        assertEffort(.med, level: "medium")
+        assertEffort(.low, level: "low")
     }
 
     func testCodexPassesModelAndReasoningEffortBeforePrompt() {

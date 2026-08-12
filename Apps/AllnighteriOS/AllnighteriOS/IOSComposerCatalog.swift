@@ -61,6 +61,7 @@ enum IOSComposerCatalog {
         "model_sonnet",
         "model_gpt_sol",
         "model_grok",
+        "model_grok_46",
         "model_cursor_composer_25",
         "model_cursor_grok_45",
         "model_cursor_grok_46",

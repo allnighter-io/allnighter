@@ -111,7 +111,7 @@ final class BuiltInTeamsTests: XCTestCase {
         XCTAssertNil(min.scout)
         XCTAssertNil(standard.scout)
         XCTAssertEqual(max.scout?.skillId, "spec_outside_scout")
-        XCTAssertEqual(max.scout?.preferredModelId, "model_grok")
+        XCTAssertEqual(max.scout?.preferredModelId, "model_grok_46")
 
         // Law 3 (Team_Catalog_Normalization.md): no per-row hardcoded model
         // identity — rows express NEED (capability), and the shared resolver
@@ -228,6 +228,7 @@ final class BuiltInTeamsTests: XCTestCase {
             Model(id: "model_gemini", displayName: "Gemini 3.6 Flash", modelLabel: "g", driverId: "antigravity", role: .answerer),
             Model(id: "model_sonnet", displayName: "Sonnet 5", modelLabel: "claude-sonnet-5", driverId: "claude_code", role: .answerer),
             Model(id: "model_grok", displayName: "Grok 4.5", modelLabel: "grok-4.5", driverId: "grok", role: .answerer),
+            Model(id: "model_grok_46", displayName: "Grok 4.6", modelLabel: "grok-4.6", driverId: "grok", role: .answerer),
             Model(id: "model_kimi_k3", displayName: "Kimi K3", modelLabel: "kimi-code/k3", driverId: "kimi", role: .answerer),
             Model(id: "model_cursor_grok_45", displayName: "Cursor Grok 4.5", modelLabel: "cursor-grok-4.5-high",
                   driverId: "cursor_agent", role: .answerer),
@@ -238,7 +239,7 @@ final class BuiltInTeamsTests: XCTestCase {
         let r = TeamResolver.resolve(team: team, requestLane: .code, requestEffort: .high, readyModels: ready)
         XCTAssertTrue(r.isRunnable)
         XCTAssertEqual(r.planWriter?.modelId, "model_fable")
-        XCTAssertEqual(r.scoutWorker?.modelId, "model_grok")
+        XCTAssertEqual(r.scoutWorker?.modelId, "model_grok_46")
         let crew = r.answerWorkers + r.reviewWorkers
         // Law 3: no row pins Sol by identity. Cursor Sol is never an automatic
         // substitute even if present on the bench (paid quota, manual opt-in only).
@@ -301,7 +302,7 @@ final class BuiltInTeamsTests: XCTestCase {
         // automatic chain (paid Cursor quota — manual opt-in only).
         let expected = [
             "model_gpt_sol", "model_opus", "model_kimi_k3",
-            "model_cursor_grok_46", "model_grok",
+            "model_cursor_grok_46", "model_grok_46",
             "model_cursor_composer_25", "model_sonnet", "model_gemini",
             "model_cursor_auto"
         ]

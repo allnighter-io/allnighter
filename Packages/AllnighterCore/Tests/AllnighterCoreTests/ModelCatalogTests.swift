@@ -49,7 +49,7 @@ final class ModelCatalogTests: XCTestCase {
         // OpenCode Zen Big Pickle smoke seat added default-on 2026-08-10 (28 → 29).
         // OpenCode Go inventory seats default-off while locked (29 → 22). When Go
         // auth connects, reconcile seeds all seven default-on Go seats (22 → 29).
-        XCTAssertEqual(models.filter(\.enabled).count, 23)
+        XCTAssertEqual(models.filter(\.enabled).count, 24)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_opencode_glm_5_2" }?.enabled ?? true,
                        "OpenCode Go inventory stays off until Go auth connects")
@@ -382,6 +382,9 @@ final class ModelCatalogTests: XCTestCase {
                              ModelCatalog.capabilities("model_cursor_grok_45").strengthRank)
         XCTAssertGreaterThan(ModelCatalog.capabilities("model_kimi_k3").strengthRank, sonnet)
         XCTAssertGreaterThan(ModelCatalog.capabilities("model_grok").strengthRank, sonnet)
+        XCTAssertGreaterThan(ModelCatalog.capabilities("model_grok_46").strengthRank, sonnet)
+        XCTAssertGreaterThan(ModelCatalog.capabilities("model_grok_46").strengthRank,
+                             ModelCatalog.capabilities("model_grok").strengthRank)
     }
 
     func testCustomClaudeFamilyMapsViaHostDriver() throws {

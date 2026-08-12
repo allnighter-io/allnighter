@@ -241,7 +241,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         allowHealthySubstitutions: true,
         tiers: TierMembership(
             frontier: [
-                "model_fable", "model_gpt_sol", "model_kimi_k3", "model_cursor_grok_46", "model_qwen_38_max",
+                "model_fable", "model_gpt_sol", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
                 "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
             ],
             balanced: [
@@ -266,6 +266,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     public func mergingMissingFreshTierMembers() -> DefaultModelSettings {
         var merged = self
         let backfill: [(SubstitutionTier, ModelID)] = [
+            (.frontier, "model_grok_46"),
             (.frontier, "model_cursor_grok_46"),
             (.economy, "model_agy_sonnet"),
             (.economy, "model_gpt_luna"),

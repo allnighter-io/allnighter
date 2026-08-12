@@ -330,7 +330,11 @@ public enum MenuSelectionCopy {
         ),
         "model_grok": Pair(
             useWhen: "Grok 4.5, web-aware, images",
-            dontUseWhen: "Not Cursor Grok; model_cursor_grok_46 or model_cursor_grok_45"
+            dontUseWhen: "Prefer Grok 4.6; model_grok_46 or model_cursor_grok_46"
+        ),
+        "model_grok_46": Pair(
+            useWhen: "Grok 4.6 frontier seat, web-aware, images",
+            dontUseWhen: "Not Cursor Grok; model_cursor_grok_46"
         ),
         "model_kimi_k3": Pair(
             useWhen: "Kimi K3, design/code judgment",

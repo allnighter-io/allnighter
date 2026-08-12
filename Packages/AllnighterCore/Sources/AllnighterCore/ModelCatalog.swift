@@ -57,7 +57,7 @@ public enum ModelCatalog {
             return "gpt"
         case "model_agy_gptoss":
             return "gpt_oss"
-        case "model_grok", "model_grok_composer_25_fast", "model_cursor_grok_45", "model_cursor_grok_46":
+        case "model_grok", "model_grok_46", "model_grok_composer_25_fast", "model_cursor_grok_45", "model_cursor_grok_46":
             return "grok"
         case "model_kimi_k3", "model_kimi_k27":
             return "kimi"
