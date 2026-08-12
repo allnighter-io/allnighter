@@ -20,7 +20,12 @@ enum AppCensusModel {
     static func mergedToolStatuses(existing: [ToolProbeRecord], discovered: [ToolProbeRecord]) -> [ToolProbeRecord] {
         var byId = Dictionary(existing.map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
         for rec in discovered {
-            if byId[rec.driverId]?.status.isSmokeReady == true { continue }
+            if byId[rec.driverId]?.status.isSmokeReady == true {
+                // Never downgrade ready — but allow a same-ready refresh so a
+                // retained-ready diagnostic (failureCode / lastDetectedAt) lands.
+                if rec.status.isSmokeReady { byId[rec.driverId] = rec }
+                continue
+            }
             if rec.status.isSmokeReady || rec.invocation != nil { byId[rec.driverId] = rec }
         }
         var order = existing.map(\.driverId)

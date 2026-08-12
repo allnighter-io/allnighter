@@ -59,7 +59,7 @@ public enum RunCapabilityClock {
         merged.resolvedBy = resolvedBy
         if case .ready = status { merged.failureCode = nil }
         var out = records
-        DriverProbeRecords.upsert(merged, into: &out)
+        ProbeRecordMerge.upsert(merged, into: &out)
         return out
     }
 

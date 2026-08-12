@@ -9,6 +9,12 @@ public enum CensusIngest {
     /// Verify an agent-discovered census by actually RUNNING each candidate path.
     /// When the census path is upgrade-fragile (`looksEphemeral`), a stable
     /// launcher from the manifest's `knownPaths` is tried first.
+    ///
+    /// When no candidate path is executable in this pass, the result is still a
+    /// `.notInstalled` observation from *this* pass — but `priorRecords` are
+    /// applied through `ProbeRecordMerge` so a still-valid prior `.ready` is
+    /// not overwritten (see that type's docs). Pass prior SetupStore records
+    /// at every call site; omitting them only affects drivers with no prior.
     public static func ingest(
         _ census: ToolCensus,
         manifests: [DriverManifest],
@@ -17,9 +23,11 @@ public enum CensusIngest {
         smoke: Bool = true,
         detector: CLIDetector,
         home: String = NSHomeDirectory(),
-        commonBinDirs: [String] = CLIDetector.defaultCommonBinDirs
+        commonBinDirs: [String] = CLIDetector.defaultCommonBinDirs,
+        priorRecords: [ToolProbeRecord] = []
     ) async -> [ToolProbeRecord] {
         let byId = Dictionary(manifests.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let priorById = Dictionary(priorRecords.map { ($0.driverId, $0) }, uniquingKeysWith: { a, _ in a })
         var records: [ToolProbeRecord] = []
         for candidate in census.candidates(for: manifests) {
             guard let manifest = byId[candidate.driverId] else { continue }
@@ -40,12 +48,16 @@ public enum CensusIngest {
                 chosen = rec
                 if rec.version != nil { break }
             }
+            let passObservation = chosen ?? ToolProbeRecord(
+                driverId: manifest.id,
+                status: .notInstalled,
+                lastProbeAt: now,
+                lastDetectedAt: now
+            )
             records.append(
-                chosen ?? ToolProbeRecord(
-                    driverId: manifest.id,
-                    status: .notInstalled,
-                    lastProbeAt: now,
-                    lastDetectedAt: now
+                ProbeRecordMerge.apply(
+                    incoming: passObservation,
+                    prior: priorById[manifest.id]
                 )
             )
         }

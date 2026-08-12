@@ -789,14 +789,14 @@ final class AppModel {
             if onlyDriverId != nil {
                 var merged = self.toolStatuses
                 for rec in records {
-                    DriverProbeRecords.upsert(rec, into: &merged)
+                    ProbeRecordMerge.upsert(rec, into: &merged)
                 }
                 self.toolStatuses = merged
             } else {
                 // Keep last-known rows for parked CLIs that were not re-probed.
                 var merged = cached.records.filter { parked.contains($0.driverId) }
                 for rec in records {
-                    DriverProbeRecords.upsert(rec, into: &merged)
+                    ProbeRecordMerge.upsert(rec, into: &merged)
                 }
                 self.toolStatuses = merged
             }
@@ -896,7 +896,8 @@ final class AppModel {
                 smoke: true,
                 detector: AllnighterCLIDetector.make(
                     commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
-                )
+                ),
+                priorRecords: self.toolStatuses
             )
             let before = Set(self.toolStatuses.filter { $0.status.isSmokeReady }.map(\.driverId))
             self.toolStatuses = AppCensusModel.mergedToolStatuses(existing: self.toolStatuses, discovered: discovered)

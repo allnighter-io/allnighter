@@ -92,7 +92,7 @@ public struct SourceProbeService: Sendable {
         var doctorRecords = records
         if request.sourceId == nil {
             for rec in cached.records where parked.contains(rec.driverId) {
-                DriverProbeRecords.upsert(rec, into: &doctorRecords)
+                ProbeRecordMerge.upsert(rec, into: &doctorRecords)
             }
         }
         let inputs = DoctorReport.Inputs(
@@ -155,7 +155,7 @@ public struct SourceProbeService: Sendable {
             currentVersions: probedVersions
         )
         for rec in fresh {
-            DriverProbeRecords.upsert(rec, into: &records)
+            ProbeRecordMerge.upsert(rec, into: &records)
         }
         let assembled = TeamAssembler.assemble(
             models: models,
@@ -199,10 +199,16 @@ public struct SourceProbeService: Sendable {
             let records = await AllnighterCLIDetector.make(
                 commandRunner: runner, detectTimeout: .seconds(8), smokeTimeout: .seconds(60), interactive: false
             ).probeAll(activeManifests, models: activeLabels, now: Date(), smoke: true)
-            let refreshed = Set(records.map(\.driverId))
+            let reconciled = records.map { rec in
+                ProbeRecordMerge.apply(
+                    incoming: rec,
+                    prior: previous.records.first { $0.driverId == rec.driverId }
+                )
+            }
+            let refreshed = Set(reconciled.map(\.driverId))
             var merged = previous.records.filter { !refreshed.contains($0.driverId) }
-            for rec in records {
-                DriverProbeRecords.upsert(rec, into: &merged)
+            for rec in reconciled {
+                ProbeRecordMerge.upsert(rec, into: &merged)
             }
             _ = try? setupStore.save(.init(
                 records: merged.sorted { $0.driverId < $1.driverId },
@@ -210,7 +216,7 @@ public struct SourceProbeService: Sendable {
                 assembledTeam: previous.assembledTeam,
                 parkedDriverIds: previous.parkedDriverIds
             ))
-            return records
+            return reconciled
         }
         let headlessIds = Set(activeManifests.filter { $0.kind == .headlessCLI }.map(\.id))
         let cached = previous.records.filter { headlessIds.contains($0.driverId) }

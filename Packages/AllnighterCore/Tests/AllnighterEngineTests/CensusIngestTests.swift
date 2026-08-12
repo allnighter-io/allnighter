@@ -113,4 +113,124 @@ final class CensusIngestTests: XCTestCase {
         let invoked = await runner.recorded()
         XCTAssertTrue(invoked.isEmpty)
     }
+
+    // MARK: - notInstalled must not clobber still-valid ready
+
+    func testUnresolvedPassRetainsPriorReadyWhenPathStillExecutable() async throws {
+        let root = try tmpRoot()
+        let path = "\(root)/.opencode/bin/opencode"
+        try makeExecutable(path)
+        let prior = ToolProbeRecord(
+            driverId: "opencode",
+            status: .ready(version: "1.18.16"),
+            invocation: .direct(path: path),
+            version: "1.18.16",
+            lastProbeAt: Date(timeIntervalSince1970: 100),
+            lastDetectedAt: Date(timeIntervalSince1970: 100)
+        )
+        let census = try ToolCensus.parse("""
+        { "opencode": { "absolute_path": "\(root)/missing/opencode", "version": "x" } }
+        """)
+        let manifest = DriverManifest(
+            id: "opencode", displayName: "OpenCode", kind: .headlessCLI,
+            detectCommand: "opencode --version",
+            invoke: .init(command: "opencode", args: []),
+            setup: SetupBlock(bins: ["opencode"], knownPaths: [])
+        )
+        let runner = PathRecorder(stdout: "x")
+        let det = detector(runner: runner, home: root)
+        let now = Date(timeIntervalSince1970: 200)
+
+        let records = await CensusIngest.ingest(
+            census, manifests: [manifest], models: [:], now: now, smoke: false,
+            detector: det, home: root, priorRecords: [prior]
+        )
+
+        XCTAssertEqual(records.first?.status, .ready(version: "1.18.16"))
+        XCTAssertEqual(records.first?.invocation, .direct(path: path))
+        XCTAssertEqual(records.first?.failureCode, ProbeRecordMerge.retainedReadyFailureCode)
+        let invoked = await runner.recorded()
+        XCTAssertTrue(invoked.isEmpty)
+    }
+
+    func testUnresolvedPassReportsNotInstalledWhenPriorPathDeleted() async throws {
+        let root = try tmpRoot()
+        let gone = "\(root)/.opencode/bin/opencode"
+        let prior = ToolProbeRecord(
+            driverId: "opencode",
+            status: .ready(version: "1.18.16"),
+            invocation: .direct(path: gone),
+            version: "1.18.16",
+            lastProbeAt: Date(timeIntervalSince1970: 100)
+        )
+        let census = try ToolCensus.parse("""
+        { "opencode": { "absolute_path": "\(root)/missing/opencode", "version": "x" } }
+        """)
+        let manifest = DriverManifest(
+            id: "opencode", displayName: "OpenCode", kind: .headlessCLI,
+            detectCommand: "opencode --version",
+            invoke: .init(command: "opencode", args: []),
+            setup: SetupBlock(bins: ["opencode"], knownPaths: [])
+        )
+        let runner = PathRecorder(stdout: "x")
+        let det = detector(runner: runner, home: root)
+
+        let records = await CensusIngest.ingest(
+            census, manifests: [manifest], models: [:],
+            now: .init(timeIntervalSince1970: 200), smoke: false,
+            detector: det, home: root, priorRecords: [prior]
+        )
+
+        XCTAssertEqual(records.first?.status, .notInstalled)
+    }
+
+    func testUnresolvedPassReportsNotInstalledWhenNoPrior() async throws {
+        let root = try tmpRoot()
+        let census = try ToolCensus.parse("""
+        { "qwen": { "absolute_path": "\(root)/missing/qwen", "version": "x" } }
+        """)
+        let manifest = DriverManifest(
+            id: "qwen", displayName: "Qwen", kind: .headlessCLI,
+            detectCommand: "qwen --version",
+            invoke: .init(command: "qwen", args: []),
+            setup: SetupBlock(bins: ["qwen"], knownPaths: [])
+        )
+        let runner = PathRecorder(stdout: "x")
+        let det = detector(runner: runner, home: root)
+
+        let records = await CensusIngest.ingest(
+            census, manifests: [manifest], models: [:],
+            now: .init(timeIntervalSince1970: 200), smoke: false,
+            detector: det, home: root, priorRecords: []
+        )
+
+        XCTAssertEqual(records.first?.status, .notInstalled)
+    }
+
+    func testResolvedCensusPathStillYieldsVersionedRecord() async throws {
+        let root = try tmpRoot()
+        let path = "\(root)/.local/bin/opencode"
+        try makeExecutable(path)
+        let census = try ToolCensus.parse("""
+        { "opencode": { "absolute_path": "\(path)", "version": "1.18.16" } }
+        """)
+        let manifest = DriverManifest(
+            id: "opencode", displayName: "OpenCode", kind: .headlessCLI,
+            detectCommand: "opencode --version",
+            invoke: .init(command: "opencode", args: []),
+            setup: SetupBlock(bins: ["opencode"], knownPaths: [])
+        )
+        let runner = PathRecorder(stdout: "1.18.16")
+        let det = detector(runner: runner, home: root)
+
+        let records = await CensusIngest.ingest(
+            census, manifests: [manifest], models: [:],
+            now: .init(timeIntervalSince1970: 200), smoke: false,
+            detector: det, home: root
+        )
+
+        XCTAssertEqual(records.first?.status, .installedNotProbed(version: "1.18.16"))
+        XCTAssertEqual(records.first?.invocation, .direct(path: path))
+        XCTAssertEqual(records.first?.version, "1.18.16")
+    }
 }
