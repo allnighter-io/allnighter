@@ -53,6 +53,24 @@ When Swift targets exist, follow Green Wall rules below (promoted from archived
 5. Do not run `swift test --list-tests` as routine (~8+ min cold).
 6. Lock failure or timeout is a stop signal — do not retry, poll, or wait-loop.
 7. Wedged Mac: `scripts/kill-stale-tests.sh`, then continue — do not stack full suites.
+8. **A test may not reach a live vendor or the user's real state.** Promoted from
+   2026-08-12 (`26a6e582`, `27a99e3f`); code SSOT `AllnighterSupportRoot`
+   (`.xctest` support-root redirect) and `WorkerInvokerFactory`
+   (`routeOpenCodeToServe`). Three separate seams were found in one day:
+   a "stubbed" test sent real prompts to the live `opencode serve` (45–70s and
+   real quota per run); the Mac suite wrote fixture drivers into the real
+   `cli_setup.json`, so `alln menu` then reported CLIs the machine did not have;
+   and three tests passed only because this Mac happens to run `alln serve`.
+   Rules that follow:
+   - Never infer "this is a test" from an injected double — production injects
+     runners and command runners too. The opt-out must be explicit at the call
+     site, or keyed to the XCTest host itself.
+   - A test that depends on a live vendor, daemon, or account must SKIP with the
+     reason (quoting the vendor where there is one), never fail the wall. An
+     out-of-quota account is not a defect in this repo.
+   - Suspect any proof whose runtime is dominated by something you did not stub.
+   - When a seal like this lands, expect previously-green tests to turn red. That
+     is discovery, not regression: they were passing on real state.
 
 ```text
 scripts/install-test-guard.sh              # optional: direnv for interactive shells

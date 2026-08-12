@@ -740,3 +740,44 @@ unloads, not crashes.
 
 Related: `2026-08-09-serve-launchagent-lwcr-PACKET.md`,
 `2026-08-10-mac-serve-fork-bomb-PACKET.md`, `docs/qa/alln-serve/`.
+
+## 2026-08-12 — the bench downgraded a live seat to `notInstalled`; trigger UNIDENTIFIED
+
+Tier: T2 (observed once on the founder's Mac, not reproducible on demand)
+Symptom: `opencode` recorded `ready 1.18.16` with a resolved path at 14:24:02Z by
+a shell `alln detect`, then `notInstalled` with invocation and version cleared at
+14:57:55Z by a background sweep — while `/Users/<u>/.opencode/bin/opencode`
+existed, was executable, and was serving on 127.0.0.1:4096. A `notInstalled` seat
+leaves `alln menu` and team resolution, so the bench silently staffs fewer seats
+than the machine has.
+Truth owner: `SetupStore` records; writers are `CensusIngest`,
+`SourceProbeService`, `RunCapabilityClock`, and the Mac census path.
+Lie-prone layer: `CensusIngest` appended `status: .notInstalled` whenever no
+candidate path passed `isExecutableFile` in THAT pass — writing "I did not find it
+this time" as a positive claim of absence.
+RCA: **INCOMPLETE.** The lie is understood and fixed; the trigger is not.
+Ruled out by direct test, do not re-run these:
+- NOT the LaunchAgent PATH. Under serve's exact environment
+  (`env -i HOME=$HOME PATH=<plist PATH>`) detection returns
+  "OpenCode found (1.18.16)" correctly.
+- NOT binary version — same correct result from the canonical installed
+  `alln 1.0.1` and from a fresh build of HEAD.
+Why resolution failed inside the launchd context at 14:57 remains unknown, and a
+controlled re-test did not reproduce it.
+Fix boundary: `ProbeRecordMerge` (`ff0978aa`) — a pass that resolves no path may
+not overwrite a prior `.ready` record whose recorded executable still exists.
+`lastProbeAt` is deliberately NOT advanced (no smoke ran, so the record keeps
+ageing into the freshness gate honestly); `lastDetectedAt` is. Genuine absence
+still reports `notInstalled` when there is no prior ready record or the path is
+gone. All four SetupStore writers route through it.
+Evidence hook for the recurrence: a retained record is stamped
+`failureCode = path_unresolved_prior_ready_retained`. **If the bench drops a seat
+again, look there first** — that field exists specifically because this RCA is open.
+Proof: four-case unit coverage with an injected `isExecutable`, so no launchd
+reproduction is needed to guard the rule.
+Pattern candidate: failure to observe is not an observation of absence. A lookup
+that came up empty may not be written as a negative fact about the world; it must
+either preserve the last positive observation or record that it could not check.
+What was the agent allowed to do that must never be allowed again: persist a
+derived negative ("not installed") from a code path whose only evidence was its
+own unsuccessful search, with no check against the last verified positive.

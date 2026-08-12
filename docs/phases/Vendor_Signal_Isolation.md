@@ -1,6 +1,8 @@
 # Vendor Signal Isolation
 
-Status: **Live — 3 of 5 slices shipped. NOT ready to archive (§12).**
+Status: **Live — S01/S02, S03-AgentOS, S05, S07 shipped; S06 PARTIAL. NOT ready
+to archive (§12).** (The old "3 of 5" header was stale from 2026-08-06 — trust
+the slice table below, verified against commits 2026-08-12.)
 
 | Slice | State | Commit |
 | --- | --- | --- |
@@ -10,7 +12,9 @@ Status: **Live — 3 of 5 slices shipped. NOT ready to archive (§12).**
 | VSI-S03 persisted parks | **Blocked** on the §10.1 founder ruling | — |
 | VSI-S04 manifest signals | Open | — |
 | VSI-S05 partial durability | **Shipped**, verified | Allnighter `bc2311ea` + `b644e216` |
-| VSI-S06 AGY scoping (new) | Open — see §12.1 | — |
+| VSI-S06 AGY scoping (new) | **PARTIAL** — source scoping + comment shipped; exit-code gate NOT done — see §12.1 | AgentOS `8186144` (+ Allnighter mirror `c912f174`) |
+| VSI-S07 vendor-unavailable wording | **Shipped**, verified | Allnighter `1a425085` |
+| Kimi usage limit unclassified (found 2026-08-12) | **Shipped** — scoped to `sourceId == "kimi"` | AgentOS `8186144` |
 
 Every shipped slice was verified by the lead re-running its gates and applying
 its mutations, never by the delivering seat's report. VSI-S05 was committed RED
@@ -940,6 +944,33 @@ Slice: scope `classifyAGYCooldown` to its own source, gate it behind
 `failedOrUnknownExit` like the other fallbacks, and correct the comment.
 Gate: an AGY-shaped cooldown string on a non-AGY source classifies as nothing;
 mutation is removing the source check.
+
+#### 12.1a What actually shipped (2026-08-12, AgentOS `8186144`)
+
+**Two of the three.** Source scoping shipped (`guard input.sourceId ==
+"antigravity"`), and the overclaiming comment is corrected. The gate was proven
+before the fix by stashing the source change and running the new test against
+unfixed code — Claude Code, exit 0, healthy, was parked 2h09m:
+
+```
+CapacityObservation(kind: .cooldown, source: "claude_code",
+  sourceConfidence: .structured, retryAfterSeconds: 7762,
+  wakeAfter: 2026-08-12 18:00:00)
+```
+
+**STILL OPEN — the `failedOrUnknownExit` gate.** `classifyAGYCooldown` (and the
+new `classifyKimiUsageLimit`) still run ABOVE the exit-code gate at
+`CapacityClassifier.swift:41`. So a vendor's own cooldown/limit prose on its own
+healthy exit-0 run still classifies. Cross-vendor bleed is fixed; self-bleed is
+not. Residual: AGY quoting its own banner in an answer, or Kimi's text echoed on
+a successful run, still parks that seat.
+
+**Also corrected here:** two tests asserted `sourceId: "agy"`, which the product
+never produces (`sourceId` is `manifest.id`; the manifest id is `antigravity`;
+`"agy"` is only the binary command name). They passed ONLY because the matcher
+was unscoped — their green depended on this defect, and they would have kept
+passing if AGY detection were deleted. That is the S06 lesson worth carrying: a
+test can encode the bug it claims to guard.
 
 ### 12.2 Why this packet is NOT archived
 
