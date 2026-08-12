@@ -1,10 +1,11 @@
 # Allnighter — Privacy Policy
 
-**Version 1.0 · Effective August 7, 2026**
+**Version 1.1 · Effective August 12, 2026**
 
 This policy explains what **Happy Moose Apps Inc.** ("we", "us") collects when
 you use Allnighter — the `alln` command-line tool, the Allnighter Mac
-application, the Allnighter iOS companion, and the website at allnighter.io.
+application, the website at allnighter.io, and, when available, the Allnighter
+iOS companion.
 
 We are a company incorporated in British Columbia, Canada. For privacy
 questions, or to exercise any right described in §7, email

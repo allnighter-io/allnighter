@@ -1,11 +1,12 @@
 # Allnighter — End User Licence Agreement
 
-**Version 1.0 · Effective August 7, 2026**
+**Version 1.1 · Effective August 12, 2026**
 
 This Agreement is between you and **Happy Moose Apps Inc.** ("we", "us"), a
 company incorporated in British Columbia, Canada, and governs your use
 of the Allnighter software — the `alln` command-line tool, the Allnighter Mac
-application, and the Allnighter iOS companion (together, the "Software").
+application, and, when available, the Allnighter iOS companion (together, the
+"Software").
 
 By installing, running, or using the Software you agree to this Agreement. If you
 do not agree, do not install or use the Software.
@@ -20,7 +21,7 @@ Your purchase, subscription, trial, and account are governed by the
 Allnighter is a local orchestration tool. It runs on your own computer and
 coordinates AI coding command-line tools **that you have already installed and
 that you are already licensed to use** — for example Claude Code, OpenAI Codex
-CLI, Grok, Gemini CLI, Aider, Cursor, or local models.
+CLI, Grok, Gemini CLI, Cursor, OpenCode, or local models.
 
 **Allnighter does not provide, resell, include, or grant access to any AI model
 or AI service.** When Allnighter runs a task, it starts the vendor's own

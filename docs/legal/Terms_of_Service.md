@@ -1,6 +1,6 @@
 # Allnighter — Terms of Service
 
-**Version 1.0 · Effective August 7, 2026**
+**Version 1.1 · Effective August 12, 2026**
 
 These Terms cover your account, trial, subscription, and payments with
 **Happy Moose Apps Inc.** ("we", "us"), a company incorporated in British
@@ -20,7 +20,7 @@ tools you already have.
 
 **You are not paying us for AI model access, and we do not provide any.** You
 must bring your own subscriptions or licences for Claude Code, Codex, Grok,
-Gemini, Cursor, Aider, local models, or whatever else you choose to run. Those
+Gemini, Cursor, OpenCode, local models, or whatever else you choose to run. Those
 cost extra, are billed by those providers, and are entirely between you and them.
 
 We take no markup on model usage and charge no per-run fee.
@@ -148,8 +148,9 @@ vendor's own tool, which authenticates itself with your own login.
 - when your installation last checked for a software release.
 
 We do not sell data, do not run advertising, and do not use your content to train
-anything. Cloud sync between your Mac and your own iPhone, if you enable it,
-carries your data between your own devices at your instruction.
+anything. Optional sync between your Mac and your own iPhone, when that companion
+ships and if you enable it, carries your data between your own devices at your
+instruction.
 
 This section is a summary. The full [Privacy Policy](Privacy_Policy.md) governs,
 and covers retention, deletion, your access rights, and the processors we use.
