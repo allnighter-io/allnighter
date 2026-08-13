@@ -10,7 +10,8 @@ public enum ModelListProjector {
         diagnostics: [ModelCatalogDiagnostic],
         benchOnly: Bool = false,
         driverId: String? = nil,
-        parkedDriverIds: Set<String> = []
+        parkedDriverIds: Set<String> = [],
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil
     ) -> ModelListJSON {
         // PF-S00/S02: read-time projection. A negative verdict that is past its
         // own retry window, or that no vendor ever stated, is not evidence — so
@@ -57,6 +58,13 @@ public enum ModelListProjector {
             }
             let driverName = registry.manifest(id: def.driverId)?.displayName ?? def.driverId
             let headlessTrust = registry.manifest(id: def.driverId)?.setup?.headlessTrust
+            let readiness: String?
+            if let snap = ollamaLocal,
+               OllamaLocalDoctorReport.isOllamaBackedSeat(modelLabel: def.modelLabel) {
+                readiness = OllamaLocalDoctorReport.readinessWord(from: snap)
+            } else {
+                readiness = nil
+            }
             return ModelListJSON.Entry(
                 id: def.id,
                 displayName: def.displayName,
@@ -72,7 +80,8 @@ public enum ModelListProjector {
                 capabilities: ModelCatalog.capabilities(def.id),
                 headlessTrust: headlessTrust,
                 stale: ProbeFreshnessDisclosure.forModel(record, driverId: def.driverId, now: now).stale,
-                resolvesTo: def.resolvedPinId
+                resolvesTo: def.resolvedPinId,
+                readiness: readiness
             )
         }
         // Selection identity/state share MenuCatalog records (MR-S05 / Law 2).
@@ -106,7 +115,8 @@ public enum ModelListProjector {
                 capabilities: base.capabilities,
                 headlessTrust: base.headlessTrust,
                 stale: base.stale,
-                resolvesTo: base.resolvesTo
+                resolvesTo: base.resolvesTo,
+                readiness: base.readiness
             )
         }
         var payload = ModelListJSON(

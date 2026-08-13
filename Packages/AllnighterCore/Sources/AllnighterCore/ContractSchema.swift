@@ -450,6 +450,7 @@ public enum ContractSchema {
                 "headlessTrust": nullableRef("HeadlessTrustPolicy"),
                 "stale": bool,
                 "resolvesTo": nullable("string"),
+                "readiness": enumStr(["Unavailable", "Idle", "Busy"]),
             ], required: [
                 "id", "displayName", "modelLabel", "driverId", "driverName", "role", "origin",
                 "enabled", "ready", "status", "state", "capabilities", "stale",

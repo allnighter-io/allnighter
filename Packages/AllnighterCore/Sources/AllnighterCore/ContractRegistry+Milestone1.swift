@@ -53,7 +53,10 @@ public extension ContractRegistry {
     // provider merge; never clobbers enabled_providers).
     // OCL-S02b: minor — `claude-local status` (per-run Anthropic-compat env
     // isolation + meter strip; never writes shell/Claude settings).
-    static let contractVersion = "9.24.0"
+    // OCL-S04: minor — `alln models` local Ollama seats gain optional
+    // `readiness` (Unavailable|Idle|Busy); paid rows omit the key. Not a
+    // capacity strip seat; `ollama_local` stays out of `benchSourceOrder`.
+    static let contractVersion = "9.25.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,

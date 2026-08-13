@@ -1,10 +1,13 @@
 import Foundation
 
-/// Maps `OllamaLocalRuntimeObserver` into `alln doctor` checks.
+/// Maps `OllamaLocalRuntimeObserver` into `alln doctor` checks and the
+/// `alln models` readiness word. One projection — doctor checks and model
+/// rows share the same three words.
 ///
 /// Readiness only: three words (`Unavailable` | `Idle` | `Busy`). Not a
 /// capacity source — never a strip row, never `benchSourceOrder`.
 public enum OllamaLocalDoctorReport {
+    public static let catalogLabelPrefix = "ollama/"
     public static let reachableCheckName = "source.ollama_local.reachable"
     public static let modelsCheckName = "source.ollama_local.models"
     public static let readinessCheckName = "source.ollama_local.readiness"
@@ -45,6 +48,18 @@ public enum OllamaLocalDoctorReport {
             modelsCheck(snapshot),
             readinessCheck(snapshot),
         ]
+    }
+
+    /// Same word doctor prints as `source.ollama_local.readiness`.
+    public static func readinessWord(
+        from snapshot: OllamaLocalRuntimeObserver.Snapshot
+    ) -> String {
+        readinessCheck(snapshot).detail
+    }
+
+    /// Body-agnostic: catalog label `ollama/<tag>` is a local Ollama seat.
+    public static func isOllamaBackedSeat(modelLabel: String) -> Bool {
+        modelLabel.hasPrefix(catalogLabelPrefix)
     }
 
     private static func reachableCheck(

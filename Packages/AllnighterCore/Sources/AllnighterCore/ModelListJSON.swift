@@ -40,6 +40,10 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
         public var stale: Bool
         /// Catalog pin this latest-pointer resolved to. Omitted on pins and aliases.
         public var resolvesTo: String?
+        /// OCL-S04 — local Ollama seats only. Exactly `Unavailable` | `Idle` |
+        /// `Busy` from `OllamaLocalDoctorReport.readinessWord`. Omitted on paid
+        /// seats so their JSON shape does not change when Ollama is down.
+        public var readiness: String?
 
         public init(
             id: ModelID,
@@ -56,7 +60,8 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             capabilities: ModelCapabilities,
             headlessTrust: HeadlessTrustPolicy? = nil,
             stale: Bool = ProbeFreshnessDisclosure.unknownModel.stale,
-            resolvesTo: String? = nil
+            resolvesTo: String? = nil,
+            readiness: String? = nil
         ) {
             self.id = id
             self.displayName = displayName
@@ -73,11 +78,13 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             self.headlessTrust = headlessTrust
             self.stale = stale
             self.resolvesTo = resolvesTo
+            self.readiness = readiness
         }
 
         private enum CodingKeys: String, CodingKey {
             case id, displayName, modelLabel, driverId, driverName, role, origin
             case enabled, ready, status, state, capabilities, headlessTrust, stale, resolvesTo
+            case readiness
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -97,6 +104,7 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             try c.encodeIfPresent(headlessTrust, forKey: .headlessTrust)
             try c.encode(stale, forKey: .stale)
             try c.encodeIfPresent(resolvesTo, forKey: .resolvesTo)
+            try c.encodeIfPresent(readiness, forKey: .readiness)
         }
     }
 

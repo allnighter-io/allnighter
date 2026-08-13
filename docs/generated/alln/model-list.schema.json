@@ -136,6 +136,14 @@
           ],
           "type" : "string"
         },
+        "readiness" : {
+          "enum" : [
+            "Unavailable",
+            "Idle",
+            "Busy"
+          ],
+          "type" : "string"
+        },
         "ready" : {
           "type" : "boolean"
         },

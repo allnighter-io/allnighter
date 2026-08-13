@@ -24,7 +24,9 @@ enum ModelsCLI {
         runtime: ToolRuntime,
         driverId: String? = nil,
         benchOnly: Bool = false,
-        now: Date = Date()
+        now: Date = Date(),
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil,
+        observeOllamaReadiness: Bool = false
     ) -> ModelListJSON {
         var defs = ModelCatalog.list(driverId: driverId)
         if benchOnly {
@@ -33,6 +35,13 @@ enum ModelsCLI {
         }
         let records = SetupStore().load().records
         let parked = SetupStore().load().parkedSet
+        let snapshot = ollamaLocal ?? (observeOllamaReadiness
+            ? OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: nil,
+                observedAt: now,
+                isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+            )
+            : nil)
         return ModelListProjector.build(
             registry: runtime.registry,
             definitions: defs,
@@ -41,7 +50,8 @@ enum ModelsCLI {
             diagnostics: ModelCatalog.diagnostics(registry: runtime.registry),
             benchOnly: benchOnly,
             driverId: driverId,
-            parkedDriverIds: parked
+            parkedDriverIds: parked,
+            ollamaLocal: snapshot
         )
     }
 
@@ -49,7 +59,8 @@ enum ModelsCLI {
         let opts = Options(args)
         let driver = opts.value("driver")
         let bench = opts.flag("bench")
-        let list = modelListJSON(runtime: runtime, driverId: driver, benchOnly: bench)
+        let list = modelListJSON(
+            runtime: runtime, driverId: driver, benchOnly: bench, observeOllamaReadiness: true)
         if opts.flag("json") {
             print(AllnighterCLI.jsonString(list))
         } else {
@@ -67,6 +78,9 @@ enum ModelsCLI {
             let benchMark = m.enabled ? "onBench" : "available"
             let readyMark = m.ready ? "ready" : m.status
             var line = "\(m.id)\t\(m.displayName)\t\(m.driverId)\t\(benchMark)\t\(readyMark)"
+            if let readiness = m.readiness {
+                line += "\t\(readiness)"
+            }
             if let def = ModelCatalog.get(m.id), def.origin == .custom,
                let smoke = def.modelSmokeStatus {
                 line += "\t\(smoke)"
@@ -211,7 +225,7 @@ enum ModelsCLI {
 
     private static func emitList(_ opts: Options, _ runtime: ToolRuntime) {
         if opts.flag("json") {
-            print(AllnighterCLI.jsonString(modelListJSON(runtime: runtime)))
+            print(AllnighterCLI.jsonString(modelListJSON(runtime: runtime, observeOllamaReadiness: true)))
         }
     }
 
