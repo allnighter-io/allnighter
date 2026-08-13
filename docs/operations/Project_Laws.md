@@ -176,3 +176,32 @@ Promoted from archived `docs/archive/phases/OpenCode_Local_Ollama_Seats.md`
   `WorkerInvokerFactory` (`routeOpenCodeToServe`).
 - Pure model name = newest in family; versioned ids stay exact pins
   (`docs/workflows/Product_Vocabulary.md` §pure name).
+
+## Entitlement / buy path (2026-08-13)
+
+Promoted from `docs/phases/Trial_And_Entitlement.md` once V1 was public.
+Offer numbers stay in `docs/marketing/Pricing_Recommendation.md`. Code SSOT:
+`Entitlement.swift`, `BillingCLI.swift`, `RunService.run`, `infra/pay`.
+
+- **Stripe Checkout with email is the cash register.** Sign in with Apple is
+  not required to buy. SIWA stays for iPhone pairing later. The website DMG
+  cannot carry SIWA (Apple forbids it on Developer ID).
+- **No Buy button on allnighter.io.** Strangers install, then pay from the Mac
+  overlay or `alln billing checkout`. Hosted Checkout URL lives in JSON `url`;
+  the human opens it. **`nextAction.command` is never a Stripe URL** (an agent
+  would exec it). Compiled command: `alln billing checkout --plan monthly --json`.
+- **Identity is a machine hash** (HMAC over IOKit `IOPlatformUUID`). The raw
+  UUID never leaves the machine. Email lives on the Stripe customer for
+  receipts. Cross-machine sync is not V1.
+- **One Stripe account in production:** Allnighter live on `pay.allnighter.io`.
+  Never xterminal’s Keychain live key. Never point the production Worker at
+  the Allnighter sandbox. Tests never hit live Stripe (Green Wall).
+- **Admission is one call site:** `RunService.run`. A loop admits once at
+  start (`EntitlementAdmission.skipInnerDispatch`). In-flight runs are never
+  killed. Discovery (`menu`, `help`, `doctor`, `billing`) is free forever.
+- **Degrade never bricks:** server down → 72h provisional trial, then local
+  3/day. Entitlement token is a `0600` file under Application Support —
+  **never Keychain**.
+- Public floor: CLI + Mac **1.1.3** on `get.allnighter.io`
+  (`docs/operations/Public_Release.md`). Pay Worker is `pay.allnighter.io`,
+  not the faucet.

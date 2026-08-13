@@ -288,3 +288,20 @@ model property. Distinct from team depth (Min / bare / Max) and from caliber
 - **Never use “Fast”** as a tier label — vendor model names already use it
   (`Composer 2.5 Fast`, etc.).
 - Code SSOT: `DefaultModelSettings.swift`, `DefaultSettingsJSON`, `alln defaults`.
+
+## Trial, pay, Keep going (promoted 2026-08-13)
+
+Offer numbers: `docs/marketing/Pricing_Recommendation.md`. Law:
+`docs/operations/Project_Laws.md` §Entitlement. Code: `EntitlementCopy`,
+`EntitlementChrome`, `BillingCLI`.
+
+| Term | Meaning |
+| --- | --- |
+| **Run (meter)** | A dispatch: `alln run`, `alln loop start`, or Mac Run. Looking at capacity, help, doctor, or billing does not count. A loop counts once at start. |
+| **Trial** | 14 calendar days unlimited, starting at first run, not install. No account. |
+| **Free forever** | After trial: 3 of those runs per day, full product, nothing feature-locked. |
+| **Builder** | $8/mo or $80/yr, unlimited dispatch within the user's own provider limits. |
+| **Founding Builder** | $160 once, first 100, then retired. |
+| **Keep going** | Mac overlay on the blocked 4th run. Quote: “That’s today’s three.” CTA is Keep going — $8/month, not a Stripe URL. |
+| **`tellHuman`** | Verbatim paragraph on `ENTITLEMENT_LIMIT` / BillingJSON. Agents quote it; they do not paraphrase. |
+| **`alln billing checkout`** | The buy command. Returns a hosted Checkout `url` for the human. Never put that URL in `nextAction.command`. |

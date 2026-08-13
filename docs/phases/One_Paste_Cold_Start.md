@@ -15,7 +15,9 @@ Updated: 2026-08-01 (orchestration — Grok 4.5) — OPC-S06b Mac About/status +
 OPC-S06c `publish-release.sh` writes `latest.json` (assets-then-manifest);
 binary `0.11.4`; GUI proof `docs/qa/gui/about-updates/2026-08-01-opc-s06b`.  
 Updated: 2026-08-13 — OPC-S05 hostname live + first public CLI `1.0.1`
-(Developer ID + notarized; `latest.json` published). Apex/www still Ikiro.  
+(Developer ID + notarized; `latest.json` published). Apex/www still Ikiro.
+Updated: 2026-08-13 — public floor moved to **1.1.3** (trial + Keep going +
+live Stripe). First public `1.0.1` remains immutable on `/v1.0.1/`.  
 Origin: Hermes / OpenClaw users with **no `alln`** need one paste so agents run
 on **subscription CLIs**, not API keys. Follow-on: once installed, **CLI-only
 users and agents never open the Mac app** — they still need to learn when a
@@ -525,7 +527,14 @@ Doctor does not install a missing binary.
 
 ---
 
-## Trial & payments (seams reserved here; **sibling packet owns the build**)
+## Trial & payments (V1 live in sibling packet)
+
+V1 shipped public **1.1.3** (2026-08-13): Stripe Checkout with email, machine
+hash, `alln billing`. SIWA is **not** the buy path. Law:
+`docs/operations/Project_Laws.md` §Entitlement. Build record:
+`docs/phases/Trial_And_Entitlement.md`. The SIWA “anchor” paragraph below is
+historical seam notes from before that ruling — do not relitigate it as
+current product.
 
 Founder ask: free to install, free to try for X days, and `rm -rf` + reinstall
 must not mint a fresh trial. Design below is the answer; per BQ-7 it ships as
@@ -613,7 +622,7 @@ hashed and sent, in `doctor` and in the privacy line, before it ships.
 | **OPC-S00** | Universal build + versioned asset layout + publish recipe | **Shipped 2026-07-31 (`3699d2fb`).** `scripts/build-universal.sh` + `scripts/publish-release.sh`; immutable paths locked; local/dogfood URL proven — dual-arch SPM fails on this toolchain (BuildInfoPlugin), two `--arch` builds + `lipo -create` used instead |
 | **OPC-S01** | `scripts/get-alln.sh` + fixture proof | **Shipped 2026-07-31 (`e9e45fbf`).** Laws 1–2 green on temp HOME **through a pipe**; BUG-0/1/3/6/7 gated; `scripts/test-get-alln.sh` proof |
 | **OPC-S06** | Shared release channel: `latest.json` + `ReleaseChannel` + `menu.update` + `version --json` + doctor + Mac reads same feed | **Shipped 2026-07-31 core (`bba67abe`, `b9a43085`) + 2026-08-01 Mac/publish.** Contract 7.4.0, binary 0.11.4. Mac Settings › About & updates + quiet title-bar badge; `publish-release.sh` writes `latest.json` last |
-| **OPC-S05** | Public cutover | **CLI faucet + Mac DMG live 2026-08-13.** `get.allnighter.io` serves the install script; `/Allnighter.dmg` 302s from `latest.json` `app.url`. CLI + app `1.0.1`. Repeatable ship: `docs/operations/Public_Release.md`. |
+| **OPC-S05** | Public cutover | **CLI faucet + Mac DMG live 2026-08-13.** First public `1.0.1`; current `latest.json` floor **1.1.3**. `get.allnighter.io` serves the install script; `/Allnighter.dmg` 302s from `latest.json` `app.url`. Repeatable ship: `docs/operations/Public_Release.md`. |
 | **OPC-S04** | npm (optional) | Only if founder reopens BQ-3 |
 
 Order: **S02 → S03 → S00 → S01 → S06 → S05**.  

@@ -118,7 +118,8 @@ of silently disappearing.
 
 **Daily-driver slices (S01–S05) shipped and green; runs from a local build.**
 Website DMG (S06) first public `1.0.1` shipped 2026-08-13 — ship procedure is
-`docs/operations/Public_Release.md`. First-run onboarding (S07) is still
+`docs/operations/Public_Release.md`. Current public floor is **1.1.3** (trial +
+Keep going + live Stripe). First-run onboarding (S07) is still
 deferred. GRDB (S08) is untriggered.
 
 Next milestone is the review-board milestone (`RB0`-`RB4`), whose specs are

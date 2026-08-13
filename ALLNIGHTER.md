@@ -6,11 +6,11 @@ Internal product specification for the Allnighter macOS + iOS apps.
 
 Allnighter is the all-day control plane for the AI coding tools the user already
 pays for — named Teams (Spec Review, Bug Hunt, Growth, Research, and more) for
-parallel judgment, and pilot / relay so a strong lead can route execution to
-other seats (e.g. Opus steers, Grok or Composer mutates). Mac (CLI + app) is the
-floor; iPhone is optional remote. Detach is supported, not the product
-definition. Not another model provider or chat aggregator. The name Allnighter
-is brand/domain only.
+parallel judgment, and Loop (`alln loop`) so a strong lead can steer while one
+mutating worker executes (e.g. Opus steers, Grok or Composer mutates). Mac
+(CLI + app) is the floor; iPhone is optional remote. Detach is supported, not
+the product definition. Not another model provider or chat aggregator. The name
+Allnighter is brand/domain only.
 
 ## Primary Docs
 
@@ -69,7 +69,12 @@ run team on Mac
 
 ## Distribution
 
-- macOS: notarized DMG/PKG, Sparkle updates.
+- macOS: notarized Developer ID DMG + universal CLI on `get.allnighter.io`.
+  Current public floor is **1.1.3**. `latest.json` is the only mutable object;
+  Sparkle is future transport, not the source of “what’s latest”
+  (`docs/operations/Public_Release.md`).
+- Pay: Stripe Checkout with email via `pay.allnighter.io`. Not the website.
+  Law: `docs/operations/Project_Laws.md` §Entitlement.
 - iOS: TestFlight → App Store (when unparked).
 - No mandatory cloud. Optional push relay seam only (deferred).
 

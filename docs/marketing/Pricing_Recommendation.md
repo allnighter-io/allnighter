@@ -1,9 +1,9 @@
 # Pricing Recommendation
 
-Status: **v4 — recommended offer** (supersedes v3 $12/$120/$199, v2 free-single-worker, and v1 "3 free Team runs / $9.95")  
+Status: **v4 — live offer** (public 1.1.3). Supersedes v3 $12/$120/$199, v2 free-single-worker, and v1 "3 free Team runs / $9.95".  
 Owner: Founder  
 Created: 2026-06-15  
-Updated: 2026-08-06 (daily free allowance · plain 14-day trial · $8/$80/$160)
+Updated: 2026-08-13 (public live; numbers unchanged from 2026-08-06)
 
 Change process: `docs/phases/Pricing_Change_Process.md`. Do not edit numbers in
 this doc without running it.

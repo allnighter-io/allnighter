@@ -48,7 +48,7 @@ if it is missing.
   `docs/operations/Project_Laws.md`.
 - `ALLNIGHTER.md`: product spec index and platform summary (defers to AGENTS /
   WORKING_RULES on credentials, shell, and iOS transport).
-- `README.md`: human overview and doc index.
+- `README.md`: human overview, public install URLs, and doc index.
 - `docs/mvp/README.md`: built Team MVP execution truth.
 - `docs/phases/README.md`: ephemeral post-MVP phase router (**not** SSOT).
 - `docs/strategy/Allnighter-Agent-Control-Loop-Strategy.md`: agent control loop strategy.
@@ -62,7 +62,9 @@ if it is missing.
 - `docs/gui/`: GUI workflow and surface briefs (how to build UI — not visual SSOT).
 - `docs/operations/Execution-Playbook.md`: slice process and closeout checklist.
 - `docs/operations/Public_Release.md`: ship CLI + Mac DMG to `get.allnighter.io`.
-- `docs/operations/Project_Laws.md`: standing product/engineering laws.
+  Current public floor **1.1.3**.
+- `docs/operations/Project_Laws.md`: standing product/engineering laws
+  (including §Entitlement / buy path).
 - `docs/operations/TechStack.md`: stack + **wrapper** commands (never raw test runners).
 - `scripts/rebuild_cli.sh`: rebuild/install `alln`; AgentOS sibling gate.
 - `scripts/swift-test.sh` / `scripts/check.sh`: Green Wall wrappers.

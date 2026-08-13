@@ -69,7 +69,7 @@ Read the relevant doc before changing that area.
 | CLI surface, `alln`, TeamRunJSON, `alln artifact` | Code: `ContractRegistry`, `ArtifactProjector`/`ArtifactWriter`/`ArtifactCLI`. Naming: `docs/phases/CLI_Product_Spine.md` (not SSOT). |
 | Agent front door: `install-cli`, `bootstrap`, live menu, help | Live `alln menu --json` is the selection front door; CLI is the only agent surface. `alln bootstrap [--host]` prints host context. No intent router. Code: `MenuCatalog`, `Bootstrap`, `InstallCLI`, `TeachingSnippet`, `HelpTopicRegistry`. |
 | Cold start — no `alln` on PATH | `docs/phases/One_Paste_Cold_Start.md`. |
-| Trial / pay / Stripe / `alln billing` | `docs/phases/Trial_And_Entitlement.md`. Code: `EntitlementGate`, `BillingCLI`. SIWA is not the buy path. |
+| Trial / pay / Stripe / `alln billing` | Law: `docs/operations/Project_Laws.md` §Entitlement. Remaining: `docs/phases/Trial_And_Entitlement.md`. Code: `EntitlementGate`, `BillingCLI`, `infra/pay`. |
 | Ship CLI / Mac DMG / notarize / `latest.json` | `docs/operations/Public_Release.md`. Not Organizer Direct Distribution. |
 | `alln serve` dead / stale / disabled | Code: `ServeLifecycle`, `ServeDaemon`, `ServeStatusJSON`. Vocab: `docs/workflows/Product_Vocabulary.md` §Background scheduler. Serve owns scheduling, never run semantics. |
 | Spec Review, measurement lies, Min/Max seat changes | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope`. Measurement: §3–§4, `measurement_auditor`. A dropped seat's questions must be absorbed by a remaining named pass. |
@@ -121,6 +121,9 @@ Full text: `docs/operations/Project_Laws.md`. Incident-preventing subset:
   id, and the per-root write lock still refuse (user intent / real
   invariants). Provenance is not a refuse-class (explicit local `--pm`
   discloses and proceeds).
+- Buy path is Stripe Checkout with email, not Sign in with Apple.
+  `nextAction.command` is never a Stripe URL. Production Worker uses Allnighter
+  live Stripe only — never xterminal keys, never the sandbox in live.
 
 ## High-Risk Stops
 

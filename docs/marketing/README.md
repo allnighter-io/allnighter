@@ -1,11 +1,13 @@
 # Allnighter Marketing
 
-Status: First-pass launch positioning  
+Status: Public live — floor **1.1.3** (2026-08-13)  
 Owner: Founder  
 Created: 2026-06-15
 
 This folder owns public-facing positioning, launch copy, offer strategy, pricing,
-and claim discipline for Allnighter.
+and claim discipline for Allnighter. The live site is Ikiro (`allnighter.io`);
+do not edit HTML here. Downloads: `get.allnighter.io`. Pay is inside the
+product (`pay.allnighter.io`), not a website Buy button.
 
 ## Core Message
 

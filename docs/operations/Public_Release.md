@@ -55,10 +55,13 @@ is the CLI script.** Pointing the Mac button at `/` looks like a broken download
 Versioned files are immutable:
 
 ```text
-https://get.allnighter.io/v1.0.1/alln-macos-universal
-https://get.allnighter.io/v1.0.1/Allnighter.dmg
+https://get.allnighter.io/v1.1.3/alln-macos-universal
+https://get.allnighter.io/v1.1.3/Allnighter.dmg
 https://get.allnighter.io/latest.json    # ONLY mutable object
 ```
+
+Older versioned prefixes (`/v1.0.1/`, `/v1.1.2/`) stay on the bucket and must
+not be overwritten.
 
 Channel contract (field names, fail-open, one-liner):
 `docs/phases/One_Paste_Cold_Start.md` § OPC-S06. This file owns the **ship

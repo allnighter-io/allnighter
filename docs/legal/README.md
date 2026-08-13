@@ -56,13 +56,13 @@ policies consent so acceptance is recorded at purchase.
 
 ## Acceptance gate — PARTIALLY BUILT
 
-Terms are now published at stable public URLs, which is the prerequisite. What
-remains is recording that a specific user accepted a specific version:
+Terms are published at stable public URLs. Payments are live (public 1.1.3).
+What remains is recording that a specific user accepted a specific version:
 
 - [x] Terms published at stable public URLs, versioned, with an effective date
 - [ ] Checkout re-affirms acceptance at purchase (the legally strongest moment)
-      — Stripe Checkout consent collection does this; enable it when payments go
-      live
+      — Stripe Checkout consent collection does this; enable it in the Stripe
+      Dashboard if it is not already on
 - [ ] First-run acceptance in the Mac app: show the terms, record acceptance
       (version + timestamp) locally, block use until accepted
 - [ ] CLI acceptance: `alln bootstrap` / first dispatch prints the terms URL and
@@ -71,9 +71,8 @@ remains is recording that a specific user accepted a specific version:
 - [ ] Acceptance record carries the **document version**, so a future revision
       can be re-accepted rather than silently substituted
 
-Build it in the entitlement sibling packet (`docs/phases/One_Paste_Cold_Start.md`
-§Trial → `Trial_And_Entitlement.md`); it lands naturally alongside the first
-dispatch admission check.
+Build it in the entitlement sibling packet (`docs/phases/Trial_And_Entitlement.md`);
+it lands naturally alongside the first dispatch admission check.
 
 ## The compliance position (why we believe we can charge)
 

@@ -1,11 +1,13 @@
 # Trial & Entitlement
 
-Status: **OPEN — live Stripe + public 1.1.3 (Keep going overlay + tellHuman)**  
+Status: **V1 SHIPPED — public 1.1.3 (2026-08-13)**  
 Owner: pay Worker + Core gate + `alln billing`  
 Offer SSOT: `docs/marketing/Pricing_Recommendation.md` v4  
-Seams reserved in: `docs/phases/One_Paste_Cold_Start.md` §Trial
+Standing law: `docs/operations/Project_Laws.md` §Entitlement  
+Vocab: `docs/workflows/Product_Vocabulary.md` §Trial, pay, Keep going
 
-Ephemeral packet. Closeout: promote law into code + `docs/operations/`; archive this file.
+Ephemeral packet. V1 buy path is live. Closeout remaining: terms-acceptance
+recording + cross-machine sync, then archive. Do not relitigate the buy path.
 
 ---
 
@@ -70,13 +72,21 @@ Reinstall must **not** mint a new 14-day trial (server `trial_started_at`, earli
 - Hit live Stripe from tests.
 - Kill an in-flight run on expiry.
 
-## Founder: remaining
+## Live (2026-08-13)
 
-**Offers in code:** free 3/day, 14-day trial, Builder $8/mo, Builder $80/yr, Founding $160 once (cap 100).
+Public floor: CLI + Mac **1.1.3** on `get.allnighter.io`. Pay Worker:
+`https://pay.allnighter.io` against **Allnighter live** Stripe (not sandbox,
+not xterminal). Checkout sessions are `cs_live_`. Webhook:
+`POST /v1/webhook`. Strangers install from allnighter.io, then pay from the
+product. There is no website Buy button.
 
-**Offers in Stripe:** those three paid prices exist on **Allnighter sandbox** (`acct_1U43dt2Y2xtVkU2r`) only. A sandbox cannot take real cards. Happy Moose live keys on this machine are expired.
+## Remaining (not V1 blockers)
 
-**You (live money):** Stripe CLI login → pick **Happy Moose Apps Inc** (production), not Allnighter sandbox. Then I clone the three prices into live, point the Worker at `sk_live_`, and ship CLI/DMG **1.1.2**.
+- Stripe Dashboard: Checkout **legal policies consent** (ToS + Privacy URLs)
+  if not already on.
+- Record terms acceptance (version + timestamp) at first Mac run / CLI first
+  dispatch. Must not block discovery commands. See `docs/legal/README.md`.
+- Cross-machine sync (email on the Stripe customer; V1 is machine-hash only).
 
 ## Code SSOT
 
