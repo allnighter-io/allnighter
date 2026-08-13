@@ -63,6 +63,7 @@ the product, not from picking the next row here.
 | [`Context_Firewall.md`](Context_Firewall.md) | **SPEC — packet 2 of 3; no code authorized** | Per-root `egress: open\|abstracted\|local_only` + verbatim egress ledger. Claim is **auditable, never sanitised** (§4.1) — copy review is a blocking test. Blocked on root-less dispatch design (§6). Packet 1 archived; outcome honesty landed `7a7f8117`. Regulated tier is bottom-up optionality, not roadmap (§3.3). |
 | [`Second_Mac_Bench.md`](Second_Mac_Bench.md) | **V2 STUB — packet 3 of 3; not started** | Scope fence for the two-machine problem. Shelved LAN architecture stays shelved; three narrow doors recorded (D1 remote inference URL only). Cannot open until packets 1 and 2 land + a founder ruling names the door. |
 | [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 CLI + DMG live** | `curl -fsSL https://get.allnighter.io \| sh` + `/Allnighter.dmg`. Repeatable ship: `docs/operations/Public_Release.md`. |
+| [`Trial_And_Entitlement.md`](Trial_And_Entitlement.md) | **OPEN — V1** | Stripe Checkout + machine hash. `alln billing`. SIWA is not the buy path. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
 

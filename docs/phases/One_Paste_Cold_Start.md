@@ -553,8 +553,9 @@ server always keeps the **earliest** start it has ever seen for a key.
   change, reconciled server-side on the same 24h check. A failed dispatch that
   never spawned a worker does not count — and the daily reset means a wrong call
   costs a wait, never a support ticket.
-- Sign in with Apple is required only to **pay** and to sync entitlement across
-  machines / iOS.
+- Sign in with Apple is **not** the buy path (founder 2026-08-13). Pay is
+  hosted Stripe Checkout with email. SIWA stays for iPhone pairing later.
+  Full build: `docs/phases/Trial_And_Entitlement.md`.
 - Offline at first dispatch: grant a provisional local start, reconcile on next
   contact (server always keeps the earlier timestamp).
   Unactivated + never able to reach the server = **72h** grace, then fall back to
@@ -582,9 +583,9 @@ loop counts once, at start, not per round.
 checkout URL or `alln activate`), so an agent can tell its human exactly what to
 do. Never a silent hang, never a generic error.
 
-**Payments:** hosted Stripe Checkout link → webhook → Supabase entitlement row.
-No in-app payment UI, no IAP (direct distribution, unsandboxed by design). Founder
-is solo — the whole surface is one table, one webhook, one signed token.
+**Payments:** hosted Stripe Checkout → webhook → D1 row on `pay.allnighter.io`.
+No in-app payment UI, no IAP. Sign in with Apple is not required to buy.
+See `docs/phases/Trial_And_Entitlement.md`.
 
 **Seams to reserve now (cheap now, expensive later):**
 

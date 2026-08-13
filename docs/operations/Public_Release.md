@@ -69,7 +69,7 @@ uploaded. `appVersion` must equal the app’s
 forever.
 
 Current public floor (2026-08-13): CLI **1.0.1** + Mac app **1.0.1** (arm64
-DMG). Do not invent a 1.0.2 unless the founder asked for a new version.
+DMG). Next ship with billing is **1.1.2** (founder 2026-08-13).
 
 ---
 
