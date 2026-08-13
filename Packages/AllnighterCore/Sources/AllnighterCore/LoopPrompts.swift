@@ -20,6 +20,9 @@ public enum RelayPMPrompt {
         public var currentHead: String?
         /// The previous dev turn's report, verbatim. Nil on round 1.
         public var devReport: String?
+        /// OCL-S07: Allnighter-owned facts from the previous execution turn.
+        /// Nil on round 1. Never derived from `devReport` text.
+        public var executionOutcome: LoopExecutionOutcome?
         /// Injected on `--resume` after an escalation — the founder's answer.
         public var founderNote: String?
         /// Injected exactly once, on the FIRST spawned PM turn after `LoopCoordinator.
@@ -42,6 +45,7 @@ public enum RelayPMPrompt {
             baselineHead: String,
             currentHead: String? = nil,
             devReport: String? = nil,
+            executionOutcome: LoopExecutionOutcome? = nil,
             founderNote: String? = nil,
             adoptionNote: String? = nil,
             kickoffMessage: String? = nil,
@@ -54,6 +58,7 @@ public enum RelayPMPrompt {
             self.baselineHead = baselineHead
             self.currentHead = currentHead
             self.devReport = devReport
+            self.executionOutcome = executionOutcome
             self.founderNote = founderNote
             self.adoptionNote = adoptionNote
             self.kickoffMessage = kickoffMessage
@@ -85,6 +90,10 @@ public enum RelayPMPrompt {
             parts.append("## Adopted from Pilot (unattended handover)\n\(adoptionNote)")
         }
 
+        if let executionOutcome = context.executionOutcome {
+            parts.append(executionOutcome.promptBlock())
+        }
+
         if let devReport = context.devReport {
             let headForRange = context.currentHead ?? "HEAD"
             parts.append(
@@ -102,8 +111,9 @@ public enum RelayPMPrompt {
                 claim, not proof — check it against what actually landed.
                 - Read any artifacts the report names (screenshots, logs, output files) at the \
                 paths it gives.
-                - Weigh the report's claims against what you find. Approve what holds, flag what \
-                doesn't, and fix small things yourself if that's faster than bouncing them back — \
+                - Weigh the report's claims against what you find. The report is never \
+                evidence of a passing gate. Approve what holds, flag what doesn't, and \
+                fix small things yourself if that's faster than bouncing them back — \
                 both are fine.
                 """
             )

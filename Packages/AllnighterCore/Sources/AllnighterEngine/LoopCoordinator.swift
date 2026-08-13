@@ -548,7 +548,11 @@ public struct LoopCoordinator: Sendable {
                 proofCommands: devResult.proofCommands,
                 writeScope: devResult.writeScope,
                 scopeViolation: devResult.scopeViolation,
-                standingFailed: devResult.standingFailed
+                standingFailed: devResult.standingFailed,
+                executionRun: {
+                    if case .delivered(let run, _) = devResult.dispatch { return run }
+                    return nil
+                }()
             )
             // Reload laneBlocked (if any) written during harness wait.
             if let fresh = try? stateStore.load(id: state.id) {
@@ -1237,6 +1241,7 @@ public struct LoopCoordinator: Sendable {
             baselineHead: previousRound?.baselineHead ?? baselineHead ?? "",
             currentHead: previousRound?.headAfterDev,
             devReport: devReport,
+            executionOutcome: previousRound?.executionOutcome,
             founderNote: founderNote,
             adoptionNote: adoptionNote,
             kickoffMessage: kickoffMessage,
@@ -1401,7 +1406,11 @@ public struct LoopCoordinator: Sendable {
                 proofCommands: devResult.proofCommands,
                 writeScope: devResult.writeScope,
                 scopeViolation: devResult.scopeViolation,
-                standingFailed: devResult.standingFailed
+                standingFailed: devResult.standingFailed,
+                executionRun: {
+                    if case .delivered(let run, _) = devResult.dispatch { return run }
+                    return nil
+                }()
             )
             if let fresh = try? stateStore.load(id: state.id) {
                 state.laneBlocked = fresh.laneBlocked
@@ -2069,7 +2078,8 @@ public struct LoopCoordinator: Sendable {
         proofCommands: [String] = [],
         writeScope: TurnWriteScope? = nil,
         scopeViolation: ScopeViolation? = nil,
-        standingFailed: [String]? = nil
+        standingFailed: [String]? = nil,
+        executionRun: TeamRun? = nil
     ) {
         if round.devTurnEndReason == nil {
             round.devTurnEndReason = endReason
@@ -2091,6 +2101,14 @@ public struct LoopCoordinator: Sendable {
         }
         if let standingFailed {
             round.standingFailed = standingFailed
+        }
+        if let outcome = LoopExecutionOutcome.evaluate(
+            run: executionRun,
+            proofResults: proofResults,
+            standingFailed: standingFailed,
+            scopeViolation: scopeViolation
+        ) {
+            round.executionOutcome = outcome
         }
     }
 

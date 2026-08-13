@@ -58,7 +58,10 @@ public extension ContractRegistry {
     // OCL-S04: minor — `alln models` local Ollama seats gain optional
     // `readiness` (Unavailable|Idle|Busy); paid rows omit the key. Not a
     // capacity strip seat; `ollama_local` stays out of `benchSourceOrder`.
-    static let contractVersion = "9.26.0"
+    // OCL-S07: minor — loop `--dev` may be a local Ollama seat; `--pm` refuses
+    // local (`LOOP_LOCAL_SEAT_CANNOT_LEAD`); roundLog.executionOutcome is
+    // Allnighter-owned (never the seat's report).
+    static let contractVersion = "9.27.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -723,8 +726,8 @@ public extension ContractRegistry {
             ],
             flags: [
                 FlagSpec("spec", takesValue: true, valueType: "path", summary: "Repo-relative spec doc path — a shortcut for when the brief would be three paragraphs, not the shape. The PM re-reads it fresh each round."),
-                FlagSpec("pm", takesValue: true, valueType: "id", summary: "PM occupant: `caller` (this session reviews every round) or a canonical agent id (that agent is spawned as PM and the loop runs unattended). Omitted → the Frontier-tier default."),
-                FlagSpec("dev", takesValue: true, valueType: "id", summary: "Dev seat canonical agent id. Omitted → the Balanced-tier default."),
+                FlagSpec("pm", takesValue: true, valueType: "id", summary: "PM occupant: `caller` (this session reviews every round) or a canonical frontier agent id (that agent is spawned as PM and the loop runs unattended). A local Ollama seat cannot hold this chair. Omitted → the Frontier-tier default."),
+                FlagSpec("dev", takesValue: true, valueType: "id", summary: "Dev (execution) seat canonical agent id, including a local Ollama-backed seat. Omitted → the Balanced-tier default. The local seat is not exempt from the per-root write lock."),
                 FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. Omitted → resolved from the current working directory."),
                 FlagSpec("dry-run", summary: "Resolve the brief/spec/both seats/project and report readiness; exit 0, create nothing, spend nothing."),
                 FlagSpec("no-wait", summary: "Spawn the same registered `loop start` verb in a detached child; return only after the child durably claims delivery."),
@@ -1559,6 +1562,7 @@ public extension ContractRegistry {
         ErrorSpec("RUN_ID_IN_USE", ruleId: "run.id.in_use", agentAction: "Attach with `alln run resume <id> --json`, or omit an explicit id.", requiresManual: true, retryable: false, explain: "a run already exists with this id"),
         ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`loop step` was called against a loop that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a caller-held loop's normal between-rounds state."),
         ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "A `loop step` submission didn't end with a parseable LoopVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits."),
+        ErrorSpec("LOOP_LOCAL_SEAT_CANNOT_LEAD", ruleId: "loop.local_seat.cannot_lead", agentAction: "Keep `--pm` as a frontier model or `caller`. Pin the local Ollama seat with `--dev`.", requiresManual: true, retryable: false, explain: "A local Ollama-backed seat cannot hold the Loop PM chair. Loop's shape is a frontier lead and an execution seat — the local seat is the execution seat, under the same per-root write lock.", exitClass: .usage),
         ErrorSpec("OWNERSHIP_NOT_FOUND", ruleId: "ownership.not_found", agentAction: "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.", requiresManual: false, retryable: false, explain: "No owned process tree matches the given id in durable state (run dirs, relay dirs, lane holders)."),
         ErrorSpec("OWNERSHIP_ALREADY_TERMINAL", ruleId: "ownership.already_terminal", agentAction: "No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`.", requiresManual: false, retryable: false, explain: "`alln kill` refused because the named work is already terminal — kill never clobbers an existing terminal endReason."),
         ErrorSpec("OWNERSHIP_IDENTITY_MISMATCH", ruleId: "ownership.identity.mismatch", agentAction: "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.", requiresManual: true, retryable: false, explain: "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process."),

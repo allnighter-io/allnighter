@@ -117,6 +117,42 @@ final class LoopEngineCLITests: XCTestCase {
         XCTAssertNil(config.kickoffMessage)   // ATL-S01: CLI-optional back-compat
     }
 
+    func testParseStartConfigRefusesLocalOllamaPMAndAllowsLocalDev() throws {
+        let store = makeProjectStore()
+        let project = try addProject(store)
+        let models: [Model] = [
+            Model(id: "model_pm", displayName: "PM", modelLabel: "opus", driverId: "claude_code", role: .both),
+            Model(
+                id: "custom_opencode_ollama_qwen3_8b",
+                displayName: "qwen3 8b",
+                modelLabel: "ollama/qwen3:8b",
+                driverId: "opencode",
+                role: .both
+            ),
+        ]
+        XCTAssertThrowsError(try LoopEngineCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id,
+             "--pm-model", "custom_opencode_ollama_qwen3_8b", "--dev-model", "model_pm"],
+            projectStore: store,
+            models: models
+        )) { error in
+            guard case .localSeatCannotLead(let message) = error as? LoopEngineCLI.LoopEngineCLIError else {
+                return XCTFail("expected localSeatCannotLead, got \(error)")
+            }
+            XCTAssertTrue(message.contains("--dev"))
+            let (code, _) = LoopEngineCLI.errorEnvelope(.localSeatCannotLead(message))
+            XCTAssertEqual(code, "LOOP_LOCAL_SEAT_CANNOT_LEAD")
+        }
+        let config = try LoopEngineCLI.parseStartConfig(
+            ["--doc", "docs/spec.md", "--project", project.id,
+             "--pm-model", "model_pm", "--dev-model", "custom_opencode_ollama_qwen3_8b"],
+            projectStore: store,
+            models: models
+        )
+        XCTAssertEqual(config.pmModelId, "model_pm")
+        XCTAssertEqual(config.devModelId, "custom_opencode_ollama_qwen3_8b")
+    }
+
     // MARK: - Kickoff brief (ATL-S01)
 
     func testParseStartConfigMessageThreadsIntoKickoffMessage() throws {
@@ -414,6 +450,7 @@ final class LoopEngineCLITests: XCTestCase {
             .kickoffMessageMutex,
             .kickoffMessageFileUnreadable("/tmp/missing.md"),
             .kickoffMessageEmpty,
+            .localSeatCannotLead("local Ollama seat cannot hold the Loop PM chair"),
         ]
         for c in cases {
             let (code, message) = LoopEngineCLI.errorEnvelope(c)

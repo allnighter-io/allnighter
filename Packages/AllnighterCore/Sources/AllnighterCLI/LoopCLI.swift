@@ -172,6 +172,7 @@ enum LoopCLI {
         var pmSource: String
         var dev: String
         var devSource: String
+        var localExecutionWarning: String?
     }
 
     static func runStart(_ args: [String], runtime: ToolRuntime) async {
@@ -288,6 +289,12 @@ enum LoopCLI {
             pmSource = "tier:frontier"
         }
 
+        if case .agent(let id) = pm,
+           let model = models.first(where: { $0.id == id }),
+           let refusal = LoopLocalSeatPolicy.pmRefusal(for: model) {
+            AllnighterCLI.fail(code: LoopLocalSeatPolicy.errorCode, message: refusal)
+        }
+
         let dev: String
         let devSource: String
         if let devRaw = opts.value("dev") {
@@ -309,7 +316,15 @@ enum LoopCLI {
             devSource = "tier:balanced"
         }
 
-        return ResolvedSeats(pm: pm, pmSource: pmSource, dev: dev, devSource: devSource)
+        var localExecutionWarning: String?
+        if let model = models.first(where: { $0.id == dev }) {
+            localExecutionWarning = LoopLocalSeatPolicy.localExecutionWarning(for: model)
+        }
+
+        return ResolvedSeats(
+            pm: pm, pmSource: pmSource, dev: dev, devSource: devSource,
+            localExecutionWarning: localExecutionWarning
+        )
     }
 
     private static func emitDryRun(
@@ -318,6 +333,9 @@ enum LoopCLI {
         var warnings: [String] = []
         if let specPath, !FileManager.default.fileExists(atPath: URL(fileURLWithPath: specPath, relativeTo: URL(fileURLWithPath: project.normalizedRootPath)).path) {
             warnings.append("--spec \(specPath) does not exist under \(project.normalizedRootPath) yet — the PM will hit this on round 1")
+        }
+        if let localWarning = seats.localExecutionWarning {
+            warnings.append(localWarning)
         }
 
         let pmOccupant: String
@@ -593,6 +611,14 @@ enum LoopCLI {
         if occupant == "caller" {
             PilotCLI.runAdopt(forwarded, stateStore: stateStore)
         } else {
+            switch ExactIdResolver.resolveWorker(occupant, flag: "--pm", models: runtime.models) {
+            case .success(let model):
+                if let refusal = LoopLocalSeatPolicy.pmRefusal(for: model) {
+                    AllnighterCLI.fail(code: LoopLocalSeatPolicy.errorCode, message: refusal)
+                }
+            case .failure(let failure):
+                AllnighterCLI.failExactId(failure)
+            }
             forwarded.append(contentsOf: ["--pm-model", occupant])
             await LoopEngineCLI.runAdopt(forwarded, runtime: runtime, stateStore: stateStore, projectStore: projectStore)
         }
@@ -620,6 +646,9 @@ enum LoopCLI {
             case .success(let model):
                 resolvedPmOccupant = model.id
                 pmSource = "explicit"
+                if let refusal = LoopLocalSeatPolicy.pmRefusal(for: model) {
+                    warnings.append(refusal)
+                }
             case .failure(let failure):
                 warnings.append(failure.message)
             }

@@ -3038,13 +3038,13 @@
         },
         {
           "name" : "pm",
-          "summary" : "PM occupant: `caller` (this session reviews every round) or a canonical agent id (that agent is spawned as PM and the loop runs unattended). Omitted → the Frontier-tier default.",
+          "summary" : "PM occupant: `caller` (this session reviews every round) or a canonical frontier agent id (that agent is spawned as PM and the loop runs unattended). A local Ollama seat cannot hold this chair. Omitted → the Frontier-tier default.",
           "takesValue" : true,
           "valueType" : "id"
         },
         {
           "name" : "dev",
-          "summary" : "Dev seat canonical agent id. Omitted → the Balanced-tier default.",
+          "summary" : "Dev (execution) seat canonical agent id, including a local Ollama-backed seat. Omitted → the Balanced-tier default. The local seat is not exempt from the per-root write lock.",
           "takesValue" : true,
           "valueType" : "id"
         },
@@ -6448,7 +6448,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.26.0",
+  "contractVersion" : "9.27.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -7451,6 +7451,15 @@
       "requiresManual" : true,
       "retryable" : true,
       "ruleId" : "relay.verdict.unparseable"
+    },
+    {
+      "agentAction" : "Keep `--pm` as a frontier model or `caller`. Pin the local Ollama seat with `--dev`.",
+      "code" : "LOOP_LOCAL_SEAT_CANNOT_LEAD",
+      "exitClass" : "usage",
+      "explain" : "A local Ollama-backed seat cannot hold the Loop PM chair. Loop's shape is a frontier lead and an execution seat — the local seat is the execution seat, under the same per-root write lock.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "loop.local_seat.cannot_lead"
     },
     {
       "agentAction" : "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.",

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.26.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.27.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -821,8 +821,8 @@ Arguments:
 
 Flags:
 - `--spec <path>` — Repo-relative spec doc path — a shortcut for when the brief would be three paragraphs, not the shape. The PM re-reads it fresh each round.
-- `--pm <id>` — PM occupant: `caller` (this session reviews every round) or a canonical agent id (that agent is spawned as PM and the loop runs unattended). Omitted → the Frontier-tier default.
-- `--dev <id>` — Dev seat canonical agent id. Omitted → the Balanced-tier default.
+- `--pm <id>` — PM occupant: `caller` (this session reviews every round) or a canonical frontier agent id (that agent is spawned as PM and the loop runs unattended). A local Ollama seat cannot hold this chair. Omitted → the Frontier-tier default.
+- `--dev <id>` — Dev (execution) seat canonical agent id, including a local Ollama-backed seat. Omitted → the Balanced-tier default. The local seat is not exempt from the per-root write lock.
 - `--project <id>` — Project id, name, or repo path. Omitted → resolved from the current working directory.
 - `--dry-run` — Resolve the brief/spec/both seats/project and report readiness; exit 0, create nothing, spend nothing.
 - `--no-wait` — Spawn the same registered `loop start` verb in a detached child; return only after the child durably claims delivery.
@@ -1842,6 +1842,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RUN_ID_IN_USE` | yes | no | `operational` | Attach with `alln run resume <id> --json`, or omit an explicit id. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs. |
+| `LOOP_LOCAL_SEAT_CANNOT_LEAD` | yes | no | `usage` | Keep `--pm` as a frontier model or `caller`. Pin the local Ollama seat with `--dev`. |
 | `OWNERSHIP_NOT_FOUND` | no | no | `operational` | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
 | `OWNERSHIP_ALREADY_TERMINAL` | no | no | `operational` | No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`. |
 | `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | `operational` | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |

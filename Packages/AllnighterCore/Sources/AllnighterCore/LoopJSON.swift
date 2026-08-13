@@ -200,6 +200,9 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
     /// Absent when all standing invariants passed or none ran. Marks turn not-clean;
     /// `endReason` stays as reported (analogous to scopeViolation).
     public var standingFailed: [String]?
+    /// OCL-S07: Allnighter-owned execution outcome. Absent when the round never
+    /// reached a judged execution run. Never copied from the seat's prose.
+    public var executionOutcome: LoopExecutionOutcome?
 
     public init(
         round: Int,
@@ -215,7 +218,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         proofResults: [HarnessProofResult] = [],
         writeScope: TurnWriteScope? = nil,
         scopeViolation: ScopeViolation? = nil,
-        standingFailed: [String]? = nil
+        standingFailed: [String]? = nil,
+        executionOutcome: LoopExecutionOutcome? = nil
     ) {
         self.round = round
         self.baseline = baseline
@@ -231,6 +235,7 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
         self.writeScope = writeScope
         self.scopeViolation = scopeViolation
         self.standingFailed = standingFailed
+        self.executionOutcome = executionOutcome
     }
 
     public init(_ round: RelayRound) {
@@ -248,7 +253,8 @@ public struct RelayRoundLogEntry: Codable, Equatable, Sendable {
             proofResults: round.proofResults,
             writeScope: round.writeScope,
             scopeViolation: round.scopeViolation,
-            standingFailed: round.standingFailed
+            standingFailed: round.standingFailed,
+            executionOutcome: round.executionOutcome
         )
     }
 }

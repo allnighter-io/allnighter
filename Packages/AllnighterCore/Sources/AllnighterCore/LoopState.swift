@@ -70,6 +70,10 @@ public struct RelayRound: Sendable, Codable, Equatable {
     /// Absent/`nil` when all standing invariants passed or none ran. Marks the
     /// turn not-clean; `endReason` stays as reported (analogous to scopeViolation).
     public var standingFailed: [String]?
+    /// OCL-S07: Allnighter-owned execution outcome for this round's dev turn.
+    /// Never derived from the seat's report text. Absent when the round never
+    /// reached a judged execution run.
+    public var executionOutcome: LoopExecutionOutcome?
 
     public init(
         roundNumber: Int,
@@ -90,7 +94,8 @@ public struct RelayRound: Sendable, Codable, Equatable {
         proofCommands: [String] = [],
         writeScope: TurnWriteScope? = nil,
         scopeViolation: ScopeViolation? = nil,
-        standingFailed: [String]? = nil
+        standingFailed: [String]? = nil,
+        executionOutcome: LoopExecutionOutcome? = nil
     ) {
         self.roundNumber = roundNumber
         self.baselineHead = baselineHead
@@ -111,6 +116,7 @@ public struct RelayRound: Sendable, Codable, Equatable {
         self.writeScope = writeScope
         self.scopeViolation = scopeViolation
         self.standingFailed = standingFailed
+        self.executionOutcome = executionOutcome
     }
 
     // Lenient decode: relays persisted before PO-S04/S06/F4 lack later fields.
@@ -135,6 +141,7 @@ public struct RelayRound: Sendable, Codable, Equatable {
         writeScope = try c.decodeIfPresent(TurnWriteScope.self, forKey: .writeScope)
         scopeViolation = try c.decodeIfPresent(ScopeViolation.self, forKey: .scopeViolation)
         standingFailed = try c.decodeIfPresent([String].self, forKey: .standingFailed)
+        executionOutcome = try c.decodeIfPresent(LoopExecutionOutcome.self, forKey: .executionOutcome)
     }
 }
 

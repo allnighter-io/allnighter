@@ -491,6 +491,8 @@ enum LoopEngineCLI {
         /// instead of losing that detail through the generic `errorEnvelope` mapping
         /// (mirrors `PilotSeatResolver.Error.exactId`).
         case workerNotAvailable(ExactIdResolver.Failure)
+        /// OCL-S07: a local Ollama seat cannot hold the PM chair.
+        case localSeatCannotLead(String)
         /// ATL-S01: both `--message` and `--message-file` present.
         case kickoffMessageMutex
         /// ATL-S01: `--message-file` path missing or unreadable.
@@ -513,8 +515,13 @@ enum LoopEngineCLI {
         // invocations; tests inject a hermetic fixture instead (mirrors PilotCLI's
         // `parseStartConfig(models:)` seam) — never reads live user config in tests.
         let catalogModels = models.isEmpty ? ModelCatalog.resolvedModels(registry: DefaultConfig.registry) : models
-        if case .failure(let failure) = ExactIdResolver.resolveWorker(pmModelId, flag: "--pm-model", models: catalogModels) {
+        switch ExactIdResolver.resolveWorker(pmModelId, flag: "--pm-model", models: catalogModels) {
+        case .failure(let failure):
             throw LoopEngineCLIError.workerNotAvailable(failure)
+        case .success(let model):
+            if let refusal = LoopLocalSeatPolicy.pmRefusal(for: model) {
+                throw LoopEngineCLIError.localSeatCannotLead(refusal)
+            }
         }
         if case .failure(let failure) = ExactIdResolver.resolveWorker(devModelId, flag: "--dev-model", models: catalogModels) {
             throw LoopEngineCLIError.workerNotAvailable(failure)
@@ -716,6 +723,8 @@ enum LoopEngineCLI {
         switch error {
         case .workerNotAvailable(let failure):
             return (failure.code, failure.message)
+        case .localSeatCannotLead(let message):
+            return (LoopLocalSeatPolicy.errorCode, message)
         case .missingRequired(let flag):
             return ("CLI_USAGE_ERROR", "\(flag) required")
         case .invalidMaxRounds(let raw):

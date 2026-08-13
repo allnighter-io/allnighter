@@ -79,6 +79,37 @@ final class LoopPromptsTests: XCTestCase {
         XCTAssertTrue(prompt.contains("Review the actual work"))
         XCTAssertTrue(prompt.contains("git log abc123..def456"))
         XCTAssertTrue(prompt.contains("git diff abc123..def456"))
+        XCTAssertTrue(prompt.contains("The report is never evidence of a passing gate"))
+    }
+
+    func testFailedExecutionOutcomeLeadsThePMPromptAndIgnoresSeatProse() {
+        let lie = "the change is applied and ready for review"
+        let outcome = LoopExecutionOutcome(
+            status: .failed,
+            reasons: ["declared proof `swift build` exited 1"]
+        )
+        let context = RelayPMPrompt.Context(
+            docPath: "docs/phases/OpenCode_Local_Ollama_Seats.md",
+            roundNumber: 2,
+            baselineHead: "abc123",
+            currentHead: "def456",
+            devReport: lie,
+            executionOutcome: outcome,
+            founderNote: nil,
+            maxRounds: 20,
+            roundsRemaining: 19
+        )
+        let prompt = RelayPMPrompt.assemble(context: context)
+        let outcomeIdx = prompt.range(of: "Allnighter execution outcome")?.lowerBound
+        let reportIdx = prompt.range(of: lie)?.lowerBound
+        XCTAssertNotNil(outcomeIdx)
+        XCTAssertNotNil(reportIdx)
+        if let outcomeIdx, let reportIdx {
+            XCTAssertLessThan(outcomeIdx, reportIdx, "lead must see Allnighter facts before the seat's prose")
+        }
+        XCTAssertTrue(prompt.contains("status: failed"))
+        XCTAssertTrue(prompt.contains("declared proof `swift build` exited 1"))
+        XCTAssertTrue(prompt.contains("claim, not evidence"))
     }
 
     // MARK: - Verbatim survival

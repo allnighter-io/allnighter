@@ -116,6 +116,32 @@ final class LoopJSONTests: XCTestCase {
         XCTAssertEqual(json.roundLog[0].devRunId, "run_dev_1")
     }
 
+    func testProjectsExecutionOutcomeOnRoundLog() {
+        var round = makeRound(
+            1, baseline: "aaa", head: "bbb", pmRunId: "run_pm", devRunId: "run_dev",
+            verdict: LoopVerdict(verdict: .continueRelay, handover: "fix it"),
+            outcome: .continued
+        )
+        round.executionOutcome = LoopExecutionOutcome(
+            status: .failed,
+            reasons: ["declared proof `swift build` exited 1"]
+        )
+        let state = LoopState(
+            id: "relay_local", projectRoot: "/repo", docPath: "docs/spec.md",
+            pmModelId: "model_pm", devModelId: "custom_opencode_ollama_qwen3_8b",
+            status: .awaitingPM, rounds: [round], createdAt: now
+        )
+        let json = LoopJSON.project(state, contractVersion: "1.0.0")
+        XCTAssertEqual(json.roundLog[0].executionOutcome?.status, .failed)
+        XCTAssertEqual(
+            json.roundLog[0].executionOutcome?.reasons,
+            ["declared proof `swift build` exited 1"]
+        )
+        XCTAssertFalse(
+            json.roundLog[0].executionOutcome?.reasons.contains { $0.contains("ready for review") } == true
+        )
+    }
+
     func testProjectsEscalatedRelayWithGateBlock() {
         let gate = RelayGateSummary(
             allowed: false, dangerClass: "destructiveGit", code: "RELAY_HANDOVER_UNSAFE",
