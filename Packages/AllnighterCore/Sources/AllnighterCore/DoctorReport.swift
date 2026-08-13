@@ -47,6 +47,10 @@ public enum DoctorReport {
         /// Injectable so tests can state configured / not configured without
         /// reading the developer's real credential file. `nil` loads the store.
         public var openCodeGoCapacity: Result<OpenCodeGoCredentialStore.Resolved, OpenCodeGoCredentialStore.LoadError>?
+        /// OCL-S01b — local Ollama readiness for doctor. `nil` omits the checks
+        /// (unit-test default; never a live socket). Production doctor injects
+        /// an observed snapshot. Informational: does not fail overall status.
+        public var ollamaLocal: OllamaLocalRuntimeObserver.Snapshot?
 
         public init(
             binaryVersion: String,
@@ -67,7 +71,8 @@ public enum DoctorReport {
             teachingInputs: [TeachingInstalledCheck.TargetInput]? = nil,
             update: ReleaseUpdateInfo? = nil,
             parked: Set<String> = [],
-            openCodeGoCapacity: Result<OpenCodeGoCredentialStore.Resolved, OpenCodeGoCredentialStore.LoadError>? = nil
+            openCodeGoCapacity: Result<OpenCodeGoCredentialStore.Resolved, OpenCodeGoCredentialStore.LoadError>? = nil,
+            ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil
         ) {
             self.binaryVersion = binaryVersion
             self.contractVersion = contractVersion
@@ -88,6 +93,7 @@ public enum DoctorReport {
             self.update = update
             self.parked = parked
             self.openCodeGoCapacity = openCodeGoCapacity
+            self.ollamaLocal = ollamaLocal
         }
     }
 
@@ -158,6 +164,9 @@ public enum DoctorReport {
             checks.append(go)
         }
         checks.append(openCodeGoCapacityCheck(inputs: inputs))
+        if let ollama = inputs.ollamaLocal {
+            checks.append(contentsOf: OllamaLocalDoctorReport.checks(from: ollama))
+        }
 
         // Cursor shell allowlist — read-only vendor config; never mutated.
         let shellAllowlist = CursorShellAllowlist.check(

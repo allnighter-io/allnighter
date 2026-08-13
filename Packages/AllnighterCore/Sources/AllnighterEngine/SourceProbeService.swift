@@ -51,6 +51,10 @@ public struct SourceProbeService: Sendable {
     public var binaryGitSha: String?
     public var runningBinaryPath: String?
     public var pathEnvironment: String?
+    /// Injected Ollama transport. Tests must pass a fixture; the XCTest host
+    /// never opens loopback :11434. Production `alln doctor` leaves this nil
+    /// and observes via `URLSessionTransport`.
+    public var ollamaTransport: (any OllamaLocalRuntimeClient.Transport)?
 
     public init(
         models: [Model],
@@ -58,7 +62,8 @@ public struct SourceProbeService: Sendable {
         binaryVersion: String,
         binaryGitSha: String? = nil,
         runningBinaryPath: String? = ProcessOwnership.currentExecutablePath(),
-        pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"]
+        pathEnvironment: String? = ProcessInfo.processInfo.environment["PATH"],
+        ollamaTransport: (any OllamaLocalRuntimeClient.Transport)? = nil
     ) {
         self.models = models
         self.registry = registry
@@ -66,6 +71,7 @@ public struct SourceProbeService: Sendable {
         self.binaryGitSha = binaryGitSha
         self.runningBinaryPath = runningBinaryPath
         self.pathEnvironment = pathEnvironment
+        self.ollamaTransport = ollamaTransport
     }
 
     public func probe(_ request: SourceProbeRequest) async -> DoctorResult {
@@ -116,7 +122,12 @@ public struct SourceProbeService: Sendable {
                 currentVersion: binaryVersion,
                 binaryPath: runningBinaryPath
             ),
-            parked: parked
+            parked: parked,
+            ollamaLocal: OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: ollamaTransport,
+                observedAt: Date(),
+                isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+            )
         )
         var result = DoctorReport.build(models: models, manifests: manifests, records: doctorRecords, inputs: inputs)
         result.checks.append(LoopPersistenceDoctorCheck.doctorCheck(loopsRoot: AllnighterPaths.loops))

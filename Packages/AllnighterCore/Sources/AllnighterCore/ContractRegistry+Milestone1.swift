@@ -47,7 +47,9 @@ public extension ContractRegistry {
     // OCG-SETUP: minor — `opencode-go configure --from-chrome` FlagSpec (easy
     // path was implemented but undeclared); honest file-store summary; additive
     // `CapacityStripJSONRow.nextAction` + `source.opencode_go.configured` doctor check.
-    static let contractVersion = "9.21.0"
+    // OCL-S01b: minor — `source.ollama_local.{reachable,models,readiness}`
+    // doctor checks (readiness only; not a capacity strip seat).
+    static let contractVersion = "9.22.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -1554,6 +1556,18 @@ public extension ContractRegistry {
         DoctorCheckSpec(
             "source.opencode_go.configured",
             meaning: "OpenCode Go dashboard credentials are stored for capacity metering (file AES-GCM, not Keychain)."
+        ),
+        DoctorCheckSpec(
+            "source.ollama_local.reachable",
+            meaning: "Ollama loopback answered /api/version. Readiness, not capacity."
+        ),
+        DoctorCheckSpec(
+            "source.ollama_local.models",
+            meaning: "Local tags pulled on this Mac (/api/tags). Not catalog seats."
+        ),
+        DoctorCheckSpec(
+            "source.ollama_local.readiness",
+            meaning: "Local Ollama readiness: Unavailable, Idle, or Busy. Never a capacity meter."
         ),
         DoctorCheckSpec("source.<sourceId>.auth", meaning: "Source auth appears valid when safely probeable."),
         DoctorCheckSpec("source.<sourceId>.headlessTrust", meaning: "Headless trust/mutation posture is declared for sources that require it."),
