@@ -1,0 +1,8 @@
+# surface: cli-setup
+# fixtures: readiness-muse-needs-login
+# watcher: PASS
+# sealed: 2026-08-13
+# Binds each proven view to its exact content hash. Re-editing any view
+# changes its hash and invalidates this proof — re-render and re-seal.
+e62c3438f8adc1e06b4cbc91fcb95d3db910d533  Apps/AllnighterMac/Sources/ReadinessView.swift
+a2901b49eadd407fcc13c46f2a8463d7d6297cff  Apps/AllnighterMac/Sources/SetupViews.swift

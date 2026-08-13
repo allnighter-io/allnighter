@@ -250,15 +250,9 @@ struct BenchRepairPanel: View {
         }
     }
 
-    /// Parking only after the CLI is on the machine and past the install gate.
+    /// Park is user intent — available on any CLI that is on this Mac.
     private var showsParkControl: Bool {
-        switch card.state {
-        case .notInstalled, .notChecked, .needsLogin, .waiting,
-             .detecting, .reprobing, .queued, .installedNotProbed:
-            return false
-        default:
-            return true
-        }
+        CLISetupGrouping.showsParkControl(for: card.state)
     }
 
     /// Trust applies to headless runs — show only when the seat can actually run.
@@ -334,8 +328,16 @@ struct BenchRepairPanel: View {
                 }
 
                 if showsParkControl {
-                    parkControl
-                        .padding(.top, 14)
+                    VStack(alignment: .leading, spacing: 8) {
+                        if CLISetupGrouping.showsParkEscapeCaption(for: card.state) {
+                            Text(CLISetupGrouping.parkEscapeCaption)
+                                .font(.system(size: 12))
+                                .foregroundStyle(ALColor.textFaint)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        parkControl
+                    }
+                    .padding(.top, 14)
                 }
             }
             .padding(.horizontal, 16).padding(.bottom, 16)

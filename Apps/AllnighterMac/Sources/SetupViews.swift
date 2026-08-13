@@ -9,7 +9,7 @@ import AllnighterCore
 
 // MARK: - Card model (mapped from a ToolProbeRecord by AppModel.setupCards)
 
-enum SetupCardState: Sendable {
+enum SetupCardState: Sendable, Equatable {
     case ready, needsLogin, needsPath, notInstalled, probeFailed, rateLimited, installedNotProbed, detecting, reprobing, queued, waiting
     /// Supported, but never probed on this machine (cold first run). Honest
     /// "we haven't looked yet" — shown so onboarding lists every supported CLI
@@ -930,6 +930,27 @@ enum CLISetupGrouping {
                 cursorAppPresent: cursorAppPresent
             )
         }
+    }
+
+    /// Park is durable user intent (`alln drivers park`) — never gated on login
+    /// or repair. Hide only while a check is in flight, and for catalog
+    /// absences that are not on this Mac.
+    static func showsParkControl(for state: SetupCardState) -> Bool {
+        switch state {
+        case .detecting, .reprobing, .queued, .notInstalled, .notChecked:
+            return false
+        case .ready, .needsLogin, .waiting, .needsPath, .probeFailed,
+             .rateLimited, .installedNotProbed, .parked:
+            return true
+        }
+    }
+
+    /// Quiet escape on Needs attention — login/repair stays the primary path.
+    static let parkEscapeCaption =
+        "Not using this CLI? Park it — it won’t show up in Needs attention."
+
+    static func showsParkEscapeCaption(for state: SetupCardState) -> Bool {
+        showsParkControl(for: state) && CLIStatusGroup.isAttention(state)
     }
 
     /// Whether opening CLI setup should fire a live smoke for this seat.

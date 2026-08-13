@@ -342,6 +342,7 @@ enum GUIFixture {
     static func readinessFocusDriverId(for scenario: String?) -> String? {
         switch scenario {
         case "readiness-mixed": return "codex"
+        case "readiness-muse-needs-login": return "muse"
         case "readiness-cursor-ready", "readiness-cursor-trust",
              "readiness-cursor-keychain", "readiness-cursor-not-checked":
             return "cursor_agent"
@@ -386,6 +387,7 @@ enum GUIFixture {
         ("team-open-mixed", "Mixed — team dropdown"),
         ("doctor-open-mixed", "Mixed — CLI setup popover"),
         ("readiness-mixed", "Mixed — CLI setup page"),
+        ("readiness-muse-needs-login", "Muse Code — needs sign-in, parkable (CLI setup page)"),
         ("readiness-cold", "Cold — never scanned (CLI setup page)"),
         ("readiness-cursor-ready", "Cursor Agent — ready (CLI setup page)"),
         ("readiness-cursor-keychain", "Cursor Agent — Keychain/auth (CLI setup page)"),
@@ -516,6 +518,9 @@ enum GUIFixture {
 
     /// Setup/bench fixtures seed every supported headless CLI so roster cards never vanish.
     private static func probeDrivers(for scenario: String, models: [Model]) -> [String] {
+        if scenario == "readiness-muse-needs-login" {
+            return ["claude_code", "codex", "muse", "grok", "antigravity", "cursor_agent"]
+        }
         if scenario.hasPrefix("readiness-") || scenario.hasPrefix("doctor-") || scenario.hasPrefix("team-open-") {
             return ["claude_code", "codex", "grok", "antigravity", "cursor_agent"]
         }
@@ -533,6 +538,9 @@ enum GUIFixture {
         }
         if fixture.hasPrefix("readiness-cursor") && driverId == "cursor_agent" {
             if case .ready = status { return "cursor-agent 2.5" }
+        }
+        if fixture == "readiness-muse-needs-login" && driverId == "muse" {
+            return "0.1.0"
         }
         return nil
     }
@@ -586,6 +594,15 @@ enum GUIFixture {
                 return .installedNotSignedIn(LoginFlow(
                     interactiveCommand: "agent login",
                     instructions: "Run `agent login`. SecItemCopyMatching failed — open Cursor once and retry setup."
+                ))
+            default: return .ready(version: "1.0.0")
+            }
+        case "readiness-muse-needs-login":
+            switch driverId {
+            case "muse":
+                return .installedNotSignedIn(LoginFlow(
+                    interactiveCommand: "muse login",
+                    instructions: "Run `muse login` and complete Meta account sign-in. Billing must be active before models appear."
                 ))
             default: return .ready(version: "1.0.0")
             }

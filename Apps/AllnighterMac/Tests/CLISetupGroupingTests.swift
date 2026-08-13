@@ -1,4 +1,6 @@
 import XCTest
+import AllnighterCore
+import AllnighterEngine
 @testable import AllnighterMac
 
 @MainActor
@@ -68,6 +70,65 @@ final class CLISetupGroupingTests: XCTestCase {
 
         XCTAssertEqual(CLISetupGrouping.attentionCards(from: cards, onModelNames: onBench).map(\.driverId), ["muse"])
         XCTAssertTrue(CLISetupGrouping.dormantCards(from: cards, onModelNames: onBench).isEmpty)
+    }
+
+    func testParkControlAvailableOnNeedsLoginAndOtherOnMacStates() {
+        let parkable: [SetupCardState] = [
+            .needsLogin, .waiting, .needsPath, .probeFailed,
+            .installedNotProbed, .rateLimited, .ready, .parked,
+        ]
+        for state in parkable {
+            XCTAssertTrue(
+                CLISetupGrouping.showsParkControl(for: state),
+                "park must stay available for \(state)")
+        }
+    }
+
+    func testParkControlHiddenDuringInFlightProbeAndCatalogAbsence() {
+        let hidden: [SetupCardState] = [
+            .detecting, .reprobing, .queued, .notInstalled, .notChecked,
+        ]
+        for state in hidden {
+            XCTAssertFalse(
+                CLISetupGrouping.showsParkControl(for: state),
+                "park must stay hidden for \(state)")
+        }
+    }
+
+    func testParkEscapeCaptionOnlyOnAttentionWhileParkable() {
+        XCTAssertTrue(CLISetupGrouping.showsParkEscapeCaption(for: .needsLogin))
+        XCTAssertTrue(CLISetupGrouping.showsParkEscapeCaption(for: .probeFailed))
+        XCTAssertTrue(CLISetupGrouping.showsParkEscapeCaption(for: .needsPath))
+        XCTAssertFalse(CLISetupGrouping.showsParkEscapeCaption(for: .ready))
+        XCTAssertFalse(CLISetupGrouping.showsParkEscapeCaption(for: .parked))
+        XCTAssertFalse(CLISetupGrouping.showsParkEscapeCaption(for: .detecting))
+        XCTAssertTrue(
+            CLISetupGrouping.parkEscapeCaption.contains("Park it"),
+            CLISetupGrouping.parkEscapeCaption)
+    }
+
+    func testMuseNeedsLoginFixtureIsParkableAttention() {
+        #if DEBUG
+        XCTAssertEqual(
+            GUIFixture.readinessFocusDriverId(for: "readiness-muse-needs-login"),
+            "muse")
+        let records = GUIFixture.seededToolStatuses(
+            for: [],
+            now: Date(timeIntervalSince1970: 0),
+            scenario: "readiness-muse-needs-login")
+        let cards = AppSetupModel.setupCards(
+            registry: DefaultConfig.registry,
+            toolStatuses: records,
+            models: [],
+            parkedDriverIds: [])
+        guard let muse = cards.first(where: { $0.driverId == "muse" }) else {
+            return XCTFail("muse must be in the setup roster")
+        }
+        XCTAssertEqual(muse.state, .needsLogin)
+        XCTAssertEqual(muse.version, "0.1.0")
+        XCTAssertTrue(CLISetupGrouping.showsParkControl(for: muse.state))
+        XCTAssertTrue(CLISetupGrouping.showsParkEscapeCaption(for: muse.state))
+        #endif
     }
 
     func testReadySeatDoesNotNeedHealingProbe() {
