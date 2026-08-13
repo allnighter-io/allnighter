@@ -33,6 +33,12 @@
     "schemaVersion" : {
       "type" : "integer"
     },
+    "tellHuman" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
     "trialEndsAt" : {
       "type" : [
         "string",

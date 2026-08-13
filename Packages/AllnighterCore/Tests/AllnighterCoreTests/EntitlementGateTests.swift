@@ -171,7 +171,25 @@ final class EntitlementGateTests: XCTestCase {
         XCTAssertEqual(json.url, "https://checkout.stripe.com/c/pay/cs_test_123")
         XCTAssertEqual(json.checkoutCommand, EntitlementPolicy.checkoutCommand)
         XCTAssertFalse(json.checkoutCommand.contains("stripe.com"))
+        XCTAssertEqual(json.tellHuman, EntitlementCopy.checkoutTellHuman(url: json.url ?? ""))
         XCTAssertEqual(EntitlementLimitNextAction.agent.command, EntitlementPolicy.checkoutCommand)
+    }
+
+    func testStatusAtCapIncludesTellHuman() async {
+        let store = MemoryEntitlementStore()
+        let started = day0.addingTimeInterval(-20 * 86400)
+        let gate = makeGate(
+            store: store,
+            transport: StubTransport.status(plan: "free", paid: false, trialStartedAt: started),
+            isTestHost: false
+        )
+        _ = await gate.admitDispatch()
+        _ = await gate.admitDispatch()
+        _ = await gate.admitDispatch()
+        let json = await gate.statusJSON()
+        XCTAssertEqual(json.tellHuman, EntitlementCopy.tellHuman)
+        XCTAssertEqual(json.message, EntitlementCopy.tellHuman)
+        XCTAssertEqual(json.runsUsedToday, 3)
     }
 
     func testInnerDispatchSkipDoesNotCount() async {

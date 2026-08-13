@@ -306,6 +306,7 @@ public enum ContractSchema {
             "supportDir": nullable("string"),
             "suggestions": arr(str),
             "candidates": arr(candidate),
+            "tellHuman": nullable("string"),
         ], required: ["code", "message", "requiresManual", "retryable"])
     }
 
@@ -1105,6 +1106,7 @@ public enum ContractSchema {
             "checkoutCommand": str,
             "url": nullable("string"),
             "message": nullable("string"),
+            "tellHuman": nullable("string"),
         ], required: ["schemaVersion", "plan", "paid", "checkoutCommand"])
         schema.merge(top) { _, new in new }
         return schema

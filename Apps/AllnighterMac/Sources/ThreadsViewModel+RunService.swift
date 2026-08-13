@@ -141,7 +141,12 @@ extension ThreadsViewModel {
                 settledRun = run
             case .failure(let error):
                 settled.status = .failed
-                settled.text = error.description
+                if case .entitlementLimited = error {
+                    settled.text = EntitlementCopy.dailyCapHeadline
+                    onEntitlementLimited?()
+                } else {
+                    settled.text = error.description
+                }
                 settled.runId = nil
             }
             await uiTiming.stamp(RunTimingKey.threadTurnSettlementStart)

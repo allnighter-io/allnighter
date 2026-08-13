@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 10.2.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.3.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1809,7 +1809,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 
 | Code | Manual | Retryable | Exit class | Agent action |
 | --- | --- | --- | --- | --- |
-| `ENTITLEMENT_LIMIT` | yes | no | `operational` | Run `alln billing checkout --plan monthly --json` and ask the human to open the returned url in a browser. Do not exec the url. |
+| `ENTITLEMENT_LIMIT` | yes | no | `operational` | Quote `tellHuman` (same text as `message`) to the human verbatim — do not paraphrase and do not retry the run. Then run nextAction.command once. Paste the returned JSON `url` into the same reply and tell them to open it in Safari or Chrome, not Cursor's preview browser. Do not exec the url. Do not retry until they say they paid. |
 | `CLI_USAGE_ERROR` | yes | no | `usage` | Re-run `alln docs <command>` and fix arguments. |
 | `UNKNOWN_FLAG` | yes | no | `usage` | Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag. |
 | `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | `operational` | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |

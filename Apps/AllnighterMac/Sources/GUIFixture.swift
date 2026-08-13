@@ -114,6 +114,34 @@ enum GUIFixture {
         return name.hasPrefix("studio")
             || name == "settings-use-from-cli"
             || name == "settings-about-updates"
+            || name == "settings-plan"
+    }
+
+    /// Keep going sheet over home (blocked 4th run).
+    static var opensKeepGoingSheet: Bool { active == "keep-going-sheet" }
+
+    /// Seeded billing status for proof fixtures — never hits pay.allnighter.io.
+    static var entitlementStatus: BillingJSON? {
+        switch active {
+        case "keep-going-sheet", "home-keep-going-chip":
+            return BillingJSON(
+                plan: "free",
+                paid: false,
+                runsUsedToday: 3,
+                runsAllowedToday: 3,
+                message: EntitlementCopy.tellHuman,
+                tellHuman: EntitlementCopy.tellHuman
+            )
+        case "home-trial-chip", "settings-plan":
+            let end = Date().addingTimeInterval(2 * 86400)
+            return BillingJSON(
+                plan: "trial",
+                paid: false,
+                trialEndsAt: ISO8601DateFormatter().string(from: end)
+            )
+        default:
+            return nil
+        }
     }
 
     /// Which Studio page a `studio-*` / settings fixture deep-links to.
@@ -126,6 +154,7 @@ enum GUIFixture {
         case "studio-boost-window": return .boostWindow
         case "settings-use-from-cli", "studio-use-from-cli": return .useFromCLI
         case "settings-about-updates", "studio-about-updates": return .about
+        case "settings-plan", "studio-plan": return .plan
         default: return .clis
         }
     }
@@ -143,6 +172,9 @@ enum GUIFixture {
             || name.hasPrefix("capacity-")
             || name == "command-palette" || name == "projects-rail"
             || name == "home-rail-loops-attention"
+            || name == "home-keep-going-chip"
+            || name == "home-trial-chip"
+            || name == "keep-going-sheet"
     }
 
     /// CAP-S10: seed Core capacity windows into the launch strip (no live acquire).
@@ -380,6 +412,10 @@ enum GUIFixture {
         ("thread-design-board-fanout", "Thread — design board mockup tile strip"),
         ("thread-mutating-run", "Thread — mutating run"),
         ("studio-clis", "Team Studio — CLIs (settings shell)"),
+        ("settings-plan", "Settings — Plan (trial / free / Builder)"),
+        ("keep-going-sheet", "Home — Keep going sheet (4th run)"),
+        ("home-keep-going-chip", "Home — title-bar Keep going chip"),
+        ("home-trial-chip", "Home — title-bar trial days chip"),
         ("settings-use-from-cli", "Settings — Use from your CLI (hook + teaching table + capacity closer)"),
         ("studio-default-model", "Team Studio — Default model (Auto tiers)"),
         ("studio-boost-window", "Team Studio — Boost window"),

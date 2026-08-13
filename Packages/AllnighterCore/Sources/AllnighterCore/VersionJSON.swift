@@ -112,6 +112,8 @@ import Foundation
 /// **1.1.1 → 1.1.2 (trial / Stripe Checkout).** `contractVersion` additive
 /// minor (10.1.0 → 10.2.0): `alln billing` / `billing checkout`, optional
 /// `MenuJSON.entitlement`, error `ENTITLEMENT_LIMIT`. Not a major cut.
+/// **10.2.0 → 10.3.0:** optional `tellHuman` on BillingJSON and ErrorEnvelope
+/// so agents quote a human paragraph instead of paraphrasing the cap.
 public enum AllnighterVersionIdentity {
     public static let binaryVersion = "1.1.2"
 }

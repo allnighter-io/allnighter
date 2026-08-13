@@ -31,6 +31,8 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
     public var candidates: [ExactIdResolver.Candidate]
     /// Discovery next action for the failed noun (AE-S07).
     public var nextAction: AgentNextAction?
+    /// Verbatim paragraph to show a human. Present on `ENTITLEMENT_LIMIT`.
+    public var tellHuman: String?
 
     public init(
         code: String,
@@ -48,7 +50,8 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         supportDir: String? = nil,
         suggestions: [String] = [],
         candidates: [ExactIdResolver.Candidate] = [],
-        nextAction: AgentNextAction? = nil
+        nextAction: AgentNextAction? = nil,
+        tellHuman: String? = nil
     ) {
         self.code = code
         self.ruleId = ruleId
@@ -66,11 +69,13 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         self.suggestions = suggestions
         self.candidates = candidates
         self.nextAction = nextAction ?? ErrorDiscovery.nextAction(forErrorCode: code)
+        self.tellHuman = tellHuman ?? (code == "ENTITLEMENT_LIMIT" ? EntitlementCopy.tellHuman : nil)
     }
 
     private enum CodingKeys: String, CodingKey {
         case code, ruleId, message, agentAction, fixCommand, requiresManual, retryable
         case traceId, runId, sourceId, modelId, agentId, supportDir, suggestions, candidates, nextAction
+        case tellHuman
     }
 
     public init(from decoder: Decoder) throws {
@@ -92,5 +97,7 @@ public struct ErrorEnvelope: Codable, Equatable, Sendable {
         candidates = try c.decodeIfPresent([ExactIdResolver.Candidate].self, forKey: .candidates) ?? []
         nextAction = try c.decodeIfPresent(AgentNextAction.self, forKey: .nextAction)
             ?? ErrorDiscovery.nextAction(forErrorCode: code)
+        tellHuman = try c.decodeIfPresent(String.self, forKey: .tellHuman)
+            ?? (code == "ENTITLEMENT_LIMIT" ? EntitlementCopy.tellHuman : nil)
     }
 }

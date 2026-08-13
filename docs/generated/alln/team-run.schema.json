@@ -547,6 +547,12 @@
             "null"
           ]
         },
+        "tellHuman" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
         "traceId" : {
           "type" : [
             "string",

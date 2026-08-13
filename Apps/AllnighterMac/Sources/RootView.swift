@@ -8,6 +8,7 @@ struct RootView: View {
     @Environment(RemoteAccountModel.self) private var remoteAccount
     @Environment(ProjectsViewModel.self) private var projects
     @Environment(ReleaseUpdateModel.self) private var releaseUpdates
+    @Environment(EntitlementModel.self) private var entitlement
     @Environment(\.openWindow) private var openWindow
     @Bindable var threads: ThreadsViewModel
     @State private var showDoctor = false
@@ -185,6 +186,8 @@ struct RootView: View {
             onManageTeam: { openTeamStudio() },
             onOpenPending: { showPending = true },
             onOpenAbout: { openTeamStudio(route: .about) },
+            onOpenPlan: { openTeamStudio(route: .plan) },
+            onKeepGoing: { entitlement.presentKeepGoing() },
             devSimActive: devSimLabel,
             onSettings: openSettings
         )
@@ -192,6 +195,10 @@ struct RootView: View {
         .onAppear {
             if pendingVM == nil { pendingVM = PendingViewModel(service: pendingService) }
             releaseUpdates.refresh()
+            threads.onEntitlementLimited = { entitlement.presentKeepGoing() }
+        }
+        .task {
+            await entitlement.refresh()
         }
     }
 
@@ -252,6 +259,11 @@ struct RootView: View {
                             showTeamDropdown = false
                             showDoctor = false
                         }
+                }
+                if entitlement.showKeepGoingSheet {
+                    ALColor.scrimSubtle
+                        .onTapGesture { entitlement.showKeepGoingSheet = false }
+                    KeepGoingSheet(model: entitlement)
                 }
             }
         }
@@ -425,6 +437,9 @@ struct RootView: View {
                     projectId: "prj_halo",
                     kickoffMessage: GUIFixture.relayLaunchKickoffMessage ?? ""
                 )
+            }
+            if GUIFixture.opensKeepGoingSheet {
+                entitlement.showKeepGoingSheet = true
             }
             GUIFixture.captureAndExitIfRequested()
             return

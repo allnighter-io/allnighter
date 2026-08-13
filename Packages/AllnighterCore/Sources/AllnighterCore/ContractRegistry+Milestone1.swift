@@ -69,7 +69,9 @@ public extension ContractRegistry {
     // `--pm` pin is owner intent; sensors inform, never block).
     // OCL-S08: minor — `sweep start|resume|status` (one order × N targets,
     // checkpointed, resumable; per-target done|failed|not-attempted).
-    static let contractVersion = "10.2.0"
+    // 2026-08-13: minor — optional `tellHuman` on BillingJSON + ErrorEnvelope
+    // so agents quote a human paragraph on ENTITLEMENT_LIMIT instead of paraphrasing.
+    static let contractVersion = "10.3.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -324,7 +326,7 @@ public extension ContractRegistry {
             "billing",
             summary: "Show this machine's trial, free-tier allowance, or paid plan. Discovery is free; paying is Stripe Checkout.",
             milestone: .m1,
-            trigger: "Use when a dispatch is refused with ENTITLEMENT_LIMIT, or to see trial/plan status.",
+            trigger: "Use when a dispatch is refused with ENTITLEMENT_LIMIT, or to see trial/plan status. Quote `tellHuman` to the human verbatim.",
             example: "alln billing --json",
             antiExample: "Do NOT exec a Stripe Checkout url — open it in a browser. The agent command is `alln billing checkout --plan monthly --json`.",
             flags: [FlagSpec("json", summary: "Structured BillingJSON.")],
@@ -335,7 +337,7 @@ public extension ContractRegistry {
             "billing checkout",
             summary: "Create a hosted Stripe Checkout session for this machine. Prints a url for a human to open; never exec the url.",
             milestone: .m1,
-            trigger: "Use after ENTITLEMENT_LIMIT or when the user wants to pay.",
+            trigger: "Use after ENTITLEMENT_LIMIT or when the user wants to pay. Show `tellHuman` (or the url) to the human; never exec the url.",
             example: "alln billing checkout --plan monthly --json",
             antiExample: "Do NOT put the Stripe url in a command field and run it.",
             flags: [
@@ -1493,7 +1495,7 @@ public extension ContractRegistry {
     // MARK: - Error catalog
 
     static let m1Errors: [ErrorSpec] = [
-        ErrorSpec("ENTITLEMENT_LIMIT", ruleId: "entitlement.limit", agentAction: "Run `alln billing checkout --plan monthly --json` and ask the human to open the returned url in a browser. Do not exec the url.", requiresManual: true, retryable: false, explain: "This machine is on the free daily allowance (3 full runs/day after a 14-day trial) and has no remaining dispatches today. Checkout is hosted Stripe with email; Sign in with Apple is not required."),
+        ErrorSpec("ENTITLEMENT_LIMIT", ruleId: "entitlement.limit", agentAction: EntitlementCopy.agentAction, requiresManual: true, retryable: false, explain: EntitlementCopy.explain),
         ErrorSpec("CLI_USAGE_ERROR", ruleId: "cli.usage.error", agentAction: "Re-run `alln docs <command>` and fix arguments.", requiresManual: true, retryable: false, explain: "The command was called with invalid or conflicting arguments. Consult the generated docs for the command and correct the invocation.", exitClass: .usage),
         ErrorSpec(
             "UNKNOWN_FLAG",

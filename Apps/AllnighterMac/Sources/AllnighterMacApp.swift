@@ -216,6 +216,7 @@ struct AllnighterMacApp: App {
     @State private var threads: ThreadsViewModel
     @State private var projects = ProjectsViewModel()
     @State private var releaseUpdates = ReleaseUpdateModel()
+    @State private var entitlement = EntitlementModel()
 
     init() {
         #if DEBUG
@@ -235,6 +236,7 @@ struct AllnighterMacApp: App {
                 .environment(threads)
                 .environment(projects)
                 .environment(releaseUpdates)
+                .environment(entitlement)
                 .environment(floorStatus)
                 .frame(minWidth: 1100, minHeight: 720)
                 .task {

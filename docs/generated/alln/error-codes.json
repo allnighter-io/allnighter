@@ -1,9 +1,9 @@
 [
   {
-    "agentAction" : "Run `alln billing checkout --plan monthly --json` and ask the human to open the returned url in a browser. Do not exec the url.",
+    "agentAction" : "Quote `tellHuman` (same text as `message`) to the human verbatim — do not paraphrase and do not retry the run. Then run nextAction.command once. Paste the returned JSON `url` into the same reply and tell them to open it in Safari or Chrome, not Cursor's preview browser. Do not exec the url. Do not retry until they say they paid.",
     "code" : "ENTITLEMENT_LIMIT",
     "exitClass" : "operational",
-    "explain" : "This machine is on the free daily allowance (3 full runs\/day after a 14-day trial) and has no remaining dispatches today. Checkout is hosted Stripe with email; Sign in with Apple is not required.",
+    "explain" : "This machine used today's three free runs (full product, 14-day trial then 3\/day). Nothing is feature-locked. Builder is $8\/month. Checkout is hosted Stripe with email; Sign in with Apple is not required.",
     "requiresManual" : true,
     "retryable" : false,
     "ruleId" : "entitlement.limit"

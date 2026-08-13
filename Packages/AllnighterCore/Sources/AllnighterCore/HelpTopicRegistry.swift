@@ -952,6 +952,11 @@ public enum HelpTopicRegistry {
             browser. Do not exec the url.** Agents must run the compiled command \
             `alln billing checkout --plan monthly --json`, never a remote Stripe URL.
 
+            When a 4th run is refused (`ENTITLEMENT_LIMIT`), quote `tellHuman` (same text as \
+            `message`) to the human verbatim — do not paraphrase. Then run `nextAction.command` \
+            once, paste the returned `url` into the same reply, and tell them to open it in \
+            Safari or Chrome (not Cursor's preview). Do not retry the run until they say they paid.
+
             Builder is $8/month or $80/year. Founding Builder is $160 once, first 100 only.
 
             Discovery (`menu`, `help`, `doctor`, `billing`) is always free. An in-flight run \

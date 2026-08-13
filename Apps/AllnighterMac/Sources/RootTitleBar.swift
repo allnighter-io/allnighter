@@ -18,10 +18,14 @@ struct TitleBar: View {
     var onOpenPending: () -> Void = {}
     /// OPC-S06b: open Settings › About & updates (quiet badge).
     var onOpenAbout: () -> Void = {}
+    /// Quiet trial / cap chip — only when it matters.
+    var onOpenPlan: () -> Void = {}
+    var onKeepGoing: () -> Void = {}
     var devSimActive: String?
     var onSettings: () -> Void
     @Environment(AppModel.self) private var model
     @Environment(ReleaseUpdateModel.self) private var releaseUpdates
+    @Environment(EntitlementModel.self) private var entitlement
 
     var body: some View {
         HStack(spacing: 10) {
@@ -35,6 +39,27 @@ struct TitleBar: View {
             HStack(spacing: 6) {
                 if pendingCount > 0 {
                     PendingPill(count: pendingCount, action: onOpenPending)
+                }
+                if entitlement.headerChip != .none {
+                    Button {
+                        if entitlement.headerChip.isKeepGoing {
+                            onKeepGoing()
+                        } else {
+                            onOpenPlan()
+                        }
+                    } label: {
+                        Badge(
+                            text: entitlement.headerChip.label,
+                            tone: entitlement.headerChip.isKeepGoing ? .accent : .neutral,
+                            mono: true
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .help(
+                        entitlement.headerChip.isKeepGoing
+                            ? "That's today's three — keep going for $8/month"
+                            : "Trial ending soon — open Plan"
+                    )
                 }
                 // Quiet release badge — only when channel says we are behind (no modal).
                 if let badge = releaseUpdates.badgeText {

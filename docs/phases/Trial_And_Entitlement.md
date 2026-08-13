@@ -56,7 +56,8 @@ Reinstall must **not** mint a new 14-day trial (server `trial_started_at`, earli
 - CLI: `alln billing [--json]`, `alln billing checkout --plan monthly|yearly|founding [--json]`.
 - Menu: optional `entitlement` sibling of `update`. Omit when skipped.
 - Dispatch admission: `RunService.run` (one call site). Loop start admits once, then `EntitlementAdmission.skipInnerDispatch` so rounds do not count again.
-- Failure: `ENTITLEMENT_LIMIT`. `nextAction.command` is compiled-in `alln billing checkout --plan monthly --json` — **never** a Stripe URL in a field an agent will exec (law 9). Human opens the `url` field.
+- Failure: `ENTITLEMENT_LIMIT`. `message` and `tellHuman` are the same verbatim paragraph for the human. Agents quote it; they do not paraphrase. `nextAction.command` is compiled-in `alln billing checkout --plan monthly --json` — **never** a Stripe URL in a field an agent will exec (law 9). Human opens the `url` field.
+- Mac: Keep going overlay on the blocked 4th Run; Settings › Plan; quiet title-bar chip (last 3 trial days or out of runs). Copy SSOT: `EntitlementCopy` / `EntitlementChrome`.
 - Token: `~/Library/Application Support/Allnighter/Entitlement/state.json`, **0600, never Keychain** (BUG-9).
 - XCTest host and `ALLN_NO_ENTITLEMENT_CHECK=1` skip HTTP (Green Wall).
 

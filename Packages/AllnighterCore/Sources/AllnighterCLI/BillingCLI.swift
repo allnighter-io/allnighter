@@ -24,7 +24,10 @@ enum BillingCLI {
             print("trial ends \(ends)")
         }
         print("checkout \(json.checkoutCommand)")
-        if let message = json.message {
+        if let tell = json.tellHuman {
+            print("")
+            print(tell)
+        } else if let message = json.message {
             print(message)
         }
     }
@@ -48,6 +51,10 @@ enum BillingCLI {
                 print("url \(url)")
                 print("open that url in Safari or Chrome to pay. do not exec it.")
                 print("Cursor's preview browser returns Access Denied — paste into a real browser.")
+            }
+            if let tell = json.tellHuman {
+                print("")
+                print(tell)
             }
             print("then: alln billing --json")
         case .failure(let refusal):

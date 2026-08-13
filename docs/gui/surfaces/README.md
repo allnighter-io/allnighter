@@ -13,6 +13,7 @@ fields map to which model fields, *before* code.
 | --- | --- | --- |
 | `threads` | [brief.md](threads/brief.md) | ThreadList + ThreadTimeline |
 | `send-to-team` | [brief.md](send-to-team/brief.md) | Composer send posture |
+| `keep-going` | [brief.md](keep-going/brief.md) | 4th-run overlay, Settings › Plan, quiet trial chip |
 | `team` | [handoff.md](team/handoff.md) | Team handoff notes |
 | `team-artifact` | [brief.md](team-artifact/brief.md) | Private HTML reading finish; chrome locks |
 

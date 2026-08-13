@@ -87,6 +87,8 @@ public struct BillingJSON: Codable, Sendable, Equatable {
     public var checkoutCommand: String
     public var url: String?
     public var message: String?
+    /// Verbatim paragraph for a human. Agents quote this; they do not paraphrase.
+    public var tellHuman: String?
 
     public init(
         schemaVersion: Int = 1,
@@ -98,7 +100,8 @@ public struct BillingJSON: Codable, Sendable, Equatable {
         runsAllowedToday: Int? = nil,
         checkoutCommand: String = EntitlementPolicy.checkoutCommand,
         url: String? = nil,
-        message: String? = nil
+        message: String? = nil,
+        tellHuman: String? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.plan = plan
@@ -110,11 +113,12 @@ public struct BillingJSON: Codable, Sendable, Equatable {
         self.checkoutCommand = checkoutCommand
         self.url = url
         self.message = message
+        self.tellHuman = tellHuman
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, plan, paid, trialStartedAt, trialEndsAt
-        case runsUsedToday, runsAllowedToday, checkoutCommand, url, message
+        case runsUsedToday, runsAllowedToday, checkoutCommand, url, message, tellHuman
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -129,6 +133,7 @@ public struct BillingJSON: Codable, Sendable, Equatable {
         try c.encode(checkoutCommand, forKey: .checkoutCommand)
         try c.encodeIfPresent(url, forKey: .url)
         try c.encodeIfPresent(message, forKey: .message)
+        try c.encodeIfPresent(tellHuman, forKey: .tellHuman)
     }
 }
 
@@ -147,9 +152,7 @@ public struct EntitlementRefusal: Sendable, Equatable, Error {
     public var message: String
     public init(_ message: String) { self.message = message }
 
-    public static let dailyCap = EntitlementRefusal(
-        "Free allowance used (3 runs today). Trial ended. Open Stripe Checkout with `alln billing checkout --plan monthly --json` and open the returned url in a browser — do not exec the url."
-    )
+    public static let dailyCap = EntitlementRefusal(EntitlementCopy.tellHuman)
 }
 
 public enum EntitlementDecision: Sendable, Equatable {
@@ -446,7 +449,8 @@ public struct EntitlementGate: Sendable {
                 return .success(projectJSON(
                     state,
                     url: url,
-                    message: "Open this url in Safari or Chrome to pay (not Cursor's preview). Do not exec it. Then run `alln billing --json`."
+                    message: EntitlementCopy.checkoutAgentNote,
+                    tellHuman: EntitlementCopy.checkoutTellHuman(url: url)
                 ))
             }
             let msg = parseErrorMessage(data) ?? "Checkout failed (HTTP \(status))."
@@ -600,8 +604,15 @@ public struct EntitlementGate: Sendable {
         return nil
     }
 
-    private func projectJSON(_ state: EntitlementState, url: String?, message: String?) -> BillingJSON {
+    private func projectJSON(
+        _ state: EntitlementState,
+        url: String?,
+        message: String?,
+        tellHuman: String? = nil
+    ) -> BillingJSON {
         let unlimited = state.plan.isUnlimited
+        let atCap = !unlimited && state.runsUsedToday >= EntitlementPolicy.freeRunsPerDay
+        let human = tellHuman ?? (atCap ? EntitlementCopy.tellHuman : nil)
         return BillingJSON(
             plan: state.plan.rawValue,
             paid: state.paid || state.plan.isPaid,
@@ -610,7 +621,8 @@ public struct EntitlementGate: Sendable {
             runsUsedToday: unlimited ? nil : state.runsUsedToday,
             runsAllowedToday: unlimited ? nil : EntitlementPolicy.freeRunsPerDay,
             url: url,
-            message: message
+            message: message ?? human,
+            tellHuman: human
         )
     }
 
@@ -622,7 +634,7 @@ public struct EntitlementGate: Sendable {
 public enum EntitlementLimitNextAction {
     public static let agent = AgentNextAction(
         kind: "openCheckout",
-        label: "Start Stripe Checkout (human opens the url)",
+        label: "Get a Checkout url, then show it to the human — do not exec it",
         command: EntitlementPolicy.checkoutCommand
     )
 }

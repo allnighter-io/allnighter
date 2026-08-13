@@ -78,6 +78,8 @@ final class ThreadsViewModel {
     var readClearDebounceTask: Task<Void, Never>?
     let isAppActiveForReadClear: () -> Bool
     private var notificationSnapshots: [String: ThreadNotificationSnapshot]?
+    /// Blocked 4th run — RootView presents the Keep going sheet.
+    var onEntitlementLimited: (() -> Void)?
     /// Prior run park/resume snapshots for once-each vendor continuity notices.
     var previousRunNotificationSnapshots: [String: RunNotificationSnapshot]?
     var notificationPolicy: NotificationPolicy

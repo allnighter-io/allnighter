@@ -865,7 +865,7 @@
       "outputSchema" : "billingJSON",
       "spendsQuota" : false,
       "summary" : "Show this machine's trial, free-tier allowance, or paid plan. Discovery is free; paying is Stripe Checkout.",
-      "trigger" : "Use when a dispatch is refused with ENTITLEMENT_LIMIT, or to see trial\/plan status.",
+      "trigger" : "Use when a dispatch is refused with ENTITLEMENT_LIMIT, or to see trial\/plan status. Quote `tellHuman` to the human verbatim.",
       "visibility" : "public"
     },
     {
@@ -914,7 +914,7 @@
       "outputSchema" : "billingJSON",
       "spendsQuota" : false,
       "summary" : "Create a hosted Stripe Checkout session for this machine. Prints a url for a human to open; never exec the url.",
-      "trigger" : "Use after ENTITLEMENT_LIMIT or when the user wants to pay.",
+      "trigger" : "Use after ENTITLEMENT_LIMIT or when the user wants to pay. Show `tellHuman` (or the url) to the human; never exec the url.",
       "visibility" : "public"
     },
     {
@@ -6692,7 +6692,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "10.2.0",
+  "contractVersion" : "10.3.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -6797,10 +6797,10 @@
   ],
   "errors" : [
     {
-      "agentAction" : "Run `alln billing checkout --plan monthly --json` and ask the human to open the returned url in a browser. Do not exec the url.",
+      "agentAction" : "Quote `tellHuman` (same text as `message`) to the human verbatim — do not paraphrase and do not retry the run. Then run nextAction.command once. Paste the returned JSON `url` into the same reply and tell them to open it in Safari or Chrome, not Cursor's preview browser. Do not exec the url. Do not retry until they say they paid.",
       "code" : "ENTITLEMENT_LIMIT",
       "exitClass" : "operational",
-      "explain" : "This machine is on the free daily allowance (3 full runs\/day after a 14-day trial) and has no remaining dispatches today. Checkout is hosted Stripe with email; Sign in with Apple is not required.",
+      "explain" : "This machine used today's three free runs (full product, 14-day trial then 3\/day). Nothing is feature-locked. Builder is $8\/month. Checkout is hosted Stripe with email; Sign in with Apple is not required.",
       "requiresManual" : true,
       "retryable" : false,
       "ruleId" : "entitlement.limit"

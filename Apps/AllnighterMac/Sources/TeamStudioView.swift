@@ -13,6 +13,7 @@ import AllnighterCore
 /// One destination in the Studio. Teams are always lane-scoped (every team
 /// belongs to exactly one lane — docs/workflows/Product_Vocabulary.md).
 enum StudioRoute: Hashable {
+    case plan
     case clis
     case useFromCLI
     case defaultModel
@@ -60,6 +61,8 @@ struct TeamStudioView: View {
 
     @ViewBuilder private var content: some View {
         switch route {
+        case .plan:
+            PlanSettingsView()
         case .clis:
             // The shipped CLI-setup / readiness surface, embedded as the CLIs page.
             TeamReadinessView(focusDriverId: cliFocusDriverId, onClose: onDone, onAddSource: {})
@@ -99,6 +102,7 @@ private struct StudioNav: View {
             .buttonStyle(.plain)
             .padding(.bottom, 6)
 
+            item("Plan", icon: "creditcard", target: .plan)
             // CLIs — lane-agnostic foundation; sources feed every lane.
             item("CLIs", icon: "terminal", target: .clis)
             // One page: dynamic hook + host teaching table (absorbs the former
