@@ -40,8 +40,10 @@ public enum ModelListProjector {
             let driverMissing = !manifestIDs.contains(def.driverId)
             let parked = parkedDriverIds.contains(def.driverId)
             let record = recordsByDriver[def.driverId]
-            let localOpenCode = OpenCodeLocalSeatReadiness.isLocalOpenCodeSeat(
+            let localOllamaSeat = OpenCodeLocalSeatReadiness.isLocalOpenCodeSeat(
                 driverId: def.driverId, modelLabel: def.modelLabel)
+                || ClaudeLocalIsolation.isLocalSeat(
+                    driverId: def.driverId, modelLabel: def.modelLabel)
             let ready: Bool
             let status: String
             if driverMissing {
@@ -50,9 +52,10 @@ public enum ModelListProjector {
             } else if parked {
                 ready = false
                 status = "parked"
-            } else if localOpenCode {
-                // Local Ollama seats: binary + tag. Never the Zen/Go driver smoke.
-                let binary = OpenCodeLocalSeatReadiness.installedBinaryPath(from: record)
+            } else if localOllamaSeat {
+                // Local Ollama seats: binary + tag. Never Zen/Go or Claude invoke smoke.
+                let binary = OpenCodeLocalSeatReadiness.installedBinaryPath(
+                    from: record, driverId: def.driverId)
                 if binary == nil {
                     ready = false
                     status = record == nil ? "notChecked" : "notReady"

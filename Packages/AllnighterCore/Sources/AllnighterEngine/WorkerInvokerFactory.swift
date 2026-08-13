@@ -24,8 +24,9 @@ import AllnighterCore
 /// 4. `AntigravityAwareWorkerRunner` — rewrites agy's terminal answer from its on-disk
 ///    transcript. Pass-through for every other driver.
 /// 5. `ClaudeLocalIsolatingWorkerRunner` — per-run Anthropic-compat env + meter strip
-///    for `claude_code` seats whose catalog label is `ollama/<tag>`. Pass-through for
-///    paid Claude and every other driver. Never writes shell/Claude settings.
+///    + observed served-window overlay for `claude_code` seats whose catalog label
+///    is `ollama/<tag>`. Pass-through for paid Claude and every other driver.
+///    Never writes shell/Claude settings. Never invents a context window.
 /// 6. `OpenCodeRoutingWorkerRunner` (when `routeOpenCodeToServe` is true, the
 ///    production default) — routes `opencode` to the warm serve HTTP client instead of a
 ///    spawned CLI; every other driver falls through to steps 1-5 above. When
@@ -74,7 +75,12 @@ public enum WorkerInvokerFactory {
         let defaultRunner = DefaultWorkerRunner(streamingRunner: spawnResolved, now: now)
         let stamped = InvocationKindStampingWorkerRunner(inner: defaultRunner, invocations: invocations)
         let agyAware = AntigravityAwareWorkerRunner(inner: stamped)
-        let claudeLocal = ClaudeLocalIsolatingWorkerRunner(inner: agyAware)
+        let claudeLocal = ClaudeLocalIsolatingWorkerRunner(
+            inner: agyAware,
+            servedContextWindow: { model in
+                ClaudeLocalIsolation.observedServedContextWindow(for: model)
+            }
+        )
         let gated: GatedWorkerRunner
         if routeOpenCodeToServe {
             let openCodeRouted = OpenCodeRoutingWorkerRunner(inner: claudeLocal, now: now)

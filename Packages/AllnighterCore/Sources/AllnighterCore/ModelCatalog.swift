@@ -341,9 +341,10 @@ public enum ModelCatalog {
     /// Runs AgentOS model smoke for a custom catalog entry and persists status/detail.
     /// Does not auto-enable — caller runs `alln models enable` after `.recognized`.
     ///
-    /// OpenCode seats whose label is `ollama/<tag>` verify on local evidence only
-    /// (binary present + Ollama reachable with that tag). They never use the
-    /// driver-wide Zen/Go smoke. Other seats keep the existing invoke probe.
+    /// OpenCode and Claude Code seats whose label is `ollama/<tag>` verify on
+    /// local evidence only (binary present + Ollama reachable with that tag).
+    /// They never use the driver-wide Zen/Go or Claude invoke smoke. Other
+    /// seats keep the existing invoke probe.
     ///
     /// `probeRecords` comes from `SetupStore().load().records` (Engine); Core cannot
     /// depend on SetupStore. nil loads the default `cli_setup.json` under the support root.
@@ -383,18 +384,23 @@ public enum ModelCatalog {
                 snapshot: snapshot,
                 now: now
             )
-            let smoke: ModelSmokeResult
-            switch outcome {
-            case .missingCLI, .notLocalSeat:
-                throw ModelCatalogError.invalid("CLI not detected/ready")
-            case .recognized(let result), .rejected(let result), .inconclusive(let result):
-                smoke = result
-            }
-            var updated = def
-            updated.modelSmokeStatus = smoke.status.rawValue
-            updated.modelSmokeDetail = smoke.detail
-            try updateCustom(updated)
-            return smoke
+            return try persistLocalSmoke(def: def, outcome: outcome)
+        }
+        if ClaudeLocalIsolation.isLocalSeat(driverId: def.driverId, modelLabel: def.modelLabel) {
+            let record = records.first { $0.driverId == def.driverId }
+            let snapshot = ollamaSnapshot ?? OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: ollamaTransport,
+                observedAt: now,
+                isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+            )
+            let outcome = ClaudeLocalIsolation.verify(
+                modelLabel: def.modelLabel,
+                driverId: def.driverId,
+                probeRecord: record,
+                snapshot: snapshot,
+                now: now
+            )
+            return try persistLocalSmoke(def: def, outcome: outcome)
         }
         guard let absolutePath = resolvedBinaryPath(driverId: def.driverId, records: records) else {
             throw ModelCatalogError.invalid("CLI not detected/ready")
@@ -415,6 +421,24 @@ public enum ModelCatalog {
 
         let smoke = await ModelSmokeVerifier(invoker: runner).verify(
             manifest: manifest, label: def.modelLabel)
+        var updated = def
+        updated.modelSmokeStatus = smoke.status.rawValue
+        updated.modelSmokeDetail = smoke.detail
+        try updateCustom(updated)
+        return smoke
+    }
+
+    private static func persistLocalSmoke(
+        def: ModelDefinition,
+        outcome: OpenCodeLocalSeatReadiness.LocalVerify
+    ) throws -> ModelSmokeResult {
+        let smoke: ModelSmokeResult
+        switch outcome {
+        case .missingCLI, .notLocalSeat:
+            throw ModelCatalogError.invalid("CLI not detected/ready")
+        case .recognized(let result), .rejected(let result), .inconclusive(let result):
+            smoke = result
+        }
         var updated = def
         updated.modelSmokeStatus = smoke.status.rawValue
         updated.modelSmokeDetail = smoke.detail

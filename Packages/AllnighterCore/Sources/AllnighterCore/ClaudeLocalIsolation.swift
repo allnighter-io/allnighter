@@ -13,6 +13,10 @@ import AgentOSCLI
 ///    credential inside Claude Code still talks to `11434`, never api.anthropic.com.
 /// 4. Capacity and meters. A local failure is not a Claude limit. Claude's
 ///    `costUSD` / `contextWindow: 200000` / `provider: firstParty` are not truth.
+/// 5. Context bound. Unrecognized local tags make Claude Code assume 200k and
+///    skip auto-compact until then, while the served window may be 65536.
+///    Overlay `CLAUDE_CODE_CONTEXT_WINDOW` from `/api/ps` when observed.
+///    Never invent a number; unobserved means the key is absent.
 public enum ClaudeLocalIsolation {
     public static let driverId = "claude_code"
     public static let signalSourceId = OllamaLocalRuntimeClient.sourceId
@@ -24,6 +28,8 @@ public enum ClaudeLocalIsolation {
     public static let baseURLKey = "ANTHROPIC_BASE_URL"
     public static let authTokenKey = "ANTHROPIC_AUTH_TOKEN"
     public static let apiKeyKey = "ANTHROPIC_API_KEY"
+    /// Per-run overlay so Claude Code auto-compacts at the served window.
+    public static let contextWindowKey = "CLAUDE_CODE_CONTEXT_WINDOW"
 
     /// Competing cloud-routing flags, cleared on the child only.
     public static let scrubbedKeys: [String] = [
@@ -52,7 +58,9 @@ public enum ClaudeLocalIsolation {
 
     /// Overlay applied last onto the child environment. Empty API key is
     /// intentional — it must override a inherited paid key.
-    public static func perRunEnvironment() -> [String: String] {
+    /// `servedContextWindow` is only the `/api/ps` observation. Nil/non-positive
+    /// omits the context key — never 200k, never a guessed size.
+    public static func perRunEnvironment(servedContextWindow: Int? = nil) -> [String: String] {
         var env: [String: String] = [
             baseURLKey: anthropicBaseURL,
             authTokenKey: anthropicAuthToken,
@@ -61,10 +69,54 @@ public enum ClaudeLocalIsolation {
         for key in scrubbedKeys {
             env[key] = ""
         }
+        if let servedContextWindow, servedContextWindow > 0 {
+            env[contextWindowKey] = String(servedContextWindow)
+        }
         return env
     }
 
-    public static func prepare(_ invocation: WorkerInvocation) -> WorkerInvocation {
+    /// Local-evidence verify. Never spawns Claude Code — the invoke-smoke
+    /// token echo is what timed out while Ollama and a direct Claude-local
+    /// body both succeeded.
+    public static func verify(
+        modelLabel: String,
+        driverId: String,
+        probeRecord: ToolProbeRecord?,
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?,
+        now: Date = Date()
+    ) -> OpenCodeLocalSeatReadiness.LocalVerify {
+        OpenCodeLocalSeatReadiness.verifyOllamaBackedSeat(
+            isLocalSeat: isLocalSeat(driverId: driverId, modelLabel: modelLabel),
+            modelLabel: modelLabel,
+            driverId: driverId,
+            probeRecord: probeRecord,
+            snapshot: snapshot,
+            now: now,
+            unobservedDetail: "Ollama not observed — local seat does not use Claude Code invoke smoke"
+        )
+    }
+
+    /// Served window from an observed `/api/ps` row. Nil when unobserved or
+    /// not a local seat — never advertised `context_length`, never 200k.
+    public static func observedServedContextWindow(
+        for model: Model,
+        snapshot: OllamaLocalRuntimeObserver.Snapshot? = nil,
+        now: Date = Date(),
+        isTestHost: Bool = AllnighterSupportRoot.isRunningUnderTestHost
+    ) -> Int? {
+        guard isLocalSeat(model) else { return nil }
+        let snap = snapshot ?? OllamaLocalDoctorReport.snapshotIfAllowed(
+            transport: nil,
+            observedAt: now,
+            isTestHost: isTestHost
+        )
+        return LoopLocalSeatPolicy.servedContextWindow(for: model, snapshot: snap)
+    }
+
+    public static func prepare(
+        _ invocation: WorkerInvocation,
+        servedContextWindow: Int? = nil
+    ) -> WorkerInvocation {
         guard isLocalSeat(invocation.model) else { return invocation }
         var invocation = invocation
         invocation.model.modelLabel = wireModelLabel(invocation.model.modelLabel)
@@ -74,7 +126,7 @@ public enum ClaudeLocalIsolation {
             return invocation
         }
         var env = invoke.env
-        for (key, value) in perRunEnvironment() {
+        for (key, value) in perRunEnvironment(servedContextWindow: servedContextWindow) {
             env[key] = value
         }
         invoke.env = env
@@ -146,7 +198,10 @@ public enum ClaudeLocalIsolation {
             writesClaudeSettings: false,
             readsKeychain: false,
             seating: seatingExample,
-            failClosed: "local Ollama Anthropic-compat endpoint only; never api.anthropic.com"
+            failClosed: "local Ollama Anthropic-compat endpoint only; never api.anthropic.com",
+            verifyUsesLocalEvidence: true,
+            contextWindowEnvKey: contextWindowKey,
+            contextWindowOnlyWhenObserved: true
         )
     }
 
@@ -165,6 +220,9 @@ public enum ClaudeLocalIsolation {
         public var readsKeychain: Bool
         public var seating: String
         public var failClosed: String
+        public var verifyUsesLocalEvidence: Bool
+        public var contextWindowEnvKey: String
+        public var contextWindowOnlyWhenObserved: Bool
     }
 
     private static let costKeys: Set<String> = ["costUSD", "costUsd", "cost_usd"]
@@ -194,17 +252,27 @@ public enum ClaudeLocalIsolation {
 /// Rewrites a Claude-local `WorkerInvocation` (per-run env + wire label) and
 /// sanitizes the terminal result. Pass-through for every other seat.
 public struct ClaudeLocalIsolatingWorkerRunner: WorkerInvoking {
-    private let inner: any WorkerInvoking
+    public typealias ServedContextWindowLookup = @Sendable (Model) -> Int?
 
-    public init(inner: any WorkerInvoking) {
+    private let inner: any WorkerInvoking
+    private let servedContextWindow: ServedContextWindowLookup
+
+    public init(
+        inner: any WorkerInvoking,
+        servedContextWindow: @escaping ServedContextWindowLookup = { _ in nil }
+    ) {
         self.inner = inner
+        self.servedContextWindow = servedContextWindow
     }
 
     public func invoke(_ invocation: WorkerInvocation) -> AsyncThrowingStream<WorkerStreamEvent, Error> {
         guard ClaudeLocalIsolation.isLocalSeat(invocation.model) else {
             return inner.invoke(invocation)
         }
-        let prepared = ClaudeLocalIsolation.prepare(invocation)
+        let prepared = ClaudeLocalIsolation.prepare(
+            invocation,
+            servedContextWindow: servedContextWindow(invocation.model)
+        )
         let inner = self.inner
         return AsyncThrowingStream { continuation in
             let task = Task {

@@ -37,6 +37,14 @@ public enum OpenCodeLocalSeatReadiness {
     /// Binary path when detect found an executable — including after a Zen/Go
     /// smoke failure. Absence of a path is missing CLI; a failed remote smoke is not.
     public static func installedBinaryPath(from record: ToolProbeRecord?) -> String? {
+        installedBinaryPath(from: record, driverId: driverId)
+    }
+
+    /// Same rule for any driver record (Claude-local uses `claude_code`).
+    public static func installedBinaryPath(
+        from record: ToolProbeRecord?,
+        driverId: String
+    ) -> String? {
         guard let record, record.driverId == driverId else { return nil }
         switch record.status {
         case .notInstalled, .shimmedNeedsConfirm:
@@ -77,17 +85,41 @@ public enum OpenCodeLocalSeatReadiness {
         snapshot: OllamaLocalRuntimeObserver.Snapshot?,
         now: Date = Date()
     ) -> LocalVerify {
-        guard isLocalOpenCodeSeat(driverId: driverId, modelLabel: modelLabel) else {
+        verifyOllamaBackedSeat(
+            isLocalSeat: isLocalOpenCodeSeat(driverId: driverId, modelLabel: modelLabel),
+            modelLabel: modelLabel,
+            driverId: driverId,
+            probeRecord: probeRecord,
+            snapshot: snapshot,
+            now: now,
+            unobservedDetail: "Ollama not observed — local seat does not use Zen/Go smoke"
+        )
+    }
+
+    /// Shared local-evidence verify for OpenCode-local and Claude-local.
+    /// Never spawns the agent body. A Claude-local `claude -p` token echo hangs
+    /// (idle watchdog, no session bypassPermissions) while Ollama and the body
+    /// themselves answer — that spawn is not evidence.
+    public static func verifyOllamaBackedSeat(
+        isLocalSeat: Bool,
+        modelLabel: String,
+        driverId: String,
+        probeRecord: ToolProbeRecord?,
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?,
+        now: Date = Date(),
+        unobservedDetail: String
+    ) -> LocalVerify {
+        guard isLocalSeat else {
             return .notLocalSeat
         }
-        guard installedBinaryPath(from: probeRecord) != nil else {
+        guard installedBinaryPath(from: probeRecord, driverId: driverId) != nil else {
             return .missingCLI
         }
         guard let snapshot else {
             return .inconclusive(
                 ModelSmokeResult(
                     status: .inconclusive,
-                    detail: "Ollama not observed — local seat does not use Zen/Go smoke",
+                    detail: unobservedDetail,
                     checkedAt: now,
                     driverId: driverId,
                     label: modelLabel

@@ -397,8 +397,13 @@ the Allnighter run path.
 5. OpenCode CT unfinished — local still amplifies false-done prose. **Open as
    CT owner work**, not as a local-seat ladder slice. `roundLog.executionOutcome`
    stays Allnighter-owned (S07).
-6. Claude-local isolation + meter honesty — **coded** `567acaee`. Remaining is
-   Works Test **A for Claude-local**, not design.
+6. Claude-local isolation + meter honesty — **coded** `567acaee`. Verify used
+   to spawn Claude Code invoke smoke and time out (`timed_out: worker timed
+   out`) while Ollama's Anthropic-compat endpoint and a direct Claude-local
+   body both worked — same class of bug as Zen smoke on an OpenCode-local
+   seat. Verify is now local evidence (binary + tag). Served-window compact
+   bound is per-run env from `/api/ps` when observed; unobserved does not
+   invent 200k. Remaining is Works Test **A mutate** for Claude-local.
 7. Coding-class gated repair — **closed.** First passing gated local repair:
    a local **gpt-oss:20b** seat fixed `parsePs` (cloud residents), passed 25
    tests it did not author, committed `c88a0383` with the local seat credited
@@ -1021,7 +1026,7 @@ unauthorized flag.
 | **OCL-S00b** | Bakeoff recorded (§0.4). Claude G2 mutate PASS on `0.5b`; gates defined. | **None** |
 | **OCL-S01** | Detect + doctor: Ollama reachable; list local models; readiness Available/Unavailable per seat (**body-agnostic**) | **DONE** — S01a observer `709c376a`; S01b doctor `92e1159f`; two-state per-seat 2026-08-13 |
 | **OCL-S02a** | Setup verb: additive OpenCode provider wiring, reversible, non-clobbering | **DONE** — `fab645bf`; setup registers tags `b02304e0` |
-| **OCL-S02b** | Claude-local: per-run env isolation + meter strip + seating path | **DONE in code** `567acaee`. Works Test **A for Claude-local still outstanding.** |
+| **OCL-S02b** | Claude-local: per-run env isolation + meter strip + seating path | **DONE in code** `567acaee`. Verify hang + served-window compact bound follow-up: local-evidence verify (no `claude -p` smoke); `CLAUDE_CODE_CONTEXT_WINDOW` from `/api/ps` when observed. Works Test **A mutate still outstanding** as live dogfood. |
 | **OCL-S03** | `ModelDiscoveryProvider` for Ollama tags → opt-in seats, `.discovered`, local provenance; body chosen at enable | **DONE** `90151f66`; gate-2 cloud filter `cfb32fe7` |
 | **OCL-S04** | Readiness surface in `alln models` / `doctor` — Available/Unavailable per seat | **DONE** `9818d8da`; two-state 2026-08-13 |
 | **OCL-S05** | Turn timing for slow local loads — **only if measured** | **UNBUILT.** Measured on this host, not assumed: gpt-oss:20b cold **20.9s** vs 120s first-activity budget; warm **0.6s**. Larger models on larger machines unmeasured. Do not project a number. |
@@ -1104,6 +1109,7 @@ unproven on this hardware.**
 | **`enabled_providers` clobber** (OpenCode) | Merge-only setup verb; before/after fixture; documented undo. |
 | **Claude env bleed** into paid Anthropic or reverse | Per-run env only; fail closed; never park Claude for Ollama faults; negative proofs. |
 | **Claude-local meter lies** (200k / costUSD / firstParty) | Strip or relabel for `ollama_local`; never vendor-shaped. |
+| **Claude-local auto-compact assumes 200k** on unrecognized tags | Worse than the meter lie: compact waits for 200k while the served window (e.g. 65536) is the real ceiling. Overlay `CLAUDE_CODE_CONTEXT_WINDOW` from observed `/api/ps` only. Never invent a number. |
 | **Model-dependent tool bugs** blamed on Air / alln | G0→G3 ladder; attribute per §0.4. |
 | **Stall watchdog vs cold local load** | OCL-S05 only if measured; do not widen globally. |
 | **OpenCode `:4096` serve busy** | [`OpenCode_Serve_Attach.md`](../archive/phases/OpenCode_Serve_Attach.md). |

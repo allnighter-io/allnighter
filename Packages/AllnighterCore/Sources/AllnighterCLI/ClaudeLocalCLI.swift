@@ -33,5 +33,7 @@ enum ClaudeLocalCLI {
         print("Seat with: \(report.seating)")
         print("Does not write shell profiles or Claude settings. Does not read Keychain.")
         print("A local failure is not an Anthropic limit.")
+        print("Verify uses local evidence (binary + Ollama tag), not Claude invoke smoke.")
+        print("Served context window env (\(report.contextWindowEnvKey)) is set only when observed.")
     }
 }

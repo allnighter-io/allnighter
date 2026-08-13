@@ -66,6 +66,7 @@ final class ClaudeLocalIsolationTests: XCTestCase {
         XCTAssertEqual(env[ClaudeLocalIsolation.baseURLKey], "http://localhost:11434")
         XCTAssertEqual(env[ClaudeLocalIsolation.authTokenKey], "ollama")
         XCTAssertEqual(env[ClaudeLocalIsolation.apiKeyKey], "")
+        XCTAssertNil(env[ClaudeLocalIsolation.contextWindowKey])
         XCTAssertEqual(env["KEEP"], "yes")
         XCTAssertEqual(env["CLAUDE_CODE_USE_BEDROCK"], "")
         XCTAssertEqual(env["CLAUDE_CODE_USE_VERTEX"], "")
@@ -78,7 +79,65 @@ final class ClaudeLocalIsolationTests: XCTestCase {
         let prepared = ClaudeLocalIsolation.prepare(original)
         XCTAssertEqual(prepared.manifest.invoke?.env["ANTHROPIC_API_KEY"], "sk-ant-paid")
         XCTAssertNil(prepared.manifest.invoke?.env[ClaudeLocalIsolation.baseURLKey])
+        XCTAssertNil(prepared.manifest.invoke?.env[ClaudeLocalIsolation.contextWindowKey])
         XCTAssertEqual(prepared.model.modelLabel, "opus")
+    }
+
+    func testPrepareSetsObservedServedWindowAndNeverInvented200k() throws {
+        let prepared = ClaudeLocalIsolation.prepare(
+            invocation(local), servedContextWindow: 65_536)
+        let env = try XCTUnwrap(prepared.manifest.invoke?.env)
+        XCTAssertEqual(env[ClaudeLocalIsolation.contextWindowKey], "65536")
+        XCTAssertFalse(env.values.contains("200000"))
+        XCTAssertFalse(env.values.contains("200k"))
+
+        let unobserved = ClaudeLocalIsolation.prepare(
+            invocation(local), servedContextWindow: nil)
+        XCTAssertNil(unobserved.manifest.invoke?.env[ClaudeLocalIsolation.contextWindowKey])
+
+        let zero = ClaudeLocalIsolation.prepare(
+            invocation(local), servedContextWindow: 0)
+        XCTAssertNil(zero.manifest.invoke?.env[ClaudeLocalIsolation.contextWindowKey])
+
+        let paidWithWindow = ClaudeLocalIsolation.prepare(
+            invocation(paid), servedContextWindow: 65_536)
+        XCTAssertNil(paidWithWindow.manifest.invoke?.env[ClaudeLocalIsolation.contextWindowKey])
+        XCTAssertNil(paidWithWindow.manifest.invoke?.env[ClaudeLocalIsolation.baseURLKey])
+    }
+
+    func testObservedServedWindowComesFromPsOnly() {
+        let snapshot = OllamaLocalRuntimeObserver.Snapshot(
+            observedAt: Date(timeIntervalSince1970: 1),
+            ollamaVersion: "0.32.6",
+            localTags: [.init(name: "gpt-oss:20b")],
+            residentModels: [.init(name: "gpt-oss:20b", servedContextWindow: 65_536)]
+        )
+        let gptLocal = Model(
+            id: "custom_claude_code_gpt", displayName: "gpt-oss",
+            modelLabel: "ollama/gpt-oss:20b", driverId: "claude_code", role: .both
+        )
+        XCTAssertEqual(
+            ClaudeLocalIsolation.observedServedContextWindow(
+                for: gptLocal, snapshot: snapshot, isTestHost: true),
+            65_536
+        )
+        let notResident = OllamaLocalRuntimeObserver.Snapshot(
+            observedAt: Date(timeIntervalSince1970: 1),
+            ollamaVersion: "0.32.6",
+            localTags: [.init(name: "gpt-oss:20b")]
+        )
+        XCTAssertNil(
+            ClaudeLocalIsolation.observedServedContextWindow(
+                for: gptLocal, snapshot: notResident, isTestHost: true)
+        )
+        XCTAssertNil(
+            ClaudeLocalIsolation.observedServedContextWindow(
+                for: gptLocal, snapshot: nil, isTestHost: true)
+        )
+        XCTAssertNil(
+            ClaudeLocalIsolation.observedServedContextWindow(
+                for: paid, snapshot: snapshot, isTestHost: true)
+        )
     }
 
     func testLocalFailureNeverClassifiesAsAnthropicLimit() {
@@ -168,6 +227,9 @@ final class ClaudeLocalIsolationTests: XCTestCase {
         XCTAssertFalse(report.writesClaudeSettings)
         XCTAssertFalse(report.readsKeychain)
         XCTAssertTrue(report.anthropicAPIKeyEmpty)
+        XCTAssertTrue(report.verifyUsesLocalEvidence)
+        XCTAssertTrue(report.contextWindowOnlyWhenObserved)
+        XCTAssertEqual(report.contextWindowEnvKey, "CLAUDE_CODE_CONTEXT_WINDOW")
         XCTAssertEqual(report.signalSourceId, "ollama_local")
         XCTAssertTrue(report.seating.contains("models add"))
         XCTAssertTrue(report.seating.contains("ollama/"))
@@ -229,12 +291,180 @@ final class ClaudeLocalIsolationTests: XCTestCase {
             "http://localhost:11434"
         )
         XCTAssertEqual(inner.seen[0].manifest.invoke?.env[ClaudeLocalIsolation.apiKeyKey], "")
+        XCTAssertNil(inner.seen[0].manifest.invoke?.env[ClaudeLocalIsolation.contextWindowKey])
         XCTAssertNil(result.capacityObservation)
         XCTAssertFalse(result.capacityObservation.map(VendorBackoffPolicy.shouldPark) ?? false)
         XCTAssertEqual(result.errorReason, "ollama_local failed; not an Anthropic limit")
         XCTAssertFalse(result.output?.contains("costUSD") ?? true)
         XCTAssertFalse(result.output?.contains("200000") ?? true)
         XCTAssertFalse(result.output?.contains("firstParty") ?? true)
+    }
+
+    func testIsolatingRunnerOverlaysObservedWindowOnly() async throws {
+        let inner = RecordingInvoker()
+        inner.result = WorkerRunResult(status: .done, output: "ok")
+        let runner = ClaudeLocalIsolatingWorkerRunner(inner: inner) { _ in 65_536 }
+        _ = await runner.collect(invocation(local))
+        XCTAssertEqual(
+            inner.seen[0].manifest.invoke?.env[ClaudeLocalIsolation.contextWindowKey],
+            "65536"
+        )
+        inner.seen.removeAll()
+        let paidRunner = ClaudeLocalIsolatingWorkerRunner(inner: inner) { _ in 65_536 }
+        _ = await paidRunner.collect(invocation(paid))
+        XCTAssertNil(inner.seen[0].manifest.invoke?.env[ClaudeLocalIsolation.contextWindowKey])
+        XCTAssertEqual(inner.seen[0].model.modelLabel, "opus")
+    }
+
+    func testHelpTeachesLocalVerifyAndObservedContextBound() throws {
+        let isolation = try XCTUnwrap(HelpTopicRegistry.topic(id: "claude_local_isolation"))
+        XCTAssertTrue(isolation.bodyMarkdown.contains("does **not** spawn `claude -p`"))
+        XCTAssertTrue(isolation.bodyMarkdown.contains("CLAUDE_CODE_CONTEXT_WINDOW"))
+        XCTAssertTrue(isolation.bodyMarkdown.contains("does not claim one"))
+    }
+}
+
+/// Claude-local `models verify` must not spawn Claude Code invoke smoke.
+final class ClaudeLocalVerifyTests: XCTestCase {
+    private let observedAt = Date(timeIntervalSince1970: 1_754_000_000)
+    private let now = Date(timeIntervalSince1970: 1_754_000_100)
+
+    private var modelsRoot: URL!
+    private var rosterURL: URL!
+
+    override func setUp() {
+        super.setUp()
+        let base = FileManager.default.temporaryDirectory.appendingPathComponent(
+            UUID().uuidString, isDirectory: true)
+        modelsRoot = base.appendingPathComponent("models", isDirectory: true)
+        rosterURL = base.appendingPathComponent("model_roster.json")
+        CatalogRoots.overrideForTesting(
+            teams: base.appendingPathComponent("teams", isDirectory: true),
+            skills: base.appendingPathComponent("skills", isDirectory: true),
+            models: modelsRoot)
+        ModelCatalog.overrideRosterForTesting(fileURL: rosterURL)
+        XCTAssertTrue(AllnighterSupportRoot.isRunningUnderTestHost)
+    }
+
+    override func tearDown() {
+        CatalogRoots.resetTestingOverrides()
+        ModelCatalog.resetTestingOverrides()
+        try? FileManager.default.removeItem(at: modelsRoot.deletingLastPathComponent())
+        super.tearDown()
+    }
+
+    func testVerifySucceedsOnLocalEvidenceWithoutSpawningClaude() async throws {
+        let created = try addCustom(label: "ollama/gpt-oss:20b", name: "Claude local gpt-oss")
+        let failing = MockWorkerInvoking.failing("Claude invoke smoke must not run for a local seat")
+        let smoke = try await ModelCatalog.verifyModelSmoke(
+            id: created.id,
+            registry: claudeRegistry(),
+            invoker: failing,
+            probeRecords: [anthropicRejectedRecord()],
+            ollamaSnapshot: idleSnapshot(tags: ["gpt-oss:20b"]),
+            now: now
+        )
+        XCTAssertEqual(smoke.status, .recognized)
+        XCTAssertEqual(ModelCatalog.get(created.id)?.modelSmokeStatus, "recognized")
+        XCTAssertNil(ModelCatalog.get(created.id)?.modelSmokeDetail)
+        try ModelCatalog.setEnabled(created.id, true)
+        XCTAssertTrue(ModelCatalog.isEnabled(created.id))
+    }
+
+    func testVerifyDoesNotTreatTimedOutInvokeSmokeAsTheSeat() {
+        let outcome = ClaudeLocalIsolation.verify(
+            modelLabel: "ollama/gpt-oss:20b",
+            driverId: "claude_code",
+            probeRecord: anthropicRejectedRecord(),
+            snapshot: idleSnapshot(tags: ["gpt-oss:20b"]),
+            now: now
+        )
+        guard case .recognized(let smoke) = outcome else {
+            return XCTFail("expected recognized, got \(outcome)")
+        }
+        XCTAssertEqual(smoke.status, .recognized)
+        XCTAssertNil(smoke.detail)
+        XCTAssertFalse(smoke.detail?.contains("timed_out") == true)
+    }
+
+    func testPaidClaudeLabelStillNotLocalVerify() {
+        let outcome = ClaudeLocalIsolation.verify(
+            modelLabel: "opus",
+            driverId: "claude_code",
+            probeRecord: anthropicRejectedRecord(),
+            snapshot: idleSnapshot(tags: ["gpt-oss:20b"]),
+            now: now
+        )
+        XCTAssertEqual(outcome, .notLocalSeat)
+    }
+
+    func testBenchAdmitsClaudeLocalWhenAnthropicProbeFailed() {
+        let local = Model(
+            id: "custom_claude_code_gpt",
+            displayName: "gpt-oss local",
+            modelLabel: "ollama/gpt-oss:20b",
+            driverId: "claude_code",
+            role: .answerer,
+            enabled: true
+        )
+        let paid = Model(
+            id: "model_opus",
+            displayName: "Opus",
+            modelLabel: "opus",
+            driverId: "claude_code",
+            role: .both,
+            enabled: true
+        )
+        let ready = BenchReadiness.readyModels(
+            models: [local, paid],
+            probeRecords: [anthropicRejectedRecord()],
+            coolingDriverIds: ["claude_code"],
+            ollamaLocal: idleSnapshot(tags: ["gpt-oss:20b"])
+        )
+        XCTAssertEqual(ready.map(\.id), [local.id])
+    }
+
+    private func claudeRegistry() -> DriverRegistry {
+        DriverRegistry([
+            DriverManifest(
+                id: "claude_code",
+                displayName: "Claude",
+                kind: .headlessCLI,
+                invoke: .init(
+                    command: "claude",
+                    args: ["-p", "{{prompt}}", "--model", "{{model}}"]
+                )
+            )
+        ])
+    }
+
+    private func addCustom(label: String, name: String) throws -> ModelDefinition {
+        try ModelCatalog.createCustom(
+            driverId: "claude_code",
+            displayName: name,
+            modelLabel: label,
+            role: .answerer,
+            enabled: true,
+            registry: claudeRegistry()
+        )
+    }
+
+    private func anthropicRejectedRecord() -> ToolProbeRecord {
+        ToolProbeRecord(
+            driverId: "claude_code",
+            status: .probeFailed(reason: "claude smoke: timed_out"),
+            invocation: .direct(path: "/usr/local/bin/claude"),
+            version: "2.1.225",
+            lastProbeAt: now
+        )
+    }
+
+    private func idleSnapshot(tags: [String]) -> OllamaLocalRuntimeObserver.Snapshot {
+        OllamaLocalRuntimeObserver.Snapshot(
+            observedAt: observedAt,
+            ollamaVersion: "0.32.6",
+            localTags: tags.map { .init(name: $0) }
+        )
     }
 }
 

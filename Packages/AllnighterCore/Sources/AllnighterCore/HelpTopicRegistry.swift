@@ -668,6 +668,17 @@ public enum HelpTopicRegistry {
             alln claude-local status --json
             ```
 
+            `alln models verify` for a Claude-local seat uses local evidence only \
+            (Claude Code binary present + Ollama reachable with that tag). It does \
+            **not** spawn `claude -p` token-echo smoke. That spawn hung while Ollama \
+            and a direct Claude-local body both worked.
+
+            When `/api/ps` has observed the served context window, the per-run env \
+            sets `CLAUDE_CODE_CONTEXT_WINDOW` to that number so Claude Code \
+            auto-compacts against the real window instead of assuming 200k. If the \
+            window was not observed, Allnighter does not claim one and does not \
+            set the key.
+
             A local failure is an Ollama failure (`ollama_local`). It is never an \
             Anthropic rate limit, park, backoff, or substitution. Claude's \
             `costUSD`, fake 200k `contextWindow`, and `provider: firstParty` are \
