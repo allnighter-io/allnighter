@@ -418,8 +418,13 @@ public enum HelpTopicRegistry {
             - Prompt echoed as the answer
             - Foreign idle / stream drop / timeout mid-turn
             - `stalled_no_progress` when the parent is quiet with **no** live \
-              delegation child / running tools / open `task` (OCH-S04 — a live \
-              child keeps the turn busy)
+              delegation child / running tools / open `task` / incomplete \
+              assistant (no `time.completed` — DeepSeek thinking after tools \
+              counts as busy). Do not raise the 120s stall window.
+            - If the stall clock still fires but HTTP already has a completed \
+              assistant, the answer is recovered instead of `empty_output`.
+            - Unrecovered stall, timeout, stream drop, or cancel POSTs \
+              `/session/:id/abort` so the shared serve does not keep an orphan.
             - `reconcile failed: …` when clean idle left an empty answer and the \
               final HTTP message fetch failed (OCH-S02)
             - Read-only tool loop with no answer text
