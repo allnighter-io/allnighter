@@ -231,6 +231,44 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
         XCTAssertEqual(parsed, [.init(name: "qwen3:8b")])
     }
 
+    func testParsePsExcludesRemoteHostCloudEntry() {
+        let ps = """
+        {"models":[
+          {"name":"qwen2.5:0.5b","context_length":4096},
+          {"name":"gpt-oss:120b-cloud","remote_host":"ollama.com","remote_model":"gpt-oss:120b","context_length":8192}
+        ]}
+        """
+        let parsed = OllamaLocalRuntimeObserver.parsePs(Data(ps.utf8))
+        XCTAssertEqual(parsed, [.init(name: "qwen2.5:0.5b", servedContextWindow: 4096)])
+    }
+
+    func testParsePsExcludesRemoteModelOnlyCloudEntry() {
+        let ps = """
+        {"models":[
+          {"name":"qwen3:8b","context_length":8192},
+          {"name":"kimi-k2:1t","remote_model":"kimi-k2:1t","context_length":131072}
+        ]}
+        """
+        let parsed = OllamaLocalRuntimeObserver.parsePs(Data(ps.utf8))
+        XCTAssertEqual(parsed, [.init(name: "qwen3:8b", servedContextWindow: 8192)])
+    }
+
+    func testParsePsDoesNotTreatCloudNameSuffixAsProvenance() {
+        let ps = """
+        {"models":[{"name":"qwen3:8b-cloud","context_length":8192}]}
+        """
+        let parsed = OllamaLocalRuntimeObserver.parsePs(Data(ps.utf8))
+        XCTAssertEqual(parsed, [.init(name: "qwen3:8b-cloud", servedContextWindow: 8192)])
+    }
+
+    func testParsePsEmptyRemoteFieldsAreNotCloud() {
+        let ps = """
+        {"models":[{"name":"qwen3:8b","remote_host":"","remote_model":"   ","context_length":8192}]}
+        """
+        let parsed = OllamaLocalRuntimeObserver.parsePs(Data(ps.utf8))
+        XCTAssertEqual(parsed, [.init(name: "qwen3:8b", servedContextWindow: 8192)])
+    }
+
     func testCloudOnlyTagsYieldUnavailableNotIdle() {
         let tags = """
         {"models":[{"name":"gpt-oss:120b-cloud","remote_host":"ollama.com"}]}

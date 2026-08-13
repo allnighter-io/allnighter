@@ -215,6 +215,7 @@ public enum OllamaLocalRuntimeObserver {
             guard let obj = entry as? [String: Any],
                   let name = modelName(obj)
             else { continue }
+            if isRemoteTag(obj) { continue }
             let served = intValue(obj["context_length"])
             residents.append(ResidentModel(name: name, servedContextWindow: served))
         }
