@@ -37,9 +37,10 @@ final class VersionIdentityTests: XCTestCase {
     /// 0.12.5 → 0.12.6 (menu/model freshness normalization, additive minor
     /// contract bump; see `VersionJSON.swift` release note). Launch:
     /// 0.12.6 → 1.0.0 (first public release identity; see `VersionJSON.swift`
-    /// release note).
+    /// release note). 1.0.1 → 1.1.0: contract major cut to 10.0.0 (founder
+    /// +0.1.0 rule; Ollama local seats documentation closeout).
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.0.1")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.1.0")
     }
 
     /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at

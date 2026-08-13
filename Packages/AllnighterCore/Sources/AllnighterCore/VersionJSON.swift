@@ -103,8 +103,13 @@ import Foundation
 /// **1.0.0 → 1.0.1 (FCS-S02).** `contractVersion` additive minor (9.16.0 →
 /// 9.17.0): optional `MenuJSON.benchTally` with agent `nextAction` when the
 /// bench was never scanned. Standard +0.0.1 batch bump.
+///
+/// **1.0.1 → 1.1.0 (Ollama local seats closeout).** `contractVersion` took its
+/// major cut to 10.0.0 in the preceding ship batch. Founder rule: one binary
+/// minor bump (+0.1.0) when the contract takes a major cut. Documentation
+/// closeout only — no behavior change in this bump.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.0.1"
+    public static let binaryVersion = "1.1.0"
 }
 
 /// `alln version` / `alln --version` machine contract.
