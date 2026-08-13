@@ -498,6 +498,79 @@ final class TeamRunJSONMapperTests: XCTestCase {
         XCTAssertNil(trj.outcome)
     }
 
+    // MARK: - Outcome honesty (`completedWithoutChanges` vs `committed`)
+
+    func testNoCommitPlusDirtyIsNotCompletedWithoutChanges() throws {
+        let delta = RepoDelta(changed: false, worktreeDirty: true)
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .done, output: "edited"))],
+            repoDelta: delta)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertEqual(outcome.status, .completed)
+        XCTAssertFalse(outcome.committed, "HEAD did not move under --no-commit")
+        XCTAssertEqual(outcome.completedWithoutChanges, false)
+    }
+
+    func testMutatingSuccessWithCleanUnchangedTreeIsCompletedWithoutChanges() throws {
+        let delta = RepoDelta(changed: false, worktreeDirty: false)
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .done, output: "already done"))],
+            repoDelta: delta)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertFalse(outcome.committed)
+        XCTAssertEqual(outcome.completedWithoutChanges, true)
+    }
+
+    func testCommittedRunIsNotCompletedWithoutChanges() throws {
+        let delta = RepoDelta(changed: true, worktreeDirty: false)
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .done, output: "committed"))],
+            repoDelta: delta)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertTrue(outcome.committed)
+        XCTAssertEqual(outcome.completedWithoutChanges, false)
+    }
+
+    func testCommittedPlusDirtyIsCommittedAndNotWithoutChanges() throws {
+        let delta = RepoDelta(changed: true, worktreeDirty: true)
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .done, output: "commit plus leftover"))],
+            repoDelta: delta)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        let outcome = try XCTUnwrap(trj.outcome)
+        XCTAssertTrue(outcome.committed)
+        XCTAssertEqual(outcome.completedWithoutChanges, false)
+    }
+
+    func testReadOnlyRunOmitsCompletedWithoutChanges() throws {
+        let delta = RepoDelta(changed: false, worktreeDirty: false)
+        let run = terminalRun(
+            status: .complete,
+            answers: [TeamAnswer(
+                memberId: "model_grok#0", modelId: "model_grok", role: "answer",
+                result: WorkerRunResult(status: .done, output: "research"))],
+            mutating: false,
+            repoDelta: delta)
+        let trj = TeamRunJSONMapper.map(run, models: try bench(), manifests: [], context: ctx())
+        XCTAssertNil(trj.outcome?.completedWithoutChanges)
+        XCTAssertFalse(trj.outcome?.committed ?? true)
+    }
+
     // MARK: - SH-S08 observed timing
 
     func testMapperProjectsQueueTtftDurationAndWallMs() throws {

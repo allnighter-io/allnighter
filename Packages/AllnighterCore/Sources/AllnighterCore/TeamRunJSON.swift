@@ -664,8 +664,12 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         /// is not an error either — a work order can legitimately need no edit —
         /// but it is the one claim-vs-reality mismatch that is mechanically
         /// checkable without judging the work: the worker said done, the repo
-        /// says nothing happened. Reported separately from `status` because
-        /// `status: done` alone reads as success and hides it.
+        /// says nothing happened. "Nothing" means no commit-range movement
+        /// **and** a clean worktree — `--no-commit` that left files dirty is
+        /// a change. Reported separately from `status` because `status: done`
+        /// alone reads as success and hides it.
+        ///
+        /// Distinct from `committed`, which is commit-range only (HEAD moved).
         ///
         /// This is deliberately NOT a quality signal. A green test proves the
         /// test is green; a commit proves only that bytes changed. The single

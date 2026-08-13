@@ -390,19 +390,24 @@ public enum TeamRunJSONMapper {
         )
         let wallMs = observedWallMs(run)
         let outcomeStatus = mapOutcomeStatus(run)
-        let changed = run.repoDelta?.changed == true
+        // Two questions, two answers. `changed` is commit-range (baseline ≠
+        // head). `worktreeDirty` is porcelain. `--no-commit` never moves HEAD,
+        // so a real edit is dirty-not-committed — never "without changes."
+        let commitsLanded = run.repoDelta?.changed == true
+        let worktreeDirty = run.repoDelta?.worktreeDirty == true
+        let repoHadEffect = commitsLanded || worktreeDirty
         // Only meaningful for a mutating run that claims success: a read-only
         // run producing no diff is correct, not a mismatch.
         let completedWithoutChanges: Bool? = {
             guard run.mutating else { return nil }
             switch outcomeStatus {
-            case .completed, .partial: return !changed
+            case .completed, .partial: return !repoHadEffect
             case .failed, .timedOut: return nil
             }
         }()
         return TeamRunJSON.Outcome(
             status: outcomeStatus,
-            committed: changed,
+            committed: commitsLanded,
             headline: outcomeHeadline(run, status: outcomeStatus, wallMs: wallMs),
             completedWithoutChanges: completedWithoutChanges,
             commitMessageMatched: commitMatched,
