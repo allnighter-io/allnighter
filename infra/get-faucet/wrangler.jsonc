@@ -3,7 +3,15 @@
   "name": "get-allnighter",
   "main": "src/index.ts",
   "compatibility_date": "2026-02-01",
+  // Keep the dogfood URL even after the custom domain attaches.
+  // Wrangler infers workers_dev=false when routes are present unless this stays true.
   "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "get.allnighter.io",
+      "custom_domain": true
+    }
+  ],
   "r2_buckets": [
     {
       "bucket_name": "allnighter-releases",

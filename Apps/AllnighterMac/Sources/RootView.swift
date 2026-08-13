@@ -168,84 +168,84 @@ struct RootView: View {
         )
     }
 
+    /// Split so Release WMO can type-check. One VStack + overlays + lifecycle
+    /// chain timed out the compiler (`unable to type-check this expression`).
     private var workspaceContent: some View {
-        VStack(spacing: 0) {
-            TitleBar(
-                showTeamDropdown: $showTeamDropdown,
-                showDoctor: $showDoctor,
-                workspaceMode: $workspaceMode,
-                onRoute: routeTo,
-                pendingCount: pendingVM?.totalPending ?? 0,
-                onRepair: openReadiness(focus:),
-                onManageTeam: { openTeamStudio() },
-                onOpenPending: { showPending = true },
-                onOpenAbout: { openTeamStudio(route: .about) },
-                devSimActive: devSimLabel,
-                onSettings: openSettings
+        workspaceLifecycle
+    }
+
+    private var workspaceTitleBar: some View {
+        TitleBar(
+            showTeamDropdown: $showTeamDropdown,
+            showDoctor: $showDoctor,
+            workspaceMode: $workspaceMode,
+            onRoute: routeTo,
+            pendingCount: pendingVM?.totalPending ?? 0,
+            onRepair: openReadiness(focus:),
+            onManageTeam: { openTeamStudio() },
+            onOpenPending: { showPending = true },
+            onOpenAbout: { openTeamStudio(route: .about) },
+            devSimActive: devSimLabel,
+            onSettings: openSettings
+        )
+        .zIndex(10)
+        .onAppear {
+            if pendingVM == nil { pendingVM = PendingViewModel(service: pendingService) }
+            releaseUpdates.refresh()
+        }
+    }
+
+    @ViewBuilder
+    private var workspacePane: some View {
+        if showFloorReaderProof {
+            floorReaderProofView
+        } else if GUIFixture.opensPending || showPending {
+            PendingView(service: pendingService, onClose: {
+                showPending = false
+                pendingVM?.refresh()
+            })
+        } else if showTeamStudio {
+            TeamStudioView(
+                initialRoute: studioInitialRoute,
+                customizeTeamId: studioCustomizeTeamId,
+                startNewTeam: studioStartNewTeam,
+                cliFocusDriverId: studioCLIFocusDriverId,
+                onDone: {
+                    showTeamStudio = false
+                    studioCustomizeTeamId = nil
+                    studioStartNewTeam = false
+                    studioCLIFocusDriverId = nil
+                }
             )
-                .zIndex(10)
-                .onAppear {
-                    if pendingVM == nil { pendingVM = PendingViewModel(service: pendingService) }
-                    // Fail-open release check (cache/TTL); never blocks launch.
-                    releaseUpdates.refresh()
-                }
+        } else if showReadiness {
+            TeamReadinessView(
+                focusDriverId: readinessFocus,
+                onClose: { model.markSetupCompleted(); showReadiness = false },
+                onAddSource: { model.markSetupCompleted(); showReadiness = false }
+            )
+        } else if showComposeSpecimen {
+            ComposeSpecimen(
+                openTarget: GUIFixture.composeTargetOpen,
+                team: GUIFixture.composeTeamId,
+                initialText: GUIFixture.composeFileReferenceOpen ? "@Com" : ""
+            )
+        } else if workspaceMode == .teams {
+            TeamsLauncherView(
+                onContinue: { workspaceMode = .inbox },
+                onAddTeam: { workspaceMode = .inbox; openTeamStudio(route: .teams(.code), newTeam: true) }
+            )
+        } else {
+            homeViewContent
+        }
+    }
+
+    private var workspaceStack: some View {
+        VStack(spacing: 0) {
+            workspaceTitleBar
             ZStack {
-                // The app launches into the clean conversation home. Setup (CLI
-                // readiness) and the composer specimen open OVER it on intent;
-                // they never hijack launch (founder: no broken/setup garbage on
-                // open). Old Team/Threads workspace panes are superseded by the
-                // home + routing composer (CR3/CR4 wire conversations live).
-                Group {
-                    if showFloorReaderProof {
-                        floorReaderProofView
-                    } else if GUIFixture.opensPending || showPending {
-                        PendingView(service: pendingService, onClose: {
-                            showPending = false
-                            pendingVM?.refresh()
-                        })
-                    } else if showTeamStudio {
-                        TeamStudioView(
-                            initialRoute: studioInitialRoute,
-                            customizeTeamId: studioCustomizeTeamId,
-                            startNewTeam: studioStartNewTeam,
-                            cliFocusDriverId: studioCLIFocusDriverId,
-                            onDone: {
-                                showTeamStudio = false
-                                studioCustomizeTeamId = nil
-                                studioStartNewTeam = false
-                                studioCLIFocusDriverId = nil
-                            }
-                        )
-                    } else if showReadiness {
-                        TeamReadinessView(
-                            focusDriverId: readinessFocus,
-                            onClose: { model.markSetupCompleted(); showReadiness = false },
-                            onAddSource: { model.markSetupCompleted(); showReadiness = false }
-                        )
-                    } else if showComposeSpecimen {
-                        ComposeSpecimen(
-                            openTarget: GUIFixture.composeTargetOpen,
-                            team: GUIFixture.composeTeamId,
-                            initialText: GUIFixture.composeFileReferenceOpen ? "@Com" : ""
-                        )
-                    } else if workspaceMode == .teams {
-                        // Teams workspace — the Send-to-team launcher (G-T1 brings
-                        // full fidelity; G-T0 wires the toggle + a real card roster).
-                        TeamsLauncherView(
-                            onContinue: { workspaceMode = .inbox },
-                            onAddTeam: { workspaceMode = .inbox; openTeamStudio(route: .teams(.code), newTeam: true) }
-                        )
-                    } else {
-                        homeViewContent
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // Make static text across the workspace selectable (Settings, Default
-                // model, readiness, labels). `.textSelection` is inherited by descendant
-                // Text views; Text inside Buttons stays non-selectable, so rows/controls
-                // are unaffected. (Cross-block selection inside a markdown answer still
-                // needs the native text-view renderer — see the chat selection work.)
-                .textSelection(.enabled)
+                workspacePane
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .textSelection(.enabled)
                 if showTeamDropdown || showDoctor {
                     ALColor.scrimSubtle
                         .onTapGesture {
@@ -255,195 +255,188 @@ struct RootView: View {
                 }
             }
         }
-        // Pull the custom TitleBar up into the window's titlebar band so the team
-        // identity + controls sit on the SAME row as the traffic-light dots
-        // (the dots overlay its empty left region), not in a separate band below.
         .ignoresSafeArea(.container, edges: .top)
         .environment(threads)
         .environment(commands)
         .environment(relayResume)
         .environment(relayStop)
         .focusedSceneValue(\.appCommands, appCommands)
-        .overlay {
-            if commands.palettePresented {
-                CommandPalette(commands: appCommands) { commands.palettePresented = false }
-                    .zIndex(50)
-            }
-        }
-        .background(ALColor.base)
-        .overlayPreferenceValue(TeamPillFrameKey.self) { pillFrame in
-            GeometryReader { geo in
-                if showTeamDropdown, pillFrame != .zero {
-                    let origin = geo.frame(in: .global).origin
-                    BenchDropdownPanel(
-                        isOpen: $showTeamDropdown,
-                        attached: true,
-                        onRepair: openReadiness(focus:),
-                        onManageTeam: { openTeamStudio() },
-                        onOpenSetup: { openReadiness() }
-                    )
-                    .offset(
-                        x: pillFrame.maxX - origin.x - 306,
-                        y: pillFrame.maxY - origin.y - 1
-                    )
-                    .zIndex(20)
+    }
+
+    private var workspaceChrome: some View {
+        workspaceStack
+            .overlay {
+                if commands.palettePresented {
+                    CommandPalette(commands: appCommands) { commands.palettePresented = false }
+                        .zIndex(50)
                 }
             }
-            .allowsHitTesting(showTeamDropdown)
-        }
-        .overlayPreferenceValue(BenchHealthFrameKey.self) { badgeFrame in
-            GeometryReader { geo in
-                if showDoctor, badgeFrame != .zero {
-                    let origin = geo.frame(in: .global).origin
-                    let top = badgeFrame.maxY - origin.y - 1
-                    // home/doctor.jsx: popover trailing edge inset 13px from window.
-                    // Leave generous bottom room so the footer button + last row
-                    // always clear the window edge (no cramped half-row).
-                    let maxBody = max(160, geo.size.height - top - 190)
-                    BenchHealthPopover(
-                        onClose: { showDoctor = false },
-                        // "Open CLI setup" is a HARD LINK — always land on the CLIs route
-                        // (sidebar present so Teams/Skills stay reachable), never the
-                        // default Teams route.
-                        onOpenFull: { openCLISetup() },
-                        onSelectCLI: { openCLISetup(focus: $0) },
-                        maxBodyHeight: maxBody
-                    )
-                    .offset(
-                        x: geo.size.width - 404 - 13,
-                        y: top
-                    )
-                    .zIndex(20)
-                }
+            .background(ALColor.base)
+            .overlayPreferenceValue(TeamPillFrameKey.self) { pillFrame in
+                teamDropdownOverlay(pillFrame: pillFrame)
             }
-            .allowsHitTesting(showDoctor)
+            .overlayPreferenceValue(BenchHealthFrameKey.self) { badgeFrame in
+                doctorPopoverOverlay(badgeFrame: badgeFrame)
+            }
+    }
+
+    @ViewBuilder
+    private func teamDropdownOverlay(pillFrame: CGRect) -> some View {
+        GeometryReader { geo in
+            if showTeamDropdown, pillFrame != .zero {
+                let origin = geo.frame(in: .global).origin
+                BenchDropdownPanel(
+                    isOpen: $showTeamDropdown,
+                    attached: true,
+                    onRepair: openReadiness(focus:),
+                    onManageTeam: { openTeamStudio() },
+                    onOpenSetup: { openReadiness() }
+                )
+                .offset(
+                    x: pillFrame.maxX - origin.x - 306,
+                    y: pillFrame.maxY - origin.y - 1
+                )
+                .zIndex(20)
+            }
         }
-        .onChange(of: commands.customizeTeamRequest) { _, req in
-            // Composer "Customize…" → open Studio at this lane's Teams page with
-            // the team selected (the editor opens in place). Clear the intent.
-            guard let req else { return }
-            studioInitialRoute = .teams(req.lane)
-            studioCustomizeTeamId = req.teamId
-            showTeamStudio = true
-            commands.customizeTeamRequest = nil
+        .allowsHitTesting(showTeamDropdown)
+    }
+
+    @ViewBuilder
+    private func doctorPopoverOverlay(badgeFrame: CGRect) -> some View {
+        GeometryReader { geo in
+            if showDoctor, badgeFrame != .zero {
+                let origin = geo.frame(in: .global).origin
+                let top = badgeFrame.maxY - origin.y - 1
+                let maxBody = max(160, geo.size.height - top - 190)
+                BenchHealthPopover(
+                    onClose: { showDoctor = false },
+                    onOpenFull: { openCLISetup() },
+                    onSelectCLI: { openCLISetup(focus: $0) },
+                    maxBodyHeight: maxBody
+                )
+                .offset(
+                    x: geo.size.width - 404 - 13,
+                    y: top
+                )
+                .zIndex(20)
+            }
         }
-        .onChange(of: showTeamDropdown) { _, open in
-            if open { showDoctor = false }
-        }
-        .onChange(of: showDoctor) { _, open in
-            if open { showTeamDropdown = false }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .allnighterOpenAboutUpdates)) { _ in
-            openTeamStudio(route: .about)
-        }
-        .onAppear {
-            GlobalHotKey.enable()
+        .allowsHitTesting(showDoctor)
+    }
+
+    private var workspaceLifecycle: some View {
+        workspaceChrome
+            .onChange(of: commands.customizeTeamRequest) { _, req in
+                guard let req else { return }
+                studioInitialRoute = .teams(req.lane)
+                studioCustomizeTeamId = req.teamId
+                showTeamStudio = true
+                commands.customizeTeamRequest = nil
+            }
+            .onChange(of: showTeamDropdown) { _, open in
+                if open { showDoctor = false }
+            }
+            .onChange(of: showDoctor) { _, open in
+                if open { showTeamDropdown = false }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .allnighterOpenAboutUpdates)) { _ in
+                openTeamStudio(route: .about)
+            }
+            .onAppear(perform: handleWorkspaceAppear)
+            .onChange(of: remoteAccount.pendingPairingRequests) { _, requests in
+                pairingPromptRequest = requests.first
+            }
+            .sheet(item: $pairingPromptRequest) { request in
+                RemotePairingPromptSheet(request: request)
+            }
+            .onChange(of: projects.activeProjectId) { _, id in
+                threads.currentProjectId = id
+            }
+            .alert("Bundled drivers missing", isPresented: $showMissingDriversAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(
+                    "Allnighter could not load driver manifests from the app bundle or embedded defaults. "
+                    + "Reinstall from a fresh build — do not proceed with a hollow team."
+                )
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .allnQuickCapture)) { _ in
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                openWindow(id: "main")
+                let clip = NSPasteboard.general.string(forType: .string)?
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                threads.applyQuickCapture(clipboardText: clip)
+                model.quickCapture(prefillClipboard: true)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .allnOpenThreadFromNotification)) { note in
+                guard let link = note.object as? ThreadNotificationDeepLink else { return }
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                openWindow(id: "main")
+                threads.openFromNotification(threadId: link.threadId, turnId: link.turnId)
+            }
+            .preferredColorScheme(.dark)
             #if DEBUG
-            if GUIFixture.isActive {
-                // GUI Visual Proof Gate: deep-link the captured state (no probes,
-                // no cached load), then self-capture + exit if a PNG was asked
-                // for. Designer-mock only — DEBUG + env/file gated.
-                if GUIFixture.opensTeamDropdown { showTeamDropdown = true }
-                if GUIFixture.opensDoctorPopover { showDoctor = true }
-                if GUIFixture.opensReadiness {
-                    showReadiness = true
-                    readinessFocus = GUIFixture.readinessFocusDriverId
-                }
-                if GUIFixture.opensComposeSpecimen { showComposeSpecimen = true }
-                if GUIFixture.opensTeamStudio {
-                    // CLIs page shows a mixed bench (exercises repair); Teams/Skills
-                    // pages need a ready bench so the lineup resolves to real models.
-                    model.applyDevBenchScenario(GUIFixture.active == "studio-clis" ? "readiness-mixed" : "team-open-ready")
-                    GUIFixture.seedBoostWindowForProof()
-                    studioInitialRoute = GUIFixture.studioRoute
-                    showTeamStudio = true
-                }
-                if GUIFixture.opensCommandPalette { commands.palettePresented = true }
-                if GUIFixture.opensTeamsLauncher {
-                    model.applyDevBenchScenario("team-open-ready")
-                    workspaceMode = .teams
-                }
-                if GUIFixture.opensFloorReader {
-                    model.applyDevBenchScenario("team-open-ready")
-                    showFloorReaderProof = true
-                }
-                if GUIFixture.opensHomeWorkspace {
-                    model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
-                }
-                if GUIFixture.opensProjectsRail || GUIFixture.opensRelayLaunch {
-                    projects.seedForProof(ProjectsViewModel.sampleProjects(), active: "prj_halo")
-                    threads.currentProjectId = "prj_halo"
-                }
-                if GUIFixture.opensRelayLaunch {
-                    relayLaunchRequest = RelayLaunchRequest(
-                        projectId: "prj_halo",
-                        kickoffMessage: GUIFixture.relayLaunchKickoffMessage ?? ""
-                    )
-                }
-                GUIFixture.captureAndExitIfRequested()
-                return
+            .sheet(isPresented: $showDevSettings) {
+                DevSettingsSheet(
+                    activeScenario: devBenchScenario,
+                    onUseLiveProbes: useLiveBenchProbes,
+                    onNavigate: devNavigate(to:scenario:)
+                )
             }
             #endif
-            if model.isConfigurationBroken {
-                showMissingDriversAlert = true
-            } else if !didLoadCachedSetup {
-                didLoadCachedSetup = true
-                // HOTFIX (Launch Authority TCC): cold launch is process-quiet.
-                // Render cached/unknown tool state only — never spawn a live
-                // resolve/version/smoke sweep here. Live probes require explicit
-                // setup/recheck/run intent.
-                model.loadCachedSetupState()
-                // The app launches into the clean home (founder: never open into
-                // the setup page). Setup is reachable on intent via the Team
-                // dropdown's "Open CLI setup" + the health badge. First-run
-                // auto-open is intentionally NOT done here.
-            }
-            // New threads bind to the active project (PRJ-S14).
-            threads.currentProjectId = projects.activeProjectId
-        }
-        .onChange(of: remoteAccount.pendingPairingRequests) { _, requests in
-            pairingPromptRequest = requests.first
-        }
-        .sheet(item: $pairingPromptRequest) { request in
-            RemotePairingPromptSheet(request: request)
-        }
-        .onChange(of: projects.activeProjectId) { _, id in
-            threads.currentProjectId = id
-        }
-        .alert("Bundled drivers missing", isPresented: $showMissingDriversAlert) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(
-                "Allnighter could not load driver manifests from the app bundle or embedded defaults. "
-                + "Reinstall from a fresh build — do not proceed with a hollow team."
-            )
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .allnQuickCapture)) { _ in
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            openWindow(id: "main")
-            // Read the clipboard once; fan out to current threads flow (new thread
-            // + composer prefill) and the legacy AppModel.prompt path.
-            let clip = NSPasteboard.general.string(forType: .string)?
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            threads.applyQuickCapture(clipboardText: clip)
-            model.quickCapture(prefillClipboard: true)
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .allnOpenThreadFromNotification)) { note in
-            guard let link = note.object as? ThreadNotificationDeepLink else { return }
-            NSApplication.shared.activate(ignoringOtherApps: true)
-            openWindow(id: "main")
-            threads.openFromNotification(threadId: link.threadId, turnId: link.turnId)
-        }
-        .preferredColorScheme(.dark)
+    }
+
+    private func handleWorkspaceAppear() {
+        GlobalHotKey.enable()
         #if DEBUG
-        .sheet(isPresented: $showDevSettings) {
-            DevSettingsSheet(
-                activeScenario: devBenchScenario,
-                onUseLiveProbes: useLiveBenchProbes,
-                onNavigate: devNavigate(to:scenario:)
-            )
+        if GUIFixture.isActive {
+            if GUIFixture.opensTeamDropdown { showTeamDropdown = true }
+            if GUIFixture.opensDoctorPopover { showDoctor = true }
+            if GUIFixture.opensReadiness {
+                showReadiness = true
+                readinessFocus = GUIFixture.readinessFocusDriverId
+            }
+            if GUIFixture.opensComposeSpecimen { showComposeSpecimen = true }
+            if GUIFixture.opensTeamStudio {
+                model.applyDevBenchScenario(GUIFixture.active == "studio-clis" ? "readiness-mixed" : "team-open-ready")
+                GUIFixture.seedBoostWindowForProof()
+                studioInitialRoute = GUIFixture.studioRoute
+                showTeamStudio = true
+            }
+            if GUIFixture.opensCommandPalette { commands.palettePresented = true }
+            if GUIFixture.opensTeamsLauncher {
+                model.applyDevBenchScenario("team-open-ready")
+                workspaceMode = .teams
+            }
+            if GUIFixture.opensFloorReader {
+                model.applyDevBenchScenario("team-open-ready")
+                showFloorReaderProof = true
+            }
+            if GUIFixture.opensHomeWorkspace {
+                model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
+            }
+            if GUIFixture.opensProjectsRail || GUIFixture.opensRelayLaunch {
+                projects.seedForProof(ProjectsViewModel.sampleProjects(), active: "prj_halo")
+                threads.currentProjectId = "prj_halo"
+            }
+            if GUIFixture.opensRelayLaunch {
+                relayLaunchRequest = RelayLaunchRequest(
+                    projectId: "prj_halo",
+                    kickoffMessage: GUIFixture.relayLaunchKickoffMessage ?? ""
+                )
+            }
+            GUIFixture.captureAndExitIfRequested()
+            return
         }
         #endif
+        if model.isConfigurationBroken {
+            showMissingDriversAlert = true
+        } else if !didLoadCachedSetup {
+            didLoadCachedSetup = true
+            model.loadCachedSetupState()
+        }
+        threads.currentProjectId = projects.activeProjectId
     }
 
     #if DEBUG

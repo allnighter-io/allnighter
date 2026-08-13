@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Direct-distribution entitlements for Developer ID + notarized DMG.
+     Apple does not allow Sign in with Apple on Developer ID profiles
+     (Organizer: "The Sign in with Apple capability is not available for
+     Developer ID provisioning profiles"). Debug still uses
+     AllnighterMac.entitlements with SIWA for Run-from-Xcode. -->
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+</dict>
+</plist>

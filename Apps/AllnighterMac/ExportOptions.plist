@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Developer-ID export for direct distribution (get.allnighter.io DMG). -->
+<plist version="1.0">
+<dict>
+	<key>method</key>
+	<string>developer-id</string>
+	<key>teamID</key>
+	<string>LP5YNK7A36</string>
+	<key>signingStyle</key>
+	<string>automatic</string>
+</dict>
+</plist>

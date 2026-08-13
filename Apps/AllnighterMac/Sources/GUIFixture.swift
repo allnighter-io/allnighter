@@ -789,6 +789,7 @@ enum GUIFixture {
     static var isGrantSession: Bool { false }
     static var active: String? { nil }
     static var composeTargetOpen: Bool { false }
+    static var composeTeamId: String? { nil }
     static var composeTargetInline: Bool { false }
     static var alwaysShowMessageCopy: Bool { false }
     static func fileReferenceFixtureRoot() -> String? { nil }

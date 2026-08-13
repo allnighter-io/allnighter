@@ -49,7 +49,7 @@ for version_dir in "$PUBLISH_DIR"/v*/; do
     case "$name" in
       *.sha256) ctype="text/plain; charset=utf-8" ;;
       *.json) ctype="application/json; charset=utf-8" ;;
-      *.dmg) ctype="application/octet-stream" ;;
+      *.dmg) ctype="application/x-apple-diskimage" ;;
       *) ctype="application/octet-stream" ;;
     esac
     put_object "$version/$name" "$asset" "$ctype"
