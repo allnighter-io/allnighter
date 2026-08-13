@@ -45,6 +45,9 @@ Promoted from archived `docs/archive/phases/Vendor_Signal_Isolation.md`.
 - A derived signal is attributed to the source that produced it. One vendor's
   parser, matcher, or heuristic never answers for another vendor's output —
   scope it by `sourceId`, not by whichever pattern happens to match first.
+  The same bound applies to seat readiness: an OpenCode Zen probe must not
+  classify a local Ollama seat; a leftover `opencode serve` model list must
+  not answer for tags registered after that serve started.
 - Absence of a declared signal yields no observation, never an inferred one. A
   false positive here is silent and expensive; a missed signal fails loudly and
   is cheap. Fail closed.
@@ -87,8 +90,37 @@ model id, and the per-root write lock still refuse (user intent / real
 invariants); sensor readings alone never veto. **Provenance is not a
 refuse-class** — an explicit Loop `--pm` of a local Ollama-backed seat discloses
 local provenance and served context once, then proceeds (`ab86226e`;
-`docs/phases/OpenCode_Local_Ollama_Seats.md` §0.1.14). Allnighter does not decide
+`docs/archive/phases/OpenCode_Local_Ollama_Seats.md`). Allnighter does not decide
 which model is worthy of leading.
+
+## Local Ollama seats
+
+Promoted from archived `docs/archive/phases/OpenCode_Local_Ollama_Seats.md`
+(2026-08-13). Code SSOT: `OllamaLocalRuntimeClient`, `OllamaLocalDoctorReport`,
+`ModelDiscoveryProvider`, `ModelCatalog`, `ClaudeLocalIsolation`. Help:
+`opencode_local_setup`, `claude_local_isolation`, `loop` §local-dev.
+
+- **Readiness is Available or Unavailable, per seat.** A seat is Available when
+  Ollama is reachable and that seat's tag is pulled locally. Ollama down makes
+  every local seat Unavailable. Failure to observe is not Available. This is
+  **not** capacity: never a strip row, never `benchSourceOrder`, never a quota
+  word. Surface via `alln models` / `doctor`. Signal id `ollama_local` is
+  attribution only.
+- **Busy was cut** because resident-in-memory is the fast case (dogfood host:
+  warm first-byte ~0.6s, cold ~20.9s) and the word inverted a scarcity warning.
+  Ollama queues; Busy never refused work. Keep calling `/api/ps` for served
+  context. Do not smuggle latency back in as a readiness state.
+- **Provenance is not a refuse-class** (see §Sensors vs invariants). A local
+  seat may hold the Loop PM chair when explicitly pinned. Disclose local
+  provenance and the served window once, then proceed.
+- **One vendor's probe never answers for another seat's readiness.** Closed
+  incidents: OpenCode Zen smoke disabling a local Ollama seat (`3d0ae06b`);
+  leftover `opencode serve` caching its model list so later tags looked missing
+  (`53c14465`). Same law as §Vendor signals.
+- **Advertised `tools` is lie-prone.** A tag can declare `capabilities.tools`
+  and still text-fake (`qwen2.5-coder:7b`). Automatic Code offers require
+  advertises-tools **and** a G1 structured `tool_calls` pass. **A G2 harness
+  mutate does not predict a G3 `alln` path pass.**
 
 ## Run ownership
 

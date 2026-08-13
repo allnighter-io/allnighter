@@ -11,7 +11,7 @@ and Cursor do."
 
 Companion packets: [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md)
 (under build — Go headroom as a future routing input),
-[`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md)
+[`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md)
 (brainstorm — local Ollama seats as the purest abundant OpenCode labor).
 This doc exists so routing can keep being reviewed and argued while those
 inputs mature — routing wants observed headroom; inventing it is banned.

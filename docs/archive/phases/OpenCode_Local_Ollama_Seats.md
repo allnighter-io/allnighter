@@ -1,15 +1,13 @@
 # Ollama Local Seats (OpenCode + Claude Code)
 
-Status: **Ladder built and dogfooded live (2026-08-13).** OpenCode-local Works
-  Test **A satisfied**. Claude-local still needs its own **A** proof. **B**
-  unproven on this hardware. OCL-S05 unbuilt (measured, not assumed). Founder
-  rulings locked (§0.1), including **both agent bodies**, the **delegation
-  asymmetry**, and **explicit local `--pm` allowed** (2026-08-13, §0.1.14 —
-  supersedes any local-cannot-lead reading). Live dogfood §0.3; bakeoff §0.4;
-  2026-08-13 findings §0.6.
-  **Workflows and market segments: §2.4–§2.8 — the reason this packet exists.**
-Revised: 2026-08-13 (v9 — two-state per-seat readiness; Busy cut because it
-  inverted the word. Remaining: Claude-local A, §11 B, OCL-S05)
+Status: **Complete — archived 2026-08-13.** Works Test **A satisfied for both
+  bodies.** **B** unproven on this hardware. OCL-S05 unbuilt (measured on this
+  host only, not assumed). Durable law promoted to
+  `docs/operations/Project_Laws.md` §Local Ollama seats,
+  `docs/workflows/Product_Vocabulary.md` §Local Ollama readiness, and help
+  topics `opencode_local_setup` / `claude_local_isolation` / `loop` §local-dev.
+  This file is history.
+Revised: 2026-08-13 (v10 — closeout: Claude-local A proven; promote + archive)
 
 Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS for
 OpenCode serve attach / local turn timing / Claude-local env isolation as scoped)
@@ -19,9 +17,9 @@ Created: 2026-08-07
 lock, with honest outcomes.** (§2.4)
 
 **Split out of this packet (founder, 2026-08-09) — packet 1 of 3:**
-[`Context_Firewall.md`](Context_Firewall.md) (packet 2) — the egress boundary is
+[`Context_Firewall.md`](../../phases/Context_Firewall.md) (packet 2) — the egress boundary is
 not Ollama-specific and earns its own packet.
-[`Second_Mac_Bench.md`](Second_Mac_Bench.md) (packet 3) — v2, second host / LAN.
+[`Second_Mac_Bench.md`](../../phases/Second_Mac_Bench.md) (packet 3) — v2, second host / LAN.
 
 Origin: Founder dogfood — Ollama 0.32.x ships `ollama launch opencode` **and**
 `ollama launch claude`, and documents both against local inference
@@ -34,18 +32,18 @@ raw `ollama` mutator, and not a single crowned body.
 the upside to Mac Studio users. Same software.
 
 Companion packets:
-[`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) (OpenCode driver, different
+[`OpenCode_Go_Capacity.md`](../../phases/OpenCode_Go_Capacity.md) (OpenCode driver, different
 seat economics — binding structural analogy for Go vs local labels),
-[`OpenCode_Serve_Attach.md`](../archive/phases/OpenCode_Serve_Attach.md) (leftover `:4096` attach —
+[`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) (leftover `:4096` attach —
 blocks all OpenCode seats including local),
-[`Scarcity_Aware_Routing.md`](Scarcity_Aware_Routing.md) (abundant vs scarce;
+[`Scarcity_Aware_Routing.md`](../../phases/Scarcity_Aware_Routing.md) (abundant vs scarce;
 read its §3 rejected list before proposing any auto-routing),
 [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) (a signal answers
 only for the source that produced it),
-[`OpenCode_Long_Run_Continuity.md`](../archive/phases/OpenCode_Long_Run_Continuity.md) /
-[`OpenCode_Completion_Truth_Followup.md`](../archive/phases/OpenCode_Completion_Truth_Followup.md)
+[`OpenCode_Long_Run_Continuity.md`](OpenCode_Long_Run_Continuity.md) /
+[`OpenCode_Completion_Truth_Followup.md`](OpenCode_Completion_Truth_Followup.md)
 (OpenCode completion honesty — local models stress it harder, see §12),
-[`Ambient_Dirty_Run_Outcome.md`](../archive/phases/Ambient_Dirty_Run_Outcome.md) (`--no-commit` /
+[`Ambient_Dirty_Run_Outcome.md`](Ambient_Dirty_Run_Outcome.md) (`--no-commit` /
 dirty-tree outcome honesty — shared ship blocker).
 
 Upstream docs (external, not SSOT):
@@ -64,11 +62,8 @@ operations; code remains SSOT; archive this packet.
 ## 0. Review verdict
 
 **Ladder shipped and dogfooded live on Air (2026-08-13).** OCL-S00–S04 and
-OCL-S07–S08 are in the tree. A coding-class gated local repair passed
-(`c88a0383`, gpt-oss:20b). Honesty gaps that blocked S01+ are closed in code
-(outcome `7a7f8117`; leftover-serve reclaim `53c14465`; Zen scoping `3d0ae06b`;
-Claude-local isolation `567acaee`). Remaining is not “code unauthorized”:
-Claude-local still needs its own Works Test **A**; **B** is unproven on this
+OCL-S07–S08 are in the tree. Works Test **A** is satisfied for **both**
+bodies. Remaining is not “code unauthorized”: **B** is unproven on this
 hardware; OCL-S05 stays unbuilt because cold load of gpt-oss:20b was 20.9s
 against a 120s first-activity budget (warm 0.6s) — larger models on larger
 machines are unmeasured. Do not project a number.
@@ -125,8 +120,8 @@ machines are unmeasured. Do not project a number.
     generation** (two patches, keep one), which is not local-specific.
 13. **Three-way split (approved 2026-08-09).** Build order:
     **(1) nail Ollama seats — this packet, no firewall;
-    (2) [`Context_Firewall.md`](Context_Firewall.md);
-    (3) [`Second_Mac_Bench.md`](Second_Mac_Bench.md).**
+    (2) [`Context_Firewall.md`](../../phases/Context_Firewall.md);
+    (3) [`Second_Mac_Bench.md`](../../phases/Second_Mac_Bench.md).**
     Split test applied — each has a different truth owner, a different
     characteristic failure, and a different Works Test:
 
@@ -263,7 +258,7 @@ stopping `alln serve` is not.
 either (a) tear down the OpenCode serve this worker started, or (b) **attach**
 to an already-healthy `:4096` instead of reporting busy. Today’s behavior makes
 second local runs flake unless a human clears the port — model-independent.
-Owned with [`OpenCode_Serve_Attach.md`](../archive/phases/OpenCode_Serve_Attach.md).
+Owned with [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md).
 
 `alln serve` stayed up through all of the above.
 
@@ -375,7 +370,7 @@ the Allnighter run path.
 | Cleared for **OCL-S00** (pipe)? | **Yes — done.** |
 | Ladder **S01–S04, S07–S08** in tree? | **Yes — built and dogfooded live (2026-08-13).** Commits in §10. |
 | Works Test **A** (OpenCode-local)? | **Satisfied.** |
-| Works Test **A** (Claude-local)? | **Not yet** — isolation code shipped (`567acaee`); still needs its own A proof. |
+| Works Test **A** (Claude-local)? | **Satisfied** — `custom_claude_code_claude_local_gpt_oss_20b` one-line mutate through `alln`; outcome honest; no paid bleed. First-token 341s observed. |
 | Works Test **B**? | **Unproven on this hardware.** Do not claim Studio-class capability. |
 | OCL-S05 (slow-load timing)? | **Unbuilt.** Measured on this host: gpt-oss:20b cold **20.9s** vs 120s first-activity budget; warm **0.6s**. Larger models on larger machines are unmeasured — do not project a number. |
 | Do we know the architecture? | **Yes:** Ollama = inference; bodies = Claude Code **and** OpenCode; readiness Available/Unavailable per seat, outside capacity strip; signal `ollama_local`. Explicit local `--pm` allowed (§0.1.14). |
@@ -423,7 +418,6 @@ serve-busy defect in §0.3.2):
 
 **Still open (honest remaining, not “code unauthorized”):**
 
-- Claude-local Works Test **A** (own proof; isolation is in tree).
 - Works Test **B** — unproven on this hardware.
 - OCL-S05 — **unbuilt, now measured not assumed.** Cold load of gpt-oss:20b
   was **20.9s** against a 120s first-activity budget on this host; warm
@@ -432,7 +426,7 @@ serve-busy defect in §0.3.2):
 - Recommended G2.5 rung (§0.4.2): write-tool fire ≠ compiling.
 
 Not blockers here (moved with the split): root-less dispatch and the egress
-ledger → [`Context_Firewall.md`](Context_Firewall.md). Outcome honesty (old
+ledger → [`Context_Firewall.md`](../../phases/Context_Firewall.md). Outcome honesty (old
 item 2) no longer blocks that packet on a lying meter.
 
 What v5 changed: both bodies as law; bakeoff §0.4; G0–G3 gates; Claude keep /
@@ -444,8 +438,8 @@ inversion argument (§2.8); model-vs-model benchmarking added to non-goals (§4)
 
 What v7 changed: the **three-way split** (§0.1.13). Context Firewall — egress
 policy, ledger, root-less dispatch, the regulated-tier market read — moved
-whole to [`Context_Firewall.md`](Context_Firewall.md). Second Mac / LAN moved to
-[`Second_Mac_Bench.md`](Second_Mac_Bench.md). This packet keeps the delegation
+whole to [`Context_Firewall.md`](../../phases/Context_Firewall.md). Second Mac / LAN moved to
+[`Second_Mac_Bench.md`](../../phases/Second_Mac_Bench.md). This packet keeps the delegation
 asymmetry, the segment read, sweep, two-tier teams, and the horizon argument,
 and returns to a shippable scope: **detect · seat · honest run · both bodies**.
 
@@ -502,7 +496,7 @@ local labour is commanded by scarce judgment instead of by the user's hands
 `alln loop` already has the shape.
 
 Keeping the frontier seat away from the source while it does that is a separate
-packet ([`Context_Firewall.md`](Context_Firewall.md)) and **not** a prerequisite
+packet ([`Context_Firewall.md`](../../phases/Context_Firewall.md)) and **not** a prerequisite
 here — local seats are worth shipping with `egress: open`.
 
 Trusted workflow slice (target):
@@ -602,7 +596,7 @@ seat that never shows up to work.
 | Not | Why |
 | --- | --- |
 | An Ollama UI / model manager | LM Studio and Open WebUI own that. ALLN never pulls, quantizes, or tunes. |
-| A LAN Studio farm | [`Mac_Studio_LAN_Bench.md`](../archive/phases/Mac_Studio_LAN_Bench.md) is shelved. One Mac, local inference. No multi-host mutators. |
+| A LAN Studio farm | [`Mac_Studio_LAN_Bench.md`](Mac_Studio_LAN_Bench.md) is shelved. One Mac, local inference. No multi-host mutators. |
 | A raw `ollama run` driver | A completion CLI is not an agent body. G0-only. See §3. |
 | A local model provider | ALLN does not host, serve, or bill inference. Ollama does. |
 | An overnight pitch | All-day Teams + Loop. The name is brand only. |
@@ -637,7 +631,7 @@ The paid cost of a fifty-step job collapses toward the cost of the plan. That is
 not a speed claim or a quality claim; it is a change in what is economically
 worth automating at all.
 
-This is the shape [`alln loop`](../operations/Execution-Playbook.md) already has:
+This is the shape [`alln loop`](../../operations/Execution-Playbook.md) already has:
 a strong lead steers and reviews, execution seats do the mutating work, exactly
 one mutating worker per root. **Loop was specified before local seats existed
 and needs no new architecture to accept one.** The local seat is the execution
@@ -693,7 +687,7 @@ today, not what is faster.
 The egress boundary — `open | abstracted | local_only`, the egress ledger,
 root-less dispatch, the regulated-tier market read, and the *auditable, never
 sanitised* honesty bound — now lives in
-[`Context_Firewall.md`](Context_Firewall.md).
+[`Context_Firewall.md`](../../phases/Context_Firewall.md).
 
 It left because it is **not Ollama-specific**: the boundary is valuable behind
 any local body and would matter even if Ollama vanished. It is **not a
@@ -767,7 +761,7 @@ Ranked by *unavailable today*, not by effort. Execution stays document order
 
 Everything else in §2.6 is real but follows these. The Context Firewall is
 packet **2 of 3** and does not gate any of the above
-([`Context_Firewall.md`](Context_Firewall.md)).
+([`Context_Firewall.md`](../../phases/Context_Firewall.md)).
 
 ### 2.8 Horizon — why this survives the inversion
 
@@ -836,10 +830,10 @@ another reason the durable half is the right thing to build first.
   user's own observed G0–G3 pass/fail is recorded, and only for their own tags
   (§2.6.5).
 - **Egress policy, egress ledger, or root-less dispatch in this packet.** Moved
-  to [`Context_Firewall.md`](Context_Firewall.md) (§0.1.13). Local seats ship
+  to [`Context_Firewall.md`](../../phases/Context_Firewall.md) (§0.1.13). Local seats ship
   with `egress: open`.
 - **Second host / LAN / remote mutator.** Moved to
-  [`Second_Mac_Bench.md`](Second_Mac_Bench.md) (v2). A remote `OLLAMA_HOST` as
+  [`Second_Mac_Bench.md`](../../phases/Second_Mac_Bench.md) (v2). A remote `OLLAMA_HOST` as
   an inference URL only is that packet's question, not this one's.
 
 ---
@@ -907,7 +901,7 @@ source ages badly the moment a second body appears — and we now have two.
 ### 6.3 OpenCode: one serve, one lane
 
 Local and remote OpenCode seats share `:4096`, spawn lock, and SSE bus. See
-[`OpenCode_Serve_Attach.md`](../archive/phases/OpenCode_Serve_Attach.md). Claude-local does **not**
+[`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md). Claude-local does **not**
 share that port — different isolation hazard (Anthropic env / keychain), not
 serve-busy.
 
@@ -981,7 +975,7 @@ not refuse.
 
 Egress policy (`open | abstracted | local_only`), the egress ledger, and the
 fail-closed refusal are now candidate law in
-[`Context_Firewall.md`](Context_Firewall.md) (§0.1.13). Nothing in this packet
+[`Context_Firewall.md`](../../phases/Context_Firewall.md) (§0.1.13). Nothing in this packet
 changes what a seat may read. Local seats ship with `egress: open`.
 
 One law that stays here because it is about *provenance*, not egress: a local
@@ -1011,7 +1005,7 @@ attribution must survive whatever boundary policy is in force.
 | --- | --- |
 | **Truth owner** | Ollama `/api/tags` + `/api/ps` for local runtime; agent-body turn outcome for run truth; `ModelCatalog` for seat identity and provenance |
 | **Lie-prone** | Advertised context as served; **advertised `tools` capability / tools template as G1**; G0 pass sold as Code-ready; text-fake tools treated as harness bugs; OpenCode serve busy as model failure; OpenCode Zen probe failure as a local-seat defect; leftover serve’s cached model list as “tag missing”; Claude-local `costUSD` / 200k context / firstParty; `enabled_providers` clobber; 0.5b plumbing sold as Studio capability; ambient dirty / concurrent commits misread as the local seat’s `repoDelta`; **a sweep that skips targets and reports done**; G2 mutate sold as G3 / compiling |
-| **Missing proof** | Claude-local Works Test **A**; Studio-class §11 **B** on this hardware; OCL-S05 on larger models / larger machines (unmeasured — do not project); recommended G2.5 compile rung |
+| **Missing proof** | Studio-class §11 **B** on this hardware; OCL-S05 on larger models / larger machines (unmeasured — do not project); recommended G2.5 compile rung |
 
 ---
 
@@ -1026,7 +1020,7 @@ unauthorized flag.
 | **OCL-S00b** | Bakeoff recorded (§0.4). Claude G2 mutate PASS on `0.5b`; gates defined. | **None** |
 | **OCL-S01** | Detect + doctor: Ollama reachable; list local models; readiness Available/Unavailable per seat (**body-agnostic**) | **DONE** — S01a observer `709c376a`; S01b doctor `92e1159f`; two-state per-seat 2026-08-13 |
 | **OCL-S02a** | Setup verb: additive OpenCode provider wiring, reversible, non-clobbering | **DONE** — `fab645bf`; setup registers tags `b02304e0` |
-| **OCL-S02b** | Claude-local: per-run env isolation + meter strip + seating path | **DONE in code** `567acaee`. Verify hang + served-window compact bound follow-up: local-evidence verify (no `claude -p` smoke); `CLAUDE_CODE_CONTEXT_WINDOW` from `/api/ps` when observed. Works Test **A mutate still outstanding** as live dogfood. |
+| **OCL-S02b** | Claude-local: per-run env isolation + meter strip + seating path | **DONE** `567acaee` + Works Test **A** (one-line mutate through `alln`; outcome honest; no paid bleed). |
 | **OCL-S03** | `ModelDiscoveryProvider` for Ollama tags → opt-in seats, `.discovered`, local provenance; body chosen at enable | **DONE** `90151f66`; gate-2 cloud filter `cfb32fe7` |
 | **OCL-S04** | Readiness surface in `alln models` / `doctor` — Available/Unavailable per seat | **DONE** `9818d8da`; two-state 2026-08-13 |
 | **OCL-S05** | Turn timing for slow local loads — **only if measured** | **UNBUILT.** Measured on this host, not assumed: gpt-oss:20b cold **20.9s** vs 120s first-activity budget; warm **0.6s**. Larger models on larger machines unmeasured. Do not project a number. |
@@ -1047,7 +1041,7 @@ outcome honesty — landed.
 
 Out of ladder: scarcity auto-routing, remote `OLLAMA_HOST`, Ollama Cloud,
 multi-host, crowning one body, model-vs-model benchmarking (§4), egress policy
-and root-less dispatch ([`Context_Firewall.md`](Context_Firewall.md)).
+and root-less dispatch ([`Context_Firewall.md`](../../phases/Context_Firewall.md)).
 
 Not slices, recorded so they are not lost: continuity across the boundary
 (§2.6.3) falls out of the existing thread model; standing orders (§2.6.4) are an
@@ -1075,8 +1069,19 @@ Then:  seat verifies; run completes or fails with classified reason;
 
 Prove **A** for OpenCode-local and for Claude-local separately.
 
-**A status (2026-08-13):** satisfied for **OpenCode-local**. Claude-local still
-needs its own **A** proof (isolation is in tree; the pipe proof is not).
+**A status (2026-08-13):** satisfied for **both bodies**.
+
+- **OpenCode-local:** coding-class gated repair — local `gpt-oss:20b` seat
+  fixed `parsePs`, passed 25 tests it did not author, committed `c88a0383`
+  with the local seat credited as co-author.
+- **Claude-local:** seat `custom_claude_code_claude_local_gpt_oss_20b`
+  verified `recognized`, enabled, then a bounded one-line mutating edit to
+  `docs/qa/ocl-s00-dogfood/TARGET.md` through `alln`. Diff was exactly that
+  one line. Outcome honest — `completedWithoutChanges` false, `worktreeDirty`
+  true, `committed` false as ordered. Paid Sonnet answered normally straight
+  after (no bleed). First-token latency on that local Claude path was **341s**
+  versus about **7s** for a paid seat — observed on this host; do not project
+  from it.
 
 **B — Capability / ICP feel (Studio-class RAM — optional sales proof):**
 
@@ -1096,9 +1101,11 @@ ends `done | failed | not-attempted`, never silently skipped-and-reported-done.
 **Negative tests:** Ollama stopped ⇒ Go seats and paid Claude unchanged; no
 park/substitution mentions Ollama.
 
-Proof waiver: none claimed for Claude-local **A** or for **B**. OpenCode-local
-**A** is satisfied. Do not report a lower tier as a higher one. **B stays
-unproven on this hardware.**
+Proof waiver: none claimed for **B**. **A** is satisfied for both bodies. Do
+not report a lower tier as a higher one. **B stays unproven on this hardware.**
+OCL-S05 stays unbuilt: measured 20.9s cold load of `gpt-oss:20b` against a
+120s first-activity budget **on this host only**; larger models on larger
+machines are unmeasured — do not project a number.
 
 ---
 
@@ -1112,7 +1119,7 @@ unproven on this hardware.**
 | **Claude-local auto-compact assumes 200k** on unrecognized tags | Worse than the meter lie: compact waits for 200k while the served window (e.g. 65536) is the real ceiling. Overlay `CLAUDE_CODE_CONTEXT_WINDOW` from observed `/api/ps` only. Never invent a number. |
 | **Model-dependent tool bugs** blamed on Air / alln | G0→G3 ladder; attribute per §0.4. |
 | **Stall watchdog vs cold local load** | OCL-S05 only if measured; do not widen globally. |
-| **OpenCode `:4096` serve busy** | [`OpenCode_Serve_Attach.md`](../archive/phases/OpenCode_Serve_Attach.md). |
+| **OpenCode `:4096` serve busy** | [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md). |
 | Shared OpenCode lane local ↔ Go | Ceilinged at 1; diagnostics must not read as vendor limit. |
 | OpenCode CT weaker on local | Stay on CT owners; re-run gates. |
 | Served context &lt; 64k | §7.4; warn-and-allow on explicit pin. |
@@ -1143,12 +1150,12 @@ Still open (Spec Review may recommend; founder decides):
    isolation story is ready — do not block Claude on OpenCode serve-attach or
    vice versa beyond shared detect.
 4. **Second Mac / two-machine work** — moved to
-   [`Second_Mac_Bench.md`](Second_Mac_Bench.md) (packet 3 of 3). Not an open
+   [`Second_Mac_Bench.md`](../../phases/Second_Mac_Bench.md) (packet 3 of 3). Not an open
    question here; do not reopen LAN, remote mutators, or a remote
    `OLLAMA_HOST` inside this packet.
 5. **Context Firewall questions** — root-less dispatch, ledger surface, and
    whether `abstracted` needs a per-run override — moved to
-   [`Context_Firewall.md`](Context_Firewall.md) (packet 2 of 3).
+   [`Context_Firewall.md`](../../phases/Context_Firewall.md) (packet 2 of 3).
 
 ---
 
@@ -1157,8 +1164,12 @@ Still open (Spec Review may recommend; founder decides):
 - [x] A local Ollama model does real bounded mutating work as an **OpenCode**
       seat, proven by a gate the seat did not author — `c88a0383` (gpt-oss:20b
       `parsePs`; 25 tests it did not author)
-- [ ] A local Ollama model does real bounded mutating work as a **Claude Code**
-      seat, same standard — isolation shipped; **A** proof outstanding
+- [x] A local Ollama model does real bounded mutating work as a **Claude Code**
+      seat — `custom_claude_code_claude_local_gpt_oss_20b` verified, enabled,
+      one-line mutate of `docs/qa/ocl-s00-dogfood/TARGET.md` through `alln`;
+      outcome honest (`completedWithoutChanges` false, `worktreeDirty` true,
+      `committed` false); paid Sonnet after with no bleed; first-token 341s
+      observed (not projected)
 - [x] Local provenance and readiness never borrow quota / Anthropic meter words
       — S02b `567acaee`; S04 `9818d8da`
 - [x] Ollama absent leaves every paid seat untouched (negative proof per body)
@@ -1175,17 +1186,22 @@ Still open (Spec Review may recommend; founder decides):
 - [x] **A sweep survives a mid-run kill and resumes with no target silently
       skipped (§11 D + OCL-S08)** — `6dcb1982`
 - [x] No leaderboard, tok/s figure, or model-vs-model verdict ships (§4)
-- [ ] Promote keepable law; archive this packet — remaining: Claude-local **A**,
-      §11 **B**, OCL-S05 (unbuilt; measured not assumed). This v9 revision
-      records two-state per-seat readiness; archive when those three are honest or waived.
+- [x] Promote keepable law; archive this packet — Claude-local **A** proven
+      2026-08-13. **Not proven (honest remainder, not waived):** §11 **B**
+      capability on Studio-class hardware; OCL-S05 (unbuilt; 20.9s cold vs
+      120s budget on this host only). Full `bash scripts/check.sh` green wall
+      **not run** at closeout: it is red on GUI visual proof debt for
+      `CapacityStripView` and `RootView`, which belongs to capacity work, not
+      this packet. Outstanding cross-packet item — **not waived**. Core suite
+      4062 tests, 0 failures, 6 skipped.
 
 ---
 
 ## 15. Related archive / do-not-resume
 
-- [`Mac_Studio_LAN_Bench.md`](../archive/phases/Mac_Studio_LAN_Bench.md) —
+- [`Mac_Studio_LAN_Bench.md`](Mac_Studio_LAN_Bench.md) —
   shelved multi-host execution fabric — now the input to
-  [`Second_Mac_Bench.md`](Second_Mac_Bench.md). This packet stays **single-Mac
+  [`Second_Mac_Bench.md`](../../phases/Second_Mac_Bench.md). This packet stays **single-Mac
   local inference** under Claude Code and/or OpenCode.
 - `docs/archive/2026-06-13-allnighter-pivot/strategy/Allnighter-Local-AI-Worker-Opportunity.md`
   — historical thesis. Keep the market read (operating layer, not runtime
@@ -1196,13 +1212,13 @@ Still open (Spec Review may recommend; founder decides):
 | Task | Read first |
 | --- | --- |
 | Local / Ollama seats (Claude Code and/or OpenCode) | This packet + `ModelCatalog` / `ModelDiscoveryProvider` |
-| Context Firewall, egress policy/ledger, root-less dispatch, "keep the frontier model away from my source" | **Not here** — [`Context_Firewall.md`](Context_Firewall.md) (packet 2 of 3) |
-| Second Mac, Studio in the office, LAN, remote `OLLAMA_HOST` | **Not here** — [`Second_Mac_Bench.md`](Second_Mac_Bench.md) (packet 3 of 3) |
+| Context Firewall, egress policy/ledger, root-less dispatch, "keep the frontier model away from my source" | **Not here** — [`Context_Firewall.md`](../../phases/Context_Firewall.md) (packet 2 of 3) |
+| Second Mac, Studio in the office, LAN, remote `OLLAMA_HOST` | **Not here** — [`Second_Mac_Bench.md`](../../phases/Second_Mac_Bench.md) (packet 3 of 3) |
 | Frontier seat delegating to a local seat; "why not just use the model directly" | This packet §2.4 (delegation asymmetry) — and `alln loop`, which already has the shape |
 | Bulk / batch / sweep over many targets | This packet §2.6.1 + OCL-S08; resumability is the feature |
 | Anyone proposing a local-vs-cloud benchmark, tok/s figure, or model ranking | §4 non-goals + §0.1.13 — refuse; only the user's own G0–G3 pass/fail is recorded |
-| OpenCode driver / serve lifecycle | AgentOS `OpenCodeServeClient.swift` + [`OpenCode_Serve_Attach.md`](../archive/phases/OpenCode_Serve_Attach.md) |
+| OpenCode driver / serve lifecycle | AgentOS `OpenCodeServeClient.swift` + [`OpenCode_Serve_Attach.md`](OpenCode_Serve_Attach.md) |
 | Claude-local isolation / env | This packet §0.4 / §4 / §7.6 — code SSOT `567acaee` |
-| OpenCode Go subscription meter | [`OpenCode_Go_Capacity.md`](OpenCode_Go_Capacity.md) |
-| Abundant vs scarce seat selection | [`Scarcity_Aware_Routing.md`](Scarcity_Aware_Routing.md) §3 first |
+| OpenCode Go subscription meter | [`OpenCode_Go_Capacity.md`](../../phases/OpenCode_Go_Capacity.md) |
+| Abundant vs scarce seat selection | [`Scarcity_Aware_Routing.md`](../../phases/Scarcity_Aware_Routing.md) §3 first |
 | Any capacity signal attribution | [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) |

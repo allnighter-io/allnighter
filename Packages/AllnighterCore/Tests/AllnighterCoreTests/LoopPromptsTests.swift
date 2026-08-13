@@ -89,7 +89,7 @@ final class LoopPromptsTests: XCTestCase {
             reasons: ["declared proof `swift build` exited 1"]
         )
         let context = RelayPMPrompt.Context(
-            docPath: "docs/phases/OpenCode_Local_Ollama_Seats.md",
+            docPath: "docs/archive/phases/OpenCode_Local_Ollama_Seats.md",
             roundNumber: 2,
             baselineHead: "abc123",
             currentHead: "def456",

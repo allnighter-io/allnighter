@@ -8,7 +8,7 @@ Revised: 2026-08-09 (v1 — stub)
 Owner: unassigned
 Created: 2026-08-09
 Origin: The 2026-08-09 segment read for
-[`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) found that
+[`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md) found that
 **every** local-model segment has the same shape — *the big-memory Mac is rarely
 the machine you type on.* Studio in the office, laptop on the couch. That put
 real pressure on a non-goal, so it gets a packet rather than silence.
@@ -108,5 +108,5 @@ opened with a founder ruling (§5) or archived as permanently fenced.
 | --- | --- |
 | Second Mac, Studio in the office, LAN bench, remote `OLLAMA_HOST` | This packet §2–§5 — **fence first**; the shelved architecture stays shelved |
 | Anyone proposing multi-host execution or cross-host failover | §2 + §4 — refuse, and point at [`Mac_Studio_LAN_Bench.md`](../archive/phases/Mac_Studio_LAN_Bench.md) |
-| Local seats on this machine | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — packet 1 |
+| Local seats on this machine | Archived [`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md); law in `docs/operations/Project_Laws.md` §Local Ollama seats |
 | Whether a remote host is an egress crossing | [`Context_Firewall.md`](Context_Firewall.md) §4.3 — packet 2 owns it |

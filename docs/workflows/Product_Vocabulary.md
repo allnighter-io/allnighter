@@ -56,6 +56,20 @@ park/substitute (`VendorBackoffPolicy.shouldPark`, `SeatReseat`) is unchanged.
 Full law: `docs/operations/Project_Laws.md` §Capacity. Closed record: archived
 `docs/archive/phases/Capacity_Warm_Bench.md`.
 
+## Local Ollama readiness (promoted 2026-08-13)
+
+| Term | Meaning |
+| --- | --- |
+| **Local readiness** | Per seat, two words only: **Available** or **Unavailable**. Available = Ollama reachable **and** that seat's tag pulled. Never capacity, never `alln capacity`, never `benchSourceOrder`. |
+| **`ollama_local`** | Signal source for local runtime readings. Attribution only — not a strip seat. |
+| **Busy / Idle (retired)** | Cut 2026-08-13. Busy meant resident-in-memory, which is the fast case, so the word inverted a scarcity warning. `/api/ps` still feeds served context; it does not mint a readiness word. |
+| **G0–G3** | Model gate ladder. G0 inference; G1 structured `tool_calls`; G2 agent-body mutate; G3 `alln run` path. Advertised `tools` is lie-prone. **G2 does not predict G3.** |
+
+Standing laws: `docs/operations/Project_Laws.md` §Local Ollama seats. Code SSOT:
+`OllamaLocalRuntimeClient`, `OllamaLocalDoctorReport`, `ModelDiscoveryProvider`,
+`ModelCatalog`, `ClaudeLocalIsolation`. History: archived
+`docs/archive/phases/OpenCode_Local_Ollama_Seats.md`.
+
 ## Quota-aware bench vocabulary (promoted from QABC, 2026-08-09)
 
 **Moat:** Anthropic can only see Anthropic's meter. Cross-vendor arbitrage is

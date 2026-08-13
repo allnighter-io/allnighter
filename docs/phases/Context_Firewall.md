@@ -15,9 +15,8 @@ kept away from it?* Nobody sells that. Everybody sells the ban.
 against your source**, and a verbatim record of everything that crossed.
 
 Companion packets:
-[`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) (packet 1 —
-local seats; provides the local-provenance seat this packet needs, and owns the
-outcome-honesty bug that blocks this one),
+[`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md) (packet 1 —
+archived; local seats and promoted law),
 [`Second_Mac_Bench.md`](Second_Mac_Bench.md) (packet 3),
 [`Vendor_Signal_Isolation.md`](Vendor_Signal_Isolation.md) (a signal answers
 only for the source that produced it),
@@ -67,9 +66,8 @@ Two hard blockers, one of them not ours:
 1. **Root-less dispatch is undesigned** (§6). A run today is *an agent in the
    repo root* (`RunService.swift`). This packet needs a non-local seat
    dispatched with **no** project root. That is a new run shape.
-2. **Outcome honesty (packet 1, §0.5 item 2).** A crossing record sitting on a
-   lying outcome meter is worse than no record at all — it manufactures
-   confidence in a run that already misreports itself.
+2. **Outcome honesty (packet 1, §0.5 item 2) — landed `7a7f8117`.** Packet 1
+   is archived. Remaining hard blocker is root-less dispatch.
 
 ### 0.4 What exists today
 
@@ -293,7 +291,7 @@ Not an implementation allowlist. No slice starts without a founder ruling.
 | **CF-S06** | **R2** deterministic leak detection on the payload — findings only, never edits. | Core |
 | **CF-S07** | **R3** signed, exportable ledger artifact. | Core/CLI |
 
-Depends on: packet 1 outcome honesty (§0.3.2) and **at least one honest local
+Depends on: packet 1 outcome honesty (**landed** `7a7f8117`) and **at least one honest local
 seat** — there is no `abstracted` mode without a local-provenance seat to hold
 the repo side.
 
@@ -416,5 +414,5 @@ Proof waiver: none claimed. Nothing here is shipped as product.
 | Anyone writing copy for this feature | §4.1 — *auditable*, never *sanitised*. Copy review is a blocking test, not polish. |
 | Regulated / law / medical buyer interest | §3.3 — bottom-up only; no enterprise motion authorized |
 | A per-run "just this once" egress override | §0.2.4 + §11.4 — refuse; it collapses the only tier regulated buyers pay for |
-| Local seats themselves (Ollama, bodies, readiness) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — packet 1 |
+| Local seats themselves (Ollama, bodies, readiness) | Archived [`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md); law in `docs/operations/Project_Laws.md` §Local Ollama seats |
 | Second Mac / LAN / remote host | [`Second_Mac_Bench.md`](Second_Mac_Bench.md) — packet 3 |
