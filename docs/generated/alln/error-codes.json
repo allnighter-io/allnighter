@@ -900,15 +900,6 @@
     "ruleId" : "relay.verdict.unparseable"
   },
   {
-    "agentAction" : "Keep `--pm` as a frontier model or `caller`. Pin the local Ollama seat with `--dev`.",
-    "code" : "LOOP_LOCAL_SEAT_CANNOT_LEAD",
-    "exitClass" : "usage",
-    "explain" : "A local Ollama-backed seat cannot hold the Loop PM chair. Loop's shape is a frontier lead and an execution seat — the local seat is the execution seat, under the same per-root write lock.",
-    "requiresManual" : true,
-    "retryable" : false,
-    "ruleId" : "loop.local_seat.cannot_lead"
-  },
-  {
     "agentAction" : "Run `alln sweep status <id> --json` with a valid sweep id, or start a new sweep with `alln sweep start`.",
     "code" : "SWEEP_NOT_FOUND",
     "exitClass" : "operational",

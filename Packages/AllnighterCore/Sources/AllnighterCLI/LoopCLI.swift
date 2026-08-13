@@ -173,6 +173,8 @@ enum LoopCLI {
         var dev: String
         var devSource: String
         var localExecutionWarning: String?
+        /// Warn-and-allow when `--pm` is a local Ollama seat. Never blocks.
+        var localLeadDisclosure: String?
     }
 
     static func runStart(_ args: [String], runtime: ToolRuntime) async {
@@ -189,6 +191,10 @@ enum LoopCLI {
         if opts.flag("dry-run") {
             emitDryRun(brief: brief, specPath: specPath, pmRaw: opts.value("pm"), devRaw: opts.value("dev"), project: project, seats: seats)
             return
+        }
+
+        if let disclosure = seats.localLeadDisclosure {
+            discloseOnce(disclosure)
         }
 
         // LVC-S02b: `--spec` is a shortcut, not the shape (LVC v7 §2) — a brief with no
@@ -289,10 +295,21 @@ enum LoopCLI {
             pmSource = "tier:frontier"
         }
 
+        var localLeadDisclosure: String?
         if case .agent(let id) = pm,
-           let model = models.first(where: { $0.id == id }),
-           let refusal = LoopLocalSeatPolicy.pmRefusal(for: model) {
-            AllnighterCLI.fail(code: LoopLocalSeatPolicy.errorCode, message: refusal)
+           let model = models.first(where: { $0.id == id }) {
+            let snapshot = OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: nil,
+                observedAt: Date(),
+                isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+            )
+            localLeadDisclosure = LoopLocalSeatPolicy.localLeadDisclosure(
+                for: model,
+                servedContextWindow: LoopLocalSeatPolicy.servedContextWindow(
+                    for: model,
+                    snapshot: snapshot
+                )
+            )
         }
 
         let dev: String
@@ -323,19 +340,32 @@ enum LoopCLI {
 
         return ResolvedSeats(
             pm: pm, pmSource: pmSource, dev: dev, devSource: devSource,
-            localExecutionWarning: localExecutionWarning
+            localExecutionWarning: localExecutionWarning,
+            localLeadDisclosure: localLeadDisclosure
         )
+    }
+
+    /// One-shot stderr disclosure. Dry-run JSON carries the same text in
+    /// `warnings` and does not also print here.
+    private static func discloseOnce(_ message: String) {
+        FileHandle.standardError.write(Data("\(message)\n".utf8))
     }
 
     private static func emitDryRun(
         brief: String, specPath: String?, pmRaw: String?, devRaw: String?, project: Project, seats: ResolvedSeats
     ) {
         var warnings: [String] = []
+        var ready = true
         if let specPath, !FileManager.default.fileExists(atPath: URL(fileURLWithPath: specPath, relativeTo: URL(fileURLWithPath: project.normalizedRootPath)).path) {
             warnings.append("--spec \(specPath) does not exist under \(project.normalizedRootPath) yet — the PM will hit this on round 1")
+            ready = false
         }
         if let localWarning = seats.localExecutionWarning {
             warnings.append(localWarning)
+            ready = false
+        }
+        if let leadDisclosure = seats.localLeadDisclosure {
+            warnings.append(leadDisclosure)
         }
 
         let pmOccupant: String
@@ -351,7 +381,7 @@ enum LoopCLI {
             projectRoot: project.normalizedRootPath,
             pm: .init(occupant: pmOccupant, source: seats.pmSource),
             dev: .init(occupant: seats.dev, source: seats.devSource),
-            ready: warnings.isEmpty,
+            ready: ready,
             warnings: warnings,
             nextAction: AgentNextAction(
                 kind: "startTeamRun",
@@ -613,8 +643,19 @@ enum LoopCLI {
         } else {
             switch ExactIdResolver.resolveWorker(occupant, flag: "--pm", models: runtime.models) {
             case .success(let model):
-                if let refusal = LoopLocalSeatPolicy.pmRefusal(for: model) {
-                    AllnighterCLI.fail(code: LoopLocalSeatPolicy.errorCode, message: refusal)
+                let snapshot = OllamaLocalDoctorReport.snapshotIfAllowed(
+                    transport: nil,
+                    observedAt: Date(),
+                    isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+                )
+                if let disclosure = LoopLocalSeatPolicy.localLeadDisclosure(
+                    for: model,
+                    servedContextWindow: LoopLocalSeatPolicy.servedContextWindow(
+                        for: model,
+                        snapshot: snapshot
+                    )
+                ) {
+                    discloseOnce(disclosure)
                 }
             case .failure(let failure):
                 AllnighterCLI.failExactId(failure)
@@ -646,8 +687,19 @@ enum LoopCLI {
             case .success(let model):
                 resolvedPmOccupant = model.id
                 pmSource = "explicit"
-                if let refusal = LoopLocalSeatPolicy.pmRefusal(for: model) {
-                    warnings.append(refusal)
+                let snapshot = OllamaLocalDoctorReport.snapshotIfAllowed(
+                    transport: nil,
+                    observedAt: Date(),
+                    isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+                )
+                if let disclosure = LoopLocalSeatPolicy.localLeadDisclosure(
+                    for: model,
+                    servedContextWindow: LoopLocalSeatPolicy.servedContextWindow(
+                        for: model,
+                        snapshot: snapshot
+                    )
+                ) {
+                    warnings.append(disclosure)
                 }
             case .failure(let failure):
                 warnings.append(failure.message)
@@ -669,7 +721,9 @@ enum LoopCLI {
         var specPath: String?
         var currentPm = "?"
         var devOccupant = "?"
-        var ready = warnings.isEmpty
+        // Lead disclosure is warn-and-allow — it sits in `warnings` but does not
+        // flip ready. Blocking issues below still do.
+        var ready = true
 
         switch stateStore.loadResult(id: loopId) {
         case .failure(.notFound):

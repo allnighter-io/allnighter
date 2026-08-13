@@ -58,12 +58,15 @@ public extension ContractRegistry {
     // OCL-S04: minor — `alln models` local Ollama seats gain optional
     // `readiness` (Unavailable|Idle|Busy); paid rows omit the key. Not a
     // capacity strip seat; `ollama_local` stays out of `benchSourceOrder`.
-    // OCL-S07: minor — loop `--dev` may be a local Ollama seat; `--pm` refuses
-    // local (`LOOP_LOCAL_SEAT_CANNOT_LEAD`); roundLog.executionOutcome is
-    // Allnighter-owned (never the seat's report).
+    // OCL-S07: minor — loop `--dev` may be a local Ollama seat; explicit `--pm`
+    // of a local seat discloses provenance (and served context if known) and
+    // proceeds (never refuses). roundLog.executionOutcome is Allnighter-owned
+    // (never the seat's report).
+    // 2026-08-13: major — removed `LOOP_LOCAL_SEAT_CANNOT_LEAD` (founder: local
+    // `--pm` pin is owner intent; sensors inform, never block).
     // OCL-S08: minor — `sweep start|resume|status` (one order × N targets,
     // checkpointed, resumable; per-target done|failed|not-attempted).
-    static let contractVersion = "9.28.0"
+    static let contractVersion = "10.0.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -1606,7 +1609,6 @@ public extension ContractRegistry {
         ErrorSpec("RUN_ID_IN_USE", ruleId: "run.id.in_use", agentAction: "Attach with `alln run resume <id> --json`, or omit an explicit id.", requiresManual: true, retryable: false, explain: "a run already exists with this id"),
         ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`loop step` was called against a loop that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a caller-held loop's normal between-rounds state."),
         ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "A `loop step` submission didn't end with a parseable LoopVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits."),
-        ErrorSpec("LOOP_LOCAL_SEAT_CANNOT_LEAD", ruleId: "loop.local_seat.cannot_lead", agentAction: "Keep `--pm` as a frontier model or `caller`. Pin the local Ollama seat with `--dev`.", requiresManual: true, retryable: false, explain: "A local Ollama-backed seat cannot hold the Loop PM chair. Loop's shape is a frontier lead and an execution seat — the local seat is the execution seat, under the same per-root write lock.", exitClass: .usage),
         ErrorSpec("SWEEP_NOT_FOUND", ruleId: "sweep.not_found", agentAction: "Run `alln sweep status <id> --json` with a valid sweep id, or start a new sweep with `alln sweep start`.", requiresManual: true, retryable: false, explain: "No sweep matches the given id."),
         ErrorSpec("SWEEP_NO_TARGETS", ruleId: "sweep.no_targets", agentAction: "Pass --target (repeatable), --targets <csv>, or --targets-file <path>.", requiresManual: true, retryable: false, explain: "A sweep needs at least one target.", exitClass: .usage),
         ErrorSpec("SWEEP_DUPLICATE_TARGETS", ruleId: "sweep.duplicate_targets", agentAction: "Deduplicate the target list and retry. Duplicates would hide a skipped first attempt.", requiresManual: true, retryable: false, explain: "The same target id appeared twice. A sweep refuses duplicates so a skip cannot be disguised as a second listing.", exitClass: .usage),

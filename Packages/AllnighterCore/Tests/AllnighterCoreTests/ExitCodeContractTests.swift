@@ -64,7 +64,7 @@ final class ExitCodeContractTests: XCTestCase {
         // The usage-class (exit 2) codes: bad invocation before any work started.
         let usage = registry.errors.filter { $0.exitClass == .usage }.map(\.code)
         XCTAssertEqual(Set(usage), ["CLI_USAGE_ERROR", "UNKNOWN_FLAG", "CONTRACT_VERSION_NOT_BUMPED", "NO_PROJECT_SELECTED", "DEFAULTS_TIER_INVALID",
-                                     "UTILIZATION_SOURCE_NOT_FOUND", "UTILIZATION_SOURCE_UNCONFIGURED", "LOOP_LOCAL_SEAT_CANNOT_LEAD",
+                                     "UTILIZATION_SOURCE_NOT_FOUND", "UTILIZATION_SOURCE_UNCONFIGURED",
                                      "SWEEP_NO_TARGETS", "SWEEP_DUPLICATE_TARGETS"])
     }
 

@@ -170,4 +170,32 @@ final class LoopCLITests: XCTestCase {
             runStore: RunStore(rootDirectory: tmp.appendingPathComponent("runs"))
         )
     }
+
+    func testResolveSeatsAllowsLocalOllamaPMWithDisclosureAndDoesNotBlockDevFrontier() {
+        let local = Model(
+            id: "custom_opencode_ollama_qwen3_8b",
+            displayName: "qwen3 8b",
+            modelLabel: "ollama/qwen3:8b",
+            driverId: "opencode",
+            role: .both
+        )
+        let frontier = Model(
+            id: "model_pm",
+            displayName: "PM",
+            modelLabel: "opus",
+            driverId: "claude_code",
+            role: .both
+        )
+        let seats = LoopCLI.resolveSeats(
+            opts: Options(["--pm", local.id, "--dev", frontier.id]),
+            models: [local, frontier]
+        )
+        XCTAssertEqual(seats.pm, .agent(local.id))
+        XCTAssertEqual(seats.pmSource, "explicit")
+        XCTAssertEqual(seats.dev, frontier.id)
+        XCTAssertNotNil(seats.localLeadDisclosure)
+        XCTAssertTrue(seats.localLeadDisclosure?.contains("ollama_local") == true)
+        XCTAssertTrue(seats.localLeadDisclosure?.contains("Explicit pin proceeds") == true)
+        XCTAssertNil(seats.localExecutionWarning)
+    }
 }

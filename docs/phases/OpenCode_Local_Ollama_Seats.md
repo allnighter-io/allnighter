@@ -138,6 +138,23 @@ mandatory for S01+).
     What stays here is the *why for Ollama itself*: delegation asymmetry (§2.4),
     sweep (§2.6.1), two-tier teams (§2.6.2), Loop with local execution seats.
 
+**2026-08-13 (local lead pin)**
+
+14. **Explicit `--pm` of a local Ollama-backed seat is allowed.** Refusing it
+    (`LOOP_LOCAL_SEAT_CANNOT_LEAD`) is out. Project law: sensors inform, they
+    never block. The only refuse-class items are a parked driver, a disabled
+    model, an unknown model id, and the per-root write lock. Provenance is not
+    one of them. Owner intent wins. Allnighter does not decide which model is
+    worthy of leading — users have different hardware and different jobs, and a
+    capable local model on a large machine must not be refused by the same rule
+    that would refuse a tiny one. §7.7 already: the user selects; Allnighter
+    does not auto-prefer. Disclose local provenance and the served context
+    window (if known) once, then proceed — same warn-and-allow as §0.2 on an
+    explicit `--model` pin below the context gate. No nag, no repeated warning,
+    no confirmation prompt. `roundLog.executionOutcome` stays Allnighter-owned
+    measurement of what happened, for paid and local seats alike — that is not
+    a judgment about who is allowed to work.
+
 ### 0.1.1a Order of execution (founder, 2026-08-09)
 
 Packets execute **end to end**, in document order. Ladder position is not a
@@ -826,7 +843,10 @@ silently fall back to Anthropic mid-seat.
 
 The user (or team seat config) selects the agent body. Allnighter does not
 auto-prefer Claude-local or OpenCode-local. No scarcity router invents a
-standing rule (§3 of Scarcity packet).
+standing rule (§3 of Scarcity packet). The same law applies to Loop `--pm`:
+the user selects the lead, including a local Ollama-backed seat. Allnighter
+discloses local provenance and the served context window when known; it does
+not refuse.
 
 ### 7.8 Egress policy — moved out
 
@@ -881,7 +901,7 @@ Not an implementation allowlist. No slice starts without a founder ruling.
 | **OCL-S04** | Readiness surface in `alln models` / `doctor` — three states only | Core/CLI |
 | **OCL-S05** | Turn timing for slow local loads — **only if measured** | AgentOS |
 | ~~**OCL-S06**~~ | ~~Capacity strip row~~ — **cancelled for v1** | — |
-| **OCL-S07** | **Loop with a local execution seat, end to end** — frontier lead plans, local seat mutates under the per-root write lock (§2.6.2). The headline demonstrated. | Core |
+| **OCL-S07** | **Loop with a local execution seat, end to end** — frontier lead plans, local seat mutates under the per-root write lock (§2.6.2). Explicit `--pm` of a local seat discloses provenance + served context once and proceeds (never refuses). The headline demonstrated. | Core |
 | **OCL-S08** | **Sweep:** one order × N targets, checkpointed and **resumable**, one artifact; honest per-target outcome (no skipped-but-done) | Core/CLI |
 
 Appended per §0.1.1a — ladder position is not priority. §2.7 states the

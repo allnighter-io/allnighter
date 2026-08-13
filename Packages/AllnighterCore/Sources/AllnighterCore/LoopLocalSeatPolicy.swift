@@ -1,20 +1,46 @@
 import Foundation
 
-/// Loop seat casting for local Ollama-backed models (OCL-S07 / packet §2.4).
+/// Loop seat casting for local Ollama-backed models (OCL-S07 / packet §2.4, §7.7).
 ///
 /// Loop already has the shape: a lead plans, an execution seat mutates under the
-/// per-root write lock. A local seat is a valid `--dev` pin. It is not a valid
-/// `--pm` occupant — the lead stays a frontier model or `caller`.
+/// per-root write lock. A local seat is a valid `--dev` pin. An explicit `--pm`
+/// pin of a local Ollama-backed seat is also allowed: sensors inform, they never
+/// block, and provenance is not a refuse-class. Disclose local provenance and
+/// the served context window (if known) once, then proceed — same warn-and-allow
+/// as an explicit `--model` pin below the context gate.
 public enum LoopLocalSeatPolicy {
-    public static let errorCode = "LOOP_LOCAL_SEAT_CANNOT_LEAD"
-
     public static func isOllamaBacked(_ model: Model) -> Bool {
         OllamaLocalDoctorReport.isOllamaBackedSeat(modelLabel: model.modelLabel)
     }
 
-    public static func pmRefusal(for model: Model) -> String? {
+    /// One-shot disclosure when the Loop PM chair is a local Ollama seat.
+    /// Never a refusal. Omit the window clause when it was not observed.
+    public static func localLeadDisclosure(
+        for model: Model,
+        servedContextWindow: Int? = nil
+    ) -> String? {
         guard isOllamaBacked(model) else { return nil }
-        return "local Ollama seat \(model.id) (\(model.modelLabel)) cannot hold the Loop PM chair — pin a frontier model or `--pm caller`; use this seat as `--dev`"
+        var text =
+            "PM seat \(model.id) is local provenance (\(OllamaLocalRuntimeClient.sourceId), \(model.modelLabel))"
+        if let servedContextWindow {
+            text += "; served context window \(servedContextWindow)"
+        }
+        text += ". Explicit pin proceeds."
+        return text
+    }
+
+    /// Served window from an observed `/api/ps` row. Nil when unobserved —
+    /// never filled from advertised `context_length`.
+    public static func servedContextWindow(
+        for model: Model,
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?
+    ) -> Int? {
+        guard let snapshot,
+              let tag = OpenCodeLocalSeatReadiness.ollamaTag(from: model.modelLabel)
+        else { return nil }
+        return snapshot.residentModels.first { observed in
+            observed.name == tag || observed.name.hasSuffix("/\(tag)")
+        }?.servedContextWindow
     }
 
     /// Dry-run / start warning when `--dev` is local. Failure is the common case.

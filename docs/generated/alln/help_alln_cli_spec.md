@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.28.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.0.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -1886,7 +1886,6 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RUN_ID_IN_USE` | yes | no | `operational` | Attach with `alln run resume <id> --json`, or omit an explicit id. |
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs. |
-| `LOOP_LOCAL_SEAT_CANNOT_LEAD` | yes | no | `usage` | Keep `--pm` as a frontier model or `caller`. Pin the local Ollama seat with `--dev`. |
 | `SWEEP_NOT_FOUND` | yes | no | `operational` | Run `alln sweep status <id> --json` with a valid sweep id, or start a new sweep with `alln sweep start`. |
 | `SWEEP_NO_TARGETS` | yes | no | `usage` | Pass --target (repeatable), --targets <csv>, or --targets-file <path>. |
 | `SWEEP_DUPLICATE_TARGETS` | yes | no | `usage` | Deduplicate the target list and retry. Duplicates would hide a skipped first attempt. |

@@ -1,7 +1,8 @@
 import XCTest
 @testable import AllnighterCore
 
-/// OCL-S07: local Ollama seats execute; they do not lead.
+/// OCL-S07: local Ollama seats may execute, and an explicit `--pm` pin proceeds
+/// with disclosure — never a provenance veto.
 final class LoopLocalSeatPolicyTests: XCTestCase {
     private let local = Model(
         id: "custom_opencode_ollama_qwen3_8b",
@@ -25,17 +26,49 @@ final class LoopLocalSeatPolicyTests: XCTestCase {
         role: .both
     )
 
-    func testLocalOllamaSeatCannotHoldPM() {
+    func testLocalOllamaSeatAsLeadDisclosesAndDoesNotRefuse() {
         XCTAssertTrue(LoopLocalSeatPolicy.isOllamaBacked(local))
-        let refusal = LoopLocalSeatPolicy.pmRefusal(for: local)
-        XCTAssertNotNil(refusal)
-        XCTAssertTrue(refusal?.contains("--dev") == true)
-        XCTAssertEqual(LoopLocalSeatPolicy.errorCode, "LOOP_LOCAL_SEAT_CANNOT_LEAD")
+        let disclosure = LoopLocalSeatPolicy.localLeadDisclosure(for: local)
+        XCTAssertNotNil(disclosure)
+        XCTAssertTrue(disclosure?.contains("ollama_local") == true)
+        XCTAssertTrue(disclosure?.contains("local provenance") == true)
+        XCTAssertTrue(disclosure?.contains("Explicit pin proceeds") == true)
+        XCTAssertFalse(disclosure?.contains("cannot hold") == true)
+        XCTAssertFalse(disclosure?.contains("served context window") == true)
     }
 
-    func testFrontierAndGoSeatsMayLead() {
-        XCTAssertNil(LoopLocalSeatPolicy.pmRefusal(for: frontier))
-        XCTAssertNil(LoopLocalSeatPolicy.pmRefusal(for: go))
+    func testLocalLeadDisclosureIncludesServedContextWhenKnown() {
+        let snapshot = OllamaLocalRuntimeObserver.Snapshot(
+            readiness: .busy,
+            observedAt: Date(),
+            ollamaVersion: "0.32.6",
+            residentModels: [
+                .init(name: "qwen3:8b", servedContextWindow: 131072)
+            ]
+        )
+        let window = LoopLocalSeatPolicy.servedContextWindow(for: local, snapshot: snapshot)
+        XCTAssertEqual(window, 131072)
+        let disclosure = LoopLocalSeatPolicy.localLeadDisclosure(
+            for: local,
+            servedContextWindow: window
+        )
+        XCTAssertTrue(disclosure?.contains("served context window 131072") == true)
+    }
+
+    func testUnobservedServedContextIsOmittedNotGuessed() {
+        let snapshot = OllamaLocalRuntimeObserver.Snapshot(
+            readiness: .idle,
+            observedAt: Date(),
+            ollamaVersion: "0.32.6",
+            residentModels: []
+        )
+        XCTAssertNil(LoopLocalSeatPolicy.servedContextWindow(for: local, snapshot: snapshot))
+        XCTAssertNil(LoopLocalSeatPolicy.servedContextWindow(for: local, snapshot: nil))
+    }
+
+    func testFrontierAndGoSeatsHaveNoLeadDisclosure() {
+        XCTAssertNil(LoopLocalSeatPolicy.localLeadDisclosure(for: frontier))
+        XCTAssertNil(LoopLocalSeatPolicy.localLeadDisclosure(for: go))
         XCTAssertFalse(LoopLocalSeatPolicy.isOllamaBacked(go))
     }
 
