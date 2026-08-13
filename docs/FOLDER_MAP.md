@@ -61,6 +61,7 @@ if it is missing.
 - `docs/design-system/`: standing visual/brand law (can be SSOT).
 - `docs/gui/`: GUI workflow and surface briefs (how to build UI — not visual SSOT).
 - `docs/operations/Execution-Playbook.md`: slice process and closeout checklist.
+- `docs/operations/Public_Release.md`: ship CLI + Mac DMG to `get.allnighter.io`.
 - `docs/operations/Project_Laws.md`: standing product/engineering laws.
 - `docs/operations/TechStack.md`: stack + **wrapper** commands (never raw test runners).
 - `scripts/rebuild_cli.sh`: rebuild/install `alln`; AgentOS sibling gate.

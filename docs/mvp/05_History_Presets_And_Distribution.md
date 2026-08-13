@@ -71,10 +71,14 @@ DMG so it launches at login like a real app.
   (missing binary / not authenticated / bad flags / manual). Doctor sheet UI.
 - [x] P05-S05 — Global hotkey quick capture (Carbon `RegisterEventHotKey`,
   ⌥⌘Space, no Accessibility permission) + optional clipboard prefill.
-- [ ] P05-S06 — Notarized DMG (Developer ID, hardened runtime, entitlements).
-  **Deferred by founder — internal use only; revisit before external launch.**
+- [x] P05-S06 — Notarized website DMG (Developer ID, hardened runtime, no
+  Sign in with Apple on the DMG). First public `1.0.1` on
+  `get.allnighter.io` 2026-08-13. Repeatable ship:
+  `docs/operations/Public_Release.md`. Apple forbids SIWA on Developer ID
+  profiles — do not retry Organizer Direct Distribution.
 - [ ] P05-S07 — First-run onboarding (Doctor + permissions/why copy).
-  **Deferred with S06** (onboarding pairs with distribution).
+  **Still deferred** (onboarding pairs with distribution; not required to
+  host the DMG).
 - [ ] P05-S08 — (Conditional) GRDB run index if flat-file history is slow.
   Not triggered — flat-file history is fast at current volume.
 
@@ -106,16 +110,16 @@ of silently disappearing.
 - [x] `xcodebuild test -scheme AllnighterMac` + `swift test` green (73 Core/Engine
   tests + Mac app suite).
 - [ ] Works Test passes from a **notarized DMG** on a clean account.
-  **Deferred** — distribution is out of scope for now (internal use). The Works
-  Test passes from a local `xcodebuild`/Run build today.
+  Website DMG is live (`docs/operations/Public_Release.md`); clean-account
+  Works Test still open. First-run onboarding (S07) is still deferred.
 - [ ] Code Audit CLEAN (run at milestone closeout).
 
 ## Closeout
 
 **Daily-driver slices (S01–S05) shipped and green; runs from a local build.**
-Distribution (notarized DMG + first-run onboarding, S06–S07) is intentionally
-deferred — the founder uses the tool internally for now and will revisit
-signing/notarization before any external launch. GRDB (S08) is untriggered.
+Website DMG (S06) first public `1.0.1` shipped 2026-08-13 — ship procedure is
+`docs/operations/Public_Release.md`. First-run onboarding (S07) is still
+deferred. GRDB (S08) is untriggered.
 
 Next milestone is the review-board milestone (`RB0`-`RB4`), whose specs are
 finalized alongside this phase. Before RB1 code starts, run the manual

@@ -17,7 +17,7 @@ parked foundation under `Apps/AllnighteriOS/`.
 | Session/process | Foundation.Process; one mutating worker per registered repo root |
 | Secrets | Vendor CLI Keychain logins only — Allnighter never BYOK |
 | Remote transport | Tailscale private tailnet / local network |
-| Mac distribution | Notarized DMG/PKG, Sparkle updates |
+| Mac distribution | Website DMG: Developer ID + notarize + staple (`docs/operations/Public_Release.md`). Sparkle is later transport; `latest.json` is what’s-latest. |
 | iOS distribution | TestFlight → App Store (when unparked) |
 | CI | GitHub Actions macOS runner via project wrappers (not raw runners) |
 

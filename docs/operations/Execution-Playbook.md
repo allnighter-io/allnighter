@@ -300,6 +300,10 @@ Stop and ask when the next action changes product scope, kills user sessions,
 deletes worktrees, touches secrets, changes permission posture, affects
 distribution/notarization, or requires choosing between two business meanings.
 
+Public CLI/DMG ship (Developer ID, notary, `latest.json`,
+`get.allnighter.io`) is `docs/operations/Public_Release.md`. Do not relitigate
+Organizer Direct Distribution or a Developer ID + Sign in with Apple profile.
+
 Not stops: ordinary refactors, audit findings, missing tests that can be added,
 format failures, or proof failures with an obvious local fix.
 

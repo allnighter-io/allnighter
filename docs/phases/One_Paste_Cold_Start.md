@@ -1,7 +1,8 @@
 # One-Paste Cold Start (+ shared release channel)
 
 Status: **OPEN — S02–S03/S00–S01/S06 (CLI+Mac+publish) agent-complete 2026-08-01;
-S05 (public cutover) blocked on founder DNS + Apple Developer ID + notarization**  
+S05 DNS live 2026-08-13; first public CLI `1.0.1` signed + notarized +
+`latest.json` published same day. Apex/www Ikiro CNAME still founder DNS.**  
 Owner: install script + release manifest + CLI projection + Mac update UI  
 Created: 2026-07-31  
 Updated: 2026-07-31 (hardening pass: publish race, injection, self-overwrite,
@@ -13,6 +14,8 @@ see the Slices table below for exact per-slice state.
 Updated: 2026-08-01 (orchestration — Grok 4.5) — OPC-S06b Mac About/status +
 OPC-S06c `publish-release.sh` writes `latest.json` (assets-then-manifest);
 binary `0.11.4`; GUI proof `docs/qa/gui/about-updates/2026-08-01-opc-s06b`.  
+Updated: 2026-08-13 — OPC-S05 hostname live + first public CLI `1.0.1`
+(Developer ID + notarized; `latest.json` published). Apex/www still Ikiro.  
 Origin: Hermes / OpenClaw users with **no `alln`** need one paste so agents run
 on **subscription CLIs**, not API keys. Follow-on: once installed, **CLI-only
 users and agents never open the Mac app** — they still need to learn when a
@@ -25,8 +28,9 @@ Related (reuse): `InstallCLI.swift` (PATH symlink only), `Bootstrap.swift` +
 `TeachingSnippet.swift`, `MenuJSON.capacity` (the precedent for an optional
 cached projection field), `ServeDaemonProbe` (binaryVersion already on the wire),
 `scripts/rebuild_cli.sh`, archived MCP retirement (**MCP stays dead**), deferred
-P05-S06 app DMG (this packet owns the **shared release channel** the DMG/Sparkle
-path must use when it ships — not a second update product).
+P05-S06 app DMG (website ship path is `docs/operations/Public_Release.md`; this
+packet still owns the **shared `latest.json` channel** the DMG must use — not a
+second update product).
 
 ---
 
@@ -470,6 +474,10 @@ SSOT for "is there a release?" Product SSOT is `latest.json`.
 
 ### Publish recipe (release day)
 
+Operational SSOT: `docs/operations/Public_Release.md`. Do not use Xcode
+Organizer Direct Distribution. Apple forbids Sign in with Apple on Developer ID
+profiles; the website DMG ships without SIWA.
+
 One intentional step (script or CI job "release"):
 
 1. Build universal + sign CLI (+ app if shipping); compute sha256.
@@ -604,14 +612,13 @@ hashed and sent, in `doctor` and in the privacy line, before it ships.
 | **OPC-S00** | Universal build + versioned asset layout + publish recipe | **Shipped 2026-07-31 (`3699d2fb`).** `scripts/build-universal.sh` + `scripts/publish-release.sh`; immutable paths locked; local/dogfood URL proven — dual-arch SPM fails on this toolchain (BuildInfoPlugin), two `--arch` builds + `lipo -create` used instead |
 | **OPC-S01** | `scripts/get-alln.sh` + fixture proof | **Shipped 2026-07-31 (`e9e45fbf`).** Laws 1–2 green on temp HOME **through a pipe**; BUG-0/1/3/6/7 gated; `scripts/test-get-alln.sh` proof |
 | **OPC-S06** | Shared release channel: `latest.json` + `ReleaseChannel` + `menu.update` + `version --json` + doctor + Mac reads same feed | **Shipped 2026-07-31 core (`bba67abe`, `b9a43085`) + 2026-08-01 Mac/publish.** Contract 7.4.0, binary 0.11.4. Mac Settings › About & updates + quiet title-bar badge; `publish-release.sh` writes `latest.json` last |
-| **OPC-S05** | Public cutover | **In progress** — Cloudflare R2 bucket `allnighter-releases` + Worker `get-allnighter` deployed (`https://get-allnighter.emailmike.workers.dev`). Install script seeded in R2. **Founder:** Porkbun CNAME `get` → Cloudflare custom domain (see §OPC-S05 cutover); Developer ID sign + notarize first public binary; `publish-release.sh` + `upload-release-to-r2.sh` |
+| **OPC-S05** | Public cutover | **CLI faucet + Mac DMG live 2026-08-13.** `get.allnighter.io` serves the install script; `/Allnighter.dmg` 302s from `latest.json` `app.url`. CLI + app `1.0.1`. Repeatable ship: `docs/operations/Public_Release.md`. |
 | **OPC-S04** | npm (optional) | Only if founder reopens BQ-3 |
 
 Order: **S02 → S03 → S00 → S01 → S06 → S05**.  
 S02/S03 need no network. S06 can dogfood against a fixture `latest.json` before
-public DNS. S05 is the public flip for install **and** update channel together
-— it is the one slice this packet cannot finish without the founder at the
-keyboard (DNS + Apple Developer account access).
+public DNS. S05 hostname is live. Repeatable ship (CLI + DMG) is
+`docs/operations/Public_Release.md` — not Organizer Direct Distribution.
 
 ### OPC-S06 checklist
 
@@ -661,27 +668,23 @@ install faucet subdomain.
 - [x] `scripts/upload-release-to-r2.sh` — publish dir → R2 (assets first,
       `latest.json` last)
 - [x] Canonical URLs in code/docs updated `.app` → `.io`
+- [x] Custom domain `get.allnighter.io` on Worker `get-allnighter`
+      (`workers_dev` kept true). Zone NS is Cloudflare
+      (`elijah`/`heidi.ns.cloudflare.com`) — no Porkbun CNAME. Do not touch
+      apex/www (Ikiro). Verified 2026-08-13: `https://get.allnighter.io/` → 200
+      install script; `latest.json` → CLI `1.0.1`.
 
-**Founder (Porkbun DNS — `allnighter.io` stays on Porkbun; Ikiro owns apex/www):**
+**First public CLI — shipped 2026-08-13:**
 
-1. Cloudflare dashboard → **Workers & Pages** → **get-allnighter** →
-   **Settings** → **Domains & Routes** → **Add** → **Custom Domain** →
-   `get.allnighter.io`
-2. Copy the CNAME target Cloudflare shows.
-3. Porkbun → `allnighter.io` DNS → add **CNAME** `get` → that target (DNS only;
-   do not move apex/www).
-4. Wait for SSL active (usually minutes).
+- [x] Universal `1.0.1` signed `Developer ID Application: Happy Moose Apps Inc. (LP5YNK7A36)` (hardened runtime)
+- [x] Notarized (`notarytool` Accepted `2572b4aa-1876-4547-bc9d-2bc4b5ae0708`; staple N/A on a bare unix executable)
+- [x] `publish-release.sh 1.0.1` + `upload-release-to-r2.sh` — `latest.json` live
+- [x] Mac DMG `1.0.1` on the same channel (`/Allnighter.dmg` 302). Ship SSOT:
+      `docs/operations/Public_Release.md` (no Organizer Direct Distribution;
+      Apple forbids SIWA on Developer ID)
+- [ ] Apex/www → Ikiro (`CNAME @ → connect.ikiro.io`, DNS-only) — founder Cloudflare DNS; do not touch `get`
 
-**Founder (first public release):**
-
-1. Build + **Developer ID** sign universal CLI (`scripts/build-universal.sh`).
-2. `scripts/publish-release.sh <version>` (writes `dist/releases/`).
-3. `scripts/upload-release-to-r2.sh dist/releases`
-4. Verify:
-   `curl -fsSL https://get.allnighter.io/latest.json`
-   `curl -fsSL https://get.allnighter.io | head`
-
-Dogfood before DNS: `ALLN_INSTALL_BASE_URL=https://get-allnighter.emailmike.workers.dev`
+Dogfood URL still: `ALLN_INSTALL_BASE_URL=https://get-allnighter.emailmike.workers.dev`
 
 ---
 
