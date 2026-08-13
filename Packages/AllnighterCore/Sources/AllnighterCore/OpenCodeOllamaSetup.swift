@@ -101,6 +101,8 @@ public enum OpenCodeOllamaSetup {
         public var ollamaModelIds: [String]?
         public var ollamaTagsObserved: Bool
         public var ollamaUnreachable: Bool
+        public var leftoverServeAction: String?
+        public var leftoverServePID: Int?
         public var undoCommand: String
         public var message: String
     }
@@ -142,7 +144,8 @@ public enum OpenCodeOllamaSetup {
         dryRun: Bool,
         fileManager: FileManager = .default,
         transport: (any OllamaLocalRuntimeClient.Transport)? = nil,
-        isTestHost: Bool = AllnighterSupportRoot.isRunningUnderTestHost
+        isTestHost: Bool = AllnighterSupportRoot.isRunningUnderTestHost,
+        serveReclaim: OpenCodeLeftoverServeReclaim.Table? = nil
     ) throws -> Report {
         let original = try readOptionalJSON(at: configURL, fileManager: fileManager)
         var root = original.root
@@ -211,6 +214,17 @@ public enum OpenCodeOllamaSetup {
         )
         try writeReceipt(receipt, to: receiptURL, fileManager: fileManager)
 
+        let leftover: OpenCodeLeftoverServeReclaim.Outcome
+        if serveReclaim != nil || !isTestHost {
+            leftover = OpenCodeLeftoverServeReclaim.reclaim(
+                table: OpenCodeLeftoverServeReclaim.resolvedTable(
+                    override: serveReclaim,
+                    isTestHost: isTestHost
+                )
+            )
+        } else {
+            leftover = .notAttempted
+        }
         return report(
             action: "setup",
             configURL: configURL,
@@ -219,12 +233,14 @@ public enum OpenCodeOllamaSetup {
             merge: merge,
             inspection: inspection,
             tags: tags,
+            leftover: leftover,
             message: setupMessage(
                 dryRun: false,
                 wrote: true,
                 merge: merge,
                 inspection: inspection,
-                tags: tags
+                tags: tags,
+                leftover: leftover
             )
         )
     }
@@ -316,6 +332,7 @@ public enum OpenCodeOllamaSetup {
             ),
             inspection: inspection,
             tags: .skipped,
+            leftover: .notAttempted,
             message: original.existed
                 ? (inspection.wired ? "OpenCode is wired for local Ollama" : "OpenCode is not fully wired for local Ollama")
                 : "no opencode.json at \(configURL.path)"
@@ -479,7 +496,8 @@ public enum OpenCodeOllamaSetup {
         wrote: Bool,
         merge: OpenCodeOllamaProviderMerge.Result,
         inspection: OpenCodeOllamaProviderMerge.Inspection,
-        tags: TagsForRegistration
+        tags: TagsForRegistration,
+        leftover: OpenCodeLeftoverServeReclaim.Outcome = .notAttempted
     ) -> String {
         var parts: [String] = []
         if dryRun {
@@ -500,7 +518,23 @@ public enum OpenCodeOllamaSetup {
         } else if !merge.addedModelIds.isEmpty {
             parts.append("registered models: \(merge.addedModelIds.joined(separator: ", "))")
         }
+        if let leftoverNote = leftoverMessage(leftover) {
+            parts.append(leftoverNote)
+        }
         return parts.joined(separator: "; ")
+    }
+
+    private static func leftoverMessage(_ leftover: OpenCodeLeftoverServeReclaim.Outcome) -> String? {
+        switch leftover {
+        case .notAttempted, .idle:
+            return nil
+        case .reclaimed(let pid, _):
+            return "recycled leftover opencode serve (pid \(pid)) so new tags are visible to alln run"
+        case .refusedAllnServe(let pid, _):
+            return "port \(OpenCodeLeftoverServeReclaim.defaultPort) is alln serve (pid \(pid)) — not stopping it"
+        case .skippedForeign, .skippedUnreadableCommand:
+            return nil
+        }
     }
 
     private static func report(
@@ -511,6 +545,7 @@ public enum OpenCodeOllamaSetup {
         merge: OpenCodeOllamaProviderMerge.Result,
         inspection: OpenCodeOllamaProviderMerge.Inspection,
         tags: TagsForRegistration,
+        leftover: OpenCodeLeftoverServeReclaim.Outcome = .notAttempted,
         message: String
     ) -> Report {
         Report(
@@ -529,6 +564,8 @@ public enum OpenCodeOllamaSetup {
             ollamaModelIds: inspection.ollamaModelIds,
             ollamaTagsObserved: tags.observed,
             ollamaUnreachable: tags.unreachable,
+            leftoverServeAction: leftover.action,
+            leftoverServePID: leftover.pid,
             undoCommand: undoCommand,
             message: message
         )

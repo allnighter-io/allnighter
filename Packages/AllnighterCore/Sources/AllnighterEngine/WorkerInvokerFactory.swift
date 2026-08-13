@@ -32,6 +32,9 @@ import AllnighterCore
 ///    `routeOpenCodeToServe` is false, this step is omitted so opencode seats use the
 ///    injected `commandRunner` like every other driver (test doubles only — production
 ///    call sites leave the default `true`).
+/// 6b. `OpenCodeStaleModelServeRefreshingWorkerRunner` — one reclaim+retry when a
+///    warm serve returns `opencode session error: Model not found:` after a later
+///    `opencode.json` tag registration. XCTest defaults to an inactive process table.
 /// 7. `GatedWorkerRunner` — per-driver `DriverConcurrencyGate` + `gateWaitMs`. This
 ///    inverts the nesting a first reading of the four decorators' doc comments might
 ///    suggest (`OpenCodeRoutingWorkerRunner`'s own doc comment literally says to wrap
@@ -61,7 +64,8 @@ public enum WorkerInvokerFactory {
         defaultWorkingDirectory: String? = nil,
         shellPath: String? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
-        routeOpenCodeToServe: Bool = true
+        routeOpenCodeToServe: Bool = true,
+        openCodeServeReclaim: OpenCodeLeftoverServeReclaim.Table? = nil
     ) -> any WorkerInvoking {
         let base = commandRunner
             ?? SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy())
@@ -74,7 +78,11 @@ public enum WorkerInvokerFactory {
         let gated: GatedWorkerRunner
         if routeOpenCodeToServe {
             let openCodeRouted = OpenCodeRoutingWorkerRunner(inner: claudeLocal, now: now)
-            gated = GatedWorkerRunner(inner: openCodeRouted, now: now)
+            let refreshed = OpenCodeStaleModelServeRefreshingWorkerRunner(
+                inner: openCodeRouted,
+                table: OpenCodeLeftoverServeReclaim.resolvedTable(override: openCodeServeReclaim)
+            )
+            gated = GatedWorkerRunner(inner: refreshed, now: now)
         } else {
             gated = GatedWorkerRunner(inner: claudeLocal, now: now)
         }

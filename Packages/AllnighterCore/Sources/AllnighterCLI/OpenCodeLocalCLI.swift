@@ -116,6 +116,13 @@ enum OpenCodeLocalCLI {
         if report.wrote {
             print("Undo: \(report.undoCommand)")
         }
+        if let action = report.leftoverServeAction {
+            if let pid = report.leftoverServePID {
+                print("Leftover serve: \(action) (pid \(pid))")
+            } else {
+                print("Leftover serve: \(action)")
+            }
+        }
     }
 
     private static func fail(_ error: Error) -> Never {

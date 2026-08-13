@@ -630,6 +630,10 @@ public enum HelpTopicRegistry {
             only what that setup added (receipt-backed), including model keys it \
             inserted. To restore by hand, copy the backup over `opencode.json`.
 
+            After a write, setup recycles a leftover `opencode serve` on port `4096` so \
+            newly registered tags are visible to `alln run --attach`. It checks \
+            `ps -p <pid> -o command=` first and never stops `alln serve`.
+
             This does not seat models on the Allnighter bench and does not configure \
             Claude-local. `alln opencode-local status` still reads opencode.json only \
             and never contacts Ollama.
