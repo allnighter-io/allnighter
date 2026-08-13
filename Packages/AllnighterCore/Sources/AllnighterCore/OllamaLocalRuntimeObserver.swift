@@ -187,6 +187,9 @@ public enum OllamaLocalRuntimeObserver {
     }
 
     /// Local tags only. Advertised context fields on the tag object are ignored.
+    /// Cloud entries are dropped when `/api/tags` sets a non-empty `remote_host`
+    /// or `remote_model` (Ollama `ListModelResponse`). Name suffixes are not a
+    /// locality signal and are not filtered.
     public static func parseTags(_ data: Data) -> [LocalTag]? {
         guard let root = jsonObject(data),
               let models = root["models"] as? [Any]
@@ -196,6 +199,7 @@ public enum OllamaLocalRuntimeObserver {
             guard let obj = entry as? [String: Any],
                   let name = modelName(obj)
             else { continue }
+            if isRemoteTag(obj) { continue }
             tags.append(LocalTag(name: name))
         }
         return tags
@@ -236,6 +240,20 @@ public enum OllamaLocalRuntimeObserver {
 
     private static func jsonObject(_ data: Data) -> [String: Any]? {
         (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    /// Ollama 0.32+ marks cloud/remote list rows with these fields. Missing or
+    /// empty values are not an observation of locality — only a present
+    /// non-empty string is an observation of remote provenance.
+    private static func isRemoteTag(_ obj: [String: Any]) -> Bool {
+        nonemptyString(obj["remote_host"]) != nil
+            || nonemptyString(obj["remote_model"]) != nil
+    }
+
+    private static func nonemptyString(_ any: Any?) -> String? {
+        guard let value = any as? String else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private static func modelName(_ obj: [String: Any]) -> String? {

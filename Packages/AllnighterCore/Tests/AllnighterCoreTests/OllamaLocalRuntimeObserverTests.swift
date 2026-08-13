@@ -193,6 +193,59 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
         XCTAssertEqual(parsed, [.init(name: "qwen2.5:0.5b")])
     }
 
+    func testParseTagsExcludesRemoteHostCloudEntry() {
+        let tags = """
+        {"models":[
+          {"name":"qwen2.5:0.5b","size":400000000},
+          {"name":"gpt-oss:120b-cloud","remote_host":"ollama.com","remote_model":"gpt-oss:120b","size":0}
+        ]}
+        """
+        let parsed = OllamaLocalRuntimeObserver.parseTags(Data(tags.utf8))
+        XCTAssertEqual(parsed, [.init(name: "qwen2.5:0.5b")])
+    }
+
+    func testParseTagsExcludesRemoteModelOnlyCloudEntry() {
+        let tags = """
+        {"models":[
+          {"name":"qwen3:8b"},
+          {"name":"kimi-k2:1t","remote_model":"kimi-k2:1t"}
+        ]}
+        """
+        let parsed = OllamaLocalRuntimeObserver.parseTags(Data(tags.utf8))
+        XCTAssertEqual(parsed, [.init(name: "qwen3:8b")])
+    }
+
+    func testParseTagsDoesNotTreatCloudNameSuffixAsProvenance() {
+        let tags = """
+        {"models":[{"name":"qwen3:8b-cloud","size":8000000000}]}
+        """
+        let parsed = OllamaLocalRuntimeObserver.parseTags(Data(tags.utf8))
+        XCTAssertEqual(parsed, [.init(name: "qwen3:8b-cloud")])
+    }
+
+    func testParseTagsEmptyRemoteFieldsAreNotCloud() {
+        let tags = """
+        {"models":[{"name":"qwen3:8b","remote_host":"","remote_model":"   "}]}
+        """
+        let parsed = OllamaLocalRuntimeObserver.parseTags(Data(tags.utf8))
+        XCTAssertEqual(parsed, [.init(name: "qwen3:8b")])
+    }
+
+    func testCloudOnlyTagsYieldUnavailableNotIdle() {
+        let tags = """
+        {"models":[{"name":"gpt-oss:120b-cloud","remote_host":"ollama.com"}]}
+        """
+        let transport = FixtureTransport(bodies: [
+            Self.versionJSON,
+            tags,
+            Self.psJSON(residents: []),
+        ])
+        let snap = observe(transport)
+        XCTAssertEqual(snap.readiness, .unavailable)
+        XCTAssertTrue(snap.localTags.isEmpty)
+        XCTAssertNil(snap.observeFailure)
+    }
+
     // MARK: - Loopback binding
 
     func testRequestsOnlyLoopback11434() {
