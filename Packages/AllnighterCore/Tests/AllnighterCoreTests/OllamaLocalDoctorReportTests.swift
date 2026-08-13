@@ -46,9 +46,17 @@ final class OllamaLocalDoctorReportTests: XCTestCase {
             observedAt: observedAt,
             isTestHost: true
         )
-        XCTAssertEqual(snap?.readiness, .unavailable)
+        XCTAssertNil(snap?.ollamaVersion)
+        XCTAssertNotNil(snap?.observeFailure)
         XCTAssertGreaterThan(transport.requestCount, 0)
         XCTAssertEqual(transport.requestedPaths.first, "/api/version")
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(
+                from: snap!,
+                modelLabel: "ollama/qwen2.5:0.5b"
+            ),
+            "Unavailable"
+        )
     }
 
     func testOllamaAbsentLeavesPaidDoctorUntouched() {
@@ -70,7 +78,7 @@ final class OllamaLocalDoctorReportTests: XCTestCase {
         XCTAssertEqual(check(absent, "benchReadyCount")?.detail, check(baseline, "benchReadyCount")?.detail)
     }
 
-    func testIdleListsPulledModelsAndExactReadinessWord() {
+    func testPulledTagsListAsAvailableThroughTheSharedProjection() {
         let snap = OllamaLocalRuntimeObserver.snapshot(
             observedAt: observedAt,
             ollamaVersion: "0.32.6",
@@ -81,7 +89,14 @@ final class OllamaLocalDoctorReportTests: XCTestCase {
             residentModels: []
         )
         let r = build(snapshot: snap)
-        XCTAssertEqual(check(r, OllamaLocalDoctorReport.readinessCheckName)?.detail, "Idle")
+        XCTAssertEqual(
+            check(r, OllamaLocalDoctorReport.readinessCheckName)?.detail,
+            "qwen2.5:0.5b: Available; qwen2.5-coder:7b: Available"
+        )
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
         XCTAssertEqual(check(r, OllamaLocalDoctorReport.reachableCheckName)?.detail, "reachable (0.32.6)")
         XCTAssertEqual(
             check(r, OllamaLocalDoctorReport.modelsCheckName)?.detail,
@@ -89,42 +104,102 @@ final class OllamaLocalDoctorReportTests: XCTestCase {
         )
         XCTAssertEqual(r.status, .ok)
         assertNoCapacityLanguage(r)
+        assertNoRetiredReadinessWords(r)
     }
 
-    func testBusyDoesNotLeakServedContextOrCapacityMeters() {
+    func testResidentDoesNotLeakServedContextOrCapacityMeters() {
         let snap = OllamaLocalRuntimeObserver.Snapshot(
-            readiness: .busy,
             observedAt: observedAt,
             ollamaVersion: "0.32.6",
             localTags: [.init(name: "qwen2.5:0.5b")],
             residentModels: [.init(name: "qwen2.5:0.5b", servedContextWindow: 4096)]
         )
         let r = build(snapshot: snap)
-        XCTAssertEqual(check(r, OllamaLocalDoctorReport.readinessCheckName)?.detail, "Busy")
+        XCTAssertEqual(
+            check(r, OllamaLocalDoctorReport.readinessCheckName)?.detail,
+            "qwen2.5:0.5b: Available"
+        )
         let ollamaDetails = r.checks
             .filter { $0.name.hasPrefix("source.ollama_local.") }
             .map(\.detail)
             .joined(separator: " ")
         XCTAssertFalse(ollamaDetails.contains("4096"), ollamaDetails)
         assertNoCapacityLanguage(r)
+        assertNoRetiredReadinessWords(r)
         XCTAssertEqual(paidFingerprint(r), paidFingerprint(build(snapshot: nil)))
     }
 
-    func testReadinessDetailIsExactlyOneOfThreeWords() {
-        for word in ["Unavailable", "Idle", "Busy"] {
-            let readiness = OllamaLocalRuntimeObserver.Readiness(rawValue: word)!
-            let snap = OllamaLocalRuntimeObserver.Snapshot(
-                readiness: readiness,
-                observedAt: observedAt,
-                ollamaVersion: word == "Unavailable" ? nil : "0.32.6",
-                localTags: word == "Unavailable" ? [] : [.init(name: "qwen2.5:0.5b")],
-                residentModels: word == "Busy" ? [.init(name: "qwen2.5:0.5b", servedContextWindow: 8192)] : []
-            )
-            let detail = OllamaLocalDoctorReport.checks(from: snap)
-                .first { $0.name == OllamaLocalDoctorReport.readinessCheckName }?
-                .detail
-            XCTAssertEqual(detail, word)
-        }
+    func testReadinessDetailIsExactlyAvailableOrUnavailablePerSeat() {
+        let pulled = OllamaLocalRuntimeObserver.snapshot(
+            observedAt: observedAt,
+            ollamaVersion: "0.32.6",
+            localTags: [.init(name: "qwen2.5:0.5b")],
+            residentModels: []
+        )
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: pulled, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: pulled, modelLabel: "ollama/gpt-oss:20b"),
+            "Unavailable"
+        )
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(
+                from: unavailableSnapshot(),
+                modelLabel: "ollama/qwen2.5:0.5b"
+            ),
+            "Unavailable"
+        )
+    }
+
+    func testOllamaDownMakesEveryCatalogLocalSeatUnavailable() {
+        let localA = Model(
+            id: "custom_claude_ollama_qwen",
+            displayName: "Qwen local",
+            modelLabel: "ollama/qwen2.5:0.5b",
+            driverId: "claude_code",
+            role: .answerer
+        )
+        let localB = Model(
+            id: "custom_claude_ollama_gptoss",
+            displayName: "gpt-oss local",
+            modelLabel: "ollama/gpt-oss:20b",
+            driverId: "claude_code",
+            role: .answerer
+        )
+        let r = DoctorReport.build(
+            models: models + [localA, localB],
+            manifests: manifests,
+            records: readyRecords,
+            inputs: inputs(snapshot: unavailableSnapshot())
+        )
+        XCTAssertEqual(
+            check(r, OllamaLocalDoctorReport.readinessCheckName)?.detail,
+            "qwen2.5:0.5b: Unavailable; gpt-oss:20b: Unavailable"
+        )
+    }
+
+    func testDoctorAndModelsSharePerSeatProjection() {
+        let snap = OllamaLocalRuntimeObserver.snapshot(
+            observedAt: observedAt,
+            ollamaVersion: "0.32.6",
+            localTags: [.init(name: "qwen2.5:0.5b")],
+            residentModels: [.init(name: "qwen2.5:0.5b", servedContextWindow: 8192)]
+        )
+        let doctor = OllamaLocalDoctorReport.readinessDetail(
+            from: snap,
+            localSeatLabels: ["ollama/qwen2.5:0.5b", "ollama/gpt-oss:20b"]
+        )
+        XCTAssertEqual(doctor, "qwen2.5:0.5b: Available; gpt-oss:20b: Unavailable")
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/gpt-oss:20b"),
+            "Unavailable"
+        )
     }
 
     func testOllamaLocalIsNotACapacityBenchSource() {
@@ -158,7 +233,6 @@ final class OllamaLocalDoctorReportTests: XCTestCase {
 
     private func unavailableSnapshot() -> OllamaLocalRuntimeObserver.Snapshot {
         OllamaLocalRuntimeObserver.Snapshot(
-            readiness: .unavailable,
             observedAt: observedAt,
             observeFailure: .version(.network("connection refused"))
         )
@@ -188,6 +262,15 @@ final class OllamaLocalDoctorReportTests: XCTestCase {
         for token in ["%", "vram", "5h", "weekly", "context"] {
             XCTAssertFalse(blob.contains(token), "capacity language leaked: \(token)\n\(blob)")
         }
+    }
+
+    private func assertNoRetiredReadinessWords(_ r: DoctorResult) {
+        let blob = r.checks
+            .filter { $0.name.hasPrefix("source.ollama_local.") }
+            .map(\.detail)
+            .joined(separator: "\n")
+        XCTAssertFalse(blob.contains("Idle"), blob)
+        XCTAssertFalse(blob.contains("Busy"), blob)
     }
 }
 

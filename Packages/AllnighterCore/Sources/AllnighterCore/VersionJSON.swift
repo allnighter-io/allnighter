@@ -104,12 +104,12 @@ import Foundation
 /// 9.17.0): optional `MenuJSON.benchTally` with agent `nextAction` when the
 /// bench was never scanned. Standard +0.0.1 batch bump.
 ///
-/// **1.0.1 → 1.1.0 (Ollama local seats closeout).** `contractVersion` took its
-/// major cut to 10.0.0 in the preceding ship batch. Founder rule: one binary
-/// minor bump (+0.1.0) when the contract takes a major cut. Documentation
-/// closeout only — no behavior change in this bump.
+/// **1.1.0 → 1.1.1 (local Ollama readiness).** `contractVersion` additive
+/// minor (10.0.0 → 10.1.0): local seat `readiness` is `Available` |
+/// `Unavailable` per seat. Idle/Busy cut — Busy inverted the word. Not a
+/// major cut, standard +0.0.1.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.0"
+    public static let binaryVersion = "1.1.1"
 }
 
 /// `alln version` / `alln --version` machine contract.

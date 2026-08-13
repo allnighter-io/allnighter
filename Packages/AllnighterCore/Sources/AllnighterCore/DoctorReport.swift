@@ -165,7 +165,13 @@ public enum DoctorReport {
         }
         checks.append(openCodeGoCapacityCheck(inputs: inputs))
         if let ollama = inputs.ollamaLocal {
-            checks.append(contentsOf: OllamaLocalDoctorReport.checks(from: ollama))
+            let localSeatLabels = models
+                .map(\.modelLabel)
+                .filter { OllamaLocalDoctorReport.isOllamaBackedSeat(modelLabel: $0) }
+            checks.append(contentsOf: OllamaLocalDoctorReport.checks(
+                from: ollama,
+                localSeatLabels: localSeatLabels
+            ))
         }
 
         // Cursor shell allowlist — read-only vendor config; never mutated.

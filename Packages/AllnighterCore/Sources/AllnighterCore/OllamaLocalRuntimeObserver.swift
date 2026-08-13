@@ -2,19 +2,13 @@ import Foundation
 
 /// Body-agnostic Ollama runtime observation.
 ///
-/// v1 readiness is three words only (`Unavailable` | `Idle` | `Busy`):
-/// loaded in `/api/ps` ⇒ Busy; reachable with local tags and nothing loaded ⇒
-/// Idle; down, unobserved, or no usable model ⇒ Unavailable.
-/// Unobserved never becomes a guessed Busy. Served context is the running
-/// model's `/api/ps` `context_length` only — never advertised `context_length`
-/// from tags or `details`.
+/// This type observes; it does not name product readiness. Seat readiness is
+/// projected in `OllamaLocalDoctorReport` (Available | Unavailable, per seat).
+/// `/api/ps` is still required: served context feeds the §7.3 gate and local
+/// `--pm` disclosure. Resident-in-memory is not a readiness word — Busy was
+/// cut because it inverted that word's meaning (resident is the fast case,
+/// and Ollama queues). Unobserved never becomes a guessed Available.
 public enum OllamaLocalRuntimeObserver {
-
-    public enum Readiness: String, Sendable, Equatable {
-        case unavailable = "Unavailable"
-        case idle = "Idle"
-        case busy = "Busy"
-    }
 
     public enum ObserveFailure: Sendable, Equatable {
         case version(OllamaLocalRuntimeClient.FetchFailure)
@@ -47,7 +41,6 @@ public enum OllamaLocalRuntimeObserver {
 
     public struct Snapshot: Sendable, Equatable {
         public let sourceId: String
-        public let readiness: Readiness
         public let observedAt: Date
         public let ollamaVersion: String?
         public let localTags: [LocalTag]
@@ -56,7 +49,6 @@ public enum OllamaLocalRuntimeObserver {
 
         public init(
             sourceId: String = OllamaLocalRuntimeClient.sourceId,
-            readiness: Readiness,
             observedAt: Date,
             ollamaVersion: String? = nil,
             localTags: [LocalTag] = [],
@@ -64,7 +56,6 @@ public enum OllamaLocalRuntimeObserver {
             observeFailure: ObserveFailure? = nil
         ) {
             self.sourceId = sourceId
-            self.readiness = readiness
             self.observedAt = observedAt
             self.ollamaVersion = ollamaVersion
             self.localTags = localTags
@@ -90,10 +81,10 @@ public enum OllamaLocalRuntimeObserver {
         case .success(let success):
             versionBody = success.data
         case .failure(let failure):
-            return unavailable(observedAt: observedAt, failure: .version(failure))
+            return failed(observedAt: observedAt, failure: .version(failure))
         }
         guard let ollamaVersion = parseVersion(versionBody) else {
-            return unavailable(observedAt: observedAt, failure: .unparseableVersion)
+            return failed(observedAt: observedAt, failure: .unparseableVersion)
         }
 
         let tagsResult = OllamaLocalRuntimeClient.get(
@@ -106,14 +97,14 @@ public enum OllamaLocalRuntimeObserver {
         case .success(let success):
             tagsBody = success.data
         case .failure(let failure):
-            return unavailable(
+            return failed(
                 observedAt: observedAt,
                 ollamaVersion: ollamaVersion,
                 failure: .tags(failure)
             )
         }
         guard let localTags = parseTags(tagsBody) else {
-            return unavailable(
+            return failed(
                 observedAt: observedAt,
                 ollamaVersion: ollamaVersion,
                 failure: .unparseableTags
@@ -130,7 +121,7 @@ public enum OllamaLocalRuntimeObserver {
         case .success(let success):
             psBody = success.data
         case .failure(let failure):
-            return unavailable(
+            return failed(
                 observedAt: observedAt,
                 ollamaVersion: ollamaVersion,
                 localTags: localTags,
@@ -138,7 +129,7 @@ public enum OllamaLocalRuntimeObserver {
             )
         }
         guard let residentModels = parsePs(psBody) else {
-            return unavailable(
+            return failed(
                 observedAt: observedAt,
                 ollamaVersion: ollamaVersion,
                 localTags: localTags,
@@ -154,23 +145,15 @@ public enum OllamaLocalRuntimeObserver {
         )
     }
 
-    /// Pure mapping: given already-parsed observations, never guesses Busy.
+    /// Pure assembly of already-parsed observations. Does not invent
+    /// availability — that is `OllamaLocalDoctorReport.readinessWord`.
     public static func snapshot(
         observedAt: Date,
         ollamaVersion: String,
         localTags: [LocalTag],
         residentModels: [ResidentModel]
     ) -> Snapshot {
-        let readiness: Readiness
-        if !residentModels.isEmpty {
-            readiness = .busy
-        } else if !localTags.isEmpty {
-            readiness = .idle
-        } else {
-            readiness = .unavailable
-        }
-        return Snapshot(
-            readiness: readiness,
+        Snapshot(
             observedAt: observedAt,
             ollamaVersion: ollamaVersion,
             localTags: localTags,
@@ -222,7 +205,7 @@ public enum OllamaLocalRuntimeObserver {
         return residents
     }
 
-    private static func unavailable(
+    private static func failed(
         observedAt: Date,
         ollamaVersion: String? = nil,
         localTags: [LocalTag] = [],
@@ -230,7 +213,6 @@ public enum OllamaLocalRuntimeObserver {
         failure: ObserveFailure
     ) -> Snapshot {
         Snapshot(
-            readiness: .unavailable,
             observedAt: observedAt,
             ollamaVersion: ollamaVersion,
             localTags: localTags,

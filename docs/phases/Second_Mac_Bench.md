@@ -93,7 +93,7 @@ laptop?" is: **not yet, and here is why** — not a design.
    egress sense. Those two meanings diverge here for the first time — packet 2
    §4 owns the resolution.
 3. What does capacity/readiness mean when the host is not this machine?
-   (Packet 1's `Unavailable | Idle | Busy` assumes `127.0.0.1`.)
+   (Packet 1's `Available | Unavailable` per seat assumes `127.0.0.1`.)
 
 ## 7. Done when
 

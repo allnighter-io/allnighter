@@ -24,44 +24,70 @@ final class OllamaLocalModelsReadinessTests: XCTestCase {
         modelLabel: "ollama/qwen2.5:0.5b",
         driverId: "opencode", role: .answerer, origin: .custom, defaultEnabled: true,
         capabilities: ModelCapabilities())
+    private let missingTag = ModelDefinition(
+        id: "custom_claude_ollama_gptoss", displayName: "gpt-oss local",
+        modelLabel: "ollama/gpt-oss:20b",
+        driverId: "claude_code", role: .answerer, origin: .custom, defaultEnabled: true,
+        capabilities: ModelCapabilities())
     private let paidOpenCode = ModelDefinition(
         id: "model_opencode_go", displayName: "Go seat", modelLabel: "opencode-go/kimi",
         driverId: "opencode", role: .answerer, origin: .builtIn, defaultEnabled: true,
         capabilities: ModelCapabilities())
 
     func testReadinessWordMatchesDoctorCheck() {
-        for word in ["Unavailable", "Idle", "Busy"] {
-            let snap = snapshot(word)
-            let doctor = OllamaLocalDoctorReport.checks(from: snap)
-                .first { $0.name == OllamaLocalDoctorReport.readinessCheckName }?
-                .detail
-            XCTAssertEqual(OllamaLocalDoctorReport.readinessWord(from: snap), doctor)
-            XCTAssertEqual(OllamaLocalDoctorReport.readinessWord(from: snap), word)
-        }
+        let snap = pulledSnapshot(resident: false)
+        let doctor = OllamaLocalDoctorReport.checks(from: snap)
+            .first { $0.name == OllamaLocalDoctorReport.readinessCheckName }?
+            .detail
+        let word = OllamaLocalDoctorReport.readinessWord(
+            from: snap, modelLabel: localClaude.modelLabel)
+        XCTAssertEqual(word, "Available")
+        XCTAssertEqual(doctor, "qwen2.5:0.5b: Available")
+        XCTAssertTrue(doctor?.contains(word) == true)
     }
 
-    func testLocalSeatShowsExactThreeWords() throws {
-        for word in ["Unavailable", "Idle", "Busy"] {
-            let list = build(snapshot: snapshot(word))
-            let row = try XCTUnwrap(list.models.first { $0.id == localClaude.id })
-            XCTAssertEqual(row.readiness, word)
-            XCTAssertEqual(try encoded(row)["readiness"] as? String, word)
-        }
+    func testLocalSeatShowsExactTwoWords() throws {
+        let available = build(snapshot: pulledSnapshot(resident: false))
+        let availableRow = try XCTUnwrap(available.models.first { $0.id == localClaude.id })
+        XCTAssertEqual(availableRow.readiness, "Available")
+        XCTAssertEqual(try encoded(availableRow)["readiness"] as? String, "Available")
+
+        let down = build(snapshot: downSnapshot())
+        let downRow = try XCTUnwrap(down.models.first { $0.id == localClaude.id })
+        XCTAssertEqual(downRow.readiness, "Unavailable")
+        XCTAssertEqual(try encoded(downRow)["readiness"] as? String, "Unavailable")
+    }
+
+    func testPerSeatNotPerRuntime() throws {
+        let list = build(snapshot: pulledSnapshot(resident: true), extra: [missingTag])
+        let pulled = try XCTUnwrap(list.models.first { $0.id == localClaude.id })
+        let missing = try XCTUnwrap(list.models.first { $0.id == missingTag.id })
+        XCTAssertEqual(pulled.readiness, "Available")
+        XCTAssertEqual(missing.readiness, "Unavailable")
+        XCTAssertEqual(
+            pulled.readiness,
+            OllamaLocalDoctorReport.readinessWord(from: pulledSnapshot(resident: true), modelLabel: localClaude.modelLabel)
+        )
+        XCTAssertEqual(
+            missing.readiness,
+            OllamaLocalDoctorReport.readinessWord(from: pulledSnapshot(resident: true), modelLabel: missingTag.modelLabel)
+        )
     }
 
     func testOpenCodeLocalSeatUsesSameProjection() throws {
-        let list = build(snapshot: snapshot("Busy"))
+        let snap = pulledSnapshot(resident: true)
+        let list = build(snapshot: snap)
         let row = try XCTUnwrap(list.models.first { $0.id == localOpenCode.id })
-        XCTAssertEqual(row.readiness, "Busy")
+        XCTAssertEqual(row.readiness, "Available")
         XCTAssertEqual(
             row.readiness,
-            OllamaLocalDoctorReport.readinessWord(from: snapshot("Busy"))
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: localOpenCode.modelLabel)
         )
     }
 
     func testPaidRowsDoNotChangeShapeWhenOllamaIsDown() throws {
         let baseline = build(snapshot: nil)
-        let absent = build(snapshot: snapshot("Unavailable"))
+        let absent = build(snapshot: downSnapshot())
 
         let paidIds = [paid.id, paidOpenCode.id]
         for id in paidIds {
@@ -89,19 +115,15 @@ final class OllamaLocalModelsReadinessTests: XCTestCase {
         }
     }
 
-    func testBusyDoesNotLeakServedContextOrCapacityLanguage() throws {
-        let snap = OllamaLocalRuntimeObserver.Snapshot(
-            readiness: .busy,
-            observedAt: observedAt,
-            ollamaVersion: "0.32.6",
-            localTags: [.init(name: "qwen2.5:0.5b")],
-            residentModels: [.init(name: "qwen2.5:0.5b", servedContextWindow: 4096)]
-        )
+    func testResidentDoesNotLeakServedContextOrCapacityLanguage() throws {
+        let snap = pulledSnapshot(resident: true)
         let list = build(snapshot: snap)
         let row = try XCTUnwrap(list.models.first { $0.id == localClaude.id })
-        XCTAssertEqual(row.readiness, "Busy")
+        XCTAssertEqual(row.readiness, "Available")
         let blob = try String(data: CoreJSON.encode(row), encoding: .utf8)!
         XCTAssertFalse(blob.contains("4096"), blob)
+        XCTAssertFalse(blob.contains("Idle"), blob)
+        XCTAssertFalse(blob.contains("Busy"), blob)
         let lower = blob.lowercased()
         for token in ["%", "vram", "5h", "weekly", "context", "quota", "reset"] {
             XCTAssertFalse(lower.contains(token), "capacity language leaked: \(token)\n\(blob)")
@@ -128,24 +150,34 @@ final class OllamaLocalModelsReadinessTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func build(snapshot: OllamaLocalRuntimeObserver.Snapshot?) -> ModelListJSON {
+    private func build(
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?,
+        extra: [ModelDefinition] = []
+    ) -> ModelListJSON {
         ModelListProjector.build(
             registry: registry,
-            definitions: [paid, localClaude, localOpenCode, paidOpenCode],
+            definitions: [paid, localClaude, localOpenCode, paidOpenCode] + extra,
             probeRecords: [],
             diagnostics: [],
             ollamaLocal: snapshot
         )
     }
 
-    private func snapshot(_ word: String) -> OllamaLocalRuntimeObserver.Snapshot {
-        let readiness = OllamaLocalRuntimeObserver.Readiness(rawValue: word)!
-        return OllamaLocalRuntimeObserver.Snapshot(
-            readiness: readiness,
+    private func pulledSnapshot(resident: Bool) -> OllamaLocalRuntimeObserver.Snapshot {
+        OllamaLocalRuntimeObserver.Snapshot(
             observedAt: observedAt,
-            ollamaVersion: word == "Unavailable" ? nil : "0.32.6",
-            localTags: word == "Unavailable" ? [] : [.init(name: "qwen2.5:0.5b")],
-            residentModels: word == "Busy" ? [.init(name: "qwen2.5:0.5b", servedContextWindow: 8192)] : []
+            ollamaVersion: "0.32.6",
+            localTags: [.init(name: "qwen2.5:0.5b")],
+            residentModels: resident
+                ? [.init(name: "qwen2.5:0.5b", servedContextWindow: 4096)]
+                : []
+        )
+    }
+
+    private func downSnapshot() -> OllamaLocalRuntimeObserver.Snapshot {
+        OllamaLocalRuntimeObserver.Snapshot(
+            observedAt: observedAt,
+            observeFailure: .version(.network("connection refused"))
         )
     }
 

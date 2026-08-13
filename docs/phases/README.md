@@ -190,7 +190,7 @@ Open questions:
 | `alln menu` hides seats / stale readiness / probe freshness | Archived [`Probe_Freshness.md`](../archive/phases/Probe_Freshness.md); code SSOT `ProbeFreshnessGate`, `ProbeRecordRefreshScheduler` |
 | `alln run` fails from Codex, handoff host missing, stale handoff work | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) |
 | Plan-time quota routing, loop park-yield, cross-vendor arbitrage | Archived [`Quota_Aware_Bench_Continuity.md`](../archive/phases/Quota_Aware_Bench_Continuity.md); vocabulary `Product_Vocabulary.md` §Quota-aware bench; code SSOT `LoopCoordinator.resolveCapacityPark`, `VendorBackoffReconciler` |
-| Ollama local seats (Claude Code and/or OpenCode; pipe on mini, sell to Studio; Idle/Busy readiness) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — v8, packet 1 of 3; ladder shipped; remaining Claude-local A / §11 B / OCL-S05; ignore Ollama Cloud |
+| Ollama local seats (Claude Code and/or OpenCode; pipe on mini, sell to Studio; Available/Unavailable per seat) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — v9, packet 1 of 3; ladder shipped; remaining Claude-local A / §11 B / OCL-S05; ignore Ollama Cloud |
 | Context firewall / egress policy / "keep the frontier model away from my source" | [`Context_Firewall.md`](Context_Firewall.md) — packet 2 of 3; *auditable, never sanitised*; root-less dispatch undesigned |
 | Second Mac, Studio in the office, LAN, remote `OLLAMA_HOST` | [`Second_Mac_Bench.md`](Second_Mac_Bench.md) — packet 3 of 3; fence, not a plan |
 | OpenCode serve busy / leftover :4096 after `alln run` | Core execution broken, team research/execution lies | Code SSOT: `RunService.swift`, `TeamCatalog`, `RunWriteLockRegistry` |

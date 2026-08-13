@@ -451,4 +451,25 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertNil(HelpRef.parse("https://example.com"))
         XCTAssertNil(HelpRef.parse("alln://bogus/x"))
     }
+
+    func testLocalOllamaHelpTeachesPerSeatAvailableUnavailable() throws {
+        let isolation = try XCTUnwrap(HelpTopicRegistry.topic(id: "claude_local_isolation"))
+        let setup = try XCTUnwrap(HelpTopicRegistry.topic(id: "opencode_local_setup"))
+        let loop = try XCTUnwrap(HelpTopicRegistry.topic(id: "loop"))
+        let localDev = try XCTUnwrap(loop.sections.first { $0.id == "local-dev" })
+        for (id, prose) in [
+            (isolation.id, isolation.bodyMarkdown),
+            (setup.id, setup.bodyMarkdown),
+            ("loop/local-dev", localDev.bodyMarkdown),
+        ] {
+            XCTAssertTrue(prose.contains("Available"), "\(id) must teach Available")
+            XCTAssertTrue(prose.contains("Unavailable"), "\(id) must teach Unavailable")
+            XCTAssertTrue(prose.contains("Idle"), "\(id) must name Idle as retired")
+            XCTAssertTrue(prose.contains("Busy"), "\(id) must name Busy as retired")
+            XCTAssertFalse(prose.contains("| Idle |"), "\(id) must not keep three-state law")
+        }
+        XCTAssertTrue(isolation.bodyMarkdown.contains("per seat"))
+        XCTAssertTrue(isolation.bodyMarkdown.contains("inverted"))
+        XCTAssertTrue(isolation.bodyMarkdown.contains("alln capacity"))
+    }
 }

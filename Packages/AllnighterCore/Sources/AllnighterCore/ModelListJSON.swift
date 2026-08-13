@@ -40,9 +40,10 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
         public var stale: Bool
         /// Catalog pin this latest-pointer resolved to. Omitted on pins and aliases.
         public var resolvesTo: String?
-        /// OCL-S04 — local Ollama seats only. Exactly `Unavailable` | `Idle` |
-        /// `Busy` from `OllamaLocalDoctorReport.readinessWord`. Omitted on paid
-        /// seats so their JSON shape does not change when Ollama is down.
+        /// OCL-S04 — local Ollama seats only. Exactly `Available` |
+        /// `Unavailable` from `OllamaLocalDoctorReport.readinessWord` for this
+        /// seat (reachable + this tag pulled). Omitted on paid seats so their
+        /// JSON shape does not change when Ollama is down.
         public var readiness: String?
 
         public init(

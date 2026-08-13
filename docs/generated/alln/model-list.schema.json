@@ -138,9 +138,8 @@
         },
         "readiness" : {
           "enum" : [
-            "Unavailable",
-            "Idle",
-            "Busy"
+            "Available",
+            "Unavailable"
           ],
           "type" : "string"
         },

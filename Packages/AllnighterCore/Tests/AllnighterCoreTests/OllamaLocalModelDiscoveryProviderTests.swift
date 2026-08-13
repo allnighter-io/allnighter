@@ -51,7 +51,6 @@ final class OllamaLocalModelDiscoveryProviderTests: XCTestCase {
 
     func testUnreachableYieldsNoCandidates() {
         let snapshot = OllamaLocalRuntimeObserver.Snapshot(
-            readiness: .unavailable,
             observedAt: now,
             observeFailure: .version(.timeout)
         )

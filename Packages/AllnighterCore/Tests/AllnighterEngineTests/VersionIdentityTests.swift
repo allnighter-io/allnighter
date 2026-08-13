@@ -38,9 +38,10 @@ final class VersionIdentityTests: XCTestCase {
     /// contract bump; see `VersionJSON.swift` release note). Launch:
     /// 0.12.6 → 1.0.0 (first public release identity; see `VersionJSON.swift`
     /// release note). 1.0.1 → 1.1.0: contract major cut to 10.0.0 (founder
-    /// +0.1.0 rule; Ollama local seats documentation closeout).
+    /// +0.1.0 rule; Ollama local seats documentation closeout). 1.1.0 → 1.1.1:
+    /// additive contract 10.1.0 (per-seat Available/Unavailable).
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.1.0")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.1.1")
     }
 
     /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at

@@ -86,7 +86,10 @@ public enum ModelListProjector {
             let readiness: String?
             if let snap = ollamaLocal,
                OllamaLocalDoctorReport.isOllamaBackedSeat(modelLabel: def.modelLabel) {
-                readiness = OllamaLocalDoctorReport.readinessWord(from: snap)
+                readiness = OllamaLocalDoctorReport.readinessWord(
+                    from: snap,
+                    modelLabel: def.modelLabel
+                )
             } else {
                 readiness = nil
             }

@@ -39,7 +39,6 @@ final class LoopLocalSeatPolicyTests: XCTestCase {
 
     func testLocalLeadDisclosureIncludesServedContextWhenKnown() {
         let snapshot = OllamaLocalRuntimeObserver.Snapshot(
-            readiness: .busy,
             observedAt: Date(),
             ollamaVersion: "0.32.6",
             residentModels: [
@@ -57,7 +56,6 @@ final class LoopLocalSeatPolicyTests: XCTestCase {
 
     func testUnobservedServedContextIsOmittedNotGuessed() {
         let snapshot = OllamaLocalRuntimeObserver.Snapshot(
-            readiness: .idle,
             observedAt: Date(),
             ollamaVersion: "0.32.6",
             residentModels: []

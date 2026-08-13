@@ -291,7 +291,7 @@ public enum HelpTopicRegistry {
                 .init("ceilings", "Stopping", "`--until HH:MM`, `--max-rounds`, and a stagnation cap (repeated no-change rounds) are hard stops — the loop always ends on done, escalate, or a ceiling."),
                 .init("resume", "Escalation is not failure", "An escalated loop is a real question for the founder, not an error. `loop resume <loop-id> --answer <text>` injects the answer and the loop continues from there."),
                 .init("stop", "Founder stop of a Loop", "`loop stop <loop-id>` abandons the loop: identity-checked teardown, durable `stopped` with reason founder stopped, and a PM Turn on transition. Idempotent on already done/stopped. Not ownership kill."),
-                .init("local-dev", "Local execution seat", "`alln loop start \"…\" --pm <frontier-id> --dev <local-ollama-id>` is the packet headline: a frontier seat plans, a local Ollama-backed seat executes, under the same per-root write lock. An explicit `--pm` pin of a local Ollama-backed seat is allowed: Allnighter discloses local provenance and the served context window if known, once, then proceeds. Failure is the common case. Allnighter stamps `roundLog.executionOutcome` from worker status, repo delta, and proofs — never from the seat's report. A local seat that claims \"ready for review\" while proofs fail (or the tree did not move) is `failed` for the lead to act on, not a silent or false success."),
+                .init("local-dev", "Local execution seat", "`alln loop start \"…\" --pm <frontier-id> --dev <local-ollama-id>` is the packet headline: a frontier seat plans, a local Ollama-backed seat executes, under the same per-root write lock. An explicit `--pm` pin of a local Ollama-backed seat is allowed: Allnighter discloses local provenance and the served context window if known, once, then proceeds. Local readiness is Available or Unavailable per seat (reachable + that tag pulled) — not a capacity meter, and not Idle/Busy. Failure is the common case. Allnighter stamps `roundLog.executionOutcome` from worker status, repo delta, and proofs — never from the seat's report. A local seat that claims \"ready for review\" while proofs fail (or the tree did not move) is `failed` for the lead to act on, not a silent or false success."),
                 .init("pm", "Reassign the PM chair mid-loop", "Hold the first rounds yourself while context is hot, then `loop pm <loop-id> <agent-id>` converts a parked caller-held loop (`awaitingPM` or `escalated`) to a spawned PM and keeps going from the durable round log — same id, same rounds, same thread. The reverse, `loop pm <loop-id> caller`, hands a parked spawned loop (escalated, or ceiling-stopped) back to the caller — a plain state flip, no dispatch."),
                 .init("golden", "Golden paths (day one)", "Attended: `alln menu --json` → `alln run` → `alln artifact show`. Unattended: `alln loop start \"<what you want done>\"` → `loop status <loop-id> --json` (or wait for a macOS notification). Status reads reconcile dead owners automatically — no manual `team reconcile` on the happy path. Default `alln ps` shows the alive floor; `alln ps --all` is history."),
                 .init("notify", "You do not have to watch", "Continuity is the supervised LaunchAgent (`alln install-cli` / `alln serve enable`), not a silent spawn from loop dispatch. When a round lands or escalates — even with the Mac app closed and the CLI session that dispatched it long gone — a local notification fires: \"Loop needs an answer\" on escalation, or the normal completion notice when it settles. Stream silence on a running loop also notifies when agent output stalls. Neither you nor the human has to poll `loop status` or build a watcher for this; `alln serve` already knows. If serve is unhealthy, `alln serve repair` converges the supervised agent."),
@@ -637,6 +637,10 @@ public enum HelpTopicRegistry {
             This does not seat models on the Allnighter bench and does not configure \
             Claude-local. `alln opencode-local status` still reads opencode.json only \
             and never contacts Ollama.
+
+            After seating, `alln models` / `alln doctor` show local readiness per \
+            seat: Available or Unavailable (Ollama reachable and that tag pulled). \
+            Not Idle/Busy, not a capacity row.
             """,
             aliases: [
                 "ollama opencode", "opencode ollama", "enabled_providers",
@@ -668,6 +672,15 @@ public enum HelpTopicRegistry {
             Anthropic rate limit, park, backoff, or substitution. Claude's \
             `costUSD`, fake 200k `contextWindow`, and `provider: firstParty` are \
             stripped and are not treated as vendor truth.
+
+            Local Ollama readiness is **per seat**, two words only: **Available** or \
+            **Unavailable**. A seat is Available when Ollama is reachable and that \
+            seat's tag is pulled locally. Ollama down makes every local seat \
+            Unavailable. Failure to observe is not Available. This is not a capacity \
+            meter and does not appear on `alln capacity`. Idle and Busy were the \
+            old three-word surface; **Busy was cut because it inverted the word** — \
+            a model resident in memory is the fast case, and Ollama queues; Busy \
+            never meant the seat would refuse work.
 
             Do not export those env vars in your shell. Do not edit Claude settings \
             to point at localhost. Allnighter does not read Keychain.

@@ -56,8 +56,11 @@ public extension ContractRegistry {
     // OCL-S02b: minor — `claude-local status` (per-run Anthropic-compat env
     // isolation + meter strip; never writes shell/Claude settings).
     // OCL-S04: minor — `alln models` local Ollama seats gain optional
-    // `readiness` (Unavailable|Idle|Busy); paid rows omit the key. Not a
-    // capacity strip seat; `ollama_local` stays out of `benchSourceOrder`.
+    // `readiness` (Available|Unavailable, per seat); paid rows omit the key.
+    // Not a capacity strip seat; `ollama_local` stays out of `benchSourceOrder`.
+    // 2026-08-13: minor — cut Idle/Busy; Busy inverted the word (resident is
+    // the fast case; Ollama queues). Per-seat Available iff reachable + tag
+    // pulled. Failure to observe is not Available.
     // OCL-S07: minor — loop `--dev` may be a local Ollama seat; explicit `--pm`
     // of a local seat discloses provenance (and served context if known) and
     // proceeds (never refuses). roundLog.executionOutcome is Allnighter-owned
@@ -66,7 +69,7 @@ public extension ContractRegistry {
     // `--pm` pin is owner intent; sensors inform, never block).
     // OCL-S08: minor — `sweep start|resume|status` (one order × N targets,
     // checkpointed, resumable; per-target done|failed|not-attempted).
-    static let contractVersion = "10.0.0"
+    static let contractVersion = "10.1.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -1704,7 +1707,7 @@ public extension ContractRegistry {
         ),
         DoctorCheckSpec(
             "source.ollama_local.readiness",
-            meaning: "Local Ollama readiness: Unavailable, Idle, or Busy. Never a capacity meter."
+            meaning: "Per-seat local Ollama readiness: Available or Unavailable. Never a capacity meter."
         ),
         DoctorCheckSpec("source.<sourceId>.auth", meaning: "Source auth appears valid when safely probeable."),
         DoctorCheckSpec("source.<sourceId>.headlessTrust", meaning: "Headless trust/mutation posture is declared for sources that require it."),

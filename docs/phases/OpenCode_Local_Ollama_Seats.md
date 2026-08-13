@@ -8,8 +8,8 @@ Status: **Ladder built and dogfooded live (2026-08-13).** OpenCode-local Works
   supersedes any local-cannot-lead reading). Live dogfood §0.3; bakeoff §0.4;
   2026-08-13 findings §0.6.
   **Workflows and market segments: §2.4–§2.8 — the reason this packet exists.**
-Revised: 2026-08-13 (v8 — slice ladder shipped; packet updated to match
-  reality; remaining: Claude-local A, §11 B, OCL-S05)
+Revised: 2026-08-13 (v9 — two-state per-seat readiness; Busy cut because it
+  inverted the word. Remaining: Claude-local A, §11 B, OCL-S05)
 
 Owner: unassigned (AllnighterCore catalog + model discovery; AgentOS for
 OpenCode serve attach / local turn timing / Claude-local env isolation as scoped)
@@ -80,13 +80,9 @@ machines are unmeasured. Do not project a number.
 1. **Readiness, not capacity strip.** Local availability is **not**
    `benchSourceOrder` / subscription capacity. `Product_Vocabulary.md` capacity
    stays vendor-printed quota. Local surface: `alln models` / `doctor`.
-2. **v1 readiness states are three words only:**
-   `Unavailable` | `Idle` | `Busy`.
-   No VRAM %, no fake 5h/weekly meters, no context gauges in v1 UI. Prefer
-   observed `ollama ps` / `/api/ps` (loaded ⇒ Busy; reachable + nothing loaded ⇒
-   Idle; down / no usable model ⇒ Unavailable). Unobserved ⇒ Unavailable, never
-   a guessed Busy. (**Busy = resident in memory**, not “currently inferring” —
-   Spec Review: `keep_alive` keeps models loaded after idle.)
+2. **~~v1 readiness states are three words only: `Unavailable` | `Idle` |
+   `Busy`.~~ Superseded 2026-08-13 (§0.1.15).** Do not implement Idle or Busy.
+   Local readiness is two states only, **per seat:** Available or Unavailable.
 3. **Signal id:** `ollama_local` (attribution only — not a strip seat).
 4. **Dogfood hardware split:** Prove the **pipe** on **any Apple Silicon on the
    desk** (Air / mini). Studio is ICP/sales, not a build gate.
@@ -163,6 +159,29 @@ machines are unmeasured. Do not project a number.
     `roundLog.executionOutcome` stays Allnighter-owned measurement of what
     happened, for paid and local seats alike — that is not a judgment about who
     is allowed to work.
+
+**2026-08-13 (readiness — two states, per seat)**
+
+15. **Cut the three readiness words.** Local Ollama readiness is two states
+    only: **Available** or **Unavailable**. **Busy is removed.** Scope is
+    **per seat**, not per runtime: a seat is Available when Ollama is
+    reachable **and** that seat's tag is pulled locally. Ollama down makes
+    every local seat Unavailable — no special casing. Failure to observe is
+    not Available; never a guessed Available (that law stands). Keep calling
+    `/api/ps`: served context still feeds the §7.3 gate and the local `--pm`
+    disclosure. Removing Busy does not remove the probe. Local readiness
+    stays out of the capacity strip and `benchSourceOrder`. Do **not** add a
+    latency or warm/cold indicator; if that is ever wanted it must be
+    labelled latency and measured, not smuggled back in as a state word.
+    S01b doctor and S04 models go through **one** projection.
+
+    **Why Busy was cut (not a simplification):** Busy meant a model resident
+    in memory, and resident is the **fast** state. Measured on this host
+    2026-08-13: warm first-byte **0.6s**, cold **20.9s**. So Busy read as a
+    scarcity warning while actually marking the quickest case, and Idle
+    marked the slow one. Busy also never meant work would be refused —
+    Ollama queues. The word gated no decision and inverted the meaning it
+    borrowed from vendor capacity. That is why it goes.
 
 ### 0.1.1a Order of execution (founder, 2026-08-09)
 
@@ -359,13 +378,14 @@ the Allnighter run path.
 | Works Test **A** (Claude-local)? | **Not yet** — isolation code shipped (`567acaee`); still needs its own A proof. |
 | Works Test **B**? | **Unproven on this hardware.** Do not claim Studio-class capability. |
 | OCL-S05 (slow-load timing)? | **Unbuilt.** Measured on this host: gpt-oss:20b cold **20.9s** vs 120s first-activity budget; warm **0.6s**. Larger models on larger machines are unmeasured — do not project a number. |
-| Do we know the architecture? | **Yes:** Ollama = inference; bodies = Claude Code **and** OpenCode; readiness Idle/Busy outside capacity strip; signal `ollama_local`. Explicit local `--pm` allowed (§0.1.14). |
+| Do we know the architecture? | **Yes:** Ollama = inference; bodies = Claude Code **and** OpenCode; readiness Available/Unavailable per seat, outside capacity strip; signal `ollama_local`. Explicit local `--pm` allowed (§0.1.14). |
 
 ### 0.5 Blocker list (2026-08-13 — closed vs remaining)
 
 **Closed in this ship batch** (do not re-open as “unauthorized”):
 
-1. Spec Review leans in code: Busy = resident; discovery list-all / enable-none;
+1. Spec Review leans in code: two-state per-seat Available/Unavailable
+   (Busy cut — it inverted the word; §0.1.15); discovery list-all / enable-none;
    ≥64k automatic Code gate with warn-and-allow on explicit pin (S01–S04, S03).
 2. `--no-commit` + dirty ⇒ false `completedWithoutChanges` — **fixed**
    `7a7f8117`.
@@ -424,10 +444,10 @@ whole to [`Context_Firewall.md`](Context_Firewall.md). Second Mac / LAN moved to
 asymmetry, the segment read, sweep, two-tier teams, and the horizon argument,
 and returns to a shippable scope: **detect · seat · honest run · both bodies**.
 
-What v8 changed (2026-08-13): packet matches shipped reality. Ladder S01–S04,
-S07–S08 built and dogfooded; honesty / Zen-scope / leftover-serve / cloud-tag
-and cloud-ps / local `--pm` veto removal recorded; G1/G2/G3 findings on this
-host; OCL-S05 measured not assumed; Works Test A/B honesty.
+What v9 changed (2026-08-13): founder cut Idle/Busy. Readiness is Available |
+Unavailable per seat. Busy inverted the word (resident = fast, 0.6s warm vs
+20.9s cold; Ollama queues). `/api/ps` stays for served context. No latency
+indicator. Doctor and models share one projection.
 
 ### 0.6 Live findings (2026-08-13) — several packet claims were already correct
 
@@ -486,7 +506,7 @@ Trusted workflow slice (target):
 ollama serve + tool-capable model pulled (passes G0; Code seats also G1)
   → Allnighter detects Ollama and lists local models (tools? context?)
   → user enables a local seat on a chosen body (claude_code | opencode)
-  → provenance: local (ollama_local); readiness: Unavailable | Idle | Busy
+  → provenance: local (ollama_local); readiness: Available | Unavailable (per seat)
   → alln run "…" --model <local_model_id> --json
   → agent body (tools / FS / shell) + Ollama inference
   → honest completion or honest failure; never a subscription meter
@@ -896,7 +916,7 @@ serve-busy.
 | --- | --- | --- |
 | OpenCode remote (Go / Zen) | Vendor plan models | Subscription windows via `opencode_go` |
 | Claude / Anthropic paid | Vendor plan models | Existing Claude capacity story |
-| **Local Ollama** (any body) | Models pulled on this Mac | Unavailable \| Idle \| Busy |
+| **Local Ollama** (any body) | Models pulled on this Mac | Available \| Unavailable (per seat) |
 | Ollama Cloud | **Out of packet** | Do not ship |
 
 A locally computed VRAM, load, or context reading is never presented as a
@@ -974,7 +994,7 @@ attribution must survive whatever boundary policy is in force.
 | OpenCode: ensure `11434/v1` provider | Setup verb — **merge** `enabled_providers` + `provider.ollama` |
 | Claude-local: per-run Anthropic-compat env | AgentOS / `claude_code` spawn path — isolation + meter strip |
 | Dispatch | Existing `opencode` / `claude_code` drivers |
-| Readiness surface | `alln models` / `doctor` — three states only |
+| Readiness surface | `alln models` / `doctor` — Available \| Unavailable per seat |
 | Capacity strip row | **Cancelled for v1** |
 | Sweep queue: N targets, checkpoint, resume | Run/artifact layer; reuses run ids + `ArtifactProjector` |
 
@@ -999,11 +1019,11 @@ unauthorized flag.
 | --- | --- | --- |
 | **OCL-S00** | **DONE (2026-08-07).** OpenCode-local pipe PASS on Air with `0.5b` — §0.3. | **None** |
 | **OCL-S00b** | Bakeoff recorded (§0.4). Claude G2 mutate PASS on `0.5b`; gates defined. | **None** |
-| **OCL-S01** | Detect + doctor: Ollama reachable; list local models; readiness Unavailable/Idle/Busy (**body-agnostic**) | **DONE** — S01a observer `709c376a`; S01b doctor `92e1159f` |
+| **OCL-S01** | Detect + doctor: Ollama reachable; list local models; readiness Available/Unavailable per seat (**body-agnostic**) | **DONE** — S01a observer `709c376a`; S01b doctor `92e1159f`; two-state per-seat 2026-08-13 |
 | **OCL-S02a** | Setup verb: additive OpenCode provider wiring, reversible, non-clobbering | **DONE** — `fab645bf`; setup registers tags `b02304e0` |
 | **OCL-S02b** | Claude-local: per-run env isolation + meter strip + seating path | **DONE in code** `567acaee`. Works Test **A for Claude-local still outstanding.** |
 | **OCL-S03** | `ModelDiscoveryProvider` for Ollama tags → opt-in seats, `.discovered`, local provenance; body chosen at enable | **DONE** `90151f66`; gate-2 cloud filter `cfb32fe7` |
-| **OCL-S04** | Readiness surface in `alln models` / `doctor` — three states only | **DONE** `9818d8da` |
+| **OCL-S04** | Readiness surface in `alln models` / `doctor` — Available/Unavailable per seat | **DONE** `9818d8da`; two-state 2026-08-13 |
 | **OCL-S05** | Turn timing for slow local loads — **only if measured** | **UNBUILT.** Measured on this host, not assumed: gpt-oss:20b cold **20.9s** vs 120s first-activity budget; warm **0.6s**. Larger models on larger machines unmeasured. Do not project a number. |
 | ~~**OCL-S06**~~ | ~~Capacity strip row~~ — **cancelled for v1** | — |
 | **OCL-S07** | **Loop with a local execution seat, end to end** — frontier lead plans, local seat mutates under the per-root write lock (§2.6.2). Explicit `--pm` of a local seat discloses provenance + served context once and proceeds (never refuses). | **DONE** `dbef460c`; PM veto removal `ab86226e` |
@@ -1100,7 +1120,8 @@ unproven on this hardware.**
 
 ## 13. Open questions (remaining)
 
-**Closed by founder:** capacity vs readiness; Idle/Busy; `ollama_local`; mini
+**Closed by founder:** capacity vs readiness; two-state per-seat Available/
+Unavailable (Busy cut 2026-08-13 — it inverted the word); `ollama_local`; mini
 proves pipe / Studio ICP; OCL-S00; Ollama Cloud / LAN out; **both agent bodies**;
 model gate ladder; dev-builds-only until ready.
 
@@ -1149,8 +1170,8 @@ Still open (Spec Review may recommend; founder decides):
       skipped (§11 D + OCL-S08)** — `6dcb1982`
 - [x] No leaderboard, tok/s figure, or model-vs-model verdict ships (§4)
 - [ ] Promote keepable law; archive this packet — remaining: Claude-local **A**,
-      §11 **B**, OCL-S05 (unbuilt; measured not assumed). This v8 revision
-      records shipped reality; archive when those three are honest or waived.
+      §11 **B**, OCL-S05 (unbuilt; measured not assumed). This v9 revision
+      records two-state per-seat readiness; archive when those three are honest or waived.
 
 ---
 

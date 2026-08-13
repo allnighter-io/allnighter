@@ -5,80 +5,102 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
 
     private let observedAt = Date(timeIntervalSince1970: 1_754_000_000)
 
-    // MARK: - Readiness mapping
+    // MARK: - Observation (readiness is projected per seat, not here)
 
-    func testResidentModelIsBusy() {
+    func testResidentModelStillCallsPsAndKeepsServedContext() {
         let transport = FixtureTransport(bodies: [
             Self.versionJSON,
             Self.tagsJSON(names: ["qwen2.5:0.5b"]),
             Self.psJSON(residents: [("qwen2.5:0.5b", 4096)]),
         ])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .busy)
         XCTAssertEqual(snap.sourceId, "ollama_local")
         XCTAssertEqual(snap.ollamaVersion, "0.32.6")
         XCTAssertEqual(snap.residentModels.map(\.name), ["qwen2.5:0.5b"])
         XCTAssertEqual(snap.residentModels.first?.servedContextWindow, 4096)
         XCTAssertNil(snap.observeFailure)
         XCTAssertEqual(transport.requestedPaths, ["/api/version", "/api/tags", "/api/ps"])
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
     }
 
-    func testReachableWithTagsAndEmptyPsIsIdle() {
+    func testReachableWithTagsAndEmptyPsStillCallsPs() {
         let transport = FixtureTransport(bodies: [
             Self.versionJSON,
             Self.tagsJSON(names: ["qwen2.5:0.5b", "qwen2.5-coder:7b"]),
             Self.psJSON(residents: []),
         ])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .idle)
         XCTAssertEqual(snap.localTags.map(\.name), ["qwen2.5:0.5b", "qwen2.5-coder:7b"])
         XCTAssertTrue(snap.residentModels.isEmpty)
         XCTAssertNil(snap.observeFailure)
+        XCTAssertEqual(transport.requestedPaths.last, "/api/ps")
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/missing:1b"),
+            "Unavailable"
+        )
     }
 
-    func testReachableWithNoTagsAndEmptyPsIsUnavailable() {
+    func testReachableWithNoTagsAndEmptyPsYieldsNoAvailableSeat() {
         let transport = FixtureTransport(bodies: [
             Self.versionJSON,
             Self.tagsJSON(names: []),
             Self.psJSON(residents: []),
         ])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
         XCTAssertEqual(snap.ollamaVersion, "0.32.6")
         XCTAssertNil(snap.observeFailure)
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Unavailable"
+        )
     }
 
-    func testResidentWithoutTagsIsStillBusy() {
+    func testResidentWithoutTagsIsStillObservedAndAvailableForThatSeat() {
         let transport = FixtureTransport(bodies: [
             Self.versionJSON,
             Self.tagsJSON(names: []),
             Self.psJSON(residents: [("qwen2.5:0.5b", 4096)]),
         ])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .busy)
         XCTAssertEqual(snap.residentModels.first?.servedContextWindow, 4096)
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
     }
 
-    // MARK: - Fail closed / never guess Busy
+    // MARK: - Fail closed / never guess Available
 
-    func testTransportErrorIsUnavailableNotBusy() {
+    func testTransportErrorIsUnavailableNotGuessedAvailable() {
         let transport = FixtureTransport(error: URLError(.cannotConnectToHost))
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
-        XCTAssertNotEqual(snap.readiness, .busy)
         guard case .version(.network) = snap.observeFailure else {
             XCTFail("expected version network failure, got \(String(describing: snap.observeFailure))")
             return
         }
         XCTAssertTrue(snap.residentModels.isEmpty)
         XCTAssertEqual(transport.requestedPaths, ["/api/version"])
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Unavailable"
+        )
     }
 
     func testTimeoutIsUnavailable() {
         let transport = FixtureTransport(error: URLError(.timedOut))
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
         XCTAssertEqual(snap.observeFailure, .version(.timeout))
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Unavailable"
+        )
     }
 
     func testHttpErrorOnVersionIsUnavailable() {
@@ -86,11 +108,14 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
             "/api/version": 500,
         ])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
         XCTAssertEqual(snap.observeFailure, .version(.httpError(statusCode: 500)))
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Unavailable"
+        )
     }
 
-    func testPsFailureAfterHealthyVersionAndTagsIsUnavailableNotIdle() {
+    func testPsFailureKeepsTagsAndStillCallsPs() {
         let transport = FixtureTransport(
             bodies: [
                 Self.versionJSON,
@@ -99,11 +124,14 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
             statusByPath: ["/api/ps": 500]
         )
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
-        XCTAssertNotEqual(snap.readiness, .idle)
-        XCTAssertNotEqual(snap.readiness, .busy)
         XCTAssertEqual(snap.localTags.map(\.name), ["qwen2.5:0.5b"])
         XCTAssertEqual(snap.observeFailure, .ps(.httpError(statusCode: 500)))
+        XCTAssertEqual(transport.requestedPaths, ["/api/version", "/api/tags", "/api/ps"])
+        XCTAssertTrue(snap.residentModels.isEmpty)
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
     }
 
     func testTagsFailureIsUnavailable() {
@@ -112,35 +140,47 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
             statusByPath: ["/api/tags": 503]
         )
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
         XCTAssertEqual(snap.observeFailure, .tags(.httpError(statusCode: 503)))
         XCTAssertEqual(transport.requestedPaths, ["/api/version", "/api/tags"])
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Unavailable"
+        )
     }
 
     func testMalformedVersionJSONIsUnavailable() {
         let transport = FixtureTransport(bodies: ["not-json"])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
         XCTAssertEqual(snap.observeFailure, .unparseableVersion)
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Unavailable"
+        )
     }
 
     func testMalformedTagsJSONIsUnavailable() {
         let transport = FixtureTransport(bodies: [Self.versionJSON, "{]"])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
         XCTAssertEqual(snap.observeFailure, .unparseableTags)
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Unavailable"
+        )
     }
 
-    func testMalformedPsJSONIsUnavailableNotBusy() {
+    func testMalformedPsJSONRecordsFailureWithoutGuessingServedContext() {
         let transport = FixtureTransport(bodies: [
             Self.versionJSON,
             Self.tagsJSON(names: ["qwen2.5:0.5b"]),
             "[]",
         ])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
         XCTAssertEqual(snap.observeFailure, .unparseablePs)
         XCTAssertTrue(snap.residentModels.isEmpty)
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
     }
 
     // MARK: - Served context vs advertised
@@ -155,7 +195,6 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
             Self.psJSON(residents: [("qwen2.5:0.5b", 4096)]),
         ])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .busy)
         XCTAssertEqual(snap.localTags, [.init(name: "qwen2.5:0.5b")])
         XCTAssertEqual(snap.residentModels.first?.servedContextWindow, 4096)
         XCTAssertNotEqual(snap.residentModels.first?.servedContextWindow, 131072)
@@ -269,7 +308,7 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
         XCTAssertEqual(parsed, [.init(name: "qwen3:8b", servedContextWindow: 8192)])
     }
 
-    func testCloudOnlyTagsYieldUnavailableNotIdle() {
+    func testCloudOnlyTagsYieldUnavailableSeats() {
         let tags = """
         {"models":[{"name":"gpt-oss:120b-cloud","remote_host":"ollama.com"}]}
         """
@@ -279,9 +318,12 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
             Self.psJSON(residents: []),
         ])
         let snap = observe(transport)
-        XCTAssertEqual(snap.readiness, .unavailable)
         XCTAssertTrue(snap.localTags.isEmpty)
         XCTAssertNil(snap.observeFailure)
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/gpt-oss:120b-cloud"),
+            "Unavailable"
+        )
     }
 
     // MARK: - Loopback binding
@@ -318,7 +360,10 @@ final class OllamaLocalRuntimeObserverTests: XCTestCase {
             residentModels: []
         )
         XCTAssertEqual(snap.sourceId, "ollama_local")
-        XCTAssertEqual(snap.readiness, .idle)
+        XCTAssertEqual(
+            OllamaLocalDoctorReport.readinessWord(from: snap, modelLabel: "ollama/qwen2.5:0.5b"),
+            "Available"
+        )
     }
 
     // MARK: - Helpers

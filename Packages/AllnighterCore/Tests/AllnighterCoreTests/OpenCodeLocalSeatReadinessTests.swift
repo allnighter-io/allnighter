@@ -103,7 +103,6 @@ final class OpenCodeLocalSeatReadinessTests: XCTestCase {
             lastProbeAt: now
         )
         let down = OllamaLocalRuntimeObserver.Snapshot(
-            readiness: .unavailable,
             observedAt: observedAt,
             ollamaVersion: nil,
             localTags: [],
@@ -195,7 +194,7 @@ final class OpenCodeLocalSeatReadinessTests: XCTestCase {
         let goRow = try XCTUnwrap(list.models.first { $0.id == go.id })
         XCTAssertEqual(localRow.status, "ready")
         XCTAssertTrue(localRow.ready)
-        XCTAssertEqual(localRow.readiness, "Idle")
+        XCTAssertEqual(localRow.readiness, "Available")
         XCTAssertEqual(goRow.status, "notReady")
         XCTAssertFalse(goRow.ready)
         XCTAssertNil(goRow.readiness)
@@ -283,7 +282,6 @@ final class OpenCodeLocalSeatReadinessTests: XCTestCase {
 
     private func idleSnapshot(tags: [String]) -> OllamaLocalRuntimeObserver.Snapshot {
         OllamaLocalRuntimeObserver.Snapshot(
-            readiness: .idle,
             observedAt: observedAt,
             ollamaVersion: "0.32.6",
             localTags: tags.map { .init(name: $0) }
