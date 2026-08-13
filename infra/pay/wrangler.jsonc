@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "allnighter-pay",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-13",
+  // Keep workers.dev even after the custom domain attaches.
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "pay.allnighter.io/*",
+      "zone_name": "allnighter.io"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "allnighter-pay",
+      "database_id": "ad9e8904-b226-4abc-9cbe-dc71aa7b07db"
+    }
+  ]
+}
