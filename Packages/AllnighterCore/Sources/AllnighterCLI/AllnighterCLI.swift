@@ -97,6 +97,7 @@ struct AllnighterCLI {
         case "detect": await runDetect(args, runtime)
         case "capacity": runCapacity(args)
         case "opencode-go": OpenCodeGoCLI.run(args)
+        case "opencode-local": OpenCodeLocalCLI.run(args)
         case "bailian-token-plan": BailianTokenPlanCLI.run(args)
         case "models": await ModelsCLI.run(args, runtime: runtime)
         case "drivers": await DriversCLI.run(args, runtime: runtime)

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.22.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.23.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -134,6 +134,34 @@ Check whether OpenCode Go dashboard credentials are configured and usable. Disti
 
 Flags:
 - `--json` — Emit structured status JSON (configured, workspaceId, credentialSource, error).
+
+### `alln opencode-local setup`
+
+Merge local Ollama into ~/.config/opencode/opencode.json: add provider.ollama at http://localhost:11434/v1 and append ollama to enabled_providers without dropping opencode-go or any other entry. Backs up first; reversible via undo. Never rewrites the file from a template.
+
+Flags:
+- `--json` — Structured setup report (paths, what was added, undo command).
+- `--dry-run` — Show the merge result without writing opencode.json, a backup, or a receipt.
+- `--config <path>` — Override opencode.json path (fixtures/tests). Production omits this.
+- `--receipt <path>` — Override setup receipt path. Production omits this.
+
+### `alln opencode-local undo`
+
+Reverse the last `opencode-local setup` using its receipt: remove only what Allnighter added. Backs up opencode.json before writing. Does not invent a rewrite of the rest of the file.
+
+Flags:
+- `--json` — Structured undo report.
+- `--config <path>` — Override opencode.json path (fixtures/tests). Production omits this.
+- `--receipt <path>` — Override setup receipt path. Production omits this.
+
+### `alln opencode-local status`
+
+Report whether OpenCode's config already has the local Ollama provider and whether ollama is on enabled_providers when that allowlist exists. Reads only; never contacts Ollama.
+
+Flags:
+- `--json` — Structured status report.
+- `--config <path>` — Override opencode.json path (fixtures/tests). Production omits this.
+- `--receipt <path>` — Override setup receipt path. Production omits this.
 
 ### `alln bootstrap`
 

@@ -574,6 +574,38 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
+            id: "opencode_local_setup", title: "OpenCode local Ollama setup", audience: .both,
+            summary: "`alln opencode-local setup` merges Ollama into ~/.config/opencode/opencode.json without dropping opencode-go; `alln opencode-local undo` reverses it.",
+            bodyMarkdown: """
+            OpenCode reaches local Ollama through `provider.ollama` at \
+            `http://localhost:11434/v1` plus `ollama` on `enabled_providers` when that \
+            allowlist already exists. Allnighter only **merges**. It never replaces \
+            `opencode.json` and never writes `enabled_providers: ["ollama"]` over Go.
+
+            ```
+            alln opencode-local setup
+            alln opencode-local status --json
+            alln opencode-local undo
+            ```
+
+            Setup copies `opencode.json` to a sibling \
+            `opencode.json.bak-alln-ocl-s02a-<timestamp>` before writing. Undo removes \
+            only what that setup added (receipt-backed). To restore by hand, copy the \
+            backup over `opencode.json`.
+
+            This does not seat models, does not talk to Ollama, and does not configure \
+            Claude-local.
+            """,
+            aliases: [
+                "ollama opencode", "opencode ollama", "enabled_providers",
+                "local ollama setup", "opencode-local", "11434",
+            ],
+            relatedCommandNames: [
+                "opencode-local setup", "opencode-local undo", "opencode-local status",
+            ],
+            needsLiveCheck: false),
+
+        HelpTopic(
             id: "park_cli", title: "Park a CLI", audience: .both,
             summary: "Park a CLI you are not using — no probe, no seats, no Needs attention — until you put it back on the bench.",
             bodyMarkdown: """

@@ -49,7 +49,9 @@ public extension ContractRegistry {
     // `CapacityStripJSONRow.nextAction` + `source.opencode_go.configured` doctor check.
     // OCL-S01b: minor — `source.ollama_local.{reachable,models,readiness}`
     // doctor checks (readiness only; not a capacity strip seat).
-    static let contractVersion = "9.22.0"
+    // OCL-S02a: minor — `opencode-local setup|undo|status` (additive OpenCode
+    // provider merge; never clobbers enabled_providers).
+    static let contractVersion = "9.23.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -201,6 +203,61 @@ public extension ContractRegistry {
             antiExample: "Do NOT guess the status from the capacity strip alone — run status for the exact failure reason and recovery action.",
             flags: [
                 FlagSpec("json", summary: "Emit structured status JSON (configured, workspaceId, credentialSource, error)."),
+            ],
+            spendsQuota: false
+        ),
+        CommandSpec(
+            "opencode-local setup",
+            summary: "Merge local Ollama into ~/.config/opencode/opencode.json: add provider.ollama at http://localhost:11434/v1 and append ollama to enabled_providers without dropping opencode-go or any other entry. Backs up first; reversible via undo. Never rewrites the file from a template.",
+            milestone: .m1,
+            trigger: "Use when OpenCode should reach a local Ollama daemon and you already keep Go or other providers in opencode.json.",
+            example: "alln opencode-local setup",
+            antiExample: "Do NOT replace enabled_providers with only [\"ollama\"] — that drops opencode-go. Do not use this for Claude-local env wiring.",
+            flags: [
+                FlagSpec("json", summary: "Structured setup report (paths, what was added, undo command)."),
+                FlagSpec("dry-run", summary: "Show the merge result without writing opencode.json, a backup, or a receipt."),
+                FlagSpec("config", takesValue: true, valueType: "path", summary: "Override opencode.json path (fixtures/tests). Production omits this."),
+                FlagSpec("receipt", takesValue: true, valueType: "path", summary: "Override setup receipt path. Production omits this."),
+            ],
+            spendsQuota: false,
+            effects: EffectProfile(
+                workerStart: .never,
+                quotaSpend: .never,
+                repoWrite: .never,
+                destructive: .never
+            )
+        ),
+        CommandSpec(
+            "opencode-local undo",
+            summary: "Reverse the last `opencode-local setup` using its receipt: remove only what Allnighter added. Backs up opencode.json before writing. Does not invent a rewrite of the rest of the file.",
+            milestone: .m1,
+            trigger: "Use to take local Ollama back out of OpenCode after `alln opencode-local setup`.",
+            example: "alln opencode-local undo",
+            antiExample: "Do NOT delete ~/.config/opencode/opencode.json to undo — that drops opencode-go and every other provider.",
+            flags: [
+                FlagSpec("json", summary: "Structured undo report."),
+                FlagSpec("config", takesValue: true, valueType: "path", summary: "Override opencode.json path (fixtures/tests). Production omits this."),
+                FlagSpec("receipt", takesValue: true, valueType: "path", summary: "Override setup receipt path. Production omits this."),
+            ],
+            spendsQuota: false,
+            effects: EffectProfile(
+                workerStart: .never,
+                quotaSpend: .never,
+                repoWrite: .never,
+                destructive: .dependsOnSelection
+            )
+        ),
+        CommandSpec(
+            "opencode-local status",
+            summary: "Report whether OpenCode's config already has the local Ollama provider and whether ollama is on enabled_providers when that allowlist exists. Reads only; never contacts Ollama.",
+            milestone: .m1,
+            trigger: "Use to see if OpenCode is already wired for local Ollama before running setup.",
+            example: "alln opencode-local status --json",
+            antiExample: "Do NOT treat this as a model catalog or a capacity reading — it only inspects opencode.json.",
+            flags: [
+                FlagSpec("json", summary: "Structured status report."),
+                FlagSpec("config", takesValue: true, valueType: "path", summary: "Override opencode.json path (fixtures/tests). Production omits this."),
+                FlagSpec("receipt", takesValue: true, valueType: "path", summary: "Override setup receipt path. Production omits this."),
             ],
             spendsQuota: false
         ),
