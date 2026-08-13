@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.23.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.24.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -162,6 +162,13 @@ Flags:
 - `--json` — Structured status report.
 - `--config <path>` — Override opencode.json path (fixtures/tests). Production omits this.
 - `--receipt <path>` — Override setup receipt path. Production omits this.
+
+### `alln claude-local status`
+
+Show how a Claude Code local Ollama seat is isolated: per-run ANTHROPIC_BASE_URL=http://localhost:11434, token ollama, empty API key. Never writes the user shell, Claude settings, or Keychain. Seating is models add with label ollama/<tag>.
+
+Flags:
+- `--json` — Structured isolation report (per-run env, seating path, what is never written).
 
 ### `alln bootstrap`
 

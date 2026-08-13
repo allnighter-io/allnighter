@@ -23,13 +23,16 @@ import AllnighterCore
 ///    literal command and never sets this field).
 /// 4. `AntigravityAwareWorkerRunner` — rewrites agy's terminal answer from its on-disk
 ///    transcript. Pass-through for every other driver.
-/// 5. `OpenCodeRoutingWorkerRunner` (when `routeOpenCodeToServe` is true, the
+/// 5. `ClaudeLocalIsolatingWorkerRunner` — per-run Anthropic-compat env + meter strip
+///    for `claude_code` seats whose catalog label is `ollama/<tag>`. Pass-through for
+///    paid Claude and every other driver. Never writes shell/Claude settings.
+/// 6. `OpenCodeRoutingWorkerRunner` (when `routeOpenCodeToServe` is true, the
 ///    production default) — routes `opencode` to the warm serve HTTP client instead of a
-///    spawned CLI; every other driver falls through to steps 1-4 above. When
+///    spawned CLI; every other driver falls through to steps 1-5 above. When
 ///    `routeOpenCodeToServe` is false, this step is omitted so opencode seats use the
 ///    injected `commandRunner` like every other driver (test doubles only — production
 ///    call sites leave the default `true`).
-/// 6. `GatedWorkerRunner` — per-driver `DriverConcurrencyGate` + `gateWaitMs`. This
+/// 7. `GatedWorkerRunner` — per-driver `DriverConcurrencyGate` + `gateWaitMs`. This
 ///    inverts the nesting a first reading of the four decorators' doc comments might
 ///    suggest (`OpenCodeRoutingWorkerRunner`'s own doc comment literally says to wrap
 ///    it in a `GatedWorkerRunner`, not the reverse): the ORIGINAL
@@ -39,12 +42,12 @@ import AllnighterCore
 ///    `manifest.maxConcurrentSpawns`. Putting `OpenCodeRoutingWorkerRunner` outermost
 ///    would let its opencode branch bypass `GatedWorkerRunner` entirely (it returns
 ///    straight from its own HTTP client, never calling `inner`), silently ungating
-///    opencode. `GatedWorkerRunner` wrapping the router (or step 4 when step 5 is
-///    omitted) gates BOTH routes uniformly, matching today's behavior exactly.
-/// 7. `StallDiagnosisEnrichingWorkerRunner` — on `.timedOut`, replaces bare
+///    opencode. `GatedWorkerRunner` wrapping the router (or the Claude-local wrapper
+///    when OpenCode routing is omitted) gates BOTH routes uniformly.
+/// 8. `StallDiagnosisEnrichingWorkerRunner` — on `.timedOut`, replaces bare
 ///    `worker timed out` with a named stall cause from `stall_diagnosis.json`
 ///    when ProcessGroupCommandRunner diagnosed an auth-prompt / frozen child.
-/// 8. A thin `defaultWorkingDirectory` fill-in (OUTERMOST, not a public decorator type)
+/// 9. A thin `defaultWorkingDirectory` fill-in (OUTERMOST, not a public decorator type)
 ///    — mirrors `WorkerRunner`'s stored `defaultWorkingDirectory` field: when a caller
 ///    leaves `WorkerInvocation.workingDirectory` nil, it resolves through
 ///    `WorkerInvocationCWD.resolve(override:default:)` (the neutral-scratch rule)
@@ -67,12 +70,13 @@ public enum WorkerInvokerFactory {
         let defaultRunner = DefaultWorkerRunner(streamingRunner: spawnResolved, now: now)
         let stamped = InvocationKindStampingWorkerRunner(inner: defaultRunner, invocations: invocations)
         let agyAware = AntigravityAwareWorkerRunner(inner: stamped)
+        let claudeLocal = ClaudeLocalIsolatingWorkerRunner(inner: agyAware)
         let gated: GatedWorkerRunner
         if routeOpenCodeToServe {
-            let openCodeRouted = OpenCodeRoutingWorkerRunner(inner: agyAware, now: now)
+            let openCodeRouted = OpenCodeRoutingWorkerRunner(inner: claudeLocal, now: now)
             gated = GatedWorkerRunner(inner: openCodeRouted, now: now)
         } else {
-            gated = GatedWorkerRunner(inner: agyAware, now: now)
+            gated = GatedWorkerRunner(inner: claudeLocal, now: now)
         }
         let enriched = StallDiagnosisEnrichingWorkerRunner(inner: gated)
         return DefaultWorkingDirectoryWorkerRunner(inner: enriched, defaultWorkingDirectory: defaultWorkingDirectory)

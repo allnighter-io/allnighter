@@ -669,6 +669,44 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT export ANTHROPIC_BASE_URL in your shell profile, and do not edit Claude settings to point at Ollama — that poisons paid Claude. Do not treat a local failure as an Anthropic limit.",
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln claude-local status --json",
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured isolation report (per-run env, seating path, what is never written).",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "claude-local status",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Show how a Claude Code local Ollama seat is isolated: per-run ANTHROPIC_BASE_URL=http:\/\/localhost:11434, token ollama, empty API key. Never writes the user shell, Claude settings, or Keychain. Seating is models add with label ollama\/<tag>.",
+      "trigger" : "Use to confirm Claude-local isolation before seating ollama\/<tag> on driver claude_code.",
+      "visibility" : "public"
+    },
+    {
       "args" : [
 
       ],
@@ -6410,7 +6448,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.23.0",
+  "contractVersion" : "9.24.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

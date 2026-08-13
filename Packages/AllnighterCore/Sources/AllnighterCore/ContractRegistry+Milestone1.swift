@@ -51,7 +51,9 @@ public extension ContractRegistry {
     // doctor checks (readiness only; not a capacity strip seat).
     // OCL-S02a: minor — `opencode-local setup|undo|status` (additive OpenCode
     // provider merge; never clobbers enabled_providers).
-    static let contractVersion = "9.23.0"
+    // OCL-S02b: minor — `claude-local status` (per-run Anthropic-compat env
+    // isolation + meter strip; never writes shell/Claude settings).
+    static let contractVersion = "9.24.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -260,6 +262,24 @@ public extension ContractRegistry {
                 FlagSpec("receipt", takesValue: true, valueType: "path", summary: "Override setup receipt path. Production omits this."),
             ],
             spendsQuota: false
+        ),
+        CommandSpec(
+            "claude-local status",
+            summary: "Show how a Claude Code local Ollama seat is isolated: per-run ANTHROPIC_BASE_URL=http://localhost:11434, token ollama, empty API key. Never writes the user shell, Claude settings, or Keychain. Seating is models add with label ollama/<tag>.",
+            milestone: .m1,
+            trigger: "Use to confirm Claude-local isolation before seating ollama/<tag> on driver claude_code.",
+            example: "alln claude-local status --json",
+            antiExample: "Do NOT export ANTHROPIC_BASE_URL in your shell profile, and do not edit Claude settings to point at Ollama — that poisons paid Claude. Do not treat a local failure as an Anthropic limit.",
+            flags: [
+                FlagSpec("json", summary: "Structured isolation report (per-run env, seating path, what is never written)."),
+            ],
+            spendsQuota: false,
+            effects: EffectProfile(
+                workerStart: .never,
+                quotaSpend: .never,
+                repoWrite: .never,
+                destructive: .never
+            )
         ),
         CommandSpec(
             "bootstrap", summary: "Print a paste-ready agent-activation snippet for a host's context file (never edits files).", milestone: .m1,

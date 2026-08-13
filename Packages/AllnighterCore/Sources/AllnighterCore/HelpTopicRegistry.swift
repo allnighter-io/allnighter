@@ -606,6 +606,40 @@ public enum HelpTopicRegistry {
             needsLiveCheck: false),
 
         HelpTopic(
+            id: "claude_local_isolation", title: "Claude Code local Ollama isolation", audience: .both,
+            summary: "`alln claude-local status` shows per-run env isolation for a Claude Code body on local Ollama. Never writes your shell or Claude settings.",
+            bodyMarkdown: """
+            Claude Code can talk to Ollama's Anthropic-compatible endpoint. Allnighter \
+            does that **per run**: `ANTHROPIC_BASE_URL=http://localhost:11434`, auth \
+            token `ollama`, empty API key. Paid Claude seats are unchanged.
+
+            Seat a local body with a catalog label that starts `ollama/`:
+
+            ```
+            alln models add --driver claude_code --name qwen-local --model-label ollama/qwen2.5:0.5b
+            alln models verify <id>
+            alln models enable <id>
+            alln claude-local status --json
+            ```
+
+            A local failure is an Ollama failure (`ollama_local`). It is never an \
+            Anthropic rate limit, park, backoff, or substitution. Claude's \
+            `costUSD`, fake 200k `contextWindow`, and `provider: firstParty` are \
+            stripped and are not treated as vendor truth.
+
+            Do not export those env vars in your shell. Do not edit Claude settings \
+            to point at localhost. Allnighter does not read Keychain.
+            """,
+            aliases: [
+                "claude local", "claude-local", "ANTHROPIC_BASE_URL",
+                "ollama claude", "claude ollama",
+            ],
+            relatedCommandNames: [
+                "claude-local status", "models add", "models verify", "models enable",
+            ],
+            needsLiveCheck: false),
+
+        HelpTopic(
             id: "park_cli", title: "Park a CLI", audience: .both,
             summary: "Park a CLI you are not using — no probe, no seats, no Needs attention — until you put it back on the bench.",
             bodyMarkdown: """

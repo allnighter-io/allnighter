@@ -369,12 +369,13 @@ public enum ModelCatalog {
         manifest.invoke = invoke
 
         #if os(macOS) || os(Linux)
-        let runner: any WorkerInvoking = invoker ?? DefaultWorkerRunner()
+        let inner: any WorkerInvoking = invoker ?? DefaultWorkerRunner()
+        let runner: any WorkerInvoking = ClaudeLocalIsolatingWorkerRunner(inner: inner)
         #else
         guard let invoker else {
             throw ModelCatalogError.invalid("No worker invoker.")
         }
-        let runner = invoker
+        let runner: any WorkerInvoking = ClaudeLocalIsolatingWorkerRunner(inner: invoker)
         #endif
 
         let smoke = await ModelSmokeVerifier(invoker: runner).verify(

@@ -52,6 +52,7 @@ final class ContractRegistryTests: XCTestCase {
             "help search", "help get", "help topics",
             "opencode-go configure", "opencode-go status",
             "opencode-local setup", "opencode-local undo", "opencode-local status",
+            "claude-local status",
         ]
         XCTAssertEqual(m1.sorted(), expected.sorted())
     }
