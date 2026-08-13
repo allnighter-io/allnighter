@@ -308,6 +308,39 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
+            id: "sweep", title: "Sweep", audience: .both,
+            summary: "One order over N targets, checkpointed and resumable. Every target ends done, failed, or not-attempted — never skipped and reported done.",
+            bodyMarkdown: """
+            `alln sweep start "<order>" --target <id> --target <id>` applies one order \
+            across many targets under the existing run model: each target is an `alln run`, \
+            journaled, under the per-root write lock. One mutating worker per root still \
+            holds. The feature is resumability — 400 targets, the run dies at 250, \
+            `alln sweep resume <id>` continues at 250 and does not redo the first 250 or skip \
+            the rest.
+
+            Honesty is the point. Every target is `done`, `failed`, or `not-attempted`. \
+            `complete` is false while any target is `not-attempted`. A sweep that skips \
+            targets and reports done is a lie. Read `alln sweep status <id> --json` and the \
+            one sweep artifact; both list every target's outcome.
+            """,
+            aliases: [
+                "batch", "bulk", "queue", "checkpoint", "resume sweep", "many files",
+                "not-attempted", "sweep resume",
+            ],
+            sections: [
+                .init("resume", "Kill then resume", "If the owner dies mid-sweep, remaining targets stay not-attempted. Resume the same sweep id. Do not start a second sweep and call the first done."),
+                .init("artifact", "One artifact", "Each checkpoint writes one artifact naming every target and its outcome. It is not complete while not-attempted rows remain."),
+                .init("lock", "Same write lock", "Sweep does not invent a parallel run model. Target runs take the per-root write lock one at a time."),
+            ],
+            relatedCommandNames: ["sweep start", "sweep resume", "sweep status", "run", "show"],
+            schemaRefs: ["sweepJSON"],
+            errorRefs: [
+                "SWEEP_NOT_FOUND", "SWEEP_NO_TARGETS", "SWEEP_DUPLICATE_TARGETS",
+                "SWEEP_INVALID_STATE", "SWEEP_INCOMPLETE",
+            ],
+            needsLiveCheck: false),
+
+        HelpTopic(
             id: "teams_agents_and_skills", title: "Teams, Agents & Skills", audience: .both,
             summary: "Teams are lane-scoped rosters of agents (model + skill); skills are shared instruction profiles.",
             bodyMarkdown: """

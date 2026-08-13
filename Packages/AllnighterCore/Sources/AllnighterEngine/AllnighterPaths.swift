@@ -72,6 +72,11 @@ public enum AllnighterPaths {
         support.appendingPathComponent("Loops", isDirectory: true)
     }
 
+    /// `…/Allnighter/Sweeps/` — durable sweep queues (`Sweeps/<id>/sweep.json`).
+    public static var sweeps: URL {
+        support.appendingPathComponent("Sweeps", isDirectory: true)
+    }
+
     /// Pre-LVC-S09 loop state directory. Used only to detect a silent empty list after
     /// the `Relays/` → `Loops/` path move — never read for normal operation.
     public static var legacyRelaysDirectory: URL {

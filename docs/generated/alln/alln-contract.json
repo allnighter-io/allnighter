@@ -2972,6 +2972,163 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT report a sweep complete while targets remain not-attempted. Resume instead of starting a second sweep.",
+      "args" : [
+        {
+          "name" : "order",
+          "required" : true,
+          "summary" : "The one order applied to every target."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
+      "example" : "alln sweep start \"does this still agree with Product_Vocabulary.md?\" --target docs\/a.md --target docs\/b.md --json",
+      "exampleIds" : [
+        "sweep_start_json"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "target",
+          "summary" : "One target id (repeatable). Repeat --target for each item.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "targets",
+          "summary" : "Comma-separated target ids.",
+          "takesValue" : true,
+          "valueType" : "string"
+        },
+        {
+          "name" : "targets-file",
+          "summary" : "File of target ids, one per line. Blank lines and # comments ignored.",
+          "takesValue" : true,
+          "valueType" : "path"
+        },
+        {
+          "name" : "model",
+          "summary" : "Seat for each target run. Each target is an existing RunService run under the per-root write lock.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "project",
+          "summary" : "Project id, name, or repo path. Omitted → cwd.",
+          "takesValue" : true,
+          "valueType" : "id"
+        },
+        {
+          "name" : "dry-run",
+          "summary" : "Resolve the order and target list; create nothing, spend nothing.",
+          "takesValue" : false
+        },
+        {
+          "name" : "json",
+          "summary" : "Emit SweepJSON.",
+          "takesValue" : false
+        }
+      ],
+      "freeTwinCommand" : "alln sweep start --dry-run",
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "sweep start",
+      "outputSchema" : "sweepJSON",
+      "spendsQuota" : true,
+      "summary" : "Start one order over N targets, checkpointed and resumable. Each target is done, failed, or not-attempted — never skipped-and-reported-done.",
+      "trigger" : "Use when the same bounded order must be applied across many targets and must survive a mid-run kill.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "sweep-id",
+          "required" : true,
+          "summary" : "Sweep id."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "dependsOnFlags",
+        "repoWrite" : "dependsOnSelection",
+        "workerStart" : "dependsOnFlags"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit SweepJSON.",
+          "takesValue" : false
+        }
+      ],
+      "freeTwinCommand" : "alln sweep status",
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "sweep resume",
+      "outputSchema" : "sweepJSON",
+      "spendsQuota" : true,
+      "summary" : "Resume a sweep at the first not-attempted target. Done and failed targets are not redone.",
+      "visibility" : "public"
+    },
+    {
+      "args" : [
+        {
+          "name" : "sweep-id",
+          "required" : true,
+          "summary" : "Sweep id."
+        }
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit SweepJSON.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "sweep status",
+      "outputSchema" : "sweepJSON",
+      "spendsQuota" : false,
+      "summary" : "Read a sweep's per-target outcomes. complete is false while any target is not-attempted. Reconciles a dead owner to interrupted.",
+      "visibility" : "public"
+    },
+    {
       "args" : [
 
       ],
@@ -6448,7 +6605,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.27.0",
+  "contractVersion" : "9.28.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -7462,6 +7619,51 @@
       "ruleId" : "loop.local_seat.cannot_lead"
     },
     {
+      "agentAction" : "Run `alln sweep status <id> --json` with a valid sweep id, or start a new sweep with `alln sweep start`.",
+      "code" : "SWEEP_NOT_FOUND",
+      "exitClass" : "operational",
+      "explain" : "No sweep matches the given id.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "sweep.not_found"
+    },
+    {
+      "agentAction" : "Pass --target (repeatable), --targets <csv>, or --targets-file <path>.",
+      "code" : "SWEEP_NO_TARGETS",
+      "exitClass" : "usage",
+      "explain" : "A sweep needs at least one target.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "sweep.no_targets"
+    },
+    {
+      "agentAction" : "Deduplicate the target list and retry. Duplicates would hide a skipped first attempt.",
+      "code" : "SWEEP_DUPLICATE_TARGETS",
+      "exitClass" : "usage",
+      "explain" : "The same target id appeared twice. A sweep refuses duplicates so a skip cannot be disguised as a second listing.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "sweep.duplicate_targets"
+    },
+    {
+      "agentAction" : "Read `alln sweep status <id> --json`. Resume an interrupted sweep; do not start a second sweep on the same order.",
+      "code" : "SWEEP_INVALID_STATE",
+      "exitClass" : "operational",
+      "explain" : "The requested sweep transition is not valid for the current status.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "sweep.invalid_state"
+    },
+    {
+      "agentAction" : "Run the returned `alln sweep resume <id> --json`. Do not treat the sweep as complete while any target is not-attempted.",
+      "code" : "SWEEP_INCOMPLETE",
+      "exitClass" : "operational",
+      "explain" : "The sweep stopped with targets still not-attempted. complete is false. Resume; never report done.",
+      "requiresManual" : false,
+      "retryable" : true,
+      "ruleId" : "sweep.incomplete"
+    },
+    {
       "agentAction" : "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.",
       "code" : "OWNERSHIP_NOT_FOUND",
       "exitClass" : "operational",
@@ -8025,6 +8227,11 @@
       "command" : "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\"",
       "id" : "run_foreground_json",
       "title" : "Run in foreground"
+    },
+    {
+      "command" : "alln sweep start \"apply this order\" --target a.md --target b.md --json",
+      "id" : "sweep_start_json",
+      "title" : "Start a resumable sweep"
     },
     {
       "command" : "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json",

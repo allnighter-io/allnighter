@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.27.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.28.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -804,6 +804,50 @@ Flags:
 - `--json` — Emit TeamRunJSON.
 
 Output schema: `teamRunJSON`.
+
+### `alln sweep start`
+
+Start one order over N targets, checkpointed and resumable. Each target is done, failed, or not-attempted — never skipped-and-reported-done.
+
+Arguments:
+- `order` (required) — The one order applied to every target.
+
+Flags:
+- `--target <path>` — One target id (repeatable). Repeat --target for each item.
+- `--targets <string>` — Comma-separated target ids.
+- `--targets-file <path>` — File of target ids, one per line. Blank lines and # comments ignored.
+- `--model <id>` — Seat for each target run. Each target is an existing RunService run under the per-root write lock.
+- `--project <id>` — Project id, name, or repo path. Omitted → cwd.
+- `--dry-run` — Resolve the order and target list; create nothing, spend nothing.
+- `--json` — Emit SweepJSON.
+
+Output schema: `sweepJSON`.
+
+Examples: `sweep_start_json`.
+
+### `alln sweep resume`
+
+Resume a sweep at the first not-attempted target. Done and failed targets are not redone.
+
+Arguments:
+- `sweep-id` (required) — Sweep id.
+
+Flags:
+- `--json` — Emit SweepJSON.
+
+Output schema: `sweepJSON`.
+
+### `alln sweep status`
+
+Read a sweep's per-target outcomes. complete is false while any target is not-attempted. Reconciles a dead owner to interrupted.
+
+Arguments:
+- `sweep-id` (required) — Sweep id.
+
+Flags:
+- `--json` — Emit SweepJSON.
+
+Output schema: `sweepJSON`.
 
 ### `alln continuity receipt`
 
@@ -1843,6 +1887,11 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `RELAY_NOT_AWAITING_PM` | yes | no | `operational` | Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to). |
 | `RELAY_VERDICT_UNPARSEABLE` | yes | yes | `operational` | The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs. |
 | `LOOP_LOCAL_SEAT_CANNOT_LEAD` | yes | no | `usage` | Keep `--pm` as a frontier model or `caller`. Pin the local Ollama seat with `--dev`. |
+| `SWEEP_NOT_FOUND` | yes | no | `operational` | Run `alln sweep status <id> --json` with a valid sweep id, or start a new sweep with `alln sweep start`. |
+| `SWEEP_NO_TARGETS` | yes | no | `usage` | Pass --target (repeatable), --targets <csv>, or --targets-file <path>. |
+| `SWEEP_DUPLICATE_TARGETS` | yes | no | `usage` | Deduplicate the target list and retry. Duplicates would hide a skipped first attempt. |
+| `SWEEP_INVALID_STATE` | yes | no | `operational` | Read `alln sweep status <id> --json`. Resume an interrupted sweep; do not start a second sweep on the same order. |
+| `SWEEP_INCOMPLETE` | no | yes | `operational` | Run the returned `alln sweep resume <id> --json`. Do not treat the sweep as complete while any target is not-attempted. |
 | `OWNERSHIP_NOT_FOUND` | no | no | `operational` | Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree. |
 | `OWNERSHIP_ALREADY_TERMINAL` | no | no | `operational` | No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`. |
 | `OWNERSHIP_IDENTITY_MISMATCH` | yes | no | `operational` | Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead. |
@@ -1975,6 +2024,7 @@ the selected CLI.
 - `skills_restore_json` — Restore a built-in skill override: `alln skills restore bug_reproducer --json`
 - `skills_gc_json` — Purge lab and orphan custom skills: `alln skills gc --json`
 - `run_foreground_json` — Run in foreground: `alln run --json --lane code --team code_bug_hunt --effort low "tiny foreground sanity"`
+- `sweep_start_json` — Start a resumable sweep: `alln sweep start "apply this order" --target a.md --target b.md --json`
 - `try_fix_bug` — Auto Fix: Bug Hunt then one bounded fix: `alln run "The history view loses finished runs after restart." --project <id> --team code_bug_hunt --try-fix --executor build_slice --json`
 - `show_latest_json` — Show one run by id: `alln show <run-id> --json`
 - `spec_full` — Retrieve the full result packet: `alln spec latest --detail full --json`

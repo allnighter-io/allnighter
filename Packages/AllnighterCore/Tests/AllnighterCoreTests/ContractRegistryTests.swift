@@ -36,6 +36,7 @@ final class ContractRegistryTests: XCTestCase {
             "run", "run resume",
             "continuity receipt",
             "loop start", "loop list", "loop status", "loop stop", "loop resume", "loop wait", "loop step", "loop pm",
+            "sweep start", "sweep resume", "sweep status",
             "pair relay", "pair relay-status", "pair relay-resume", "pair relay adopt", "pair relay stop",
             "pair pilot start", "pair pilot handoff", "pair pilot status", "pair pilot watch", "pair pilot adopt", "pair pilot scaffold-handover",
             "show", "floor show", "artifact show", "artifact export", "spec", "history", "export", "dev export-contracts", "serve", "serve status", "serve repair", "serve enable", "serve disable",

@@ -119,6 +119,7 @@ struct AllnighterCLI {
         case "dev": runDev(args)
         case "pair": await PairCLI.run(args, runtime: runtime)
         case "loop": await LoopCLI.run(args, runtime: runtime)
+        case "sweep": await SweepCLI.run(args, runtime: runtime)
         case "pending": await PendingCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
         case "stalled": StalledCLI.run(args.first, Array(args.dropFirst()))
         case "project": await ProjectCLI.run(args.first, Array(args.dropFirst()), runtime: runtime)
@@ -3064,7 +3065,7 @@ struct Options {
     /// (AE code-audit: FlagSpec is the choke point for flag shape).
     static let booleanFlags: Set<String> = ContractRegistry.booleanFlagNames()
     /// Flags whose repeated occurrences each contribute one ordered value (RSO-S01).
-    static let orderedRepeatableFlags: Set<String> = ["seat", "image", "ref"]
+    static let orderedRepeatableFlags: Set<String> = ["seat", "image", "ref", "target"]
     var positional: [String] = []
     var values: [String: String] = [:]
     var repeatedValues: [String: [String]] = [:]

@@ -173,6 +173,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case ownershipGarbageCollectionJSON
         case menuJSON
         case menuShowJSON
+        case sweepJSON
         /// Editable team definition (`TeamPreset`) — `teams definition` / authoring receipts.
         case teamPreset
         /// Display projection for one team — `teams show` / `teams set-default`.

@@ -61,7 +61,9 @@ public extension ContractRegistry {
     // OCL-S07: minor — loop `--dev` may be a local Ollama seat; `--pm` refuses
     // local (`LOOP_LOCAL_SEAT_CANNOT_LEAD`); roundLog.executionOutcome is
     // Allnighter-owned (never the seat's report).
-    static let contractVersion = "9.27.0"
+    // OCL-S08: minor — `sweep start|resume|status` (one order × N targets,
+    // checkpointed, resumable; per-target done|failed|not-attempted).
+    static let contractVersion = "9.28.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -708,6 +710,48 @@ public extension ContractRegistry {
             args: [ArgSpec("runId", required: true, summary: "Parked run id.")],
             flags: [FlagSpec("json", summary: "Emit TeamRunJSON.")],
             outputSchema: .teamRunJSON
+        ),
+        CommandSpec(
+            "sweep start",
+            summary: "Start one order over N targets, checkpointed and resumable. Each target is done, failed, or not-attempted — never skipped-and-reported-done.",
+            milestone: .m1,
+            trigger: "Use when the same bounded order must be applied across many targets and must survive a mid-run kill.",
+            example: "alln sweep start \"does this still agree with Product_Vocabulary.md?\" --target docs/a.md --target docs/b.md --json",
+            antiExample: "Do NOT report a sweep complete while targets remain not-attempted. Resume instead of starting a second sweep.",
+            args: [ArgSpec("order", required: true, summary: "The one order applied to every target.")],
+            flags: [
+                FlagSpec("target", takesValue: true, valueType: "path", summary: "One target id (repeatable). Repeat --target for each item."),
+                FlagSpec("targets", takesValue: true, valueType: "string", summary: "Comma-separated target ids."),
+                FlagSpec("targets-file", takesValue: true, valueType: "path", summary: "File of target ids, one per line. Blank lines and # comments ignored."),
+                FlagSpec("model", takesValue: true, valueType: "id", summary: "Seat for each target run. Each target is an existing RunService run under the per-root write lock."),
+                FlagSpec("project", takesValue: true, valueType: "id", summary: "Project id, name, or repo path. Omitted → cwd."),
+                FlagSpec("dry-run", summary: "Resolve the order and target list; create nothing, spend nothing."),
+                FlagSpec("json", summary: "Emit SweepJSON."),
+            ],
+            outputSchema: .sweepJSON,
+            exampleIds: ["sweep_start_json"],
+            spendsQuota: true,
+            freeTwinCommand: "alln sweep start --dry-run"
+        ),
+        CommandSpec(
+            "sweep resume",
+            summary: "Resume a sweep at the first not-attempted target. Done and failed targets are not redone.",
+            milestone: .m1,
+            args: [ArgSpec("sweep-id", required: true, summary: "Sweep id.")],
+            flags: [FlagSpec("json", summary: "Emit SweepJSON.")],
+            outputSchema: .sweepJSON,
+            spendsQuota: true,
+            freeTwinCommand: "alln sweep status"
+        ),
+        CommandSpec(
+            "sweep status",
+            summary: "Read a sweep's per-target outcomes. complete is false while any target is not-attempted. Reconciles a dead owner to interrupted.",
+            milestone: .m1,
+            args: [ArgSpec("sweep-id", required: true, summary: "Sweep id.")],
+            flags: [FlagSpec("json", summary: "Emit SweepJSON.")],
+            outputSchema: .sweepJSON,
+            spendsQuota: false,
+            effects: EffectProfile()
         ),
         CommandSpec(
             "continuity receipt", summary: "Local observed-facts summary of vendor waits covered and automatic resumes (last 24h).", milestone: .m1,
@@ -1563,6 +1607,11 @@ public extension ContractRegistry {
         ErrorSpec("RELAY_NOT_AWAITING_PM", ruleId: "relay.not_awaiting_pm", agentAction: "Run `alln loop status <id> --json`; a loop only accepts `alln loop step` while its status is `awaitingPM` (done/escalated/stopped have nothing left to hand off to).", requiresManual: true, retryable: false, explain: "`loop step` was called against a loop that isn't parked at `awaitingPM` — it already reached a terminal status, or isn't a caller-held loop's normal between-rounds state."),
         ErrorSpec("RELAY_VERDICT_UNPARSEABLE", ruleId: "relay.verdict.unparseable", agentAction: "The PM's submission needs exactly one trailing ```json LoopVerdict block (verdict: continue|done|escalate; handover required for continue). Fix the tail and resubmit `alln loop step` — the loop is still `awaitingPM`, no re-ask machinery runs.", requiresManual: true, retryable: true, explain: "A `loop step` submission didn't end with a parseable LoopVerdict tail (missing entirely, an unknown verdict value, or `continue` with no handover). Unlike a spawned PM turn, there is no automatic re-ask — the caller session is live and just resubmits."),
         ErrorSpec("LOOP_LOCAL_SEAT_CANNOT_LEAD", ruleId: "loop.local_seat.cannot_lead", agentAction: "Keep `--pm` as a frontier model or `caller`. Pin the local Ollama seat with `--dev`.", requiresManual: true, retryable: false, explain: "A local Ollama-backed seat cannot hold the Loop PM chair. Loop's shape is a frontier lead and an execution seat — the local seat is the execution seat, under the same per-root write lock.", exitClass: .usage),
+        ErrorSpec("SWEEP_NOT_FOUND", ruleId: "sweep.not_found", agentAction: "Run `alln sweep status <id> --json` with a valid sweep id, or start a new sweep with `alln sweep start`.", requiresManual: true, retryable: false, explain: "No sweep matches the given id."),
+        ErrorSpec("SWEEP_NO_TARGETS", ruleId: "sweep.no_targets", agentAction: "Pass --target (repeatable), --targets <csv>, or --targets-file <path>.", requiresManual: true, retryable: false, explain: "A sweep needs at least one target.", exitClass: .usage),
+        ErrorSpec("SWEEP_DUPLICATE_TARGETS", ruleId: "sweep.duplicate_targets", agentAction: "Deduplicate the target list and retry. Duplicates would hide a skipped first attempt.", requiresManual: true, retryable: false, explain: "The same target id appeared twice. A sweep refuses duplicates so a skip cannot be disguised as a second listing.", exitClass: .usage),
+        ErrorSpec("SWEEP_INVALID_STATE", ruleId: "sweep.invalid_state", agentAction: "Read `alln sweep status <id> --json`. Resume an interrupted sweep; do not start a second sweep on the same order.", requiresManual: true, retryable: false, explain: "The requested sweep transition is not valid for the current status."),
+        ErrorSpec("SWEEP_INCOMPLETE", ruleId: "sweep.incomplete", agentAction: "Run the returned `alln sweep resume <id> --json`. Do not treat the sweep as complete while any target is not-attempted.", requiresManual: false, retryable: true, explain: "The sweep stopped with targets still not-attempted. complete is false. Resume; never report done."),
         ErrorSpec("OWNERSHIP_NOT_FOUND", ruleId: "ownership.not_found", agentAction: "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.", requiresManual: false, retryable: false, explain: "No owned process tree matches the given id in durable state (run dirs, relay dirs, lane holders)."),
         ErrorSpec("OWNERSHIP_ALREADY_TERMINAL", ruleId: "ownership.already_terminal", agentAction: "No action required; the tree already carries a stamped endReason. Inspect with `alln ps --json`.", requiresManual: false, retryable: false, explain: "`alln kill` refused because the named work is already terminal — kill never clobbers an existing terminal endReason."),
         ErrorSpec("OWNERSHIP_IDENTITY_MISMATCH", ruleId: "ownership.identity.mismatch", agentAction: "Do not retry the same kill against this pid; the recorded identity no longer matches the live process (pid reuse). Run `alln ps --json` and `alln team reconcile` for identity-dead orphans instead.", requiresManual: true, retryable: false, explain: "Kill refused: the recorded owner identity has a live pid whose start time does not match (recycled pid). Signalling would hit the wrong process."),
@@ -1744,6 +1793,7 @@ public extension ContractRegistry {
         ExampleRecipe("skills_restore_json", title: "Restore a built-in skill override", command: "alln skills restore bug_reproducer --json"),
         ExampleRecipe("skills_gc_json", title: "Purge lab and orphan custom skills", command: "alln skills gc --json"),
         ExampleRecipe("run_foreground_json", title: "Run in foreground", command: "alln run --json --lane code --team code_bug_hunt --effort low \"tiny foreground sanity\""),
+        ExampleRecipe("sweep_start_json", title: "Start a resumable sweep", command: "alln sweep start \"apply this order\" --target a.md --target b.md --json"),
         ExampleRecipe("try_fix_bug", title: "Auto Fix: Bug Hunt then one bounded fix", command: "alln run \"The history view loses finished runs after restart.\" --project <id> --team code_bug_hunt --try-fix --executor build_slice --json"),
         ExampleRecipe("show_latest_json", title: "Show one run by id", command: "alln show <run-id> --json"),
         ExampleRecipe("spec_full", title: "Retrieve the full result packet", command: "alln spec latest --detail full --json"),

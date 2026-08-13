@@ -909,6 +909,51 @@
     "ruleId" : "loop.local_seat.cannot_lead"
   },
   {
+    "agentAction" : "Run `alln sweep status <id> --json` with a valid sweep id, or start a new sweep with `alln sweep start`.",
+    "code" : "SWEEP_NOT_FOUND",
+    "exitClass" : "operational",
+    "explain" : "No sweep matches the given id.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "sweep.not_found"
+  },
+  {
+    "agentAction" : "Pass --target (repeatable), --targets <csv>, or --targets-file <path>.",
+    "code" : "SWEEP_NO_TARGETS",
+    "exitClass" : "usage",
+    "explain" : "A sweep needs at least one target.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "sweep.no_targets"
+  },
+  {
+    "agentAction" : "Deduplicate the target list and retry. Duplicates would hide a skipped first attempt.",
+    "code" : "SWEEP_DUPLICATE_TARGETS",
+    "exitClass" : "usage",
+    "explain" : "The same target id appeared twice. A sweep refuses duplicates so a skip cannot be disguised as a second listing.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "sweep.duplicate_targets"
+  },
+  {
+    "agentAction" : "Read `alln sweep status <id> --json`. Resume an interrupted sweep; do not start a second sweep on the same order.",
+    "code" : "SWEEP_INVALID_STATE",
+    "exitClass" : "operational",
+    "explain" : "The requested sweep transition is not valid for the current status.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "sweep.invalid_state"
+  },
+  {
+    "agentAction" : "Run the returned `alln sweep resume <id> --json`. Do not treat the sweep as complete while any target is not-attempted.",
+    "code" : "SWEEP_INCOMPLETE",
+    "exitClass" : "operational",
+    "explain" : "The sweep stopped with targets still not-attempted. complete is false. Resume; never report done.",
+    "requiresManual" : false,
+    "retryable" : true,
+    "ruleId" : "sweep.incomplete"
+  },
+  {
     "agentAction" : "Run `alln ps --json` and pick a current owned id, or omit and use `alln kill --all` for every identity-alive tree.",
     "code" : "OWNERSHIP_NOT_FOUND",
     "exitClass" : "operational",
