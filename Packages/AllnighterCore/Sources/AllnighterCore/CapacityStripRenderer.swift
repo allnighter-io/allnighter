@@ -293,24 +293,44 @@ public enum CapacityStripRenderer {
     // MARK: - Colour
 
     /// Mutual exclusive: red (empty) > amber (headroom with deadline) > neutral.
+    ///
+    /// Row colour follows the **tightest** pool (effective remaining). Multi-pool
+    /// meter lines must call `color(for:pool:now:)` so a spent Claude/GPT weekly
+    /// does not paint a live Gemini line red.
     public static func color(for row: CapacityBenchRow, now: Date) -> CapacityStripColor {
         if row.unknownReason != nil { return .neutral }
         if let effective = row.effectiveRemainingPercent, effective <= CapacityWindow.emptyRemainingThreshold {
             return .red
         }
-        // Any pool with known remaining at 0 also paints red.
-        let anyEmpty = row.pools.contains { pool in
-            if let r = pool.dashboardRemainingPercent, r <= CapacityWindow.emptyRemainingThreshold {
-                return true
-            }
-            if case .known(let rem, _, _, _, _) = pool.shortWindow,
-               rem <= CapacityWindow.emptyRemainingThreshold {
-                return true
-            }
-            return false
+        if row.pools.contains(where: { color(for: $0, now: now) == .red }) {
+            return .red
         }
-        if anyEmpty { return .red }
         if row.isHeroEligible(at: now) { return .amber }
+        return .neutral
+    }
+
+    /// Colour for one meter line. Independent pools on one CLI do not share
+    /// emptiness — Gemini at 99% stays neutral while Claude/GPT at 0% is red.
+    public static func color(for pool: CapacityBenchPoolMetrics, now: Date) -> CapacityStripColor {
+        if pool.unknownReason != nil, pool.dashboardRemainingPercent == nil {
+            return .neutral
+        }
+        if let remaining = pool.dashboardRemainingPercent,
+           remaining <= CapacityWindow.emptyRemainingThreshold {
+            return .red
+        }
+        if case .known(let rem, _, _, _, _) = pool.shortWindow,
+           rem <= CapacityWindow.emptyRemainingThreshold {
+            return .red
+        }
+        if let remaining = pool.dashboardRemainingPercent,
+           CapacityBenchProjection.isHeroEligible(
+            remainingPercent: remaining,
+            resetAt: pool.dashboardResetAt,
+            now: now
+           ) {
+            return .amber
+        }
         return .neutral
     }
 
@@ -422,7 +442,7 @@ public enum CapacityStripRenderer {
                     let weekly = pad(dashboardCell(pool: pool, now: now, barWidth: 8), weeklyW)
                     let short = pad(shortCell(pool: pool, row: row), shortW)
                     var line = "\(labelPrefix) \(planCell) \(weekly) \(short) \(ageCell)"
-                    if tty { line = ansi(line, color: color) }
+                    if tty { line = ansi(line, color: Self.color(for: pool, now: now)) }
                     lines.append(line)
                 }
                 continue

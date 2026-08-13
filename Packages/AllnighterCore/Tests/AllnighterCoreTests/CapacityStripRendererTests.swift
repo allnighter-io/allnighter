@@ -303,6 +303,10 @@ final class CapacityStripRendererTests: XCTestCase {
         let geminiLine = table(plain).split(separator: "\n").first { $0.contains("Gemini") }.map(String.init) ?? ""
         XCTAssertTrue(geminiLine.contains("98.2% left") || geminiLine.contains("98% left"),
                       "Gemini 5h must survive sibling exhaustion: \(geminiLine)")
+
+        XCTAssertEqual(CapacityStripRenderer.color(for: projected[0].pools[0], now: now), .neutral)
+        XCTAssertEqual(CapacityStripRenderer.color(for: projected[0].pools[1], now: now), .red)
+        XCTAssertEqual(CapacityStripRenderer.color(for: projected[0], now: now), .red)
     }
 
     /// The gate is exhaustion, not `min()`. A weekly and a 5h percentage have

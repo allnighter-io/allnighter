@@ -330,6 +330,9 @@ private struct CapacityStripMeterRowView: View {
     @State private var hovering = false
 
     private var color: CapacityStripColor {
+        if let pool = line.pool {
+            return CapacityStripRenderer.color(for: pool, now: now)
+        }
         guard let parent else { return .neutral }
         return CapacityStripRenderer.color(for: parent, now: now)
     }
