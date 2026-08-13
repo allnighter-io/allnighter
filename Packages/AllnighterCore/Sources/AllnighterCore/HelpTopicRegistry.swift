@@ -940,6 +940,34 @@ public enum HelpTopicRegistry {
             needsLiveCheck: false),
 
         HelpTopic(
+            id: "billing", title: "Trial, free allowance, and paying", audience: .both,
+            summary: "14-day unlimited trial from first run, then 3 full runs/day. Pay via Stripe Checkout (`alln billing checkout --plan monthly --json`); open the url in a browser — do not exec it. Sign in with Apple is not required to buy.",
+            bodyMarkdown: """
+            Allnighter is free to install. The first dispatch starts a **14-day unlimited \
+            trial** on this machine (server clock — reinstall does not mint a new trial). \
+            After that: **3 full-capability runs per day**. Nothing is feature-locked.
+
+            Status: `alln billing --json`. To pay: `alln billing checkout --plan monthly|yearly|founding --json`. \
+            The JSON `url` is hosted Stripe Checkout (email collected by Stripe). **Open it in a \
+            browser. Do not exec the url.** Agents must run the compiled command \
+            `alln billing checkout --plan monthly --json`, never a remote Stripe URL.
+
+            Builder is $8/month or $80/year. Founding Builder is $160 once, first 100 only.
+
+            Discovery (`menu`, `help`, `doctor`, `billing`) is always free. An in-flight run \
+            is never killed when a trial ends or the daily cap hits.
+            """,
+            aliases: [
+                "pay", "stripe", "checkout", "trial", "founding",
+                "billing", "free tier", "3 runs", "buy", "stripe checkout",
+                "entitlement", "entitlement_limit",
+            ],
+            relatedCommandNames: ["billing", "billing checkout", "menu", "run"],
+            schemaRefs: ["billingJSON"],
+            errorRefs: ["ENTITLEMENT_LIMIT"],
+            needsLiveCheck: true),
+
+        HelpTopic(
             id: "schemas", title: "Schemas & Contract", audience: .agent,
             summary: "Exact fields/enums come from the generated contract: `alln spec` for a run packet, `alln docs --schema` for shapes.",
             bodyMarkdown: """

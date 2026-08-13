@@ -22,6 +22,7 @@ enum MenuCLI {
             detailed: detailed,
             capacity: AllnighterCLI.menuCapacity(now: Date()),
             update: AllnighterCLI.menuUpdate(now: Date()),
+            entitlement: EntitlementGate.standard.menuProjection(),
             benchTally: MenuJSON.BenchTallyPayload(tally: tally)
         )
         do {

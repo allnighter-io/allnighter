@@ -69,7 +69,7 @@ public extension ContractRegistry {
     // `--pm` pin is owner intent; sensors inform, never block).
     // OCL-S08: minor — `sweep start|resume|status` (one order × N targets,
     // checkpointed, resumable; per-target done|failed|not-attempted).
-    static let contractVersion = "10.1.0"
+    static let contractVersion = "10.2.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -319,6 +319,31 @@ public extension ContractRegistry {
                 FlagSpec("json", summary: "Structured { available, current, latest?, command }."),
             ],
             exampleIds: ["update_check"]
+        ),
+        CommandSpec(
+            "billing",
+            summary: "Show this machine's trial, free-tier allowance, or paid plan. Discovery is free; paying is Stripe Checkout.",
+            milestone: .m1,
+            trigger: "Use when a dispatch is refused with ENTITLEMENT_LIMIT, or to see trial/plan status.",
+            example: "alln billing --json",
+            antiExample: "Do NOT exec a Stripe Checkout url — open it in a browser. The agent command is `alln billing checkout --plan monthly --json`.",
+            flags: [FlagSpec("json", summary: "Structured BillingJSON.")],
+            outputSchema: .billingJSON,
+            exampleIds: ["billing_status"]
+        ),
+        CommandSpec(
+            "billing checkout",
+            summary: "Create a hosted Stripe Checkout session for this machine. Prints a url for a human to open; never exec the url.",
+            milestone: .m1,
+            trigger: "Use after ENTITLEMENT_LIMIT or when the user wants to pay.",
+            example: "alln billing checkout --plan monthly --json",
+            antiExample: "Do NOT put the Stripe url in a command field and run it.",
+            flags: [
+                FlagSpec("plan", takesValue: true, valueType: "billingPlan", summary: "monthly | yearly | founding."),
+                FlagSpec("json", summary: "Structured BillingJSON including url."),
+            ],
+            outputSchema: .billingJSON,
+            exampleIds: ["billing_checkout"]
         ),
         CommandSpec(
             "install-cli", summary: "Symlink the running `alln` binary onto PATH (running the command is consent). The background scheduler is enabled by default; opt out with --no-serve.", milestone: .m1,
@@ -1468,6 +1493,7 @@ public extension ContractRegistry {
     // MARK: - Error catalog
 
     static let m1Errors: [ErrorSpec] = [
+        ErrorSpec("ENTITLEMENT_LIMIT", ruleId: "entitlement.limit", agentAction: "Run `alln billing checkout --plan monthly --json` and ask the human to open the returned url in a browser. Do not exec the url.", requiresManual: true, retryable: false, explain: "This machine is on the free daily allowance (3 full runs/day after a 14-day trial) and has no remaining dispatches today. Checkout is hosted Stripe with email; Sign in with Apple is not required."),
         ErrorSpec("CLI_USAGE_ERROR", ruleId: "cli.usage.error", agentAction: "Re-run `alln docs <command>` and fix arguments.", requiresManual: true, retryable: false, explain: "The command was called with invalid or conflicting arguments. Consult the generated docs for the command and correct the invocation.", exitClass: .usage),
         ErrorSpec(
             "UNKNOWN_FLAG",
@@ -1785,6 +1811,8 @@ public extension ContractRegistry {
         ExampleRecipe("install_cli_json", title: "Install the running binary onto PATH", command: "alln install-cli --json"),
         ExampleRecipe("version_json", title: "Print binary and contract identity", command: "alln version --json"),
         ExampleRecipe("update_check", title: "Soft-announce a newer release", command: "alln update --check"),
+        ExampleRecipe("billing_status", title: "Show trial or paid plan for this machine", command: "alln billing --json"),
+        ExampleRecipe("billing_checkout", title: "Start Stripe Checkout (human opens the url)", command: "alln billing checkout --plan monthly --json"),
         ExampleRecipe("models_json", title: "List model catalog and Bench state", command: "alln models --json"),
         ExampleRecipe("drivers_json", title: "List CLIs and park state", command: "alln drivers --json"),
         ExampleRecipe("drivers_park", title: "Park a CLI you are not using", command: "alln drivers park opencode"),

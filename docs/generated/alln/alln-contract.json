@@ -831,6 +831,93 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT exec a Stripe Checkout url — open it in a browser. The agent command is `alln billing checkout --plan monthly --json`.",
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln billing --json",
+      "exampleIds" : [
+        "billing_status"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Structured BillingJSON.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "billing",
+      "outputSchema" : "billingJSON",
+      "spendsQuota" : false,
+      "summary" : "Show this machine's trial, free-tier allowance, or paid plan. Discovery is free; paying is Stripe Checkout.",
+      "trigger" : "Use when a dispatch is refused with ENTITLEMENT_LIMIT, or to see trial\/plan status.",
+      "visibility" : "public"
+    },
+    {
+      "antiExample" : "Do NOT put the Stripe url in a command field and run it.",
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln billing checkout --plan monthly --json",
+      "exampleIds" : [
+        "billing_checkout"
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "allowedValues" : [
+            "monthly",
+            "yearly",
+            "founding"
+          ],
+          "name" : "plan",
+          "summary" : "monthly | yearly | founding.",
+          "takesValue" : true,
+          "valueType" : "billingPlan"
+        },
+        {
+          "name" : "json",
+          "summary" : "Structured BillingJSON including url.",
+          "takesValue" : false
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "billing checkout",
+      "outputSchema" : "billingJSON",
+      "spendsQuota" : false,
+      "summary" : "Create a hosted Stripe Checkout session for this machine. Prints a url for a human to open; never exec the url.",
+      "trigger" : "Use after ENTITLEMENT_LIMIT or when the user wants to pay.",
+      "visibility" : "public"
+    },
+    {
       "args" : [
 
       ],
@@ -6605,7 +6692,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "10.1.0",
+  "contractVersion" : "10.2.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",
@@ -6709,6 +6796,15 @@
     }
   ],
   "errors" : [
+    {
+      "agentAction" : "Run `alln billing checkout --plan monthly --json` and ask the human to open the returned url in a browser. Do not exec the url.",
+      "code" : "ENTITLEMENT_LIMIT",
+      "exitClass" : "operational",
+      "explain" : "This machine is on the free daily allowance (3 full runs\/day after a 14-day trial) and has no remaining dispatches today. Checkout is hosted Stripe with email; Sign in with Apple is not required.",
+      "requiresManual" : true,
+      "retryable" : false,
+      "ruleId" : "entitlement.limit"
+    },
     {
       "agentAction" : "Re-run `alln docs <command>` and fix arguments.",
       "code" : "CLI_USAGE_ERROR",
@@ -8153,6 +8249,16 @@
       "command" : "alln update --check",
       "id" : "update_check",
       "title" : "Soft-announce a newer release"
+    },
+    {
+      "command" : "alln billing --json",
+      "id" : "billing_status",
+      "title" : "Show trial or paid plan for this machine"
+    },
+    {
+      "command" : "alln billing checkout --plan monthly --json",
+      "id" : "billing_checkout",
+      "title" : "Start Stripe Checkout (human opens the url)"
     },
     {
       "command" : "alln models --json",

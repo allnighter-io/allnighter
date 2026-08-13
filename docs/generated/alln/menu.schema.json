@@ -207,6 +207,34 @@
       ],
       "type" : "object"
     },
+    "Entitlement" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "checkoutCommand" : {
+          "type" : "string"
+        },
+        "plan" : {
+          "type" : "string"
+        },
+        "runsRemainingToday" : {
+          "type" : [
+            "integer",
+            "null"
+          ]
+        },
+        "trialEndsAt" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "plan",
+        "checkoutCommand"
+      ],
+      "type" : "object"
+    },
     "MenuAction" : {
       "additionalProperties" : false,
       "properties" : {
@@ -561,6 +589,9 @@
         "$ref" : "#\/$defs\/EffectProfile"
       },
       "type" : "object"
+    },
+    "entitlement" : {
+      "$ref" : "#\/$defs\/Entitlement"
     },
     "models" : {
       "items" : {

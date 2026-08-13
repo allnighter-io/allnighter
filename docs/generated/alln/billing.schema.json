@@ -1,0 +1,63 @@
+{
+  "$id" : "https:\/\/allnighter.io\/schemas\/billing.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "checkoutCommand" : {
+      "type" : "string"
+    },
+    "message" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "paid" : {
+      "type" : "boolean"
+    },
+    "plan" : {
+      "type" : "string"
+    },
+    "runsAllowedToday" : {
+      "type" : [
+        "integer",
+        "null"
+      ]
+    },
+    "runsUsedToday" : {
+      "type" : [
+        "integer",
+        "null"
+      ]
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "trialEndsAt" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "trialStartedAt" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    },
+    "url" : {
+      "type" : [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "plan",
+    "paid",
+    "checkoutCommand"
+  ],
+  "title" : "BillingJSON",
+  "type" : "object"
+}

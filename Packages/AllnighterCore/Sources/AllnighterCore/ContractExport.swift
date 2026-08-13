@@ -196,6 +196,7 @@ public enum ContractExport {
             Artifact(filename: "ownership-gc.schema.json", contents: try ContractSchema.json(ContractSchema.ownershipGarbageCollectionSchema())),
             Artifact(filename: "menu.schema.json", contents: try ContractSchema.json(ContractSchema.menuSchema())),
             Artifact(filename: "menu-show.schema.json", contents: try ContractSchema.json(ContractSchema.menuShowSchema())),
+            Artifact(filename: "billing.schema.json", contents: try ContractSchema.json(ContractSchema.billingSchema())),
         ]
     }
 

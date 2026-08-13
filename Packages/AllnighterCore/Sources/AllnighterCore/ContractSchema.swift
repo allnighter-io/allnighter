@@ -897,6 +897,7 @@ public enum ContractSchema {
             "completeness": ref("MenuCompleteness"),
             "capacity": ref("Capacity"),
             "update": ref("ReleaseUpdate"),
+            "entitlement": ref("Entitlement"),
             "benchTally": ref("BenchTally"),
         ], required: [
             "schemaVersion", "contractVersion", "contractHash", "catalogRevision",
@@ -973,6 +974,12 @@ public enum ContractSchema {
                 "available": bool, "current": str, "latest": str,
                 "binaryPath": nullable("string"), "command": str,
             ], required: ["available", "current", "latest", "command"]),
+            "Entitlement": obj([
+                "plan": str,
+                "trialEndsAt": nullable("string"),
+                "runsRemainingToday": nullable("integer"),
+                "checkoutCommand": str,
+            ], required: ["plan", "checkoutCommand"]),
             "BenchTally": obj([
                 "headline": str,
                 "supported": int, "measured": int, "ready": int,
@@ -1078,6 +1085,28 @@ public enum ContractSchema {
                 "unknownReason": nullable("string"),
             ], required: ["source"]),
         ]
+        return schema
+    }
+
+    public static func billingSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.io/schemas/billing.schema.json",
+            "title": "BillingJSON",
+        ]
+        let top = obj([
+            "schemaVersion": int,
+            "plan": str,
+            "paid": bool,
+            "trialStartedAt": nullable("string"),
+            "trialEndsAt": nullable("string"),
+            "runsUsedToday": nullable("integer"),
+            "runsAllowedToday": nullable("integer"),
+            "checkoutCommand": str,
+            "url": nullable("string"),
+            "message": nullable("string"),
+        ], required: ["schemaVersion", "plan", "paid", "checkoutCommand"])
+        schema.merge(top) { _, new in new }
         return schema
     }
 

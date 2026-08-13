@@ -142,6 +142,8 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
     /// The acceptance journal write failed — the run id never became durable,
     /// so acceptance is refused (RLR-L2: no id without a pollable journal).
     case journalUnavailable(String)
+    /// Free-tier daily cap or checkout required.
+    case entitlementLimited(String)
 
     public var description: String {
         switch self {
@@ -155,6 +157,8 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         case .workerNotAvailable(let m): return m
         case .journalUnavailable(let m):
             return "run journal could not be written — the run's durable record is unavailable, so it cannot be reported honestly; check disk space and permissions on the Allnighter support directory, then retry (\(m))"
+        case .entitlementLimited(let m):
+            return m
         }
     }
 
@@ -171,7 +175,7 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         switch self {
         case .noWorker, .workerNotAvailable, .repoRootUnavailable:
             return true
-        case .teamResolution, .writeLockBusy, .executionLaneBusy, .journalUnavailable:
+        case .teamResolution, .writeLockBusy, .executionLaneBusy, .journalUnavailable, .entitlementLimited:
             return false
         }
     }
@@ -185,6 +189,7 @@ public enum RunServiceError: Error, Equatable, CustomStringConvertible {
         case .noWorker: return "AGENT_NOT_READY"
         case .workerNotAvailable: return "AGENT_NOT_AVAILABLE"
         case .journalUnavailable: return "RUN_JOURNAL_UNAVAILABLE"
+        case .entitlementLimited: return "ENTITLEMENT_LIMIT"
         }
     }
 }
@@ -907,6 +912,14 @@ public actor RunService {
             }
             DetachedHandoff.reportRefused(code: "DEFAULT_TEAM_INVALID", message: reason)
             return .failure(.teamResolution(reason, code: "DEFAULT_TEAM_INVALID"))
+        }
+
+        switch await EntitlementGate.standard.admitDispatch() {
+        case .admit:
+            break
+        case .refuse(let refusal):
+            DetachedHandoff.reportRefused(code: "ENTITLEMENT_LIMIT", message: refusal.message)
+            return .failure(.entitlementLimited(refusal.message))
         }
 
         let preset = invocation.preset

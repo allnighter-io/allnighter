@@ -33,11 +33,15 @@ enum LoopCLI {
         case "stop":
             LoopEngineCLI.runStop(loopArgs(rest, usageLine: "loop stop <loop-id> [--json]"), runtime: runtime)
         case "resume":
-            await LoopEngineCLI.runResume(loopArgs(rest, usageLine: "loop resume <loop-id> --answer <text> [--until HH:MM] [--max-rounds N] [--no-wait] [--json]"), runtime: runtime)
+            await EntitlementAdmission.skippingInner {
+                await LoopEngineCLI.runResume(loopArgs(rest, usageLine: "loop resume <loop-id> --answer <text> [--until HH:MM] [--max-rounds N] [--no-wait] [--json]"), runtime: runtime)
+            }
         case "wait":
             PilotCLI.runWatch(loopArgs(rest, usageLine: "loop wait <loop-id> [--max-wait <seconds>] [--json]"))
         case "step":
-            await runStep(rest, runtime: runtime)
+            await EntitlementAdmission.skippingInner {
+                await runStep(rest, runtime: runtime)
+            }
         case "pm":
             await runPm(rest, runtime: runtime)
         default:
@@ -217,6 +221,17 @@ enum LoopCLI {
             AllnighterCLI.fail(code: "CLI_USAGE_ERROR", message: error)
         }
 
+        switch await EntitlementGate.standard.admitDispatch() {
+        case .admit:
+            break
+        case .refuse(let refusal):
+            AllnighterCLI.fail(
+                code: "ENTITLEMENT_LIMIT",
+                message: refusal.message,
+                nextAction: EntitlementLimitNextAction.agent
+            )
+        }
+
         switch seats.pm {
         case .caller:
             // Pilot has no clock and no PM prompt of its own — the live session IS the
@@ -236,7 +251,9 @@ enum LoopCLI {
             let request = PilotCLI.StartRequest(
                 config: config, devModelId: seats.dev, devWorkerAlias: nil, rememberedDevWorker: false
             )
-            await PilotCLI.runStart(request: request, opts: opts, runtime: runtime)
+            await EntitlementAdmission.skippingInner {
+                await PilotCLI.runStart(request: request, opts: opts, runtime: runtime)
+            }
         case .agent(let pmId):
             let kickoffMessage: String?
             do {
@@ -258,7 +275,9 @@ enum LoopCLI {
                 devTurnIdleTimeoutSeconds: idleParsed.value,
                 kickoffMessage: kickoffMessage
             )
-            await LoopEngineCLI.runRelay(config: config, opts: opts, runtime: runtime)
+            await EntitlementAdmission.skippingInner {
+                await LoopEngineCLI.runRelay(config: config, opts: opts, runtime: runtime)
+            }
         }
     }
 

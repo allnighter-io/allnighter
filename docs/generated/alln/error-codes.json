@@ -1,5 +1,14 @@
 [
   {
+    "agentAction" : "Run `alln billing checkout --plan monthly --json` and ask the human to open the returned url in a browser. Do not exec the url.",
+    "code" : "ENTITLEMENT_LIMIT",
+    "exitClass" : "operational",
+    "explain" : "This machine is on the free daily allowance (3 full runs\/day after a 14-day trial) and has no remaining dispatches today. Checkout is hosted Stripe with email; Sign in with Apple is not required.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "entitlement.limit"
+  },
+  {
     "agentAction" : "Re-run `alln docs <command>` and fix arguments.",
     "code" : "CLI_USAGE_ERROR",
     "exitClass" : "usage",

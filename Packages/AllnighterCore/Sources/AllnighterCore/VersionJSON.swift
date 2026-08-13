@@ -108,8 +108,12 @@ import Foundation
 /// minor (10.0.0 → 10.1.0): local seat `readiness` is `Available` |
 /// `Unavailable` per seat. Idle/Busy cut — Busy inverted the word. Not a
 /// major cut, standard +0.0.1.
+///
+/// **1.1.1 → 1.1.2 (trial / Stripe Checkout).** `contractVersion` additive
+/// minor (10.1.0 → 10.2.0): `alln billing` / `billing checkout`, optional
+/// `MenuJSON.entitlement`, error `ENTITLEMENT_LIMIT`. Not a major cut.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.1"
+    public static let binaryVersion = "1.1.2"
 }
 
 /// `alln version` / `alln --version` machine contract.

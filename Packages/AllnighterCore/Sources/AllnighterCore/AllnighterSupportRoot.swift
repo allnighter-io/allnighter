@@ -52,6 +52,11 @@ public enum AllnighterSupportRoot {
         support.appendingPathComponent("Release", isDirectory: true)
     }
 
+    /// `…/Allnighter/Entitlement/` — trial/paid token. Never Keychain (BUG-9).
+    public static var entitlement: URL {
+        support.appendingPathComponent("Entitlement", isDirectory: true)
+    }
+
     // MARK: - Test / real-state seam
 
     /// Detection signal for the support-root redirect.

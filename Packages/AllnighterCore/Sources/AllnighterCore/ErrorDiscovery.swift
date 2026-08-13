@@ -39,6 +39,9 @@ public enum ErrorDiscovery {
     }
 
     public static func nextAction(forErrorCode code: String, lane: String? = nil) -> AgentNextAction? {
+        if code == "ENTITLEMENT_LIMIT" {
+            return EntitlementLimitNextAction.agent
+        }
         guard let command = discoveryCommand(forErrorCode: code, lane: lane) else { return nil }
         return AgentNextAction(
             kind: "discover",

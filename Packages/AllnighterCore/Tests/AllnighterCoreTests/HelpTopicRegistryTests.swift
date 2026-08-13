@@ -439,6 +439,14 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertTrue(setup.topic?.relatedCommandNames.contains("detect") ?? false)
     }
 
+    func testSearchRoutesBillingAndCheckoutQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("alln billing"), "billing")
+        XCTAssertEqual(top("founding"), "billing")
+        XCTAssertEqual(top("stripe checkout"), "billing")
+        XCTAssertEqual(HelpService.get(error: "ENTITLEMENT_LIMIT").topic?.id, "billing")
+    }
+
     // MARK: - Ref round-trip
 
     func testHelpRefBuildAndParseRoundTrip() {

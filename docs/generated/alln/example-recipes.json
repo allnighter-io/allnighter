@@ -35,6 +35,16 @@
     "title" : "Soft-announce a newer release"
   },
   {
+    "command" : "alln billing --json",
+    "id" : "billing_status",
+    "title" : "Show trial or paid plan for this machine"
+  },
+  {
+    "command" : "alln billing checkout --plan monthly --json",
+    "id" : "billing_checkout",
+    "title" : "Start Stripe Checkout (human opens the url)"
+  },
+  {
     "command" : "alln models --json",
     "id" : "models_json",
     "title" : "List model catalog and Bench state"

@@ -29,6 +29,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     /// OPC-S06 — release-channel announcement when a newer CLI is known.
     /// Absent (not `null`) when omitted. Never carries remote notes/command.
     public var update: ReleaseUpdateInfo?
+    /// Trial / paid projection. Absent when skipped (test host) or never dispatched.
+    public var entitlement: EntitlementInfo?
     /// FCS-S02 — shared bench tally (Core `BenchTallyProjector`). Always present
     /// when projected from a live registry. `nextAction` is set when the agent
     /// must run a command before spend (`alln detect` or `alln doctor --full --json`).
@@ -273,6 +275,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         completeness: Completeness,
         capacity: Capacity? = nil,
         update: ReleaseUpdateInfo? = nil,
+        entitlement: EntitlementInfo? = nil,
         benchTally: BenchTallyPayload? = nil
     ) {
         self.schemaVersion = schemaVersion
@@ -294,6 +297,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         self.completeness = completeness
         self.capacity = capacity
         self.update = update
+        self.entitlement = entitlement
         self.benchTally = benchTally
     }
 
@@ -302,7 +306,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
             detailTemplate, actions, commands, teams, teamInvocation, models, modelInvocation,
             blocked, recipes,
             effectProfiles,
-            defaults, completeness, capacity, update, benchTally
+            defaults, completeness, capacity, update, entitlement, benchTally
     }
 
     /// Swift's synthesized `Encodable` writes `Optional` properties as explicit
@@ -330,6 +334,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         try container.encode(completeness, forKey: .completeness)
         try container.encodeIfPresent(capacity, forKey: .capacity)
         try container.encodeIfPresent(update, forKey: .update)
+        try container.encodeIfPresent(entitlement, forKey: .entitlement)
         try container.encodeIfPresent(benchTally, forKey: .benchTally)
     }
 }

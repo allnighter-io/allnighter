@@ -168,6 +168,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         case bootstrapJSON
         case installCLIJSON
         case versionJSON
+        case billingJSON
         case ownershipPsJSON
         case ownershipKillJSON
         case ownershipGarbageCollectionJSON
@@ -336,6 +337,7 @@ public struct ContractRegistry: Sendable, Equatable, Codable {
         // `state` removed with ORS-S03b (`team status --wait-for`); no FlagSpec uses it.
         "detail": SpecRetrieval.Detail.allCases.map(\.rawValue),
         "verdict": ["continue", "done", "escalate"],
+        "billingPlan": ["monthly", "yearly", "founding"],
     ]
 
     /// Mode / companion requirements beyond mutual exclusion (Law 6).

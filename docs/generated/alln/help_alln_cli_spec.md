@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 10.1.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.2.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -202,6 +202,29 @@ Flags:
 - `--json` — Structured { available, current, latest?, command }.
 
 Examples: `update_check`.
+
+### `alln billing`
+
+Show this machine's trial, free-tier allowance, or paid plan. Discovery is free; paying is Stripe Checkout.
+
+Flags:
+- `--json` — Structured BillingJSON.
+
+Output schema: `billingJSON`.
+
+Examples: `billing_status`.
+
+### `alln billing checkout`
+
+Create a hosted Stripe Checkout session for this machine. Prints a url for a human to open; never exec the url.
+
+Flags:
+- `--plan <monthly|yearly|founding>` — monthly | yearly | founding.
+- `--json` — Structured BillingJSON including url.
+
+Output schema: `billingJSON`.
+
+Examples: `billing_checkout`.
 
 ### `alln install-cli`
 
@@ -1786,6 +1809,7 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 
 | Code | Manual | Retryable | Exit class | Agent action |
 | --- | --- | --- | --- | --- |
+| `ENTITLEMENT_LIMIT` | yes | no | `operational` | Run `alln billing checkout --plan monthly --json` and ask the human to open the returned url in a browser. Do not exec the url. |
 | `CLI_USAGE_ERROR` | yes | no | `usage` | Re-run `alln docs <command>` and fix arguments. |
 | `UNKNOWN_FLAG` | yes | no | `usage` | Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag. |
 | `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | `operational` | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |
@@ -2010,6 +2034,8 @@ the selected CLI.
 - `install_cli_json` — Install the running binary onto PATH: `alln install-cli --json`
 - `version_json` — Print binary and contract identity: `alln version --json`
 - `update_check` — Soft-announce a newer release: `alln update --check`
+- `billing_status` — Show trial or paid plan for this machine: `alln billing --json`
+- `billing_checkout` — Start Stripe Checkout (human opens the url): `alln billing checkout --plan monthly --json`
 - `models_json` — List model catalog and Bench state: `alln models --json`
 - `drivers_json` — List CLIs and park state: `alln drivers --json`
 - `drivers_park` — Park a CLI you are not using: `alln drivers park opencode`
