@@ -1005,6 +1005,20 @@ struct CLIStatusRow: View {
     @State private var hover = false
 
     var body: some View {
+        // Button, not onTapGesture: macOS Text is selectable and steals the
+        // click, so tapping the status copy never selected the row.
+        Group {
+            if interactive {
+                Button(action: onTap) { row }
+                    .buttonStyle(.plain)
+            } else {
+                row
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var row: some View {
         HStack(spacing: 14) {
             DriverBrandGlyph(driverId: card.driverId, boxSize: 40, iconSize: 22, cornerRadius: 10)
                 .opacity(kind == .dormant || kind == .parked ? 0.55 : 1)
@@ -1014,6 +1028,7 @@ struct CLIStatusRow: View {
                     .foregroundStyle(kind == .dormant || kind == .parked ? ALColor.textMuted : ALColor.textPrimary)
                 content
             }
+            .allowsHitTesting(false)
             Spacer(minLength: 8)
             statusDot
         }
@@ -1031,8 +1046,8 @@ struct CLIStatusRow: View {
             }
         }
         .contentShape(Rectangle())
+        .textSelection(.disabled)
         .onHover { if interactive { hover = $0 } }
-        .onTapGesture { if interactive { onTap() } }
     }
 
     private var rowBackground: Color {
