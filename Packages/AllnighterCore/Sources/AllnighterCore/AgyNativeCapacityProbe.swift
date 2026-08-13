@@ -82,6 +82,11 @@ public enum AgyNativeCapacityProbe {
         poolLabel: String,
         observedAt: Date
     ) -> CapacityWindow? {
+        // Vendor marks a bucket disabled when the long window is exhausted and
+        // the short limit does not apply (e.g. Claude/GPT 5h under a spent weekly).
+        // `remaining_fraction` may still be ~1 — reading it would lie about spendability.
+        if bucket["disabled"] as? Bool == true { return nil }
+
         guard let windowKind = bucket["window"] as? String,
               let scope = scope(forWindowKind: windowKind)
         else { return nil }

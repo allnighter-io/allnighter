@@ -196,8 +196,6 @@ public enum CapacityBenchProjection {
 
     private static func row(source: String, windows: [CapacityWindow]) -> CapacityBenchRow {
         let planTier = windows.lazy.compactMap(\.planTier).first
-        let knownRemainings = windows.compactMap(\.remainingPercent)
-        let effective: Double? = knownRemainings.isEmpty ? nil : knownRemainings.min()
 
         let allUnknown = windows.allSatisfy { $0.unknownReason != nil }
         if allUnknown {
@@ -217,6 +215,8 @@ public enum CapacityBenchProjection {
             let poolWindows = windows.filter { poolKey(of: $0) == key }
             return poolMetrics(poolLabel: key, windows: poolWindows)
         }
+        let poolEffectives = pools.compactMap { effectiveRemainingPercent(for: $0) }
+        let effective: Double? = poolEffectives.isEmpty ? nil : poolEffectives.min()
 
         return CapacityBenchRow(
             source: source,
@@ -339,6 +339,20 @@ public enum CapacityBenchProjection {
 
     private static func poolKey(of window: CapacityWindow) -> String? {
         window.poolLabel
+    }
+
+    /// Tightest remaining within one pool (weekly/monthly vs short), then the row
+    /// takes the minimum across pools. Multi-pool seats must not let one pool's
+    /// weekly exhaust another pool's short window in projection math.
+    private static func effectiveRemainingPercent(for pool: CapacityBenchPoolMetrics) -> Double? {
+        var values: [Double] = []
+        if let dashboard = pool.dashboardRemainingPercent {
+            values.append(dashboard)
+        }
+        if case .known(let shortRemaining, _, _, _, _) = pool.shortWindow {
+            values.append(shortRemaining)
+        }
+        return values.isEmpty ? nil : values.min()
     }
 
     /// First-seen pool labels; nil (flat) comes first when mixed.

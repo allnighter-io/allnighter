@@ -129,6 +129,18 @@ final class AgyNativeCapacityProbeTests: XCTestCase {
             AgyNativeCapacityProbe.capacityWindows(fromOutput: payload, observedAt: fixedObservedAt).isEmpty)
     }
 
+    func testDisabledBucketIsSkippedNotParsedAsHeadroom() {
+        let payload = #"""
+        {"status":"SUCCESS","command":{"data":{"groups":[{"name":"Claude and GPT models","buckets":[\#
+        {"window":"weekly","remaining_fraction":0,"reset_time":"2026-08-17T04:19:59Z"},\#
+        {"window":"5h","disabled":true,"remaining_fraction":0.999,"reset_time":"2026-08-13T06:27:10Z"}]}]}}}
+        """#
+        let windows = AgyNativeCapacityProbe.capacityWindows(fromOutput: payload, observedAt: fixedObservedAt)
+        XCTAssertEqual(windows.count, 1)
+        XCTAssertEqual(windows[0].scope, .weekly)
+        XCTAssertEqual(windows[0].remainingPercent, 0)
+    }
+
     /// The `doubleValue` helper checks `any as? Double` before its
     /// `CFBoolean` guard on the `NSNumber` branch — Swift's dynamic cast
     /// coerces a JSON `true`/`false` straight through that first cast into

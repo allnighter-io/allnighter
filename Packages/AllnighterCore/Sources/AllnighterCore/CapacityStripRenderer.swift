@@ -643,7 +643,7 @@ public enum CapacityStripRenderer {
     ///    as 0.
     private static func shortPresentation(
         pool: CapacityBenchPoolMetrics,
-        row: CapacityBenchRow
+        row _: CapacityBenchRow
     ) -> ShortPresentation {
         switch pool.shortWindow {
         case .none:
@@ -651,22 +651,22 @@ public enum CapacityStripRenderer {
         case .unknown(let reason):
             return ShortPresentation(remaining: nil, isNone: false, reason: reason)
         case .known(let shortRemaining, _, _, _, _):
-            if isBlockedByExhaustedDashboard(row: row) {
+            if isBlockedByExhaustedDashboard(pool: pool) {
                 return ShortPresentation(remaining: 0, isNone: false, reason: nil)
             }
             return ShortPresentation(remaining: shortRemaining, isNone: false, reason: nil)
         }
     }
 
-    /// True when a weekly/monthly window on this row is spent. The short window
-    /// cannot be spent through an exhausted long window, and a weekly stays
-    /// exhausted for days — unlike a 5h window, which is transient by definition
-    /// and therefore never gates the dashboard cell in return.
-    private static func isBlockedByExhaustedDashboard(row: CapacityBenchRow) -> Bool {
-        row.pools.contains { pool in
-            guard let dashboard = pool.dashboardRemainingPercent else { return false }
-            return dashboard <= CapacityWindow.emptyRemainingThreshold
-        }
+    /// True when **this pool's** weekly/monthly window is spent. The short window
+    /// cannot be spent through an exhausted long window in the **same** pool.
+    ///
+    /// Multi-pool seats (agy Gemini vs Claude/GPT) share one CLI row but not one
+    /// quota bucket — another pool's exhausted weekly must not zero this pool's
+    /// 5h figure while the vendor still shows headroom there.
+    private static func isBlockedByExhaustedDashboard(pool: CapacityBenchPoolMetrics) -> Bool {
+        guard let dashboard = pool.dashboardRemainingPercent else { return false }
+        return dashboard <= CapacityWindow.emptyRemainingThreshold
     }
 
     // MARK: - Formatting

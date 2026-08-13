@@ -278,6 +278,33 @@ final class CapacityStripRendererTests: XCTestCase {
         XCTAssertEqual(jsonRow.shortRemainingPercent, 0)
     }
 
+    /// agy carries independent quota pools on one row. Claude/GPT weekly at 0%
+    /// must not zero Gemini's 5h column — that was the founder-visible bug when
+    /// Gemini still showed ~98% in the vendor `/usage` screen.
+    func testAgyExhaustedSiblingPoolDoesNotZeroGeminiShortColumn() {
+        let geminiWeeklyReset = now.addingTimeInterval(6 * 86400 + 18 * 3600)
+        let geminiFiveHourReset = now.addingTimeInterval(4 * 3600 + 35 * 60)
+        let claudeWeeklyReset = now.addingTimeInterval(4 * 86400 + 2 * 3600)
+        let windows = [
+            remaining(99.4, source: "agy", scope: .weekly, resetAt: geminiWeeklyReset,
+                      poolLabel: "Gemini Models"),
+            remaining(98.24, source: "agy", scope: .fiveHour, resetAt: geminiFiveHourReset,
+                      poolLabel: "Gemini Models"),
+            remaining(0, source: "agy", scope: .weekly, resetAt: claudeWeeklyReset,
+                      poolLabel: "Claude and GPT models"),
+        ]
+        let projected = rows(from: windows)
+        let jsonRow = CapacityStripRenderer.json(rows: projected, now: now).rows[0]
+        XCTAssertEqual(jsonRow.pools[0].shortRemainingPercent ?? -1, 98.24, accuracy: 0.01)
+        XCTAssertEqual(jsonRow.pools[1].dashboardRemainingPercent, 0)
+        XCTAssertTrue(jsonRow.pools[1].shortWindowNone)
+
+        let plain = CapacityStripRenderer.renderPlain(rows: projected, now: now)
+        let geminiLine = table(plain).split(separator: "\n").first { $0.contains("Gemini") }.map(String.init) ?? ""
+        XCTAssertTrue(geminiLine.contains("98.2% left") || geminiLine.contains("98% left"),
+                      "Gemini 5h must survive sibling exhaustion: \(geminiLine)")
+    }
+
     /// The gate is exhaustion, not `min()`. A weekly and a 5h percentage have
     /// different denominators, so a merely-tighter weekly must not overwrite the
     /// short window's real number — that is what blanked the Claude 5h figure.
