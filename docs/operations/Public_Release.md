@@ -68,8 +68,8 @@ uploaded. `appVersion` must equal the app’s
 `Apps/AllnighterMac/project.yml`) or the running app will show an update
 forever.
 
-Current public floor (2026-08-13): CLI **1.0.1** + Mac app **1.0.1** (arm64
-DMG). Next ship with billing is **1.1.2** (founder 2026-08-13).
+Current public floor (2026-08-13): CLI **1.1.3** + Mac app **1.1.3** (arm64
+DMG). Keep going overlay + `tellHuman` ship in this floor.
 
 ---
 

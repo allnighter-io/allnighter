@@ -1,6 +1,6 @@
 # Trial & Entitlement
 
-Status: **OPEN — test checkout proven; live Stripe + public 1.1.2 still remaining (2026-08-13)**  
+Status: **OPEN — live Stripe + public 1.1.3 (Keep going overlay + tellHuman)**  
 Owner: pay Worker + Core gate + `alln billing`  
 Offer SSOT: `docs/marketing/Pricing_Recommendation.md` v4  
 Seams reserved in: `docs/phases/One_Paste_Cold_Start.md` §Trial
