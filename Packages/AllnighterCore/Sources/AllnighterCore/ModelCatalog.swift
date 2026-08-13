@@ -341,14 +341,22 @@ public enum ModelCatalog {
     /// Runs AgentOS model smoke for a custom catalog entry and persists status/detail.
     /// Does not auto-enable — caller runs `alln models enable` after `.recognized`.
     ///
+    /// OpenCode seats whose label is `ollama/<tag>` verify on local evidence only
+    /// (binary present + Ollama reachable with that tag). They never use the
+    /// driver-wide Zen/Go smoke. Other seats keep the existing invoke probe.
+    ///
     /// `probeRecords` comes from `SetupStore().load().records` (Engine); Core cannot
     /// depend on SetupStore. nil loads the default `cli_setup.json` under the support root.
+    /// Tests inject `ollamaSnapshot` / `ollamaTransport` — never open a live socket.
     @discardableResult
     public static func verifyModelSmoke(
         id: ModelID,
         registry: DriverRegistry,
         invoker: (any WorkerInvoking)? = nil,
-        probeRecords: [ToolProbeRecord]? = nil
+        probeRecords: [ToolProbeRecord]? = nil,
+        ollamaSnapshot: OllamaLocalRuntimeObserver.Snapshot? = nil,
+        ollamaTransport: (any OllamaLocalRuntimeClient.Transport)? = nil,
+        now: Date = Date()
     ) async throws -> ModelSmokeResult {
         guard let def = get(id) else { throw ModelCatalogError.notFound(id) }
         guard def.origin == .custom else {
@@ -361,6 +369,33 @@ public enum ModelCatalog {
             throw ModelCatalogError.invalid("driver '\(def.driverId)' has no invoke path")
         }
         let records = probeRecords ?? loadDefaultProbeRecords()
+        if OpenCodeLocalSeatReadiness.isLocalOpenCodeSeat(def) {
+            let record = records.first { $0.driverId == def.driverId }
+            let snapshot = ollamaSnapshot ?? OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: ollamaTransport,
+                observedAt: now,
+                isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+            )
+            let outcome = OpenCodeLocalSeatReadiness.verify(
+                modelLabel: def.modelLabel,
+                driverId: def.driverId,
+                probeRecord: record,
+                snapshot: snapshot,
+                now: now
+            )
+            let smoke: ModelSmokeResult
+            switch outcome {
+            case .missingCLI, .notLocalSeat:
+                throw ModelCatalogError.invalid("CLI not detected/ready")
+            case .recognized(let result), .rejected(let result), .inconclusive(let result):
+                smoke = result
+            }
+            var updated = def
+            updated.modelSmokeStatus = smoke.status.rawValue
+            updated.modelSmokeDetail = smoke.detail
+            try updateCustom(updated)
+            return smoke
+        }
         guard let absolutePath = resolvedBinaryPath(driverId: def.driverId, records: records) else {
             throw ModelCatalogError.invalid("CLI not detected/ready")
         }

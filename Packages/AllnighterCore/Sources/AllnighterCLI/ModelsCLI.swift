@@ -194,7 +194,12 @@ enum ModelsCLI {
             let smoke = try await ModelCatalog.verifyModelSmoke(
                 id: id,
                 registry: runtime.registry,
-                probeRecords: SetupStore().load().records
+                probeRecords: SetupStore().load().records,
+                ollamaSnapshot: OllamaLocalDoctorReport.snapshotIfAllowed(
+                    transport: nil,
+                    observedAt: Date(),
+                    isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+                )
             )
             if opts.flag("json") {
                 struct Payload: Encodable {

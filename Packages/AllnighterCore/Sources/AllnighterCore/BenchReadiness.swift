@@ -8,17 +8,34 @@ public enum BenchReadiness {
     public static let capacityLookbackSeconds: TimeInterval = 12 * 60 * 60
 
     /// Enabled models whose driver is probe-ready, not cooling, and not parked.
+    ///
+    /// OpenCode `ollama/<tag>` seats use local Ollama evidence instead of the
+    /// driver-wide Zen/Go smoke. A rejected Zen probe or Go cooldown never
+    /// answers for a local seat. `ollamaLocal` nil = unobserved, so those seats
+    /// stay off this list (fail closed; never inferred ready).
     public static func readyModels(
         models: [Model],
         probeRecords: [ToolProbeRecord],
         coolingDriverIds: Set<String> = [],
         parkedDriverIds: Set<String> = [],
-        knownDriverIds: Set<String>? = nil
+        knownDriverIds: Set<String>? = nil,
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil
     ) -> [Model] {
         let readyDrivers = TeamAssembler.readyDriverIds(from: probeRecords, excludingParked: parkedDriverIds)
+        let recordsByDriver = Dictionary(uniqueKeysWithValues: probeRecords.map { ($0.driverId, $0) })
         return models.filter { m in
-            guard m.enabled, readyDrivers.contains(m.driverId) else { return false }
+            guard m.enabled else { return false }
+            if parkedDriverIds.contains(m.driverId) { return false }
             if let known = knownDriverIds, !known.contains(m.driverId) { return false }
+            if OpenCodeLocalSeatReadiness.isLocalOpenCodeSeat(m) {
+                return OpenCodeLocalSeatReadiness.isLocallyReady(
+                    modelLabel: m.modelLabel,
+                    binaryPath: OpenCodeLocalSeatReadiness.installedBinaryPath(
+                        from: recordsByDriver[m.driverId]),
+                    snapshot: ollamaLocal
+                )
+            }
+            guard readyDrivers.contains(m.driverId) else { return false }
             return !coolingDriverIds.contains(m.driverId)
         }
     }

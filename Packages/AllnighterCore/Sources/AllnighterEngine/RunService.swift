@@ -542,7 +542,12 @@ public actor RunService {
             probeRecords: records,
             coolingDriverIds: cooling,
             parkedDriverIds: SetupStore().load().parkedSet,
-            knownDriverIds: Set(registry.all.map(\.id))
+            knownDriverIds: Set(registry.all.map(\.id)),
+            ollamaLocal: OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: nil,
+                observedAt: now(),
+                isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+            )
         ).map(\.id))
     }
 

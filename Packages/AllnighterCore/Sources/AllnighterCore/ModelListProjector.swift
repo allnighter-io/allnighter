@@ -40,21 +40,46 @@ public enum ModelListProjector {
             let driverMissing = !manifestIDs.contains(def.driverId)
             let parked = parkedDriverIds.contains(def.driverId)
             let record = recordsByDriver[def.driverId]
-            let ready = !driverMissing && !parked && (record?.status.isSmokeReady ?? false)
+            let localOpenCode = OpenCodeLocalSeatReadiness.isLocalOpenCodeSeat(
+                driverId: def.driverId, modelLabel: def.modelLabel)
+            let ready: Bool
             let status: String
             if driverMissing {
+                ready = false
                 status = "driverMissing"
             } else if parked {
+                ready = false
                 status = "parked"
-            } else if let record, unassertable[def.driverId] == nil {
-                status = record.status.isSmokeReady ? "ready" : "notReady"
+            } else if localOpenCode {
+                // Local Ollama seats: binary + tag. Never the Zen/Go driver smoke.
+                let binary = OpenCodeLocalSeatReadiness.installedBinaryPath(from: record)
+                if binary == nil {
+                    ready = false
+                    status = record == nil ? "notChecked" : "notReady"
+                } else if ollamaLocal == nil {
+                    ready = false
+                    status = "notChecked"
+                } else {
+                    let localReady = OpenCodeLocalSeatReadiness.isLocallyReady(
+                        modelLabel: def.modelLabel,
+                        binaryPath: binary,
+                        snapshot: ollamaLocal
+                    )
+                    ready = localReady
+                    status = localReady ? "ready" : "notReady"
+                }
             } else {
-                // No record, or a negative verdict that outlived its evidence or
-                // never had any: all are "we don't currently know", which
-                // already renders as "Source not checked" rather than "Source
-                // not ready". The distinction matters — an agent reading
-                // `notReady` stops considering the seat.
-                status = "notChecked"
+                ready = record?.status.isSmokeReady ?? false
+                if let record, unassertable[def.driverId] == nil {
+                    status = record.status.isSmokeReady ? "ready" : "notReady"
+                } else {
+                    // No record, or a negative verdict that outlived its evidence or
+                    // never had any: all are "we don't currently know", which
+                    // already renders as "Source not checked" rather than "Source
+                    // not ready". The distinction matters — an agent reading
+                    // `notReady` stops considering the seat.
+                    status = "notChecked"
+                }
             }
             let driverName = registry.manifest(id: def.driverId)?.displayName ?? def.driverId
             let headlessTrust = registry.manifest(id: def.driverId)?.setup?.headlessTrust
