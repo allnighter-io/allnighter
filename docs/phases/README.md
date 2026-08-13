@@ -1,7 +1,7 @@
 # Allnighter — Phases
 
 Status: Active post-MVP planning and execution
-Updated: 2026-08-12
+Updated: 2026-08-13
 
 ## Purpose
 
@@ -48,20 +48,21 @@ the product, not from picking the next row here.
 > Run-completion work outranks sensor work: capacity informs selection but never
 > blocks a run, while `:4096` collisions stop the bench outright.
 > ~~**0.** Run readout~~ · ~~**0.5** Ambient dirty~~ closed 2026-08-08.
-> **Ollama is NOT authorised for code** — the founder queue ended at item 6 (Probe
-> Freshness archived). The 2026-08-09 local-work split (Ollama seats → Context
-> Firewall → Second Mac) is **document work only**; none of the three packets is
-> authorised for code.
+> **Ollama seats (packet 1):** ladder built and dogfooded live 2026-08-13 —
+> see [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) v8.
+> Remaining: Claude-local Works Test A, §11 B on this hardware, OCL-S05
+> (measured, not assumed). Packets 2–3 (Context Firewall, Second Mac) remain
+> **document work / unauthorized for code** until a founder ruling.
 > Everything below the queue is unordered backlog.
 
 | Doc | Status | Next action |
 | --- | --- | --- |
 | [`Handover_Capacity_2026-08-08.md`](Handover_Capacity_2026-08-08.md) | **START HERE — PM handover** | State of capacity/serve after 51 commits, decisions already ruled (do not relitigate), landmines, and the next work in order. Read before picking anything up. |
 | [`Capacity_Native_Channels.md`](Capacity_Native_Channels.md) | **v6 — 4 credential-free channels SHIPPED. §4 credential posture: RULED NO (2026-08-12)** | Every one of the six PTY-scraped sources has a VERIFIED better channel; four need no credentials at all. `agy --print "/usage" --output-format json` returns structured JSON in ~1s with zero model tokens; codex `app-server` exposes typed `account/rateLimits/read`. Deletes the whole 2026-08-08 bug class (generic markers, misspelled guards, repaint races, load sensitivity) by construction. §4 is **answered by the 2026-08-12 capacity ruling: no vendor-stored tokens for a dashboard.** The 4 credential-free channels stand because they are strictly cheaper and more reliable than PTY scraping — that is maintenance of a shipped surface, not new capability. The 2 credential-requiring channels are not authorized. |
-| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **4 · Ollama — v7 (packet 1 of 3); OCL-S00 pipe PASS; code unauthorized** | **Dev builds only until fully ready** (founder). Headline: *a frontier seat plans; local seats execute* (§2.4 delegation asymmetry). Split 2026-08-09 — firewall and second-Mac moved out, scope back to detect · seat · honest run · both bodies. Still blocked on `--no-commit` honesty, serve attach, Claude-local isolation design, mid-tier capability proof. |
+| [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) | **4 · Ollama — v8 (packet 1 of 3); ladder shipped + dogfooded 2026-08-13** | OpenCode-local Works Test **A** satisfied (`c88a0383`). Claude-local **A** outstanding; **B** unproven on this hardware; OCL-S05 unbuilt (gpt-oss:20b cold 20.9s / warm 0.6s vs 120s — do not project). Headline: *a frontier seat plans; local seats execute* (§2.4). Explicit local `--pm` allowed (`ab86226e`). |
 | [`Context_Firewall.md`](Context_Firewall.md) | **SPEC — packet 2 of 3; no code authorized** | Per-root `egress: open\|abstracted\|local_only` + verbatim egress ledger. Claim is **auditable, never sanitised** (§4.1) — copy review is a blocking test. Blocked on root-less dispatch design (§6) and packet 1's outcome-honesty bug. Regulated tier is bottom-up optionality, not roadmap (§3.3). |
 | [`Second_Mac_Bench.md`](Second_Mac_Bench.md) | **V2 STUB — packet 3 of 3; not started** | Scope fence for the two-machine problem. Shelved LAN architecture stays shelved; three narrow doors recorded (D1 remote inference URL only). Cannot open until packets 1 and 2 land + a founder ruling names the door. |
-| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 in progress** | R2 + Worker deployed (`0ac02589`); founder: Porkbun CNAME `get` → Cloudflare + Developer ID sign/notarize. S00–S03/S06 shipped. |
+| [`One_Paste_Cold_Start.md`](One_Paste_Cold_Start.md) | **OPEN — S05 CLI live** | `curl -fsSL https://get.allnighter.io \| sh` + `latest.json` `1.0.1` (signed/notarized 2026-08-13). Remaining: apex/www Ikiro CNAME. S00–S03/S06 shipped. |
 | [`Receipt_Portability_And_Call_Sites.md`](Receipt_Portability_And_Call_Sites.md) | **⚠ FOUNDER DECISION** | RP-S00 room test is free; RP-S01 digest needs ruling vs TRR-S02 signing cut. |
 | [`Work_Recovery_And_PM_Continuity.md`](Work_Recovery_And_PM_Continuity.md) | **OPEN — not started** | Incident-driven: `workRecovery` envelope, PM substitution, `work scan`. Origin: 2026-07-29 PM outage. |
 
@@ -189,7 +190,7 @@ Open questions:
 | `alln menu` hides seats / stale readiness / probe freshness | Archived [`Probe_Freshness.md`](../archive/phases/Probe_Freshness.md); code SSOT `ProbeFreshnessGate`, `ProbeRecordRefreshScheduler` |
 | `alln run` fails from Codex, handoff host missing, stale handoff work | [`Codex_Alln_Run_Hot_Fix.md`](../archive/phases/Codex_Alln_Run_Hot_Fix.md) |
 | Plan-time quota routing, loop park-yield, cross-vendor arbitrage | Archived [`Quota_Aware_Bench_Continuity.md`](../archive/phases/Quota_Aware_Bench_Continuity.md); vocabulary `Product_Vocabulary.md` §Quota-aware bench; code SSOT `LoopCoordinator.resolveCapacityPark`, `VendorBackoffReconciler` |
-| Ollama local seats (Claude Code and/or OpenCode; pipe on mini, sell to Studio; Idle/Busy readiness) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — v7, packet 1 of 3; both bodies + bakeoff; code unauthorized; ignore Ollama Cloud |
+| Ollama local seats (Claude Code and/or OpenCode; pipe on mini, sell to Studio; Idle/Busy readiness) | [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md) — v8, packet 1 of 3; ladder shipped; remaining Claude-local A / §11 B / OCL-S05; ignore Ollama Cloud |
 | Context firewall / egress policy / "keep the frontier model away from my source" | [`Context_Firewall.md`](Context_Firewall.md) — packet 2 of 3; *auditable, never sanitised*; root-less dispatch undesigned |
 | Second Mac, Studio in the office, LAN, remote `OLLAMA_HOST` | [`Second_Mac_Bench.md`](Second_Mac_Bench.md) — packet 3 of 3; fence, not a plan |
 | OpenCode serve busy / leftover :4096 after `alln run` | Core execution broken, team research/execution lies | Code SSOT: `RunService.swift`, `TeamCatalog`, `RunWriteLockRegistry` |

@@ -80,11 +80,15 @@ routes through `ProbeRecordMerge`.
 
 ## Sensors vs invariants
 
-Readiness, health, capacity, and other derived-state instruments **inform**;
-they never **block** an explicit request. The owner's request takes precedence
-and fails loudly if it fails. Parked driver, disabled model, unknown model id,
-and the per-root write lock still refuse (user intent / real invariants);
-sensor readings alone never veto.
+Readiness, health, capacity, provenance, and other derived-state instruments
+**inform**; they never **block** an explicit request. The owner's request takes
+precedence and fails loudly if it fails. Parked driver, disabled model, unknown
+model id, and the per-root write lock still refuse (user intent / real
+invariants); sensor readings alone never veto. **Provenance is not a
+refuse-class** — an explicit Loop `--pm` of a local Ollama-backed seat discloses
+local provenance and served context once, then proceeds (`ab86226e`;
+`docs/phases/OpenCode_Local_Ollama_Seats.md` §0.1.14). Allnighter does not decide
+which model is worthy of leading.
 
 ## Run ownership
 
