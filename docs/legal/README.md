@@ -1,9 +1,9 @@
 # Allnighter — Legal
 
-Status: **Published v1.1 — effective August 12, 2026**  
+Status: **Published v1.2 — effective August 13, 2026**  
 Entity: Happy Moose Apps Inc. (British Columbia, Canada)  
 Contact: support@allnighter.io  
-Created: 2026-07-31 · Published: 2026-08-07 · Revised: 2026-08-12 (v1.1 — drop Aider; iOS is when-available)
+Created: 2026-07-31 · Published: 2026-08-07 · Revised: 2026-08-13 (v1.2 — Stripe Checkout is the buy path; SIWA is not required to purchase)
 
 Public-facing legal surfaces for Allnighter. These four documents are the source
 of truth; the pages on allnighter.io are rendered from them and must be

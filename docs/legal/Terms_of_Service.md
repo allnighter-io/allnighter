@@ -1,6 +1,6 @@
 # Allnighter — Terms of Service
 
-**Version 1.1 · Effective August 12, 2026**
+**Version 1.2 · Effective August 13, 2026**
 
 These Terms cover your account, trial, subscription, and payments with
 **Happy Moose Apps Inc.** ("we", "us"), a company incorporated in British
@@ -84,9 +84,10 @@ produced, and no feature becomes unavailable to you.
 
 ## 4. Accounts
 
-An account (via Sign in with Apple) is required to purchase, and to sync
-entitlement across your devices. It is not required to install, to use the Free
-tier, or to run a trial.
+Purchase does not require an Allnighter account. You pay on Stripe Checkout
+with an email address. Sign in with Apple is not part of buying. It is not
+required to install, to use the Free tier, or to run a trial. Cross-device
+entitlement sync, when it ships, is a later feature.
 
 You are responsible for your account and for activity under it. Do not share
 entitlement across people — one entitlement covers one person's own machines.
@@ -139,7 +140,7 @@ vendor's own tool, which authenticates itself with your own login.
 
 **We do collect**, only as needed to run entitlement and payments:
 
-- your account identifier, if you create one (via Sign in with Apple);
+- the email address you enter on Stripe Checkout, for receipts;
 - an irreversible hash derived from your computer's hardware identifiers, used
   solely to record that a trial has been used on that machine — the underlying
   identifiers never leave your machine and we cannot reverse the hash back to

@@ -1,6 +1,6 @@
 # Allnighter — Privacy Policy
 
-**Version 1.1 · Effective August 12, 2026**
+**Version 1.2 · Effective August 13, 2026**
 
 This policy explains what **Happy Moose Apps Inc.** ("we", "us") collects when
 you use Allnighter — the `alln` command-line tool, the Allnighter Mac
@@ -51,13 +51,9 @@ To be explicit, because the distinction matters more here than in most software:
 
 | What | Why | Source |
 | --- | --- | --- |
-| Account identifier | To link your entitlement to you and sync it across your devices | Sign in with Apple |
-| Email address | Support, receipts, and service notices | Sign in with Apple, or you, when you write to us |
+| Email address | Receipts, support, and service notices | Stripe Checkout, or you, when you write to us |
 | Subscription state and its dates | To know whether you are entitled to the paid tier | Us and Stripe |
 | Billing country, card brand, and last four digits | Receipts, tax, and fraud prevention | Stripe |
-
-If you use Sign in with Apple's **Hide My Email**, we receive a relay address
-and never learn your real one. That works fine and we recommend it.
 
 **We never receive your full card number.** See §5.
 
@@ -98,7 +94,7 @@ We keep this list short on purpose. These are our only processors:
 | Processor | What they handle | Where |
 | --- | --- | --- |
 | **Stripe** | Payment processing. Card details go directly from you to Stripe over an encrypted connection and are never transmitted through or stored by us. Stripe is PCI-DSS Level 1 certified. | Global — [privacy policy](https://stripe.com/privacy) |
-| **Apple** | Sign in with Apple, and App Store distribution and billing where you buy through the App Store | Global — [privacy policy](https://www.apple.com/legal/privacy/) |
+| **Apple** | App Store distribution, and Sign in with Apple if you later use device pairing | Global — [privacy policy](https://www.apple.com/legal/privacy/) |
 | **Our hosting and website providers** | Serving the website, update checks, and the entitlement service | Canada / United States |
 
 We do not sell your personal information, and we do not share it with anyone for
