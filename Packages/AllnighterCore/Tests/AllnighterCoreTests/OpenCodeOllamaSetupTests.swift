@@ -228,6 +228,161 @@ final class OpenCodeOllamaSetupTests: XCTestCase {
         )
     }
 
+    func testMergeRegistersMissingTagsWithoutRewritingExisting() throws {
+        let json = """
+            {
+              "provider": {
+                "ollama": {
+                  "npm": "@ai-sdk/openai-compatible",
+                  "name": "Ollama (local)",
+                  "options": { "baseURL": "http://localhost:11434/v1" },
+                  "models": {
+                    "qwen2.5:0.5b": { "name": "keep-custom-name", "limit": { "context": 4096 } }
+                  }
+                }
+              }
+            }
+            """
+        var root = try OpenCodeOllamaProviderMerge.parseRoot(Data(json.utf8))
+        let result = try OpenCodeOllamaProviderMerge.merge(
+            into: &root,
+            localTags: ["qwen2.5:0.5b", "qwen2.5-coder:7b", "qwen2.5:0.5b", ""]
+        )
+        XCTAssertFalse(result.addedProvider)
+        XCTAssertEqual(result.addedModelIds, ["qwen2.5-coder:7b"])
+        XCTAssertFalse(result.createdModelsMap)
+        let models = try XCTUnwrap(
+            (root["provider"] as? [String: Any])?["ollama"] as? [String: Any]
+        )["models"] as? [String: Any]
+        let existing = try XCTUnwrap(models?["qwen2.5:0.5b"] as? [String: Any])
+        XCTAssertEqual(existing["name"] as? String, "keep-custom-name")
+        XCTAssertEqual((existing["limit"] as? [String: Any])?["context"] as? Int, 4096)
+        let added = try XCTUnwrap(models?["qwen2.5-coder:7b"] as? [String: Any])
+        XCTAssertEqual(added["name"] as? String, "qwen2.5-coder:7b")
+        XCTAssertEqual(added.count, 1)
+    }
+
+    func testUnreachableOllamaRegistersNoModels() throws {
+        let dir = try scratchDir()
+        let config = dir.appendingPathComponent("opencode.json")
+        let receipt = dir.appendingPathComponent("receipt.json")
+        try Data(beforeJSON.utf8).write(to: config)
+        let transport = SetupFixtureTransport(error: URLError(.cannotConnectToHost))
+
+        let setup = try OpenCodeOllamaSetup.apply(
+            configURL: config,
+            receiptURL: receipt,
+            now: now,
+            dryRun: false,
+            transport: transport,
+            isTestHost: true
+        )
+        XCTAssertTrue(setup.wrote)
+        XCTAssertTrue(setup.ollamaUnreachable)
+        XCTAssertFalse(setup.ollamaTagsObserved)
+        XCTAssertTrue(setup.addedModelIds.isEmpty)
+        XCTAssertTrue(setup.message.contains("Ollama unreachable"))
+        XCTAssertEqual(transport.requestedPaths, ["/api/version"])
+        let root = try OpenCodeOllamaProviderMerge.parseRoot(Data(contentsOf: config))
+        let ollama = try XCTUnwrap(
+            (root["provider"] as? [String: Any])?["ollama"] as? [String: Any]
+        )
+        XCTAssertNil(ollama["models"])
+    }
+
+    func testApplyRegistersObservedTagsAndUndoRemovesOnlyThoseKeys() throws {
+        let dir = try scratchDir()
+        let config = dir.appendingPathComponent("opencode.json")
+        let receipt = dir.appendingPathComponent("receipt.json")
+        let existing = """
+            {
+              "enabled_providers": ["opencode-go", "ollama"],
+              "provider": {
+                "openai": { "options": { "apiKey": "sk-keep-me" } },
+                "ollama": {
+                  "npm": "@ai-sdk/openai-compatible",
+                  "name": "Ollama (local)",
+                  "options": { "baseURL": "http://localhost:11434/v1" },
+                  "models": {
+                    "qwen2.5:0.5b": { "name": "keep-custom-name" }
+                  }
+                }
+              }
+            }
+            """
+        try Data(existing.utf8).write(to: config)
+        let transport = SetupFixtureTransport(bodies: [
+            #"{"version":"0.32.6"}"#,
+            #"{"models":[{"name":"qwen2.5:0.5b"},{"name":"qwen2.5-coder:7b"}]}"#,
+            #"{"models":[]}"#,
+        ])
+
+        let setup = try OpenCodeOllamaSetup.apply(
+            configURL: config,
+            receiptURL: receipt,
+            now: now,
+            dryRun: false,
+            transport: transport,
+            isTestHost: true
+        )
+        XCTAssertTrue(setup.wrote)
+        XCTAssertFalse(setup.addedProvider)
+        XCTAssertEqual(setup.addedModelIds, ["qwen2.5-coder:7b"])
+        XCTAssertTrue(setup.ollamaTagsObserved)
+        XCTAssertFalse(setup.ollamaUnreachable)
+        XCTAssertEqual(
+            transport.requestedPaths,
+            ["/api/version", "/api/tags", "/api/ps"]
+        )
+        XCTAssertNotNil(setup.backupPath)
+
+        let after = try OpenCodeOllamaProviderMerge.parseRoot(Data(contentsOf: config))
+        let models = try XCTUnwrap(
+            ((after["provider"] as? [String: Any])?["ollama"] as? [String: Any])?["models"] as? [String: Any]
+        )
+        XCTAssertEqual(
+            (models["qwen2.5:0.5b"] as? [String: Any])?["name"] as? String,
+            "keep-custom-name"
+        )
+        XCTAssertEqual(
+            (models["qwen2.5-coder:7b"] as? [String: Any])?["name"] as? String,
+            "qwen2.5-coder:7b"
+        )
+        let openai = try XCTUnwrap(
+            (after["provider"] as? [String: Any])?["openai"] as? [String: Any]
+        )
+        XCTAssertEqual((openai["options"] as? [String: Any])?["apiKey"] as? String, "sk-keep-me")
+
+        let undone = try OpenCodeOllamaSetup.undo(
+            configURL: config,
+            receiptURL: receipt,
+            now: now.addingTimeInterval(120)
+        )
+        XCTAssertTrue(undone.wrote)
+        let restored = try OpenCodeOllamaProviderMerge.parseRoot(Data(contentsOf: config))
+        try assertJSONEqual(restored, existing)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: receipt.path))
+    }
+
+    func testLegacyReceiptWithoutModelIdsStillDecodes() throws {
+        let json = """
+            {
+              "schema": "alln.opencode-ollama-setup.v1",
+              "configPath": "/tmp/opencode.json",
+              "addedProvider": true,
+              "filledBaseURL": false,
+              "addedEnabledProvider": true,
+              "appliedAt": "2026-08-13T00:00:00Z"
+            }
+            """
+        let receipt = try CoreJSON.decode(
+            OpenCodeOllamaSetup.Receipt.self,
+            from: Data(json.utf8)
+        )
+        XCTAssertTrue(receipt.addedModelIds.isEmpty)
+        XCTAssertFalse(receipt.createdModelsMap)
+    }
+
     func testCommandsAreRegistered() {
         let names = Set(ContractRegistry.milestone1.commands.map(\.name))
         XCTAssertTrue(names.contains("opencode-local setup"))
@@ -257,5 +412,37 @@ final class OpenCodeOllamaSetupTests: XCTestCase {
     private func canonical(_ obj: [String: Any]) throws -> String {
         let data = try JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
+    }
+}
+
+private final class SetupFixtureTransport: OllamaLocalRuntimeClient.Transport, @unchecked Sendable {
+    private let lock = NSLock()
+    private var bodies: [String]
+    private let error: Error?
+    private(set) var requestedURLs: [URL] = []
+
+    var requestedPaths: [String] {
+        requestedURLs.map(\.path)
+    }
+
+    init(bodies: [String] = [], error: Error? = nil) {
+        self.bodies = bodies
+        self.error = error
+    }
+
+    func data(for request: URLRequest) throws -> (Data, URLResponse) {
+        lock.lock()
+        defer { lock.unlock() }
+        let url = request.url!
+        requestedURLs.append(url)
+        if let error { throw error }
+        let body = bodies.isEmpty ? "{}" : bodies.removeFirst()
+        let response = HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        return (Data(body.utf8), response)
     }
 }

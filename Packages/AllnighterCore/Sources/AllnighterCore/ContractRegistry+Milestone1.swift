@@ -51,12 +51,14 @@ public extension ContractRegistry {
     // doctor checks (readiness only; not a capacity strip seat).
     // OCL-S02a: minor — `opencode-local setup|undo|status` (additive OpenCode
     // provider merge; never clobbers enabled_providers).
+    // OCL-S02a follow-on: setup registers observed `/api/tags` into
+    // `provider.ollama.models` (merge-only; unreachable ⇒ no guessed tags).
     // OCL-S02b: minor — `claude-local status` (per-run Anthropic-compat env
     // isolation + meter strip; never writes shell/Claude settings).
     // OCL-S04: minor — `alln models` local Ollama seats gain optional
     // `readiness` (Unavailable|Idle|Busy); paid rows omit the key. Not a
     // capacity strip seat; `ollama_local` stays out of `benchSourceOrder`.
-    static let contractVersion = "9.25.0"
+    static let contractVersion = "9.26.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -213,7 +215,7 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "opencode-local setup",
-            summary: "Merge local Ollama into ~/.config/opencode/opencode.json: add provider.ollama at http://localhost:11434/v1 and append ollama to enabled_providers without dropping opencode-go or any other entry. Backs up first; reversible via undo. Never rewrites the file from a template.",
+            summary: "Merge local Ollama into ~/.config/opencode/opencode.json: add provider.ollama at http://localhost:11434/v1, append ollama to enabled_providers without dropping opencode-go, and register pulled /api/tags in provider.ollama.models (merge-only; never rewrite an existing model entry). If Ollama is unreachable, register no models and say so. Backs up first; reversible via undo. Never rewrites the file from a template.",
             milestone: .m1,
             trigger: "Use when OpenCode should reach a local Ollama daemon and you already keep Go or other providers in opencode.json.",
             example: "alln opencode-local setup",

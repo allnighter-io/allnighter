@@ -564,7 +564,7 @@
       "name" : "opencode-local setup",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Merge local Ollama into ~\/.config\/opencode\/opencode.json: add provider.ollama at http:\/\/localhost:11434\/v1 and append ollama to enabled_providers without dropping opencode-go or any other entry. Backs up first; reversible via undo. Never rewrites the file from a template.",
+      "summary" : "Merge local Ollama into ~\/.config\/opencode\/opencode.json: add provider.ollama at http:\/\/localhost:11434\/v1, append ollama to enabled_providers without dropping opencode-go, and register pulled \/api\/tags in provider.ollama.models (merge-only; never rewrite an existing model entry). If Ollama is unreachable, register no models and say so. Backs up first; reversible via undo. Never rewrites the file from a template.",
       "trigger" : "Use when OpenCode should reach a local Ollama daemon and you already keep Go or other providers in opencode.json.",
       "visibility" : "public"
     },
@@ -6448,7 +6448,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "9.25.0",
+  "contractVersion" : "9.26.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

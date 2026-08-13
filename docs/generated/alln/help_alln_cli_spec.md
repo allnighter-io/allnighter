@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 9.25.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 9.26.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -137,7 +137,7 @@ Flags:
 
 ### `alln opencode-local setup`
 
-Merge local Ollama into ~/.config/opencode/opencode.json: add provider.ollama at http://localhost:11434/v1 and append ollama to enabled_providers without dropping opencode-go or any other entry. Backs up first; reversible via undo. Never rewrites the file from a template.
+Merge local Ollama into ~/.config/opencode/opencode.json: add provider.ollama at http://localhost:11434/v1, append ollama to enabled_providers without dropping opencode-go, and register pulled /api/tags in provider.ollama.models (merge-only; never rewrite an existing model entry). If Ollama is unreachable, register no models and say so. Backs up first; reversible via undo. Never rewrites the file from a template.
 
 Flags:
 - `--json` — Structured setup report (paths, what was added, undo command).

@@ -3,7 +3,8 @@ import Foundation
 
 /// `alln opencode-local setup | undo | status` — additive OpenCode ↔ local
 /// Ollama wiring. Merges into the user's `opencode.json`; never rewrites it
-/// from a template. Tests must pass `--config` and never the real default path.
+/// from a template. Setup observes `/api/tags` via the OCL-S01a observer
+/// (injected transport in tests; never the real config path under XCTest).
 enum OpenCodeLocalCLI {
     static func run(_ args: [String]) {
         let sub = args.first
@@ -105,6 +106,12 @@ enum OpenCodeLocalCLI {
         }
         if let url = report.ollamaBaseURL {
             print("ollama baseURL: \(url)")
+        }
+        if let models = report.ollamaModelIds, !models.isEmpty {
+            print("ollama models: \(models.joined(separator: ", "))")
+        }
+        if !report.addedModelIds.isEmpty {
+            print("added models: \(report.addedModelIds.joined(separator: ", "))")
         }
         if report.wrote {
             print("Undo: \(report.undoCommand)")

@@ -43,6 +43,8 @@ public enum OpenCodeOllamaSetup {
         public var addedProvider: Bool
         public var filledBaseURL: Bool
         public var addedEnabledProvider: Bool
+        public var addedModelIds: [String]
+        public var createdModelsMap: Bool
         public var appliedAt: String
 
         public static let schemaId = "alln.opencode-ollama-setup.v1"
@@ -54,6 +56,8 @@ public enum OpenCodeOllamaSetup {
             addedProvider: Bool,
             filledBaseURL: Bool,
             addedEnabledProvider: Bool,
+            addedModelIds: [String] = [],
+            createdModelsMap: Bool = false,
             appliedAt: String
         ) {
             self.schema = schema
@@ -62,7 +66,22 @@ public enum OpenCodeOllamaSetup {
             self.addedProvider = addedProvider
             self.filledBaseURL = filledBaseURL
             self.addedEnabledProvider = addedEnabledProvider
+            self.addedModelIds = addedModelIds
+            self.createdModelsMap = createdModelsMap
             self.appliedAt = appliedAt
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            schema = try c.decode(String.self, forKey: .schema)
+            configPath = try c.decode(String.self, forKey: .configPath)
+            backupPath = try c.decodeIfPresent(String.self, forKey: .backupPath)
+            addedProvider = try c.decode(Bool.self, forKey: .addedProvider)
+            filledBaseURL = try c.decode(Bool.self, forKey: .filledBaseURL)
+            addedEnabledProvider = try c.decode(Bool.self, forKey: .addedEnabledProvider)
+            addedModelIds = try c.decodeIfPresent([String].self, forKey: .addedModelIds) ?? []
+            createdModelsMap = try c.decodeIfPresent(Bool.self, forKey: .createdModelsMap) ?? false
+            appliedAt = try c.decode(String.self, forKey: .appliedAt)
         }
     }
 
@@ -74,10 +93,14 @@ public enum OpenCodeOllamaSetup {
         public var addedProvider: Bool
         public var filledBaseURL: Bool
         public var addedEnabledProvider: Bool
+        public var addedModelIds: [String]
         public var alreadyWired: Bool
         public var wired: Bool
         public var enabledProviders: [String]?
         public var ollamaBaseURL: String?
+        public var ollamaModelIds: [String]?
+        public var ollamaTagsObserved: Bool
+        public var ollamaUnreachable: Bool
         public var undoCommand: String
         public var message: String
     }
@@ -117,13 +140,32 @@ public enum OpenCodeOllamaSetup {
         receiptURL: URL,
         now: Date,
         dryRun: Bool,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        transport: (any OllamaLocalRuntimeClient.Transport)? = nil,
+        isTestHost: Bool = AllnighterSupportRoot.isRunningUnderTestHost
     ) throws -> Report {
         let original = try readOptionalJSON(at: configURL, fileManager: fileManager)
         var root = original.root
-        let merge = try OpenCodeOllamaProviderMerge.merge(into: &root)
+        let tags = tagsForRegistration(
+            snapshot: OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: transport,
+                observedAt: now,
+                isTestHost: isTestHost
+            )
+        )
+        let merge = try OpenCodeOllamaProviderMerge.merge(
+            into: &root,
+            localTags: tags.ids
+        )
         let inspection = OpenCodeOllamaProviderMerge.inspect(root)
         let encoded = try OpenCodeOllamaProviderMerge.encodeRoot(root)
+        let message = setupMessage(
+            dryRun: dryRun,
+            wrote: false,
+            merge: merge,
+            inspection: inspection,
+            tags: tags
+        )
 
         if dryRun || !merge.didChange {
             return report(
@@ -133,11 +175,8 @@ public enum OpenCodeOllamaSetup {
                 wrote: false,
                 merge: merge,
                 inspection: inspection,
-                message: dryRun
-                    ? "dry-run: no files written"
-                    : (inspection.wired
-                        ? "already wired — opencode.json not rewritten"
-                        : "nothing to write")
+                tags: tags,
+                message: message
             )
         }
 
@@ -162,12 +201,12 @@ public enum OpenCodeOllamaSetup {
             throw Error.io("could not write \(configURL.path): \(error.localizedDescription)")
         }
 
-        let receipt = Receipt(
+        let previous = try loadReceipt(at: receiptURL)
+        let receipt = mergedReceipt(
+            previous: previous,
             configPath: configURL.standardizedFileURL.path,
             backupPath: backupPath,
-            addedProvider: merge.addedProvider,
-            filledBaseURL: merge.filledBaseURL,
-            addedEnabledProvider: merge.addedEnabledProvider,
+            merge: merge,
             appliedAt: iso8601(now)
         )
         try writeReceipt(receipt, to: receiptURL, fileManager: fileManager)
@@ -179,7 +218,14 @@ public enum OpenCodeOllamaSetup {
             wrote: true,
             merge: merge,
             inspection: inspection,
-            message: "merged ollama provider at \(OpenCodeOllamaProviderMerge.defaultBaseURL); undo with \(undoCommand)"
+            tags: tags,
+            message: setupMessage(
+                dryRun: false,
+                wrote: true,
+                merge: merge,
+                inspection: inspection,
+                tags: tags
+            )
         )
     }
 
@@ -212,6 +258,13 @@ public enum OpenCodeOllamaSetup {
             list.removeAll { ($0 as? String) == OpenCodeOllamaProviderMerge.providerId }
             root["enabled_providers"] = list
         }
+        if !receipt.addedProvider {
+            OpenCodeOllamaProviderMerge.removeAddedModels(
+                from: &root,
+                ids: receipt.addedModelIds,
+                dropEmptyMap: receipt.createdModelsMap
+            )
+        }
 
         var backupPath: String?
         if original.existed {
@@ -240,6 +293,7 @@ public enum OpenCodeOllamaSetup {
             wrote: true,
             merge: .init(addedProvider: false, filledBaseURL: false, addedEnabledProvider: false),
             inspection: inspection,
+            tags: .skipped,
             message: "removed Allnighter's ollama wiring; pre-undo copy at \(backupPath ?? "none")"
         )
     }
@@ -261,6 +315,7 @@ public enum OpenCodeOllamaSetup {
                 addedEnabledProvider: false
             ),
             inspection: inspection,
+            tags: .skipped,
             message: original.existed
                 ? (inspection.wired ? "OpenCode is wired for local Ollama" : "OpenCode is not fully wired for local Ollama")
                 : "no opencode.json at \(configURL.path)"
@@ -361,6 +416,93 @@ public enum OpenCodeOllamaSetup {
         }
     }
 
+    private struct TagsForRegistration {
+        var ids: [String]
+        var observed: Bool
+        var unreachable: Bool
+
+        static let skipped = TagsForRegistration(ids: [], observed: false, unreachable: false)
+    }
+
+    /// Use observed `/api/tags` names only. Version/tags failures register
+    /// nothing — never guess. A `/api/ps` failure still keeps parsed tags.
+    private static func tagsForRegistration(
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?
+    ) -> TagsForRegistration {
+        guard let snapshot else { return .skipped }
+        switch snapshot.observeFailure {
+        case .version, .tags, .unparseableVersion, .unparseableTags:
+            return TagsForRegistration(ids: [], observed: false, unreachable: true)
+        case .ps, .unparseablePs, .none:
+            return TagsForRegistration(
+                ids: snapshot.localTags.map(\.name),
+                observed: true,
+                unreachable: false
+            )
+        }
+    }
+
+    private static func mergedReceipt(
+        previous: Receipt?,
+        configPath: String,
+        backupPath: String?,
+        merge: OpenCodeOllamaProviderMerge.Result,
+        appliedAt: String
+    ) -> Receipt {
+        let sameFile = previous?.configPath == configPath
+        let priorIds = sameFile ? (previous?.addedModelIds ?? []) : []
+        return Receipt(
+            configPath: configPath,
+            backupPath: backupPath,
+            addedProvider: merge.addedProvider || (sameFile && previous?.addedProvider == true),
+            filledBaseURL: merge.filledBaseURL || (sameFile && previous?.filledBaseURL == true),
+            addedEnabledProvider: merge.addedEnabledProvider || (sameFile && previous?.addedEnabledProvider == true),
+            addedModelIds: uniquedConcat(priorIds, merge.addedModelIds),
+            createdModelsMap: merge.createdModelsMap || (sameFile && previous?.createdModelsMap == true),
+            appliedAt: appliedAt
+        )
+    }
+
+    private static func uniquedConcat(_ first: [String], _ second: [String]) -> [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for id in first + second {
+            guard !seen.contains(id) else { continue }
+            seen.insert(id)
+            out.append(id)
+        }
+        return out
+    }
+
+    private static func setupMessage(
+        dryRun: Bool,
+        wrote: Bool,
+        merge: OpenCodeOllamaProviderMerge.Result,
+        inspection: OpenCodeOllamaProviderMerge.Inspection,
+        tags: TagsForRegistration
+    ) -> String {
+        var parts: [String] = []
+        if dryRun {
+            parts.append("dry-run: no files written")
+        } else if wrote {
+            parts.append(
+                "merged ollama provider at \(OpenCodeOllamaProviderMerge.defaultBaseURL); undo with \(undoCommand)"
+            )
+        } else if inspection.wired {
+            parts.append("already wired — opencode.json not rewritten")
+        } else {
+            parts.append("nothing to write")
+        }
+        if tags.unreachable {
+            parts.append("Ollama unreachable — registered no models (refusing to guess tags)")
+        } else if tags.observed, merge.addedModelIds.isEmpty, tags.ids.isEmpty {
+            parts.append("Ollama reachable — no local tags to register")
+        } else if !merge.addedModelIds.isEmpty {
+            parts.append("registered models: \(merge.addedModelIds.joined(separator: ", "))")
+        }
+        return parts.joined(separator: "; ")
+    }
+
     private static func report(
         action: String,
         configURL: URL,
@@ -368,6 +510,7 @@ public enum OpenCodeOllamaSetup {
         wrote: Bool,
         merge: OpenCodeOllamaProviderMerge.Result,
         inspection: OpenCodeOllamaProviderMerge.Inspection,
+        tags: TagsForRegistration,
         message: String
     ) -> Report {
         Report(
@@ -378,10 +521,14 @@ public enum OpenCodeOllamaSetup {
             addedProvider: merge.addedProvider,
             filledBaseURL: merge.filledBaseURL,
             addedEnabledProvider: merge.addedEnabledProvider,
+            addedModelIds: merge.addedModelIds,
             alreadyWired: !merge.didChange && inspection.wired,
             wired: inspection.wired,
             enabledProviders: inspection.enabledProviders,
             ollamaBaseURL: inspection.ollamaBaseURL,
+            ollamaModelIds: inspection.ollamaModelIds,
+            ollamaTagsObserved: tags.observed,
+            ollamaUnreachable: tags.unreachable,
             undoCommand: undoCommand,
             message: message
         )

@@ -16,6 +16,7 @@ public enum OpenCodeOllamaProviderMerge {
         case providerMustBeObject
         case enabledProvidersMustBeArray
         case ollamaProviderMustBeObject
+        case ollamaModelsMustBeObject
 
         public var description: String {
             switch self {
@@ -27,6 +28,8 @@ public enum OpenCodeOllamaProviderMerge {
                 return "opencode.json `enabled_providers` must be a JSON array — refusing to clobber it"
             case .ollamaProviderMustBeObject:
                 return "opencode.json `provider.ollama` must be a JSON object — refusing to clobber it"
+            case .ollamaModelsMustBeObject:
+                return "opencode.json `provider.ollama.models` must be a JSON object — refusing to clobber it"
             }
         }
     }
@@ -35,9 +38,26 @@ public enum OpenCodeOllamaProviderMerge {
         public var addedProvider: Bool
         public var filledBaseURL: Bool
         public var addedEnabledProvider: Bool
+        public var addedModelIds: [String]
+        public var createdModelsMap: Bool
+
+        public init(
+            addedProvider: Bool,
+            filledBaseURL: Bool,
+            addedEnabledProvider: Bool,
+            addedModelIds: [String] = [],
+            createdModelsMap: Bool = false
+        ) {
+            self.addedProvider = addedProvider
+            self.filledBaseURL = filledBaseURL
+            self.addedEnabledProvider = addedEnabledProvider
+            self.addedModelIds = addedModelIds
+            self.createdModelsMap = createdModelsMap
+        }
 
         public var didChange: Bool {
             addedProvider || filledBaseURL || addedEnabledProvider
+                || !addedModelIds.isEmpty || createdModelsMap
         }
     }
 
@@ -70,10 +90,18 @@ public enum OpenCodeOllamaProviderMerge {
     }
 
     /// Mutates `root` in place. Returns what was added — never deletes.
-    public static func merge(into root: inout [String: Any]) throws -> Result {
+    /// `localTags` are Ollama `/api/tags` names; missing keys are inserted
+    /// under `provider.ollama.models`. Existing model entries are never
+    /// rewritten. Empty tags register nothing.
+    public static func merge(
+        into root: inout [String: Any],
+        localTags: [String] = []
+    ) throws -> Result {
         var addedProvider = false
         var filledBaseURL = false
         var addedEnabledProvider = false
+        var addedModelIds: [String] = []
+        var createdModelsMap = false
 
         var provider: [String: Any]
         if let existing = root["provider"] {
@@ -85,16 +113,21 @@ public enum OpenCodeOllamaProviderMerge {
             provider = [:]
         }
 
+        var ollama: [String: Any]
         if let existingOllama = provider[providerId] {
-            guard var ollama = existingOllama as? [String: Any] else {
+            guard let object = existingOllama as? [String: Any] else {
                 throw Error.ollamaProviderMustBeObject
             }
+            ollama = object
             filledBaseURL = fillBaseURLIfMissing(in: &ollama)
-            provider[providerId] = ollama
         } else {
-            provider[providerId] = ollamaProviderTemplate()
+            ollama = ollamaProviderTemplate()
             addedProvider = true
         }
+        let modelMerge = try registerMissingModels(in: &ollama, tags: localTags)
+        addedModelIds = modelMerge.addedIds
+        createdModelsMap = modelMerge.createdMap
+        provider[providerId] = ollama
         root["provider"] = provider
 
         if let existing = root["enabled_providers"] {
@@ -112,7 +145,9 @@ public enum OpenCodeOllamaProviderMerge {
         return Result(
             addedProvider: addedProvider,
             filledBaseURL: filledBaseURL,
-            addedEnabledProvider: addedEnabledProvider
+            addedEnabledProvider: addedEnabledProvider,
+            addedModelIds: addedModelIds,
+            createdModelsMap: createdModelsMap
         )
     }
 
@@ -126,11 +161,13 @@ public enum OpenCodeOllamaProviderMerge {
         let ollamaInAllowlist = enabledStrings?.contains(providerId) ?? false
         let allowlistPresent = enabled != nil
         let wired = ollama != nil && (!allowlistPresent || ollamaInAllowlist)
+        let modelIds = (ollama?["models"] as? [String: Any]).map { Array($0.keys).sorted() }
         return Inspection(
             ollamaProviderPresent: ollama != nil,
             ollamaBaseURL: baseURL,
             enabledProviders: enabledStrings,
             ollamaInEnabledProviders: allowlistPresent ? ollamaInAllowlist : nil,
+            ollamaModelIds: modelIds,
             wired: wired
         )
     }
@@ -140,6 +177,7 @@ public enum OpenCodeOllamaProviderMerge {
         public var ollamaBaseURL: String?
         public var enabledProviders: [String]?
         public var ollamaInEnabledProviders: Bool?
+        public var ollamaModelIds: [String]?
         public var wired: Bool
     }
 
@@ -155,5 +193,77 @@ public enum OpenCodeOllamaProviderMerge {
         }
         ollama["options"] = ["baseURL": defaultBaseURL]
         return true
+    }
+
+    public static func modelEntry(for tag: String) -> [String: Any] {
+        ["name": tag]
+    }
+
+    /// Remove only `ids` from `provider.ollama.models`. Never rewrites remaining
+    /// entries. Drops an empty models map only when this setup created it.
+    public static func removeAddedModels(
+        from root: inout [String: Any],
+        ids: [String],
+        dropEmptyMap: Bool
+    ) {
+        guard !ids.isEmpty,
+              var provider = root["provider"] as? [String: Any],
+              var ollama = provider[providerId] as? [String: Any],
+              var models = ollama["models"] as? [String: Any]
+        else { return }
+        for id in ids {
+            models.removeValue(forKey: id)
+        }
+        if models.isEmpty, dropEmptyMap {
+            ollama.removeValue(forKey: "models")
+        } else {
+            ollama["models"] = models
+        }
+        provider[providerId] = ollama
+        root["provider"] = provider
+    }
+
+    private static func registerMissingModels(
+        in ollama: inout [String: Any],
+        tags: [String]
+    ) throws -> (addedIds: [String], createdMap: Bool) {
+        let uniqueTags = uniquedNonEmpty(tags)
+        if uniqueTags.isEmpty { return ([], false) }
+
+        var createdMap = false
+        var models: [String: Any]
+        if let existing = ollama["models"] {
+            guard let object = existing as? [String: Any] else {
+                throw Error.ollamaModelsMustBeObject
+            }
+            models = object
+        } else {
+            models = [:]
+            createdMap = true
+        }
+
+        var addedIds: [String] = []
+        for tag in uniqueTags {
+            if models[tag] != nil { continue }
+            models[tag] = modelEntry(for: tag)
+            addedIds.append(tag)
+        }
+        if addedIds.isEmpty {
+            return ([], false)
+        }
+        ollama["models"] = models
+        return (addedIds, createdMap)
+    }
+
+    private static func uniquedNonEmpty(_ tags: [String]) -> [String] {
+        var seen = Set<String>()
+        var out: [String] = []
+        for raw in tags {
+            let tag = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !tag.isEmpty, !seen.contains(tag) else { continue }
+            seen.insert(tag)
+            out.append(tag)
+        }
+        return out
     }
 }

@@ -575,11 +575,14 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "opencode_local_setup", title: "OpenCode local Ollama setup", audience: .both,
-            summary: "`alln opencode-local setup` merges Ollama into ~/.config/opencode/opencode.json without dropping opencode-go; `alln opencode-local undo` reverses it.",
+            summary: "`alln opencode-local setup` merges Ollama into ~/.config/opencode/opencode.json without dropping opencode-go, and registers pulled tags under provider.ollama.models; `alln opencode-local undo` reverses it.",
             bodyMarkdown: """
             OpenCode reaches local Ollama through `provider.ollama` at \
             `http://localhost:11434/v1` plus `ollama` on `enabled_providers` when that \
-            allowlist already exists. Allnighter only **merges**. It never replaces \
+            allowlist already exists. Setup also reads Ollama `/api/tags` and **merges** \
+            any missing pulled tags into `provider.ollama.models`. Existing model \
+            entries are never rewritten. If Ollama is unreachable, setup registers no \
+            models and says so — it does not guess tags. Allnighter never replaces \
             `opencode.json` and never writes `enabled_providers: ["ollama"]` over Go.
 
             ```
@@ -590,11 +593,12 @@ public enum HelpTopicRegistry {
 
             Setup copies `opencode.json` to a sibling \
             `opencode.json.bak-alln-ocl-s02a-<timestamp>` before writing. Undo removes \
-            only what that setup added (receipt-backed). To restore by hand, copy the \
-            backup over `opencode.json`.
+            only what that setup added (receipt-backed), including model keys it \
+            inserted. To restore by hand, copy the backup over `opencode.json`.
 
-            This does not seat models, does not talk to Ollama, and does not configure \
-            Claude-local.
+            This does not seat models on the Allnighter bench and does not configure \
+            Claude-local. `alln opencode-local status` still reads opencode.json only \
+            and never contacts Ollama.
             """,
             aliases: [
                 "ollama opencode", "opencode ollama", "enabled_providers",
