@@ -136,7 +136,7 @@ final class CatalogOverlayTests: XCTestCase {
         let agy = ModelCatalog.builtIns.filter { $0.driverId == "antigravity" }
         XCTAssertEqual(
             Set(agy.filter(\.defaultEnabled).map(\.id)),
-            ["model_gemini", "model_agy_opus", "model_agy_sonnet"]
+            ["model_gemini", "model_gemini_37", "model_agy_opus", "model_agy_sonnet"]
         )
         XCTAssertEqual(agy.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
         XCTAssertEqual(agy.first { $0.id == "model_agy_sonnet" }?.displayName, "Sonnet 4.6 (Antigravity)")

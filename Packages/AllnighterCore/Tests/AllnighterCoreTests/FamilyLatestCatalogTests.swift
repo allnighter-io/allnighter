@@ -21,6 +21,26 @@ final class FamilyLatestCatalogTests: XCTestCase {
         XCTAssertNil(pin45.resolvedPinId)
     }
 
+    func testBuiltInGeminiFlashPureNameResolvesTo37AndPinStaysPinned() throws {
+        let flash = try XCTUnwrap(ModelCatalog.get("model_gemini"))
+        XCTAssertEqual(flash.modelLabel, "Gemini 3.7 Flash (Medium)")
+        XCTAssertEqual(flash.resolvedPinId, "model_gemini_37")
+        XCTAssertEqual(flash.family, "gemini_flash")
+        XCTAssertNil(flash.generation)
+        XCTAssertEqual(flash.displayName, "Gemini Flash")
+
+        let pin37 = try XCTUnwrap(ModelCatalog.get("model_gemini_37"))
+        XCTAssertEqual(pin37.modelLabel, "Gemini 3.7 Flash (Medium)")
+        XCTAssertNil(pin37.resolvedPinId)
+        XCTAssertEqual(pin37.generation, 37)
+
+        let pin36 = try XCTUnwrap(ModelCatalog.get("model_gemini_36"))
+        XCTAssertEqual(pin36.modelLabel, "Gemini 3.6 Flash (Medium)")
+        XCTAssertNil(pin36.resolvedPinId)
+        XCTAssertEqual(pin36.generation, 36)
+        XCTAssertEqual(pin36.effortVariants?[.high], "Gemini 3.6 Flash (High)")
+    }
+
     func testSonnetUsesVendorAliasLikeOpus() {
         XCTAssertEqual(ModelCatalog.get("model_sonnet")?.modelLabel, "sonnet")
         XCTAssertEqual(ModelCatalog.get("model_opus")?.modelLabel, "opus")

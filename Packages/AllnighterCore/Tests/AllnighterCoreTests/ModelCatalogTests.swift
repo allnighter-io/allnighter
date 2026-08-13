@@ -49,7 +49,9 @@ final class ModelCatalogTests: XCTestCase {
         // OpenCode Zen Big Pickle smoke seat added default-on 2026-08-10 (28 → 29).
         // OpenCode Go inventory seats default-off while locked (29 → 22). When Go
         // auth connects, reconcile seeds all seven default-on Go seats (22 → 29).
-        XCTAssertEqual(models.filter(\.enabled).count, 24)
+        // Gemini 3.7 Flash pin added default-on 2026-08-13 (24 → 25); 3.6 stays
+        // available/off-bench. `model_gemini` is the gemini_flash latest-pointer.
+        XCTAssertEqual(models.filter(\.enabled).count, 25)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_opencode_glm_5_2" }?.enabled ?? true,
                        "OpenCode Go inventory stays off until Go auth connects")

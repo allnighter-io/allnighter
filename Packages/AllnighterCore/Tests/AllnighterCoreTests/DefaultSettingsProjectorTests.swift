@@ -43,7 +43,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
                   ready: ready.contains("model_cursor_composer_25")),
             entry("model_cursor_composer_25_fast", "Composer 2.5 Fast", driver: "cursor_agent",
                   ready: ready.contains("model_cursor_composer_25_fast")),
-            entry("model_gemini", "Gemini 3.6 Flash", driver: "antigravity", ready: ready.contains("model_gemini")),
+            entry("model_gemini", "Gemini Flash", driver: "antigravity", ready: ready.contains("model_gemini")),
             entry("model_muse_spark_12", "Muse Spark 1.2", driver: "muse", ready: ready.contains("model_muse_spark_12")),
             entry("model_muse_spark_12_contributor", "Muse Spark 1.2 Contributor", driver: "muse",
                   ready: ready.contains("model_muse_spark_12_contributor")),

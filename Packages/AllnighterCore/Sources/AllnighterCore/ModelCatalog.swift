@@ -63,7 +63,7 @@ public enum ModelCatalog {
             return "kimi"
         case "model_muse_spark_12", "model_muse_spark_12_contributor":
             return "muse"
-        case "model_gemini", "model_gemini_pro":
+        case "model_gemini", "model_gemini_36", "model_gemini_37", "model_gemini_pro":
             return "gemini"
         case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
             return "cursor_native"

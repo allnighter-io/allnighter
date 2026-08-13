@@ -315,6 +315,44 @@
       },
       "defaultOn": true
     },
+    "model_gemini_36": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "design",
+          "image",
+          "copy",
+          "fast"
+        ],
+        "laneTags": [
+          "design",
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 74
+      },
+      "defaultOn": false
+    },
+    "model_gemini_37": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "design",
+          "image",
+          "copy",
+          "fast"
+        ],
+        "laneTags": [
+          "design",
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 75
+      },
+      "defaultOn": true
+    },
     "model_gemini_pro": {
       "caliber": {
         "capabilityTags": [

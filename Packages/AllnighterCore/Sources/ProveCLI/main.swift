@@ -14,7 +14,7 @@ enum ProveCLI {
         let cases: [(name: String, model: Model)] = [
             ("claude", Model(id: "prove_claude", displayName: "Claude", modelLabel: "sonnet", driverId: "claude_code")),
             ("grok", Model(id: "prove_grok", displayName: "Grok", modelLabel: "grok-build", driverId: "grok")),
-            ("agy", Model(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "Gemini 3.6 Flash (Medium)", driverId: "antigravity")),
+            ("agy", Model(id: "prove_agy", displayName: "Gemini/Antigravity", modelLabel: "Gemini 3.7 Flash (Medium)", driverId: "antigravity")),
         ]
 
         var anyFailed = false
