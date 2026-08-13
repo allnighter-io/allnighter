@@ -25,7 +25,13 @@ public struct ModelDiscoveryResult: Codable, Sendable, Equatable {
   }
 }
 
-/// Registry of discovery providers; empty until a driver implements list-models.
+/// Registry of discovery providers. Looked up by signal / source id, not by
+/// agent body — Ollama tags are body-agnostic (`ollama_local`).
 public enum ModelDiscoveryRegistry {
-  public static func provider(for driverId: String) -> (any ModelDiscoveryProvider)? { nil }
+  public static func provider(for driverId: String) -> (any ModelDiscoveryProvider)? {
+    if driverId == OllamaLocalRuntimeClient.sourceId {
+      return OllamaLocalModelDiscoveryProvider()
+    }
+    return nil
+  }
 }
