@@ -192,6 +192,12 @@ public enum UninstallCLI {
             fileManager: request.fileManager
         ))
 
+        artifacts.append(contentsOf: removeResourceBundleArtifacts(
+            homeDirectory: request.homeDirectory,
+            canonicalURL: canonicalURL,
+            fileManager: request.fileManager
+        ))
+
         let rollbackURL = CanonicalCLIInstall.rollbackBinaryURL(homeDirectory: request.homeDirectory)
         artifacts.append(removeFileArtifact(
             name: "canonical-rollback",
@@ -344,6 +350,71 @@ public enum UninstallCLI {
                 reason: "remove failed: \(error.localizedDescription)"
             )
         }
+    }
+
+    private static func removeResourceBundleArtifacts(
+        homeDirectory: URL,
+        canonicalURL: URL,
+        fileManager: FileManager
+    ) -> [ArtifactReport] {
+        let canonicalDir = canonicalURL.deletingLastPathComponent()
+        let pathDir = CanonicalCLIInstall.pathSymlinkURL(homeDirectory: homeDirectory).deletingLastPathComponent()
+        var reports: [ArtifactReport] = []
+        for name in CLIResourceBundles.requiredNames {
+            let pathURL = pathDir.appendingPathComponent(name)
+            reports.append(removePathBundleArtifact(
+                url: pathURL,
+                canonicalDir: canonicalDir,
+                fileManager: fileManager
+            ))
+            reports.append(removeFileArtifact(
+                name: "canonical-bundle:\(name)",
+                url: canonicalDir.appendingPathComponent(name),
+                fileManager: fileManager
+            ))
+        }
+        return reports
+    }
+
+    /// Remove a PATH-dir bundle only when it is a symlink into our canonical dir
+    /// (never a stranger's similarly named folder).
+    private static func removePathBundleArtifact(
+        url: URL,
+        canonicalDir: URL,
+        fileManager: FileManager
+    ) -> ArtifactReport {
+        let path = url.path
+        let name = "path-bundle:\(url.lastPathComponent)"
+        var isDirectory: ObjCBool = false
+        guard fileManager.fileExists(atPath: path, isDirectory: &isDirectory) else {
+            return ArtifactReport(name: name, path: path, disposition: .absent)
+        }
+        if let dest = try? fileManager.destinationOfSymbolicLink(atPath: path) {
+            let expanded = (dest as NSString).expandingTildeInPath
+            let destURL: URL
+            if expanded.hasPrefix("/") {
+                destURL = URL(fileURLWithPath: expanded)
+            } else {
+                destURL = url.deletingLastPathComponent().appendingPathComponent(expanded)
+            }
+            let destPath = destURL.standardizedFileURL.path
+            let canonicalRoot = canonicalDir.standardizedFileURL.path
+            if destPath == canonicalRoot || destPath.hasPrefix(canonicalRoot + "/") {
+                return removeFileArtifact(name: name, url: url, fileManager: fileManager)
+            }
+            return ArtifactReport(
+                name: name,
+                path: path,
+                disposition: .kept,
+                reason: "symlink resolves elsewhere (\(destPath)), not a canonical CLI bundle"
+            )
+        }
+        return ArtifactReport(
+            name: name,
+            path: path,
+            disposition: .kept,
+            reason: "not a symlink Allnighter installed"
+        )
     }
 
     private static func removeServeLogArtifacts(

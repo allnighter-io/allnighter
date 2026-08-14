@@ -60,6 +60,13 @@ final class UninstallCLITests: XCTestCase {
         let target = symlinkTarget ?? canonicalURL.path
         try fm.createSymbolicLink(atPath: symlinkURL.path, withDestinationPath: target)
 
+        let agentBundle = canonicalDir.appendingPathComponent("AgentOS_AgentOSCLI.bundle")
+        try fm.createDirectory(at: agentBundle, withIntermediateDirectories: true)
+        try fm.createSymbolicLink(
+            atPath: symlinkURL.deletingLastPathComponent().appendingPathComponent("AgentOS_AgentOSCLI.bundle").path,
+            withDestinationPath: agentBundle.path
+        )
+
         let plistURL = UninstallCLI.launchAgentPlistURL(homeDirectory: tempRoot)
         try fm.createDirectory(at: plistURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         fm.createFile(atPath: plistURL.path, contents: Data("<plist/>".utf8))
@@ -161,6 +168,11 @@ final class UninstallCLITests: XCTestCase {
         XCTAssertFalse(fm.fileExists(atPath: CanonicalCLIInstall.canonicalBinaryURL(homeDirectory: tempRoot).path))
         XCTAssertFalse(fm.fileExists(atPath: CanonicalCLIInstall.rollbackBinaryURL(homeDirectory: tempRoot).path))
         XCTAssertFalse(fm.fileExists(atPath: CanonicalCLIInstall.pathSymlinkURL(homeDirectory: tempRoot).path))
+        XCTAssertFalse(fm.fileExists(atPath: CanonicalCLIInstall.canonicalDirectory(homeDirectory: tempRoot)
+            .appendingPathComponent("AgentOS_AgentOSCLI.bundle").path))
+        XCTAssertFalse(fm.fileExists(atPath: CanonicalCLIInstall.pathSymlinkURL(homeDirectory: tempRoot)
+            .deletingLastPathComponent()
+            .appendingPathComponent("AgentOS_AgentOSCLI.bundle").path))
         XCTAssertFalse(fm.fileExists(atPath: UninstallCLI.desiredStateURL(homeDirectory: tempRoot).path))
         XCTAssertFalse(fm.fileExists(atPath: UninstallCLI.runtimeReceiptURL(homeDirectory: tempRoot).path))
         XCTAssertFalse(fm.fileExists(atPath: UninstallCLI.serveLogDirectory(homeDirectory: tempRoot)
@@ -173,6 +185,12 @@ final class UninstallCLITests: XCTestCase {
         XCTAssertTrue(json.artifacts.contains { $0.name == "canonical-binary" && $0.disposition == .removed })
         XCTAssertTrue(json.artifacts.contains { $0.name == "canonical-rollback" && $0.disposition == .removed })
         XCTAssertTrue(json.artifacts.contains { $0.name == "path-symlink" && $0.disposition == .removed })
+        XCTAssertTrue(json.artifacts.contains {
+            $0.name == "canonical-bundle:AgentOS_AgentOSCLI.bundle" && $0.disposition == .removed
+        })
+        XCTAssertTrue(json.artifacts.contains {
+            $0.name == "path-bundle:AgentOS_AgentOSCLI.bundle" && $0.disposition == .removed
+        })
         XCTAssertTrue(json.artifacts.contains { $0.name == "desired-state" && $0.disposition == .removed })
         XCTAssertTrue(json.artifacts.contains { $0.name == "runtime-receipt" && $0.disposition == .removed })
         XCTAssertTrue(json.artifacts.contains { $0.name == "launchagent-plist" && $0.disposition == .removed })

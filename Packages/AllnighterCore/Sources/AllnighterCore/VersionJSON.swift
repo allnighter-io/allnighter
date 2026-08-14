@@ -141,8 +141,15 @@ import Foundation
 /// (10.5.0 → 10.6.0): `alln feedback "<msg>"` sends quoted text + CLI version
 /// + OS only. `--dry-run --json` is the free twin. Failures fall back to the
 /// hatch. Doctor unchanged.
+///
+/// **1.1.8 → 1.1.9 (CLI payload + relocate-proof).** Naked `alln-macos-universal`
+/// crashed on every machine except the builder: SPM `Bundle.module` needs
+/// `AgentOS_AgentOSCLI.bundle` beside the executable, and the ship `version`
+/// check was a false green against the compile-time fallback path. Payload is
+/// now `alln-macos-universal.tar.gz` (binary + bundles). `scripts/ship-cli.sh`
+/// is the one ship path; relocate-proof hides build scratches before `version`.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.8"
+    public static let binaryVersion = "1.1.9"
 }
 
 /// `alln version` / `alln --version` machine contract.

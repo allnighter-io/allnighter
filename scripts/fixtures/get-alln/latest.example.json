@@ -6,7 +6,7 @@
   "notes": "human-only; never projected to agents",
   "installCommand": "curl -fsSL https://get.allnighter.io | sh",
   "cli": {
-    "url": "https://get.allnighter.io/v0.12.0/alln-macos-universal",
+    "url": "https://get.allnighter.io/v0.12.0/alln-macos-universal.tar.gz",
     "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
   },
   "app": {

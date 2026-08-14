@@ -249,6 +249,19 @@ public enum InstallCLI {
                 }
             }
 
+            do {
+                try CLIResourceBundles.linkSiblings(
+                    from: canonicalURL.deletingLastPathComponent(),
+                    into: URL(fileURLWithPath: installDir),
+                    fileManager: request.fileManager
+                )
+            } catch {
+                return .failed(
+                    code: "INSTALL_CLI_TARGET_UNWRITABLE",
+                    message: "could not link CLI resource bundles into \(installDir): \(error.localizedDescription)"
+                )
+            }
+
             let cdhash: String?
             if let data = try? Data(contentsOf: CanonicalCLIInstall.identityRecordURL(homeDirectory: request.homeDirectory)),
                let record = try? CoreJSON.decode(CanonicalIdentityRecord.self, from: data) {

@@ -5,8 +5,8 @@
 # Local / dogfood only. Mirrors the public URL shape from
 # docs/phases/One_Paste_Cold_Start.md, rooted at a directory instead of a host:
 #
-#   <base>/v<version>/alln-macos-universal
-#   <base>/v<version>/alln-macos-universal.sha256
+#   <base>/v<version>/alln-macos-universal.tar.gz
+#   <base>/v<version>/alln-macos-universal.tar.gz.sha256
 #   <base>/latest.json                         # ONLY mutable object; written last
 #
 # Base directory: ${ALLN_PUBLISH_BASE_DIR:-dist/releases}
@@ -62,7 +62,7 @@ case "$BASE_RAW" in
 esac
 
 VERSION_DIR="$BASE/v$VERSION"
-ASSET_NAME="alln-macos-universal"
+ASSET_NAME="alln-macos-universal.tar.gz"
 DEST="$VERSION_DIR/$ASSET_NAME"
 SHA_FILE="$DEST.sha256"
 
@@ -85,11 +85,18 @@ echo "$LIPO_INFO" | grep -q arm64 || die "source binary missing arm64: $LIPO_INF
 echo "$LIPO_INFO" | grep -q x86_64 || die "source binary missing x86_64: $LIPO_INFO"
 
 mkdir -p "$VERSION_DIR"
-# Stage then rename so a killed publish never leaves a half-written final name
-# inside a version dir that would then permanently block republish.
+PAYLOAD="$VERSION_DIR/.payload.$$"
+mkdir -p "$PAYLOAD"
+cp "$BINARY" "$PAYLOAD/alln-macos-universal"
+chmod 755 "$PAYLOAD/alln-macos-universal"
+BIN_DIR="$(cd "$(dirname "$BINARY")" && pwd)"
+for name in AgentOS_AgentOSCLI.bundle AllnighterCore_AllnighterCore.bundle; do
+  [[ -d "$BIN_DIR/$name" ]] || die "refusing to publish a naked CLI — missing $name next to $BINARY (the 1.1.5–1.1.8 production crash)"
+  cp -R "$BIN_DIR/$name" "$PAYLOAD/$name"
+done
 STAGE="$DEST.tmp.$$"
-cp "$BINARY" "$STAGE"
-chmod 755 "$STAGE"
+tar -czf "$STAGE" -C "$PAYLOAD" .
+rm -rf "$PAYLOAD"
 mv -f "$STAGE" "$DEST"
 
 # shasum -a 256 format: "HASH  filename" (two spaces). Hash from the file
@@ -122,13 +129,18 @@ if [[ "${ALLN_SKIP_LATEST_JSON:-}" != "1" ]]; then
   CLI_URL="$PUBLIC_BASE/v$VERSION/$ASSET_NAME"
   RELEASED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-  # Optional app DMG block when the founder stages a DMG + hash.
+  # Optional app DMG block: staged next to this CLI version, or inherited
+  # via ALLN_APP_URL + ALLN_APP_DMG_SHA256 so a CLI-only ship does not wipe
+  # the Mac download pointer in latest.json.
   DMG_NAME="Allnighter.dmg"
   DMG_PATH="$VERSION_DIR/$DMG_NAME"
   APP_URL_FOR_PY=""
   APP_SHA_FOR_PY=""
   if [[ -f "$DMG_PATH" && -n "${ALLN_APP_DMG_SHA256:-}" ]]; then
     APP_URL_FOR_PY="$PUBLIC_BASE/v$VERSION/$DMG_NAME"
+    APP_SHA_FOR_PY="$ALLN_APP_DMG_SHA256"
+  elif [[ -n "${ALLN_APP_URL:-}" && -n "${ALLN_APP_DMG_SHA256:-}" ]]; then
+    APP_URL_FOR_PY="$ALLN_APP_URL"
     APP_SHA_FOR_PY="$ALLN_APP_DMG_SHA256"
   fi
 
@@ -178,7 +190,7 @@ PY
 fi
 
 echo "publish-release: OK"
-echo "  binary:  $ABS_DEST"
+echo "  payload: $ABS_DEST"
 echo "  sha256f: $ABS_SHA"
 echo "  sha256:  $SHA256"
 if [[ -n "$LATEST_PATH" ]]; then

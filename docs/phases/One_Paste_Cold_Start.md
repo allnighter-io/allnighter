@@ -140,7 +140,7 @@ fails a stale checksum, or worse (BUG-1).
 
 ```text
 https://get.allnighter.io/latest.json                    # ONLY mutable object; edge TTL <= 60s
-https://get.allnighter.io/v0.12.0/alln-macos-universal   # immutable, never rewritten; long TTL
+https://get.allnighter.io/v0.12.0/alln-macos-universal.tar.gz   # immutable, never rewritten; long TTL
 https://get.allnighter.io/v0.12.0/Allnighter.dmg         # immutable
 ```
 
@@ -358,7 +358,9 @@ main() {
   2. BASE=${ALLN_INSTALL_BASE_URL:-https://get.allnighter.io}
   3. curl -fsSL "$BASE/latest.json" </dev/null    → cliVersion, cli.url, cli.sha256
   4. curl -fsSL "$CLI_URL" </dev/null → temp; shasum -a 256 must equal cli.sha256
-     (fail closed, print both hashes)
+     (fail closed, print both hashes). If the bytes are gzip, extract; the
+     payload is binary + SPM resource bundles (AgentOS_AgentOSCLI.bundle,
+     AllnighterCore_AllnighterCore.bundle). Naked Mach-O still accepted.
   5. install atomically: HOME_BIN=~/.local/share/allnighter/bin
      write "$HOME_BIN/.alln.tmp.$$" (same fs), chmod 755, mv → "$HOME_BIN/alln"
   6. symlink into PATH dir per law 1; print export line if needed
@@ -403,7 +405,7 @@ Published only on **release**, not on every merge. The only mutable object.
   "notes": "human-only; never projected to agents",
   "installCommand": "curl -fsSL https://get.allnighter.io | sh",
   "cli": {
-    "url": "https://get.allnighter.io/v0.12.0/alln-macos-universal",
+    "url": "https://get.allnighter.io/v0.12.0/alln-macos-universal.tar.gz",
     "sha256": "…"
   },
   "app": {

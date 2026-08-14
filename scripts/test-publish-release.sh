@@ -9,7 +9,8 @@
 #   - ALLN_SKIP_LATEST_JSON=1 skips the manifest
 #
 # Never touches dist/releases (uses a temp base). Requires a universal binary
-# at dist/alln-macos-universal or ALLN_UNIVERSAL_BINARY.
+# at dist/alln-macos-universal or ALLN_UNIVERSAL_BINARY, plus sibling
+# AgentOS_AgentOSCLI.bundle and AllnighterCore_AllnighterCore.bundle.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -48,11 +49,11 @@ if ! "$SCRIPT" "$VERSION" >"$OUT" 2>&1; then
   die "publish-release failed"
 fi
 
-ASSET="$BASE/v$VERSION/alln-macos-universal"
+ASSET="$BASE/v$VERSION/alln-macos-universal.tar.gz"
 SHA_FILE="$ASSET.sha256"
 LATEST="$BASE/latest.json"
 
-[[ -x "$ASSET" ]] || fail "missing asset $ASSET"
+[[ -f "$ASSET" ]] || fail "missing asset $ASSET"
 [[ -f "$SHA_FILE" ]] || fail "missing sha256 file"
 [[ -f "$LATEST" ]] || fail "missing latest.json"
 pass "assets + latest.json present"
@@ -61,7 +62,7 @@ SHA256="$(awk '{print $1}' "$SHA_FILE")"
 grep -q "$SHA256" "$LATEST" || fail "latest.json missing sha256 $SHA256"
 grep -q "\"cliVersion\": \"$VERSION\"" "$LATEST" || fail "cliVersion mismatch"
 grep -q "\"appVersion\": \"$VERSION\"" "$LATEST" || fail "appVersion mismatch"
-grep -q "https://fixture.get.allnighter.io/v$VERSION/alln-macos-universal" "$LATEST" \
+grep -q "https://fixture.get.allnighter.io/v$VERSION/alln-macos-universal.tar.gz" "$LATEST" \
   || fail "cli.url wrong base"
 grep -q "curl -fsSL https://get.allnighter.io | sh" "$LATEST" \
   || fail "installCommand must be canonical public one-liner"
@@ -92,7 +93,7 @@ if ! "$SCRIPT" "$VERSION2" >"$SCRATCH/skip.out" 2>&1; then
 else
   AFTER_HASH="$(shasum -a 256 "$LATEST" | awk '{print $1}')"
   [[ "$BEFORE_HASH" == "$AFTER_HASH" ]] || fail "SKIP_LATEST should not rewrite latest.json"
-  [[ -x "$BASE/v$VERSION2/alln-macos-universal" ]] || fail "v$VERSION2 asset missing"
+  [[ -f "$BASE/v$VERSION2/alln-macos-universal.tar.gz" ]] || fail "v$VERSION2 asset missing"
   pass "ALLN_SKIP_LATEST_JSON leaves latest.json untouched"
 fi
 unset ALLN_SKIP_LATEST_JSON

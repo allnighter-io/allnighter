@@ -101,6 +101,42 @@ final class InstallCLITests: XCTestCase {
         XCTAssertTrue(InstallCLI.sameExecutable(try fm.destinationOfSymbolicLink(atPath: link), canonicalPath))
     }
 
+    func testInstallLinksResourceBundlesBesidePathSymlink() throws {
+        let srcDir = tempRoot.appendingPathComponent("stage")
+        try fm.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        let binary = srcDir.appendingPathComponent("alln-bin")
+        fm.createFile(atPath: binary.path, contents: Data("#!/bin/sh\necho ok\n".utf8))
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: binary.path)
+        let bundle = srcDir.appendingPathComponent("AgentOS_AgentOSCLI.bundle")
+        try fm.createDirectory(at: bundle, withIntermediateDirectories: true)
+
+        let installDir = tempRoot.appendingPathComponent("bin").path
+        let outcome = InstallCLI.run(request(
+            binary: binary.path,
+            installDir: installDir,
+            canonicalInstall: { candidate, home, version, fileManager in
+                CanonicalCLIInstall.install(
+                    candidateURL: candidate,
+                    homeDirectory: home,
+                    version: version,
+                    fileManager: fileManager
+                )
+            }
+        ))
+        guard case .installed = outcome else {
+            return XCTFail("expected installed, got \(outcome)")
+        }
+        let pathBundle = URL(fileURLWithPath: installDir).appendingPathComponent("AgentOS_AgentOSCLI.bundle")
+        XCTAssertTrue(fm.fileExists(atPath: pathBundle.path))
+        let dest = try fm.destinationOfSymbolicLink(atPath: pathBundle.path)
+        let canonicalBundle = CanonicalCLIInstall.canonicalDirectory(homeDirectory: tempRoot)
+            .appendingPathComponent("AgentOS_AgentOSCLI.bundle")
+        XCTAssertEqual(
+            URL(fileURLWithPath: dest).resolvingSymlinksInPath().path,
+            canonicalBundle.path
+        )
+    }
+
     func testSecondRunIsAlreadyInstalled() throws {
         let binary = try makeBinary()
         let installDir = tempRoot.appendingPathComponent("bin").path

@@ -55,7 +55,7 @@ is the CLI script.** Pointing the Mac button at `/` looks like a broken download
 Versioned files are immutable:
 
 ```text
-https://get.allnighter.io/v1.1.3/alln-macos-universal
+https://get.allnighter.io/v1.1.9/alln-macos-universal.tar.gz
 https://get.allnighter.io/v1.1.3/Allnighter.dmg
 https://get.allnighter.io/latest.json    # ONLY mutable object
 ```
@@ -71,9 +71,11 @@ uploaded. `appVersion` must equal the app’s
 `Apps/AllnighterMac/project.yml`) or the running app will show an update
 forever.
 
-Current public floor (2026-08-14): CLI **1.1.8** + Mac app **1.1.5** (arm64
-DMG). Person hatch on `alln version`. `alln feedback` postcard (quoted text +
-CLI version + OS). Failures fall back to emailing support@allnighter.io.
+Current public floor (2026-08-14): CLI **1.1.9** + Mac app **1.1.5** (arm64
+DMG). CLI payload is `alln-macos-universal.tar.gz` (binary + SPM resource
+bundles). Relocate-proof is a ship gate — a builder-local `version` check is
+not proof. Person hatch on `alln version`. `alln feedback` postcard. Failures
+fall back to emailing support@allnighter.io.
 
 ---
 
@@ -85,7 +87,7 @@ the tree you built.
 
 | Change lands in | Bump | Ship |
 | --- | --- | --- |
-| `AllnighterCore`, `AllnighterEngine`, `AllnighterCLI`, or `scripts/get-alln.sh` | `AllnighterVersionIdentity.binaryVersion` (+ `MARKETING_VERSION` when app ships too) | `build-universal.sh` → sign → `publish-release.sh` → R2 |
+| `AllnighterCore`, `AllnighterEngine`, `AllnighterCLI`, or `scripts/get-alln.sh` | `AllnighterVersionIdentity.binaryVersion` (+ `MARKETING_VERSION` when app ships too) | `scripts/ship-cli.sh <version> [--upload]` |
 | Mac app only (`Apps/AllnighterMac`) | `MARKETING_VERSION` in `project.yml` | `build-dmg.sh` → publish DMG block in `latest.json` |
 | Shared Core (capacity, probes, entitlement, install) | **Both** version fields | **Both** surfaces — CLI-only users inherit Core fixes |
 
@@ -148,17 +150,32 @@ DMG “universal” on the site.
 
 ## Ship the CLI
 
-Separate from the DMG. New version number if that version directory already
-exists.
+**One command.** Do not assemble this by hand — that is how a naked Mach-O
+reached production.
 
-1. `scripts/build-universal.sh` then Developer ID sign the unix executable
-   (hardened runtime). Notarize a zip; staple is N/A on a bare executable.
-2. `scripts/publish-release.sh <version>` — writes
-   `v<version>/alln-macos-universal` + sha256, then `latest.json` last.
-3. `scripts/upload-release-to-r2.sh dist/releases`
+```bash
+scripts/ship-cli.sh <version>           # build, relocate-proof, sign, notarize, layout
+scripts/ship-cli.sh <version> --upload  # then R2 (assets, get-alln.sh, latest.json last)
+```
+
+`ship-cli.sh` refuses unless `AllnighterVersionIdentity.binaryVersion` already
+equals `<version>`, the relocated binary runs with build-scratch bundles
+**hidden**, and `alln version --json` gitSha equals `git rev-parse HEAD`.
+
+Under the hood (do not skip relocate-proof):
+
+1. `scripts/build-universal.sh` — lipo, copy SPM resource bundles next to the
+   binary, **relocate-proof** (`scripts/relocate-cli-proof.sh`).
+2. `scripts/sign-cli.sh` — Developer ID + hardened runtime, notarize a zip of
+   binary + bundles. Staple is N/A on a unix executable.
+3. `scripts/publish-release.sh <version>` — writes
+   `v<version>/alln-macos-universal.tar.gz` + sha256, then `latest.json` last.
+   Refuses a naked Mach-O.
+4. `scripts/upload-release-to-r2.sh dist/releases` (only via `--upload`)
 
 Same `latest.json`. Prefer matching `cliVersion` and `appVersion` when both
-surfaces ship together.
+surfaces ship together. CLI-only ship keeps the current `app` block / 
+`ALLN_APP_VERSION`.
 
 ---
 
@@ -169,7 +186,7 @@ surfaces ship together.
 | Xcode Organizer → Direct Distribution for the website DMG | SIWA on the Debug entitlements makes Apple refuse the profile. Ship path is `build-dmg.sh`. |
 | Create a “Mac Team Direct” profile that includes Sign in with Apple | Apple rejects it. |
 | Point the Mac download button at `https://get.allnighter.io/` | That URL is `curl \| sh`. |
-| Flip `latest.json` on an ordinary merge | Release only. |
+| Skip relocate-proof or publish a naked `alln` Mach-O | 1.1.5–1.1.8 `curl \| sh` crash. `scripts/ship-cli.sh` is the path. |
 | Treat Sparkle as the source of “what’s latest” | Sparkle is future transport. SSOT is `latest.json`. |
 | Edit allnighter.io copy in this repo | Ikiro. |
 

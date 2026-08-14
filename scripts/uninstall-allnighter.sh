@@ -81,6 +81,12 @@ fi
 # Cold-start CLI home (get-alln.sh).
 add_path "$HOME_DIR/.local/share/allnighter"
 
+# SPM resource bundles linked next to PATH `alln` (argv0 lookup).
+for bundle in AgentOS_AgentOSCLI.bundle AllnighterCore_AllnighterCore.bundle; do
+  add_path "$HOME_DIR/.local/bin/$bundle"
+  add_path "/usr/local/bin/$bundle"
+done
+
 # Dev CLI scratch + release build output (rebuild_cli.sh).
 add_path "${ALLNIGHTER_CLI_SCRATCH:-$HOME_DIR/Library/Developer/Allnighter/CLI}"
 

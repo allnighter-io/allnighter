@@ -47,6 +47,7 @@ for version_dir in "$PUBLISH_DIR"/v*/; do
     [[ -f "$asset" ]] || continue
     name="$(basename "$asset")"
     case "$name" in
+      *.tar.gz) ctype="application/gzip" ;;
       *.sha256) ctype="text/plain; charset=utf-8" ;;
       *.json) ctype="application/json; charset=utf-8" ;;
       *.dmg) ctype="application/x-apple-diskimage" ;;

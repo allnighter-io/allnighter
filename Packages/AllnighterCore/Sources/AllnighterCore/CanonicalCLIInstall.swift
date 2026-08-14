@@ -205,6 +205,19 @@ public enum CanonicalCLIInstall {
                                    message: "rename to \(canonicalURL.path) failed: \(error.localizedDescription)"))
         }
 
+        do {
+            try CLIResourceBundles.copySiblings(
+                from: candidateURL,
+                into: canonicalDir,
+                fileManager: fileManager
+            )
+        } catch {
+            return .failure(Failure(
+                code: "SERVE_INSTALL_FAILED",
+                message: "could not copy CLI resource bundles into \(canonicalDir.path): \(error.localizedDescription)"
+            ))
+        }
+
         let cdhash = computeCDHash(candidateURL: candidateURL, processRunner: processRunner)
         let identity = CodeIdentity(cdhash: cdhash, version: version)
         let record = IdentityRecord(schemaVersion: 1, canonicalPath: canonicalURL.path, identity: identity, updatedAt: Date())

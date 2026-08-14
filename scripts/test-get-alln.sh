@@ -126,13 +126,21 @@ mkdir -p "$PUBLISH"
 VERSION="0.0.0-fixture"
 ASSET_DIR="$PUBLISH/v$VERSION"
 mkdir -p "$ASSET_DIR"
-cp "$BINARY" "$ASSET_DIR/alln-macos-universal"
-chmod 755 "$ASSET_DIR/alln-macos-universal"
+PAYLOAD="$WORK/payload"
+mkdir -p "$PAYLOAD"
+cp "$BINARY" "$PAYLOAD/alln-macos-universal"
+chmod 755 "$PAYLOAD/alln-macos-universal"
+BIN_DIR="$(cd "$(dirname "$BINARY")" && pwd)"
+for bundle in "$BIN_DIR"/*.bundle; do
+  [[ -d "$bundle" ]] || continue
+  cp -R "$bundle" "$PAYLOAD/$(basename "$bundle")"
+done
+tar -czf "$ASSET_DIR/alln-macos-universal.tar.gz" -C "$PAYLOAD" .
 (
   cd "$ASSET_DIR"
-  shasum -a 256 alln-macos-universal >alln-macos-universal.sha256
+  shasum -a 256 alln-macos-universal.tar.gz >alln-macos-universal.tar.gz.sha256
 )
-SHA256="$(awk '{print $1}' "$ASSET_DIR/alln-macos-universal.sha256")"
+SHA256="$(awk '{print $1}' "$ASSET_DIR/alln-macos-universal.tar.gz.sha256")"
 [[ ${#SHA256} -eq 64 ]] || die "bad sha length from fixture asset"
 
 # Local HTTP server for BASE/latest.json + versioned asset (no real network).
@@ -158,7 +166,7 @@ write_manifest() {
   "notes": "fixture only; never projected to agents",
   "installCommand": "curl -fsSL https://get.allnighter.io | sh",
   "cli": {
-    "url": "${BASE_URL}/v${VERSION}/alln-macos-universal",
+    "url": "${BASE_URL}/v${VERSION}/alln-macos-universal.tar.gz",
     "sha256": "${sha}"
   },
   "app": {
@@ -338,6 +346,23 @@ if [[ "$LINK_TARGET" == "$EXPECTED_CANONICAL" ]]; then
 else
   fail "expected symlink target $EXPECTED_CANONICAL, got $LINK_TARGET"
 fi
+
+# Relocated payload must carry SPM bundles when the fixture binary had them.
+CANONICAL_DIR="$(dirname "$EXPECTED_CANONICAL")"
+for bundle in AgentOS_AgentOSCLI.bundle AllnighterCore_AllnighterCore.bundle; do
+  if [[ -d "$BIN_DIR/$bundle" ]]; then
+    if [[ -d "$CANONICAL_DIR/$bundle" ]]; then
+      pass "canonical install copied $bundle"
+    else
+      fail "canonical install missing $bundle (the production curl|sh crash)"
+    fi
+    if [[ -e "$LINK_A/$bundle" ]]; then
+      pass "PATH dir linked $bundle (SPM looks beside argv0)"
+    else
+      fail "PATH dir missing $bundle — \`alln\` via symlink will crash"
+    fi
+  fi
+done
 
 # =============================================================================
 # Scenario B: tampered sha256 → fail closed, no install file (BUG-1)

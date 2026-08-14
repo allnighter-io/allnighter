@@ -12,7 +12,8 @@
 #   ALLN_BOOTSTRAP_HOST     default hermes
 #   ALLN_INSTALL_DIR        optional force install directory (passed as --path to install-cli)
 #
-# Downloads the latest binary, verifies sha256, execs once as a liveness check,
+# Downloads the latest CLI payload (Mach-O or tar.gz of binary + SPM
+# resource bundles), verifies sha256, execs once as a liveness check,
 # then delegates to install-cli for the canonical install layout (ASR-S01c).
 #
 # Body is wrapped in main(); only main "$@" at the bottom so a truncated
@@ -56,6 +57,10 @@ main() {
   require_cmd sed
   require_cmd awk
   require_cmd head
+  require_cmd tar
+  require_cmd dd
+  require_cmd od
+  require_cmd tr
 
   # --- base URL ---------------------------------------------------------
   BASE="${ALLN_INSTALL_BASE_URL:-https://get.allnighter.io}"
@@ -112,6 +117,30 @@ main() {
   fi
 
   chmod 755 "$DOWNLOAD"
+
+  # gzip payload = binary + SPM resource bundles. A naked Mach-O is still
+  # accepted so an in-flight faucet flip cannot wedge an old latest.json.
+  is_gzip_payload() {
+    _magic="$(dd if="$1" bs=1 count=2 2>/dev/null | od -An -tx1 | tr -d ' \n')"
+    [ "$_magic" = "1f8b" ]
+  }
+  if is_gzip_payload "$DOWNLOAD"; then
+    PAYLOAD_DIR="$TMP_DIR/payload"
+    mkdir -p "$PAYLOAD_DIR"
+    if ! tar -xzf "$DOWNLOAD" -C "$PAYLOAD_DIR"; then
+      echo "get-alln: failed to extract CLI payload" >&2
+      exit 1
+    fi
+    if [ -x "$PAYLOAD_DIR/alln-macos-universal" ]; then
+      DOWNLOAD="$PAYLOAD_DIR/alln-macos-universal"
+    elif [ -x "$PAYLOAD_DIR/alln" ]; then
+      DOWNLOAD="$PAYLOAD_DIR/alln"
+    else
+      echo "get-alln: archive missing alln binary" >&2
+      exit 1
+    fi
+    chmod 755 "$DOWNLOAD"
+  fi
 
   # Leave Documents/Desktop/Downloads before any alln exec. macOS TCC
   # attributes getcwd / inherited cwd to the CLI binary — Developer ID

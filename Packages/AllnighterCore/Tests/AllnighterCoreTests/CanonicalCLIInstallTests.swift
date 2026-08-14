@@ -126,6 +126,24 @@ final class CanonicalCLIInstallTests: XCTestCase {
         XCTAssertTrue(fm.isExecutableFile(atPath: canonical.path))
     }
 
+    func testFreshInstallCopiesSiblingResourceBundles() throws {
+        let srcDir = tempRoot.appendingPathComponent("stage")
+        try fm.createDirectory(at: srcDir, withIntermediateDirectories: true)
+        let candidate = srcDir.appendingPathComponent("alln-candidate")
+        fm.createFile(atPath: candidate.path, contents: Data("#!/bin/sh\necho ok\n".utf8))
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: candidate.path)
+        let bundle = srcDir.appendingPathComponent("AgentOS_AgentOSCLI.bundle")
+        try fm.createDirectory(at: bundle, withIntermediateDirectories: true)
+        fm.createFile(atPath: bundle.appendingPathComponent("marker").path, contents: Data("ok".utf8))
+
+        let h = home()
+        let result = CanonicalCLIInstall.install(candidateURL: candidate, homeDirectory: h, fileManager: fm)
+        guard case .success = result else { return XCTFail("expected success, got \(result)") }
+        let dest = CanonicalCLIInstall.canonicalDirectory(homeDirectory: h)
+            .appendingPathComponent("AgentOS_AgentOSCLI.bundle/marker")
+        XCTAssertTrue(fm.fileExists(atPath: dest.path))
+    }
+
     func testFreshInstallWritesIdentityRecord() throws {
         let candidate = try makeCandidate()
         let h = home()

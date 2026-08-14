@@ -95,6 +95,21 @@ echo "build-universal: lipo -create → $OUT" >&2
 lipo -create "$ARM_BIN" "$X86_BIN" -output "$STAGE"
 chmod 755 "$STAGE"
 
+copy_required_bundles() {
+  local src_bin="$1"
+  local dest_bin="$2"
+  local src_dir dest_dir name
+  src_dir="$(cd "$(dirname "$src_bin")" && pwd)"
+  dest_dir="$(cd "$(dirname "$dest_bin")" && pwd)"
+  for name in AgentOS_AgentOSCLI.bundle AllnighterCore_AllnighterCore.bundle; do
+    [[ -d "$src_dir/$name" ]] || die "SPM resource bundle missing next to $src_bin: $name"
+    rm -rf "$dest_dir/$name"
+    cp -R "$src_dir/$name" "$dest_dir/$name"
+  done
+}
+
+copy_required_bundles "$ARM_BIN" "$STAGE"
+
 echo "build-universal: ad-hoc codesign (dogfood track)" >&2
 codesign --sign - --force "$STAGE" >/dev/null
 
@@ -108,11 +123,9 @@ echo "$LIPO_INFO" | grep -qi 'are:' || die "expected fat universal binary, got: 
 
 codesign --verify "$STAGE" || die "codesign --verify failed for $STAGE"
 
-# Running the binary on this host exercises the native slice under Rosetta-or-native.
-# stdin is closed so a future interactive prompt cannot hang a pipe-driven caller.
-if ! "$STAGE" version </dev/null >/dev/null; then
-  die "binary failed to run: $STAGE version"
-fi
+# Relocate-proof with build-scratch bundles hidden. Running `version` next to
+# dist/.build-universal is a false green on the builder (1.1.5–1.1.8 outage).
+"$SCRIPT_DIR/relocate-cli-proof.sh" "$STAGE"
 
 mv -f "$STAGE" "$OUT"
 # Re-sign after rename is unnecessary (rename preserves signature); re-verify final path.
@@ -122,4 +135,5 @@ echo "build-universal: OK"
 echo "  binary:  $OUT"
 echo "  lipo:    $(lipo -info "$OUT")"
 echo "  codesign: verified (ad-hoc)"
+echo "  bundles: AgentOS_AgentOSCLI.bundle AllnighterCore_AllnighterCore.bundle"
 echo "  version: $("$OUT" version </dev/null | head -n 1)"
