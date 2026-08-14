@@ -286,7 +286,7 @@ final class CapacityAcquisitionTests: XCTestCase {
     private let agyUsageFixture = """
     Models & Quota
 
-      Account: emailmike@gmail.com
+      Account: support@allnighter.io
 
     GEMINI MODELS
       Models within this group: Gemini Flash, Gemini Pro
@@ -657,7 +657,7 @@ final class CapacityAcquisitionTests: XCTestCase {
 
            Version:          2.1.220
            Login method:     Claude Max account
-           Organization:     emailmike@gmail.com's Organization
+           Organization:     support@allnighter.io's Organization
         """
         XCTAssertEqual(ClaudeCapacityLog.planTier(fromRender: render), "Max")
     }

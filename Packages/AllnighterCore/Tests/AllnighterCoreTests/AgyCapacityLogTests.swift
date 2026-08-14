@@ -6,7 +6,7 @@ final class AgyCapacityLogTests: XCTestCase {
     private let verbatimFixture = """
     Models & Quota
 
-      Account: emailmike@gmail.com
+      Account: support@allnighter.io
 
     GEMINI MODELS
       Models within this group: Gemini Flash, Gemini Pro
@@ -40,8 +40,8 @@ final class AgyCapacityLogTests: XCTestCase {
         XCTAssertEqual(pools.count, 2)
 
         // Account line PII
-        XCTAssertEqual(pools[0].account, "emailmike@gmail.com")
-        XCTAssertEqual(pools[1].account, "emailmike@gmail.com")
+        XCTAssertEqual(pools[0].account, "support@allnighter.io")
+        XCTAssertEqual(pools[1].account, "support@allnighter.io")
 
         // Pool 1: GEMINI MODELS
         let pool1 = pools[0]
@@ -159,7 +159,7 @@ final class AgyCapacityLogTests: XCTestCase {
         let ansiFixture = """
         \u{001B}[1mModels & Quota\u{001B}[0m
 
-          Account: \u{001B}[32memailmike@gmail.com\u{001B}[0m
+          Account: \u{001B}[32msupport@allnighter.io\u{001B}[0m
 
         \u{001B}[34mGEMINI MODELS\u{001B}[0m
           Models within this group: Gemini Flash, Gemini Pro
@@ -170,7 +170,7 @@ final class AgyCapacityLogTests: XCTestCase {
         """
         let pools = AgyCapacityLog.parse(renderText: ansiFixture, observedAt: fixedObservedAt)
         XCTAssertEqual(pools.count, 1)
-        XCTAssertEqual(pools[0].account, "emailmike@gmail.com")
+        XCTAssertEqual(pools[0].account, "support@allnighter.io")
         XCTAssertEqual(pools[0].name, "GEMINI MODELS")
         XCTAssertEqual(pools[0].memberModels, ["Gemini Flash", "Gemini Pro"])
         XCTAssertEqual(pools[0].windows.count, 1)

@@ -397,7 +397,7 @@ final class CapacityHistoryStoreTests: XCTestCase {
     func testNoPIIInStoredJSON() throws {
         // Intermediate vendor type may carry account; CapacityWindow drops it.
         // Ensure the durable history never reintroduces account strings.
-        let account = "emailmike@gmail.com"
+        let account = "support@allnighter.io"
         let pool = AgyPoolCapacity(
             account: account,
             name: "GEMINI MODELS",
