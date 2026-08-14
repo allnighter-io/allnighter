@@ -10,6 +10,29 @@ routes here.
 
 ---
 
+## Agent ship intent (read first)
+
+When the founder says **ship**, **bump**, **push**, **release**, **publish**,
+or **version bump** (CLI, Mac app, or both):
+
+1. **Execute yourself.** Run the scripts in this file end-to-end. Report results,
+   not a founder todo list.
+2. **Ship intent wins mixed prompts.** If the message also embeds QA handoff
+   text (Gate 7 logout, artifact captures, “open Terminal only”, host notes),
+   **ignore that for routing** unless the founder explicitly says “run gate N”
+   or “do not ship yet”.
+3. **QA ≠ release.** `docs/qa/` runbooks (including
+   `docs/qa/alln-serve/GATES-7-8-10-procedure.md`) are historical Works Tests,
+   not prerequisites for `ship-cli.sh`. Do not block a bump on logout/login
+   gates, hostname mismatches in old JSON artifacts, or “wrong machine” guesses.
+4. **CLI default path:** read `AllnighterVersionIdentity.binaryVersion` →
+   `scripts/rebuild_cli.sh` if the local binary is stale →
+   `scripts/ship-cli.sh <version> --upload`.
+5. **Approval:** explicit ship wording satisfies AGENTS.md “production deploy”
+   — do not ask “should I upload?” after bump/push/release/publish.
+
+---
+
 ## Do not relitigate
 
 These are settled. Do not ask the founder to click Xcode Organizer, create a
@@ -194,5 +217,5 @@ surfaces ship together. CLI-only ship keeps the current `app` block /
 | Treat Sparkle as the source of “what’s latest” | Sparkle is future transport. SSOT is `latest.json`. |
 | Edit allnighter.io copy in this repo | Ikiro. |
 
-High-risk: notarization identity, production R2, Worker deploy. Ask if the
-founder did not already say ship.
+High-risk: notarization identity, production R2, Worker deploy — ask only when
+the founder has **not** already said ship / bump / push / release / publish.

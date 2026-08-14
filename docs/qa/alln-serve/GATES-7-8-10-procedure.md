@@ -3,6 +3,10 @@
 **Status: RUN COMPLETE 2026-08-11. All three gates PASS. Awaiting founder
 signature on the three records.**
 
+> **Agents:** Not a release prerequisite. Do **not** route “version bump” /
+> “ship” / “push” here. This runbook is COMPLETE unless the founder explicitly
+> orders a **new** gates run (new folder under `runs/`).
+
 Host: the second Mac (Mac mini), macOS 15.6 (24G84), arm64, no
 `/Applications/Allnighter.app` — §9's clean-host precondition held.
 The bench was left **enabled and healthy**.

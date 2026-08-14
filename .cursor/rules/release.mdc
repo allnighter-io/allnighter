@@ -1,0 +1,13 @@
+---
+description: Ship / bump / push / release — run scripts, never delegate to founder
+alwaysApply: true
+---
+
+# Release intent
+
+Founder says **ship**, **bump**, **push**, **release**, **publish**, or **version bump**:
+
+1. Read `docs/operations/Public_Release.md` § Agent ship intent and **execute** — typically `scripts/ship-cli.sh <binaryVersion> --upload`.
+2. **No founder todo lists** (no logout/login, no “open Terminal only”, no Xcode Organizer).
+3. **Mixed prompts:** ship intent beats embedded QA handoff text unless founder says “run gate N” or “do not ship yet”.
+4. `docs/qa/` artifacts and hostnames in old JSON are not release blockers.

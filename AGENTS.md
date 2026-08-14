@@ -70,7 +70,7 @@ Read the relevant doc before changing that area.
 | Agent front door: `install-cli`, `bootstrap`, live menu, help | Live `alln menu --json` is the selection front door; CLI is the only agent surface. `alln bootstrap [--host]` prints host context. No intent router. Code: `MenuCatalog`, `Bootstrap`, `InstallCLI`, `TeachingSnippet`, `HelpTopicRegistry`. |
 | Cold start — no `alln` on PATH | `docs/phases/One_Paste_Cold_Start.md`. |
 | Trial / pay / Stripe / `alln billing` | Law: `docs/operations/Project_Laws.md` §Entitlement. Remaining: `docs/phases/Trial_And_Entitlement.md`. Code: `EntitlementGate`, `BillingCLI`, `infra/pay`. |
-| Ship CLI / Mac DMG / notarize / `latest.json` | `docs/operations/Public_Release.md` — **§ Version bump law**. CLI: `scripts/ship-cli.sh <version> [--upload]` (relocate-proof is a gate). Never reuse a version prefix. |
+| Ship / bump / push / release / publish (CLI or DMG) | `docs/operations/Public_Release.md` § **Agent ship intent** — run `scripts/ship-cli.sh` / `build-dmg.sh` yourself; founder wording = approval. Not `docs/qa/` gates unless explicitly ordered. |
 | `alln serve` dead / stale / disabled | Code: `ServeLifecycle`, `ServeDaemon`, `ServeStatusJSON`. Vocab: `docs/workflows/Product_Vocabulary.md` §Background scheduler. Serve owns scheduling, never run semantics. |
 | Spec Review, measurement lies, Min/Max seat changes | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope`. Measurement: §3–§4, `measurement_auditor`. A dropped seat's questions must be absorbed by a remaining named pass. |
 | Visual design / brand / tokens | `docs/design-system/readme.md` + `docs/design-system/production.md`. |
@@ -141,7 +141,9 @@ Ask before proceeding when the change could affect:
 - destructive session kill, worktree deletion, or git operations;
 - App Store / notarization / distribution identity;
 - billing, entitlement, or quota-spend behavior;
-- production deploy or TestFlight release.
+- production deploy or TestFlight release — **waived** when the founder says
+  ship / bump / push / release / publish; run `docs/operations/Public_Release.md`
+  § Agent ship intent without asking again.
 
 ## Proof Wall (when code exists)
 
