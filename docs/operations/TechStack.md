@@ -23,7 +23,7 @@ parked foundation under `Apps/AllnighteriOS/`.
 
 ## Repo Targets
 
-**Canonical remote:** `origin` → `https://github.com/MikeReining/allnighter.git`
+**Canonical remote:** `origin` → `https://github.com/allnighter-io/allnighter.git`
 
 Local worktrees: `~/Documents/GitHub/Allnighter` (primary). Sibling checkout
 required: `~/Documents/GitHub/AgentOS` (path dependency from
