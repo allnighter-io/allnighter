@@ -44,6 +44,39 @@ final class VersionIdentityTests: XCTestCase {
         XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.1.9")
     }
 
+    /// GitHub README and Public_Release.md show strangers the floor. They must
+    /// project the same CLI identity (and Mac MARKETING_VERSION) or the landing
+    /// page ages behind get.allnighter.io. Writer: `scripts/public-floor.sh`.
+    func testPublicFloorDocsMatchVersionIdentity() throws {
+        let root = repositoryRoot()
+        let needle = "CLI **\(AllnighterVersionIdentity.binaryVersion)** + Mac app **\(try marketingVersion(in: root))**"
+        let readme = try String(
+            contentsOf: root.appendingPathComponent("README.md"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(
+            readme.contains("Current floor: \(needle)"),
+            "README.md GitHub floor must be 'Current floor: \(needle)'. Run scripts/public-floor.sh sync."
+        )
+        XCTAssertEqual(
+            readme.components(separatedBy: "Current floor:").count - 1,
+            1,
+            "README.md must contain exactly one Current floor line"
+        )
+        let release = try String(
+            contentsOf: root.appendingPathComponent("docs/operations/Public_Release.md"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(
+            release.contains("Current public floor"),
+            "Public_Release.md missing Current public floor line"
+        )
+        XCTAssertTrue(
+            release.contains(needle),
+            "Public_Release.md floor must include '\(needle)'. Run scripts/public-floor.sh sync."
+        )
+    }
+
     /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at
     /// build time by BuildInfoPlugin. A stale value means the plugin did not
     /// re-run on an incremental build and `alln version` will lie about whether
@@ -111,6 +144,25 @@ final class VersionIdentityTests: XCTestCase {
         var url = URL(fileURLWithPath: #filePath)
         for _ in 0..<5 { url.deleteLastPathComponent() }
         return url
+    }
+
+    private func marketingVersion(in root: URL) throws -> String {
+        let yml = try String(
+            contentsOf: root.appendingPathComponent("Apps/AllnighterMac/project.yml"),
+            encoding: .utf8
+        )
+        for line in yml.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("MARKETING_VERSION:") {
+                let value = trimmed.dropFirst("MARKETING_VERSION:".count)
+                    .trimmingCharacters(in: .whitespaces)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "\""))
+                XCTAssertFalse(value.isEmpty, "MARKETING_VERSION empty in project.yml")
+                return String(value)
+            }
+        }
+        struct MissingMarketingVersion: Error {}
+        throw MissingMarketingVersion()
     }
 
     private func gitRevParseHEAD() throws -> String {

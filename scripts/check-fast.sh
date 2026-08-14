@@ -117,4 +117,7 @@ if [[ "$living_doc_fail" -ne 0 ]]; then
   exit 1
 fi
 
+echo "==> check public floor docs match version identity"
+bash "$ROOT/scripts/public-floor.sh" check
+
 echo "==> check-fast: OK"

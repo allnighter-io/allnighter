@@ -21,6 +21,9 @@ WORK="${ALLN_DMG_WORK:-$ROOT/dist/.dmg-build}"
 
 die() { echo "build-dmg: $*" >&2; exit 1; }
 
+"$SCRIPT_DIR/public-floor.sh" check \
+  || die "GitHub README / Public_Release floor stale — run scripts/public-floor.sh sync and commit before the DMG"
+
 if [ -z "${DEVELOPER_DIR:-}" ] && ! xcodebuild -version >/dev/null 2>&1; then
   if [ -d /Applications/Xcode.app/Contents/Developer ]; then
     export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer

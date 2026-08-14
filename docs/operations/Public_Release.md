@@ -88,7 +88,7 @@ the tree you built.
 | Change lands in | Bump | Ship |
 | --- | --- | --- |
 | `AllnighterCore`, `AllnighterEngine`, `AllnighterCLI`, or `scripts/get-alln.sh` | `AllnighterVersionIdentity.binaryVersion` (+ `MARKETING_VERSION` when app ships too) | `scripts/ship-cli.sh <version> [--upload]` |
-| Mac app only (`Apps/AllnighterMac`) | `MARKETING_VERSION` in `project.yml` | `build-dmg.sh` → publish DMG block in `latest.json` |
+| Mac app only (`Apps/AllnighterMac`) | `MARKETING_VERSION` in `project.yml`, then `scripts/public-floor.sh sync` | `build-dmg.sh` → publish DMG block in `latest.json` |
 | Shared Core (capacity, probes, entitlement, install) | **Both** version fields | **Both** surfaces — CLI-only users inherit Core fixes |
 
 Before upload: `alln version` on the candidate binary must show the new
@@ -96,7 +96,10 @@ Before upload: `alln version` on the candidate binary must show the new
 (`rebuild_cli.sh` deletes `BuildInfo.generated.swift`) is the usual lie.
 
 Pin: `VersionIdentityTests.testCurrentBinaryVersionIsBumped` +
-`testBuildInfoGitShaMatchesWorkspaceHEAD`.
+`testBuildInfoGitShaMatchesWorkspaceHEAD` +
+`testPublicFloorDocsMatchVersionIdentity`. GitHub `README.md` “Current floor”
+is rewritten by `scripts/public-floor.sh` (also a `check-fast` gate). `ship-cli.sh`
+syncs and commits those docs **before** the build so gitSha still matches HEAD.
 
 ---
 
@@ -187,6 +190,7 @@ surfaces ship together. CLI-only ship keeps the current `app` block /
 | Create a “Mac Team Direct” profile that includes Sign in with Apple | Apple rejects it. |
 | Point the Mac download button at `https://get.allnighter.io/` | That URL is `curl \| sh`. |
 | Skip relocate-proof or publish a naked `alln` Mach-O | 1.1.5–1.1.8 `curl \| sh` crash. `scripts/ship-cli.sh` is the path. |
+| Hand-edit the GitHub README version | It will age. `scripts/public-floor.sh` is the writer; `ship-cli.sh` syncs it. |
 | Treat Sparkle as the source of “what’s latest” | Sparkle is future transport. SSOT is `latest.json`. |
 | Edit allnighter.io copy in this repo | Ikiro. |
 

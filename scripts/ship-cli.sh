@@ -42,6 +42,24 @@ PINNED="$(sed -n 's/.*public static let binaryVersion = "\([^"]*\)".*/\1/p' "$ID
 [[ "$PINNED" == "$VERSION" ]] || die "AllnighterVersionIdentity.binaryVersion is '$PINNED', not '$VERSION' — bump first"
 
 cd "$ROOT"
+
+echo "ship-cli: sync GitHub README + Public_Release floor to $VERSION"
+"$SCRIPT_DIR/public-floor.sh" sync
+if ! git diff --quiet -- README.md docs/operations/Public_Release.md; then
+  if [[ "${ALLN_SHIP_NO_COMMIT:-}" == "1" ]]; then
+    die "public floor docs were stale — commit README.md + docs/operations/Public_Release.md and re-run"
+  fi
+  git add README.md docs/operations/Public_Release.md
+  git commit -m "$(cat <<EOF
+Sync public floor docs to CLI $VERSION.
+
+GitHub README and Public_Release.md must show the same floor ship-cli publishes.
+EOF
+)"
+  echo "ship-cli: committed public floor docs (HEAD moved)"
+fi
+"$SCRIPT_DIR/public-floor.sh" check
+
 HEAD="$(git rev-parse HEAD)"
 
 echo "ship-cli: build universal $VERSION"
