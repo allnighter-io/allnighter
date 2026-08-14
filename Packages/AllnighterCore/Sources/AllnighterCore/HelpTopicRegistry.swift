@@ -1072,7 +1072,7 @@ public enum HelpTopicRegistry {
 
             Billing, refunds, privacy, or “Ask AI was wrong”: email \
             support@allnighter.io. A real person reads it. Ask AI cannot issue a \
-            refund.
+            refund. CLI identity (`alln version`) prints the same address.
             """,
             aliases: [
                 "ask ai", "ask allnighter", "support", "contact", "contact us",
@@ -1081,9 +1081,9 @@ public enum HelpTopicRegistry {
             ],
             sections: [
                 .init("door", "The door", "Title bar → Ask AI. One question. Auto, read-only, inward prompt."),
-                .init("hatch", "Email a person", "support@allnighter.io for billing, refunds, privacy, or a wrong answer."),
+                .init("hatch", "Email a person", "support@allnighter.io for billing, refunds, privacy, or a wrong answer. `alln version` prints the same address."),
             ],
-            relatedCommandNames: ["chrome", "doctor", "help search", "billing", "install-cli"],
+            relatedCommandNames: ["chrome", "doctor", "help search", "billing", "install-cli", "version"],
             needsLiveCheck: true),
 
         HelpTopic(

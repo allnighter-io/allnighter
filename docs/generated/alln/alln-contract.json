@@ -800,6 +800,7 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT use this to diagnose a broken CLI — that is `alln doctor`.",
       "args" : [
 
       ],
@@ -810,6 +811,7 @@
         "repoWrite" : "never",
         "workerStart" : "never"
       },
+      "example" : "alln version --json",
       "exampleIds" : [
         "version_json"
       ],
@@ -831,7 +833,8 @@
       "name" : "version",
       "outputSchema" : "versionJSON",
       "spendsQuota" : false,
-      "summary" : "Print the running binary version and contract hash.",
+      "summary" : "Print the running binary version, contract hash, and person hatch.",
+      "trigger" : "Use to confirm binary identity. Quote `tellHuman` to the human when they hit a wall.",
       "visibility" : "public"
     },
     {
@@ -6736,7 +6739,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "10.4.0",
+  "contractVersion" : "10.5.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -73,7 +73,9 @@ public extension ContractRegistry {
     // so agents quote a human paragraph on ENTITLEMENT_LIMIT instead of paraphrasing.
     // 10.3.0 → 10.4.0: `alln chrome --json` Mac owner-action catalog (Ask AI
     // discovery; projected from the labels the Mac app draws).
-    static let contractVersion = "10.4.0"
+    // 10.4.0 → 10.5.0: `VersionJSON.tellHuman` person hatch; failed CLI JSON
+    // falls back to `emailSupport` nextAction when ErrorDiscovery has none.
+    static let contractVersion = "10.5.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -330,7 +332,12 @@ public extension ContractRegistry {
             outputSchema: .bootstrapJSON, exampleIds: ["bootstrap_json"]
         ),
         CommandSpec(
-            "version", summary: "Print the running binary version and contract hash.", milestone: .m1,
+            "version",
+            summary: "Print the running binary version, contract hash, and person hatch.",
+            milestone: .m1,
+            trigger: "Use to confirm binary identity. Quote `tellHuman` to the human when they hit a wall.",
+            example: "alln version --json",
+            antiExample: "Do NOT use this to diagnose a broken CLI — that is `alln doctor`.",
             flags: [FlagSpec("json", summary: "Structured VersionJSON.")],
             outputSchema: .versionJSON, exampleIds: ["version_json"]
         ),

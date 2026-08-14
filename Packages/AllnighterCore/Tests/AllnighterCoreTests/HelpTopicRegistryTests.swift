@@ -455,9 +455,11 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("email support"), "ask_ai")
         let topic = HelpService.get(topic: "ask_ai").topic
         XCTAssertTrue(topic?.bodyMarkdown.contains("support@allnighter.io") == true)
+        XCTAssertTrue(topic?.bodyMarkdown.contains("alln version") == true)
         XCTAssertFalse(topic?.bodyMarkdown.contains("dev ask-ai") == true,
                        "customer help must not teach the undocumented dev command")
         XCTAssertTrue(topic?.relatedCommandNames.contains("chrome") == true)
+        XCTAssertTrue(topic?.relatedCommandNames.contains("version") == true)
     }
 
     func testSearchRoutesChromeCatalogQueries() {

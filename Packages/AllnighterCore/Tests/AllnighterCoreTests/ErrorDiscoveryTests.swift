@@ -48,5 +48,56 @@ final class ErrorDiscoveryTests: XCTestCase {
         XCTAssertEqual(env.suggestions, ["code_bug_hunt"])
         XCTAssertEqual(env.nextAction?.command, "alln menu --json")
         XCTAssertFalse(env.nextAction?.command.contains("doctor") == true)
+        XCTAssertNil(env.tellHuman)
+    }
+
+    func testFailedJSONFallsBackToPersonHatchWhenNoRecovery() {
+        let hatch = SupportHatch.decorate(code: "SOURCE_AUTH_EXPIRED", nextAction: nil)
+        XCTAssertEqual(hatch.nextAction?.kind, "emailSupport")
+        XCTAssertEqual(hatch.nextAction?.label, SupportHatch.tellHuman)
+        XCTAssertEqual(hatch.nextAction?.command, "alln version --json")
+        XCTAssertEqual(hatch.tellHuman, SupportHatch.tellHuman)
+        XCTAssertTrue(hatch.nextAction?.command.hasPrefix("alln ") == true)
+
+        let env = ErrorEnvelope(
+            code: "SOURCE_AUTH_EXPIRED",
+            message: "Claude Code authentication expired.",
+            requiresManual: true,
+            retryable: false,
+            nextAction: hatch.nextAction,
+            tellHuman: hatch.tellHuman
+        )
+        XCTAssertEqual(env.nextAction?.kind, "emailSupport")
+        XCTAssertEqual(env.tellHuman, SupportHatch.tellHuman)
+        XCTAssertTrue(env.tellHuman?.contains(AskAIPrompt.supportEmail) == true)
+    }
+
+    func testFailedJSONDoesNotStealDiscoveryNextAction() {
+        let hatch = SupportHatch.decorate(code: "TEAM_NOT_FOUND", nextAction: nil)
+        XCTAssertEqual(hatch.nextAction?.command, "alln menu --json")
+        XCTAssertNil(hatch.tellHuman)
+        XCTAssertNotEqual(hatch.nextAction?.kind, "emailSupport")
+    }
+
+    func testFailedJSONDoesNotStealEntitlementNextAction() {
+        let hatch = SupportHatch.decorate(code: "ENTITLEMENT_LIMIT", nextAction: nil)
+        XCTAssertEqual(hatch.nextAction?.command, EntitlementPolicy.checkoutCommand)
+        XCTAssertNil(hatch.tellHuman)
+        let env = ErrorEnvelope(
+            code: "ENTITLEMENT_LIMIT",
+            message: EntitlementCopy.tellHuman,
+            requiresManual: true,
+            retryable: false,
+            nextAction: hatch.nextAction,
+            tellHuman: hatch.tellHuman
+        )
+        XCTAssertEqual(env.tellHuman, EntitlementCopy.tellHuman)
+        XCTAssertEqual(env.nextAction?.command, EntitlementPolicy.checkoutCommand)
+    }
+
+    func testUsageErrorIsNotAPersonHatch() {
+        let hatch = SupportHatch.decorate(code: "CLI_USAGE_ERROR", nextAction: nil)
+        XCTAssertNil(hatch.nextAction)
+        XCTAssertNil(hatch.tellHuman)
     }
 }

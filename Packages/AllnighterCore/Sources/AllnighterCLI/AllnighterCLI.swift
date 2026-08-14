@@ -171,6 +171,7 @@ struct AllnighterCLI {
         struct Failure: Encodable { let schemaVersion = 1; let success = false; let error: ErrorEnvelope }
         let spec = ContractRegistry.milestone1.errorSpec(for: code)
         let enriched = ErrorDiscovery.messageWithSuggestions(message, suggestions: suggestions)
+        let hatch = SupportHatch.decorate(code: code, nextAction: nextAction)
         let env = ErrorEnvelope(
             code: code,
             ruleId: spec?.ruleId,
@@ -181,7 +182,8 @@ struct AllnighterCLI {
             supportDir: supportDir,
             suggestions: suggestions,
             candidates: candidates,
-            nextAction: nextAction ?? ErrorDiscovery.nextAction(forErrorCode: code)
+            nextAction: hatch.nextAction,
+            tellHuman: hatch.tellHuman
         )
         print(jsonString(Failure(error: env)))
     }
@@ -2606,6 +2608,7 @@ struct AllnighterCLI {
             }
             line += ")"
             print(line)
+            print(payload.tellHuman)
             if let update = payload.update {
                 FileHandle.standardError.write(
                     Data("update available: \(update.current) → \(update.latest); \(update.command)\n".utf8)

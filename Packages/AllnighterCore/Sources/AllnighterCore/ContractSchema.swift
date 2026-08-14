@@ -493,7 +493,8 @@ public enum ContractSchema {
             "gitSha": nullable("string"), "buildTime": nullable("string"),
             "binaryPath": nullable("string"),
             "update": ref("ReleaseUpdate"),
-        ], required: ["schemaVersion", "binaryVersion", "contractVersion", "contractHash"])
+            "tellHuman": str,
+        ], required: ["schemaVersion", "binaryVersion", "contractVersion", "contractHash", "tellHuman"])
         schema.merge(top) { _, new in new }
         schema["$defs"] = [
             "ReleaseUpdate": obj([

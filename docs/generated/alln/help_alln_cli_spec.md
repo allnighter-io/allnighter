@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 10.4.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.5.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -192,7 +192,7 @@ Examples: `bootstrap_json`.
 
 ### `alln version`
 
-Print the running binary version and contract hash.
+Print the running binary version, contract hash, and person hatch.
 
 Flags:
 - `--json` — Structured VersionJSON.

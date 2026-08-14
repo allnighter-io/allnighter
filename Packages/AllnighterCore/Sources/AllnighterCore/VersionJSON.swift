@@ -131,8 +131,13 @@ import Foundation
 /// (10.3.0 → 10.4.0): `alln chrome --json` projects Mac owner-action rows from
 /// the same labels the app draws. Ask AI uses it for "where is the button?"
 /// — not doctor, not a help article.
+///
+/// **1.1.6 → 1.1.7 (person hatch).** `contractVersion` additive minor
+/// (10.4.0 → 10.5.0): `VersionJSON.tellHuman` is the support@ hatch on
+/// `alln version`. Failed CLI JSON (`emitFailure`) falls back to
+/// `emailSupport` nextAction when ErrorDiscovery has none. Doctor unchanged.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.6"
+    public static let binaryVersion = "1.1.7"
 }
 
 /// `alln version` / `alln --version` machine contract.
@@ -149,6 +154,8 @@ public struct VersionJSON: Codable, Sendable, Equatable {
     public var binaryPath: String?
     /// OPC-S06 — same `ReleaseChannel` truth as `menu.update`. Omitted when nil.
     public var update: ReleaseUpdateInfo?
+    /// Person hatch. Quote to the human; never a recovery command.
+    public var tellHuman: String
 
     public init(
         schemaVersion: Int = 1,
@@ -158,7 +165,8 @@ public struct VersionJSON: Codable, Sendable, Equatable {
         gitSha: String? = nil,
         buildTime: String? = nil,
         binaryPath: String? = nil,
-        update: ReleaseUpdateInfo? = nil
+        update: ReleaseUpdateInfo? = nil,
+        tellHuman: String = SupportHatch.tellHuman
     ) {
         self.schemaVersion = schemaVersion
         self.binaryVersion = binaryVersion
@@ -168,11 +176,25 @@ public struct VersionJSON: Codable, Sendable, Equatable {
         self.buildTime = buildTime
         self.binaryPath = binaryPath
         self.update = update
+        self.tellHuman = tellHuman
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, binaryVersion, contractVersion, contractHash
-        case gitSha, buildTime, binaryPath, update
+        case gitSha, buildTime, binaryPath, update, tellHuman
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        binaryVersion = try c.decode(String.self, forKey: .binaryVersion)
+        contractVersion = try c.decode(String.self, forKey: .contractVersion)
+        contractHash = try c.decode(String.self, forKey: .contractHash)
+        gitSha = try c.decodeIfPresent(String.self, forKey: .gitSha)
+        buildTime = try c.decodeIfPresent(String.self, forKey: .buildTime)
+        binaryPath = try c.decodeIfPresent(String.self, forKey: .binaryPath)
+        update = try c.decodeIfPresent(ReleaseUpdateInfo.self, forKey: .update)
+        tellHuman = try c.decodeIfPresent(String.self, forKey: .tellHuman) ?? SupportHatch.tellHuman
     }
 
     /// Omit `update` when nil (never encode `"update": null`). Other optionals
@@ -188,5 +210,6 @@ public struct VersionJSON: Codable, Sendable, Equatable {
         try container.encodeIfPresent(buildTime, forKey: .buildTime)
         try container.encodeIfPresent(binaryPath, forKey: .binaryPath)
         try container.encodeIfPresent(update, forKey: .update)
+        try container.encode(tellHuman, forKey: .tellHuman)
     }
 }

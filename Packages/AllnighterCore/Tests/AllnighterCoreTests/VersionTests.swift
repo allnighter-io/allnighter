@@ -38,4 +38,27 @@ final class VersionTests: XCTestCase {
             ContractRegistry.milestone1.commands.first { $0.name == "version" }?.outputSchema,
             .versionJSON)
     }
+
+    func testVersionJSONCarriesPersonHatch() throws {
+        let payload = VersionJSON(binaryVersion: "0.1.0-test")
+        XCTAssertEqual(payload.tellHuman, SupportHatch.tellHuman)
+        XCTAssertTrue(payload.tellHuman.contains(AskAIPrompt.supportEmail))
+
+        let data = try CoreJSON.encode(payload)
+        let raw = String(decoding: data, as: UTF8.self)
+        XCTAssertTrue(raw.contains("tellHuman"))
+        XCTAssertTrue(raw.contains(AskAIPrompt.supportEmail))
+
+        let decoded = try CoreJSON.decode(VersionJSON.self, from: data)
+        XCTAssertEqual(decoded.tellHuman, SupportHatch.tellHuman)
+    }
+
+    func testVersionJSONDecodesMissingTellHumanAsHatch() throws {
+        let payload = VersionJSON(binaryVersion: "0.1.0-test")
+        var obj = try JSONSerialization.jsonObject(with: try CoreJSON.encode(payload)) as! [String: Any]
+        obj.removeValue(forKey: "tellHuman")
+        let stripped = try JSONSerialization.data(withJSONObject: obj)
+        let decoded = try CoreJSON.decode(VersionJSON.self, from: stripped)
+        XCTAssertEqual(decoded.tellHuman, SupportHatch.tellHuman)
+    }
 }
