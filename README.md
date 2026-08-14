@@ -81,7 +81,7 @@ This is how it is built, not a promise bolted on later.
 3. We never see model output. It is written to your disk.
 4. We do not sell data, run ads, or train on anything you produce.
 
-What leaves the machine toward us: an irreversible machine hash for trial, Stripe email if you pay, an update check. Full text: [Privacy Policy](docs/legal/Privacy_Policy.md).
+What leaves the machine toward us: an irreversible machine hash for trial, Stripe email if you pay, an update check, and — only if you send it — an `alln feedback` note (your words, CLI version, OS). Full text: [Privacy Policy](docs/legal/Privacy_Policy.md).
 
 ---
 

@@ -121,6 +121,18 @@ final class ContractSchemaTests: XCTestCase {
         let billing = BillingJSON(plan: "free", paid: false)
         XCTAssertEqual(try properties(ContractSchema.billingSchema()), labels(billing), "BillingJSON schema drifted")
 
+        let feedback = FeedbackJSON.preview(
+            FeedbackPayload.make(message: "hi"),
+            dryRun: true,
+            sent: false
+        )
+        XCTAssertEqual(try properties(ContractSchema.feedbackSchema()), labels(feedback), "FeedbackJSON schema drifted")
+        XCTAssertEqual(
+            try properties(def(ContractSchema.feedbackSchema(), "FeedbackPayload")),
+            labels(feedback.payload),
+            "FeedbackPayload schema drifted"
+        )
+
         let skill = SkillCatalogJSON.project(SkillCatalog.list(lane: .signal), lane: .signal,
                                              contractVersion: ContractRegistry.contractVersion)
         let skillSchema = ContractSchema.skillCatalogSchema()

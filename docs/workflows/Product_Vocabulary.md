@@ -17,7 +17,8 @@ paths.
 
 | Word | Meaning |
 | --- | --- |
-| **Ask AI** | Title-bar door for questions about Allnighter on this Mac. Regular Auto run, inward prompt, read-only. Not a Team. Not the repo composer. Hatch: **support@allnighter.io**. For where a control lives, the run calls **`alln chrome --json`**. The open project is not evidence about Allnighter UI. |
+| **Ask AI** | Title-bar door for questions about Allnighter on this Mac. Regular Auto run, inward prompt, read-only. Not a Team. Not the repo composer. Hatch: **support@allnighter.io**. Terminal twin: **`alln feedback`**. For where a control lives, the run calls **`alln chrome --json`**. The open project is not evidence about Allnighter UI. |
+| **Feedback** | `alln feedback "<msg>"` — a short note to a person. Payload is quoted text + CLI version + OS only. `--dry-run` sends nothing. Failures fall back to emailing **support@allnighter.io**. Agents must not invent a message. |
 | **Chrome catalog** | `alln chrome --json` — Mac owner-action rows projected from the labels the app draws (`ChromeCopy` / `ChromeCatalog`). Sibling of `alln menu --json`. Not doctor. Not a help article. The model writes the sentence. |
 | **Chat** | The default turn surface inside a Project — a run of the Default Team. |
 | **Delegate** | Hand intent to a team. UI label: **Send to team** (retired: Fan out). |

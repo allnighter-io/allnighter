@@ -128,6 +128,7 @@ struct AllnighterCLI {
         case "install-cli": await runInstallCLI(args)
         case "uninstall": await runUninstall(args)
         case "version": runVersion(args)
+        case "feedback": await FeedbackCLI.run(args)
         case "update": runUpdate(args)
         case "billing": await BillingCLI.run(args)
         case "ps": await runOwnershipPs(args)

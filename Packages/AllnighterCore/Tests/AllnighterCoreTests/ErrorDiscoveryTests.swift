@@ -100,4 +100,18 @@ final class ErrorDiscoveryTests: XCTestCase {
         XCTAssertNil(hatch.nextAction)
         XCTAssertNil(hatch.tellHuman)
     }
+
+    func testFeedbackUnavailableGetsPersonHatch() {
+        let hatch = SupportHatch.decorate(code: "FEEDBACK_UNAVAILABLE", nextAction: nil)
+        XCTAssertEqual(hatch.nextAction?.kind, "emailSupport")
+        XCTAssertEqual(hatch.tellHuman, SupportHatch.tellHuman)
+        XCTAssertEqual(
+            SupportHatch.decorate(code: "FEEDBACK_RATE_LIMITED", nextAction: nil).tellHuman,
+            SupportHatch.tellHuman
+        )
+        XCTAssertEqual(
+            SupportHatch.decorate(code: "FEEDBACK_REJECTED", nextAction: nil).tellHuman,
+            SupportHatch.tellHuman
+        )
+    }
 }

@@ -6,6 +6,9 @@ import Foundation
 public enum SupportHatch {
     public static let email = AskAIPrompt.supportEmail
     public static let tellHuman = "Hit a wall? Email \(email) — a person reads it."
+    public static let feedbackSentTellHuman =
+        "Sent. A person reads it. Left this machine: your message, CLI version, and OS — nothing else."
+    public static let feedbackDryRunTellHuman = "Nothing left this machine (--dry-run)."
 
     /// Fallback when `ErrorDiscovery` has no recovery command. Agents quote
     /// `label` / `tellHuman` to the human. `command` is identity only — do not

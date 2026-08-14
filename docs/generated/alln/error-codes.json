@@ -27,6 +27,33 @@
     "ruleId" : "cli.flag.unknown"
   },
   {
+    "agentAction" : "Quote `tellHuman` \/ the hatch: email support@allnighter.io. Do not retry in a loop.",
+    "code" : "FEEDBACK_UNAVAILABLE",
+    "exitClass" : "operational",
+    "explain" : "The feedback inbox could not be reached. Nothing was sent. Email support@allnighter.io — a person reads it.",
+    "requiresManual" : true,
+    "retryable" : true,
+    "ruleId" : "feedback.unavailable"
+  },
+  {
+    "agentAction" : "Quote the message to the human. Email support@allnighter.io if they still want to write. Do not retry today.",
+    "code" : "FEEDBACK_RATE_LIMITED",
+    "exitClass" : "operational",
+    "explain" : "This machine already sent today's five postcards. Email support@allnighter.io — a person reads it.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "feedback.rate_limited"
+  },
+  {
+    "agentAction" : "Quote the hatch: email support@allnighter.io. Do not retry with the same payload in a loop.",
+    "code" : "FEEDBACK_REJECTED",
+    "exitClass" : "operational",
+    "explain" : "The feedback inbox rejected the postcard. Email support@allnighter.io — a person reads it.",
+    "requiresManual" : true,
+    "retryable" : false,
+    "ruleId" : "feedback.rejected"
+  },
+  {
     "agentAction" : "Retry with `alln install-cli --path ~\/.local\/bin` or choose a writable directory.",
     "code" : "INSTALL_CLI_TARGET_UNWRITABLE",
     "exitClass" : "operational",

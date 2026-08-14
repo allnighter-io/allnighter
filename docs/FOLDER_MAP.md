@@ -33,7 +33,7 @@ Allnighter/
     legal/
     qa/                         # dogfood / bakeoff notes
   tools/
-  infra/                        # get-faucet (install) + pay (Stripe entitlement)
+  infra/                        # get-faucet (install) + pay (Stripe) + feedback (postcard inbox)
   supabase/
   dist/
 ```

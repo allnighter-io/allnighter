@@ -1072,7 +1072,9 @@ public enum HelpTopicRegistry {
 
             Billing, refunds, privacy, or “Ask AI was wrong”: email \
             support@allnighter.io. A real person reads it. Ask AI cannot issue a \
-            refund. CLI identity (`alln version`) prints the same address.
+            refund. CLI identity (`alln version`) prints the same address. A short \
+            note from the terminal is `alln feedback "<your words>"` — quoted text, \
+            CLI version, and OS only.
             """,
             aliases: [
                 "ask ai", "ask allnighter", "support", "contact", "contact us",
@@ -1081,10 +1083,39 @@ public enum HelpTopicRegistry {
             ],
             sections: [
                 .init("door", "The door", "Title bar → Ask AI. One question. Auto, read-only, inward prompt."),
-                .init("hatch", "Email a person", "support@allnighter.io for billing, refunds, privacy, or a wrong answer. `alln version` prints the same address."),
+                .init("hatch", "Email a person", "support@allnighter.io for billing, refunds, privacy, or a wrong answer. `alln version` prints the same address. `alln feedback` is the terminal twin."),
             ],
-            relatedCommandNames: ["chrome", "doctor", "help search", "billing", "install-cli", "version"],
+            relatedCommandNames: ["chrome", "doctor", "help search", "billing", "install-cli", "version", "feedback"],
             needsLiveCheck: true),
+
+        HelpTopic(
+            id: "feedback", title: "Send a note to a person", audience: .both,
+            summary: "`alln feedback \"<your words>\"` emails a person. Quoted text, CLI version, and OS only — nothing else leaves the machine.",
+            bodyMarkdown: """
+            When the human typed a short note for the founder, run \
+            `alln feedback "<their words>"`. Preview first with \
+            `alln feedback --dry-run --json` if they want to see the exact payload.
+
+            What leaves the machine: the quoted message, this CLI's version, and \
+            the OS version. Not the repo, not prompts, not run journals, not files. \
+            Print that list back to the human.
+
+            Do not invent a message. Do not attach paths. If the inbox is down, \
+            quote `tellHuman` and tell them to email support@allnighter.io. Five \
+            notes per UTC day on this machine; after that, email.
+            """,
+            aliases: [
+                "feedback", "postcard", "send feedback", "tell the founder",
+                "write support", "alln feedback",
+            ],
+            sections: [
+                .init("payload", "What leaves", "message + CLI version + OS. Nothing else."),
+                .init("dry-run", "Preview", "`alln feedback --dry-run --json` prints the payload and sends nothing."),
+            ],
+            relatedCommandNames: ["feedback", "version", "billing"],
+            schemaRefs: ["feedbackJSON"],
+            errorRefs: ["FEEDBACK_UNAVAILABLE", "FEEDBACK_RATE_LIMITED", "FEEDBACK_REJECTED"],
+            needsLiveCheck: false),
 
         HelpTopic(
             id: "chrome", title: "Mac chrome catalog", audience: .both,

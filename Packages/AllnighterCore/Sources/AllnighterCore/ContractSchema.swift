@@ -1090,6 +1090,27 @@ public enum ContractSchema {
         return schema
     }
 
+    public static func feedbackSchema() -> [String: Any] {
+        var schema: [String: Any] = [
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$id": "https://allnighter.io/schemas/feedback.schema.json",
+            "title": "FeedbackJSON",
+        ]
+        let payload = obj([
+            "message": str, "binaryVersion": str, "os": str,
+        ], required: ["message", "binaryVersion", "os"])
+        let top = obj([
+            "schemaVersion": int,
+            "sent": bool,
+            "dryRun": bool,
+            "payload": ref("FeedbackPayload"),
+            "tellHuman": str,
+        ], required: ["schemaVersion", "sent", "dryRun", "payload", "tellHuman"])
+        schema.merge(top) { _, new in new }
+        schema["$defs"] = ["FeedbackPayload": payload]
+        return schema
+    }
+
     public static func billingSchema() -> [String: Any] {
         var schema: [String: Any] = [
             "$schema": "https://json-schema.org/draft/2020-12/schema",

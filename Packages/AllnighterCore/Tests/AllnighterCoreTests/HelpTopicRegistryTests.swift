@@ -460,6 +460,19 @@ final class HelpTopicRegistryTests: XCTestCase {
                        "customer help must not teach the undocumented dev command")
         XCTAssertTrue(topic?.relatedCommandNames.contains("chrome") == true)
         XCTAssertTrue(topic?.relatedCommandNames.contains("version") == true)
+        XCTAssertTrue(topic?.relatedCommandNames.contains("feedback") == true)
+        XCTAssertTrue(topic?.bodyMarkdown.contains("alln feedback") == true)
+    }
+
+    func testSearchRoutesFeedbackQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("alln feedback"), "feedback")
+        XCTAssertEqual(top("postcard"), "feedback")
+        XCTAssertEqual(top("send feedback"), "feedback")
+        let topic = HelpService.get(topic: "feedback").topic
+        XCTAssertTrue(topic?.bodyMarkdown.contains("quoted") == true || topic?.summary.contains("Quoted") == true)
+        XCTAssertTrue(topic?.relatedCommandNames.contains("version") == true)
+        XCTAssertEqual(topic?.needsLiveCheck, false)
     }
 
     func testSearchRoutesChromeCatalogQueries() {

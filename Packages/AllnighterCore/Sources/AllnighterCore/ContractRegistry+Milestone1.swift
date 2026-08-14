@@ -75,7 +75,8 @@ public extension ContractRegistry {
     // discovery; projected from the labels the Mac app draws).
     // 10.4.0 → 10.5.0: `VersionJSON.tellHuman` person hatch; failed CLI JSON
     // falls back to `emailSupport` nextAction when ErrorDiscovery has none.
-    static let contractVersion = "10.5.0"
+    // 10.5.0 → 10.6.0: `alln feedback` postcard (quoted text + CLI version + OS).
+    static let contractVersion = "10.6.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -340,6 +341,21 @@ public extension ContractRegistry {
             antiExample: "Do NOT use this to diagnose a broken CLI — that is `alln doctor`.",
             flags: [FlagSpec("json", summary: "Structured VersionJSON.")],
             outputSchema: .versionJSON, exampleIds: ["version_json"]
+        ),
+        CommandSpec(
+            "feedback",
+            summary: "Send a short message to a person. Quoted text, CLI version, and OS only — nothing else leaves the machine.",
+            milestone: .m1,
+            trigger: "Use when the human typed a message for the founder. Quote `tellHuman`. Do not invent a message or attach repo files.",
+            example: "alln feedback \"Spec Review was great; Claude hung on a 500-line diff.\"",
+            antiExample: "Do NOT send this on the human's behalf without their words. Do NOT attach run journals, prompts, or paths. Failures fall back to emailing support@allnighter.io.",
+            args: [ArgSpec("message", required: true, summary: "Short message in quotes.")],
+            flags: [
+                FlagSpec("json", summary: "Structured FeedbackJSON."),
+                FlagSpec("dry-run", summary: "Print the exact payload; send nothing."),
+            ],
+            outputSchema: .feedbackJSON,
+            exampleIds: ["feedback_send"]
         ),
         CommandSpec(
             "update",
@@ -1535,6 +1551,30 @@ public extension ContractRegistry {
             explain: "The invocation included a flag not declared for this command. Near-matches are listed in the error message. Unknown flags never no-op — a misspelled safety flag must not dispatch a real run.",
             exitClass: .usage
         ),
+        ErrorSpec(
+            "FEEDBACK_UNAVAILABLE",
+            ruleId: "feedback.unavailable",
+            agentAction: "Quote `tellHuman` / the hatch: email support@allnighter.io. Do not retry in a loop.",
+            requiresManual: true,
+            retryable: true,
+            explain: "The feedback inbox could not be reached. Nothing was sent. Email support@allnighter.io — a person reads it."
+        ),
+        ErrorSpec(
+            "FEEDBACK_RATE_LIMITED",
+            ruleId: "feedback.rate_limited",
+            agentAction: "Quote the message to the human. Email support@allnighter.io if they still want to write. Do not retry today.",
+            requiresManual: true,
+            retryable: false,
+            explain: "This machine already sent today's five postcards. Email support@allnighter.io — a person reads it."
+        ),
+        ErrorSpec(
+            "FEEDBACK_REJECTED",
+            ruleId: "feedback.rejected",
+            agentAction: "Quote the hatch: email support@allnighter.io. Do not retry with the same payload in a loop.",
+            requiresManual: true,
+            retryable: false,
+            explain: "The feedback inbox rejected the postcard. Email support@allnighter.io — a person reads it."
+        ),
         ErrorSpec("INSTALL_CLI_TARGET_UNWRITABLE", ruleId: "install_cli.target.unwritable", agentAction: "Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory.", requiresManual: true, retryable: true, explain: "The install-cli target directory is missing or not writable. Use --path to a writable directory (e.g. ~/.local/bin) or fix permissions on /usr/local/bin."),
         ErrorSpec("SUPPORT_MIGRATION_FAILED", ruleId: "support.migration.failed", agentAction: "Inspect the migration error, back up ~/Library/Application Support/Allnighter if needed, then retry.", requiresManual: true, retryable: false, explain: "The one-time retired worker-key migration under the support root failed. Fix the reported filesystem/JSON issue before continuing."),
         ErrorSpec("CONTRACT_DRIFT", ruleId: "contract.drift", agentAction: "Run `alln dev export-contracts`, then rebuild.", requiresManual: true, retryable: false, explain: "Generated artifacts no longer match the registry. Regenerate and rebuild before relying on output."),
@@ -1841,6 +1881,7 @@ public extension ContractRegistry {
         ExampleRecipe("bootstrap_json", title: "Agent activation snippet for Claude Code", command: "alln bootstrap --host claude --json"),
         ExampleRecipe("install_cli_json", title: "Install the running binary onto PATH", command: "alln install-cli --json"),
         ExampleRecipe("version_json", title: "Print binary and contract identity", command: "alln version --json"),
+        ExampleRecipe("feedback_send", title: "Send a short message to a person", command: "alln feedback \"The Spec Review team was awesome, but Claude hung on a 500-line diff.\""),
         ExampleRecipe("update_check", title: "Soft-announce a newer release", command: "alln update --check"),
         ExampleRecipe("billing_status", title: "Show trial or paid plan for this machine", command: "alln billing --json"),
         ExampleRecipe("billing_checkout", title: "Start Stripe Checkout (human opens the url)", command: "alln billing checkout --plan monthly --json"),

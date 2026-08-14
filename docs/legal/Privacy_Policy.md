@@ -1,6 +1,6 @@
 # Allnighter — Privacy Policy
 
-**Version 1.2 · Effective August 13, 2026**
+**Version 1.3 · Effective August 14, 2026**
 
 This policy explains what **Happy Moose Apps Inc.** ("we", "us") collects when
 you use Allnighter — the `alln` command-line tool, the Allnighter Mac
@@ -20,7 +20,8 @@ with it does not pass through us. The four facts below are not promises bolted
 on afterwards — they are how the software is built.
 
 1. **We never see your prompts, your code, or your files.** They never leave
-   your machine.
+   your machine — unless you paste them into an `alln feedback` note you chose
+   to send.
 2. **We never see your AI provider credentials.** Allnighter starts the vendor's
    own command-line tool, which authenticates itself with your own login. We do
    not read, store, proxy, extract, or transmit API keys or OAuth tokens, and we
@@ -31,7 +32,8 @@ on afterwards — they are how the software is built.
    anything.**
 
 What is left is the small amount of information needed to run entitlement,
-payments, and updates. That is the subject of the rest of this policy.
+payments, and updates — and, only if you send it, a short feedback note. That
+is the subject of the rest of this policy.
 
 ## 2. What We Do Not Collect
 
@@ -65,6 +67,19 @@ To be explicit, because the distinction matters more here than in most software:
 | The date your installation last checked for a software release | To serve update checks and to understand which versions are still in use |
 | IP address and basic request metadata, in server logs | An unavoidable part of serving any network request. Used for security, abuse prevention, and debugging; not used to build a profile of you. |
 
+### If you send feedback (`alln feedback`)
+
+This is opt-in. Nothing is sent unless you (or an agent quoting **your** words)
+run the command. We never attach your repo, prompts, run history, or files.
+
+| What | Why |
+| --- | --- |
+| The message you typed | So a person can read it |
+| The CLI version (`alln` binaryVersion) | So we know which build you are on |
+| Operating system version (for example `macOS 15.6.0`) | So we can tell Mac-only issues from everything else |
+
+The command prints that exact payload before it is sent. `--dry-run` prints it and sends nothing.
+
 ### On the website
 
 Our website host records aggregate page views so we can tell whether anyone is
@@ -81,6 +96,7 @@ UK/EU GDPR are:
 
 - **Contract** — account, entitlement, subscription state, and payment data. We
   cannot sell you a subscription without them.
+- **Consent** — a feedback note you typed and sent with `alln feedback`.
 - **Legitimate interests** — trial-abuse prevention, security logging, update
   checks, and aggregate site analytics. We have kept each of these to the
   minimum that works; the hardware hash exists specifically so that trial
@@ -95,7 +111,8 @@ We keep this list short on purpose. These are our only processors:
 | --- | --- | --- |
 | **Stripe** | Payment processing. Card details go directly from you to Stripe over an encrypted connection and are never transmitted through or stored by us. Stripe is PCI-DSS Level 1 certified. | Global — [privacy policy](https://stripe.com/privacy) |
 | **Apple** | App Store distribution, and Sign in with Apple if you later use device pairing | Global — [privacy policy](https://www.apple.com/legal/privacy/) |
-| **Our hosting and website providers** | Serving the website, update checks, and the entitlement service | Canada / United States |
+| **Our hosting and website providers** | Serving the website, update checks, the entitlement service, and the feedback inbox | Canada / United States |
+| **Discord or Slack** (only if a webhook is configured for feedback) | Relaying the same three-field postcard so a person sees it quickly | United States — their privacy policies |
 
 We do not sell your personal information, and we do not share it with anyone for
 their own marketing.
@@ -115,6 +132,7 @@ a demand: we cannot hand over prompts, code, or credentials we never had.
 - **Trial hardware hash** — retained while the product operates, because its
   whole function is to remember that a trial was used. It does not identify you.
 - **Server logs** — 30 days, then deleted.
+- **Feedback notes** — kept only as long as needed to reply, then deleted. We do not build a profile from them.
 - **Aggregate site analytics** — retained in aggregate, with no identifier that
   points back to a person.
 

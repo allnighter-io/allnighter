@@ -30,6 +30,11 @@
     "title" : "Print binary and contract identity"
   },
   {
+    "command" : "alln feedback \"The Spec Review team was awesome, but Claude hung on a 500-line diff.\"",
+    "id" : "feedback_send",
+    "title" : "Send a short message to a person"
+  },
+  {
     "command" : "alln update --check",
     "id" : "update_check",
     "title" : "Soft-announce a newer release"

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 10.5.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.6.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -200,6 +200,21 @@ Flags:
 Output schema: `versionJSON`.
 
 Examples: `version_json`.
+
+### `alln feedback`
+
+Send a short message to a person. Quoted text, CLI version, and OS only — nothing else leaves the machine.
+
+Arguments:
+- `message` (required) — Short message in quotes.
+
+Flags:
+- `--json` — Structured FeedbackJSON.
+- `--dry-run` — Print the exact payload; send nothing.
+
+Output schema: `feedbackJSON`.
+
+Examples: `feedback_send`.
 
 ### `alln update`
 
@@ -1820,6 +1835,9 @@ Stable table (PO-F3 / M-C). Never renumber silently — drift is gated.
 | `ENTITLEMENT_LIMIT` | yes | no | `operational` | Quote `tellHuman` (same text as `message`) to the human verbatim — do not paraphrase and do not retry the run. Then run nextAction.command once. Paste the returned JSON `url` into the same reply and tell them to open it in Safari or Chrome, not Cursor's preview browser. Do not exec the url. Do not retry until they say they paid. |
 | `CLI_USAGE_ERROR` | yes | no | `usage` | Re-run `alln docs <command>` and fix arguments. |
 | `UNKNOWN_FLAG` | yes | no | `usage` | Re-run `alln <command> --help` or `alln docs <command>`; fix or remove the unknown flag. |
+| `FEEDBACK_UNAVAILABLE` | yes | yes | `operational` | Quote `tellHuman` / the hatch: email support@allnighter.io. Do not retry in a loop. |
+| `FEEDBACK_RATE_LIMITED` | yes | no | `operational` | Quote the message to the human. Email support@allnighter.io if they still want to write. Do not retry today. |
+| `FEEDBACK_REJECTED` | yes | no | `operational` | Quote the hatch: email support@allnighter.io. Do not retry with the same payload in a loop. |
 | `INSTALL_CLI_TARGET_UNWRITABLE` | yes | yes | `operational` | Retry with `alln install-cli --path ~/.local/bin` or choose a writable directory. |
 | `SUPPORT_MIGRATION_FAILED` | yes | no | `operational` | Inspect the migration error, back up ~/Library/Application Support/Allnighter if needed, then retry. |
 | `CONTRACT_DRIFT` | yes | no | `operational` | Run `alln dev export-contracts`, then rebuild. |
@@ -2041,6 +2059,7 @@ the selected CLI.
 - `bootstrap_json` — Agent activation snippet for Claude Code: `alln bootstrap --host claude --json`
 - `install_cli_json` — Install the running binary onto PATH: `alln install-cli --json`
 - `version_json` — Print binary and contract identity: `alln version --json`
+- `feedback_send` — Send a short message to a person: `alln feedback "The Spec Review team was awesome, but Claude hung on a 500-line diff."`
 - `update_check` — Soft-announce a newer release: `alln update --check`
 - `billing_status` — Show trial or paid plan for this machine: `alln billing --json`
 - `billing_checkout` — Start Stripe Checkout (human opens the url): `alln billing checkout --plan monthly --json`

@@ -1,0 +1,53 @@
+{
+  "$defs" : {
+    "FeedbackPayload" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "binaryVersion" : {
+          "type" : "string"
+        },
+        "message" : {
+          "type" : "string"
+        },
+        "os" : {
+          "type" : "string"
+        }
+      },
+      "required" : [
+        "message",
+        "binaryVersion",
+        "os"
+      ],
+      "type" : "object"
+    }
+  },
+  "$id" : "https:\/\/allnighter.io\/schemas\/feedback.schema.json",
+  "$schema" : "https:\/\/json-schema.org\/draft\/2020-12\/schema",
+  "additionalProperties" : false,
+  "properties" : {
+    "dryRun" : {
+      "type" : "boolean"
+    },
+    "payload" : {
+      "$ref" : "#\/$defs\/FeedbackPayload"
+    },
+    "schemaVersion" : {
+      "type" : "integer"
+    },
+    "sent" : {
+      "type" : "boolean"
+    },
+    "tellHuman" : {
+      "type" : "string"
+    }
+  },
+  "required" : [
+    "schemaVersion",
+    "sent",
+    "dryRun",
+    "payload",
+    "tellHuman"
+  ],
+  "title" : "FeedbackJSON",
+  "type" : "object"
+}

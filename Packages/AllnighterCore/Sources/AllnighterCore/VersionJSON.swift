@@ -136,8 +136,13 @@ import Foundation
 /// (10.4.0 → 10.5.0): `VersionJSON.tellHuman` is the support@ hatch on
 /// `alln version`. Failed CLI JSON (`emitFailure`) falls back to
 /// `emailSupport` nextAction when ErrorDiscovery has none. Doctor unchanged.
+///
+/// **1.1.7 → 1.1.8 (feedback postcard).** `contractVersion` additive minor
+/// (10.5.0 → 10.6.0): `alln feedback "<msg>"` sends quoted text + CLI version
+/// + OS only. `--dry-run --json` is the free twin. Failures fall back to the
+/// hatch. Doctor unchanged.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.7"
+    public static let binaryVersion = "1.1.8"
 }
 
 /// `alln version` / `alln --version` machine contract.

@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "allnighter-feedback",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-14",
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "feedback.allnighter.io/*",
+      "zone_name": "allnighter.io"
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "send_email": [
+    { "name": "EMAIL" }
+  ]
+}
