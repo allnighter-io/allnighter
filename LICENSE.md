@@ -12,13 +12,14 @@ By installing, running, copying, compiling, or using the Software you agree to
 this Agreement. If you do not agree, do not install or use the Software.
 
 Your purchase, subscription, trial, and account are governed by the
-[Terms of Service](Terms_of_Service.md), which forms part of this Agreement.
+[Terms of Service](docs/legal/Terms_of_Service.md), which forms part of this
+Agreement.
 
 This is a **source-available** licence. It is **not** an OSI-approved
 open-source licence.
 
-The same agreement is published at the repository root as `LICENSE.md`. Keep the
-two copies identical.
+The same agreement is published as [`docs/legal/EULA.md`](docs/legal/EULA.md).
+Keep the two copies identical except for relative links.
 
 ---
 
@@ -152,7 +153,7 @@ with it; we will tell you when a new version materially changes your rights.
 ## 9. Privacy
 
 The Software runs locally. What it collects and sends — and what it deliberately
-does not — is described in the [Privacy Policy](Privacy_Policy.md).
+does not — is described in the [Privacy Policy](docs/legal/Privacy_Policy.md).
 We do not collect your prompts, your code, or your provider credentials.
 
 ## 10. Disclaimer of Warranty

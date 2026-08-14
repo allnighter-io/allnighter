@@ -1,18 +1,22 @@
 # Allnighter — Legal
 
-Status: **Published v1.2 — effective August 13, 2026**  
+Status: **Published v1.3 — effective August 14, 2026**  
 Entity: Happy Moose Apps Inc. (British Columbia, Canada)  
 Contact: support@allnighter.io  
-Created: 2026-07-31 · Published: 2026-08-07 · Revised: 2026-08-13 (v1.2 — Stripe Checkout is the buy path; SIWA is not required to purchase)
+Created: 2026-07-31 · Published: 2026-08-07 · Revised: 2026-08-14 (v1.3 — source-available EULA; official binary still paid)
 
 Public-facing legal surfaces for Allnighter. These four documents are the source
 of truth; the pages on allnighter.io are rendered from them and must be
-regenerated whenever a document here changes.
+regenerated whenever a document here changes. Root [`LICENSE.md`](../../LICENSE.md)
+is the same agreement as [`EULA.md`](EULA.md) (relative links only). Edit both.
+
+The EULA is **source-available**, not OSI open source. Do not describe the
+repository as open source in site copy, README, or support mail.
 
 | Doc | Covers | Public URL |
 | --- | --- | --- |
 | [`Terms_of_Service.md`](Terms_of_Service.md) | Fees, trial, free tier, third-party providers, termination | `/terms` |
-| [`EULA.md`](EULA.md) | Licence to use the software, restrictions, warranty, liability | `/terms#eula` |
+| [`EULA.md`](EULA.md) | Licence for official binaries **and** published source (source-available, not OSI). Same text as root `LICENSE.md`. | `/terms#eula` |
 | [`Privacy_Policy.md`](Privacy_Policy.md) | What we collect, processors, retention, your rights | `/privacy` |
 | [`Refund_and_Cancellation_Policy.md`](Refund_and_Cancellation_Policy.md) | Refunds, cancellation, renewal, trial terms | `/refunds` |
 
@@ -26,7 +30,8 @@ The website lives in a separate repo (`Ikiro/allnighter`) and holds a rendered
 HTML copy of each document. There is no automated pipeline — editing a Markdown
 file here does **not** update the site. After any change:
 
-1. Edit the Markdown here.
+1. Edit the Markdown here. If you edit `EULA.md`, edit root `LICENSE.md` to match
+   (relative links only).
 2. Bump the version and effective date at the top of the changed document.
 3. Mirror the change into the matching `content/*.html` page in the site repo.
 4. Commit both, and push the site repo to publish.
