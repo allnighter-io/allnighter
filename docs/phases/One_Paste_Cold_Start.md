@@ -362,6 +362,10 @@ main() {
   5. install atomically: HOME_BIN=~/.local/share/allnighter/bin
      write "$HOME_BIN/.alln.tmp.$$" (same fs), chmod 755, mv → "$HOME_BIN/alln"
   6. symlink into PATH dir per law 1; print export line if needed
+  6b. cd "$HOME" before any alln exec (version + install-cli). Documents/
+      Desktop/Downloads cwd trips a TCC prompt attributed to `alln`;
+      Developer ID does not skip it. ProtectedCWDEscape cannot avoid the
+      first getcwd. Same belt as rebuild_cli.sh.
   7. "$BIN" version </dev/null                    # absolute — required success
   8. resolved=$(command -v alln || true); warn if resolved != our link (BUG-6)
   9. warn on in-flight loops / older running serve (law 11)

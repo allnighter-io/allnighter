@@ -120,4 +120,44 @@ final class LaunchAuthorityProbeTests: XCTestCase {
         XCTAssertEqual(safe, "-lc")
         XCTAssertEqual(setup, "-lic")
     }
+
+    /// 2026-08-13: signed DMG Find my team must not spawn zsh -lic (Documents TCC).
+    func testMacFindMyTeamCallSiteIsNonInteractive() throws {
+        let here = URL(fileURLWithPath: #filePath)
+        let repoRoot = here
+            .deletingLastPathComponent() // LaunchAuthorityProbeTests.swift dir
+            .deletingLastPathComponent() // AllnighterEngineTests
+            .deletingLastPathComponent() // Tests
+            .deletingLastPathComponent() // AllnighterCore
+            .deletingLastPathComponent() // Packages
+        let sources = repoRoot
+            .appendingPathComponent("Apps/AllnighterMac/Sources")
+        let appModel = try String(
+            contentsOf: sources.appendingPathComponent("AppModel.swift"),
+            encoding: .utf8
+        )
+        guard let probe = appModel.range(of: "func runSetupProbe(userInitiated:") else {
+            return XCTFail("runSetupProbe not found")
+        }
+        guard let cursorInstall = appModel.range(of: "func installCursorAgentCLI()") else {
+            return XCTFail("installCursorAgentCLI not found")
+        }
+        let body = appModel[probe.lowerBound..<cursorInstall.lowerBound]
+        XCTAssertFalse(body.contains("interactive: true"), "Find my team must not spawn zsh -lic")
+        XCTAssertTrue(body.contains("interactive: false"), "Find my team must pin -lc")
+
+        let appConfig = try String(
+            contentsOf: sources.appendingPathComponent("AppConfig.swift"),
+            encoding: .utf8
+        )
+        XCTAssertFalse(
+            appConfig.contains("\"-lic\""),
+            "LoginShell Process arguments must not include interactive -lic"
+        )
+        XCTAssertTrue(appConfig.contains("\"-lc\""), "LoginShell must use -lc")
+        XCTAssertTrue(
+            appConfig.contains("ensuredProbeScratchPath"),
+            "LoginShell must chdir to ProbeScratch"
+        )
+    }
 }

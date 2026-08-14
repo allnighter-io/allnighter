@@ -205,6 +205,16 @@ quit_app() {
 
 quit_app
 
+# Leave Documents/Desktop/Downloads before any `alln` exec. Same belt as
+# rebuild_cli.sh / get-alln.sh. ProtectedCWDEscape cannot avoid the first
+# getcwd; a Documents checkout cwd is the ambient case for this script.
+PROBE_SCRATCH="$HOME_DIR/Library/Application Support/Allnighter/ProbeScratch"
+if mkdir -p "$PROBE_SCRATCH" 2>/dev/null; then
+  cd "$PROBE_SCRATCH" || cd "$HOME_DIR"
+else
+  cd "$HOME_DIR"
+fi
+
 # Prefer the product command when available.
 if command -v alln >/dev/null 2>&1; then
   alln serve disable >/dev/null 2>&1 || true

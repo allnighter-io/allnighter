@@ -772,7 +772,7 @@ final class AppModel {
         let assembled = cached.assembledTeam
         let parkedList = cached.parkedDriverIds
         Task { @MainActor [weak self] in
-            let detector = AllnighterCLIDetector.make(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: true)
+            let detector = AllnighterCLIDetector.make(commandRunner: SubprocessCommandRunner(environmentPolicy: AllnighterSpawnEnvironmentPolicy()), interactive: false)
             let records: [ToolProbeRecord]
             if let onlyDriverId,
                let manifest = registryCopy.all.first(where: { $0.id == onlyDriverId }) {

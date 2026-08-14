@@ -56,13 +56,18 @@ enum LoginShell {
         let shellPath = ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh"
         let process = Process()
         process.executableURL = URL(fileURLWithPath: shellPath)
-        // INTERACTIVE login shell (-lic): sources the user's `.zshrc` so PATH
-        // entries set only there (bun/asdf/custom prefixes) are captured. Only
-        // ever called from the explicit, user-initiated full setup probe
-        // (runFullSetupProbe) — the founder accepts the one-time TCC prompt that
-        // buys a complete PATH. NEVER call this on a launch/background path; cold
-        // launch stays cache-only (Launch Authority TCC hotfix + Track 0.1).
-        process.arguments = ["-lic", "printf %s \"$PATH\""]
+        // Non-interactive login (`-lc`): `.zprofile` / Homebrew PATH without
+        // sourcing `.zshrc`. Interactive `-lic` loads last-working-dir / direnv
+        // hooks that `cd` into ~/Documents and trip TCC attributed to
+        // Allnighter — 2026-08-13 DMG Find my team. bun/asdf/mise still come
+        // from CLIDetector.defaultCommonBinDirs. Never call this on launch;
+        // cold launch stays cache-only (Launch Authority TCC hotfix).
+        process.arguments = ["-lc", "printf %s \"$PATH\""]
+        if let scratch = AllnighterPaths.ensuredProbeScratchPath() {
+            process.currentDirectoryURL = URL(fileURLWithPath: scratch, isDirectory: true)
+        } else {
+            process.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
+        }
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = Pipe()

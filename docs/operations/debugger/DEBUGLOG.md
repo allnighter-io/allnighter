@@ -1,5 +1,49 @@
 # Debug Log
 
+## 2026-08-13 — Find my team Documents TCC (signed DMG)
+
+Tier: T1 SSOT
+
+Symptom / repro: Official DMG → Find my team → Documents prompt on
+Allnighter.app. CLI `curl | sh` (after installer cd belt) did not prompt.
+
+Bug fingerprint:
+`LoginShell zsh -lic + CLIDetector interactive: true` sources `.zshrc`
+which cds into ~/Documents.
+
+Truth owner: `LoginShell.resolvedPath` (`-lc` + ProbeScratch CWD);
+`AppModel.runSetupProbe` `interactive: false`.
+
+Lie-prone layer: Track 0.1 “one-time TCC is acceptable on explicit setup.”
+
+Packet: `docs/operations/debugger/2026-08-13-find-my-team-documents-tcc.md`.
+Proof: `AppModelTests.testFindMyTeamDoesNotUseInteractiveLoginShell`.
+
+---
+
+## 2026-08-13 — Signed cold install Documents TCC
+
+Tier: T1 SSOT
+
+Symptom / repro: `curl -fsSL https://get.allnighter.io | sh` from
+`~/Documents/GitHub/Allnighter` after uninstall → Documents TCC prompt on
+public Developer ID `alln` 1.1.3.
+
+Bug fingerprint:
+`get-alln.sh execs alln (version + install-cli) with inherited Documents cwd`
+
+Truth owner: `scripts/get-alln.sh` pre-exec `cd "$HOME"`; uninstall belt
+`scripts/uninstall-allnighter.sh`.
+
+Lie-prone layer: “popup is only unsigned.” 2026-08-11 waive assumed signed
+cold install from `~` is not this bug; one-liner cwd was unmeasured.
+
+Packet: `docs/operations/debugger/2026-08-13-signed-cold-install-documents-tcc.md`.
+Proof: `bash scripts/test-get-alln.sh`. Live `curl|sh` still old until R2
+re-upload of `install/get-alln.sh`.
+
+---
+
 ## 2026-08-12 — `alln capacity` empty table (warming socket)
 
 Tier: T2 SSOT

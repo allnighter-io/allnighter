@@ -237,6 +237,9 @@ run_install() {
   # PIPE execution (BUG-0). Not `sh scripts/get-alln.sh`.
   # PATH deliberately starts with only the scratch link dir so we never
   # resolve the real machine's alln during conflict-free installs.
+  # ALLN_NO_SERVE: scratch HOME ≠ account home; install-cli would otherwise
+  # try serve enable and exit 1 with SERVE_FOREIGN_HOME (must not touch
+  # the live LaunchAgent).
   set +e
   env -i \
     HOME="$home_dir" \
@@ -245,6 +248,7 @@ run_install() {
     ALLN_INSTALL_BASE_URL="$BASE_URL" \
     ALLN_INSTALL_DIR="$link_dir" \
     ALLN_BOOTSTRAP_HOST="hermes" \
+    ALLN_NO_SERVE=1 \
     USER="${USER:-get-alln-proof}" \
     LANG=C \
     /bin/sh -c 'mkdir -p "$TMPDIR"; cat "$1" | /bin/sh' _ "$SCRIPT" \
@@ -293,6 +297,18 @@ if grep -qE 'installed:|already installed:|alreadyInstalled' "$OUT_A"; then
 else
   fail "install-cli delegation not visible in stdout"
   sed 's/^/  | /' "$OUT_A" | head -n 40 >&2 || true
+fi
+
+# Pre-exec cd HOME must precede the first alln exec (Documents TCC).
+# Signing does not skip the prompt; only leaving protected cwd before exec does.
+if awk '
+  /cd "\$HOME"/ { cd_line = NR }
+  /"\$DOWNLOAD" version/ { ver_line = NR }
+  END { exit !(cd_line && ver_line && cd_line < ver_line) }
+' "$SCRIPT"; then
+  pass "pre-exec cd HOME sits before version liveness"
+else
+  fail "get-alln.sh must cd to HOME before any alln exec (Documents TCC)"
 fi
 
 # No MCP / no API-key advice
@@ -349,6 +365,7 @@ env -i \
   ALLN_INSTALL_BASE_URL="$BASE_URL" \
   ALLN_INSTALL_DIR="$LINK_B" \
   ALLN_BOOTSTRAP_HOST="hermes" \
+  ALLN_NO_SERVE=1 \
   USER="${USER:-get-alln-proof}" \
   LANG=C \
   /bin/sh -c 'mkdir -p "$TMPDIR"; cat "$1" | /bin/sh' _ "$SCRIPT" \
@@ -397,6 +414,7 @@ env -i \
   ALLN_INSTALL_BASE_URL="$BASE_URL" \
   ALLN_INSTALL_DIR="$LINK_C" \
   ALLN_BOOTSTRAP_HOST="hermes" \
+  ALLN_NO_SERVE=1 \
   USER="${USER:-get-alln-proof}" \
   LANG=C \
   /bin/sh -c 'mkdir -p "$TMPDIR"; cat "$1" | /bin/sh' _ "$SCRIPT" \
@@ -438,6 +456,7 @@ env -i \
   ALLN_INSTALL_BASE_URL="$BASE_URL" \
   ALLN_INSTALL_DIR="$LINK_C" \
   ALLN_BOOTSTRAP_HOST="hermes" \
+  ALLN_NO_SERVE=1 \
   USER="${USER:-get-alln-proof}" \
   LANG=C \
   /bin/sh -c 'mkdir -p "$TMPDIR"; cat "$1" | /bin/sh' _ "$SCRIPT" \
@@ -494,6 +513,7 @@ env -i \
   ALLN_INSTALL_BASE_URL="$BASE_URL" \
   ALLN_INSTALL_DIR="$LINK_D" \
   ALLN_BOOTSTRAP_HOST="hermes" \
+  ALLN_NO_SERVE=1 \
   USER="${USER:-get-alln-proof}" \
   LANG=C \
   /bin/sh -c 'mkdir -p "$TMPDIR"; cat "$1" | /bin/sh' _ "$SCRIPT" \
@@ -518,6 +538,40 @@ if "$LINK_D/alln" version </dev/null >/dev/null 2>&1; then
   pass "installed binary works despite PATH conflict"
 else
   fail "installed binary failed version after conflict install"
+fi
+
+# =============================================================================
+# Scenario E: pipe install from a Documents-like cwd still succeeds
+# =============================================================================
+log "scenario E: install from Documents-like cwd (TCC belt)"
+HOME_E="$WORK/home-docscwd"
+LINK_E="$WORK/link-docscwd"
+DOCS_E="$HOME_E/Documents/GitHub/Allnighter"
+mkdir -p "$HOME_E" "$LINK_E" "$DOCS_E"
+assert_scratch_home "$HOME_E"
+OUT_E="$WORK/out-docscwd.txt"
+ERR_E="$WORK/err-docscwd.txt"
+set +e
+env -i \
+  HOME="$HOME_E" \
+  PATH="$LINK_E:/usr/bin:/bin:/usr/sbin:/sbin" \
+  TMPDIR="$WORK/tmp-docscwd" \
+  ALLN_INSTALL_BASE_URL="$BASE_URL" \
+  ALLN_INSTALL_DIR="$LINK_E" \
+  ALLN_BOOTSTRAP_HOST="hermes" \
+  ALLN_NO_SERVE=1 \
+  USER="${USER:-get-alln-proof}" \
+  LANG=C \
+  /bin/sh -c 'mkdir -p "$TMPDIR"; cd "$2" || exit 2; cat "$1" | /bin/sh' _ "$SCRIPT" "$DOCS_E" \
+  >"$OUT_E" 2>"$ERR_E"
+STATUS_E=$?
+set -e
+
+if [[ "$STATUS_E" -eq 0 && -x "$LINK_E/alln" ]]; then
+  pass "pipe install from Documents-like cwd exited 0"
+else
+  fail "pipe install from Documents-like cwd failed (status=$STATUS_E)"
+  sed 's/^/  | /' "$ERR_E" >&2 || true
 fi
 
 # =============================================================================

@@ -181,6 +181,53 @@ final class AppModelTests: XCTestCase {
         )
     }
 
+    /// 2026-08-13: DMG Find my team must not run `zsh -lic`. Interactive rc
+    /// (`last-working-dir`, direnv) cds into ~/Documents and TCC-prompts as
+    /// Allnighter. PATH comes from `-lc` + ProbeScratch + commonBinDirs.
+    func testFindMyTeamDoesNotUseInteractiveLoginShell() throws {
+        let here = URL(fileURLWithPath: #filePath)
+        let sources = here
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Sources")
+        let appModel = try String(
+            contentsOf: sources.appendingPathComponent("AppModel.swift"),
+            encoding: .utf8
+        )
+        guard let probe = appModel.range(of: "func runSetupProbe(userInitiated:") else {
+            return XCTFail("runSetupProbe not found")
+        }
+        guard let cursorInstall = appModel.range(of: "func installCursorAgentCLI()") else {
+            return XCTFail("installCursorAgentCLI not found")
+        }
+        let body = appModel[probe.lowerBound..<cursorInstall.lowerBound]
+        XCTAssertFalse(
+            body.contains("interactive: true"),
+            "Find my team / runSetupProbe must not spawn zsh -lic"
+        )
+        XCTAssertTrue(
+            body.contains("interactive: false"),
+            "Find my team must pin ShellResolver to -lc"
+        )
+
+        let appConfig = try String(
+            contentsOf: sources.appendingPathComponent("AppConfig.swift"),
+            encoding: .utf8
+        )
+        XCTAssertFalse(
+            appConfig.contains("\"-lic\""),
+            "LoginShell PATH capture must not pass interactive -lic"
+        )
+        XCTAssertTrue(
+            appConfig.contains("\"-lc\""),
+            "LoginShell PATH capture must use non-interactive login -lc"
+        )
+        XCTAssertTrue(
+            appConfig.contains("ensuredProbeScratchPath"),
+            "LoginShell must chdir to ProbeScratch before exec"
+        )
+    }
+
     // MARK: - Census merge policy (C3)
 
     private func record(_ driver: String, ready: Bool, path: String? = nil) -> ToolProbeRecord {

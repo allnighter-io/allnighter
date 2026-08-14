@@ -113,6 +113,18 @@ main() {
 
   chmod 755 "$DOWNLOAD"
 
+  # Leave Documents/Desktop/Downloads before any alln exec. macOS TCC
+  # attributes getcwd / inherited cwd to the CLI binary — Developer ID
+  # does not skip the prompt; it only makes Allow stick. ProtectedCWDEscape
+  # cannot avoid the first getcwd. Same belt as scripts/rebuild_cli.sh.
+  # HOME is never a TCC-protected folder. Must run before `version` and
+  # `install-cli` (2026-08-13: signed 1.1.3 from a Documents checkout
+  # prompted on curl|sh).
+  if ! cd "$HOME"; then
+    echo "get-alln: failed to cd to HOME before running alln" >&2
+    exit 1
+  fi
+
   # --- liveness check (exec candidate once before installing) -----------
   if ! "$DOWNLOAD" version </dev/null; then
     echo "get-alln: downloaded binary failed liveness check: $DOWNLOAD version" >&2
