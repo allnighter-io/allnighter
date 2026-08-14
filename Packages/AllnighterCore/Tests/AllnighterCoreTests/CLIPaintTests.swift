@@ -33,4 +33,10 @@ final class CLIPaintTests: XCTestCase {
         XCTAssertTrue(painted.hasSuffix("\u{1B}[0m"))
         XCTAssertTrue(painted.contains("allnighter"))
     }
+
+    func testCommandUsesLighterAmber() {
+        let painted = CLIPaint.command("alln capacity", color: true)
+        XCTAssertTrue(painted.contains("\u{1B}[38;2;255;193;105m"))
+        XCTAssertFalse(painted.contains("\u{1B}[1;"))
+    }
 }

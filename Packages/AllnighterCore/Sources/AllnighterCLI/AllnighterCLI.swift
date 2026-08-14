@@ -31,8 +31,18 @@ struct AllnighterCLI {
             printHelp()
             return
         }
-        let command = args.first ?? "help"
-        if !args.isEmpty { args.removeFirst() }
+        if args.isEmpty {
+            // Bare `alln`: TTY gets the teaching card; pipe/`NO_COLOR` dumb
+            // still get the exhaustive catalog. Explicit `alln help` stays HelpCLI.
+            ProtectedCWDEscape.adoptNeutral()
+            if stdoutIsTTY() {
+                print(CLIGreeting.render(version: binaryVersion, color: stdoutIsColorTTY()))
+            } else {
+                printHelp()
+            }
+            return
+        }
+        let command = args.removeFirst()
 
         if !ProtectedCWDEscape.preservesCallerWorkingDirectory(command: command, args: args) {
             ProtectedCWDEscape.adoptNeutral()
@@ -2829,7 +2839,7 @@ struct AllnighterCLI {
             if opts.flag("json") {
                 print(jsonString(json))
             } else {
-                print(InstallCLI.humanLine(json, color: stdoutIsColorTTY()))
+                print(InstallCLI.humanLine(json, color: stdoutIsColorTTY(), tty: stdoutIsTTY()))
             }
 
             if noServeSource != nil {

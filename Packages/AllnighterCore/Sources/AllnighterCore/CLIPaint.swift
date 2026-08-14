@@ -6,6 +6,7 @@ import Foundation
 /// with zero escapes — same law as `CapacityStripRenderer`.
 public enum CLIPaint {
     public static let accent = RGB(r: 255, g: 166, b: 48)       // --amber-500
+    public static let accentText = RGB(r: 255, g: 193, b: 105)  // --amber-400, commands
     public static let textPrimary = RGB(r: 225, g: 229, b: 240) // --ink-100
     public static let textMuted = RGB(r: 126, g: 134, b: 158)   // --ink-300
     public static let textFaint = RGB(r: 85, g: 92, b: 116)     // --ink-400
@@ -47,6 +48,11 @@ public enum CLIPaint {
         paint(text, Self.accent, bold: bold, color: color)
     }
 
+    /// Command lines on the greeting card — lighter amber so the mark stays the hot signal.
+    public static func command(_ text: String, color: Bool) -> String {
+        paint(text, accentText, bold: false, color: color)
+    }
+
     public static func primary(_ text: String, color: Bool) -> String {
         paint(text, textPrimary, color: color)
     }
@@ -83,5 +89,29 @@ public enum CLIPaint {
     public static func pad(_ text: String, _ width: Int) -> String {
         if text.count >= width { return String(text.prefix(width)) }
         return text + String(repeating: " ", count: width - text.count)
+    }
+
+    /// Wordmark + identity lines used by the install receipt and bare `alln` card.
+    public static func banner(version: String, status: String? = nil, color: Bool) -> [String] {
+        let mark = accent("allnighter", color: color) + cursorBlock(color: color)
+        var identity = primary("alln \(version)", color: color)
+        if let status {
+            identity += faint(" · ", color: color) + done(status, color: color)
+        }
+        return ["", "  \(mark)", "  \(identity)", ""]
+    }
+
+    /// Compact greeting header: `allnighter  1.1.12`
+    public static func wordmarkLine(version: String, color: Bool) -> String {
+        "  \(accent("allnighter", color: color))  \(faint(version, color: color))"
+    }
+
+    /// Command + benefit. No titles.
+    public static func lesson(command: String, benefit: String, color: Bool) -> [String] {
+        [
+            "  \(Self.command(command, color: color))",
+            "    \(muted(benefit, color: color))",
+            "",
+        ]
     }
 }

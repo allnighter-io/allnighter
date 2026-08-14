@@ -735,4 +735,22 @@ final class InstallCLITests: XCTestCase {
         XCTAssertTrue(painted.contains("alln menu --json"))
         XCTAssertTrue(painted.contains(SupportHatch.email))
     }
+
+    func testTTYReceiptNextIsBareAlln() {
+        let json = InstallCLI.JSON(
+            schemaVersion: 2,
+            action: .installed,
+            path: "/home/.local/bin/alln",
+            target: "/home/.local/share/allnighter/bin/alln",
+            canonicalPath: "/home/.local/share/allnighter/bin/alln",
+            version: "1.1.12"
+        )
+        let line = InstallCLI.humanLine(json, color: false, tty: true)
+        let nextLine = line.split(separator: "\n").map(String.init).first { $0.contains("next") } ?? ""
+        XCTAssertTrue(nextLine.hasSuffix("alln"), "TTY next row should be bare alln, got: \(nextLine)")
+        XCTAssertFalse(
+            line.contains("alln menu --json"),
+            "TTY install points at the greeting, not the agent front door"
+        )
+    }
 }

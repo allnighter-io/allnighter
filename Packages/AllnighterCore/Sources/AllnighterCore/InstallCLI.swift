@@ -310,7 +310,8 @@ public enum InstallCLI {
     /// Human install receipt. TTY (`color: true`) paints amber phosphor;
     /// piped / `--json` callers stay on the JSON envelope. Disclosure
     /// obligation (scheduler why / how to change it) is preserved as rows.
-    public static func humanLine(_ json: JSON, color: Bool = false) -> String {
+    /// `tty` chooses the human next step (`alln`) vs the agent front door.
+    public static func humanLine(_ json: JSON, color: Bool = false, tty: Bool = false) -> String {
         if json.action == .printed {
             return "Print-only install-cli instructions (use without --print to perform the install)."
         }
@@ -328,17 +329,7 @@ public enum InstallCLI {
             statusPhrase = "ready"
         }
 
-        let wordmark = CLIPaint.accent("allnighter", color: color) + CLIPaint.cursorBlock(color: color)
-        let identity = CLIPaint.primary("alln \(version)", color: color)
-            + CLIPaint.faint(" · ", color: color)
-            + CLIPaint.done(statusPhrase, color: color)
-
-        var lines: [String] = [
-            "",
-            "  \(wordmark)",
-            "  \(identity)",
-            "",
-        ]
+        var lines: [String] = CLIPaint.banner(version: version, status: statusPhrase, color: color)
 
         let binary = json.canonicalPath ?? json.target ?? ""
         if !binary.isEmpty {
@@ -350,9 +341,10 @@ public enum InstallCLI {
 
         lines.append(contentsOf: serveDisclosureRows(noServeSource: json.noServeSource, color: color))
         lines.append("")
+        let next = tty ? "alln" : "alln menu --json"
         lines.append(CLIPaint.row(
             label: "next",
-            value: CLIPaint.accent("alln menu --json", bold: false, color: color),
+            value: CLIPaint.accent(next, bold: false, color: color),
             color: color
         ))
         lines.append(CLIPaint.row(

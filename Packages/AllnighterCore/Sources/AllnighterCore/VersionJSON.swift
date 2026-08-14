@@ -171,8 +171,13 @@ import Foundation
 /// `_NSGetExecutablePath` + symlink resolve is the lookup; relocate-proof
 /// invokes a bare name on PATH. Human `install-cli` / `get-alln.sh` paint a
 /// TTY receipt. Same contract 10.6.0.
+///
+/// **1.1.12 → 1.1.13 (bare TTY greeting).** Bare TTY `alln` prints a teaching
+/// card; `--help` / non-TTY stay the command catalog. Human install receipt
+/// next step is `alln` on a TTY, `alln menu --json` otherwise. Same contract
+/// 10.6.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.12"
+    public static let binaryVersion = "1.1.13"
 }
 
 /// `alln version` / `alln --version` machine contract.
