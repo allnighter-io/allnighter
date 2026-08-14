@@ -4,6 +4,7 @@ import AppKit
 struct TitleBar: View {
     @Binding var showTeamDropdown: Bool
     @Binding var showDoctor: Bool
+    @Binding var showAskAI: Bool
     @Binding var workspaceMode: WorkspaceMode
     /// Route command: Inbox/Teams must escape deep surfaces (Floor, Settings, Pending,
     /// Readiness, overlays), not just toggle the binding. RootView supplies the reset.
@@ -37,6 +38,7 @@ struct TitleBar: View {
             }
             Spacer()
             HStack(spacing: 6) {
+                AskAIButton(isOpen: $showAskAI)
                 if pendingCount > 0 {
                     PendingPill(count: pendingCount, action: onOpenPending)
                 }

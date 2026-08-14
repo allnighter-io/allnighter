@@ -12,6 +12,8 @@ struct RootView: View {
     @Environment(\.openWindow) private var openWindow
     @Bindable var threads: ThreadsViewModel
     @State private var showDoctor = false
+    @State private var showAskAI = false
+    @State private var askAI = AskAIModel()
     @State private var showTeamDropdown = false
     @State private var showReadiness = false
     @State private var showTeamStudio = false
@@ -179,6 +181,7 @@ struct RootView: View {
         TitleBar(
             showTeamDropdown: $showTeamDropdown,
             showDoctor: $showDoctor,
+            showAskAI: $showAskAI,
             workspaceMode: $workspaceMode,
             onRoute: routeTo,
             pendingCount: pendingVM?.totalPending ?? 0,
@@ -196,6 +199,7 @@ struct RootView: View {
             if pendingVM == nil { pendingVM = PendingViewModel(service: pendingService) }
             releaseUpdates.refresh()
             threads.onEntitlementLimited = { entitlement.presentKeepGoing() }
+            askAI.onEntitlementLimited = { entitlement.presentKeepGoing() }
         }
         .task {
             await entitlement.refresh()
@@ -253,11 +257,12 @@ struct RootView: View {
                 workspacePane
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .textSelection(.enabled)
-                if showTeamDropdown || showDoctor {
+                if showTeamDropdown || showDoctor || showAskAI {
                     ALColor.scrimSubtle
                         .onTapGesture {
                             showTeamDropdown = false
                             showDoctor = false
+                            showAskAI = false
                         }
                 }
                 if entitlement.showKeepGoingSheet {
@@ -289,6 +294,9 @@ struct RootView: View {
             }
             .overlayPreferenceValue(BenchHealthFrameKey.self) { badgeFrame in
                 doctorPopoverOverlay(badgeFrame: badgeFrame)
+            }
+            .overlayPreferenceValue(AskAIFrameKey.self) { buttonFrame in
+                askAIOverlay(buttonFrame: buttonFrame)
             }
     }
 
@@ -337,6 +345,68 @@ struct RootView: View {
         .allowsHitTesting(showDoctor)
     }
 
+    @ViewBuilder
+    private func askAIOverlay(buttonFrame: CGRect) -> some View {
+        GeometryReader { geo in
+            if showAskAI, buttonFrame != .zero {
+                let origin = geo.frame(in: .global).origin
+                let top = buttonFrame.maxY - origin.y - 1
+                let maxBody = min(240, max(80, geo.size.height - top - 220))
+                let panelWidth: CGFloat = 440
+                let x = min(
+                    max(8, buttonFrame.maxX - origin.x - panelWidth),
+                    geo.size.width - panelWidth - 8
+                )
+                AskAIPanel(
+                    model: askAI,
+                    onClose: { showAskAI = false },
+                    onAsk: submitAskAI,
+                    maxBodyHeight: maxBody
+                )
+                .offset(x: x, y: top)
+                .zIndex(20)
+            }
+        }
+        .allowsHitTesting(showAskAI)
+    }
+
+    private var chromeScreen: String {
+        RootRouteState(
+            workspaceMode: workspaceMode,
+            floorOpen: floorRun != nil,
+            showPending: showPending,
+            showTeamStudio: showTeamStudio,
+            showReadiness: showReadiness,
+            showDoctor: showDoctor,
+            showTeamDropdown: showTeamDropdown,
+            showAskAI: showAskAI
+        ).chromeScreen
+    }
+
+    private func submitAskAI() {
+        let tally = model.benchTally
+        let context = AskAIPrompt.Context(
+            appVersion: releaseUpdates.appVersion,
+            cliVersion: AllnighterVersionIdentity.binaryVersion,
+            standaloneHomePath: releaseUpdates.standaloneHomePath,
+            resolvedPathAlln: releaseUpdates.resolvedPathAlln,
+            pathConflict: releaseUpdates.pathConflict,
+            benchHeadline: tally.headline.rawValue,
+            benchReady: tally.ready,
+            benchNeedsStep: tally.needsStep,
+            benchSupported: tally.supported,
+            screen: chromeScreen
+        )
+        let project = projects.activeProject
+        let repoRoot = project?.localRootPath ?? AllnighterPaths.support.path
+        askAI.ask(
+            service: threads.makeRunService(),
+            repoRoot: repoRoot,
+            projectId: project?.id,
+            context: context
+        )
+    }
+
     private var workspaceLifecycle: some View {
         workspaceChrome
             .onChange(of: commands.customizeTeamRequest) { _, req in
@@ -347,10 +417,22 @@ struct RootView: View {
                 commands.customizeTeamRequest = nil
             }
             .onChange(of: showTeamDropdown) { _, open in
-                if open { showDoctor = false }
+                if open {
+                    showDoctor = false
+                    showAskAI = false
+                }
             }
             .onChange(of: showDoctor) { _, open in
-                if open { showTeamDropdown = false }
+                if open {
+                    showTeamDropdown = false
+                    showAskAI = false
+                }
+            }
+            .onChange(of: showAskAI) { _, open in
+                if open {
+                    showDoctor = false
+                    showTeamDropdown = false
+                }
             }
             .onReceive(NotificationCenter.default.publisher(for: .allnighterOpenAboutUpdates)) { _ in
                 openTeamStudio(route: .about)
@@ -441,6 +523,11 @@ struct RootView: View {
             if GUIFixture.opensKeepGoingSheet {
                 entitlement.showKeepGoingSheet = true
             }
+            if GUIFixture.opensAskAI {
+                model.applyDevBenchScenario("home-with-threads")
+                askAI.applyFixture(GUIFixture.active ?? "ask-ai-open")
+                showAskAI = true
+            }
             GUIFixture.captureAndExitIfRequested()
             return
         }
@@ -509,6 +596,7 @@ struct RootView: View {
     private func openTeamStudio(route: StudioRoute = .teams(.code), newTeam: Bool = false) {
         showTeamDropdown = false
         showDoctor = false
+        showAskAI = false
         showReadiness = false
         studioCLIFocusDriverId = nil
         studioInitialRoute = route
@@ -522,6 +610,7 @@ struct RootView: View {
     private func openCLISetup(focus driverId: String? = nil) {
         showTeamDropdown = false
         showDoctor = false
+        showAskAI = false
         showReadiness = false
         studioCustomizeTeamId = nil
         studioStartNewTeam = false
@@ -549,7 +638,8 @@ struct RootView: View {
         let next = RootRouteState(
             workspaceMode: workspaceMode, floorOpen: floorRun != nil,
             showPending: showPending, showTeamStudio: showTeamStudio,
-            showReadiness: showReadiness, showDoctor: showDoctor, showTeamDropdown: showTeamDropdown
+            showReadiness: showReadiness, showDoctor: showDoctor, showTeamDropdown: showTeamDropdown,
+            showAskAI: showAskAI
         ).routed(to: mode)
         workspaceMode = next.workspaceMode
         if !next.floorOpen { floorRun = nil }
@@ -558,6 +648,7 @@ struct RootView: View {
         showReadiness = next.showReadiness
         showDoctor = next.showDoctor
         showTeamDropdown = next.showTeamDropdown
+        showAskAI = next.showAskAI
         studioCustomizeTeamId = nil
         studioStartNewTeam = false
         pendingVM?.refresh()

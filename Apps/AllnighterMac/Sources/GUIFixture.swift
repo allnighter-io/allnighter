@@ -247,6 +247,9 @@ enum GUIFixture {
             return nil
         }
     }
+    /// Deep-link: open Ask AI panel for `ask-ai-*` fixtures.
+    static var opensAskAI: Bool { (active ?? "").hasPrefix("ask-ai-") }
+
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
     /// Deep-link: open the Pending queue screen seeded with sample armed work.
@@ -417,6 +420,8 @@ enum GUIFixture {
         ("settings-plan", "Settings — Plan (trial / free / Builder)"),
         ("keep-going-sheet", "Home — Keep going sheet (4th run)"),
         ("home-keep-going-chip", "Home — title-bar Keep going chip"),
+        ("ask-ai-open", "Home — Ask AI panel idle"),
+        ("ask-ai-done", "Home — Ask AI panel with an answer"),
         ("home-trial-chip", "Home — title-bar trial days chip"),
         ("settings-use-from-cli", "Settings — Use from your CLI (hook + teaching table + capacity closer)"),
         ("studio-default-model", "Team Studio — Default model (Auto tiers)"),

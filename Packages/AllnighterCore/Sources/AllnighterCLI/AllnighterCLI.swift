@@ -975,14 +975,18 @@ struct AllnighterCLI {
     /// (docs/archive/phases/CLI_Implementation_Contract.md §Generated Artifacts). The
     /// generated dir is resolved relative to the current directory, so run this
     /// from the repo root.
-    static func runDev(_ args: [String]) {
+    static func runDev(_ args: [String], runtime: ToolRuntime) async {
         var rest = args
         let sub = rest.first
         if !rest.isEmpty { rest.removeFirst() }
         switch sub {
         case "export-contracts": runExportContracts(Options(rest))
+        case "ask-ai": await AskAICLI.run(rest, runtime: runtime)
         default:
-            FileHandle.standardError.write(Data("usage: alln dev export-contracts [--check]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data(
+                "usage: alln dev export-contracts [--check]\n       alln dev ask-ai --probes | \"<question>\" [--print-prompt] | \"<question>\" --run [--project <id>] [--json]\n".utf8
+            ))
+            exit(2)
         }
     }
 
