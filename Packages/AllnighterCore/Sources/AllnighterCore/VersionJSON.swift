@@ -143,20 +143,29 @@ import Foundation
 /// hatch. Doctor unchanged.
 ///
 /// **1.1.8 → 1.1.9 (CLI payload + relocate-proof).** Naked `alln-macos-universal`
-/// crashed on every machine except the builder: SPM `Bundle.module` needs
-/// `AgentOS_AgentOSCLI.bundle` beside the executable, and the ship `version`
-/// check was a false green against the compile-time fallback path. Payload is
-/// now `alln-macos-universal.tar.gz` (binary + bundles). `scripts/ship-cli.sh`
-/// is the one ship path; relocate-proof hides build scratches before `version`.
+/// crashed on every machine except the builder: the SwiftPM resource-bundle
+/// accessor needs `AgentOS_AgentOSCLI.bundle` beside the executable, and the
+/// ship `version` check was a false green against the compile-time fallback
+/// path. Payload is now `alln-macos-universal.tar.gz` (binary + bundles).
+/// `scripts/ship-cli.sh` is the one ship path; relocate-proof hides build
+/// scratches before `version`.
 ///
 /// **1.1.9 → 1.1.10 (bare `alln` Documents TCC).** `ProtectedCWDEscape.adoptNeutral`
 /// `chdir`s to ProbeScratch without `getcwd` for every command that does not
 /// need the caller's repo cwd. `escapeIfNeeded` still getcwd's first — that
 /// read is the prompt. Universal ship scratch moved out of the Documents
-/// checkout so SPM `Bundle.module` cannot bake `~/Documents/...` into the
-/// binary. Same contract 10.6.0.
+/// checkout so the resource-bundle accessor cannot bake a protected-folder
+/// path into the binary. Same contract 10.6.0.
+///
+/// **1.1.10 → 1.1.11 (`alln serve` resource-accessor TCC).** The 1.1.10 chdir
+/// and Library scratch did not stop the LaunchAgent: `alln serve` loads the
+/// catalog via the SwiftPM accessor, which stats a compile-time path when
+/// `Bundle(path: sidecar)` is nil (SPM sidecars have no Info.plist). Relocate
+/// proof now runs `alln menu --json` (catalog load), not `version`. Production
+/// loaders read sidecar files. OpenCode allow-roots come from the run root /
+/// held write locks, not a hardcoded GitHub path. Same contract 10.6.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.10"
+    public static let binaryVersion = "1.1.11"
 }
 
 /// `alln version` / `alln --version` machine contract.

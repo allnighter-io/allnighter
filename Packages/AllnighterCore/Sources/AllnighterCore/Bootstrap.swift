@@ -190,7 +190,7 @@ public enum Bootstrap {
         public var snippet: String
         public var binaryPath: String
         public var onPath: Bool
-        /// Intent-titled recipe cards (v1 SSOT under Bundle.module Recipes/).
+        /// Intent-titled recipe cards (v1 SSOT under the Recipes sidecar).
         public var recipes: [RecipeRef]
         /// How to read full recipe markdown without inventing a new CLI verb.
         public var recipesHelp: String

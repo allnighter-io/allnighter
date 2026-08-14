@@ -2,11 +2,12 @@ import Foundation
 
 /// SPM resource bundles that must sit next to a relocated `alln` binary.
 ///
-/// `Bundle.module` for AgentOSCLI / AllnighterCore looks beside the executable
-/// (the PATH symlink's directory, not the canonical inode) and then at the
-/// original build path. A published Mach-O without these sidecars crashes on
-/// any machine except the builder's — that is how 1.1.5–1.1.8 `curl | sh`
-/// died in production.
+/// Production loaders read files from these sidecar directories. The SwiftPM
+/// resource-bundle accessor looks beside the executable (the PATH symlink's
+/// directory, not the canonical inode) and then at a compile-time build path.
+/// A published Mach-O without these sidecars used to crash on any machine
+/// except the builder's — that is how 1.1.5–1.1.8 `curl | sh` died in
+/// production. Keep shipping the sidecars; do not resurrect the accessor.
 public enum CLIResourceBundles {
     public static let requiredNames: [String] = [
         "AgentOS_AgentOSCLI.bundle",

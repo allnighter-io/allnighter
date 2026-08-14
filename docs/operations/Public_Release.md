@@ -94,10 +94,10 @@ uploaded. `appVersion` must equal the app’s
 `Apps/AllnighterMac/project.yml`) or the running app will show an update
 forever.
 
-Current public floor (2026-08-14): CLI **1.1.10** + Mac app **1.1.5** (arm64
+Current public floor (2026-08-14): CLI **1.1.11** + Mac app **1.1.5** (arm64
 DMG). CLI payload is `alln-macos-universal.tar.gz` (binary + SPM resource
 bundles). Relocate-proof is a ship gate — a builder-local `version` check is
-not proof. Universal CLI scratch is `$HOME/Library/Developer/Allnighter/CLI-universal`
+not proof (`menu --json` loads the catalog; `version` does not). Universal CLI scratch is `$HOME/Library/Developer/Allnighter/CLI-universal`
 (not `dist/.build-universal` under a Documents checkout). Person hatch on
 `alln version`. `alln feedback` postcard. Failures fall back to emailing
 support@allnighter.io.
@@ -187,8 +187,9 @@ scripts/ship-cli.sh <version> --upload  # then R2 (assets, get-alln.sh, latest.j
 ```
 
 `ship-cli.sh` refuses unless `AllnighterVersionIdentity.binaryVersion` already
-equals `<version>`, the relocated binary runs with build-scratch bundles
-**hidden**, and `alln version --json` gitSha equals `git rev-parse HEAD`.
+equals `<version>`, the relocated binary loads the catalog (`menu --json`) with
+build-scratch bundles **hidden**, `strings` has no protected-folder bake, and
+`alln version --json` gitSha equals `git rev-parse HEAD`.
 
 Under the hood (do not skip relocate-proof):
 

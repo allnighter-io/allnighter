@@ -1,4 +1,5 @@
 import Foundation
+import AgentOSCLI
 
 /// Loads bundled JSON fixtures so the app and tests build against identical
 /// data before any real CLI is wired.
@@ -36,14 +37,14 @@ public enum Fixtures {
     }
 
     public static func data(_ name: Name) throws -> Data {
-        guard let url = Bundle.module.url(
-            forResource: name.rawValue,
-            withExtension: "json",
+        if let data = ExecutableResource.data(
+            bundleName: ExecutableResource.allnighterCoreBundleName,
+            resourceFile: "\(name.rawValue).json",
             subdirectory: "Fixtures"
-        ) else {
-            throw FixtureError.notFound(name.rawValue)
+        ) {
+            return data
         }
-        return try Data(contentsOf: url)
+        throw FixtureError.notFound(name.rawValue)
     }
 
     public static func decode<T: Decodable>(_ type: T.Type, _ name: Name) throws -> T {

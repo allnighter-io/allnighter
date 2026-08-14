@@ -1,5 +1,25 @@
 # Debug Log
 
+## 2026-08-14 — `alln serve` resource-accessor Documents TCC
+
+Tier: T3 (repeated; 1.1.10 missed the daemon)
+
+Symptom / repro: Documents TCC before typing `alln`. LaunchAgent
+`alln serve` crash-looped on the SwiftPM resource-bundle accessor
+fallback path (`~/Documents/.../AgentOS_AgentOSCLI.bundle`). Sidecar
+exists; `Bundle(path:)` is nil (no Info.plist).
+
+Truth owner: `ExecutableResource` sidecar file reads;
+`CatalogLoader.bundled()`; relocate-proof `menu --json` + `strings` gate.
+
+Lie-prone layer: `alln version` as catalog-load proof; chdir as
+compile-time-path proof.
+
+Packet: `docs/operations/debugger/2026-08-14-alln-serve-resource-accessor-tcc.md`.
+Fix identity: CLI 1.1.11.
+
+---
+
 ## 2026-08-13 — OpenCode smoke still 500s on Go-only host (attempt 2)
 
 Tier: T2 SSOT

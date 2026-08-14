@@ -32,6 +32,19 @@ if (( agents_bytes > AGENTS_BUDGET_BYTES )); then
 fi
 echo "    AGENTS.md ${agents_bytes}/${AGENTS_BUDGET_BYTES} bytes"
 
+echo "==> check production sources do not call the SwiftPM resource-bundle accessor"
+if rg -n --glob '*.swift' 'Bundle\.module' "$ROOT/Packages/AllnighterCore/Sources"; then
+  echo "check: AllnighterCore/Engine/CLI Sources must not reference Bundle.module" >&2
+  echo "       (that accessor stats a compile-time path — the alln serve TCC prompt)." >&2
+  echo "       Read sidecar files via ExecutableResource instead." >&2
+  exit 1
+fi
+AGENTOS_CLI="$ROOT/../AgentOS/Sources/AgentOSCLI"
+if [[ -d "$AGENTOS_CLI" ]] && rg -n --glob '*.swift' 'Bundle\.module' "$AGENTOS_CLI"; then
+  echo "check: AgentOSCLI sources must not reference Bundle.module" >&2
+  exit 1
+fi
+
 echo "==> check Code Red architecture policy"
 bash "$ROOT/scripts/check_architecture_policy.sh"
 

@@ -2,6 +2,13 @@
   "version": 1,
   "patterns": [
     {
+      "id": "cli-must-not-stat-compile-time-resource-path",
+      "surface": "AgentOS/Sources/AgentOSCLI/ExecutableResource.swift + CatalogLoader.swift + scripts/relocate-cli-proof.sh",
+      "seam": "alln serve LaunchAgent → ToolRuntime → catalog load → SwiftPM resource-bundle accessor fallback Bundle(path: bake)",
+      "law": "Production code must not call the SwiftPM resource-bundle accessor. SPM sidecar directories often have no Info.plist, so Bundle(path:) is nil and the compile-time fallback stats ~/Documents (TCC). Read sidecar files. Relocate-proof must run a command that loads the catalog (`menu --json`), not `version`. strings must not contain Documents/GitHub or /Users/.../Documents/.",
+      "proof": "scripts/swift-test.sh --filter 'CatalogAuthorityTests|RecipeCatalogTests|OpenCodePermissionPolicyLockGatingTests|VersionIdentityTests'; bash scripts/check-fast.sh; scripts/relocate-cli-proof.sh <binary>"
+    },
+    {
       "id": "mac-cold-launch-must-stay-process-quiet",
       "surface": "Apps/AllnighterMac/Sources/AllnighterMacApp.swift + CapacityResidentService + CapacityStripModel + RemoteAccountModel",
       "seam": "AppDelegate / capacity re-arm / strip loadLive / remote bootstrap → vendor CLI or bash spawn under Dock TCC identity",

@@ -70,6 +70,9 @@ BIN="${ALLN_UNIVERSAL_OUT:-$ROOT/dist/alln-macos-universal}"
 
 echo "ship-cli: Developer ID + notary"
 "$SCRIPT_DIR/sign-cli.sh" "$BIN"
+# Protected-folder bake gate lives in relocate-cli-proof.sh (sign-cli runs it).
+# Do not `strings | grep Documents` here — DWARF `#filePath` matches and a
+# 70MB scan with a broad pattern looks wedged.
 
 REPORTED="$("$BIN" version --json </dev/null)"
 ALLN_SHIP_JSON="$REPORTED" python3 - "$VERSION" "$HEAD" <<'PY' \

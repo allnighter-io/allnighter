@@ -1150,7 +1150,7 @@ public enum HelpTopicRegistry {
         recipesHelpTopic,
     ]
 
-    /// ONB-S02a: intent-titled recipe cards from `RecipeCatalog` (Bundle.module Recipes/).
+    /// ONB-S02a: intent-titled recipe cards from `RecipeCatalog` (Recipes sidecar).
     /// Sections are one card each so `alln help get recipes --format md` (or JSON) yields
     /// full paste-ready markdown without a new top-level CLI verb.
     private static let recipesHelpTopic: HelpTopic = {

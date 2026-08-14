@@ -73,7 +73,17 @@ public enum CatalogOverlayLoader {
     private static let supportedSchemaVersion = 1
 
     public static func bundled() throws -> CatalogOverlay {
-        try bundled(bundle: overlayBundle())
+        if let data = ExecutableResource.data(
+            bundleName: ExecutableResource.allnighterCoreBundleName,
+            resourceFile: "catalog_overlay.json",
+            subdirectory: "Catalog"
+        ) ?? ExecutableResource.data(
+            bundleName: ExecutableResource.allnighterCoreBundleName,
+            resourceFile: "catalog_overlay.json"
+        ) {
+            return try decode(data)
+        }
+        throw CatalogOverlayLoaderError.missingBundledResource
     }
 
     public static func bundled(bundle: Bundle) throws -> CatalogOverlay {
@@ -187,14 +197,4 @@ public enum CatalogOverlayLoader {
             problems.append("\(path): unknown field '\(key)'")
         }
     }
-
-    private static func overlayBundle() -> Bundle {
-        #if SWIFT_PACKAGE
-        return Bundle.module
-        #else
-        return Bundle(for: BundleToken.self)
-        #endif
-    }
 }
-
-private final class BundleToken {}

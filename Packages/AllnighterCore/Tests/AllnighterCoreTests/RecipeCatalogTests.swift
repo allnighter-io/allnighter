@@ -6,7 +6,7 @@ final class RecipeCatalogTests: XCTestCase {
     func testBundledRecipeCountAtLeastSix() {
         let recipes = RecipeCatalog.list()
         XCTAssertGreaterThanOrEqual(recipes.count, 6, "expected ≥6 intent recipe cards, got \(recipes.count)")
-        XCTAssertNotNil(RecipeCatalog.bundledDirectoryURL, "Recipes subdirectory missing from Bundle.module")
+        XCTAssertNotNil(RecipeCatalog.bundledDirectoryURL, "Recipes subdirectory missing from AllnighterCore sidecar")
     }
 
     func testEveryRecipeEmbedsCurrentTeachingSnippet() {

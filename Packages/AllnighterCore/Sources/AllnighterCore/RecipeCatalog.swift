@@ -1,14 +1,15 @@
 import Foundation
+import AgentOSCLI
 
 /// ONB-S02a recipe cards — intent-titled prompt cards for agents (and, later, the
 /// Mac "Use from your CLI" surface).
 ///
 /// **Shipped SSOT (v1):** markdown files at
 /// `Packages/AllnighterCore/Sources/AllnighterCore/Resources/Recipes/*.md`,
-/// copied into the AllnighterCore bundle as subdirectory `Recipes` and loaded
-/// via `Bundle.module`. These files ARE the v1 source of truth (Decision 2) —
-/// not ContractRegistry `example-recipes` (machine command snippets; different
-/// artifact).
+/// copied into the AllnighterCore sidecar as subdirectory `Recipes` and loaded
+/// as files next to the executable. These files ARE the v1 source of truth
+/// (Decision 2) — not ContractRegistry `example-recipes` (machine command
+/// snippets; different artifact).
 ///
 /// **Discovery (no Mac GUI):** `alln bootstrap --json` lists `{ id, title }` in
 /// `recipes`; full markdown via `alln help get recipes --format md` (or JSON
@@ -43,11 +44,12 @@ public enum RecipeCatalog {
 
     /// Directory URL for the bundled Recipes folder (nil if resources missing).
     public static var bundledDirectoryURL: URL? {
-        if let url = Bundle.module.resourceURL?.appendingPathComponent(bundleSubdirectory, isDirectory: true),
-           FileManager.default.fileExists(atPath: url.path) {
+        if let url = ExecutableResource.directory(
+            bundleName: ExecutableResource.allnighterCoreBundleName,
+            subdirectory: bundleSubdirectory
+        ) {
             return url
         }
-        // Fallback: derive from any known recipe file.
         return listURLs().first?.deletingLastPathComponent()
     }
 
@@ -93,11 +95,11 @@ public enum RecipeCatalog {
     // MARK: - Internals
 
     private static func listURLs() -> [URL] {
-        let urls = Bundle.module.urls(
-            forResourcesWithExtension: "md",
-            subdirectory: bundleSubdirectory
-        ) ?? []
-        return urls.sorted { $0.lastPathComponent < $1.lastPathComponent }
+        ExecutableResource.fileURLs(
+            bundleName: ExecutableResource.allnighterCoreBundleName,
+            subdirectory: bundleSubdirectory,
+            ext: "md"
+        )
     }
 
     /// First ATX H1 (`# Title`) wins.

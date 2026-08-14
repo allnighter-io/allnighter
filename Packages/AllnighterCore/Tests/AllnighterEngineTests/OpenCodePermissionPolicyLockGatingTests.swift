@@ -10,6 +10,7 @@ final class OpenCodePermissionPolicyLockGatingTests: XCTestCase {
         let allnighter = "\(home)/Documents/GitHub/Allnighter"
         let agentOS = "\(home)/Documents/GitHub/AgentOS"
         let roots = OpenCodePermissionPolicy.defaultExternalDirectoryAllowRoots(home: home)
+        XCTAssertEqual(roots, [], "default allow-roots must not hardcode a Documents path")
 
         // What RunService publishes for a mutating Allnighter seat.
         let held = OpenCodeHeldWriteLockRoots.forInvoke(repoRoot: allnighter, mutating: true)

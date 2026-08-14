@@ -88,7 +88,7 @@ public enum ProtectedCWDEscape {
 
     /// Commands whose product meaning is "this checkout" — `alln run`, project
     /// scope, git-from-cwd. Everything else must `adoptNeutral` before
-    /// `ToolRuntime` / `Bundle.module` / any `Process` spawn.
+    /// `ToolRuntime` / catalog load / any `Process` spawn.
     public static func preservesCallerWorkingDirectory(
         command: String,
         args: [String] = []

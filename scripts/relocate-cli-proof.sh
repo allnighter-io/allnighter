@@ -3,13 +3,18 @@
 # shipped because `build-universal.sh` ran `version` on the builder, where
 # SPM's hardcoded fallback still found AgentOS_AgentOSCLI.bundle in the
 # original scratch path. That check is a lie on any other machine.
+# 1.1.10's relocate-proof still ran `version`, which never loads the catalog
+# (`alln serve` does). This gate runs `menu --json` instead.
 #
 # This gate:
 #   1. Requires the two SPM resource bundles next to the binary.
-#   2. Copies binary + bundles into a fresh temp dir.
-#   3. Hides every copy of those bundles under known build scratches so the
+#   2. Refuses a binary that bakes a protected-folder `.bundle` path or a
+#      hardcoded `/Documents/GitHub/{AgentOS,Allnighter}` allow-root.
+#      Bare `Documents` is too broad (DWARF `#filePath`, folder-name arrays).
+#   3. Copies binary + bundles into a fresh temp dir.
+#   4. Hides every copy of those bundles under known build scratches so the
 #      compile-time fallback cannot save the run.
-#   4. `cd "$HOME"` then execs `version` from the temp copy.
+#   5. `cd "$HOME"` then execs `menu --json` from the temp copy (catalog load).
 #
 # Usage:
 #   scripts/relocate-cli-proof.sh <binary>
@@ -29,6 +34,27 @@ SRC_DIR="$(cd "$(dirname "$BINARY")" && pwd)"
 for name in "${REQUIRED[@]}"; do
   [[ -d "$SRC_DIR/$name" ]] || die "missing $name next to $BINARY — a relocated CLI will crash on launch"
 done
+
+# Compile-time resource-bundle fallback and hardcoded GitHub allow-roots.
+# Bare `Documents` is too broad (`protectedHomeFolders`, DWARF `#filePath`).
+# The TCC landmine is an absolute `.bundle` path under a protected folder, or
+# the literal `/Documents/GitHub/AgentOS` / `.../Allnighter` allow-root.
+# Run `strings` once — a 70MB Mach-O scanned four times looks wedged.
+STRINGS_DUMP="$(mktemp "${TMPDIR:-/tmp}/alln-strings.XXXXXX")"
+strings "$BINARY" >"$STRINGS_DUMP"
+if grep -E '/Users/[^/]+/(Documents|Desktop|Downloads)/[^[:space:]]+\.bundle' "$STRINGS_DUMP" >/dev/null; then
+  echo "relocate-cli-proof: baked protected-folder .bundle path:" >&2
+  grep -E '/Users/[^/]+/(Documents|Desktop|Downloads)/[^[:space:]]+\.bundle' "$STRINGS_DUMP" | sed 's/^/  | /' >&2
+  rm -f "$STRINGS_DUMP"
+  die "binary stats a protected-folder resource bundle — do not ship"
+fi
+if grep -E '/Documents/GitHub/(AgentOS|Allnighter)$' "$STRINGS_DUMP" >/dev/null; then
+  echo "relocate-cli-proof: baked Documents/GitHub allow-root:" >&2
+  grep -E '/Documents/GitHub/(AgentOS|Allnighter)$' "$STRINGS_DUMP" | sed 's/^/  | /' >&2
+  rm -f "$STRINGS_DUMP"
+  die "binary contains a hardcoded Documents/GitHub allow-root — TCC landmine"
+fi
+rm -f "$STRINGS_DUMP"
 
 STAGE="$(mktemp -d "${TMPDIR:-/tmp}/alln-reloc.XXXXXX")"
 ASIDE="$(mktemp -d "${TMPDIR:-/tmp}/alln-reloc-aside.XXXXXX")"
@@ -76,11 +102,11 @@ hide_root "$HOME/Library/Developer/Allnighter/Build"
 
 # Do not hide $SRC_DIR — the proof runs from $STAGE. Build scratches are the lie.
 
-if ! ( cd "$HOME" && "$STAGE/alln" version </dev/null >/dev/null ); then
-  echo "relocate-cli-proof: relocated binary failed \`version\` (build-path fallback was hidden)" >&2
+if ! ( cd "$HOME" && "$STAGE/alln" menu --json </dev/null >/dev/null ); then
+  echo "relocate-cli-proof: relocated binary failed \`menu --json\` (catalog load; build-path fallback was hidden)" >&2
   echo "  staged: $STAGE/alln" >&2
-  ( cd "$HOME" && "$STAGE/alln" version </dev/null ) 2>&1 | sed 's/^/  | /' >&2 || true
+  ( cd "$HOME" && "$STAGE/alln" menu --json </dev/null ) 2>&1 | sed 's/^/  | /' >&2 || true
   exit 1
 fi
 
-echo "relocate-cli-proof: OK — $BINARY runs after relocate with build bundles hidden"
+echo "relocate-cli-proof: OK — $BINARY loads catalog after relocate with build bundles hidden"
