@@ -110,13 +110,14 @@ struct AllnighterCLI {
         case "docs": runDocs(args)
         case "menu" where args.first == "show": MenuCLI.runShow(Array(args.dropFirst()), runtime: runtime)
         case "menu": MenuCLI.run(args, runtime: runtime)
+        case "chrome": ChromeCLI.run(args, runtime: runtime)
         case "show": runShow(args, runtime)
         case "floor" where args.first == "show": runFloorShow(Array(args.dropFirst()), runtime)
         case "artifact" where args.first == "show": ArtifactCLI.runShow(Array(args.dropFirst()), runtime: runtime)
         case "artifact" where args.first == "export": ArtifactCLI.runExport(Array(args.dropFirst()), runtime: runtime)
         case "spec": runSpec(args, runtime)
         case "export": runExport(args, runtime)
-        case "dev": runDev(args)
+        case "dev": await runDev(args, runtime: runtime)
         case "pair": await PairCLI.run(args, runtime: runtime)
         case "loop": await LoopCLI.run(args, runtime: runtime)
         case "sweep": await SweepCLI.run(args, runtime: runtime)
@@ -974,14 +975,18 @@ struct AllnighterCLI {
     /// (docs/archive/phases/CLI_Implementation_Contract.md §Generated Artifacts). The
     /// generated dir is resolved relative to the current directory, so run this
     /// from the repo root.
-    static func runDev(_ args: [String]) {
+    static func runDev(_ args: [String], runtime: ToolRuntime) async {
         var rest = args
         let sub = rest.first
         if !rest.isEmpty { rest.removeFirst() }
         switch sub {
         case "export-contracts": runExportContracts(Options(rest))
+        case "ask-ai": await AskAICLI.run(rest, runtime: runtime)
         default:
-            FileHandle.standardError.write(Data("usage: alln dev export-contracts [--check]\n".utf8)); exit(2)
+            FileHandle.standardError.write(Data(
+                "usage: alln dev export-contracts [--check]\n       alln dev ask-ai --probes | \"<question>\" [--print-prompt] | \"<question>\" --run [--project <id>] [--json]\n".utf8
+            ))
+            exit(2)
         }
     }
 

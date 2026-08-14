@@ -49,4 +49,31 @@ final class RootRouteStateTests: XCTestCase {
         XCTAssertEqual(routed.workspaceMode, .inbox)
         XCTAssertFalse(routed.showPending)
     }
+
+    func testChromeScreenTracksReadinessAndSettings() {
+        let home = RootRouteState(
+            workspaceMode: .inbox, floorOpen: false, showPending: false,
+            showTeamStudio: false, showReadiness: false, showDoctor: false, showTeamDropdown: false)
+        XCTAssertEqual(home.chromeScreen, "home")
+
+        let studio = RootRouteState(
+            workspaceMode: .inbox, floorOpen: false, showPending: false,
+            showTeamStudio: true, showReadiness: false, showDoctor: false, showTeamDropdown: false)
+        XCTAssertEqual(studio.chromeScreen, "settings")
+
+        let readiness = RootRouteState(
+            workspaceMode: .inbox, floorOpen: false, showPending: false,
+            showTeamStudio: true, showReadiness: true, showDoctor: false, showTeamDropdown: false)
+        XCTAssertEqual(readiness.chromeScreen, "settings.clis")
+    }
+
+    func testRoutingDismissesAskAI() {
+        let state = RootRouteState(
+            workspaceMode: .inbox, floorOpen: false, showPending: false,
+            showTeamStudio: false, showReadiness: false, showDoctor: false,
+            showTeamDropdown: false, showAskAI: true)
+        let routed = state.routed(to: .inbox)
+        XCTAssertFalse(routed.showAskAI)
+        XCTAssertFalse(routed.anyDeepSurfaceOpen)
+    }
 }

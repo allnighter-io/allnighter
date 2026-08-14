@@ -71,10 +71,31 @@ uploaded. `appVersion` must equal the app’s
 `Apps/AllnighterMac/project.yml`) or the running app will show an update
 forever.
 
-Current public floor (2026-08-13): CLI **1.1.4** + Mac app **1.1.4** (arm64
-DMG). Documents TCC belts: installer `cd "$HOME"` before any `alln` exec;
-Find my team uses non-interactive login + ProbeScratch. Keep going overlay
-+ `tellHuman` remain from 1.1.3.
+Current public floor (2026-08-13): CLI **1.1.5** + Mac app **1.1.5** (arm64
+DMG). Setup + probe truth: park unsigned-in CLIs; AGY/OpenCode smoke pins;
+compact AGY quota → rateLimited. Documents TCC belts from 1.1.4. Keep going
+overlay + `tellHuman` from 1.1.3.
+
+---
+
+## Version bump law (CLI + Mac)
+
+**Never republish the same version with different bytes.** Immutable prefixes
+on R2; `latest.json` must point at a binary whose `alln version` gitSha matches
+the tree you built.
+
+| Change lands in | Bump | Ship |
+| --- | --- | --- |
+| `AllnighterCore`, `AllnighterEngine`, `AllnighterCLI`, or `scripts/get-alln.sh` | `AllnighterVersionIdentity.binaryVersion` (+ `MARKETING_VERSION` when app ships too) | `build-universal.sh` → sign → `publish-release.sh` → R2 |
+| Mac app only (`Apps/AllnighterMac`) | `MARKETING_VERSION` in `project.yml` | `build-dmg.sh` → publish DMG block in `latest.json` |
+| Shared Core (capacity, probes, entitlement, install) | **Both** version fields | **Both** surfaces — CLI-only users inherit Core fixes |
+
+Before upload: `alln version` on the candidate binary must show the new
+`binaryVersion` and a gitSha equal to `git rev-parse HEAD`. Stale SPM scratch
+(`rebuild_cli.sh` deletes `BuildInfo.generated.swift`) is the usual lie.
+
+Pin: `VersionIdentityTests.testCurrentBinaryVersionIsBumped` +
+`testBuildInfoGitShaMatchesWorkspaceHEAD`.
 
 ---
 

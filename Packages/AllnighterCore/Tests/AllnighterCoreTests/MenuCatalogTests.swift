@@ -49,6 +49,7 @@ final class MenuCatalogTests: XCTestCase {
         XCTAssertTrue(menu.commands.contains { $0.ref == "command:teams.duplicate" })
         XCTAssertTrue(menu.commands.contains { $0.ref == "command:menu" })
         XCTAssertTrue(menu.commands.contains { $0.ref == "command:menu.show" })
+        XCTAssertTrue(menu.commands.contains { $0.ref == "command:chrome" })
     }
 
     func testActionsMatchTaggedMenuActionCommands() {

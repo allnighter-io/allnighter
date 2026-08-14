@@ -1054,6 +1054,68 @@ public enum HelpTopicRegistry {
             errorRefs: ["SERVE_UNAVAILABLE", "SERVE_DISABLED_BY_USER"],
             needsLiveCheck: true),
 
+        HelpTopic(
+            id: "ask_ai", title: "Ask AI", audience: .both,
+            summary: "Title-bar Ask AI answers questions about Allnighter on this Mac. Billing, refunds, and privacy go to support@allnighter.io.",
+            bodyMarkdown: """
+            The Mac app title bar has **Ask AI**. It is a regular Auto run aimed \
+            inward — this Mac, setup, PATH, Teams, capacity, Boost, billing — not \
+            a Team and not the repo composer. Live facts (version, PATH, bench \
+            tally) ride with the question. The turn is read-only on the project.
+
+            Regular chat / Auto is aimed at the open project. Mac-only users may \
+            not know `alln` yet. Ask AI is the door that does not require that.
+
+            For where a control lives in the Mac app, agents call `alln chrome --json`. \
+            That catalog is projected from the labels the app draws. Do not guess \
+            Allnighter chrome from the open repo.
+
+            Billing, refunds, privacy, or “Ask AI was wrong”: email \
+            support@allnighter.io. A real person reads it. Ask AI cannot issue a \
+            refund.
+            """,
+            aliases: [
+                "ask ai", "ask allnighter", "support", "contact", "contact us",
+                "email support", "support email", "help button",
+                "customer support", "mailto",
+            ],
+            sections: [
+                .init("door", "The door", "Title bar → Ask AI. One question. Auto, read-only, inward prompt."),
+                .init("hatch", "Email a person", "support@allnighter.io for billing, refunds, privacy, or a wrong answer."),
+            ],
+            relatedCommandNames: ["chrome", "doctor", "help search", "billing", "install-cli"],
+            needsLiveCheck: true),
+
+        HelpTopic(
+            id: "chrome", title: "Mac chrome catalog", audience: .both,
+            summary: "Where is that control in the Mac app? Call `alln chrome --json`. Rows are the labels on screen, not a help article.",
+            bodyMarkdown: """
+            `alln chrome --json` is the Mac twin of `alln menu --json`. It returns \
+            owner-action rows (controlLabel, where, live facts) projected from the \
+            same strings the Mac app draws.
+
+            Use it when a human asks where a button or Settings row is, or what a \
+            title-bar label means on this Mac. Optional `--screen home` (or \
+            `settings.boost`, `settings.about`, …) puts on-screen rows first.
+
+            Do not guess Allnighter chrome from the open repo. Do not use \
+            `alln doctor` for “where is Boost?”. Doctor is CLI health. Missing \
+            row: say you do not know yet.
+
+            The model writes the sentence. The catalog does not ship FAQ answers.
+            """,
+            aliases: [
+                "chrome", "alln chrome", "mac chrome", "where is the button", "gui catalog",
+                "boost window", "need a step", "models dropdown",
+                "use from your cli", "about path", "settings row",
+            ],
+            sections: [
+                .init("call", "Call", "`alln chrome --json` (optional `--screen`)."),
+                .init("not", "Not this", "Not `alln doctor`. Not a written Boost/Capacity article."),
+            ],
+            relatedCommandNames: ["chrome", "menu", "doctor", "help search"],
+            needsLiveCheck: false),
+
         recipesHelpTopic,
     ]
 

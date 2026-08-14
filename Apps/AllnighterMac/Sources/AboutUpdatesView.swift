@@ -176,18 +176,18 @@ struct AboutUpdatesView: View {
 
     private var pathCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("CLI on PATH")
+            Text(ChromeCopy.cliOnPATH)
                 .font(ALFont.sans(12, .semibold))
                 .foregroundStyle(ALColor.textSecondary)
-            monoRow("Standalone home", updates.standaloneHomePath)
-            monoRow("Resolves to", updates.resolvedPathAlln ?? "(not on PATH)")
+            monoRow(ChromeCopy.standaloneHome, updates.standaloneHomePath)
+            monoRow(ChromeCopy.resolvesTo, updates.resolvedPathAlln ?? ChromeCopy.notOnPATH)
             if updates.pathConflict {
-                Text("PATH resolves to a different binary than the cold-start home. Last writer wins — run install-cli from the binary you want, or the one-liner for a fresh standalone install.")
+                Text(ChromeCopy.pathConflict)
                     .font(ALFont.sans(12))
                     .foregroundStyle(ALPalette.yellow400)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            Text("Repair (app-bundled binary already on disk): alln install-cli")
+            Text(ChromeCopy.pathRepair)
                 .font(ALFont.sans(12))
                 .foregroundStyle(ALColor.textFaint)
             Text("Cold start / upgrade: \(ReleaseChannel.installCommand)")

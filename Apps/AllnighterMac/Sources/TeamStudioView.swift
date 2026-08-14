@@ -102,22 +102,22 @@ private struct StudioNav: View {
             .buttonStyle(.plain)
             .padding(.bottom, 6)
 
-            item("Plan", icon: "creditcard", target: .plan)
+            item(ChromeCopy.plan, icon: "creditcard", target: .plan)
             // CLIs — lane-agnostic foundation; sources feed every lane.
-            item("CLIs", icon: "terminal", target: .clis)
+            item(ChromeCopy.clis, icon: "terminal", target: .clis)
             // One page: dynamic hook + host teaching table (absorbs the former
             // "Teach your CLIs" row) + the reframe + worked asks + capacity closer.
-            item("Use from your CLI", icon: "doc.on.clipboard", target: .useFromCLI)
+            item(ChromeCopy.useFromCLI, icon: "doc.on.clipboard", target: .useFromCLI)
             // Default model (Auto) — lane-agnostic; the model that answers when no team
             // or model is picked, drawn from the substitution tiers.
-            item("Default model", icon: "infinity", target: .defaultModel)
-            item("Boost window", icon: "gauge.with.dots.needle.33percent", target: .boostWindow)
+            item(ChromeCopy.defaultModel, icon: "infinity", target: .defaultModel)
+            item(ChromeCopy.boostWindow, icon: "gauge.with.dots.needle.33percent", target: .boostWindow)
             item("iPhone remote control", icon: "iphone", target: .iphoneRemote)
-            item("About & updates", icon: "info.circle", target: .about)
+            item(ChromeCopy.aboutUpdates, icon: "info.circle", target: .about)
 
             ForEach(ComposeLane.allCases, id: \.self) { lane in
                 laneHeader(lane)
-                item("Teams", icon: "rectangle.3.group", target: .teams(lane), indented: true)
+                item(ChromeCopy.teams, icon: "rectangle.3.group", target: .teams(lane), indented: true)
             }
             Spacer(minLength: 0)
         }

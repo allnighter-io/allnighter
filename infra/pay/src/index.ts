@@ -129,6 +129,8 @@ async function checkout(request: Request, env: Env): Promise<Response> {
   params.set("cancel_url", `${origin}/cancel`);
   params.set("line_items[0][price]", price);
   params.set("line_items[0][quantity]", "1");
+  params.set("allow_promotion_codes", "true");
+  params.set("payment_method_collection", "if_required");
   if (plan === "founding") {
     params.set("mode", "payment");
     params.set("customer_creation", "always");

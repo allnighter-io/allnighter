@@ -63,9 +63,9 @@ struct BoostWindowView: View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("BOOST WINDOW").font(ALFont.sans(11, .bold)).tracking(1.3).foregroundStyle(ALColor.accent)
-                Text("2× the capacity when you need it most.")
+                Text(ChromeCopy.boostHeadline)
                     .font(ALFont.sans(26, .heavy)).tracking(-0.4).foregroundStyle(ALColor.textPrimary)
-                Text("How? Your capacity refills every 5 hours, but that reset usually lands after your busy stretch. Allnighter triggers an early one so a fresh bucket resets mid-window — two full buckets in the same five hours, not one.")
+                Text(ChromeCopy.boostHow)
                     .font(ALFont.sans(13)).foregroundStyle(ALColor.textMuted)
                     .frame(maxWidth: 620, alignment: .leading)
             }

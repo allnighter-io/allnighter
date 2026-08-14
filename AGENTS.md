@@ -70,11 +70,12 @@ Read the relevant doc before changing that area.
 | Agent front door: `install-cli`, `bootstrap`, live menu, help | Live `alln menu --json` is the selection front door; CLI is the only agent surface. `alln bootstrap [--host]` prints host context. No intent router. Code: `MenuCatalog`, `Bootstrap`, `InstallCLI`, `TeachingSnippet`, `HelpTopicRegistry`. |
 | Cold start — no `alln` on PATH | `docs/phases/One_Paste_Cold_Start.md`. |
 | Trial / pay / Stripe / `alln billing` | Law: `docs/operations/Project_Laws.md` §Entitlement. Remaining: `docs/phases/Trial_And_Entitlement.md`. Code: `EntitlementGate`, `BillingCLI`, `infra/pay`. |
-| Ship CLI / Mac DMG / notarize / `latest.json` | `docs/operations/Public_Release.md`. Not Organizer Direct Distribution. |
+| Ship CLI / Mac DMG / notarize / `latest.json` | `docs/operations/Public_Release.md` — **§ Version bump law**: Core/CLI/`get-alln.sh` fixes require a new `binaryVersion` + publish; never reuse a version prefix. Mac-only GUI can ship in the app alone. Verify candidate `alln version` gitSha = `git rev-parse HEAD` before upload. Not Organizer Direct Distribution. |
 | `alln serve` dead / stale / disabled | Code: `ServeLifecycle`, `ServeDaemon`, `ServeStatusJSON`. Vocab: `docs/workflows/Product_Vocabulary.md` §Background scheduler. Serve owns scheduling, never run semantics. |
 | Spec Review, measurement lies, Min/Max seat changes | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope`. Measurement: §3–§4, `measurement_auditor`. A dropped seat's questions must be absorbed by a remaining named pass. |
 | Visual design / brand / tokens | `docs/design-system/readme.md` + `docs/design-system/production.md`. |
 | Building a UI surface, layout proof, SwiftUI state, Mac vs iOS share | `docs/gui/GUI_Workflow.md` (§5 default **no** shared SwiftUI), `docs/gui/Visual_Proof_Gate.md`, `docs/operations/SwiftUI_State_Rules.md`. |
+| Ask AI / in-app help / support email | Title-bar Ask AI. Code: `AskAIPrompt`, `AskAIModel`, `ChromeCatalog`. Hatch: support@allnighter.io. Chrome: `alln chrome --json` (not doctor). Dev-only: `alln dev ask-ai` (not in `alln menu`). Brief: `docs/gui/surfaces/ask-ai/brief.md`. |
 | Design team (build → screenshot) | `docs/operations/Design_Lane.md` + `DesignBoardCapture`. |
 | Shared models, drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `docs/mvp/02_Worker_Drivers_And_Fanout.md` / `docs/mvp/04_Synthesis_And_Plan.md` as scoped. |
 | Historical Mac shell / what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md`. |
@@ -124,6 +125,11 @@ Full text: `docs/operations/Project_Laws.md`. Incident-preventing subset:
 - Buy path is Stripe Checkout with email, not Sign in with Apple.
   `nextAction.command` is never a Stripe URL. Production Worker uses Allnighter
   live Stripe only — never xterminal keys, never the sandbox in live.
+- **CLI version bump:** Any fix in Core, Engine, CLI, or `get-alln.sh` that
+  changes shipped behavior requires bumping `AllnighterVersionIdentity.binaryVersion`
+  and publishing a **new** version — never overwrite an immutable R2 prefix.
+  Shared Core fixes affect CLI-only agents, not just the Mac app. Full steps:
+  `docs/operations/Public_Release.md` § Version bump law.
 
 ## High-Risk Stops
 

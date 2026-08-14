@@ -135,6 +135,50 @@
       "visibility" : "public"
     },
     {
+      "antiExample" : "Do NOT use this to diagnose a broken CLI — that is `alln doctor`. Do NOT guess Mac chrome from the open repo.",
+      "args" : [
+
+      ],
+      "effects" : {
+        "destructive" : "never",
+        "humanInteraction" : "never",
+        "quotaSpend" : "never",
+        "repoWrite" : "never",
+        "workerStart" : "never"
+      },
+      "example" : "alln chrome --json",
+      "exampleIds" : [
+
+      ],
+      "flagConstraints" : [
+
+      ],
+      "flags" : [
+        {
+          "name" : "json",
+          "summary" : "Emit ChromeCatalogJSON (default; always machine JSON).",
+          "takesValue" : false
+        },
+        {
+          "name" : "screen",
+          "summary" : "Prioritize rows for this surface (home, settings, settings.boost, settings.about, …).",
+          "takesValue" : true,
+          "valueType" : "string"
+        }
+      ],
+      "menuAction" : false,
+      "milestone" : "m1",
+      "mutuallyExclusiveFlags" : [
+
+      ],
+      "name" : "chrome",
+      "outputSchema" : "none",
+      "spendsQuota" : false,
+      "summary" : "Mac app control catalog: where a label lives, projected from the same strings the app draws.",
+      "trigger" : "Use when a human asks where something is in the Mac app, what a title-bar or Settings label means, or how Boost \/ Models \/ Ask AI \/ PATH on this Mac is labeled right now.",
+      "visibility" : "public"
+    },
+    {
       "args" : [
 
       ],
@@ -6692,7 +6736,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "10.3.0",
+  "contractVersion" : "10.4.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -59,9 +59,9 @@ struct UseFromCLIView: View {
 
     private var breadcrumb: some View {
         HStack(spacing: 4) {
-            Text("Settings").foregroundStyle(ALColor.textFaint)
+            Text(ChromeCopy.settings).foregroundStyle(ALColor.textFaint)
             Text("›").foregroundStyle(ALColor.textFaint).opacity(0.5)
-            Text("Use from your CLI").foregroundStyle(ALColor.textMuted).fontWeight(.medium)
+            Text(ChromeCopy.useFromCLI).foregroundStyle(ALColor.textMuted).fontWeight(.medium)
         }
         .font(.system(size: 11, weight: .semibold))
         .tracking(0.6)

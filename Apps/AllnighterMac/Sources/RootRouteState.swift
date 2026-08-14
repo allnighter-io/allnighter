@@ -1,4 +1,5 @@
 import Foundation
+import AllnighterCore
 
 /// The root navigation truth the top-bar Inbox/Teams commands operate on (the "one route
 /// truth" the nav-escape spec asks for). A pure value type so the escape behavior is
@@ -13,10 +14,19 @@ struct RootRouteState: Equatable {
     var showReadiness: Bool
     var showDoctor: Bool
     var showTeamDropdown: Bool
+    var showAskAI: Bool = false
+
+    /// Surface id for `alln chrome --json --screen`. Pane-level Settings routes
+    /// stay `settings` until StudioRoute is lifted into this state.
+    var chromeScreen: String {
+        if showReadiness { return ChromeScreen.settingsCLIs.rawValue }
+        if showTeamStudio { return ChromeScreen.settings.rawValue }
+        return ChromeScreen.home.rawValue
+    }
 
     /// Any non-default surface sitting above the workspace.
     var anyDeepSurfaceOpen: Bool {
-        floorOpen || showPending || showTeamStudio || showReadiness || showDoctor || showTeamDropdown
+        floorOpen || showPending || showTeamStudio || showReadiness || showDoctor || showTeamDropdown || showAskAI
     }
 
     /// Route to `mode`, closing all deep surfaces. Pure — RootView applies the result.
@@ -28,7 +38,8 @@ struct RootRouteState: Equatable {
             showTeamStudio: false,
             showReadiness: false,
             showDoctor: false,
-            showTeamDropdown: false
+            showTeamDropdown: false,
+            showAskAI: false
         )
     }
 }

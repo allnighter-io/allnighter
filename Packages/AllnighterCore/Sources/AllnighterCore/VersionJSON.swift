@@ -119,8 +119,20 @@ import Foundation
 /// `cd "$HOME"` before any alln exec; Find my team uses non-interactive
 /// login (`-lc`) + ProbeScratch CWD so signed cold install and DMG first
 /// scan do not prompt for Documents.
+///
+/// **1.1.4 → 1.1.5 (setup + probe truth + Ask AI).** Same contract 10.3.0:
+/// republish after 1.1.4 shipped with a stale binary (gitSha behind HEAD). Park
+/// unsigned-in CLIs; AGY smoke uses Gemini Flash not Opus; OpenCode smoke
+/// uses Go flash on Go-only hosts; compact AGY quota resets classify as
+/// rateLimited not probeFailed. Mac title-bar Ask AI (Auto + inward preamble);
+/// undocumented `alln dev ask-ai` is not a customer surface.
+///
+/// **1.1.5 → 1.1.6 (chrome catalog).** `contractVersion` additive minor
+/// (10.3.0 → 10.4.0): `alln chrome --json` projects Mac owner-action rows from
+/// the same labels the app draws. Ask AI uses it for "where is the button?"
+/// — not doctor, not a help article.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.4"
+    public static let binaryVersion = "1.1.6"
 }
 
 /// `alln version` / `alln --version` machine contract.
