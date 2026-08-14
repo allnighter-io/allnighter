@@ -528,7 +528,7 @@ struct BenchRepairPanel: View {
                 return "Installing Cursor Agent CLI with Cursor’s official installer, then re-checking automatically."
             }
             if card.driverId == "opencode" {
-                return "Starting OpenCode’s local server, then a short Zen smoke (opencode/big-pickle). First run can take 1–3 minutes — nothing else to install."
+                return "Starting OpenCode’s local server, then a short smoke. First run can take 1–3 minutes — nothing else to install."
             }
             return "Running detect and smoke test for \(card.name)…"
         case .needsLogin, .waiting:
@@ -558,7 +558,7 @@ struct BenchRepairPanel: View {
             return "Found as a shell function, not a plain command. Point us at the binary, or run it through your login shell."
         case .probeFailed:
             if card.driverId == "opencode" {
-                return "OpenCode is on PATH and the local serve is up — smoke used a bad model/provider label before. Re-try probe (Zen). Locate binary won’t help."
+                return "OpenCode is on PATH and the local serve is up — smoke used a model this serve doesn’t have. Re-check. Locate binary won’t help."
             }
             return "Detect passed but the smoke run failed — this is not a sign-in problem. Re-try the probe or copy the log for the real error."
         case .rateLimited:
@@ -739,7 +739,7 @@ struct BenchRepairPanel: View {
                     RepairAction(
                         icon: "arrow.clockwise",
                         title: "Re-try probe",
-                        subtitle: "Runs a short OpenCode Zen smoke through the local serve on :4096",
+                        subtitle: "Runs a short smoke through the local serve on :4096",
                         button: isProbingThisCard ? "Running…" : "Run",
                         primary: true,
                         secondary: false
@@ -865,7 +865,7 @@ struct BenchRepairPanel: View {
 
     private var probeRetrySubtitle: String {
         card.driverId == "opencode"
-            ? "Short OpenCode Zen smoke via local serve (:4096)"
+            ? "Short smoke via local serve (:4096)"
             : "Run the smoke test again"
     }
 
@@ -938,7 +938,7 @@ struct BenchRepairPanel: View {
             if card.driverId == "opencode" {
                 return [
                     [.init(text: "… ", tone: .prompt), .init(text: "Starting local OpenCode server", tone: .normal)],
-                    [.init(text: "… ", tone: .prompt), .init(text: "Running Zen smoke (big-pickle) — up to ~3 min", tone: .normal)],
+                    [.init(text: "… ", tone: .prompt), .init(text: "Running smoke — up to ~3 min", tone: .normal)],
                 ]
             }
             return [

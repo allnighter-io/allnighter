@@ -94,8 +94,9 @@ final class SetupRecoveryCopyTests: XCTestCase {
             state: .probeFailed,
             probeReason: #"opencode smoke: messageFailed("HTTP 500: {\"name\":\"UnknownError\"}")"#
         )
-        XCTAssertTrue(detail.lowercased().contains("zen") || detail.lowercased().contains("binary"), detail)
+        XCTAssertTrue(detail.lowercased().contains("serve") || detail.lowercased().contains("binary"), detail)
         XCTAssertFalse(detail.lowercased().contains("locate"), detail)
+        XCTAssertFalse(detail.lowercased().contains("zen"), detail)
     }
 
     func testAttentionDetailMapsOpaqueClaudeSmokeToLogin() {

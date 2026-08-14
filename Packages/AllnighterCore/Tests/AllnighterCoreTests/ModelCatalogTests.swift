@@ -119,9 +119,37 @@ final class ModelCatalogTests: XCTestCase {
     }
 
     func testOpenCodeProbeUsesZenBigPickleNotGoCapacityLabel() {
+        OpenCodeModelGate.overrideGoConnectedForTesting(false)
+        defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
         XCTAssertEqual(ModelCatalog.probeModelLabel(driverId: "opencode"), "opencode/big-pickle")
         XCTAssertFalse(
             ModelCatalog.probeModelLabel(driverId: "opencode")?.hasPrefix("opencode-go/") == true
+        )
+    }
+
+    func testOpenCodeProbeUsesGoFlashWhenGoConnected() {
+        OpenCodeModelGate.overrideGoConnectedForTesting(true)
+        defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
+        XCTAssertEqual(
+            ModelCatalog.probeModelLabel(driverId: "opencode"),
+            "opencode-go/deepseek-v4-flash"
+        )
+        XCTAssertNotEqual(
+            ModelCatalog.probeModelLabel(driverId: "opencode"),
+            "opencode/big-pickle",
+            "Go-only hosts must not smoke Zen big-pickle"
+        )
+    }
+
+    func testAntigravityProbeUsesGeminiFlashNotOpus() {
+        XCTAssertEqual(
+            ModelCatalog.probeModelLabel(driverId: "antigravity"),
+            "Gemini 3.7 Flash (Medium)"
+        )
+        XCTAssertNotEqual(
+            ModelCatalog.probeModelLabel(driverId: "antigravity"),
+            "Claude Opus 4.6 (Thinking)",
+            "Opus is role=both so selectProbeLabel would pick it; smoke must stay on Gemini"
         )
     }
 

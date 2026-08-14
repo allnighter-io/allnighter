@@ -201,12 +201,26 @@ public enum ModelCatalog {
            let regular = defs.first(where: { $0.id == "model_cursor_composer_25" }) {
             return regular.modelLabel
         }
-        // OpenCode smoke must use a real Zen provider label (`opencode/…`). Catalog
-        // Go seats still ship `opencode-go/…` (capacity-source naming) which the
-        // local serve rejects as ProviderModelNotFound → HTTP 500 UnknownError.
-        if driverId == "opencode",
-           let zen = defs.first(where: { $0.id == "model_opencode_big_pickle" }) {
-            return zen.modelLabel
+        // OpenCode smoke must hit a model this serve actually has.
+        // Go-connected hosts advertise `opencode-go/…` and not Zen — hardcoded
+        // `opencode/big-pickle` 500s as ProviderModelNotFound (wrapped HTTP 500
+        // UnknownError). Zen-only hosts keep the cheap Zen smoke.
+        if driverId == "opencode" {
+            if OpenCodeModelGate.isGoConnected(),
+               let flash = defs.first(where: { $0.id == "model_opencode_deepseek_v4_flash" }) {
+                return flash.modelLabel
+            }
+            if let zen = defs.first(where: { $0.id == "model_opencode_big_pickle" }) {
+                return zen.modelLabel
+            }
+        }
+        // Antigravity smoke must use Gemini Flash, never Opus/Sonnet. `selectProbeLabel`
+        // prefers `role == .both` then strengthRank, so it picks `model_agy_opus`
+        // (Claude pool). An exhausted Claude/GPT individual quota then benches the
+        // whole CLI as probeFailed while Gemini still has capacity.
+        if driverId == "antigravity",
+           let flash = defs.first(where: { $0.id == "model_gemini" }) {
+            return flash.modelLabel
         }
         let enabledMap = enabledModelIDs(definitions: mergedDefinitions())
         let enabled = defs.filter { enabledMap[$0.id] == true }

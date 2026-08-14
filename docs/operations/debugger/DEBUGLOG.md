@@ -1,5 +1,54 @@
 # Debug Log
 
+## 2026-08-13 — OpenCode smoke still 500s on Go-only host (attempt 2)
+
+Tier: T2 SSOT
+
+Symptom / repro: After allapp rebuild, AGY probe works. OpenCode still
+probeFailed HTTP 500 UnknownError `err_7a20b2d7` with CLI 1.18.18 installed.
+
+Bug fingerprint:
+always-pin `opencode/big-pickle` on a host whose serve advertises
+`opencode-go` + `ollama` only. Serve log:
+`ProviderModelNotFoundError: Model not found: opencode/big-pickle`.
+
+Truth owner: `ModelCatalog.probeModelLabel` — Go connected →
+`opencode-go/deepseek-v4-flash`; else zen.
+
+Lie-prone layer: one model's smoke stored as driver probeFailed.
+
+Packet: `docs/operations/debugger/2026-08-13-agy-opencode-smoke-wrong-model-PACKET.md`.
+Proof: `ModelCatalogTests/testOpenCodeProbeUsesGoFlashWhenGoConnected`;
+`ModelCatalogTests/testOpenCodeProbeUsesZenBigPickleNotGoCapacityLabel`;
+`SetupRecoveryCopyTests/testAttentionDetailSurfacesOpenCodeBadModel`.
+
+---
+
+## 2026-08-13 — AGY / OpenCode smoke benches a working CLI
+
+Tier: T2 SSOT
+
+Symptom / repro: DMG Find my team. Antigravity probeFailed on
+"Individual quota reached" while Gemini has capacity. OpenCode
+probeFailed HTTP 500 UnknownError while the CLI is installed.
+
+Bug fingerprint:
+`selectProbeLabel role=both Opus` + classifier miss on compact
+`Resets in 76h34m39s` + zen smoke recycling `opencode-go`
+
+Truth owner: `ModelCatalog.probeModelLabel`; `CapacityClassifier`;
+`OpenCodeServeClient.smokeProviderReloadID`.
+
+Lie-prone layer: one model's smoke stored as driver probeFailed.
+
+Packet: `docs/operations/debugger/2026-08-13-agy-opencode-smoke-wrong-model-PACKET.md`.
+Proof: `ModelCatalogTests/testAntigravityProbeUsesGeminiFlashNotOpus`;
+`CapacityClassifierTests/testAGYIndividualQuotaReachedWithCompactResetIsAccountRateLimit`;
+AgentOS `DriverProbeDetectorTests/testAntigravityIndividualQuotaIsRateLimited`;
+`OpenCodeServeClientTests/testZenSmokeDoesNotReloadGoProvider`.
+
+---
+
 ## 2026-08-13 — Find my team Documents TCC (signed DMG)
 
 Tier: T1 SSOT

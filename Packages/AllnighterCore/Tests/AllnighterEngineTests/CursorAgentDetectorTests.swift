@@ -128,4 +128,44 @@ final class CursorAgentDetectorTests: XCTestCase {
         try? FileManager.default.removeItem(atPath: (grokAgent as NSString).deletingLastPathComponent)
         try? FileManager.default.removeItem(atPath: (cursorAgent as NSString).deletingLastPathComponent)
     }
+
+    func testAntigravityIndividualQuotaIsRateLimitedNotProbeFailed() async {
+        let quota =
+            "Error: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 76h34m39s."
+        let manifest = DriverManifest(
+            id: "antigravity", displayName: "Antigravity", kind: .headlessCLI,
+            detectCommand: "agy --version",
+            smokeTestCommand: "agy --print probe --model \"{{model}}\"",
+            smokeTestExpect: "ALLNIGHTER_READY",
+            invoke: .init(command: "agy", args: ["--print", "{{prompt}}"]),
+            setup: SetupBlock(
+                bins: ["agy"],
+                loginFlow: LoginFlow(
+                    interactiveCommand: "agy",
+                    instructions: "sign in",
+                    authErrorPatterns: ["not authenticated"]
+                )
+            )
+        )
+        let det = AllnighterCLIDetector.make(
+            commandRunner: ClosureRunner { command, args in
+                if args.first == "-lc" {
+                    return CommandResult(stdout: "<<<AOS:agy|/tmp/agy>>>\n", exitCode: 0)
+                }
+                if command == "/tmp/agy" {
+                    return args.contains("--version")
+                        ? CommandResult(stdout: "agy 1.1.12", exitCode: 0)
+                        : CommandResult(stderr: quota, exitCode: 1)
+                }
+                return CommandResult(launchError: "unexpected")
+            },
+            shellPath: "/bin/zsh", home: "/tmp/home")
+        let r = await det.probe(manifest, model: "Gemini 3.7 Flash (Medium)", now: .init(timeIntervalSince1970: 0))
+        guard case .rateLimited(let observation) = r.status else {
+            return XCTFail("expected .rateLimited, got \(r.status)")
+        }
+        XCTAssertEqual(observation.kind, .accountRateLimit)
+        XCTAssertEqual(observation.source, "antigravity")
+        XCTAssertEqual(observation.retryAfterSeconds, 76 * 3600 + 34 * 60 + 39)
+    }
 }

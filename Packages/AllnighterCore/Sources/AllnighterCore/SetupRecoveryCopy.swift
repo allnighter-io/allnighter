@@ -344,7 +344,7 @@ public enum SetupRecoveryCopy {
             || lower.contains("model not found")
             || lower.contains("opencode-go/")
             || (lower.contains("http 500") && lower.contains("unknownerror")) {
-            return "OpenCode is installed — the smoke model/provider was rejected. Re-try probe (uses OpenCode Zen). This isn’t a missing binary."
+            return "OpenCode is installed — the smoke model isn’t on this serve. Re-check. This isn’t a missing binary."
         }
         if driverId == "opencode",
            lower.contains("opencode smoke") || lower.contains("messagefailed") {

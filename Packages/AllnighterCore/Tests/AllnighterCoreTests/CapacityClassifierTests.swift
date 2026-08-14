@@ -71,6 +71,21 @@ final class CapacityClassifierTests: XCTestCase {
         XCTAssertNotNil(obs?.wakeAfter)
     }
 
+    func testAGYIndividualQuotaReachedWithCompactResetIsAccountRateLimit() throws {
+        let stderr = "Error: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 76h34m39s."
+        let obs = try XCTUnwrap(CapacityClassifier.classify(input(sourceId: "antigravity", stderr: stderr)))
+        XCTAssertEqual(obs.kind, .accountRateLimit)
+        XCTAssertEqual(obs.source, "antigravity")
+        XCTAssertEqual(obs.sourceConfidence, .messageFallback)
+        XCTAssertEqual(obs.retryAfterSeconds, 76 * 3600 + 34 * 60 + 39)
+        XCTAssertTrue(obs.rawSnippet.lowercased().contains("quota reached"))
+    }
+
+    func testAGYIndividualQuotaReachedDoesNotClassifyOtherVendors() {
+        let stderr = "Error: Individual quota reached. Please upgrade your subscription to increase your limits. Resets in 76h34m39s."
+        XCTAssertNil(CapacityClassifier.classify(input(sourceId: "claude_code", stderr: stderr)))
+    }
+
     func testAuthRequiredBlocker() {
         let stderr = "Error: not signed in — please run /login"
         let obs = CapacityClassifier.classify(input(stderr: stderr))
