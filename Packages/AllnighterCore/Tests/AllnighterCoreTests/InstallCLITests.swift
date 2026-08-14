@@ -729,7 +729,8 @@ final class InstallCLITests: XCTestCase {
         XCTAssertTrue(plain.contains("alln 1.1.12"))
         XCTAssertTrue(plain.contains("ready"))
 
-        let painted = InstallCLI.humanLine(json, color: true)
+        let modernEnv = ["TERM": "xterm-256color", "TERM_PROGRAM": "iTerm.app"]
+        let painted = InstallCLI.humanLine(json, color: true, environment: modernEnv)
         XCTAssertTrue(painted.contains("\u{1B}[38;2;255;166;48m"), "wordmark must use brand amber")
         XCTAssertTrue(painted.contains("\u{1B}[48;2;255;166;48m"), "live-mark cursor block")
         XCTAssertTrue(painted.contains("alln menu --json"))

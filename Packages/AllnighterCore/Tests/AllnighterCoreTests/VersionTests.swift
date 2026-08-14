@@ -70,7 +70,7 @@ final class VersionTests: XCTestCase {
         XCTAssertFalse(plain.contains("hash"))
         XCTAssertFalse(plain.contains("deadbeef"))
 
-        let painted = payload.humanLine(color: true)
+        let painted = payload.humanLine(color: true, environment: ["TERM": "xterm-256color", "TERM_PROGRAM": "iTerm.app"])
         XCTAssertTrue(painted.contains("\u{1B}[1;38;2;255;166;48m"))
         XCTAssertTrue(painted.contains(SupportHatch.tellHuman))
     }

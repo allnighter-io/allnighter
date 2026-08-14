@@ -26,10 +26,20 @@ final class CLIGreetingTests: XCTestCase {
     }
 
     func testColorCardPaintsMarkHotAndCommandsQuieterAmber() {
-        let painted = CLIGreeting.render(version: "1.1.12", color: true)
+        let env = ["TERM": "xterm-256color", "TERM_PROGRAM": "iTerm.app"]
+        let painted = CLIGreeting.render(version: "1.1.12", color: true, environment: env)
         XCTAssertTrue(painted.contains("\u{1B}[1;38;2;255;166;48m"), "wordmark uses amber-500")
         XCTAssertTrue(painted.contains("\u{1B}[38;2;255;193;105m"), "commands use amber-400")
         XCTAssertFalse(painted.contains("\u{1B}[48;2;255;166;48m"), "greeting has no cursor block")
+        XCTAssertTrue(painted.contains("alln capacity"))
+    }
+
+    func testColorCardUsesIndexedAmberOnAppleTerminal() {
+        let env = ["TERM": "xterm-256color", "TERM_PROGRAM": "Apple_Terminal"]
+        let painted = CLIGreeting.render(version: "1.1.12", color: true, environment: env)
+        XCTAssertFalse(painted.contains("38;2;"))
+        XCTAssertFalse(painted.contains("48;2;"))
+        XCTAssertTrue(painted.contains("\u{1B}[38;5;\(CLIPaint.indexed256(CLIPaint.accentText))m"))
         XCTAssertTrue(painted.contains("alln capacity"))
     }
 }

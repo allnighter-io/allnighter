@@ -311,7 +311,12 @@ public enum InstallCLI {
     /// piped / `--json` callers stay on the JSON envelope. Disclosure
     /// obligation (scheduler why / how to change it) is preserved as rows.
     /// `tty` chooses the human next step (`alln`) vs the agent front door.
-    public static func humanLine(_ json: JSON, color: Bool = false, tty: Bool = false) -> String {
+    public static func humanLine(
+        _ json: JSON,
+        color: Bool = false,
+        tty: Bool = false,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> String {
         if json.action == .printed {
             return "Print-only install-cli instructions (use without --print to perform the install)."
         }
@@ -329,28 +334,40 @@ public enum InstallCLI {
             statusPhrase = "ready"
         }
 
-        var lines: [String] = CLIPaint.banner(version: version, status: statusPhrase, color: color)
+        var lines: [String] = CLIPaint.banner(version: version, status: statusPhrase, color: color, environment: environment)
 
         let binary = json.canonicalPath ?? json.target ?? ""
         if !binary.isEmpty {
-            lines.append(CLIPaint.row(label: "binary", value: CLIPaint.primary(binary, color: color), color: color))
+            lines.append(CLIPaint.row(
+                label: "binary",
+                value: CLIPaint.primary(binary, color: color, environment: environment),
+                color: color,
+                environment: environment
+            ))
         }
         if let path = json.path, !path.isEmpty, path != binary {
-            lines.append(CLIPaint.row(label: "path", value: CLIPaint.primary(path, color: color), color: color))
+            lines.append(CLIPaint.row(
+                label: "path",
+                value: CLIPaint.primary(path, color: color, environment: environment),
+                color: color,
+                environment: environment
+            ))
         }
 
-        lines.append(contentsOf: serveDisclosureRows(noServeSource: json.noServeSource, color: color))
+        lines.append(contentsOf: serveDisclosureRows(noServeSource: json.noServeSource, color: color, environment: environment))
         lines.append("")
         let next = tty ? "alln" : "alln menu --json"
         lines.append(CLIPaint.row(
             label: "next",
-            value: CLIPaint.accent(next, bold: false, color: color),
-            color: color
+            value: CLIPaint.accent(next, bold: false, color: color, environment: environment),
+            color: color,
+            environment: environment
         ))
         lines.append(CLIPaint.row(
             label: "help",
-            value: CLIPaint.muted(SupportHatch.email, color: color),
-            color: color
+            value: CLIPaint.muted(SupportHatch.email, color: color, environment: environment),
+            color: color,
+            environment: environment
         ))
         lines.append("")
         return lines.joined(separator: "\n")
@@ -367,47 +384,57 @@ public enum InstallCLI {
     private static let schedulerSummary =
         "pending wake · PM turn wake · boost seed · vendor backoff · notifications · capacity refresh · probe record refresh"
 
-    private static func serveDisclosureRows(noServeSource: String?, color: Bool) -> [String] {
+    private static func serveDisclosureRows(
+        noServeSource: String?,
+        color: Bool,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> [String] {
         if let source = noServeSource {
             let optOutLabel = source == "flag" ? "--no-serve" : "ALLN_NO_SERVE"
             return [
                 CLIPaint.row(
                     label: "scheduler",
-                    value: CLIPaint.primary("skipped (\(optOutLabel)). The per-user background scheduler was not installed.", color: color),
-                    color: color
+                    value: CLIPaint.primary("skipped (\(optOutLabel)). The per-user background scheduler was not installed.", color: color, environment: environment),
+                    color: color,
+                    environment: environment
                 ),
                 CLIPaint.row(
                     label: "",
-                    value: CLIPaint.muted("It would handle deferred obligations: \(schedulerSummary).", color: color),
+                    value: CLIPaint.muted("It would handle deferred obligations: \(schedulerSummary).", color: color, environment: environment),
                     color: color,
-                    continuation: true
+                    continuation: true,
+                    environment: environment
                 ),
                 CLIPaint.row(
                     label: "",
-                    value: CLIPaint.muted("`alln run` still works; only deferred scheduling is affected. Enable later with `alln serve enable`.", color: color),
+                    value: CLIPaint.muted("`alln run` still works; only deferred scheduling is affected. Enable later with `alln serve enable`.", color: color, environment: environment),
                     color: color,
-                    continuation: true
+                    continuation: true,
+                    environment: environment
                 ),
             ]
         }
         return [
             CLIPaint.row(
                 label: "scheduler",
-                value: CLIPaint.done("on", color: color)
-                    + CLIPaint.muted(" · installed a per-user background scheduler for deferred obligations", color: color),
-                color: color
+                value: CLIPaint.done("on", color: color, environment: environment)
+                    + CLIPaint.muted(" · installed a per-user background scheduler for deferred obligations", color: color, environment: environment),
+                color: color,
+                environment: environment
             ),
             CLIPaint.row(
                 label: "",
-                value: CLIPaint.faint(schedulerSummary, color: color),
+                value: CLIPaint.faint(schedulerSummary, color: color, environment: environment),
                 color: color,
-                continuation: true
+                continuation: true,
+                environment: environment
             ),
             CLIPaint.row(
                 label: "",
-                value: CLIPaint.muted("`alln run` still works without it. Disable with `alln serve disable`.", color: color),
+                value: CLIPaint.muted("`alln run` still works without it. Disable with `alln serve disable`.", color: color, environment: environment),
                 color: color,
-                continuation: true
+                continuation: true,
+                environment: environment
             ),
         ]
     }

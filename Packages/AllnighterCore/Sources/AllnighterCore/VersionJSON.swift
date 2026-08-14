@@ -176,8 +176,13 @@ import Foundation
 /// card; `--help` / non-TTY stay the command catalog. Human install receipt
 /// next step is `alln` on a TTY, `alln menu --json` otherwise. Same contract
 /// 10.6.0.
+///
+/// **1.1.13 → 1.1.14 (Terminal.app-safe CLI paint).** `CLIPaint` keeps 24-bit
+/// amber on modern terminals but emits xterm-256 on macOS Terminal.app
+/// (`TERM_PROGRAM=Apple_Terminal`) so semicolon truecolor is not misparsed as
+/// pink backgrounds. Same contract 10.6.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.13"
+    public static let binaryVersion = "1.1.14"
 }
 
 /// `alln version` / `alln --version` machine contract.
@@ -198,9 +203,12 @@ public struct VersionJSON: Codable, Sendable, Equatable {
     public var tellHuman: String
 
     /// Human `alln version` identity. Contract hash / git live in `--json`.
-    public func humanLine(color: Bool = false) -> String {
-        let title = CLIPaint.accent("alln \(binaryVersion)", color: color)
-        let hatch = CLIPaint.muted(tellHuman, color: color)
+    public func humanLine(
+        color: Bool = false,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> String {
+        let title = CLIPaint.accent("alln \(binaryVersion)", color: color, environment: environment)
+        let hatch = CLIPaint.muted(tellHuman, color: color, environment: environment)
         return "\(title)\n\(hatch)"
     }
 
