@@ -71,10 +71,9 @@ uploaded. `appVersion` must equal the app’s
 `Apps/AllnighterMac/project.yml`) or the running app will show an update
 forever.
 
-Current public floor (2026-08-13): CLI **1.1.5** + Mac app **1.1.5** (arm64
-DMG). Setup + probe truth: park unsigned-in CLIs; AGY/OpenCode smoke pins;
-compact AGY quota → rateLimited. Documents TCC belts from 1.1.4. Keep going
-overlay + `tellHuman` from 1.1.3.
+Current public floor (2026-08-14): CLI **1.1.8** + Mac app **1.1.5** (arm64
+DMG). Person hatch on `alln version`. `alln feedback` postcard (quoted text +
+CLI version + OS). Failures fall back to emailing support@allnighter.io.
 
 ---
 

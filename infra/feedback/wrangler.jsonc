@@ -6,7 +6,8 @@
   "workers_dev": true,
   "routes": [
     {
-      "pattern": "feedback.allnighter.io/*",
+      "pattern": "feedback.allnighter.io",
+      "custom_domain": true,
       "zone_name": "allnighter.io"
     }
   ],
@@ -15,6 +16,9 @@
     "head_sampling_rate": 1
   },
   "send_email": [
-    { "name": "EMAIL" }
+    {
+      "name": "EMAIL",
+      "destination_address": "support@happymooseapps.com"
+    }
   ]
 }

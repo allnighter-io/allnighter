@@ -3,21 +3,20 @@
  *
  * POST /  { message, binaryVersion, os }
  * Forwards to WEBHOOK_URL (Discord `content` or Slack `text`) and/or emails
- * support@ via the EMAIL sending binding. Never stores the message.
+ * the verified support mailbox via the Email Routing send_email binding.
+ * Never stores the message.
  *
  * Secrets: WEBHOOK_URL (optional if EMAIL is bound).
  */
 
+import { EmailMessage } from "cloudflare:email";
+
+const MAIL_FROM = "feedback@allnighter.io";
+const MAIL_TO = "support@happymooseapps.com";
+
 export interface Env {
   WEBHOOK_URL?: string;
-  EMAIL?: {
-    send: (msg: {
-      to: string;
-      from: { email: string; name?: string };
-      subject: string;
-      text: string;
-    }) => Promise<unknown>;
-  };
+  EMAIL?: { send: (message: EmailMessage) => Promise<void> };
 }
 
 const MAX_MESSAGE = 2000;
@@ -82,12 +81,17 @@ export default {
 
     if (env.EMAIL) {
       try {
-        await env.EMAIL.send({
-          to: "support@allnighter.io",
-          from: { email: "feedback@allnighter.io", name: "Allnighter CLI" },
-          subject: `CLI feedback (${binaryVersion})`,
+        const mime = [
+          `From: Allnighter CLI <${MAIL_FROM}>`,
+          `To: ${MAIL_TO}`,
+          `Subject: CLI feedback (${binaryVersion})`,
+          "MIME-Version: 1.0",
+          "Content-Type: text/plain; charset=utf-8",
+          "Content-Transfer-Encoding: 8bit",
+          "",
           text,
-        });
+        ].join("\r\n");
+        await env.EMAIL.send(new EmailMessage(MAIL_FROM, MAIL_TO, mime));
         delivered = true;
       } catch (err) {
         errors.push(`email ${String(err)}`);
