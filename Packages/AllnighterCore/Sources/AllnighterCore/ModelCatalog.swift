@@ -107,7 +107,7 @@ public enum ModelCatalog {
         do {
             return (try CatalogLoader.bundled(), try CatalogOverlayLoader.bundled())
         } catch {
-            preconditionFailure("ModelCatalog bundled authority failed: \(error)")
+            abortBundledCatalog("bundled authority failed: \(error)")
         }
     }()
 
@@ -124,7 +124,7 @@ public enum ModelCatalog {
                 overlay: bundledAuthority.overlay
             )
         } catch {
-            preconditionFailure("ModelCatalog built-in merge failed: \(error)")
+            abortBundledCatalog("built-in merge failed: \(error)")
         }
     }
 
@@ -517,6 +517,26 @@ public enum ModelCatalog {
     }
 
     // MARK: - Private
+
+    /// Missing sidecars must not SIGTRAP with empty stdout/stderr. argv[0] is
+    /// caller-controlled; say which executable directory was searched.
+    private static func abortBundledCatalog(_ reason: String) -> Never {
+        let exe = ExecutableResource.currentExecutablePath() ?? "(unknown executable)"
+        let dir = ExecutableResource.currentExecutableURL()?
+            .deletingLastPathComponent().path ?? "(unknown directory)"
+        let message = """
+        alln: bundled catalog missing next to the executable
+          \(reason)
+          executable: \(exe)
+          searched: \(dir)/\(ExecutableResource.agentOSCLIBundleName)
+                    \(dir)/\(ExecutableResource.allnighterCoreBundleName)
+        Reinstall: curl -fsSL https://allnighter.io/get-alln.sh | sh
+        Hit a wall? Email support@allnighter.io — a person reads it.
+
+        """
+        FileHandle.standardError.write(Data(message.utf8))
+        Foundation.exit(1)
+    }
 
     private static func mergedDefinitions() -> [ModelDefinition] {
         var byID: [ModelID: ModelDefinition] = [:]

@@ -25,6 +25,12 @@ struct AllnighterCLI {
             runVersion([])
             return
         }
+        if args.first == "--help" || args.first == "-h" {
+            // Same belt as --version: do not construct ToolRuntime (catalog load).
+            ProtectedCWDEscape.adoptNeutral()
+            printHelp()
+            return
+        }
         let command = args.first ?? "help"
         if !args.isEmpty { args.removeFirst() }
 
@@ -606,11 +612,19 @@ struct AllnighterCLI {
 
     /// Local TTY probe for the capacity strip (mirrors PilotCLI — not shared).
     private static func capacityStdoutIsTTY() -> Bool {
+        stdoutIsTTY()
+    }
+
+    private static func stdoutIsTTY() -> Bool {
         #if canImport(Darwin)
         return isatty(STDOUT_FILENO) == 1
         #else
         return false
         #endif
+    }
+
+    private static func stdoutIsColorTTY() -> Bool {
+        CLIPaint.colorEnabled(stdoutIsTTY: stdoutIsTTY())
     }
 
     /// ADP-S05: single-sourced from `AllnighterVersionIdentity` (AllnighterCore) —
@@ -2609,13 +2623,7 @@ struct AllnighterCLI {
         if opts.flag("json") {
             print(jsonString(payload))
         } else {
-            var line = "alln \(payload.binaryVersion) (contract \(payload.contractVersion), hash \(payload.contractHash.prefix(12))…"
-            if let sha = payload.gitSha, sha != "unknown", !sha.isEmpty {
-                line += ", git \(sha.prefix(12))"
-            }
-            line += ")"
-            print(line)
-            print(payload.tellHuman)
+            print(payload.humanLine(color: stdoutIsColorTTY()))
             if let update = payload.update {
                 FileHandle.standardError.write(
                     Data("update available: \(update.current) → \(update.latest); \(update.command)\n".utf8)
@@ -2804,6 +2812,7 @@ struct AllnighterCLI {
                     }
                 )
             },
+            version: binaryVersion,
             noServeSource: noServeSource
         )
         switch InstallCLI.run(request) {
@@ -2820,7 +2829,7 @@ struct AllnighterCLI {
             if opts.flag("json") {
                 print(jsonString(json))
             } else {
-                print(InstallCLI.humanLine(json))
+                print(InstallCLI.humanLine(json, color: stdoutIsColorTTY()))
             }
 
             if noServeSource != nil {
@@ -2847,7 +2856,6 @@ struct AllnighterCLI {
     private static func persistServeDisabled(homeDirectory: URL) -> Bool {
         switch ServeDesiredState.write(.disabled, homeDirectory: homeDirectory) {
         case .success:
-            FileHandle.standardError.write(Data("serve: desired state set to disabled\n".utf8))
             return true
         case .failure(let error):
             FileHandle.standardError.write(Data("serve: could not persist disabled state: \(error.message)\n".utf8))
@@ -2863,7 +2871,7 @@ struct AllnighterCLI {
 
         switch reading {
         case .present(.disabled, _):
-            print("serve: desired state is disabled — not enabling (use `alln serve enable` to re-enable)")
+            break
 
         case .unreadable(let reason):
             FileHandle.standardError.write(Data("serve: desired state unreadable (\(reason)) — not enabling\n".utf8))
@@ -2908,11 +2916,11 @@ struct AllnighterCLI {
 
     private static func enableAndPrint() async {
         let result = await ServeLifecycle().enable()
-        let stream = result.outcome == .enabled ? FileHandle.standardOutput : FileHandle.standardError
-        stream.write(Data("serve \(result.outcome.rawValue): \(result.detail)\n".utf8))
-        if result.outcome != .enabled {
-            exit(1)
+        if result.outcome == .enabled {
+            return
         }
+        FileHandle.standardError.write(Data("serve \(result.outcome.rawValue): \(result.detail)\n".utf8))
+        exit(1)
     }
 
     /// AE-S01: top-level help is a pure projection of `ContractRegistry` — no hand-written rows.

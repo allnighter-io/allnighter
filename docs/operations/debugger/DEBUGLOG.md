@@ -1,5 +1,26 @@
 # Debug Log
 
+## 2026-08-14 — `alln` SIGTRAPs on PATH (argv[0] catalog lookup)
+
+Tier: T3 (total CLI outage; 1.1.11 regression)
+
+Symptom / repro: `alln <subcommand>` via $PATH exits 133 SIGTRAP, empty
+stdio. Absolute path works. `--version` works (no ToolRuntime).
+
+Truth owner: `ExecutableResource.currentExecutablePath` (`_NSGetExecutablePath`
++ symlink resolve). Relocate-proof: bare `alln` on PATH from `$HOME`.
+
+Lie-prone layer: relocate-proof absolute `"$STAGE/alln"`; `alln version`
+as catalog-load proof; argv[0] after `adoptNeutral` chdir.
+
+Gemini "not installed"/"not ready" was empty crash output. Live catalog
+(absolute `menu --json`): `model_gemini` ready.
+
+Packet: `docs/operations/debugger/2026-08-14-alln-path-argv0-catalog-trap.md`.
+Fix identity: CLI 1.1.12 (unreleased; do not rebuild until founder says).
+
+---
+
 ## 2026-08-14 — `alln serve` resource-accessor Documents TCC
 
 Tier: T3 (repeated; 1.1.10 missed the daemon)

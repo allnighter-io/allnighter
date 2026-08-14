@@ -4,6 +4,7 @@ import Darwin
 #elseif canImport(Glibc)
 import Glibc
 #endif
+import AgentOSCLI
 import AllnighterCore
 
 /// Process-group ownership + progress-heartbeat helpers for self-owning async
@@ -696,31 +697,12 @@ public enum ProcessOwnership {
         return Int64(tv.tv_sec) * 1_000_000 + Int64(tv.tv_usec)
     }
 
-    /// Absolute path of the running executable via `_NSGetExecutablePath`.
+    /// Absolute path of the running executable.
     /// Never use argv[0]: `posix_spawn` does no PATH search, and chdir-before-exec
-    /// makes relative argv[0] resolve against the new cwd.
+    /// makes relative argv[0] resolve against the new cwd. SSOT is
+    /// `ExecutableResource.currentExecutablePath` (`_NSGetExecutablePath`).
     public static func currentExecutablePath() -> String? {
-        #if canImport(Darwin)
-        var size: UInt32 = 4096
-        var buffer = [CChar](repeating: 0, count: Int(size))
-        while true {
-            let rc = buffer.withUnsafeMutableBufferPointer { ptr -> Int32 in
-                guard let base = ptr.baseAddress else { return -1 }
-                return _NSGetExecutablePath(base, &size)
-            }
-            if rc == 0 {
-                let path = String(cString: buffer)
-                return URL(fileURLWithPath: path).resolvingSymlinksInPath().path
-            }
-            // Buffer too small — size now holds the required length.
-            guard size > 0, Int(size) > buffer.count else { return nil }
-            buffer = [CChar](repeating: 0, count: Int(size))
-        }
-        #else
-        // Linux: /proc/self/exe is the kernel's answer to the same question.
-        return (try? FileManager.default.destinationOfSymbolicLink(atPath: "/proc/self/exe"))
-            .map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
-        #endif
+        ExecutableResource.currentExecutablePath()
     }
 
     /// The running binary's own path via `currentExecutablePath()`, falling back to

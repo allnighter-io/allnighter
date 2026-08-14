@@ -9,6 +9,13 @@
       "proof": "scripts/swift-test.sh --filter 'CatalogAuthorityTests|RecipeCatalogTests|OpenCodePermissionPolicyLockGatingTests|VersionIdentityTests'; bash scripts/check-fast.sh; scripts/relocate-cli-proof.sh <binary>"
     },
     {
+      "id": "cli-sidecar-lookup-must-not-use-argv0",
+      "surface": "AgentOS/Sources/AgentOSCLI/ExecutableResource.swift + ModelCatalog.swift + scripts/relocate-cli-proof.sh",
+      "seam": "PATH `alln` (argv[0]=alln) → adoptNeutral chdir ProbeScratch → ToolRuntime → CatalogLoader.bundled → ExecutableResource argv[0] lookup → preconditionFailure SIGTRAP",
+      "law": "Sidecar bundle lookup must use _NSGetExecutablePath (then realpath/symlink resolve), never argv[0]. Bare/relative argv[0] after chdir is cwd-relative and misses ~/.local/share/allnighter/bin. A missing catalog must write stderr and exit non-zero, not SIGTRAP with empty output. Relocate-proof must invoke bare `alln` on PATH from a different cwd — absolute `$STAGE/alln` is a false green. `alln --version` must not count as catalog-load proof.",
+      "proof": "scripts/swift-test.sh --filter 'ExecutableResourceResolutionTests|CatalogAuthorityTests|CLIResourceBundlesTests|ProcessOwnershipReconcileTests/testProcessAliveAndStartTimeSelf'; AgentOS ExecutableResourceTests; scripts/relocate-cli-proof.sh <binary>"
+    },
+    {
       "id": "mac-cold-launch-must-stay-process-quiet",
       "surface": "Apps/AllnighterMac/Sources/AllnighterMacApp.swift + CapacityResidentService + CapacityStripModel + RemoteAccountModel",
       "seam": "AppDelegate / capacity re-arm / strip loadLive / remote bootstrap → vendor CLI or bash spawn under Dock TCC identity",

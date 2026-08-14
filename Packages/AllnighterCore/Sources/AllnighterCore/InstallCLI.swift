@@ -307,55 +307,117 @@ public enum InstallCLI {
         return lower == "1" || lower == "true" || lower == "yes"
     }
 
-    public static func humanLine(_ json: JSON) -> String {
-        let pathLine: String
+    /// Human install receipt. TTY (`color: true`) paints amber phosphor;
+    /// piped / `--json` callers stay on the JSON envelope. Disclosure
+    /// obligation (scheduler why / how to change it) is preserved as rows.
+    public static func humanLine(_ json: JSON, color: Bool = false) -> String {
+        if json.action == .printed {
+            return "Print-only install-cli instructions (use without --print to perform the install)."
+        }
+
+        let version = json.version ?? AllnighterVersionIdentity.binaryVersion
+        let statusPhrase: String
         switch json.action {
-        case .printed:
-            pathLine = "Print-only install-cli instructions (use without --print to perform the install)."
-        case .alreadyInstalled:
-            pathLine = "already installed: \(json.path ?? "") → \(json.target ?? "")"
         case .installed:
-            pathLine = "installed: \(json.path ?? "") → \(json.target ?? "")"
+            statusPhrase = "ready"
+        case .alreadyInstalled:
+            statusPhrase = "already installed"
         case .repaired:
-            pathLine = "repaired stale symlink: \(json.path ?? "") → \(json.target ?? "")"
-        }
-        let canonicalLine: String
-        if let cp = json.canonicalPath, json.action != .printed {
-            canonicalLine = "\nCanonical binary: \(cp)"
-        } else {
-            canonicalLine = ""
-        }
-        switch json.action {
-        case .installed, .repaired, .alreadyInstalled:
-            return pathLine
-                + canonicalLine
-                + "\nNext: run `alln menu --json`; if benchTally.nextAction is set, run that command once."
-                + serveDisclosure(noServeSource: json.noServeSource)
+            statusPhrase = "repaired"
         case .printed:
-            return pathLine
+            statusPhrase = "ready"
         }
+
+        let wordmark = CLIPaint.accent("allnighter", color: color) + CLIPaint.cursorBlock(color: color)
+        let identity = CLIPaint.primary("alln \(version)", color: color)
+            + CLIPaint.faint(" · ", color: color)
+            + CLIPaint.done(statusPhrase, color: color)
+
+        var lines: [String] = [
+            "",
+            "  \(wordmark)",
+            "  \(identity)",
+            "",
+        ]
+
+        let binary = json.canonicalPath ?? json.target ?? ""
+        if !binary.isEmpty {
+            lines.append(CLIPaint.row(label: "binary", value: CLIPaint.primary(binary, color: color), color: color))
+        }
+        if let path = json.path, !path.isEmpty, path != binary {
+            lines.append(CLIPaint.row(label: "path", value: CLIPaint.primary(path, color: color), color: color))
+        }
+
+        lines.append(contentsOf: serveDisclosureRows(noServeSource: json.noServeSource, color: color))
+        lines.append("")
+        lines.append(CLIPaint.row(
+            label: "next",
+            value: CLIPaint.accent("alln menu --json", bold: false, color: color),
+            color: color
+        ))
+        lines.append(CLIPaint.row(
+            label: "help",
+            value: CLIPaint.muted(SupportHatch.email, color: color),
+            color: color
+        ))
+        lines.append("")
+        return lines.joined(separator: "\n")
     }
 
     /// Human disclosure for the serve scheduler, tied to the install transaction.
     /// §2.2 requires the install to say what was (or was not) installed, why it
-    /// exists, and how to change it later. Keep this to three or four lines.
+    /// exists, and how to change it later. Keep this to a few lines.
     public static func serveDisclosure(noServeSource: String?) -> String {
-        let schedulerSummary = "pending wake, PM turn wake, boost seed, vendor backoff, notifications, capacity refresh, and probe record refresh"
+        serveDisclosureRows(noServeSource: noServeSource, color: false)
+            .joined(separator: "\n")
+    }
+
+    private static let schedulerSummary =
+        "pending wake · PM turn wake · boost seed · vendor backoff · notifications · capacity refresh · probe record refresh"
+
+    private static func serveDisclosureRows(noServeSource: String?, color: Bool) -> [String] {
         if let source = noServeSource {
             let optOutLabel = source == "flag" ? "--no-serve" : "ALLN_NO_SERVE"
-            return """
-
-serve: skipped (\(optOutLabel)). The per-user background scheduler was not installed.
-It would handle deferred obligations: \(schedulerSummary).
-`alln run` still works; only deferred scheduling is affected. Enable later with `alln serve enable`.
-"""
+            return [
+                CLIPaint.row(
+                    label: "scheduler",
+                    value: CLIPaint.primary("skipped (\(optOutLabel)). The per-user background scheduler was not installed.", color: color),
+                    color: color
+                ),
+                CLIPaint.row(
+                    label: "",
+                    value: CLIPaint.muted("It would handle deferred obligations: \(schedulerSummary).", color: color),
+                    color: color,
+                    continuation: true
+                ),
+                CLIPaint.row(
+                    label: "",
+                    value: CLIPaint.muted("`alln run` still works; only deferred scheduling is affected. Enable later with `alln serve enable`.", color: color),
+                    color: color,
+                    continuation: true
+                ),
+            ]
         }
-        return """
-
-serve: enabled. Allnighter installed a per-user background scheduler for deferred obligations.
-It handles: \(schedulerSummary).
-`alln run` still works without it. Disable with `alln serve disable`.
-"""
+        return [
+            CLIPaint.row(
+                label: "scheduler",
+                value: CLIPaint.done("on", color: color)
+                    + CLIPaint.muted(" · installed a per-user background scheduler for deferred obligations", color: color),
+                color: color
+            ),
+            CLIPaint.row(
+                label: "",
+                value: CLIPaint.faint(schedulerSummary, color: color),
+                color: color,
+                continuation: true
+            ),
+            CLIPaint.row(
+                label: "",
+                value: CLIPaint.muted("`alln run` still works without it. Disable with `alln serve disable`.", color: color),
+                color: color,
+                continuation: true
+            ),
+        ]
     }
 
     // MARK: - Private

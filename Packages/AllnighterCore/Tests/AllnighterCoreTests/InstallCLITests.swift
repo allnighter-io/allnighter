@@ -151,8 +151,9 @@ final class InstallCLITests: XCTestCase {
         let line = InstallCLI.humanLine(json)
         XCTAssertTrue(line.contains("already installed"))
         XCTAssertTrue(line.contains("alln menu --json"))
-        XCTAssertTrue(line.contains("benchTally.nextAction"))
-        XCTAssertTrue(line.contains("Canonical binary: \(canonicalPath)"))
+        XCTAssertTrue(line.contains(canonicalPath))
+        XCTAssertFalse(line.contains("\u{1B}"), "default humanLine is plain (non-TTY)")
+        XCTAssertFalse(line.contains("benchTally.nextAction"), "install receipt is not the teaching block")
     }
 
     func testRepairsStaleSymlinkToCanonicalPath() throws {
@@ -677,6 +678,8 @@ final class InstallCLITests: XCTestCase {
         XCTAssertTrue(line.contains("pending wake"), "missing pending wake in: \(line)")
         XCTAssertTrue(line.contains("`alln serve disable`"), "missing disable command in: \(line)")
         XCTAssertTrue(line.contains("`alln run` still works without it"), "missing run reassurance in: \(line)")
+        XCTAssertTrue(line.contains("allnighter"), "receipt wordmark missing in: \(line)")
+        XCTAssertTrue(line.contains("scheduler"), "scheduler row missing in: \(line)")
     }
 
     func testJSONEnvelopeStructureUnchanged() throws {
@@ -709,5 +712,27 @@ final class InstallCLITests: XCTestCase {
             "version",
             "noServeSource"
         ])
+    }
+
+    func testColorReceiptPaintsAmberAndOmitsEscapesWhenPlain() {
+        let json = InstallCLI.JSON(
+            schemaVersion: 2,
+            action: .installed,
+            path: "/home/.local/bin/alln",
+            target: "/home/.local/share/allnighter/bin/alln",
+            canonicalPath: "/home/.local/share/allnighter/bin/alln",
+            version: "1.1.12"
+        )
+        let plain = InstallCLI.humanLine(json, color: false)
+        XCTAssertFalse(plain.contains("\u{1B}"))
+        XCTAssertTrue(plain.contains("allnighter"))
+        XCTAssertTrue(plain.contains("alln 1.1.12"))
+        XCTAssertTrue(plain.contains("ready"))
+
+        let painted = InstallCLI.humanLine(json, color: true)
+        XCTAssertTrue(painted.contains("\u{1B}[38;2;255;166;48m"), "wordmark must use brand amber")
+        XCTAssertTrue(painted.contains("\u{1B}[48;2;255;166;48m"), "live-mark cursor block")
+        XCTAssertTrue(painted.contains("alln menu --json"))
+        XCTAssertTrue(painted.contains(SupportHatch.email))
     }
 }

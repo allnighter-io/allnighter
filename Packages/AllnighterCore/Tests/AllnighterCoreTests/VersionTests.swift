@@ -61,4 +61,17 @@ final class VersionTests: XCTestCase {
         let decoded = try CoreJSON.decode(VersionJSON.self, from: stripped)
         XCTAssertEqual(decoded.tellHuman, SupportHatch.tellHuman)
     }
+
+    func testHumanLineIsIdentityPlusHatchWithoutContractDump() {
+        let payload = VersionJSON(binaryVersion: "1.1.12", contractHash: "abc123", gitSha: "deadbeef")
+        let plain = payload.humanLine(color: false)
+        XCTAssertEqual(plain, "alln 1.1.12\n\(SupportHatch.tellHuman)")
+        XCTAssertFalse(plain.contains("contract"))
+        XCTAssertFalse(plain.contains("hash"))
+        XCTAssertFalse(plain.contains("deadbeef"))
+
+        let painted = payload.humanLine(color: true)
+        XCTAssertTrue(painted.contains("\u{1B}[1;38;2;255;166;48m"))
+        XCTAssertTrue(painted.contains(SupportHatch.tellHuman))
+    }
 }

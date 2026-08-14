@@ -300,7 +300,7 @@ else
 fi
 
 # Delegation to install-cli (ASR-S01c)
-if grep -qE 'installed:|already installed:|alreadyInstalled' "$OUT_A"; then
+if grep -qE 'allnighter' "$OUT_A" && grep -qE 'alln menu --json' "$OUT_A"; then
   pass "delegated to install-cli (stdout proof)"
 else
   fail "install-cli delegation not visible in stdout"

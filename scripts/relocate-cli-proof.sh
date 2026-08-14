@@ -4,7 +4,10 @@
 # SPM's hardcoded fallback still found AgentOS_AgentOSCLI.bundle in the
 # original scratch path. That check is a lie on any other machine.
 # 1.1.10's relocate-proof still ran `version`, which never loads the catalog
-# (`alln serve` does). This gate runs `menu --json` instead.
+# (`alln serve` does). 1.1.11 ran `menu --json` by absolute path — a false
+# green. PATH invocation sets argv[0] to the bare name `alln`; after
+# adoptNeutral chdirs, argv[0] lookup misses the sidecars and SIGTRAPs.
+# This gate runs `menu --json` as a bare name on PATH from a different cwd.
 #
 # This gate:
 #   1. Requires the two SPM resource bundles next to the binary.
@@ -14,7 +17,8 @@
 #   3. Copies binary + bundles into a fresh temp dir.
 #   4. Hides every copy of those bundles under known build scratches so the
 #      compile-time fallback cannot save the run.
-#   5. `cd "$HOME"` then execs `menu --json` from the temp copy (catalog load).
+#   5. `cd "$HOME"` then execs bare `alln menu --json` with PATH=$STAGE
+#      (catalog load the way users invoke).
 #
 # Usage:
 #   scripts/relocate-cli-proof.sh <binary>
@@ -101,11 +105,16 @@ hide_root "${ALLN_UNIVERSAL_SCRATCH:-$HOME/Library/Developer/Allnighter/CLI-univ
 hide_root "$HOME/Library/Developer/Allnighter/Build"
 
 # Do not hide $SRC_DIR — the proof runs from $STAGE. Build scratches are the lie.
+#
+# Invoke the way users invoke: bare name on PATH, cwd is not the binary
+# directory. Absolute `"$STAGE/alln"` is a false green — argv[0] is then
+# absolute and hides the 1.1.11 PATH-invocation trap.
 
-if ! ( cd "$HOME" && "$STAGE/alln" menu --json </dev/null >/dev/null ); then
-  echo "relocate-cli-proof: relocated binary failed \`menu --json\` (catalog load; build-path fallback was hidden)" >&2
+if ! ( cd "$HOME" && env PATH="$STAGE:$PATH" alln menu --json </dev/null >/dev/null ); then
+  echo "relocate-cli-proof: relocated binary failed bare \`alln menu --json\` via PATH (catalog load; build-path fallback was hidden)" >&2
   echo "  staged: $STAGE/alln" >&2
-  ( cd "$HOME" && "$STAGE/alln" menu --json </dev/null ) 2>&1 | sed 's/^/  | /' >&2 || true
+  echo "  argv0: alln  PATH-prefix: $STAGE" >&2
+  ( cd "$HOME" && env PATH="$STAGE:$PATH" alln menu --json </dev/null ) 2>&1 | sed 's/^/  | /' >&2 || true
   exit 1
 fi
 

@@ -2,12 +2,10 @@ import Foundation
 
 /// SPM resource bundles that must sit next to a relocated `alln` binary.
 ///
-/// Production loaders read files from these sidecar directories. The SwiftPM
-/// resource-bundle accessor looks beside the executable (the PATH symlink's
-/// directory, not the canonical inode) and then at a compile-time build path.
-/// A published Mach-O without these sidecars used to crash on any machine
-/// except the builder's — that is how 1.1.5–1.1.8 `curl | sh` died in
-/// production. Keep shipping the sidecars; do not resurrect the accessor.
+/// Production loaders read files from these sidecar directories via
+/// `ExecutableResource` (`_NSGetExecutablePath` + symlink resolve — never
+/// argv[0]). Keep shipping the sidecars next to the canonical binary; do not
+/// resurrect the SwiftPM resource-bundle accessor.
 public enum CLIResourceBundles {
     public static let requiredNames: [String] = [
         "AgentOS_AgentOSCLI.bundle",
@@ -50,8 +48,9 @@ public enum CLIResourceBundles {
         }
     }
 
-    /// PATH `alln` is a symlink; SPM looks beside argv0, so the same bundles
-    /// must be visible in the symlink directory.
+    /// PATH `alln` is a symlink. Catalog load follows the canonical inode, but
+    /// keep these links so a mistaken symlink-directory lookup still finds
+    /// the sidecars.
     public static func linkSiblings(
         from canonicalDirectory: URL,
         into pathDirectory: URL,

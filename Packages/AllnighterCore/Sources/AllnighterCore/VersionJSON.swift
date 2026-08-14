@@ -164,8 +164,15 @@ import Foundation
 /// proof now runs `alln menu --json` (catalog load), not `version`. Production
 /// loaders read sidecar files. OpenCode allow-roots come from the run root /
 /// held write locks, not a hardcoded GitHub path. Same contract 10.6.0.
+///
+/// **1.1.11 → 1.1.12 (PATH argv[0] catalog trap + install receipt).** Bare
+/// `alln` on PATH SIGTRAPped in `ModelCatalog.bundledAuthority`: 1.1.11 located
+/// sidecars from argv[0] after `adoptNeutral` chdir'd to ProbeScratch.
+/// `_NSGetExecutablePath` + symlink resolve is the lookup; relocate-proof
+/// invokes a bare name on PATH. Human `install-cli` / `get-alln.sh` paint a
+/// TTY receipt. Same contract 10.6.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.11"
+    public static let binaryVersion = "1.1.12"
 }
 
 /// `alln version` / `alln --version` machine contract.
@@ -184,6 +191,13 @@ public struct VersionJSON: Codable, Sendable, Equatable {
     public var update: ReleaseUpdateInfo?
     /// Person hatch. Quote to the human; never a recovery command.
     public var tellHuman: String
+
+    /// Human `alln version` identity. Contract hash / git live in `--json`.
+    public func humanLine(color: Bool = false) -> String {
+        let title = CLIPaint.accent("alln \(binaryVersion)", color: color)
+        let hatch = CLIPaint.muted(tellHuman, color: color)
+        return "\(title)\n\(hatch)"
+    }
 
     public init(
         schemaVersion: Int = 1,

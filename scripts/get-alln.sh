@@ -62,6 +62,26 @@ main() {
   require_cmd od
   require_cmd tr
 
+  # Progress on stderr when it is a human TTY. Piped installs, tests, and
+  # NO_COLOR / TERM=dumb stay silent so agent captures stay clean.
+  ALLN_TTY=0
+  if [ -t 2 ] && [ -n "${TERM:-}" ] && [ "$TERM" != "dumb" ] && [ -z "${NO_COLOR:-}" ]; then
+    ALLN_TTY=1
+  fi
+  paint_reset=""
+  paint_amber=""
+  paint_muted=""
+  if [ "$ALLN_TTY" -eq 1 ]; then
+    paint_reset="$(printf '\033[0m')"
+    paint_amber="$(printf '\033[38;2;255;166;48m')"
+    paint_muted="$(printf '\033[38;2;126;134;158m')"
+  fi
+  step() {
+    if [ "$ALLN_TTY" -eq 1 ]; then
+      printf '%s  %-11s%s  %s%s%s\n' "$paint_muted" "$1" "$paint_reset" "$paint_amber" "$2" "$paint_reset" >&2
+    fi
+  }
+
   # --- base URL ---------------------------------------------------------
   BASE="${ALLN_INSTALL_BASE_URL:-https://get.allnighter.io}"
   # Strip trailing slash so "$BASE/latest.json" is stable.
@@ -76,6 +96,7 @@ main() {
   # --- fetch latest.json ------------------------------------------------
   # Every child that might read stdin gets </dev/null so a curl|sh pipe is
   # not eaten by a child (BUG-0).
+  step "fetching" "$BASE"
   if ! curl -fsSL "$BASE/latest.json" -o "$MANIFEST" </dev/null; then
     echo "get-alln: failed to fetch $BASE/latest.json" >&2
     exit 1
@@ -103,6 +124,7 @@ main() {
   fi
 
   # --- download binary + verify SHA256 (fail closed) --------------------
+  step "downloading" "alln"
   if ! curl -fsSL "$CLI_URL" -o "$DOWNLOAD" </dev/null; then
     echo "get-alln: failed to download CLI binary from $CLI_URL" >&2
     exit 1
@@ -117,6 +139,7 @@ main() {
   fi
 
   chmod 755 "$DOWNLOAD"
+  step "verified" "sha256"
 
   # gzip payload = binary + SPM resource bundles. A naked Mach-O is still
   # accepted so an in-flight faucet flip cannot wedge an old latest.json.
@@ -155,7 +178,9 @@ main() {
   fi
 
   # --- liveness check (exec candidate once before installing) -----------
-  if ! "$DOWNLOAD" version </dev/null; then
+  # stdout is the identity dump — hide it; the install receipt is the
+  # human surface. Failure still exits non-zero.
+  if ! "$DOWNLOAD" version </dev/null >/dev/null; then
     echo "get-alln: downloaded binary failed liveness check: $DOWNLOAD version" >&2
     exit 1
   fi
@@ -167,6 +192,8 @@ main() {
   if [ -n "${ALLN_INSTALL_DIR:-}" ]; then
     INSTALL_ARGS="install-cli --path $ALLN_INSTALL_DIR"
   fi
+
+  step "installing" "alln"
 
   # shellcheck disable=SC2086
   exec "$DOWNLOAD" $INSTALL_ARGS
