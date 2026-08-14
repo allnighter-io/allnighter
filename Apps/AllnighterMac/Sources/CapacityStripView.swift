@@ -129,7 +129,7 @@ struct CapacityStripView: View {
                     .foregroundStyle(hero.mood == .expiring ? ALColor.accent : ALColor.textSecondary)
                     .frame(width: 24)
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(hero.mood == .expiring ? "Use it before you lose it" : "Most room on your bench")
+                    Text(hero.mood == .expiring ? ChromeCopy.capacityExpiringHero : ChromeCopy.capacityIdleHero)
                         .font(ALFont.sans(10, .semibold))
                         .tracking(0.8)
                         .textCase(.uppercase)

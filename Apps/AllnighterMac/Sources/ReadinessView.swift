@@ -107,7 +107,7 @@ struct TeamReadinessView: View {
                 + Text(" ready").foregroundStyle(ALColor.textMuted)
                 + Text("  ·  ").foregroundStyle(ALColor.textFaint)
                 + Text("\(tally.needsStep)").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
-                + Text(" need a step").foregroundStyle(ALColor.textMuted)
+                + Text(" \(ChromeCopy.needAStep)").foregroundStyle(ALColor.textMuted)
                 + Text("  ·  ").foregroundStyle(ALColor.textFaint)
                 + Text("\(model.availableModels.count)").fontWeight(.semibold).foregroundStyle(ALColor.textSecondary)
                 + Text(" models available").foregroundStyle(ALColor.textMuted)

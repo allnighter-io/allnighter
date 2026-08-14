@@ -75,6 +75,7 @@ Read the relevant doc before changing that area.
 | Spec Review, measurement lies, Min/Max seat changes | `docs/operations/Spec_Review.md` + `BuiltInTeams` / `SkillCatalog.leadCallEnvelope`. Measurement: §3–§4, `measurement_auditor`. A dropped seat's questions must be absorbed by a remaining named pass. |
 | Visual design / brand / tokens | `docs/design-system/readme.md` + `docs/design-system/production.md`. |
 | Building a UI surface, layout proof, SwiftUI state, Mac vs iOS share | `docs/gui/GUI_Workflow.md` (§5 default **no** shared SwiftUI), `docs/gui/Visual_Proof_Gate.md`, `docs/operations/SwiftUI_State_Rules.md`. |
+| Ask AI / in-app help / support email | Title-bar Ask AI. Code: `AskAIPrompt`, `AskAIModel`, `ChromeCatalog`. Hatch: support@allnighter.io. Chrome: `alln chrome --json` (not doctor). Dev-only: `alln dev ask-ai` (not in `alln menu`). Brief: `docs/gui/surfaces/ask-ai/brief.md`. |
 | Design team (build → screenshot) | `docs/operations/Design_Lane.md` + `DesignBoardCapture`. |
 | Shared models, drivers, fan-out, synthesis | `docs/mvp/01_Core_Package.md` → `docs/mvp/02_Worker_Drivers_And_Fanout.md` / `docs/mvp/04_Synthesis_And_Plan.md` as scoped. |
 | Historical Mac shell / what shipped | `docs/mvp/03_Mac_App_And_Run_Loop.md`. |

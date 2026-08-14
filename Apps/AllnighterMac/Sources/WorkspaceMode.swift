@@ -1,11 +1,12 @@
 import SwiftUI
+import AllnighterCore
 
 /// The two top-level workspaces (Send-to-team handoff §Global shell). `inbox` is
 /// today's chat/conversation home; `teams` is the Send-to-team launcher.
 enum WorkspaceMode: String, CaseIterable {
     case inbox, teams
 
-    var label: String { self == .inbox ? "Inbox" : "Teams" }
+    var label: String { self == .inbox ? ChromeCopy.inbox : ChromeCopy.teams }
     /// SF Symbol — Lucide `inbox`→`tray`, `users-round`→`person.2`.
     var symbol: String { self == .inbox ? "tray" : "person.2" }
 }

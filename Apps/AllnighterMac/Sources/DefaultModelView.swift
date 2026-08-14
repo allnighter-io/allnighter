@@ -52,8 +52,8 @@ struct DefaultModelView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("DEFAULT").font(ALFont.sans(11, .bold)).tracking(1.3).foregroundStyle(ALColor.accent)
-            Text("Default model").font(ALFont.sans(27, .heavy)).tracking(-0.5).foregroundStyle(ALColor.textPrimary)
-            Text("What runs when you don’t pick a team or model.")
+            Text(ChromeCopy.defaultModel).font(ALFont.sans(27, .heavy)).tracking(-0.5).foregroundStyle(ALColor.textPrimary)
+            Text(ChromeCopy.defaultModelDeck)
                 .font(ALFont.sans(13)).foregroundStyle(ALColor.textMuted).frame(maxWidth: 620, alignment: .leading)
             Divider().overlay(ALColor.borderSubtle).padding(.top, 8)
         }

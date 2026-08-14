@@ -78,7 +78,7 @@ struct TeamControlView: View {
         Button { isOpen.toggle() } label: {
             HStack(spacing: 8) {
                 avatarStack
-                Text("Models")
+                Text(ChromeCopy.models)
                     .font(.system(size: 12, weight: .semibold))
                     .foregroundStyle(ALColor.textSecondary)
                 Circle().fill(statusDotColor).frame(width: 7, height: 7)
@@ -209,7 +209,7 @@ struct BenchDropdownPanel: View {
 
     private var header: some View {
         HStack(spacing: 8) {
-            Text("Models")
+            Text(ChromeCopy.models)
                 .font(.system(size: 15, weight: .bold)).foregroundStyle(ALColor.textPrimary)
             Text("\(availableModels.count) available · \(appModel.availableModelCLICount) CLIs")
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
