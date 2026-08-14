@@ -447,6 +447,32 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(HelpService.get(error: "ENTITLEMENT_LIMIT").topic?.id, "billing")
     }
 
+    func testSearchRoutesAskAIAndSupportQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("ask ai"), "ask_ai")
+        XCTAssertEqual(top("support"), "ask_ai")
+        XCTAssertEqual(top("contact us"), "ask_ai")
+        XCTAssertEqual(top("email support"), "ask_ai")
+        let topic = HelpService.get(topic: "ask_ai").topic
+        XCTAssertTrue(topic?.bodyMarkdown.contains("support@allnighter.io") == true)
+        XCTAssertFalse(topic?.bodyMarkdown.contains("dev ask-ai") == true,
+                       "customer help must not teach the undocumented dev command")
+        XCTAssertTrue(topic?.relatedCommandNames.contains("chrome") == true)
+    }
+
+    func testSearchRoutesChromeCatalogQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("alln chrome"), "chrome")
+        XCTAssertEqual(top("mac chrome catalog"), "chrome")
+        XCTAssertEqual(top("where is the button"), "chrome")
+        XCTAssertEqual(top("boost window"), "chrome")
+        let topic = HelpService.get(topic: "chrome").topic
+        XCTAssertTrue(topic?.bodyMarkdown.contains("alln chrome --json") == true)
+        XCTAssertFalse(topic?.bodyMarkdown.contains("2× the capacity") == true,
+                       "help must not ship Boost FAQ copy; that lives in the chrome catalog")
+        XCTAssertEqual(topic?.needsLiveCheck, false)
+    }
+
     // MARK: - Ref round-trip
 
     func testHelpRefBuildAndParseRoundTrip() {

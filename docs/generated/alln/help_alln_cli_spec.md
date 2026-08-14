@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 10.3.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.4.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -42,6 +42,14 @@ Flags:
 - `--json` — Emit MenuShowJSON (default; always machine JSON).
 
 Output schema: `menuShowJSON`.
+
+### `alln chrome`
+
+Mac app control catalog: where a label lives, projected from the same strings the app draws.
+
+Flags:
+- `--json` — Emit ChromeCatalogJSON (default; always machine JSON).
+- `--screen <string>` — Prioritize rows for this surface (home, settings, settings.boost, settings.about, …).
 
 ### `alln doctor`
 

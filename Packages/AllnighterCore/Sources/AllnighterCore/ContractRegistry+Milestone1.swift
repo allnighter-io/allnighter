@@ -71,7 +71,9 @@ public extension ContractRegistry {
     // checkpointed, resumable; per-target done|failed|not-attempted).
     // 2026-08-13: minor — optional `tellHuman` on BillingJSON + ErrorEnvelope
     // so agents quote a human paragraph on ENTITLEMENT_LIMIT instead of paraphrasing.
-    static let contractVersion = "10.3.0"
+    // 10.3.0 → 10.4.0: `alln chrome --json` Mac owner-action catalog (Ask AI
+    // discovery; projected from the labels the Mac app draws).
+    static let contractVersion = "10.4.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -122,6 +124,26 @@ public extension ContractRegistry {
             args: [ArgSpec("ref", required: true, summary: "Typed ref, e.g. command:run, team:code_growth, model:model_sonnet.")],
             flags: [FlagSpec("json", summary: "Emit MenuShowJSON (default; always machine JSON).")],
             outputSchema: .menuShowJSON,
+            spendsQuota: false,
+            effects: EffectProfile()
+        ),
+        CommandSpec(
+            "chrome",
+            summary: "Mac app control catalog: where a label lives, projected from the same strings the app draws.",
+            milestone: .m1,
+            trigger: "Use when a human asks where something is in the Mac app, what a title-bar or Settings label means, or how Boost / Models / Ask AI / PATH on this Mac is labeled right now.",
+            example: "alln chrome --json",
+            antiExample: "Do NOT use this to diagnose a broken CLI — that is `alln doctor`. Do NOT guess Mac chrome from the open repo.",
+            flags: [
+                FlagSpec("json", summary: "Emit ChromeCatalogJSON (default; always machine JSON)."),
+                FlagSpec(
+                    "screen",
+                    takesValue: true,
+                    valueType: "string",
+                    summary: "Prioritize rows for this surface (home, settings, settings.boost, settings.about, …)."
+                ),
+            ],
+            outputSchema: .none,
             spendsQuota: false,
             effects: EffectProfile()
         ),
