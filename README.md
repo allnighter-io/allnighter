@@ -1,68 +1,169 @@
-# Allnighter
+<p align="center">
+  <img src="Apps/AllnighterMac/Resources/Assets.xcassets/AppIcon.appiconset/icon_256.png" width="128" height="128" alt="Allnighter">
+</p>
 
-Cross-CLI orchestration for terminal-based AI coding agents — one command
-surface (`alln`) plus a native macOS app and iOS remote.
+<h1 align="center">Allnighter</h1>
 
-**Allnighter** coordinates Claude Code, Codex CLI, Grok, Composer, and other
-subscription CLIs the user already pays for as one bench: named Teams (Spec
-Review, Bug Hunt, Growth, Research, and more) for parallel judgment, and Loop
-(`alln loop`) so a strong lead can steer while one mutating worker executes —
-all day, attended. Despite the name, nothing here assumes overnight.
+<p align="center">
+  <strong>You already pay for the AI team.<br>Make it show up to work.</strong>
+</p>
 
-Core promise: parallel safe lanes, multi-model planning, radical privacy,
-zero mandatory cloud. It never swaps your model, fakes completion, or lets two
-agents edit the same repo behind your back.
+<p align="center">
+  Local CLI for macOS · source-available · not a model provider
+</p>
 
-Process entry point: `AGENTS.md`.
+<p align="center">
+  <a href="https://allnighter.io">allnighter.io</a>
+  ·
+  <a href="https://get.allnighter.io">install</a>
+  ·
+  <a href="LICENSE.md">licence</a>
+</p>
 
-## Public (live 2026-08-13)
+---
 
-Strangers download from [allnighter.io](https://allnighter.io). Current floor
-is **1.1.3**.
+You already pay for Claude Code. Maybe Codex, Cursor, Grok, Gemini, OpenCode, or a local model. They have never met each other. You are the copy-paste layer between them.
 
-| What | URL |
-| --- | --- |
-| CLI | `curl -fsSL https://get.allnighter.io \| sh` |
-| Mac app | https://get.allnighter.io/Allnighter.dmg |
+Allnighter is the bench. One prompt. Your own CLIs, in parallel. Named Teams for judgment — Spec Review, Bug Hunt, Growth, Research — and Loop when a strong lead should steer while one worker mutates the tree. No API keys. No cloud proxy. No markup on tokens you already bought.
 
-There is no Buy button on the site. First run starts a **14-day unlimited
-trial**. After that, **3 full runs/day** stay free. The 4th run is the cash
-register: Mac overlay or `alln billing checkout` → hosted Stripe Checkout with
-email (Builder $8/mo or $80/yr; Founding $160 once, first 100). Offer SSOT:
-`docs/marketing/Pricing_Recommendation.md`. Ship SSOT:
-`docs/operations/Public_Release.md`.
+The `alln` CLI is the product. The Mac app is the same bench with a floor. You can use Allnighter without the DMG.
 
-## For agents (Claude Code, Codex, Cursor, …): start here
+```bash
+curl -fsSL https://get.allnighter.io | sh
+```
 
-You already pay for the CLIs — Allnighter puts them to work as a team instead of
-you carrying messages between terminals. Before first use in a session:
+macOS. Signed and notarized. Current floor: **1.1.5**.
 
-```sh
+Then, from the repo you actually work in:
+
+```bash
 alln menu --json
 ```
 
-Choose from `useWhen` / `dontUseWhen`, pass canonical ids only, and run a
-validation template (`--dry-run`) before unfamiliar worker-starting actions.
-Never trust a pasted catalog across sessions. Cold install (no `alln` anywhere):
-`curl -fsSL https://get.allnighter.io | sh`. PATH repair only (binary exists
-but plain `alln` does not resolve): `alln install-cli`. Updates appear on
-`alln menu --json` (`update` field) and use the same one-liner. Paste-ready
-host context: `alln bootstrap`.
+That catalog is live. Do not paste an old one into the next session.
 
-Selection and discovery SSOT: `docs/archive/phases/Menu_Not_Router.md`
-(router-era `team hello` / `route` / `resolve` are retired).
+---
 
-Core operating docs:
+## What it does
 
-- `ALLNIGHTER.md` — product spec and runbook index
-- `docs/mvp/README.md` — active MVP execution truth
-- `docs/phases/README.md` — full build phases
-- `docs/FOLDER_MAP.md`
-- `docs/WORKING_RULES.md`
-- `docs/workflows/SSOT_Feature_Workflow.md`
-- `docs/operations/Execution-Playbook.md`
-- `docs/operations/Debugger.md`
-- `docs/operations/code-maintainer/SKILL.md`
+Allnighter starts **your** tools, under **your** logins, on **your** Mac.
 
-Public download + pay are live (1.1.3). Built foundation: `docs/mvp/README.md`.
-Open packets: `docs/phases/README.md`. iOS remote: `docs/phases/ios/README.md`.
+```text
+you / your agent
+        │
+        ▼
+      alln
+        │  local stdin / stdout
+        ├──── claude      → Anthropic   (your session)
+        ├──── codex       → OpenAI      (your session)
+        ├──── cursor-agent
+        ├──── grok
+        └──── ollama      → localhost
+```
+
+It does not include Claude, Codex, or anyone else. It does not see those credentials. It does not swap your model. It will not let two writers edit the same root at once.
+
+| You send | What happens |
+| --- | --- |
+| **Team** | Parallel judgment. Spec Review, Bug Hunt, Growth, Research, and others. Observational until you execute. |
+| **Loop** | A durable PM chair. You kick off once; it drives rounds. One mutating worker per repo root. |
+
+Discovery is free forever: `menu`, `help`, `doctor`, `capacity`, `billing`. A run is what counts.
+
+---
+
+## Privacy
+
+This is how it is built, not a promise bolted on later.
+
+1. We never see your prompts, your code, or your files.
+2. We never see your provider credentials. Allnighter starts the vendor CLI; that CLI logs itself in.
+3. We never see model output. It is written to your disk.
+4. We do not sell data, run ads, or train on anything you produce.
+
+What leaves the machine toward us: an irreversible machine hash for trial, Stripe email if you pay, an update check. Full text: [Privacy Policy](docs/legal/Privacy_Policy.md).
+
+---
+
+## Source available
+
+The source is public so you can read what `alln` does before you run it.
+
+This is **not** open source. You may view, modify, and compile for your own use. You may not redistribute binaries, re-host the build, or call a fork Allnighter / `alln`. The official signed binary is the supported product.
+
+[Licence (EULA)](LICENSE.md) · [Terms](docs/legal/Terms_of_Service.md)
+
+```bash
+# Official install — this is the product
+curl -fsSL https://get.allnighter.io | sh
+
+# Confirm the binary you ran matches a published tree
+alln version
+```
+
+---
+
+## Pricing
+
+No Buy button on the website. Install, then pay from the Mac or from `alln billing checkout` if you want to.
+
+| | |
+| --- | --- |
+| **Free** | 3 runs/day, full product. Capacity, doctor, help: always free. |
+| **Trial** | 14 days unlimited, starting at first run — not at install. |
+| **Builder** | $8/mo or $80/yr. Unlimited orchestration within *your* provider limits. |
+| **Founding** | $160 once, first 100. Then it is gone. |
+
+USD. Stripe Checkout with email. We never see your card number. Offer details: [allnighter.io](https://allnighter.io).
+
+---
+
+## For agents
+
+You are in a session that already has Claude, Codex, Cursor, or similar. Allnighter is how that session uses the rest of the bench.
+
+```bash
+# Every new session
+alln menu --json
+
+# After --no-wait, run the returned nextAction.command once. Do not poll.
+# running ≠ progress. Read observation on:
+alln show <id> --json
+```
+
+Cold machine, no `alln` on PATH:
+
+```bash
+curl -fsSL https://get.allnighter.io | sh
+alln bootstrap
+```
+
+`alln install-cli` only repairs PATH. It is not the install.
+
+Canonical ids only. `--dry-run` before a worker you have not used. Do not trust a catalog you pasted yesterday.
+
+---
+
+## Mac app
+
+Same product as the CLI. Same run contract. Dark-mode native macOS.
+
+[Download the DMG](https://get.allnighter.io/Allnighter.dmg)
+
+iPhone companion is not the v1 floor.
+
+---
+
+## Docs
+
+| | |
+| --- | --- |
+| Product / agents | [`AGENTS.md`](AGENTS.md) — start here if you are changing this repo |
+| Legal | [`docs/legal/`](docs/legal/) |
+| Privacy | [`docs/legal/Privacy_Policy.md`](docs/legal/Privacy_Policy.md) |
+| Support | support@allnighter.io |
+
+---
+
+© 2026 Happy Moose Apps Inc. Allnighter and alln are trademarks.
+Not affiliated with Anthropic, OpenAI, xAI, Google, or Cursor.

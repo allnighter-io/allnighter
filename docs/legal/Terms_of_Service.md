@@ -1,11 +1,13 @@
 # Allnighter — Terms of Service
 
-**Version 1.2 · Effective August 13, 2026**
+**Version 1.3 · Effective August 14, 2026**
 
 These Terms cover your account, trial, subscription, and payments with
 **Happy Moose Apps Inc.** ("we", "us"), a company incorporated in British
-Columbia, Canada. Your use of the software itself is governed by the
-[End User Licence Agreement](EULA.md), which these Terms form part of.
+Columbia, Canada. Your use of the software itself — including source we
+publish — is governed by the [End User Licence Agreement](EULA.md), which
+these Terms form part of. That EULA is source-available. It is not an
+OSI-approved open-source licence.
 
 Current prices and tier contents are published at
 [allnighter.io](https://allnighter.io/#pricing). Where a specific number below
@@ -170,8 +172,8 @@ non-functioning tool.
 
 ## 9. Disclaimers and Liability
 
-The warranty disclaimer in [EULA §9](EULA.md) and the liability limitation in
-[EULA §10](EULA.md) apply to these Terms in full, including to anything arising
+The warranty disclaimer in [EULA §10](EULA.md) and the liability limitation in
+[EULA §11](EULA.md) apply to these Terms in full, including to anything arising
 from a third-party provider's behaviour.
 
 ## 10. Termination

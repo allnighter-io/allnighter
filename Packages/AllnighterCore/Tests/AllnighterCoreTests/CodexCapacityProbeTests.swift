@@ -17,7 +17,7 @@ final class CodexCapacityProbeTests: XCTestCase {
     │  Directory:            ~/Documents/GitHub/Allnighter                         │
     │  Permissions:          Custom (workspace with network access)                │
     │  Agents.md:            AGENTS.md                                             │
-      Account:              emailmike@gmail.com (Plus)                            │
+      Account:              support@allnighter.io (Plus)                            │
     │  Collaboration mode:   Default                                               │
     │  Session:              019fb825-40c0-7e02-a5df-408aadc3650c                  │
     │                                                                              │
@@ -176,7 +176,7 @@ final class CodexCapacityProbeTests: XCTestCase {
 
     func testParsePlanTierPlus() {
         XCTAssertEqual(
-            CodexCapacityProbe.parsePlanTierFromAccountLine(from: "Account:  emailmike@gmail.com (Plus)"),
+            CodexCapacityProbe.parsePlanTierFromAccountLine(from: "Account:  support@allnighter.io (Plus)"),
             "Plus"
         )
     }

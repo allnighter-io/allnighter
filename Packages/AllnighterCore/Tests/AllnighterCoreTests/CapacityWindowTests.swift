@@ -390,7 +390,7 @@ final class CapacityWindowTests: XCTestCase {
     func testAgyConversionFourWindowsAcrossTwoLabelledPools() {
         let observed = Date(timeIntervalSince1970: 1_770_000_000)
         let gemini = AgyPoolCapacity(
-            account: "emailmike@gmail.com",
+            account: "support@allnighter.io",
             name: "GEMINI MODELS",
             memberModels: ["Gemini Flash", "Gemini Pro"],
             windows: [
@@ -409,7 +409,7 @@ final class CapacityWindowTests: XCTestCase {
             ]
         )
         let claudeGpt = AgyPoolCapacity(
-            account: "emailmike@gmail.com",
+            account: "support@allnighter.io",
             name: "CLAUDE AND GPT MODELS",
             memberModels: ["Claude Opus", "Claude Sonnet", "GPT-OSS"],
             windows: [

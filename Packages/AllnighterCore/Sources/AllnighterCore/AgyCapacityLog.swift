@@ -58,7 +58,7 @@ public struct AgyCapacityWindow: Sendable, Equatable {
 
 /// A group/pool of models in agy (e.g., "GEMINI MODELS") sharing quota limits.
 public struct AgyPoolCapacity: Sendable, Equatable {
-    /// Account identifier associated with this render if present (e.g. "emailmike@gmail.com").
+    /// Account identifier associated with this render if present (e.g. "support@allnighter.io").
     /// Note: Account string is PII — carried here so a later slice can redact it. Do not log it.
     public let account: String?
     /// Name of the model group/pool (e.g. "GEMINI MODELS").
