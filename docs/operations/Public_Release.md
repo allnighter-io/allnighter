@@ -183,8 +183,10 @@ reached production.
 
 ```bash
 scripts/ship-cli.sh <version>           # build, relocate-proof, sign, notarize, layout
-scripts/ship-cli.sh <version> --upload  # then R2 (assets, get-alln.sh, latest.json last)
+scripts/ship-cli.sh <version> --upload  # then R2 + faucet-smoke (live curl|sh + PATH menu)
 ```
+
+**`--upload` is not done until a scratch-home `curl -fsSL https://get.allnighter.io | sh` install succeeds and bare `alln menu --json` on PATH returns parseable menu JSON for the shipped `binaryVersion` and `gitSha`.** Grepping `latest.json` is not that proof.
 
 `ship-cli.sh` refuses unless `AllnighterVersionIdentity.binaryVersion` already
 equals `<version>`, the relocated binary loads the catalog (`menu --json`) with
@@ -201,6 +203,9 @@ Under the hood (do not skip relocate-proof):
    `v<version>/alln-macos-universal.tar.gz` + sha256, then `latest.json` last.
    Refuses a naked Mach-O.
 4. `scripts/upload-release-to-r2.sh dist/releases` (only via `--upload`)
+5. `scripts/faucet-smoke.sh` — scratch HOME, live `curl | sh`, bare PATH
+   `alln menu --json`. On failure, best-effort restore of the previous
+   `latest.json` (versioned prefix stays immutable) and a non-zero exit.
 
 Same `latest.json`. Prefer matching `cliVersion` and `appVersion` when both
 surfaces ship together. CLI-only ship keeps the current `app` block / 
@@ -216,6 +221,7 @@ surfaces ship together. CLI-only ship keeps the current `app` block /
 | Create a “Mac Team Direct” profile that includes Sign in with Apple | Apple rejects it. |
 | Point the Mac download button at `https://get.allnighter.io/` | That URL is `curl \| sh`. |
 | Skip relocate-proof or publish a naked `alln` Mach-O | 1.1.5–1.1.8 `curl \| sh` crash. `scripts/ship-cli.sh` is the path. |
+| Treat `grep cliVersion` of `latest.json` as live proof | 1.1.11 PATH trap. `scripts/faucet-smoke.sh` is the proof. |
 | Hand-edit the GitHub README version | It will age. `scripts/public-floor.sh` is the writer; `ship-cli.sh` syncs it. |
 | Treat Sparkle as the source of “what’s latest” | Sparkle is future transport. SSOT is `latest.json`. |
 | Edit allnighter.io copy in this repo | Ikiro. |

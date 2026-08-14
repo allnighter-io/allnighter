@@ -5,7 +5,7 @@
 #
 # Usage:
 #   scripts/ship-cli.sh <version>           # build, relocate-proof, sign, notarize, layout
-#   scripts/ship-cli.sh <version> --upload  # also put objects on R2 (flips latest.json last)
+#   scripts/ship-cli.sh <version> --upload  # also put objects on R2, then faucet-smoke
 #
 # Version must already equal AllnighterVersionIdentity.binaryVersion.
 # Never overwrite an existing v<version>/ prefix.
@@ -127,12 +127,36 @@ echo "ship-cli: publish layout v$VERSION"
 "$SCRIPT_DIR/publish-release.sh" "$VERSION"
 
 if [[ "$UPLOAD" -eq 1 ]]; then
+  BUCKET="${ALLN_R2_BUCKET:-allnighter-releases}"
+  PREV_LATEST="$(mktemp "${TMPDIR:-/tmp}/alln-prev-latest.XXXXXX")"
+  echo "ship-cli: snapshot live latest.json before flip"
+  curl -fsSL https://get.allnighter.io/latest.json -o "$PREV_LATEST" </dev/null \
+    || die "could not snapshot live latest.json"
+  PREV_VER="$(python3 - "$PREV_LATEST" <<'PY'
+import json, sys
+print(json.load(open(sys.argv[1])).get("cliVersion") or "unknown")
+PY
+)"
+
   echo "ship-cli: upload R2 (assets, install script, latest.json last)"
   "$SCRIPT_DIR/upload-release-to-r2.sh"
-  echo "ship-cli: live check"
-  LIVE_JSON="$(curl -fsSL https://get.allnighter.io/latest.json </dev/null)"
-  echo "$LIVE_JSON" | grep -q "\"cliVersion\": \"$VERSION\"" \
-    || die "live latest.json did not flip to $VERSION"
+
+  echo "ship-cli: faucet smoke (scratch HOME, live curl|sh, bare PATH menu)"
+  if ! "$SCRIPT_DIR/faucet-smoke.sh" "$VERSION" "$HEAD"; then
+    echo "ship-cli: SHIP ABORTED — live faucet broken for $VERSION" >&2
+    echo "ship-cli: attempting latest.json restore to $PREV_VER (v$VERSION/ prefix is immutable)" >&2
+    if wrangler r2 object put "$BUCKET/latest.json" \
+      --file "$PREV_LATEST" \
+      --content-type "application/json; charset=utf-8" \
+      --remote; then
+      echo "ship-cli: attempted manifest restore to $PREV_VER; verify curl -fsSL https://get.allnighter.io/latest.json" >&2
+    else
+      echo "ship-cli: latest.json restore FAILED — live pointer may still be $VERSION; verify manually" >&2
+    fi
+    rm -f "$PREV_LATEST"
+    die "faucet smoke failed for $VERSION"
+  fi
+  rm -f "$PREV_LATEST"
   echo "ship-cli: OK — strangers get $VERSION from curl -fsSL https://get.allnighter.io | sh"
 else
   echo "ship-cli: OK — layout at dist/releases (pass --upload to publish)"
