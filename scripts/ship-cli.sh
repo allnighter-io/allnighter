@@ -116,6 +116,8 @@ fi
 if [[ -z "${ALLN_APP_URL:-}" || -z "${ALLN_APP_DMG_SHA256:-}" ]]; then
   die "CLI-only ship would drop the Mac app pointer — set ALLN_APP_URL and ALLN_APP_DMG_SHA256, or keep a live latest.json app block"
 fi
+# eval above may set ALLN_APP_VERSION while APP_VERSION was still empty.
+APP_VERSION="${ALLN_APP_VERSION:-$APP_VERSION}"
 export ALLN_RELEASE_NOTES="$NOTES"
 export ALLN_APP_VERSION="$APP_VERSION"
 export ALLN_APP_URL="${ALLN_APP_URL:-}"
