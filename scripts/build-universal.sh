@@ -16,7 +16,9 @@
 #   <repo>/dist/alln-macos-universal
 #
 # Scratch builds (override with ALLN_UNIVERSAL_SCRATCH):
-#   <repo>/dist/.build-universal/{arm64,x86_64}
+#   $HOME/Library/Developer/Allnighter/CLI-universal/{arm64,x86_64}
+# Never the repo tree: a Documents checkout bakes that path into SPM's
+# Bundle.module fallback, and every later `alln` stats it (Documents TCC).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,7 +26,8 @@ ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PACKAGE="$ROOT/Packages/AllnighterCore"
 PRODUCT="alln"
 
-SCRATCH="${ALLN_UNIVERSAL_SCRATCH:-$ROOT/dist/.build-universal}"
+# Same reason rebuild_cli.sh keeps the debug image out of ~/Documents.
+SCRATCH="${ALLN_UNIVERSAL_SCRATCH:-$HOME/Library/Developer/Allnighter/CLI-universal}"
 OUT="${ALLN_UNIVERSAL_OUT:-$ROOT/dist/alln-macos-universal}"
 
 die() {
@@ -124,7 +127,7 @@ echo "$LIPO_INFO" | grep -qi 'are:' || die "expected fat universal binary, got: 
 codesign --verify "$STAGE" || die "codesign --verify failed for $STAGE"
 
 # Relocate-proof with build-scratch bundles hidden. Running `version` next to
-# dist/.build-universal is a false green on the builder (1.1.5–1.1.8 outage).
+# the compile scratch is a false green on the builder (1.1.5–1.1.8 outage).
 "$SCRIPT_DIR/relocate-cli-proof.sh" "$STAGE"
 
 mv -f "$STAGE" "$OUT"

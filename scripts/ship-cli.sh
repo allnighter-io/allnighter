@@ -85,7 +85,7 @@ if got_v != version:
 if got_sha != head:
     sys.stderr.write(
         f"gitSha {got_sha!r} != HEAD {head!r} — stale BuildInfo. "
-        "Delete CLI scratch / dist/.build-universal and rebuild.\n"
+        "Delete CLI scratch / Library/Developer/Allnighter/CLI-universal and rebuild.\n"
     )
     sys.exit(1)
 PY

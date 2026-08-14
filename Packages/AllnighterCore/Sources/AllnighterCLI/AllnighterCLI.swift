@@ -20,11 +20,17 @@ struct AllnighterCLI {
 
         var args = Array(CommandLine.arguments.dropFirst())
         if args.first == "--version" {
+            // Never getcwd — a Documents checkout cwd is the TCC prompt.
+            ProtectedCWDEscape.adoptNeutral()
             runVersion([])
             return
         }
         let command = args.first ?? "help"
         if !args.isEmpty { args.removeFirst() }
+
+        if !ProtectedCWDEscape.preservesCallerWorkingDirectory(command: command, args: args) {
+            ProtectedCWDEscape.adoptNeutral()
+        }
 
         // Global `--help` funnel — every subcommand prints usage and exits 0.
         if CLIUsage.helpRequested(args), let text = CLIUsage.helpText(rootCommand: command, args: args) {

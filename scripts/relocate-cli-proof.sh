@@ -71,6 +71,7 @@ hide_root() {
 
 hide_root "$ROOT/dist/.build-universal"
 hide_root "${ALLNIGHTER_CLI_SCRATCH:-$HOME/Library/Developer/Allnighter/CLI}"
+hide_root "${ALLN_UNIVERSAL_SCRATCH:-$HOME/Library/Developer/Allnighter/CLI-universal}"
 hide_root "$HOME/Library/Developer/Allnighter/Build"
 
 # Do not hide $SRC_DIR — the proof runs from $STAGE. Build scratches are the lie.

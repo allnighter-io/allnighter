@@ -108,4 +108,52 @@ final class ProtectedCWDEscapeTests: XCTestCase {
         XCTAssertTrue(ProtectedCWDEscape.escapeIfNeeded(seams: seams))
         XCTAssertEqual(changedTo(), Self.homePath)
     }
+
+    /// 2026-08-14: bare `alln` from a Documents checkout. `escapeIfNeeded`
+    /// getcwd's first — that read *is* the prompt. `adoptNeutral` must not.
+    func testAdoptNeutralDoesNotReadCurrentDirectory() {
+        final class ReadBox: @unchecked Sendable { var read = false }
+        let readCwd = ReadBox()
+        let (seams, changedTo) = seams(cwd: "\(Self.homePath)/Documents/GitHub/Allnighter")
+        let noRead = ProtectedCWDEscape.Seams(
+            currentDirectory: {
+                readCwd.read = true
+                return "\(Self.homePath)/Documents/GitHub/Allnighter"
+            },
+            homeDirectory: { URL(fileURLWithPath: Self.homePath) },
+            ensureProbeScratch: { Self.scratchPath },
+            changeCurrentDirectory: seams.changeCurrentDirectory
+        )
+        XCTAssertTrue(ProtectedCWDEscape.adoptNeutral(seams: noRead))
+        XCTAssertFalse(readCwd.read, "adoptNeutral must not getcwd")
+        XCTAssertEqual(changedTo(), Self.scratchPath)
+    }
+
+    func testAdoptNeutralFallsBackToHomeWhenScratchUnavailable() {
+        let (seams, changedTo) = seams(
+            cwd: "\(Self.homePath)/Documents/repo",
+            ensureScratch: nil
+        )
+        XCTAssertTrue(ProtectedCWDEscape.adoptNeutral(seams: seams))
+        XCTAssertEqual(changedTo(), Self.homePath)
+    }
+
+    func testBareAllnDoesNotPreserveCallerCWD() {
+        XCTAssertFalse(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "help"))
+        XCTAssertFalse(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "version"))
+        XCTAssertFalse(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "menu"))
+        XCTAssertFalse(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "bootstrap"))
+        XCTAssertFalse(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "serve"))
+        XCTAssertFalse(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "doctor"))
+    }
+
+    func testRepoScopedCommandsPreserveCallerCWD() {
+        XCTAssertTrue(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "run"))
+        XCTAssertTrue(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "loop"))
+        XCTAssertTrue(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "project"))
+        XCTAssertTrue(ProtectedCWDEscape.preservesCallerWorkingDirectory(command: "ps"))
+        XCTAssertTrue(ProtectedCWDEscape.preservesCallerWorkingDirectory(
+            command: "doctor", args: ["handoff"]
+        ))
+    }
 }

@@ -50,6 +50,12 @@ if [[ ! -f "$ROOT/scripts/rebuild_cli.sh" ]] \
   echo "check: rebuild_cli.sh must build alln outside the protected checkout" >&2
   exit 1
 fi
+if [[ ! -f "$ROOT/scripts/build-universal.sh" ]] \
+  || ! grep -q 'ALLN_UNIVERSAL_SCRATCH:-\$HOME/Library/Developer/Allnighter/CLI-universal' "$ROOT/scripts/build-universal.sh"; then
+  echo "check: build-universal.sh must scratch outside the Documents checkout" >&2
+  echo "       (SPM Bundle.module bakes the scratch path; a repo scratch is a TCC prompt)." >&2
+  exit 1
+fi
 
 echo "==> assert installed alln CLI on PATH is functional (auto-relinking if stale)"
 if ! command -v alln >/dev/null 2>&1 || ! alln menu --json >/dev/null 2>&1; then

@@ -148,8 +148,15 @@ import Foundation
 /// check was a false green against the compile-time fallback path. Payload is
 /// now `alln-macos-universal.tar.gz` (binary + bundles). `scripts/ship-cli.sh`
 /// is the one ship path; relocate-proof hides build scratches before `version`.
+///
+/// **1.1.9 → 1.1.10 (bare `alln` Documents TCC).** `ProtectedCWDEscape.adoptNeutral`
+/// `chdir`s to ProbeScratch without `getcwd` for every command that does not
+/// need the caller's repo cwd. `escapeIfNeeded` still getcwd's first — that
+/// read is the prompt. Universal ship scratch moved out of the Documents
+/// checkout so SPM `Bundle.module` cannot bake `~/Documents/...` into the
+/// binary. Same contract 10.6.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.9"
+    public static let binaryVersion = "1.1.10"
 }
 
 /// `alln version` / `alln --version` machine contract.

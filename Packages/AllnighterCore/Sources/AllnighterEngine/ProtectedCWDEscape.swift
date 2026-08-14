@@ -1,12 +1,17 @@
 import Foundation
 
-/// Escapes the foreground process cwd when it sits under a TCC-protected home
-/// folder (`~/Documents`, `~/Desktop`, `~/Downloads`). Install-cli and
-/// serve-mutate paths spawn `launchctl` children that inherit cwd; a Documents
-/// checkout therefore trips a Documents prompt attributed to `alln`.
+/// Neutral CWD for CLI paths that must not touch TCC-protected home folders
+/// (`~/Documents`, `~/Desktop`, `~/Downloads`).
 ///
-/// Call at the top of `runInstallCLI` and `serve enable|repair|disable` handlers
-/// — not in `AllnighterCLI.main` (repo-scoped `alln run` / `ps` keep cwd).
+/// Two different operations:
+/// - `adoptNeutral` — `chdir` to ProbeScratch (home fallback) **without**
+///   reading cwd. `getcwd` / `currentDirectoryPath` on a Documents checkout
+///   **is** the TCC touch; `escapeIfNeeded` cannot prevent that first read.
+///   Call from `AllnighterCLI.main` for every command that does not need the
+///   caller's repo cwd (bare `alln`, help, version, menu, serve, …).
+/// - `escapeIfNeeded` — read cwd, and only then move if it is protected.
+///   Keep for install-cli / serve-mutate children that inherit cwd. Never use
+///   this as the bare-`alln` belt.
 public enum ProtectedCWDEscape {
 
     public struct Seams: Sendable {
@@ -58,6 +63,10 @@ public enum ProtectedCWDEscape {
 
     /// Moves cwd to ProbeScratch when protected; falls back to home if scratch
     /// cannot be created. Returns whether cwd was changed.
+    ///
+    /// Reads cwd first — that read is itself a Documents TCC prompt when the
+    /// process already sits in a protected folder. Prefer `adoptNeutral` when
+    /// the command does not need the caller's cwd.
     @discardableResult
     public static func escapeIfNeeded(seams: Seams = .live) -> Bool {
         let cwd = seams.currentDirectory()
@@ -67,5 +76,32 @@ public enum ProtectedCWDEscape {
         }
         let target = seams.ensureProbeScratch() ?? home.path
         return seams.changeCurrentDirectory(target)
+    }
+
+    /// `chdir` to ProbeScratch (home fallback) without reading the current
+    /// directory. POSIX `chdir("/absolute")` does not `getcwd`.
+    @discardableResult
+    public static func adoptNeutral(seams: Seams = .live) -> Bool {
+        let target = seams.ensureProbeScratch() ?? seams.homeDirectory().path
+        return seams.changeCurrentDirectory(target)
+    }
+
+    /// Commands whose product meaning is "this checkout" — `alln run`, project
+    /// scope, git-from-cwd. Everything else must `adoptNeutral` before
+    /// `ToolRuntime` / `Bundle.module` / any `Process` spawn.
+    public static func preservesCallerWorkingDirectory(
+        command: String,
+        args: [String] = []
+    ) -> Bool {
+        switch command {
+        case "run", "loop", "sweep", "project", "ps", "kill", "gc",
+             "pending", "stalled", "artifact", "export", "spec", "thread",
+             "continuity", "dev":
+            return true
+        case "doctor" where args.first == "handoff":
+            return true
+        default:
+            return false
+        }
     }
 }
