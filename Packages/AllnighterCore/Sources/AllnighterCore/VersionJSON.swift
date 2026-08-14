@@ -114,8 +114,13 @@ import Foundation
 /// `MenuJSON.entitlement`, error `ENTITLEMENT_LIMIT`. Not a major cut.
 /// **1.1.2 → 1.1.3 (Keep going).** Same contract 10.3.0: Mac overlay + Settings
 /// › Plan + CLI `tellHuman` so agents quote the human on the 4th run.
+///
+/// **1.1.3 → 1.1.4 (Documents TCC).** Same contract 10.3.0: `get-alln.sh`
+/// `cd "$HOME"` before any alln exec; Find my team uses non-interactive
+/// login (`-lc`) + ProbeScratch CWD so signed cold install and DMG first
+/// scan do not prompt for Documents.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.3"
+    public static let binaryVersion = "1.1.4"
 }
 
 /// `alln version` / `alln --version` machine contract.

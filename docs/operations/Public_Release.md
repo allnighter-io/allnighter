@@ -71,8 +71,10 @@ uploaded. `appVersion` must equal the app’s
 `Apps/AllnighterMac/project.yml`) or the running app will show an update
 forever.
 
-Current public floor (2026-08-13): CLI **1.1.3** + Mac app **1.1.3** (arm64
-DMG). Keep going overlay + `tellHuman` ship in this floor.
+Current public floor (2026-08-13): CLI **1.1.4** + Mac app **1.1.4** (arm64
+DMG). Documents TCC belts: installer `cd "$HOME"` before any `alln` exec;
+Find my team uses non-interactive login + ProbeScratch. Keep going overlay
++ `tellHuman` remain from 1.1.3.
 
 ---
 

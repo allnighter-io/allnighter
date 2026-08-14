@@ -41,7 +41,7 @@ final class VersionIdentityTests: XCTestCase {
     /// +0.1.0 rule; Ollama local seats documentation closeout). 1.1.0 → 1.1.1:
     /// additive contract 10.1.0 (per-seat Available/Unavailable).
     func testCurrentBinaryVersionIsBumped() {
-        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.1.3")
+        XCTAssertEqual(AllnighterVersionIdentity.binaryVersion, "1.1.4")
     }
 
     /// Build-identity freshness: `AllnighterBuildInfo.gitSha` is captured at
