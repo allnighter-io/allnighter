@@ -119,8 +119,14 @@ import Foundation
 /// `cd "$HOME"` before any alln exec; Find my team uses non-interactive
 /// login (`-lc`) + ProbeScratch CWD so signed cold install and DMG first
 /// scan do not prompt for Documents.
+///
+/// **1.1.4 → 1.1.5 (setup + probe truth).** Same contract 10.3.0: republish
+/// after 1.1.4 shipped with a stale binary (gitSha behind HEAD). Park
+/// unsigned-in CLIs; AGY smoke uses Gemini Flash not Opus; OpenCode smoke
+/// uses Go flash on Go-only hosts; compact AGY quota resets classify as
+/// rateLimited not probeFailed.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.4"
+    public static let binaryVersion = "1.1.5"
 }
 
 /// `alln version` / `alln --version` machine contract.
