@@ -535,7 +535,9 @@ struct RootView: View {
                 askAI.applyFixture(GUIFixture.active ?? "ask-ai-open")
                 showAskAI = true
             }
-            GUIFixture.captureAndExitIfRequested()
+            if !GUIFixture.defersCaptureUntilLocalRuntimeSection {
+                GUIFixture.captureAndExitIfRequested()
+            }
             return
         }
         #endif

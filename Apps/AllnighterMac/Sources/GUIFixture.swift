@@ -36,6 +36,7 @@ enum GUIFixture {
     nonisolated(unsafe) private static var sessionFixture: String?
     nonisolated(unsafe) private static var sessionOutput: String?
     nonisolated(unsafe) private static var didBootstrap = false
+    nonisolated(unsafe) private static var captureScheduled = false
 
     /// Call once at app launch before any fixture gate is read.
     static func bootstrap() {
@@ -249,6 +250,13 @@ enum GUIFixture {
     }
     /// Deep-link: open Ask AI panel for `ask-ai-*` fixtures.
     static var opensAskAI: Bool { (active ?? "").hasPrefix("ask-ai-") }
+
+    /// LOCAL RUNTIME fixtures deep-link Settings › CLIs. Capture must wait until
+    /// `LocalRuntimeSectionView` is on-screen — `RootView.onAppear` fires before
+    /// `TeamStudioView` replaces the home workspace.
+    static var defersCaptureUntilLocalRuntimeSection: Bool {
+        (active ?? "").hasPrefix("local-runtime-")
+    }
 
     /// Deep-link: open the ⌘K command palette over the home workspace.
     static var opensCommandPalette: Bool { active == "command-palette" }
@@ -702,6 +710,8 @@ enum GUIFixture {
     @MainActor
     static func captureAndExitIfRequested() {
         guard isActive, !isGrantSession else { return }
+        guard !captureScheduled else { return }
+        captureScheduled = true
         guard let out = proofOutputPath, !out.isEmpty else {
             failProof("proof request has no output path")
             NSApp.terminate(nil)
@@ -736,7 +746,7 @@ enum GUIFixture {
                 switch await captureComposite() {
                 case .success(let image):
                     writeGrantMarker()
-                    writePNG(image, to: URL(fileURLWithPath: out))
+                    writePNG(image, to: out)
                     NSApp.terminate(nil)
                 case .failure(let message):
                     failProof(message)
@@ -746,7 +756,7 @@ enum GUIFixture {
                 try? await Task.sleep(for: .seconds(1))
                 switch captureMainWindowOnly() {
                 case .success(let image):
-                    writePNG(image, to: URL(fileURLWithPath: out))
+                    writePNG(image, to: out)
                     NSApp.terminate(nil)
                 case .failure(let message):
                     failProof(message)
@@ -766,18 +776,44 @@ enum GUIFixture {
         }
     }
 
+    /// Resolve harness output paths to absolute file URLs. `open` launches with
+    /// an arbitrary CWD, so relative `docs/qa/gui/_captures/...` must not be
+    /// written as-is.
+    private static func resolveProofOutputURL(_ path: String) -> URL {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("/") {
+            return URL(fileURLWithPath: trimmed, isDirectory: false).standardizedFileURL
+        }
+        let cwd = FileManager.default.currentDirectoryPath
+        return URL(fileURLWithPath: cwd, isDirectory: true)
+            .appendingPathComponent(trimmed, isDirectory: false)
+            .standardizedFileURL
+    }
+
     @MainActor
-    private static func writePNG(_ cgImage: CGImage, to url: URL) {
+    private static func writePNG(_ cgImage: CGImage, to path: String) {
         let rep = NSBitmapImageRep(cgImage: cgImage)
         guard let data = rep.representation(using: .png, properties: [:]) else {
-            failProof("PNG encode failed")
+            failProof("fixture capture produced a bitmap but PNG encoding failed")
             return
         }
+        guard !data.isEmpty else {
+            failProof("fixture capture produced an empty bitmap (nothing rendered in the main window)")
+            return
+        }
+        let url = resolveProofOutputURL(path)
         do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
             try data.write(to: url)
             log("wrote \(url.path)")
         } catch {
-            failProof("write failed: \(error.localizedDescription)")
+            failProof(
+                "fixture capture could not save PNG to \(url.path) "
+                    + "(bitmap was captured but write failed: \(error.localizedDescription))"
+            )
         }
     }
 
@@ -1050,6 +1086,7 @@ enum GUIFixture {
     static func seededToolStatuses(for models: [Model], now: Date) -> [ToolProbeRecord] { [] }
     static func seededOllamaSnapshot(scenario: String) -> OllamaLocalRuntimeObserver.Snapshot? { nil }
     static func seededLocalRuntimeG1Passed(scenario: String) -> Bool? { nil }
+    static var defersCaptureUntilLocalRuntimeSection: Bool { false }
     static func captureAndExitIfRequested() {}
 }
 

@@ -34,6 +34,11 @@ struct LocalRuntimeSectionView: View {
     }
     .onAppear {
       if forceBodySelectorOpen { bodySelectorOpen = true }
+      #if DEBUG
+      if GUIFixture.defersCaptureUntilLocalRuntimeSection {
+        GUIFixture.captureAndExitIfRequested()
+      }
+      #endif
     }
   }
 

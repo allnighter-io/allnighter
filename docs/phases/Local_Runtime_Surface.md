@@ -937,9 +937,11 @@ total, and are not a `models[]` entry. The non-hosting body shows nothing.
 
 Proof: `LocalRuntimeSurfaceS05cTests`.
 
-Visual Proof Gate captures listed at S05c land — **none exist**.
-`docs/qa/gui/_captures/local-runtime-*.png` is empty. layout-watcher was
-never spawned. Visual_Proof_Gate is **unsatisfied**. See Closeout state.
+Visual Proof Gate — four installed-state fixture renders landed 2026-08-15
+(fixture bug: capture fired from `RootView.onAppear` before `TeamStudioView`
+mounted; deferred to `LocalRuntimeSectionView.onAppear`). PNGs at
+`docs/qa/gui/_captures/local-runtime-{both,opencode-only,claude-only,neither}.png`.
+layout-watcher **not** run in this slice — pixels await a sighted reviewer.
 
 Fixture proof: `LocalRuntimeAdvisoryTests`, `LocalRuntimeSurfacePresenterTests`,
 `ChromeCatalogTests`.
