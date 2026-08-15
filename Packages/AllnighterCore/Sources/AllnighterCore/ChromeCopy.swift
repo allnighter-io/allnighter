@@ -30,4 +30,16 @@ public enum ChromeCopy {
     public static let capacityIdleHero = "Most room on your bench"
     public static let capacityExpiringHero = "Use it before you lose it"
     public static let emailAPerson = "Email a person"
+
+    // LR-S05 — Settings › CLIs LOCAL RUNTIME section
+    public static let localRuntimeSection = "LOCAL RUNTIME"
+    public static let localRuntimeOllama = "Ollama"
+    public static let localRuntimeViaOpenCode = "Ollama via OpenCode"
+    public static let localRuntimeViaClaudeCode = "Ollama via Claude Code"
+    public static let localRuntimeViaBoth = "Ollama via OpenCode / Claude Code"
+    public static let localRuntimeNeedsBody = "needs OpenCode or Claude Code"
+    public static let localRuntimeModelsUnknown = "local models"
+    public static let localRuntimeUnobserved =
+        "Ollama not observed on this snapshot — local tags are unavailable."
+    public static let localRuntimeViaSelector = "via"
 }

@@ -50,6 +50,12 @@ final class AppModel {
     private(set) var parkedDriverIds: Set<String> = []
     private let setupStore: SetupStore
 
+    // LR-S05 — local runtime overlay (same snapshot path as `alln menu --json`).
+    private(set) var ollamaLocalSnapshot: OllamaLocalRuntimeObserver.Snapshot?
+    var localRuntimeSessionDefaultBody: String?
+    private(set) var localRuntimeEnablingTagId: String?
+    private(set) var localRuntimeEnableError: String?
+
     // Agent-powered tool discovery (the "census", tier 2): once ≥1 tool is ready,
     // a healthy agent can hunt down the tools the plain probe missed.
     private(set) var isRunningCensus = false
@@ -811,6 +817,7 @@ final class AppModel {
             self.probingDriverId = nil
             // OpenCode Go unlock reads auth.json — refresh bench roster after probe.
             self.reloadModelsFromCatalog()
+            self.refreshOllamaLocalSnapshot()
         }
     }
 
@@ -981,4 +988,86 @@ final class AppModel {
         run = current
     }
 
+    // MARK: - Local runtime (LR-S05)
+
+    var localRuntimeSurface: LocalRuntimeSurfacePresenter.Snapshot {
+        let defs = ModelCatalog.list()
+        let body = localRuntimeSessionDefaultBody
+        #if DEBUG
+        let snapshot: OllamaLocalRuntimeObserver.Snapshot?
+        let g1: Bool?
+        if GUIFixture.isActive {
+            snapshot = GUIFixture.seededOllamaSnapshot(scenario: GUIFixture.active ?? "")
+            g1 = GUIFixture.seededLocalRuntimeG1Passed(scenario: GUIFixture.active ?? "")
+        } else {
+            snapshot = ollamaLocalSnapshot
+            g1 = nil
+        }
+        #else
+        let snapshot = ollamaLocalSnapshot
+        let g1: Bool? = nil
+        #endif
+        return LocalRuntimeSurfacePresenter.build(
+            registry: registry,
+            probeRecords: toolStatuses,
+            parkedDriverIds: parkedDriverIds,
+            definitions: defs,
+            ollamaLocal: snapshot,
+            defaultBody: body,
+            isLoading: isDetecting && snapshot == nil,
+            g1Passed: g1
+        )
+    }
+
+    func refreshOllamaLocalSnapshot(now: Date = Date()) {
+        #if DEBUG
+        if GUIFixture.isActive { return }
+        #endif
+        ollamaLocalSnapshot = OllamaLocalDoctorReport.snapshotIfAllowed(
+            transport: nil,
+            observedAt: now,
+            isTestHost: false
+        )
+    }
+
+    func setLocalRuntimeSessionDefaultBody(_ driverId: String) {
+        guard OllamaLocalSeatEnablePolicy.allowedBodies.contains(driverId) else { return }
+        localRuntimeSessionDefaultBody = driverId
+    }
+
+    func setLocalRuntimeTagEnabled(id: String, enabled: Bool) {
+        guard localRuntimeEnablingTagId == nil else { return }
+        localRuntimeEnablingTagId = id
+        localRuntimeEnableError = nil
+        let priorEnabled = ModelCatalog.isEnabled(id)
+        Task { @MainActor [weak self] in
+            defer { self?.localRuntimeEnablingTagId = nil }
+            guard let self else { return }
+            do {
+                if enabled {
+                    if ModelCatalog.get(id) != nil {
+                        try ModelCatalog.setEnabled(id, true)
+                    } else {
+                        let body = self.localRuntimeSessionDefaultBody
+                            ?? OllamaLocalModelDiscoveryProvider.defaultEnableBodyDriverId
+                        _ = try LocalRuntimeSeatMint.enable(
+                            candidateID: id,
+                            bodyDriverId: body,
+                            snapshot: self.ollamaLocalSnapshot
+                        )
+                    }
+                } else {
+                    try ModelCatalog.setEnabled(id, false)
+                }
+                self.reloadModelsFromCatalog()
+                self.refreshOllamaLocalSnapshot()
+            } catch {
+                self.localRuntimeEnableError = error.localizedDescription
+                if ModelCatalog.isEnabled(id) != priorEnabled {
+                    try? ModelCatalog.setEnabled(id, priorEnabled)
+                    self.reloadModelsFromCatalog()
+                }
+            }
+        }
+    }
 }

@@ -493,7 +493,13 @@ struct RootView: View {
             }
             if GUIFixture.opensComposeSpecimen { showComposeSpecimen = true }
             if GUIFixture.opensTeamStudio {
-                model.applyDevBenchScenario(GUIFixture.active == "studio-clis" ? "readiness-mixed" : "team-open-ready")
+                let benchScenario: String
+                if let active = GUIFixture.active, active.hasPrefix("local-runtime-") {
+                    benchScenario = active
+                } else {
+                    benchScenario = GUIFixture.active == "studio-clis" ? "readiness-mixed" : "team-open-ready"
+                }
+                model.applyDevBenchScenario(benchScenario)
                 GUIFixture.seedBoostWindowForProof()
                 studioInitialRoute = GUIFixture.studioRoute
                 showTeamStudio = true

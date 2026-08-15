@@ -793,6 +793,28 @@ No new code. Evidence:
 
 ---
 
+### LR-S05b — Mac LOCAL RUNTIME section (2026-08-14)
+
+Settings › CLIs ships `LocalRuntimeSectionView` bound to
+`LocalRuntimeSurfacePresenter` + `LocalRuntimeAdvisory` (Core). Four installed-state
+rows, tag toggles (off by default), §2.2 advisories, distinct Ollama reachable dot.
+Out of scope here: body-selector persist (LR-S05c), hosting-body pointer rows.
+
+Visual Proof Gate captures (layout-watcher pending):
+
+- `docs/qa/gui/_captures/local-runtime-both.png`
+- `docs/qa/gui/_captures/local-runtime-opencode-only.png`
+- `docs/qa/gui/_captures/local-runtime-claude-only.png`
+- `docs/qa/gui/_captures/local-runtime-neither.png`
+- `docs/qa/gui/_captures/local-runtime-advisories.png`
+- `docs/qa/gui/_captures/local-runtime-unobserved.png`
+- `docs/qa/gui/_captures/local-runtime-selector-open.png`
+
+Fixture proof: `LocalRuntimeAdvisoryTests`, `LocalRuntimeSurfacePresenterTests`,
+`ChromeCatalogTests`.
+
+---
+
 ## AGENTS.md routing
 
 | Task | Read first |

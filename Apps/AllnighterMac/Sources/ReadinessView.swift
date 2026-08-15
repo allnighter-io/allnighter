@@ -29,6 +29,7 @@ struct TeamReadinessView: View {
             VStack(alignment: .leading, spacing: 0) {
                 header
                 summaryLine
+                localRuntimeSection
                 bodyColumns
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -118,6 +119,21 @@ struct TeamReadinessView: View {
         .padding(.horizontal, 28).padding(.top, 16).padding(.bottom, 16)
         .overlay(alignment: .bottom) { Rectangle().fill(ALColor.borderSubtle).frame(height: 1) }
     }
+
+    private var localRuntimeSection: some View {
+        LocalRuntimeSectionView(forceBodySelectorOpen: localRuntimeSelectorProofOpen)
+            .padding(.horizontal, 28)
+            .padding(.top, 18)
+            .padding(.bottom, 4)
+    }
+
+    #if DEBUG
+    private var localRuntimeSelectorProofOpen: Bool {
+        GUIFixture.active == "local-runtime-selector-open"
+    }
+    #else
+    private var localRuntimeSelectorProofOpen: Bool { false }
+    #endif
 
     // MARK: - Roster + repair
 

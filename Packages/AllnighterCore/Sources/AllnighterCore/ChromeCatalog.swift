@@ -94,6 +94,7 @@ public enum ChromeCatalog {
     public static let firstSliceIds: [String] = [
         "ask_ai", "teams", "models", "bench_health", "boost_window",
         "default_model", "use_from_cli", "about_path", "capacity", "support_hatch",
+        "local_runtime",
     ]
 
     public static func project(
@@ -218,6 +219,20 @@ public enum ChromeCatalog {
                 facts: [
                     "Control label: \(ChromeCopy.emailAPerson)",
                     "Email: \(AskAIPrompt.supportEmail)",
+                ]
+            ),
+            ChromeActionRow(
+                id: "local_runtime",
+                screen: ChromeScreen.settingsCLIs.rawValue,
+                controlLabel: ChromeCopy.localRuntimeSection,
+                whereInApp: "Settings › \(ChromeCopy.clis) › \(ChromeCopy.localRuntimeSection)",
+                facts: [
+                    "Section: \(ChromeCopy.localRuntimeSection)",
+                    "Harness: \(ChromeCopy.localRuntimeViaBoth)",
+                    "Harness: \(ChromeCopy.localRuntimeViaOpenCode)",
+                    "Harness: \(ChromeCopy.localRuntimeViaClaudeCode)",
+                    "Neither bodies: \(ChromeCopy.localRuntimeNeedsBody)",
+                    "Unobserved: \(ChromeCopy.localRuntimeUnobserved)",
                 ]
             ),
         ]

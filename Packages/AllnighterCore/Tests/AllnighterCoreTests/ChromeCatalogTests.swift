@@ -37,6 +37,7 @@ final class ChromeCatalogTests: XCTestCase {
         XCTAssertTrue(ids.contains("boost_window"))
         XCTAssertTrue(ids.contains("about_path"))
         XCTAssertTrue(ids.contains("default_model"))
+        XCTAssertTrue(ids.contains("local_runtime"))
         XCTAssertFalse(ids.contains("ask_ai"))
     }
 

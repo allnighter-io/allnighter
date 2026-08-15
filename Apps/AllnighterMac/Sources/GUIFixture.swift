@@ -92,6 +92,7 @@ enum GUIFixture {
         // of the main window's content view cannot see — the dialog opened correctly but
         // captured as a plain thread. Needs the window-list composite path.
         if id == "relay-thread-stop-confirm" { return true }
+        if id == "local-runtime-selector-open" { return true }
         return id.hasPrefix("compose-") && !inlineComposeFixtures.contains(id)
     }
 
@@ -112,6 +113,7 @@ enum GUIFixture {
     static var opensTeamStudio: Bool {
         let name = active ?? ""
         return name.hasPrefix("studio")
+            || name.hasPrefix("local-runtime-")
             || name == "settings-use-from-cli"
             || name == "settings-about-updates"
             || name == "settings-plan"
@@ -451,6 +453,13 @@ enum GUIFixture {
         ("capacity-strip", "Capacity — mixed strip (unknown + Antigravity pools)"),
         ("capacity-strip-refreshing", "Capacity — one row mid-refresh (Grok spinning)"),
         ("capacity-strip-calm", "Capacity — nothing expiring (most-room hero)"),
+        ("local-runtime-both", "CLIs — LOCAL RUNTIME (both bodies)"),
+        ("local-runtime-opencode-only", "CLIs — LOCAL RUNTIME (OpenCode only)"),
+        ("local-runtime-claude-only", "CLIs — LOCAL RUNTIME (Claude Code only)"),
+        ("local-runtime-neither", "CLIs — LOCAL RUNTIME (neither body)"),
+        ("local-runtime-advisories", "CLIs — LOCAL RUNTIME (§2.2 advisories)"),
+        ("local-runtime-unobserved", "CLIs — LOCAL RUNTIME (Ollama unobserved)"),
+        ("local-runtime-selector-open", "CLIs — LOCAL RUNTIME (body selector open)"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
@@ -499,6 +508,9 @@ enum GUIFixture {
     }
 
     static func seededToolStatuses(for models: [Model], now: Date, scenario: String) -> [ToolProbeRecord] {
+        if scenario.hasPrefix("local-runtime-") {
+            return localRuntimeProbeRecords(scenario: scenario, now: now)
+        }
         if scenario == "readiness-cold" || scenario == "readiness-cursor-not-checked" { return [] }
         let drivers = probeDrivers(for: scenario, models: models)
         let name = scenario
@@ -551,6 +563,9 @@ enum GUIFixture {
     }
 
     private static func status(for fixture: String, index: Int, driverId: String) -> ModelSetupStatus {
+        if fixture.hasPrefix("local-runtime-") {
+            return localRuntimeStatus(fixture: fixture, driverId: driverId)
+        }
         switch fixture {
         case "team-open-ready":
             return .ready(version: "1.0.0")
@@ -836,6 +851,82 @@ enum GUIFixture {
     private static func log(_ message: String) {
         FileHandle.standardError.write(Data("gui-fixture: \(message)\n".utf8))
     }
+
+    // MARK: - LR-S05 local runtime fixtures
+
+    static func seededOllamaSnapshot(scenario: String) -> OllamaLocalRuntimeObserver.Snapshot? {
+        guard scenario.hasPrefix("local-runtime-") else { return nil }
+        if scenario == "local-runtime-unobserved" { return nil }
+        let now = Date(timeIntervalSince1970: 1_754_000_000)
+        let tagsJSON: String
+        switch scenario {
+        case "local-runtime-advisories":
+            tagsJSON = """
+            {"models":[
+              {"name":"qwen2.5-coder:7b","capabilities":["completion","tools"]},
+              {"name":"qwen2.5-coder:1.5b","capabilities":["completion"]}
+            ]}
+            """
+        default:
+            tagsJSON = """
+            {"models":[
+              {"name":"qwen3.8:27b-mlx","capabilities":["completion","vision","tools"]},
+              {"name":"gpt-oss:20b","capabilities":["completion"]},
+              {"name":"qwen3:8b","capabilities":["completion"]}
+            ]}
+            """
+        }
+        guard let tags = OllamaLocalRuntimeObserver.parseTags(Data(tagsJSON.utf8)) else { return nil }
+        let residents: [OllamaLocalRuntimeObserver.ResidentModel]
+        if scenario == "local-runtime-advisories" {
+            residents = [.init(name: "qwen2.5-coder:7b", servedContextWindow: 4096)]
+        } else {
+            residents = []
+        }
+        return OllamaLocalRuntimeObserver.snapshot(
+            observedAt: now,
+            ollamaVersion: "0.32.12",
+            localTags: tags,
+            residentModels: residents
+        )
+    }
+
+    static func seededLocalRuntimeG1Passed(scenario: String) -> Bool? {
+        guard scenario.hasPrefix("local-runtime-") else { return nil }
+        return scenario == "local-runtime-advisories" ? nil : true
+    }
+
+    private static func localRuntimeProbeRecords(scenario: String, now: Date) -> [ToolProbeRecord] {
+        let drivers = ["claude_code", "opencode", "codex", "grok", "antigravity", "cursor_agent"]
+        return drivers.map { driverId in
+            ToolProbeRecord(
+                driverId: driverId,
+                status: localRuntimeStatus(fixture: scenario, driverId: driverId),
+                version: localRuntimeStatus(fixture: scenario, driverId: driverId).isSmokeReady ? "1.0.0" : nil,
+                lastProbeAt: now
+            )
+        }
+    }
+
+    private static func localRuntimeStatus(fixture: String, driverId: String) -> ModelSetupStatus {
+        switch fixture {
+        case "local-runtime-both", "local-runtime-advisories", "local-runtime-unobserved",
+             "local-runtime-selector-open":
+            if driverId == "opencode" || driverId == "claude_code" { return .ready(version: "1.0.0") }
+        case "local-runtime-opencode-only":
+            if driverId == "opencode" { return .ready(version: "1.0.0") }
+            if driverId == "claude_code" { return .notInstalled }
+        case "local-runtime-claude-only":
+            if driverId == "claude_code" { return .ready(version: "1.0.0") }
+            if driverId == "opencode" { return .notInstalled }
+        case "local-runtime-neither":
+            if driverId == "opencode" || driverId == "claude_code" { return .notInstalled }
+        default:
+            break
+        }
+        if driverId == "opencode" || driverId == "claude_code" { return .ready(version: "1.0.0") }
+        return .ready(version: "1.0.0")
+    }
 }
 
 #else
@@ -875,6 +966,8 @@ enum GUIFixture {
     static func seededModels(base: [Model]) -> [Model]? { nil }
     static func seededModels(base: [Model], scenario: String) -> [Model]? { nil }
     static func seededToolStatuses(for models: [Model], now: Date) -> [ToolProbeRecord] { [] }
+    static func seededOllamaSnapshot(scenario: String) -> OllamaLocalRuntimeObserver.Snapshot? { nil }
+    static func seededLocalRuntimeG1Passed(scenario: String) -> Bool? { nil }
     static func captureAndExitIfRequested() {}
 }
 
