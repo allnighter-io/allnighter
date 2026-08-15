@@ -49,7 +49,7 @@ public enum LocalRuntimeSeatMint {
             throw ModelCatalogError.invalid(refusal)
         }
         guard assessment.permitsEnable, var seat = assessment.boundSeat else {
-            throw ModelCatalogError.invalid("explicit enable refused")
+            throw ModelCatalogError.invalid("Allnighter could not enable this model.")
         }
         if ModelCatalog.get(seat.id) != nil {
             throw ModelCatalogError.invalid(
@@ -165,7 +165,7 @@ public enum LocalRuntimeSeatMint {
         var lines: [String] = []
         if !merge.addedModelIds.isEmpty {
             lines.append(
-                "Registered in opencode.json: \(merge.addedModelIds.joined(separator: ", "))."
+                "OpenCode can now use these models: \(merge.addedModelIds.joined(separator: ", "))."
             )
         }
         switch leftover {
@@ -179,13 +179,9 @@ public enum LocalRuntimeSeatMint {
             lines.append(
                 "Port \(OpenCodeLeftoverServeReclaim.defaultPort) is alln serve (pid \(pid)) — not stopping it."
             )
-        case .skippedForeign(let pid, let command):
+        case .skippedForeign, .skippedUnreadableCommand:
             lines.append(
-                "Port \(OpenCodeLeftoverServeReclaim.defaultPort) listener pid \(pid) is not opencode serve (\(command)) — left running."
-            )
-        case .skippedUnreadableCommand(let pid):
-            lines.append(
-                "Port \(OpenCodeLeftoverServeReclaim.defaultPort) listener pid \(pid) has an unreadable command line — left running."
+                "Something else is already using port \(OpenCodeLeftoverServeReclaim.defaultPort). Allnighter left it running."
             )
         }
         return lines

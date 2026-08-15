@@ -30,9 +30,8 @@ final class LoopLocalSeatPolicyTests: XCTestCase {
         XCTAssertTrue(LoopLocalSeatPolicy.isOllamaBacked(local))
         let disclosure = LoopLocalSeatPolicy.localLeadDisclosure(for: local)
         XCTAssertNotNil(disclosure)
-        XCTAssertTrue(disclosure?.contains("ollama_local") == true)
-        XCTAssertTrue(disclosure?.contains("local provenance") == true)
-        XCTAssertTrue(disclosure?.contains("Explicit pin proceeds") == true)
+        XCTAssertTrue(disclosure?.contains("runs on your Mac through Ollama") == true)
+        XCTAssertTrue(disclosure?.contains("You pinned it as the Loop lead") == true)
         XCTAssertFalse(disclosure?.contains("cannot hold") == true)
         XCTAssertFalse(disclosure?.contains("served context window") == true)
     }
@@ -51,7 +50,7 @@ final class LoopLocalSeatPolicyTests: XCTestCase {
             for: local,
             servedContextWindow: window
         )
-        XCTAssertTrue(disclosure?.contains("served context window 131072") == true)
+        XCTAssertTrue(disclosure?.contains("128K") == true)
     }
 
     func testUnobservedServedContextIsOmittedNotGuessed() {

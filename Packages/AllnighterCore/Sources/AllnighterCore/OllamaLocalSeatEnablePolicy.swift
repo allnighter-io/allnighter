@@ -61,17 +61,15 @@ public enum OllamaLocalSeatEnablePolicy {
 
         var disclosures: [String] = []
         disclosures.append(
-            "Seat \(seat.id) is local provenance (\(OllamaLocalRuntimeClient.sourceId), \(seat.modelLabel)). Explicit enable proceeds."
+            "\(seat.displayName) runs on your Mac through Ollama. Allnighter is adding it to \(bodyDisplayName(bodyDriverId))."
         )
-        if g1Passed != true {
-            disclosures.append(
-                "Tag \(tag) has not passed G1 (structured tool_calls). Explicit enable proceeds."
-            )
+        if g1Passed == false {
+            disclosures.append(LocalRuntimeAdvisory.g1Failed)
+        } else if g1Passed != true {
+            disclosures.append(LocalRuntimeAdvisory.g1Unknown)
         }
         if let servedContextWindow, servedContextWindow < automaticCodeServedContextMinimum {
-            disclosures.append(
-                "Served context window \(servedContextWindow) is below \(automaticCodeServedContextMinimum) automatic Code offer gate. Explicit enable proceeds."
-            )
+            disclosures.append(LocalRuntimeAdvisory.servedWindowBelowFloor(servedContextWindow))
         }
 
         return Assessment(
@@ -93,5 +91,13 @@ public enum OllamaLocalSeatEnablePolicy {
     ) -> Bool {
         g1Passed == true
             && (servedContextWindow ?? 0) >= automaticCodeServedContextMinimum
+    }
+
+    private static func bodyDisplayName(_ bodyDriverId: String) -> String {
+        switch bodyDriverId {
+        case "opencode": return "OpenCode"
+        case "claude_code": return "Claude Code"
+        default: return bodyDriverId
+        }
     }
 }

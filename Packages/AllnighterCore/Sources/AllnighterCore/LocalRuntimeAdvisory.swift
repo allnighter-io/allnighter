@@ -4,13 +4,20 @@ import Foundation
 /// these strings; never gate the toggle. Nil inputs are never "not recommended."
 public enum LocalRuntimeAdvisory {
   public static let g1Failed =
-    "G1 failed — structured `tool_calls` missing. Enable still works."
-  public static let g1Unknown = "G1 unknown. Not a fail."
+    "This model did not use tools correctly in our test. It may struggle with coding work. You can still turn it on."
+  public static let g1Unknown = "Allnighter has not tested this model."
   public static let windowUnobserved =
-    "Window unobserved (tag not in `/api/ps`). Not a fail."
+    "Allnighter will know this model context size after it runs once."
+
+  public static func formatContextSize(_ tokens: Int) -> String {
+    if tokens >= 1024 && tokens % 1024 == 0 {
+      return "\(tokens / 1024)K"
+    }
+    return "\(tokens)"
+  }
 
   public static func servedWindowBelowFloor(_ window: Int) -> String {
-    "Served window \(window) (below automatic Code floor). Enable still works."
+    "This model has a \(formatContextSize(window)) context. That is smaller than Allnighter normally picks for coding work. You can still turn it on."
   }
 
   /// Observed G1 / served window only — never `allowsAutomaticCodeOffer` on nil.

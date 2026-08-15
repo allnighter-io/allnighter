@@ -194,8 +194,8 @@ final class LoopCLITests: XCTestCase {
         XCTAssertEqual(seats.pmSource, "explicit")
         XCTAssertEqual(seats.dev, frontier.id)
         XCTAssertNotNil(seats.localLeadDisclosure)
-        XCTAssertTrue(seats.localLeadDisclosure?.contains("ollama_local") == true)
-        XCTAssertTrue(seats.localLeadDisclosure?.contains("Explicit pin proceeds") == true)
+        XCTAssertTrue(seats.localLeadDisclosure?.contains("runs on your Mac through Ollama") == true)
+        XCTAssertTrue(seats.localLeadDisclosure?.contains("You pinned it as the Loop lead") == true)
         XCTAssertNil(seats.localExecutionWarning)
     }
 }

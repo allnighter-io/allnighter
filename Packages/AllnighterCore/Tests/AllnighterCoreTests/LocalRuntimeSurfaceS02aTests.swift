@@ -81,8 +81,8 @@ final class LocalRuntimeSurfaceS02aTests: XCTestCase {
         )
         XCTAssertTrue(assessment.permitsEnable)
         XCTAssertNil(assessment.refusal)
-        XCTAssertTrue(assessment.disclosures.contains { $0.contains("has not passed G1") })
-        XCTAssertTrue(assessment.disclosures.allSatisfy { $0.contains("Explicit enable proceeds") })
+        XCTAssertTrue(assessment.disclosures.contains { $0.contains("Allnighter has not tested this model") })
+        XCTAssertTrue(assessment.disclosures.contains { $0.contains("adding it to Claude Code") })
         XCTAssertFalse(assessment.disclosures.contains { $0.lowercased().contains("g1 failed") })
 
         let seatedID = OllamaLocalModelDiscoveryProvider.seatedID(
@@ -199,7 +199,7 @@ final class LocalRuntimeSurfaceS02aTests: XCTestCase {
             now: now
         )
         XCTAssertTrue(assessment.permitsEnable)
-        XCTAssertTrue(assessment.disclosures.contains { $0.contains("has not passed G1") })
+        XCTAssertTrue(assessment.disclosures.contains { $0.contains("Allnighter has not tested this model") })
         let seatedID = OllamaLocalModelDiscoveryProvider.seatedID(
             tag: "nomic-shaped-orphan", bodyDriverId: "claude_code")
         XCTAssertEqual(ModelCatalog.get(seatedID)?.origin, .discovered)

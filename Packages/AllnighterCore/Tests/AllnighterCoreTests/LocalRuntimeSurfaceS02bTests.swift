@@ -75,9 +75,9 @@ final class LocalRuntimeSurfaceS02bTests: XCTestCase {
         )
 
         XCTAssertTrue(assessment.permitsEnable)
-        XCTAssertTrue(assessment.disclosures.contains { $0.contains("has not passed G1") })
+        XCTAssertTrue(assessment.disclosures.contains { $0.contains("Allnighter has not tested this model") })
         XCTAssertTrue(
-            assessment.disclosures.contains { $0.contains("qwen3.8:27b-mlx") && $0.contains("opencode.json") },
+            assessment.disclosures.contains { $0.contains("qwen3.8:27b-mlx") && $0.contains("OpenCode can now use") },
             assessment.disclosures.joined(separator: " | ")
         )
         XCTAssertTrue(

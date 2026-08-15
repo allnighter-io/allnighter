@@ -142,8 +142,8 @@ final class LoopEngineCLITests: XCTestCase {
             for: models.first { $0.id == localLead.pmModelId }!
         )
         XCTAssertNotNil(disclosure)
-        XCTAssertTrue(disclosure?.contains("ollama_local") == true)
-        XCTAssertTrue(disclosure?.contains("Explicit pin proceeds") == true)
+        XCTAssertTrue(disclosure?.contains("runs on your Mac through Ollama") == true)
+        XCTAssertTrue(disclosure?.contains("You pinned it as the Loop lead") == true)
 
         let localDev = try LoopEngineCLI.parseStartConfig(
             ["--doc", "docs/spec.md", "--project", project.id,

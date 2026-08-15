@@ -130,10 +130,10 @@ final class OllamaLocalModelDiscoveryProviderTests: XCTestCase {
         XCTAssertEqual(assessment.boundSeat?.defaultEnabled, false)
         XCTAssertEqual(assessment.boundSeat?.modelLabel, "ollama/qwen2.5:0.5b")
         XCTAssertEqual(assessment.boundSeat?.id, "discovered_opencode_qwen2_5_0_5b")
-        XCTAssertTrue(assessment.disclosures.contains { $0.contains("ollama_local") })
-        XCTAssertTrue(assessment.disclosures.contains { $0.contains("has not passed G1") })
-        XCTAssertTrue(assessment.disclosures.contains { $0.contains("4096") })
-        XCTAssertTrue(assessment.disclosures.allSatisfy { $0.contains("Explicit enable proceeds") })
+        XCTAssertTrue(assessment.disclosures.contains { $0.contains("runs on your Mac through Ollama") })
+        XCTAssertTrue(assessment.disclosures.contains { $0.contains("adding it to OpenCode") })
+        XCTAssertTrue(assessment.disclosures.contains { $0.contains("Allnighter has not tested this model") })
+        XCTAssertTrue(assessment.disclosures.contains { $0.contains("4K") })
     }
 
     func testClaudeCodeBodyIsChosenAtEnableNotDiscovery() {
@@ -150,7 +150,7 @@ final class OllamaLocalModelDiscoveryProviderTests: XCTestCase {
         XCTAssertEqual(claude.boundSeat?.driverId, "claude_code")
         XCTAssertEqual(claude.boundSeat?.id, "discovered_claude_code_gpt_oss_20b")
         XCTAssertTrue(claude.automaticCodeOffer)
-        XCTAssertFalse(claude.disclosures.contains { $0.contains("has not passed G1") })
+        XCTAssertFalse(claude.disclosures.contains { $0.contains("Allnighter has not tested this model") })
         XCTAssertFalse(claude.disclosures.contains { $0.contains("below") })
     }
 

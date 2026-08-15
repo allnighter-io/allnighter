@@ -20,13 +20,16 @@ public enum LoopLocalSeatPolicy {
         servedContextWindow: Int? = nil
     ) -> String? {
         guard isOllamaBacked(model) else { return nil }
-        var text =
-            "PM seat \(model.id) is local provenance (\(OllamaLocalRuntimeClient.sourceId), \(model.modelLabel))"
+        var sentences = [
+            "\(model.displayName) runs on your Mac through Ollama."
+        ]
         if let servedContextWindow {
-            text += "; served context window \(servedContextWindow)"
+            sentences.append(
+                "This model has a \(LocalRuntimeAdvisory.formatContextSize(servedContextWindow)) context."
+            )
         }
-        text += ". Explicit pin proceeds."
-        return text
+        sentences.append("You pinned it as the Loop lead.")
+        return sentences.joined(separator: " ")
     }
 
     /// Served window from an observed `/api/ps` row. Nil when unobserved —
