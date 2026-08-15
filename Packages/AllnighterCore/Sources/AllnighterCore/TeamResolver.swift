@@ -81,7 +81,9 @@ public enum TeamResolver {
         requestEffort: EffortLevel?,
         readyModels: [Model],
         capabilities: (String) -> ModelCapabilities = ModelCatalog.capabilities,
-        skill: (String) -> Skill? = SkillCatalog.skill
+        skill: (String) -> Skill? = SkillCatalog.skill,
+        catalogModels: [Model] = [],
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil
     ) -> ResolvedTeamRun {
         let effort = requestEffort ?? team.defaultEffort
         var result = ResolvedTeamRun(
@@ -167,6 +169,26 @@ public enum TeamResolver {
             }
         }
 
+        func preferredUnavailableWarning(
+            skillName: String,
+            preferred: String,
+            substitute: Model
+        ) -> String {
+            if let pin = LocalSeatPinHonesty.lookupPin(
+                id: preferred, ready: readyModels, catalogModels: catalogModels
+            ), LocalSeatPinHonesty.isLocalSeat(pin) {
+                return LocalSeatPinHonesty.substitutionWarning(
+                    skillName: skillName,
+                    pinId: preferred,
+                    pinLabel: pin.modelLabel,
+                    sensorReading: LocalSeatPinHonesty.sensorReading(
+                        modelLabel: pin.modelLabel, snapshot: ollamaLocal),
+                    substituteDisplayName: substitute.displayName
+                )
+            }
+            return "\(skillName): preferred \(preferred) unavailable; resolved to \(substitute.displayName)."
+        }
+
         func claim(_ model: Model, capabilityOnly: Bool) {
             if capabilityOnly {
                 diversityUsed.formUnion(ModelCatalog.diversityExclusionIds(for: model.id))
@@ -187,7 +209,14 @@ public enum TeamResolver {
                 avoidFamilies: familyUsed, avoidDrivers: driversUsed
             ) {
                 if let pref = scoutSpec.preferredModelId, pref != model.model.id {
-                    warnings.append("\(scoutSkillName): preferred scout \(pref) unavailable; resolved to \(model.model.displayName).")
+                    if let pin = LocalSeatPinHonesty.lookupPin(
+                        id: pref, ready: readyModels, catalogModels: catalogModels
+                    ), LocalSeatPinHonesty.isLocalSeat(pin) {
+                        warnings.append(preferredUnavailableWarning(
+                            skillName: scoutSkillName, preferred: pref, substitute: model.model))
+                    } else {
+                        warnings.append("\(scoutSkillName): preferred scout \(pref) unavailable; resolved to \(model.model.displayName).")
+                    }
                 }
                 scoutWorker = makeWorker(
                     model.model, row: scoutSpec, skillName: scoutSkillName, stage: .scout,
@@ -241,7 +270,8 @@ public enum TeamResolver {
                     continue
                 }
                 if let preferred = row.preferredModelId, preferred != model.model.id {
-                    warnings.append("\(skillName): preferred \(preferred) unavailable; resolved to \(model.model.displayName).")
+                    warnings.append(preferredUnavailableWarning(
+                        skillName: skillName, preferred: preferred, substitute: model.model))
                 }
                 if row.preferredModelId == nil {
                     noteReuse(model.model, skillName: skillName)
@@ -285,6 +315,15 @@ public enum TeamResolver {
                 purpose: .plan,
                 seatingReason: pick.reason
             )
+            if let preferred = lead.preferredModelId, preferred != pick.model.id {
+                let leadName = leadSkill?.displayName ?? lead.skillId
+                if let pin = LocalSeatPinHonesty.lookupPin(
+                    id: preferred, ready: readyModels, catalogModels: catalogModels
+                ), LocalSeatPinHonesty.isLocalSeat(pin) {
+                    warnings.append(preferredUnavailableWarning(
+                        skillName: leadName, preferred: preferred, substitute: pick.model))
+                }
+            }
         }
 
         // Self-fusion / admission warnings (honest, never an estimate).
@@ -440,9 +479,15 @@ public enum TeamResolver {
             guard let homeDriver else { return true }
             return m.driverId == homeDriver
         }
-        if let reserved = reserveModelId,
-           pool.contains(where: { $0.id != reserved && hasTags($0) && autoOK($0) && homeOK($0) }) {
-            pool.removeAll { $0.id == reserved }
+        if let reserved = reserveModelId {
+            // An explicit local pin is not reserved away from the Lead —
+            // S00 pinned both lead and crew to the same seated local id.
+            let localPinIsReserved = preferredModelId == reserved
+                && pool.first(where: { $0.id == reserved }).map(LocalSeatPinHonesty.isLocalSeat) == true
+            if !localPinIsReserved,
+               pool.contains(where: { $0.id != reserved && hasTags($0) && autoOK($0) && homeOK($0) }) {
+                pool.removeAll { $0.id == reserved }
+            }
         }
         // Band-aware exclusion: bestBand is the best caliber still available among
         // *unclaimed* candidates. If every capable model is already claimed, fall

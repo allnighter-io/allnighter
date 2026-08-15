@@ -90,7 +90,8 @@ public enum TeamExplicitSeats {
 
         var base = TeamResolver.resolve(
             team: team, requestLane: lane, requestEffort: effort, readyModels: readyModels,
-            capabilities: capabilities, skill: skill
+            capabilities: capabilities, skill: skill,
+            catalogModels: models
         )
 
         let readyIds = Set(readyModels.filter(\.enabled).map(\.id))

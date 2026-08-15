@@ -754,6 +754,18 @@ The hypothesis that `MenuCLI` → `modelListJSON(observeOllamaReadiness: false)`
 
 S01b's job (menu `localRuntime`, observe Ollama on that builder, `drivers --json` pointer, contract bump) does not pass a snapshot into `ToolRuntime.readyModels`. Wire that snapshot on a later slice — not here.
 
+### LR-S04b — run ready-set observes Ollama (2026-08-14)
+
+`ToolRuntime.benchReadySet` takes one `OllamaLocalDoctorReport.snapshotIfAllowed` per invocation and passes it into `BenchReadiness.readyModels`. Tests still get `nil` (no socket). A seated+enabled local row with Ollama reachable and the body CLI installed is in the ready-set, so `models --json` / `menu --json` / dry-run agree.
+
+**S00 Q3 now passes (fixture).** A Team with `preferredModelId` on a seated local id, Ollama observed reachable, resolves to the **local** seat, not Opus. S00 pinned both Lead and crew to the same id; Lead reservation must not hide that explicit local pin. Proof: `LocalRuntimeSurfaceS04bTests.testS00Q3PinnedLocalResolvesWhenOllamaObserved`.
+
+**Substitution honesty (local pin only).** When the sensor still excludes the pin, TeamResolver does not keep the buried `preferred <id> unavailable; resolved to Opus 5` line. It emits `LOCAL PIN SUBSTITUTED:` naming the pin id + `ollama/<tag>` label, the sensor reading (`Ollama unobserved` / `Ollama not reachable` / `tag not present locally: …`), and the paid substitute. Paid-pin fallback wording is unchanged.
+
+**Founder question (not implemented):** the same buried warning still fires for a *paid* preferred pin that a sensor calls unavailable (`TeamResolverTests.testPreferredUnavailableFallsBackAndWarns`). If the general rule is also wrong — never silently reseat any explicit pin — say so; this slice did not rewrite it.
+
+Contract stays 10.8.0; `binaryVersion` 1.1.15. No wire change.
+
 ---
 
 ## AGENTS.md routing

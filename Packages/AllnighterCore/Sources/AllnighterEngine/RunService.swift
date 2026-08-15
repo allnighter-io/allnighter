@@ -1258,7 +1258,8 @@ public actor RunService {
         conversationId: String? = nil,
         messageId: String? = nil,
         governorAvailable: Bool = true,
-        governorBlockedReason: String? = nil
+        governorBlockedReason: String? = nil,
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil
     ) async -> RunDryRunJSON {
         let root = RunWriteLock.normalize(request.repoRoot) ?? request.repoRoot
         let teamsForResolution = teams.isEmpty ? TeamCatalog.all : teams
@@ -1322,7 +1323,8 @@ public actor RunService {
                 writeLockHeld: writeLockHeld,
                 governorAvailable: governorAvailable,
                 governorBlockedReason: governorBlockedReason,
-                driverSpawnLimits: driverSpawnLimits()
+                driverSpawnLimits: driverSpawnLimits(),
+                ollamaLocal: ollamaLocal
             )
         )
         var payload = resolved.makeDryRunJSON()

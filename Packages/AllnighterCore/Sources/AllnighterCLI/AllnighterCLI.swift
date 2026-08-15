@@ -3067,19 +3067,34 @@ struct ToolRuntime {
     /// driver is not capacity-cooling from recent failed runs. Missing setup is
     /// unknown, not ready; cooling Claude/Codex/etc. must not look "ready" in
     /// preflight just because a stale smoke said the binary was found.
-    var readyModels: [Model] {
-        if let readyModelsOverride { return readyModelsOverride }
+    ///
+    /// One Ollama snapshot per call — never a socket per seat. Tests receive
+    /// `nil` via `snapshotIfAllowed` (no loopback).
+    var readyModels: [Model] { benchReadySet().models }
+
+    func benchReadySet(now: Date = Date()) -> (
+        models: [Model],
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot?
+    ) {
+        if let readyModelsOverride { return (readyModelsOverride, nil) }
         let records = SetupStore().load().records
         let parked = SetupStore().load().parkedSet
         let observations = BenchReadiness.recentObservations(from: RunStore().list())
         let cooling = BenchReadiness.coolingDriverIds(observations: observations)
-        return BenchReadiness.readyModels(
+        let snapshot = OllamaLocalDoctorReport.snapshotIfAllowed(
+            transport: nil,
+            observedAt: now,
+            isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+        )
+        let ready = BenchReadiness.readyModels(
             models: models,
             probeRecords: records,
             coolingDriverIds: cooling,
             parkedDriverIds: parked,
-            knownDriverIds: Set(registry.all.map(\.id))
+            knownDriverIds: Set(registry.all.map(\.id)),
+            ollamaLocal: snapshot
         )
+        return (ready, snapshot)
     }
 
     private static func loadConfig() -> ToolConfig {

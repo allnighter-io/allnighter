@@ -225,6 +225,8 @@ public struct RunInvocationResolveContext: Sendable {
     /// CHS-S02 — `DriverManifest.maxConcurrentSpawns` by `driverId`, for drivers that
     /// declare a limit. Absent key = parallel-safe (unlimited).
     public var driverSpawnLimits: [String: Int]
+    /// One Ollama snapshot for the ready-set + local-pin honesty (LR-S04b).
+    public var ollamaLocal: OllamaLocalRuntimeObserver.Snapshot?
 
     public init(
         models: [Model],
@@ -237,7 +239,8 @@ public struct RunInvocationResolveContext: Sendable {
         writeLockHeld: Bool? = nil,
         governorAvailable: Bool = true,
         governorBlockedReason: String? = nil,
-        driverSpawnLimits: [String: Int] = [:]
+        driverSpawnLimits: [String: Int] = [:],
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil
     ) {
         self.models = models
         self.teams = teams.isEmpty ? TeamCatalog.all : teams
@@ -251,6 +254,7 @@ public struct RunInvocationResolveContext: Sendable {
         self.governorAvailable = governorAvailable
         self.governorBlockedReason = governorBlockedReason
         self.driverSpawnLimits = driverSpawnLimits
+        self.ollamaLocal = ollamaLocal
     }
 }
 
@@ -616,7 +620,9 @@ public enum RunInvocationResolver {
                 blockedSeatCount = explicitSeatModelIds.count
                 teamResolved = TeamResolver.resolve(
                     team: preset, requestLane: lane, requestEffort: effort,
-                    readyModels: context.readyModels
+                    readyModels: context.readyModels,
+                    catalogModels: context.models,
+                    ollamaLocal: context.ollamaLocal
                 )
             case .success(let resolved):
                 teamResolved = resolved
@@ -624,7 +630,9 @@ public enum RunInvocationResolver {
         } else {
             teamResolved = TeamResolver.resolve(
                 team: preset, requestLane: lane, requestEffort: effort,
-                readyModels: context.readyModels
+                readyModels: context.readyModels,
+                catalogModels: context.models,
+                ollamaLocal: context.ollamaLocal
             )
         }
         TeamSourceFacts.enrich(&teamResolved, models: context.models)

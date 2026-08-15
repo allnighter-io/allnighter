@@ -482,14 +482,16 @@ enum RunCLI {
             teams: runtime.teams,
             invocations: runtime.invocations
         )
+        let bench = runtime.benchReadySet()
         let payload = await service.dryRun(
             request,
-            readyModels: runtime.readyModels,
+            readyModels: bench.models,
             agent: opts.value("agent"),
             conversationId: opts.value("conversation-id"),
             messageId: opts.value("message-id"),
             governorAvailable: governorAvailable,
-            governorBlockedReason: governorBlockedReason
+            governorBlockedReason: governorBlockedReason,
+            ollamaLocal: bench.ollamaLocal
         )
         print(AllnighterCLI.jsonString(payload))
     }
