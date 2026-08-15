@@ -1,37 +1,55 @@
 import Foundation
 
-/// LR-S04b — local-pin substitution must name the pin, the Ollama sensor
-/// reading, and the substitute. Paid-pin fallback wording is unchanged.
+/// One honesty standard for preferred-pin substitution, local or paid.
+/// Cross-boundary automatic substitution is refused (Project_Laws
+/// §Local and cloud seats, 2026-08-15).
 public enum LocalSeatPinHonesty {
     public static func isLocalSeat(_ model: Model) -> Bool {
         ModelCatalog.isLocalAutomaticSubstitute(
             driverId: model.driverId, modelLabel: model.modelLabel)
     }
 
-    /// Human sensor line. Nil snapshot is unobserved, never a guessed Available.
+    public static func sameSide(_ a: Model, _ b: Model) -> Bool {
+        isLocalSeat(a) == isLocalSeat(b)
+    }
+
+    public static func filterSameSide(as pin: Model, in models: [Model]) -> [Model] {
+        models.filter { sameSide(pin, $0) }
+    }
+
+    /// Human reason clause after "which is unavailable because …".
+    /// Nil snapshot is unobserved, never a guessed Available.
     public static func sensorReading(
         modelLabel: String,
         snapshot: OllamaLocalRuntimeObserver.Snapshot?
     ) -> String {
-        guard let snapshot else { return "Ollama unobserved" }
-        if snapshot.ollamaVersion == nil { return "Ollama not reachable" }
+        guard let snapshot else { return "Allnighter has not checked Ollama yet" }
+        if snapshot.ollamaVersion == nil { return "Ollama is not reachable" }
         if !OpenCodeLocalSeatReadiness.tagIsPresentLocally(
             modelLabel: modelLabel, snapshot: snapshot
         ) {
-            let tag = OpenCodeLocalSeatReadiness.ollamaTag(from: modelLabel) ?? modelLabel
-            return "tag not present locally: \(tag)"
+            return "that model is not on this Mac"
         }
-        return "excluded from ready-set"
+        return "it is not ready"
     }
 
     public static func substitutionWarning(
         skillName: String,
         pinId: String,
-        pinLabel: String,
-        sensorReading: String,
+        pinDisplayName: String,
+        unavailableBecause: String?,
         substituteDisplayName: String
     ) -> String {
-        "LOCAL PIN SUBSTITUTED: \(skillName) preferred \(pinId) (\(pinLabel)) — sensor: \(sensorReading); substituted paid seat \(substituteDisplayName)."
+        var sentence = "\(skillName) asked for \(pinDisplayName) (\(pinId)), which is unavailable"
+        if let unavailableBecause, !unavailableBecause.isEmpty {
+            sentence += " because \(unavailableBecause)"
+        }
+        sentence += ". Allnighter is using \(substituteDisplayName) instead."
+        return sentence
+    }
+
+    public static func unavailableRefusal(pinId: String, pinDisplayName: String) -> String {
+        "\(pinDisplayName) is unavailable. Run alln menu --json to pick another model."
     }
 
     public static func lookupPin(

@@ -32,7 +32,7 @@ The `alln` CLI is the product. The Mac app is the same bench with a floor. You c
 curl -fsSL https://get.allnighter.io | sh
 ```
 
-macOS. Signed and notarized. Current floor: CLI **1.1.16** + Mac app **1.1.5**.
+macOS. Signed and notarized. Current floor: CLI **1.1.17** + Mac app **1.1.5**.
 
 Then, from the repo you actually work in:
 

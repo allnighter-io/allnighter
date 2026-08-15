@@ -134,11 +134,14 @@ public enum VendorSubstitutionPolicy {
 
         guard let failed = models.first(where: { $0.id == failedModelId }) else { return nil }
         let visited = visitedSourceIds(from: run.attempts)
+        let failedIsLocal = LocalSeatPinHonesty.isLocalSeat(failed)
         let pool = readyModels.filter { model in
             model.id != failedModelId
                 && !visited.contains(model.driverId)
                 && !coolingSourceIds.contains(model.driverId)
-                && ModelCatalog.allowsAutomaticSubstitution(model)
+                && LocalSeatPinHonesty.sameSide(failed, model)
+                && (ModelCatalog.allowsAutomaticSubstitution(model)
+                    || (failedIsLocal && LocalSeatPinHonesty.isLocalSeat(model)))
         }
         guard !pool.isEmpty else { return nil }
 

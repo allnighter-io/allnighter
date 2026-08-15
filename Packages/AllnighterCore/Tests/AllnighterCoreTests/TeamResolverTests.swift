@@ -53,7 +53,10 @@ final class TeamResolverTests: XCTestCase {
         let r = TeamResolver.resolve(team: t, requestLane: .code, requestEffort: .low,
                                      readyModels: [opus(), chatgpt54])
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_gpt_54")
-        XCTAssertTrue(r.warnings.contains { $0.contains("preferred model_gpt_sol unavailable") })
+        XCTAssertTrue(r.warnings.contains {
+            $0.contains("asked for") && $0.contains("model_gpt_sol") && $0.contains("unavailable")
+                && $0.contains("GPT-5.4")
+        })
         XCTAssertEqual(r.answerWorkers.first?.substitutedFromModelId, "model_gpt_sol")
         XCTAssertTrue(r.isRunnable)
     }
@@ -725,5 +728,106 @@ final class TeamResolverTests: XCTestCase {
         XCTAssertEqual(r.answerWorkers.first?.modelId, "model_gpt_sol",
                        "laneCapable must seat a lane-ready model when the home driver is down")
         XCTAssertEqual(r.answerWorkers.first?.substitutedFromModelId, "model_cursor_composer_25")
+    }
+
+    // MARK: - Local/cloud boundary (2026-08-15)
+
+    func testPinnedLocalIsNeverReplacedByCloudAndPinnedCloudIsNeverReplacedByLocal() {
+        let local = Model(
+            id: "custom_claude_code_qwen38_27b_local",
+            displayName: "Qwen3.8 27B local",
+            modelLabel: "ollama/qwen3.8:27b-mlx",
+            driverId: "claude_code",
+            role: .answerer,
+            enabled: true
+        )
+        let opusModel = opus()
+
+        let localPin = team(rows: [
+            TeamAgentSpec(
+                id: "r1", skillId: "regression_guard",
+                preferredModelId: local.id,
+                fallbackModelIds: ["model_opus"],
+                fallbackPolicy: .anyReady)
+        ])
+        let localOut = TeamResolver.resolve(
+            team: localPin, requestLane: .code, requestEffort: .low,
+            readyModels: [opusModel],
+            catalogModels: [local, opusModel]
+        )
+        XCTAssertTrue(localOut.answerWorkers.isEmpty)
+        XCTAssertNotEqual(localOut.answerWorkers.first?.modelId, "model_opus")
+        XCTAssertFalse(localOut.isRunnable)
+        XCTAssertTrue(
+            (localOut.blockReason ?? "").contains("Qwen3.8 27B local is unavailable"),
+            localOut.blockReason ?? ""
+        )
+        XCTAssertTrue(
+            (localOut.blockReason ?? "").contains("alln menu --json"),
+            localOut.blockReason ?? ""
+        )
+
+        let cloudPin = team(rows: [
+            TeamAgentSpec(
+                id: "r1", skillId: "regression_guard",
+                preferredModelId: "model_opus",
+                fallbackModelIds: [local.id],
+                fallbackPolicy: .anyReady)
+        ])
+        let cloudOut = TeamResolver.resolve(
+            team: cloudPin, requestLane: .code, requestEffort: .low,
+            readyModels: [local],
+            catalogModels: [local, opusModel]
+        )
+        XCTAssertTrue(cloudOut.answerWorkers.isEmpty)
+        XCTAssertNotEqual(cloudOut.answerWorkers.first?.modelId, local.id)
+        XCTAssertFalse(cloudOut.isRunnable)
+        XCTAssertTrue(
+            (cloudOut.blockReason ?? "").contains("Opus 5 is unavailable"),
+            cloudOut.blockReason ?? ""
+        )
+        XCTAssertTrue(
+            (cloudOut.blockReason ?? "").contains("alln menu --json"),
+            cloudOut.blockReason ?? ""
+        )
+    }
+
+    func testSameSideLocalSubstitutionStaysLocalAndIsHonest() {
+        let missing = Model(
+            id: "custom_claude_code_qwen38_27b_local",
+            displayName: "Qwen3.8 27B local",
+            modelLabel: "ollama/qwen3.8:27b-mlx",
+            driverId: "claude_code",
+            role: .answerer,
+            enabled: true
+        )
+        let other = Model(
+            id: "custom_claude_code_gpt_oss_20b_local",
+            displayName: "gpt-oss 20B local",
+            modelLabel: "ollama/gpt-oss:20b",
+            driverId: "claude_code",
+            role: .answerer,
+            enabled: true
+        )
+        let t = team(rows: [
+            TeamAgentSpec(
+                id: "r1", skillId: "regression_guard",
+                preferredModelId: missing.id,
+                fallbackPolicy: .anyReady)
+        ])
+        let r = TeamResolver.resolve(
+            team: t, requestLane: .code, requestEffort: .low,
+            readyModels: [other, opus()],
+            catalogModels: [missing, other, opus()]
+        )
+        XCTAssertTrue(r.isRunnable)
+        XCTAssertEqual(r.answerWorkers.first?.modelId, other.id)
+        XCTAssertTrue(r.warnings.contains {
+            $0.contains("asked for Qwen3.8 27B local")
+                && $0.contains(missing.id)
+                && $0.contains("gpt-oss 20B local")
+        })
+        XCTAssertFalse(r.warnings.contains { $0.contains("LOCAL PIN SUBSTITUTED") })
+        XCTAssertFalse(r.warnings.contains { $0.contains("preferred \(missing.id) unavailable; resolved to") })
     }
 }

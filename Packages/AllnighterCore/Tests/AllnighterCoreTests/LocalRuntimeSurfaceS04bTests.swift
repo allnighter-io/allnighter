@@ -61,7 +61,7 @@ final class LocalRuntimeSurfaceS04bTests: XCTestCase {
         XCTAssertNotEqual(resolved.answerWorkers.first?.modelId, "model_opus")
         XCTAssertFalse(resolved.warnings.contains { $0.contains("unavailable") })
         XCTAssertFalse(resolved.warnings.contains { $0.contains("LOCAL PIN SUBSTITUTED") })
-        XCTAssertFalse(resolved.warnings.contains { $0.contains("Opus 5") && $0.contains("preferred") })
+        XCTAssertFalse(resolved.warnings.contains { $0.contains("asked for") && $0.contains("Opus 5") })
     }
 
     func testNilSnapshotKeepsLocalOutOfReadySet() {
@@ -76,9 +76,9 @@ final class LocalRuntimeSurfaceS04bTests: XCTestCase {
         XCTAssertTrue(ready.contains(where: { $0.id == "model_opus" }))
     }
 
-    // MARK: - Substitution honesty (local pin only)
+    // MARK: - Local/cloud boundary (2026-08-15)
 
-    func testLocalPinSubstitutionNamesPinSensorAndPaidSubstitute() {
+    func testPinnedLocalIsNeverReplacedByCloudSeat() {
         let local = seatedLocal()
         let opus = opusModel()
         let snapshot = OllamaLocalRuntimeObserver.Snapshot(
@@ -102,19 +102,36 @@ final class LocalRuntimeSurfaceS04bTests: XCTestCase {
             catalogModels: [local, opus],
             ollamaLocal: snapshot
         )
-        XCTAssertEqual(resolved.answerWorkers.first?.modelId, "model_opus")
-        let warning = resolved.warnings.first { $0.contains("LOCAL PIN SUBSTITUTED") }
-        XCTAssertNotNil(warning)
-        XCTAssertTrue(warning?.contains(localId) == true, "must name the pin")
-        XCTAssertTrue(warning?.contains(localLabel) == true)
-        XCTAssertTrue(warning?.contains("Ollama not reachable") == true, "must name the sensor")
-        XCTAssertTrue(warning?.contains("Opus 5") == true, "must name the substitute")
-        XCTAssertFalse(resolved.warnings.contains {
-            $0.contains("preferred \(localId) unavailable; resolved to")
-        })
+        XCTAssertNotEqual(resolved.answerWorkers.first?.modelId, "model_opus")
+        XCTAssertTrue(resolved.answerWorkers.isEmpty)
+        XCTAssertFalse(resolved.isRunnable)
+        let reason = resolved.blockReason ?? ""
+        XCTAssertTrue(reason.contains("Qwen3.8 27B local is unavailable"), reason)
+        XCTAssertTrue(reason.contains("alln menu --json"), reason)
+        XCTAssertEqual(local.modelLabel, localLabel)
+        XCTAssertFalse(resolved.warnings.contains { $0.contains("LOCAL PIN SUBSTITUTED") })
     }
 
-    func testUnobservedLocalPinNamesUnobservedSensor() {
+    func testPinnedCloudIsNeverReplacedByLocalSeat() {
+        let local = seatedLocal()
+        let opus = opusModel()
+        let resolved = TeamResolver.resolve(
+            team: pinnedDocReview(preferred: "model_opus"),
+            requestLane: .code,
+            requestEffort: .med,
+            readyModels: [local],
+            capabilities: capabilities,
+            catalogModels: [local, opus]
+        )
+        XCTAssertNotEqual(resolved.answerWorkers.first?.modelId, localId)
+        XCTAssertTrue(resolved.answerWorkers.isEmpty)
+        XCTAssertFalse(resolved.isRunnable)
+        let reason = resolved.blockReason ?? ""
+        XCTAssertTrue(reason.contains("Opus 5 is unavailable"), reason)
+        XCTAssertTrue(reason.contains("alln menu --json"), reason)
+    }
+
+    func testUnobservedLocalPinRefusesCloudSubstitute() {
         let local = seatedLocal()
         let opus = opusModel()
         let resolved = TeamResolver.resolve(
@@ -126,31 +143,12 @@ final class LocalRuntimeSurfaceS04bTests: XCTestCase {
             catalogModels: [local, opus],
             ollamaLocal: nil
         )
-        XCTAssertEqual(resolved.answerWorkers.first?.modelId, "model_opus")
-        let warning = resolved.warnings.first { $0.contains("LOCAL PIN SUBSTITUTED") }
-        XCTAssertTrue(warning?.contains("Ollama unobserved") == true)
-        XCTAssertTrue(warning?.contains(localId) == true)
-        XCTAssertTrue(warning?.contains("Opus 5") == true)
+        XCTAssertTrue(resolved.answerWorkers.isEmpty)
+        XCTAssertFalse(resolved.isRunnable)
+        XCTAssertTrue((resolved.blockReason ?? "").contains("Qwen3.8 27B local is unavailable"))
     }
 
-    func testTagMissingLocalPinNamesTagSensor() {
-        let local = seatedLocal()
-        let opus = opusModel()
-        let snapshot = reachableSnapshot(tags: ["gpt-oss:20b"])
-        let resolved = TeamResolver.resolve(
-            team: pinnedDocReview(preferred: localId),
-            requestLane: .code,
-            requestEffort: .med,
-            readyModels: [opus],
-            capabilities: capabilities,
-            catalogModels: [local, opus],
-            ollamaLocal: snapshot
-        )
-        let warning = resolved.warnings.first { $0.contains("LOCAL PIN SUBSTITUTED") }
-        XCTAssertTrue(warning?.contains("tag not present locally: qwen3.8:27b-mlx") == true)
-    }
-
-    func testPaidPreferredUnavailableKeepsBuriedWarning() {
+    func testPaidPreferredUnavailableUsesSameHonestyDisclosure() {
         let chatgpt54 = Model(
             id: "model_gpt_54", displayName: "GPT-5.4",
             modelLabel: "gpt-5.4", driverId: "codex", role: .answerer
@@ -174,8 +172,11 @@ final class LocalRuntimeSurfaceS04bTests: XCTestCase {
             readyModels: [opus, chatgpt54]
         )
         XCTAssertEqual(resolved.answerWorkers.first?.modelId, "model_gpt_54")
-        XCTAssertTrue(resolved.warnings.contains { $0.contains("preferred model_gpt_sol unavailable") })
+        XCTAssertTrue(resolved.warnings.contains {
+            $0.contains("asked for") && $0.contains("model_gpt_sol") && $0.contains("GPT-5.4")
+        })
         XCTAssertFalse(resolved.warnings.contains { $0.contains("LOCAL PIN SUBSTITUTED") })
+        XCTAssertFalse(resolved.warnings.contains { $0.contains("preferred model_gpt_sol unavailable; resolved to") })
     }
 
     // MARK: - Helpers

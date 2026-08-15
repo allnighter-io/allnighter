@@ -86,12 +86,43 @@ routes through `ProbeRecordMerge`.
 Readiness, health, capacity, provenance, and other derived-state instruments
 **inform**; they never **block** an explicit request. The owner's request takes
 precedence and fails loudly if it fails. Parked driver, disabled model, unknown
-model id, and the per-root write lock still refuse (user intent / real
-invariants); sensor readings alone never veto. **Provenance is not a
-refuse-class** — an explicit Loop `--pm` of a local Ollama-backed seat discloses
-local provenance and served context once, then proceeds (`ab86226e`;
+model id, the per-root write lock, and a local/cloud seat substitution (see
+§Local and cloud seats) still refuse (user intent / real invariants); sensor
+readings alone never veto. **Provenance is not a refuse-class** — an explicit
+Loop `--pm` of a local Ollama-backed seat discloses local provenance and served
+context once, then proceeds (`ab86226e`;
 `docs/archive/phases/OpenCode_Local_Ollama_Seats.md`). Allnighter does not decide
 which model is worthy of leading.
+
+## Local and cloud seats (2026-08-15)
+
+Founder ruling (2026-08-15): "NEVER substitute a CLOUD with a LOCAL seat and
+vise versa. They are so different it is not just about capability but also
+about speed."
+
+Automatic substitution must never cross the local/cloud boundary, in either
+direction. Not for an explicit pin, not for capability staffing, not for
+fallback. Today's one-way guard (a local seat is never substituted *in*) is
+not enough: a local seat substituted *out* to a paid seat is the S00 Q3 bug
+(`docs/phases/Local_Runtime_Surface.md` §10) — a pinned free local model
+silently resolved to Opus 5.
+
+When the only remaining candidate would cross that boundary, refuse. Do not
+substitute. The refusal names the model that was asked for, says it is
+unavailable, and gives the command to pick another.
+
+Same-side substitution (cloud to cloud, local to local) still proceeds, with
+one honesty disclosure for both. A buried warning for paid pins and a loud
+one for local pins is the same lie-prone split.
+
+This refusal is user intent, not a sensor veto. It sits with the per-root
+write lock, parked drivers, disabled models, and unknown model ids. It does
+not weaken "sensors inform, never block": Allnighter is not refusing because
+a sensor is unhappy. Allnighter is refusing to hand the user a fundamentally
+different product than they asked for.
+
+Code SSOT: `TeamResolver.selectModel`, `LocalSeatPinHonesty`,
+`VendorSubstitutionPolicy`, `SeatReseat`.
 
 ## Local Ollama seats
 

@@ -608,13 +608,10 @@ Firewall and Second Mac still do not block this ladder.
    pass.** `scripts/check_gui_proof.sh` itself prescribes spawning it
    after `gui_proof.sh` (step 1 of the fail text). No pixel has been
    looked at; the watcher was not spawned.
-5. **Paid-pin substitution law** (§10 LR-S04b). Local-pin fallback is
-   loud (`LOCAL PIN SUBSTITUTED:`). The buried
-   `preferred <id> unavailable; resolved to Opus 5` warning still fires
-   for a **paid** preferred pin a sensor calls unavailable
-   (`TeamResolverTests.testPreferredUnavailableFallsBackAndWarns`). If
-   the general rule is also wrong — never silently reseat any explicit
-   pin — say so. This packet did not rewrite it.
+5. **Paid-pin substitution law** — **ruled 2026-08-15.** Never substitute
+   a cloud seat with a local seat or the other way around. Same-side
+   substitution keeps one honesty disclosure for both. Promoted:
+   `docs/operations/Project_Laws.md` §Local and cloud seats.
 
 ---
 
@@ -879,11 +876,19 @@ S01b's job (menu `localRuntime`, observe Ollama on that builder, `drivers --json
 
 **S00 Q3 now passes (fixture).** A Team with `preferredModelId` on a seated local id, Ollama observed reachable, resolves to the **local** seat, not Opus. S00 pinned both Lead and crew to the same id; Lead reservation must not hide that explicit local pin. Proof: `LocalRuntimeSurfaceS04bTests.testS00Q3PinnedLocalResolvesWhenOllamaObserved`.
 
-**Substitution honesty (local pin only).** When the sensor still excludes the pin, TeamResolver does not keep the buried `preferred <id> unavailable; resolved to Opus 5` line. It emits `LOCAL PIN SUBSTITUTED:` naming the pin id + `ollama/<tag>` label, the sensor reading (`Ollama unobserved` / `Ollama not reachable` / `tag not present locally: …`), and the paid substitute. Paid-pin fallback wording is unchanged.
+**Substitution honesty (superseded 2026-08-15).** LR-S04b made local-pin fallback loud and left paid-pin fallback buried. Founder law now forbids crossing the local/cloud boundary at all, and requires one honesty disclosure for same-side substitution. See the 2026-08-15 addendum below.
 
-**Founder question (not implemented):** the same buried warning still fires for a *paid* preferred pin that a sensor calls unavailable (`TeamResolverTests.testPreferredUnavailableFallsBackAndWarns`). If the general rule is also wrong — never silently reseat any explicit pin — say so; this slice did not rewrite it.
+**Founder question (answered 2026-08-15):** never silently reseat any explicit pin onto the other side of the local/cloud boundary. Refuse. Same-side substitution stays, with one honesty standard.
 
 Contract stays 10.9.0; `binaryVersion` 1.1.15. No wire change.
+
+### Local/cloud substitution law (2026-08-15)
+
+Founder ruling (2026-08-15): "NEVER substitute a CLOUD with a LOCAL seat and vise versa. They are so different it is not just about capability but also about speed."
+
+Promoted to `docs/operations/Project_Laws.md` §Local and cloud seats. This is a product invariant, not a packet detail. Contract stays 10.9.0. `binaryVersion` 1.1.17.
+
+S00 Q3 was local-out: a pinned free local model silently resolved to Opus 5. The ollama-label guard from `7e71b7ec` only stopped a local seat being substituted in. Both directions now refuse when the only candidate would cross. Same-side (cloud to cloud, local to local) still proceeds, with one honesty disclosure. The refusal names the asked-for model, says it is unavailable, and points at `alln menu --json`. User intent, not a sensor veto — same refuse-class as the write lock and parked drivers.
 
 ### LR-S03 — `opencode-local status` observes `/api/tags` (2026-08-14)
 

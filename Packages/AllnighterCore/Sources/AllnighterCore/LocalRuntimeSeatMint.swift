@@ -173,11 +173,11 @@ public enum LocalRuntimeSeatMint {
             break
         case .reclaimed(let pid, _):
             lines.append(
-                "Recycled leftover opencode serve (pid \(pid)) so new tags are visible to alln run."
+                "Allnighter restarted a leftover OpenCode serve (process \(pid)) so new models are visible to alln run."
             )
         case .refusedAllnServe(let pid, _):
             lines.append(
-                "Port \(OpenCodeLeftoverServeReclaim.defaultPort) is alln serve (pid \(pid)) — not stopping it."
+                "Port \(OpenCodeLeftoverServeReclaim.defaultPort) is already used by Allnighter serve (process \(pid)). Allnighter left it running."
             )
         case .skippedForeign, .skippedUnreadableCommand:
             lines.append(

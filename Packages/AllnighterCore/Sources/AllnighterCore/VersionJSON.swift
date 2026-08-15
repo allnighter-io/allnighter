@@ -191,8 +191,12 @@ import Foundation
 /// tags stay on `source.ollama_local.models`. `alln models delete` unregisters
 /// the tag from `opencode.json` when no remaining OpenCode seat needs it and
 /// discloses the removal. Same contract 10.9.0.
+///
+/// **1.1.16 → 1.1.17 (local/cloud substitution boundary).** Automatic
+/// substitution never crosses local and cloud seats in either direction.
+/// Same-side fallback keeps one honesty disclosure. Same contract 10.9.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.16"
+    public static let binaryVersion = "1.1.17"
 }
 
 /// `alln version` / `alln --version` machine contract.

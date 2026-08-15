@@ -81,7 +81,7 @@ final class LocalRuntimeSurfaceS02bTests: XCTestCase {
             assessment.disclosures.joined(separator: " | ")
         )
         XCTAssertTrue(
-            assessment.disclosures.contains { $0.contains("Recycled leftover opencode serve") },
+            assessment.disclosures.contains { $0.contains("Allnighter restarted a leftover OpenCode serve") },
             assessment.disclosures.joined(separator: " | ")
         )
         XCTAssertEqual(table.terminated, [42_424])
@@ -114,7 +114,9 @@ final class LocalRuntimeSurfaceS02bTests: XCTestCase {
         )
 
         XCTAssertTrue(
-            assessment.disclosures.contains { $0.contains("alln serve") && $0.contains("not stopping") },
+            assessment.disclosures.contains {
+                $0.contains("Allnighter serve") && $0.contains("left it running")
+            },
             assessment.disclosures.joined(separator: " | ")
         )
         XCTAssertTrue(table.terminated.isEmpty)

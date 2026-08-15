@@ -63,6 +63,7 @@ Read the relevant doc before changing that area.
 | Capacity (`alln capacity`), automated seat selection, invented verdict, vendor park/substitute, probe freshness | **Automated seat selection KILLED 2026-08-12.** `alln capacity` is daily-use — the founder reads the strip and routes by hand. Never degrade acquisition; "no code consumer" ≠ "no consumer". Full law: `docs/operations/Project_Laws.md` §§Capacity, Vendor signals, Bench tally. Vocab: `docs/workflows/Product_Vocabulary.md` §§Capacity, Quota-aware bench, Probe freshness. Code: `CapacityClassifier` (scoped by `sourceId`), `CapacityPaintGate`, `VendorBackoff*`, `ProbeFreshnessGate`, `ProbeRecordMerge`. History: `docs/archive/phases/README.md`. |
 | OpenCode Go plan capacity | `docs/phases/OpenCode_Go_Capacity.md` — CLI beta shipped, metering live; code `OpenCodeGoCapacity*`. |
 | OpenCode local / Ollama; Context Firewall; Second Mac | Local Ollama law: `docs/operations/Project_Laws.md` §Local Ollama seats; vocab `docs/workflows/Product_Vocabulary.md` §Local Ollama readiness; code `ModelCatalog` / `ModelDiscoveryProvider`. History: `docs/archive/phases/OpenCode_Local_Ollama_Seats.md`. Packets 2–3 still code unauthorized: `docs/phases/Context_Firewall.md`, `docs/phases/Second_Mac_Bench.md`. |
+| Local vs cloud substitution | Never cross the boundary in either direction. Law: `docs/operations/Project_Laws.md` §Local and cloud seats. Code: `LocalSeatPinHonesty`, `TeamResolver.selectModel`. Packet history: `docs/phases/Local_Runtime_Surface.md` §10. |
 | Smart / auto model routing | Brainstorm only: `docs/phases/Scarcity_Aware_Routing.md` — read §3 rejected list first. |
 | Stale teaching / invented flags / empty `help search` | `docs/phases/Agent_Teaching_Surface.md`. Code: `TeachingSnippet`, `HelpTopicRegistry`, `RetiredVocabulary`, `AllnighterVersionIdentity`. |
 | Composer `@` file references | `docs/phases/Composer_File_References.md` (not SSOT). |
@@ -119,9 +120,11 @@ Full text: `docs/operations/Project_Laws.md`. Incident-preventing subset:
 - Exactly one mutating worker per repo root (`RunWriteLockRegistry`;
   `scripts/check_architecture_policy.sh`).
 - Sensors inform, never block. Parked driver, disabled model, unknown model
-  id, and the per-root write lock still refuse (user intent / real
-  invariants). Provenance is not a refuse-class (explicit local `--pm`
-  discloses and proceeds).
+  id, the per-root write lock, and a local/cloud seat swap still refuse
+  (user intent / real invariants). Provenance is not a refuse-class
+  (explicit local `--pm` discloses and proceeds). Never substitute a
+  local seat for a cloud seat or the other way around
+  (`docs/operations/Project_Laws.md` §Local and cloud seats).
 - Buy path is Stripe Checkout with email, not Sign in with Apple.
   `nextAction.command` is never a Stripe URL. Production Worker uses Allnighter
   live Stripe only — never xterminal keys, never the sandbox in live.

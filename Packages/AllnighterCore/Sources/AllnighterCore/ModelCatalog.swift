@@ -25,11 +25,12 @@ public enum ModelCatalog {
     /// (`.strongestReady` / `.anyReady` / `.laneCapable` fills, need-row
     /// diversity). Explicit preferred / ordered fallback ids still win.
     ///
-    /// A local Ollama seat (`ollama/` label) is never an automatic
+    /// A local Ollama seat (`ollama/` label) is never an unpinned automatic
     /// substitute — including origin-`.custom` S00 rows. Do not extend
     /// `neverAutomaticSubstituteIds` for this; that set cannot express
     /// every local seat. Explicit `--model` / `--seat` / `preferredModelId`
-    /// still resolve.
+    /// still resolve. Automatic substitution never crosses the local/cloud
+    /// boundary (Project_Laws §Local and cloud seats).
     public static func allowsAutomaticSubstitution(_ modelId: String) -> Bool {
         if neverAutomaticSubstituteIds.contains(modelId) { return false }
         if let def = get(modelId), isLocalAutomaticSubstitute(def) { return false }

@@ -110,7 +110,8 @@ public enum TeamResolver {
             preferredModelId: lead.preferredModelId,
             fallbackModelIds: lead.fallbackModelIds ?? [], allowedModelIds: [],
             requiredTags: lead.requiredCapabilityTags, fallback: lead.fallbackPolicy,
-            lane: team.lane, ready: readyModels, capabilities: capabilities
+            lane: team.lane, ready: readyModels, capabilities: capabilities,
+            catalogModels: catalogModels
         )?.model.id
         let reservedWorkerModelId = resolvedLeadModelId
 
@@ -169,24 +170,40 @@ public enum TeamResolver {
             }
         }
 
+        func lookupPreferredPin(_ preferred: String) -> Model? {
+            LocalSeatPinHonesty.lookupPin(
+                id: preferred, ready: readyModels, catalogModels: catalogModels
+            )
+        }
+
         func preferredUnavailableWarning(
             skillName: String,
             preferred: String,
             substitute: Model
         ) -> String {
-            if let pin = LocalSeatPinHonesty.lookupPin(
-                id: preferred, ready: readyModels, catalogModels: catalogModels
-            ), LocalSeatPinHonesty.isLocalSeat(pin) {
-                return LocalSeatPinHonesty.substitutionWarning(
-                    skillName: skillName,
-                    pinId: preferred,
-                    pinLabel: pin.modelLabel,
-                    sensorReading: LocalSeatPinHonesty.sensorReading(
-                        modelLabel: pin.modelLabel, snapshot: ollamaLocal),
-                    substituteDisplayName: substitute.displayName
-                )
+            let pin = lookupPreferredPin(preferred)
+            let because: String?
+            if let pin, LocalSeatPinHonesty.isLocalSeat(pin) {
+                because = LocalSeatPinHonesty.sensorReading(
+                    modelLabel: pin.modelLabel, snapshot: ollamaLocal)
+            } else {
+                because = nil
             }
-            return "\(skillName): preferred \(preferred) unavailable; resolved to \(substitute.displayName)."
+            return LocalSeatPinHonesty.substitutionWarning(
+                skillName: skillName,
+                pinId: preferred,
+                pinDisplayName: pin?.displayName ?? preferred,
+                unavailableBecause: because,
+                substituteDisplayName: substitute.displayName
+            )
+        }
+
+        func preferredUnavailableRefusal(preferred: String) -> String {
+            let pin = lookupPreferredPin(preferred)
+            return LocalSeatPinHonesty.unavailableRefusal(
+                pinId: preferred,
+                pinDisplayName: pin?.displayName ?? preferred
+            )
         }
 
         func claim(_ model: Model, capabilityOnly: Bool) {
@@ -206,22 +223,19 @@ public enum TeamResolver {
                 fallbackModelIds: scoutSpec.fallbackModelIds ?? [], allowedModelIds: scoutSpec.allowedModelIds,
                 requiredTags: scoutSpec.requiredCapabilityTags, fallback: scoutSpec.fallbackPolicy,
                 lane: team.lane, ready: readyModels, capabilities: capabilities,
-                avoidFamilies: familyUsed, avoidDrivers: driversUsed
+                avoidFamilies: familyUsed, avoidDrivers: driversUsed,
+                catalogModels: catalogModels
             ) {
                 if let pref = scoutSpec.preferredModelId, pref != model.model.id {
-                    if let pin = LocalSeatPinHonesty.lookupPin(
-                        id: pref, ready: readyModels, catalogModels: catalogModels
-                    ), LocalSeatPinHonesty.isLocalSeat(pin) {
-                        warnings.append(preferredUnavailableWarning(
-                            skillName: scoutSkillName, preferred: pref, substitute: model.model))
-                    } else {
-                        warnings.append("\(scoutSkillName): preferred scout \(pref) unavailable; resolved to \(model.model.displayName).")
-                    }
+                    warnings.append(preferredUnavailableWarning(
+                        skillName: scoutSkillName, preferred: pref, substitute: model.model))
                 }
                 scoutWorker = makeWorker(
                     model.model, row: scoutSpec, skillName: scoutSkillName, stage: .scout,
                     seatingReason: model.reason)
                 claim(model.model, capabilityOnly: scoutSpec.preferredModelId == nil)
+            } else if let pref = scoutSpec.preferredModelId {
+                disable(scoutSpec, scoutSkillName, preferredUnavailableRefusal(preferred: pref))
             } else {
                 disable(scoutSpec, scoutSkillName, "no ready model for scout in lane \(team.lane.rawValue)")
             }
@@ -262,11 +276,14 @@ public enum TeamResolver {
                     lane: team.lane, ready: readyModels, capabilities: capabilities,
                     reserveModelId: reservedWorkerModelId, excludeModelIds: excludeForDiversity,
                     preferredTags: row.preferredCapabilityTags,
-                    avoidFamilies: familyUsed, avoidDrivers: driversUsed
+                    avoidFamilies: familyUsed, avoidDrivers: driversUsed,
+                    catalogModels: catalogModels
                 ) else {
-                    let reason = "no ready model matches \(row.fallbackPolicy.rawValue)"
-                        + (row.preferredModelId.map { " (preferred \($0) unavailable)" } ?? "")
-                    disable(row, skillName, reason)
+                    if let preferred = row.preferredModelId {
+                        disable(row, skillName, preferredUnavailableRefusal(preferred: preferred))
+                    } else {
+                        disable(row, skillName, "no ready model matches \(row.fallbackPolicy.rawValue)")
+                    }
                     continue
                 }
                 if let preferred = row.preferredModelId, preferred != model.model.id {
@@ -299,7 +316,8 @@ public enum TeamResolver {
             allowedModelIds: [],
             requiredTags: lead.requiredCapabilityTags,
             fallback: lead.fallbackPolicy,
-            lane: team.lane, ready: readyModels, capabilities: capabilities
+            lane: team.lane, ready: readyModels, capabilities: capabilities,
+            catalogModels: catalogModels
         ) {
             let leadSkill = skill(lead.skillId)
             let index = nextIndex[pick.model.id, default: 0]
@@ -317,13 +335,11 @@ public enum TeamResolver {
             )
             if let preferred = lead.preferredModelId, preferred != pick.model.id {
                 let leadName = leadSkill?.displayName ?? lead.skillId
-                if let pin = LocalSeatPinHonesty.lookupPin(
-                    id: preferred, ready: readyModels, catalogModels: catalogModels
-                ), LocalSeatPinHonesty.isLocalSeat(pin) {
-                    warnings.append(preferredUnavailableWarning(
-                        skillName: leadName, preferred: preferred, substitute: pick.model))
-                }
+                warnings.append(preferredUnavailableWarning(
+                    skillName: leadName, preferred: preferred, substitute: pick.model))
             }
+        } else if let preferred = lead.preferredModelId {
+            requiredBlock = requiredBlock ?? preferredUnavailableRefusal(preferred: preferred)
         }
 
         // Self-fusion / admission warnings (honest, never an estimate).
@@ -392,8 +408,10 @@ public enum TeamResolver {
     /// **Automatic substitution law:** Ready ≠ automatic substitute.
     /// `ModelCatalog.neverAutomaticSubstituteIds` (e.g. Cursor Sol) and any
     /// `ollama/` local seat (label helpers, including origin-`.custom`) are
-    /// never chosen by broad policies — only by explicit preferred / ordered
-    /// fallback. Broad fills also stay on the preferred model's home driver
+    /// never chosen by unpinned broad policies — only by explicit preferred /
+    /// ordered fallback on the same local/cloud side. Automatic substitution
+    /// never crosses the local/cloud boundary (Project_Laws §Local and cloud
+    /// seats). Broad fills also stay on the preferred model's home driver
     /// when one was declared (Claude→Claude, Codex→Codex, Cursor→Cursor, …).
     static func selectModel(
         preferredModelId: String?,
@@ -408,7 +426,8 @@ public enum TeamResolver {
         excludeModelIds: Set<String> = [],
         preferredTags: [ModelCapabilityTag] = [],
         avoidFamilies: Set<String> = [],
-        avoidDrivers: Set<String> = []
+        avoidDrivers: Set<String> = [],
+        catalogModels: [Model] = []
     ) -> SeatingPick? {
         // Snapshot once — no CatalogFileIO inside the sort comparator.
         var capsCache: [String: ModelCapabilities] = [:]
@@ -429,7 +448,15 @@ public enum TeamResolver {
             return preferredTags.allSatisfy { tags.contains($0) }
         }
         func laneOK(_ m: Model) -> Bool { caps(m.id).laneTags.contains(lane) }
-        func autoOK(_ m: Model) -> Bool { ModelCatalog.allowsAutomaticSubstitution(m) }
+        let preferredPin = preferredModelId.flatMap { id in
+            LocalSeatPinHonesty.lookupPin(id: id, ready: ready, catalogModels: catalogModels)
+        }
+        let preferredIsLocal = preferredPin.map(LocalSeatPinHonesty.isLocalSeat) ?? false
+        func autoOK(_ m: Model) -> Bool {
+            if ModelCatalog.neverAutomaticSubstituteIds.contains(m.id) { return false }
+            if LocalSeatPinHonesty.isLocalSeat(m) { return preferredIsLocal }
+            return true
+        }
         // Seating Law sort: band → preferred tags → unused family → unused driver → rank → id.
         // Sonnet often absent on a full bench after Lead claimed claude — intended.
         func strongest(_ models: [Model]) -> Model? {
@@ -463,6 +490,9 @@ public enum TeamResolver {
         }
 
         var pool = ready.filter(allowed)
+        if let preferredPin {
+            pool = LocalSeatPinHonesty.filterSameSide(as: preferredPin, in: pool)
+        }
         if fallback == .exactOnly {
             if let preferredModelId,
                let model = pool.first(where: { $0.id == preferredModelId }) {
@@ -472,7 +502,7 @@ public enum TeamResolver {
             guard let model = strongest(pool.filter(hasTags).filter(autoOK)) else { return nil }
             return wrap(model, pickedViaPreferred: false)
         }
-        let homeDriver = preferredModelId.flatMap { id in
+        let homeDriver = preferredPin?.driverId ?? preferredModelId.flatMap { id in
             byId[id]?.driverId ?? ModelCatalog.get(id)?.driverId
         }
         func homeOK(_ m: Model) -> Bool {

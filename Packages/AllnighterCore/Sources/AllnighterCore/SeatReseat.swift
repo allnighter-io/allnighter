@@ -57,7 +57,12 @@ public enum SeatReseat {
         ready: [Model],
         preferredTags: [ModelCapabilityTag] = []
     ) -> Model? {
-        let pool = ready.filter { $0.id != failedModelId && $0.driverId != failedDriverId }
+        let failedPin = ready.first(where: { $0.id == failedModelId })
+            ?? LocalSeatPinHonesty.lookupPin(id: failedModelId, ready: ready, catalogModels: [])
+        var pool = ready.filter { $0.id != failedModelId && $0.driverId != failedDriverId }
+        if let failedPin {
+            pool = LocalSeatPinHonesty.filterSameSide(as: failedPin, in: pool)
+        }
         guard !pool.isEmpty else { return nil }
         let chain = fallbackModelIds.filter { $0 != failedModelId }
         return TeamResolver.selectModel(
