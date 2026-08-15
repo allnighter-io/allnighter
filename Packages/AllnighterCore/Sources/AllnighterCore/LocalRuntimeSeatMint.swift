@@ -1,9 +1,11 @@
 import Foundation
 
-/// LR-S02a — mint a seated local row from a live overlay candidate.
+/// LR-S02 — mint a seated local row from a live overlay candidate.
 ///
-/// Claude Code body only in this slice: persist `origin: .discovered` and
-/// enable. OpenCode `opencode.json` merge + leftover-serve reclaim are S02b.
+/// `--body opencode` also merges live `/api/tags` into `opencode.json` and
+/// reclaims a leftover `opencode serve`. `--body claude_code` never touches
+/// `opencode.json`. Tests must pass `opencodeConfigURL` — production resolves
+/// the real path; XCTest refuses it.
 public enum LocalRuntimeSeatMint {
     /// Resolve `candidateID` from the live overlay (`candidateID(tag:)` +
     /// `/api/tags` snapshot). `get()` will not find it. `--body` on an
@@ -13,7 +15,11 @@ public enum LocalRuntimeSeatMint {
         candidateID: ModelID,
         bodyDriverId: String,
         snapshot: OllamaLocalRuntimeObserver.Snapshot?,
-        now: Date = Date()
+        now: Date = Date(),
+        opencodeConfigURL: URL? = nil,
+        fileManager: FileManager = .default,
+        serveReclaimTable: OpenCodeLeftoverServeReclaim.Table? = nil,
+        isTestHost: Bool = AllnighterSupportRoot.isRunningUnderTestHost
     ) throws -> OllamaLocalSeatEnablePolicy.Assessment {
         if ModelCatalog.get(candidateID) != nil {
             throw ModelCatalogError.invalid(
@@ -50,9 +56,138 @@ public enum LocalRuntimeSeatMint {
                 "\(seat.id) is already seated — omit --body and run: alln models enable \(seat.id)"
             )
         }
+        var disclosures = assessment.disclosures
+        if bodyDriverId == "opencode" {
+            let sync = try syncOpenCodeConfig(
+                snapshot: snapshot,
+                configURLOverride: opencodeConfigURL,
+                fileManager: fileManager,
+                serveReclaimTable: serveReclaimTable,
+                isTestHost: isTestHost
+            )
+            disclosures.append(contentsOf: sync)
+        }
         seat.origin = .discovered
         try ModelCatalog.saveDiscovered(seat)
         try ModelCatalog.setEnabled(seat.id, true)
-        return assessment
+        return OllamaLocalSeatEnablePolicy.Assessment(
+            disclosures: disclosures,
+            permitsEnable: assessment.permitsEnable,
+            automaticCodeOffer: assessment.automaticCodeOffer,
+            boundSeat: assessment.boundSeat,
+            refusal: assessment.refusal
+        )
+    }
+
+    // MARK: - OpenCode body (LR-S02b)
+
+    private static func syncOpenCodeConfig(
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?,
+        configURLOverride: URL?,
+        fileManager: FileManager,
+        serveReclaimTable: OpenCodeLeftoverServeReclaim.Table?,
+        isTestHost: Bool
+    ) throws -> [String] {
+        let configURL = try OpenCodeOllamaSetup.resolveConfigURL(
+            override: configURLOverride,
+            isTestHost: isTestHost
+        )
+        var root = try readOpenCodeRoot(at: configURL, fileManager: fileManager)
+        let tagNames = liveTagNames(from: snapshot)
+        let merge = try OpenCodeOllamaProviderMerge.merge(
+            into: &root,
+            localTags: tagNames
+        )
+        if merge.didChange {
+            let encoded = try OpenCodeOllamaProviderMerge.encodeRoot(root)
+            do {
+                try fileManager.createDirectory(
+                    at: configURL.deletingLastPathComponent(),
+                    withIntermediateDirectories: true
+                )
+                try encoded.write(to: configURL, options: [.atomic])
+            } catch {
+                throw ModelCatalogError.invalid(
+                    "could not write \(configURL.path): \(error.localizedDescription)"
+                )
+            }
+        }
+        let leftover = OpenCodeLeftoverServeReclaim.reclaim(
+            table: OpenCodeLeftoverServeReclaim.resolvedTable(
+                override: serveReclaimTable,
+                isTestHost: isTestHost
+            )
+        )
+        return opencodeSyncDisclosures(merge: merge, leftover: leftover)
+    }
+
+    /// Observed `/api/tags` names only — never guess when Ollama is unreachable.
+    private static func liveTagNames(
+        from snapshot: OllamaLocalRuntimeObserver.Snapshot?
+    ) -> [String] {
+        guard let snapshot else { return [] }
+        switch snapshot.observeFailure {
+        case .version, .tags, .unparseableVersion, .unparseableTags:
+            return []
+        case .ps, .unparseablePs, .none:
+            return snapshot.localTags.map(\.name)
+        }
+    }
+
+    private static func readOpenCodeRoot(
+        at url: URL,
+        fileManager: FileManager
+    ) throws -> [String: Any] {
+        guard fileManager.fileExists(atPath: url.path) else { return [:] }
+        let data: Data
+        do {
+            data = try Data(contentsOf: url)
+        } catch {
+            throw ModelCatalogError.invalid(
+                "could not read \(url.path): \(error.localizedDescription)"
+            )
+        }
+        do {
+            return try OpenCodeOllamaProviderMerge.parseRoot(data)
+        } catch let error as OpenCodeOllamaProviderMerge.Error {
+            throw ModelCatalogError.invalid(error.description)
+        } catch {
+            throw ModelCatalogError.invalid(
+                "opencode.json is not valid JSON (\(error.localizedDescription)) — refusing to clobber it"
+            )
+        }
+    }
+
+    private static func opencodeSyncDisclosures(
+        merge: OpenCodeOllamaProviderMerge.Result,
+        leftover: OpenCodeLeftoverServeReclaim.Outcome
+    ) -> [String] {
+        var lines: [String] = []
+        if !merge.addedModelIds.isEmpty {
+            lines.append(
+                "Registered in opencode.json: \(merge.addedModelIds.joined(separator: ", "))."
+            )
+        }
+        switch leftover {
+        case .notAttempted, .idle:
+            break
+        case .reclaimed(let pid, _):
+            lines.append(
+                "Recycled leftover opencode serve (pid \(pid)) so new tags are visible to alln run."
+            )
+        case .refusedAllnServe(let pid, _):
+            lines.append(
+                "Port \(OpenCodeLeftoverServeReclaim.defaultPort) is alln serve (pid \(pid)) — not stopping it."
+            )
+        case .skippedForeign(let pid, let command):
+            lines.append(
+                "Port \(OpenCodeLeftoverServeReclaim.defaultPort) listener pid \(pid) is not opencode serve (\(command)) — left running."
+            )
+        case .skippedUnreadableCommand(let pid):
+            lines.append(
+                "Port \(OpenCodeLeftoverServeReclaim.defaultPort) listener pid \(pid) has an unreadable command line — left running."
+            )
+        }
+        return lines
     }
 }

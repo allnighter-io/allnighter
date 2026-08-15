@@ -717,6 +717,15 @@ existing "has not passed G1" line), persists `origin: .discovered` via
 on the `ollama/` label (named helpers), not `neverAutomaticSubstituteIds`, so
 the S00 `.custom` seat is covered. OpenCode merge + leftover reclaim stay S02b.
 
+### LR-S02b — minting enable, OpenCode body (2026-08-14)
+
+`--body opencode` on the same enable path runs `OpenCodeOllamaProviderMerge.merge`
+on the live `/api/tags` list (not the frozen `opencode-local status` snapshot),
+writes `opencode.json` when the merge changes, then
+`OpenCodeLeftoverServeReclaim.reclaim` — reclaimed or disclosed honestly, never
+silently. `--body claude_code` writes nothing to `opencode.json`. Fixture proof:
+`LocalRuntimeSurfaceS02bTests`. Contract stays 10.8.0; `binaryVersion` 1.1.15.
+
 ### LR-S01a — field names + Q3 (2026-08-14)
 
 S01a ships the `alln models --json` overlay only. Menu / drivers / persist / bump stay on S01b.
