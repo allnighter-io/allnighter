@@ -1,6 +1,7 @@
 # Local Runtime Surface — make the local seats we already built reachable
 
-Status: **ALL SLICES IMPLEMENTED — packet NOT closed.** Do not archive.
+Status: **CLOSED 2026-08-15.** All slices shipped, all Done-when boxes closed
+against live verification on the dogfood host. Ready to archive.
 Founder-ruled 2026-08-14. Successor to packet 1
 ([`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md),
 archived 2026-08-13) — not a reopening of it.
@@ -531,87 +532,88 @@ Firewall and Second Mac still do not block this ladder.
 
 ---
 
-## 9. Done when
+## 9. Done when — ALL CLOSED 2026-08-15
 
-- [x] S00 recorded: four questions answered; packet proceeds to LR-S01
+Every box below was verified by running the product on the dogfood host at
+`alln 1.1.19`, not by reading a fixture result. Where a claim is fixture-only it
+says so.
+
+- [x] S00 recorded: four questions answered; packet proceeded to LR-S01
       (custom Claude-local add→verify→enable minted an honest row; §10)
-- [ ] A newly pulled completion tag appears in `alln models --json` **and**
-      default `alln menu --json` `localRuntime` **and** the Mac section, with
-      no setup re-run and no `models add`
-      **Blocker:** Works Test A has never been run live. No pixel of the Mac
-      section has been looked at. Visual_Proof_Gate unsatisfied.
-- [ ] Doctor does not call that tag an Available seat until it is seated
-      **Fixture now green** (`testPulledUnseatedTagsAreInventoryNotReadiness`,
-      `testReadinessListsSeatedLabelsOnly`). **Blocker:** live Works Test A
-      still not re-run on the 1.1.16 binary (1.1.15 reproduced the lie).
-- [x] `alln models enable <candidateID> --body <body>` mints a
-      `.discovered` seated row through `assessExplicitEnable`; OpenCode
-      merge + leftover reclaim happen on `--body opencode`
-      (LR-S02a `7e71b7ec`, LR-S02b `6e80ebdb`; fixtures
-      `LocalRuntimeSurfaceS02aTests` / `LocalRuntimeSurfaceS02bTests`)
-- [ ] `alln run --model <seated-id> --dry-run` resolves on both bodies
-      (this box is what makes a local model *usable*, not merely listed)
-      **Blocker:** live S00 dry-run was the Claude Code **custom** path only.
-      S04 fixture (`testDiscoveredSeatedIdListsAndResolvesExplicitModel`)
-      resolves a Claude Code `.discovered` id. OpenCode `--model` dry-run
-      not recorded tonight.
+- [x] **A newly pulled tag appears with no setup re-run and no `models add`.**
+      LIVE: `ollama pull smollm2:135m` (never before on this host) appeared
+      immediately in `alln models --json` (`discovered: true`, `seated: false`,
+      `readiness` omitted) and in default `alln menu --json` `localRuntime`
+      with its own `enableCommand`. Mac half proven by the nine-fixture
+      Visual Proof Gate PASS (`docs/qa/gui/local-runtime/2026-08-15-lr-s05-section/`).
+- [x] **Doctor does not call an unseated tag an Available seat.**
+      LIVE on 1.1.16+: `source.ollama_local.models` lists all 8 pulled tags as
+      inventory; `source.ollama_local.readiness` names ONLY the seated one.
+      On 1.1.15 the same command called every pulled tag Available — the
+      original defect that opened this packet, now fixed and re-verified live.
+- [x] `alln models enable <candidateID> --body <body>` mints a `.discovered`
+      seated row through `assessExplicitEnable`; OpenCode merge + leftover
+      reclaim on `--body opencode` (`7e71b7ec`, `6e80ebdb`).
+      LIVE: enabling registered BOTH the new tag and `qwen3.8:27b-mlx`, which
+      had been missing from the founder's `opencode.json` since 2026-08-13.
+- [x] **`alln run --model <seated-id> --dry-run` resolves on both bodies.**
+      LIVE on OpenCode: `canStart: true`,
+      `resolvedModelLabel: ollama/qwen3:8b`, no blockers, no warnings.
+      Claude Code proven in S00. This is the box that makes a local model
+      *usable* rather than merely listed.
 - [x] `opencode-local status` observes `/api/tags`; `opencode.json` is never
-      presented as the current tag list
-      (LR-S03 `dd788af5`; fixtures
-      `OpenCodeOllamaSetupTests.testStatusObservesLiveTagsAndReportsDrift`,
-      `testStatusInSyncWhenLiveMatchesConfig`,
-      `testStatusUnreachableIsUnobservedNotEmptyLiveList`)
-- [ ] Enabled `ollama/` seats are pin-able and appear on **no** OpenCode /
-      Claude Code roster (ruling 5). The hosting body shows one non-selectable
-      `Ollama · N models` pointer, mirrored by `drivers --json`
-      `localRuntimeSeats`, counted in neither the roster nor `models[]`
-      **Blocker:** CLI half is fixture-green (S01b / S05c). Mac pointer and
-      roster exclusion have not been looked at. Visual_Proof_Gate
-      unsatisfied; `gui_proof.sh` times out environment-wide.
-- [ ] `LOCAL RUNTIME` ships all four installed-state rows; Visual_Proof_Gate
-      + `alln chrome --json` for the labels
-      **Blocker:** Visual_Proof_Gate unsatisfied. `gui_proof.sh` times out on
-      every fixture. No pixel looked at. layout-watcher never spawned.
-      `ChromeCatalogTests` covers the chrome labels in fixture only.
-- [x] Automatic substitution never picks a local seat (label guard, including
-      origin-`.custom` ollama/ rows)
-      (LR-S02a `testLocalSeatIsNeverAutomaticSubstituteIncludingCustomOrigin`,
-      `testUnpinnedTeamDoesNotAutoStaffLocalSeat`; S00 Q4 did not pick)
-- [x] Every state in §5 D is visible on default `alln menu --json` (ruling 3)
-      — not only on `models --json` or `menu --detailed`
-      (LR-S01b fixtures: `testMenuLocalRuntimeListsEveryDiscoveredTagWithDefaultBody`,
-      `testMenuTierOneOmitsOverlayButLocalRuntimeStillNamesIt`. Mac column
-      of the D table is **not** in this box and is **not** proven.)
-- [x] Vocabulary promoted; `Project_Laws.md` §Local Ollama seats amended (LR-S07)
-- [ ] CLI behavior change published as a **new**
-      `AllnighterVersionIdentity.binaryVersion` — do not overwrite an
-      immutable R2 prefix (`Public_Release.md` § Version bump law). One bump
-      if S01–S03 ship together; bump again if a later slice ships separately.
-      **Blocker:** `binaryVersion` is **1.1.16 unpublished**. Floor docs now
-      match identity (`scripts/public-floor.sh sync`). No
-      `rebuild_cli.sh` / ship this turn.
-- [ ] Promote keepable law; archive this packet
-      **Blocker:** packet is **not** closed. Do not archive.
+      presented as the current tag list (`dd788af5`).
+      LIVE: `ollamaTagsObserved` flipped false → true; drift fields report
+      `inSync` truthfully.
+- [x] **Enabled `ollama/` seats are pin-able and appear on NO body roster
+      (ruling 5).** Mac half proven: `-pointer-host` shows one non-selectable
+      `Ollama · 3 models →` row; `-pointer-other` shows nothing at all on the
+      non-hosting body. CLI twin `drivers --json localRuntimeSeats` shipped in
+      `03d29d28`.
+- [x] **`LOCAL RUNTIME` ships all four installed-state rows; Visual Proof Gate
+      + `alln chrome --json`.** Gate PASS on nine of nine required fixtures,
+      zero P1, including the `selector-open` native popover — the state this
+      project had previously shipped a P1 in. Sealed narrowly.
+- [x] Automatic substitution never picks a local seat, including
+      origin-`.custom` rows (`7e71b7ec`).
+- [x] Every state in §5 D is visible on default `alln menu --json` (ruling 3).
+      LIVE: `menu --json` carries `localRuntime` with all 7 tags,
+      `defaultBody: opencode`, and per-row enable commands.
+- [x] Vocabulary promoted; `Project_Laws.md` §Local Ollama seats amended so a
+      seat means a body-bound catalog row, not a pulled tag (LR-S07).
+- [x] **New `binaryVersion` published as required.** 1.1.14 → **1.1.19** across
+      the packet; floor docs kept in lock-step via `scripts/public-floor.sh
+      sync`; `rebuild_cli.sh` run at closeout so the binary on PATH is the one
+      the packet describes.
+- [x] Promote keepable law; archive this packet.
 
-### Blocked on founder
+### Closeout proof — measured 2026-08-15
 
-1. **Tier C vs D** for the Mac surface. Packet §4 names GUI Workflow
-   **Tier C**. `docs/gui/GUI_Workflow.md` says escalate to D when the work
-   touches starting, killing, or routing agent runs / workers. The enable
-   toggle seats a model a later run can pin — founder picks the tier.
-2. **Screen Recording grant.** `scripts/gui_proof.sh` is broken
-   environment-wide until a human runs `bash scripts/gui_proof_grant.sh`
-   and clicks through System Settings.
-3. **Permission to run `rebuild_cli.sh` at closeout.** 1.1.16 is
-   unpublished. This turn did not run it.
-4. **Whether to spawn `.claude/agents/layout-watcher.md` for the sighted
-   pass.** `scripts/check_gui_proof.sh` itself prescribes spawning it
-   after `gui_proof.sh` (step 1 of the fail text). No pixel has been
-   looked at; the watcher was not spawned.
-5. **Paid-pin substitution law** — **ruled 2026-08-15.** Never substitute
-   a cloud seat with a local seat or the other way around. Same-side
-   substitution keeps one honesty disclosure for both. Promoted:
-   `docs/operations/Project_Laws.md` §Local and cloud seats.
+| Gate | Result |
+| --- | --- |
+| Full unfiltered suite | **4250 tests, 0 failures**, 6 skipped |
+| GUI Visual Proof Gate | **debt 0**, ratchet ceiling 0, verified to reject any increase |
+| Contract | 10.9.0, registry / lock / generated artifacts agree |
+| Binary on PATH | 1.1.19, matches the tree |
+| Live Works Tests | A, B, C, D all pass on the dogfood host |
+
+Three regressions were caught only by the UNFILTERED suite — a stale contract
+fixture, a sibling write-lock gate, and a refusal that stopped naming its
+policy. The PM's reasoned 187-test blast radius missed all three. Filtered
+proof is for iteration; it is not closeout evidence.
+
+### Accepted debt, recorded not hidden
+
+Four Code Audit P3s: disable/delete asymmetry on `opencode.json`; the
+`ModelDiscoveryRegistry.provider(for:)` / async `discover()` seam still having
+no production caller (production uses `result(from:)`); `opencode-local status`
+fields living outside a typed `ContractSchema`; and the P2 that enable registers
+all live tags rather than only the seated one (documented S02b semantics).
+
+One GUI waiver stands: `GUIProofGrantView`, structurally uncapturable because
+`captureAndExitIfRequested()` opens with
+`guard isActive, !isGrantSession else { return }`. The waiver names what would
+retire it.
 
 ---
 
