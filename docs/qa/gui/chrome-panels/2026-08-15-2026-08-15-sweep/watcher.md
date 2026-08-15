@@ -47,11 +47,14 @@ uppercase), matching the app's header style, not collapsed. The Grok mid-refresh
 spinner in `-refreshing` sits in its own trailing-column slot with no bleed into
 the weekly or 5h cells.
 
-⚠️ **`docs/qa/gui/_captures/capacity-strip-mixed.png` is MISLABELED** — it is a
-Home/RootView marketing capture stored under a capacity name. It is **not**
-evidence for this view and was deliberately not opened during this review. A
-mislabeled capture is a sealed lie about what has been verified; it needs
-renaming to whatever `home-*` state it actually shows.
+⚠️ **`capacity-strip-mixed.png` was MISLABELED and has been DELETED.** It was a
+Home/RootView marketing capture stored under a capacity name — not evidence for
+this view, and deliberately not opened during this review. It could not be
+renamed because no fixture in `GUIFixture.swift` generated it: an orphan PNG,
+unreferenced and untracked (`_captures/` is gitignored), dated Aug 07, depicting the unlabeled bench-chip-row bug that was
+fixed the same day in `8ee39543`. A misnamed capture nothing can regenerate is a
+sealed lie about what has been verified — it is precisely the artifact that
+caused a phantom P1 to be reported during triage. Removed rather than renamed.
 
 ## Ask AI
 

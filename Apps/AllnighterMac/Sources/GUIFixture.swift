@@ -53,6 +53,20 @@ enum GUIFixture {
         }
         loadProofRequestIfNeeded()
         syncGrantMarkerWithTCC()
+        disableLiveUpdateCheckIfNeeded()
+    }
+
+    /// `settings-about-updates` renders `ReleaseUpdateModel.refresh()` on
+    /// appear, which otherwise hits the live `get.allnighter.io/latest.json`
+    /// network endpoint and this machine's real on-disk release-check cache —
+    /// neither is proof-safe (renders differently by network reachability,
+    /// real production release state, and prior real checks on this Mac).
+    /// Setting the same kill-switch `alln`/CLI callers use forces
+    /// `ReleaseChannel.loadManifest` to return `nil` with zero I/O, so the
+    /// page always renders the deterministic "no update" shape.
+    private static func disableLiveUpdateCheckIfNeeded() {
+        guard active == "settings-about-updates" else { return }
+        setenv(ReleaseChannel.noUpdateCheckEnvKey, "1", 1)
     }
 
     /// The active fixture name, or nil on every normal launch.
@@ -145,6 +159,22 @@ enum GUIFixture {
         }
     }
 
+    /// Fixed "last checked" instant for `settings-about-updates` — never this
+    /// machine's live clock, so the capture is byte-stable across runs and
+    /// across machines. Any explicit fixed instant works; this one just reads
+    /// as a plausible, recent check without implying a real release event.
+    static var fixedReleaseCheckedAt: Date? {
+        guard active == "settings-about-updates" else { return nil }
+        var comps = DateComponents()
+        comps.timeZone = TimeZone(identifier: "UTC")
+        comps.year = 2026
+        comps.month = 8
+        comps.day = 14
+        comps.hour = 9
+        comps.minute = 41
+        return Calendar(identifier: .gregorian).date(from: comps)
+    }
+
     /// Which Studio page a `studio-*` / settings fixture deep-links to.
     static var studioRoute: StudioRoute {
         switch active {
@@ -154,7 +184,7 @@ enum GUIFixture {
         case "studio-default-model": return .defaultModel
         case "studio-boost-window": return .boostWindow
         case "settings-use-from-cli", "studio-use-from-cli": return .useFromCLI
-        case "settings-about-updates", "studio-about-updates": return .about
+        case "settings-about-updates": return .about
         case "settings-plan", "studio-plan": return .plan
         default: return .clis
         }
@@ -492,6 +522,7 @@ enum GUIFixture {
         ("ask-ai-done", "Home — Ask AI panel with an answer"),
         ("home-trial-chip", "Home — title-bar trial days chip"),
         ("settings-use-from-cli", "Settings — Use from your CLI (hook + teaching table + capacity closer)"),
+        ("settings-about-updates", "Settings — About & updates (up-to-date state, no live network)"),
         ("studio-default-model", "Team Studio — Default model (Auto tiers)"),
         ("studio-boost-window", "Team Studio — Boost window"),
         ("studio-teams-code", "Team Studio — Code teams (detail)"),

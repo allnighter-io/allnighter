@@ -1,0 +1,8 @@
+# surface: about-updates
+# fixtures: settings-about-updates
+# watcher: PASS
+# sealed: 2026-08-15
+# Binds ONLY the explicitly reviewed views below to their exact content
+# hash. Re-editing any of them changes its hash and invalidates this
+# proof — re-render and re-seal.
+ced40d0a69de07871e410223c6df148f22a728a0  Apps/AllnighterMac/Sources/AboutUpdatesView.swift

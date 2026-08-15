@@ -49,7 +49,17 @@ final class ReleaseUpdateModel {
         defer { isChecking = false }
 
         let env = ProcessInfo.processInfo.environment
-        let now = Date()
+        var now = Date()
+        #if DEBUG
+        // GUI Visual Proof Gate: `settings-about-updates` must never stamp
+        // "Last checked" with this machine's live clock — that is not
+        // byte-stable across runs or across machines. Explicit, keyed to the
+        // fixture identity (never inferred from an injected double); a real
+        // user, or any other fixture, still gets the real live instant.
+        if let fixed = GUIFixture.fixedReleaseCheckedAt {
+            now = fixed
+        }
+        #endif
         // One cache read/refresh for both surfaces.
         let manifest = ReleaseChannel.loadManifest(
             now: now,
