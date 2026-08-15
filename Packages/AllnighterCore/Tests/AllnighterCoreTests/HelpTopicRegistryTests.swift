@@ -517,8 +517,12 @@ final class HelpTopicRegistryTests: XCTestCase {
             XCTAssertTrue(prose.contains("Busy"), "\(id) must name Busy as retired")
             XCTAssertFalse(prose.contains("| Idle |"), "\(id) must not keep three-state law")
         }
-        XCTAssertTrue(isolation.bodyMarkdown.contains("per seat"))
+        XCTAssertTrue(isolation.bodyMarkdown.contains("per seated row"))
         XCTAssertTrue(isolation.bodyMarkdown.contains("inverted"))
         XCTAssertTrue(isolation.bodyMarkdown.contains("alln capacity"))
+        XCTAssertTrue(isolation.bodyMarkdown.contains("--body claude_code"))
+        XCTAssertTrue(setup.bodyMarkdown.contains("--body opencode"))
+        XCTAssertTrue(isolation.bodyMarkdown.contains("localRuntime"))
+        XCTAssertTrue(setup.bodyMarkdown.contains("localRuntimeSeats"))
     }
 }

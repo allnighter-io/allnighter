@@ -96,16 +96,27 @@ which model is worthy of leading.
 ## Local Ollama seats
 
 Promoted from archived `docs/archive/phases/OpenCode_Local_Ollama_Seats.md`
-(2026-08-13). Code SSOT: `OllamaLocalRuntimeClient`, `OllamaLocalDoctorReport`,
-`ModelDiscoveryProvider`, `ModelCatalog`, `ClaudeLocalIsolation`. Help:
-`opencode_local_setup`, `claude_local_isolation`, `loop` §local-dev.
+(2026-08-13); seat definition amended 2026-08-14 (LR-S07). Code SSOT:
+`OllamaLocalRuntimeClient`, `OllamaLocalDoctorReport`, `OllamaLocalModelDiscoveryProvider`,
+`ModelDiscoveryProvider`, `ModelCatalog`, `LocalRuntimeSeatMint`,
+`ModelCatalog.saveDiscovered`, `LocalSeatPinHonesty`, `LocalRuntimeDefaultBody`,
+`LocalRuntimePointerPresenter`, `LocalRuntimeAdvisory`, `ClaudeLocalIsolation`.
+Help: `opencode_local_setup`, `claude_local_isolation`, `loop` §local-dev.
 
-- **Readiness is Available or Unavailable, per seat.** A seat is Available when
-  Ollama is reachable and that seat's tag is pulled locally. Ollama down makes
-  every local seat Unavailable. Failure to observe is not Available. This is
-  **not** capacity: never a strip row, never `benchSourceOrder`, never a quota
-  word. Surface via `alln models` / `doctor`. Signal id `ollama_local` is
-  attribution only.
+- **Seat means a body-bound catalog row, not a pulled tag.** A tag Ollama reports
+  on `/api/tags` is **discovered** until the user seats it — minted with
+  `alln models enable <candidateID> --body <claude_code|opencode>` (via
+  `LocalRuntimeSeatMint` → `ModelCatalog.saveDiscovered`) or the manual
+  `models add` custom path. Doctor and `alln models` must not call an unseated
+  tag Available. Discovered tags surface on `alln models --json` and default
+  `alln menu --json` `localRuntime`; enabled seated counts surface on
+  `alln drivers --json` `localRuntimeSeats` on the hosting body only.
+- **Readiness is Available or Unavailable, per seated row.** A seated row is
+  Available when Ollama is reachable and that seat's tag is pulled locally.
+  Ollama down makes every seated local row Unavailable. Failure to observe is
+  not Available. This is **not** capacity: never a strip row, never
+  `benchSourceOrder`, never a quota word. Surface via `alln models` / `doctor`.
+  Signal id `ollama_local` is attribution only.
 - **Busy was cut** because resident-in-memory is the fast case (dogfood host:
   warm first-byte ~0.6s, cold ~20.9s) and the word inverted a scarcity warning.
   Ollama queues; Busy never refused work. Keep calling `/api/ps` for served

@@ -490,7 +490,7 @@ Firewall and Second Mac still do not block this ladder.
       origin-`.custom` ollama/ rows)
 - [ ] Every state in §5 D is visible on default `alln menu --json` (ruling 3)
       — not only on `models --json` or `menu --detailed`
-- [ ] Vocabulary promoted; `Project_Laws.md` §Local Ollama seats amended
+- [x] Vocabulary promoted; `Project_Laws.md` §Local Ollama seats amended (LR-S07)
 - [ ] CLI behavior change published as a **new**
       `AllnighterVersionIdentity.binaryVersion` — do not overwrite an
       immutable R2 prefix (`Public_Release.md` § Version bump law). One bump
@@ -825,6 +825,24 @@ Visual Proof Gate captures (layout-watcher pending):
 
 Fixture proof: `LocalRuntimeAdvisoryTests`, `LocalRuntimeSurfacePresenterTests`,
 `ChromeCatalogTests`.
+
+---
+
+### LR-S07 — vocabulary and law promotion (2026-08-14)
+
+Promoted packet §6 into `docs/workflows/Product_Vocabulary.md` §Local runtime
+(discovered / enabled / seated split; `Available`/`Unavailable` seated-only;
+verbatim *Ollama provides the model; a CLI provides the tools.*). Amended
+`docs/operations/Project_Laws.md` §Local Ollama seats: **seat** = body-bound
+catalog row, not a pulled tag. Help topics `opencode_local_setup` and
+`claude_local_isolation` teach the shipped enable path
+(`alln models enable <candidateID> --body …`), `alln models --json` /
+default `alln menu --json` `localRuntime`, and `alln drivers --json`
+`localRuntimeSeats`. Code SSOT names added to law/vocab.
+
+**Founder question (not implemented):** `AGENTS.md` first-routing table still
+links vocab `§Local Ollama readiness`; the promoted heading is now
+`§Local runtime`. Update the router on archive, or keep the old anchor label?
 
 ---
 

@@ -59,19 +59,31 @@ park/substitute (`VendorBackoffPolicy.shouldPark`, `SeatReseat`) is unchanged.
 Full law: `docs/operations/Project_Laws.md` §Capacity. Closed record: archived
 `docs/archive/phases/Capacity_Warm_Bench.md`.
 
-## Local Ollama readiness (promoted 2026-08-13)
+## Local runtime (promoted 2026-08-14)
+
+**Ollama provides the model; a CLI provides the tools.**
 
 | Term | Meaning |
 | --- | --- |
-| **Local readiness** | Per seat, two words only: **Available** or **Unavailable**. Available = Ollama reachable **and** that seat's tag pulled. Never capacity, never `alln capacity`, never `benchSourceOrder`. |
+| **Local runtime** | An inference engine (Ollama) that supplies models to agent bodies. Never itself a body, never a `READY` row, never a seat. |
+| **Discovered** | `/api/tags` showed this local tag and the capability filter did not hide it. Not enabled. Not seated. Not `readiness: Available`. Surfaces on `alln models --json` and default `alln menu --json` `localRuntime`. |
+| **Enabled** | The user turned the tag on. Same word as catalog `enabled`. |
+| **Seated** | A `ModelCatalog` row bound to one body (`seatedID(tag:bodyDriverId:)` or a custom add). This is what law means by **seat**. `Available` / `Unavailable` apply here only. |
+| **Available / Unavailable** | Per **seated** row only — two words, unchanged law. Available = Ollama reachable **and** that seat's tag pulled. Never capacity, never `alln capacity`, never `benchSourceOrder`. Doctor and models share `OllamaLocalDoctorReport.readinessWord`. |
 | **`ollama_local`** | Signal source for local runtime readings. Attribution only — not a strip seat. |
 | **Busy / Idle (retired)** | Cut 2026-08-13. Busy meant resident-in-memory, which is the fast case, so the word inverted a scarcity warning. `/api/ps` still feeds served context; it does not mint a readiness word. |
 | **G0–G3** | Model gate ladder. G0 inference; G1 structured `tool_calls`; G2 agent-body mutate; G3 `alln run` path. Advertised `tools` is lie-prone. **G2 does not predict G3.** |
 
+Do not put `discovered` in `state` or `readiness`. Distinct JSON fields: `discovered`,
+`enabled`, `seated`, `enableCommand`, `capabilityUnknown` (overlay rows only).
+
 Standing laws: `docs/operations/Project_Laws.md` §Local Ollama seats. Code SSOT:
-`OllamaLocalRuntimeClient`, `OllamaLocalDoctorReport`, `ModelDiscoveryProvider`,
-`ModelCatalog`, `ClaudeLocalIsolation`. History: archived
-`docs/archive/phases/OpenCode_Local_Ollama_Seats.md`.
+`OllamaLocalRuntimeClient`, `OllamaLocalDoctorReport`, `OllamaLocalModelDiscoveryProvider`,
+`ModelDiscoveryProvider`, `ModelCatalog`, `LocalRuntimeSeatMint`, `ModelCatalog.saveDiscovered`,
+`LocalSeatPinHonesty`, `LocalRuntimeDefaultBody`, `LocalRuntimePointerPresenter`,
+`LocalRuntimeAdvisory`, `ClaudeLocalIsolation`. History: archived
+`docs/archive/phases/OpenCode_Local_Ollama_Seats.md`; surface packet
+`docs/phases/Local_Runtime_Surface.md`.
 
 ## Quota-aware bench vocabulary (promoted from QABC, 2026-08-09)
 

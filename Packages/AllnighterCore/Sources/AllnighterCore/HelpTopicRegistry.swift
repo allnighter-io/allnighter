@@ -609,15 +609,35 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "opencode_local_setup", title: "OpenCode local Ollama setup", audience: .both,
-            summary: "`alln opencode-local setup` merges Ollama into ~/.config/opencode/opencode.json without dropping opencode-go, and registers pulled tags under provider.ollama.models; `alln opencode-local undo` reverses it.",
+            summary: "Pulled Ollama tags are discovered, not seats. Seat with `alln models enable <candidateID> --body opencode`; `alln opencode-local setup` merges tags into opencode.json without dropping opencode-go.",
             bodyMarkdown: """
-            OpenCode reaches local Ollama through `provider.ollama` at \
-            `http://localhost:11434/v1` plus `ollama` on `enabled_providers` when that \
-            allowlist already exists. Setup also reads Ollama `/api/tags` and **merges** \
-            any missing pulled tags into `provider.ollama.models`. Existing model \
-            entries are never rewritten. If Ollama is unreachable, setup registers no \
-            models and says so — it does not guess tags. Allnighter never replaces \
-            `opencode.json` and never writes `enabled_providers: ["ollama"]` over Go.
+            **Ollama provides the model; a CLI provides the tools.** A pulled tag is \
+            **discovered** — visible on `alln models --json` and default \
+            `alln menu --json` `localRuntime` — but not runnable until seated. A seat \
+            is a body-bound catalog row, not the tag itself.
+
+            Seat a discovered tag on the OpenCode body:
+
+            ```
+            alln models enable <candidateID> --body opencode
+            ```
+
+            `candidateID` comes from the overlay row (`discovered: true`, \
+            `seated: false`). Enable mints a seated id, persists \
+            `origin: discovered`, merges live `/api/tags` into \
+            `~/.config/opencode/opencode.json`, and reclaims leftover \
+            `opencode serve` when needed. `alln drivers --json` shows \
+            `localRuntimeSeats` on the hosting body only.
+
+            `alln opencode-local setup` is the bulk merge path when you want \
+            `provider.ollama` wired without seating yet. OpenCode reaches local Ollama \
+            through `provider.ollama` at `http://localhost:11434/v1` plus `ollama` on \
+            `enabled_providers` when that allowlist already exists. Setup reads Ollama \
+            `/api/tags` and **merges** any missing pulled tags into \
+            `provider.ollama.models`. Existing entries are never rewritten. If Ollama \
+            is unreachable, setup registers no models and says so — it does not guess \
+            tags. Allnighter never replaces `opencode.json` and never writes \
+            `enabled_providers: ["ollama"]` over Go.
 
             ```
             alln opencode-local setup
@@ -627,21 +647,13 @@ public enum HelpTopicRegistry {
 
             Setup copies `opencode.json` to a sibling \
             `opencode.json.bak-alln-ocl-s02a-<timestamp>` before writing. Undo removes \
-            only what that setup added (receipt-backed), including model keys it \
-            inserted. To restore by hand, copy the backup over `opencode.json`.
+            only what that setup added (receipt-backed). `alln opencode-local status` \
+            re-reads `/api/tags` and reports drift vs opencode.json — it never writes \
+            opencode.json.
 
-            After a write, setup recycles a leftover `opencode serve` on port `4096` so \
-            newly registered tags are visible to `alln run --attach`. It checks \
-            `ps -p <pid> -o command=` first and never stops `alln serve`.
-
-            This does not seat models on the Allnighter bench and does not configure \
-            Claude-local. `alln opencode-local status` re-reads `/api/tags` and \
-            reports drift vs opencode.json — it never writes opencode.json. Run \
-            `alln opencode-local setup` or `alln models enable … --body opencode` \
-            to merge live tags.
-
-            After seating, `alln models` / `alln doctor` show local readiness per \
-            seat: Available or Unavailable (Ollama reachable and that tag pulled). \
+            After seating, `alln models` / `alln doctor` show **Available** or \
+            **Unavailable per seated row** (Ollama reachable and that tag pulled). \
+            Discovered-not-seated tags omit readiness — a pulled tag is not Available. \
             Not Idle/Busy, not a capacity row. An OpenCode Zen smoke must never \
             classify a local Ollama seat. A leftover serve's cached model list is \
             not evidence the tag is missing. Advertised tools capability is \
@@ -658,20 +670,33 @@ public enum HelpTopicRegistry {
 
         HelpTopic(
             id: "claude_local_isolation", title: "Claude Code local Ollama isolation", audience: .both,
-            summary: "`alln claude-local status` shows per-run env isolation for a Claude Code body on local Ollama. Never writes your shell or Claude settings.",
+            summary: "Pulled Ollama tags are discovered, not seats. Seat with `alln models enable <candidateID> --body claude_code`; `alln claude-local status` shows per-run env isolation. Never writes your shell or Claude settings.",
             bodyMarkdown: """
-            Claude Code can talk to Ollama's Anthropic-compatible endpoint. Allnighter \
-            does that **per run**: `ANTHROPIC_BASE_URL=http://localhost:11434`, auth \
-            token `ollama`, empty API key. Paid Claude seats are unchanged.
+            **Ollama provides the model; a CLI provides the tools.** A pulled tag is \
+            **discovered** — visible on `alln models --json` and default \
+            `alln menu --json` `localRuntime` — but not runnable until seated. A seat \
+            is a body-bound catalog row, not the tag itself.
 
-            Seat a local body with a catalog label that starts `ollama/`:
+            Seat a discovered tag on the Claude Code body:
+
+            ```
+            alln models enable <candidateID> --body claude_code
+            alln claude-local status --json
+            ```
+
+            `candidateID` comes from the overlay row (`discovered: true`, \
+            `seated: false`). Enable mints a seated id and persists \
+            `origin: discovered`. Manual custom seating still works:
 
             ```
             alln models add --driver claude_code --name qwen-local --model-label ollama/qwen2.5:0.5b
             alln models verify <id>
             alln models enable <id>
-            alln claude-local status --json
             ```
+
+            Claude Code talks to Ollama's Anthropic-compatible endpoint. Allnighter \
+            does that **per run**: `ANTHROPIC_BASE_URL=http://localhost:11434`, auth \
+            token `ollama`, empty API key. Paid Claude seats are unchanged.
 
             `alln models verify` for a Claude-local seat uses local evidence only \
             (Claude Code binary present + Ollama reachable with that tag). It does \
@@ -689,13 +714,14 @@ public enum HelpTopicRegistry {
             `costUSD`, fake 200k `contextWindow`, and `provider: firstParty` are \
             stripped and are not treated as vendor truth.
 
-            Local Ollama readiness is **per seat**, two words only: **Available** or \
-            **Unavailable**. A seat is Available when Ollama is reachable and that \
-            seat's tag is pulled locally. Ollama down makes every local seat \
-            Unavailable. Failure to observe is not Available. This is not a capacity \
-            meter and does not appear on `alln capacity`. Idle and Busy were the \
-            old three-word surface; **Busy was cut because it inverted the word** — \
-            a model resident in memory is the fast case, and Ollama queues; Busy \
+            Local Ollama readiness is **per seated row**, two words only: **Available** \
+            or **Unavailable**. A seated row is Available when Ollama is reachable and \
+            that seat's tag is pulled locally. Discovered-not-seated tags omit \
+            readiness — a pulled tag is not Available. Ollama down makes every seated \
+            local row Unavailable. Failure to observe is not Available. This is not a \
+            capacity meter and does not appear on `alln capacity`. Idle and Busy were \
+            the old three-word surface; **Busy was cut because it inverted the word** \
+            — a model resident in memory is the fast case, and Ollama queues; Busy \
             never meant the seat would refuse work. Advertised tools capability \
             is lie-prone; a G2 harness mutate does not predict a G3 alln-path pass.
 
