@@ -20,16 +20,20 @@ public enum MenuCatalog {
         capacity: MenuJSON.Capacity? = nil,
         update: ReleaseUpdateInfo? = nil,
         entitlement: EntitlementInfo? = nil,
-        benchTally: MenuJSON.BenchTallyPayload? = nil
+        benchTally: MenuJSON.BenchTallyPayload? = nil,
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil
     ) -> MenuJSON {
         let teamList = (teams ?? TeamCatalog.all.filter { !$0.isLabTeam })
             .sorted { $0.id < $1.id }
-        let models: [ModelListJSON.Entry]
+        let allModelEntries: [ModelListJSON.Entry]
         if let modelEntries {
-            models = modelEntries.sorted { $0.id < $1.id }
+            allModelEntries = modelEntries.sorted { $0.id < $1.id }
         } else {
-            models = builtInModelEntries().filter(\.enabled).sorted { $0.id < $1.id }
+            allModelEntries = builtInModelEntries().filter(\.enabled).sorted { $0.id < $1.id }
         }
+        // Overlay rows are visibility, not tier-1 selectable seats (LR-S01b / Test C).
+        let menuCatalogEntries = allModelEntries.filter { !isMenuOverlayEntry($0) }
+        let models = menuCatalogEntries
         let recipeList = (recipes ?? RecipeCatalog.list()).sorted { $0.id < $1.id }
 
         let publicCommands = registry.commands
@@ -180,8 +184,12 @@ public enum MenuCatalog {
         let revision = catalogRevision(
             teams: teamRows.map { "\($0.id):\($0.active)" },
             models: modelRows.map { "\($0.id):\($0.enabled):\($0.ready)" },
-            recipes: recipeRows.map(\.id)
+            recipes: recipeRows.map(\.id),
+            localRuntime: localRuntimeTagRevision(modelEntries: allModelEntries, snapshot: ollamaLocal)
         )
+
+        let localRuntimePayload = projectLocalRuntime(
+            modelEntries: allModelEntries, snapshot: ollamaLocal)
 
         let completeness = MenuJSON.Completeness(
             actions: .init(count: actions.count, complete: true),
@@ -189,7 +197,10 @@ public enum MenuCatalog {
             teams: .init(count: teamRows.count, complete: true),
             models: .init(count: modelRows.count, complete: true),
             recipes: .init(count: recipeRows.count, complete: true),
-            effectProfiles: .init(count: effectProfiles.count, complete: true)
+            effectProfiles: .init(count: effectProfiles.count, complete: true),
+            localRuntime: localRuntimePayload.map {
+                .init(count: $0.tags.count, complete: true)
+            }
         )
 
         return MenuJSON(
@@ -215,7 +226,8 @@ public enum MenuCatalog {
             capacity: capacity,
             update: update,
             entitlement: entitlement,
-            benchTally: benchTally
+            benchTally: benchTally,
+            localRuntime: localRuntimePayload
         )
     }
 
@@ -533,10 +545,76 @@ public enum MenuCatalog {
         return try encoder.encode(value)
     }
 
-    private static func catalogRevision(teams: [String], models: [String], recipes: [String]) -> String {
-        let payload = (teams + models + recipes).joined(separator: "\n")
+    private static func catalogRevision(
+        teams: [String],
+        models: [String],
+        recipes: [String],
+        localRuntime: [String] = []
+    ) -> String {
+        let payload = (teams + models + recipes + localRuntime).joined(separator: "\n")
         let digest = SHA256.hash(data: Data(payload.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Overlay-only rows (`origin: discovered`) — not tier-1 `models[]` seats.
+    static func isMenuOverlayEntry(_ entry: ModelListJSON.Entry) -> Bool {
+        entry.origin == "discovered"
+    }
+
+    private static func projectLocalRuntime(
+        modelEntries: [ModelListJSON.Entry],
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?
+    ) -> MenuJSON.LocalRuntime? {
+        guard let snapshot, snapshot.ollamaVersion != nil else { return nil }
+        let candidates = OllamaLocalModelDiscoveryProvider.result(
+            from: snapshot, discoveredAt: snapshot.observedAt).candidates
+        let tags: [MenuJSON.LocalRuntime.Tag] = candidates.map { candidate in
+            let tagName = OpenCodeLocalSeatReadiness.ollamaTag(from: candidate.modelLabel)
+            let seated = modelEntries.first { entry in
+                entry.seated == true
+                    && tagName != nil
+                    && OpenCodeLocalSeatReadiness.ollamaTag(from: entry.modelLabel) == tagName
+            }
+            if let seated {
+                return MenuJSON.LocalRuntime.Tag(
+                    id: seated.id,
+                    label: seated.modelLabel,
+                    enabled: seated.enabled,
+                    seated: true
+                )
+            }
+            let overlay = modelEntries.first { $0.id == candidate.id }
+            return MenuJSON.LocalRuntime.Tag(
+                id: candidate.id,
+                label: candidate.modelLabel,
+                enabled: false,
+                seated: false,
+                enableCommand: overlay?.enableCommand
+                    ?? OllamaLocalModelDiscoveryProvider.enableCommand(candidateID: candidate.id),
+                capabilityUnknown: overlay?.capabilityUnknown
+            )
+        }.sorted { lhs, rhs in
+            let lhsUnknown = lhs.capabilityUnknown == true
+            let rhsUnknown = rhs.capabilityUnknown == true
+            if lhsUnknown != rhsUnknown { return !lhsUnknown && rhsUnknown }
+            return lhs.label < rhs.label
+        }
+        return MenuJSON.LocalRuntime(
+            defaultBody: OllamaLocalModelDiscoveryProvider.defaultEnableBodyDriverId,
+            tags: tags
+        )
+    }
+
+    private static func localRuntimeTagRevision(
+        modelEntries: [ModelListJSON.Entry],
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?
+    ) -> [String] {
+        guard let runtime = projectLocalRuntime(modelEntries: modelEntries, snapshot: snapshot) else {
+            return []
+        }
+        return runtime.tags.map {
+            "\($0.id):\($0.enabled):\($0.seated):\($0.label)"
+        }
     }
 
     private static func compact(_ text: String, limit: Int = 48) -> String {

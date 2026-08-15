@@ -16,14 +16,26 @@ enum MenuCLI {
             records: setup.records,
             parked: setup.parkedSet
         )
+        let now = Date()
+        let ollamaSnapshot = OllamaLocalDoctorReport.snapshotIfAllowed(
+            transport: nil,
+            observedAt: now,
+            isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+        )
+        let modelList = ModelsCLI.modelListJSON(
+            runtime: runtime,
+            now: now,
+            ollamaLocal: ollamaSnapshot
+        )
         let menu = MenuCatalog.project(
             teams: runtime.teams.filter { !$0.isLabTeam },
-            modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models,
+            modelEntries: modelList.models,
             detailed: detailed,
-            capacity: AllnighterCLI.menuCapacity(now: Date()),
-            update: AllnighterCLI.menuUpdate(now: Date()),
+            capacity: AllnighterCLI.menuCapacity(now: now),
+            update: AllnighterCLI.menuUpdate(now: now),
             entitlement: EntitlementGate.standard.menuProjection(),
-            benchTally: MenuJSON.BenchTallyPayload(tally: tally)
+            benchTally: MenuJSON.BenchTallyPayload(tally: tally),
+            ollamaLocal: ollamaSnapshot
         )
         do {
             print(String(decoding: try MenuCatalog.encodeCompact(menu), as: UTF8.self))
@@ -41,11 +53,22 @@ enum MenuCLI {
             )
         }
         do {
+            let now = Date()
+            let ollamaSnapshot = OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: nil,
+                observedAt: now,
+                isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+            )
+            let modelList = ModelsCLI.modelListJSON(
+                runtime: runtime,
+                now: now,
+                ollamaLocal: ollamaSnapshot
+            )
             let detail = try MenuCatalog.show(
                 ref: ref,
                 teams: runtime.teams.filter { !$0.isLabTeam },
-                modelEntries: ModelsCLI.modelListJSON(runtime: runtime).models,
-                capacity: AllnighterCLI.menuCapacity(now: Date())
+                modelEntries: modelList.models,
+                capacity: AllnighterCLI.menuCapacity(now: now)
             )
             print(String(decoding: try MenuCatalog.encodeCompact(detail), as: UTF8.self))
         } catch let error as MenuRefError {

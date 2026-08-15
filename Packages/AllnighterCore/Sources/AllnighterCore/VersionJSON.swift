@@ -181,8 +181,12 @@ import Foundation
 /// amber on modern terminals but emits xterm-256 on macOS Terminal.app
 /// (`TERM_PROGRAM=Apple_Terminal`) so semicolon truecolor is not misparsed as
 /// pink backgrounds. Same contract 10.6.0.
+///
+/// **1.1.14 → 1.1.15 (menu localRuntime + drivers pointer).** Default
+/// `alln menu --json` carries `localRuntime` (LR-S01b ruling 3); `alln drivers
+/// `--json` gains optional `localRuntimeSeats`. Contract 10.7.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.14"
+    public static let binaryVersion = "1.1.15"
 }
 
 /// `alln version` / `alln --version` machine contract.

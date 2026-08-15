@@ -76,7 +76,11 @@ public extension ContractRegistry {
     // 10.4.0 → 10.5.0: `VersionJSON.tellHuman` person hatch; failed CLI JSON
     // falls back to `emailSupport` nextAction when ErrorDiscovery has none.
     // 10.5.0 → 10.6.0: `alln feedback` postcard (quoted text + CLI version + OS).
-    static let contractVersion = "10.6.0"
+    // 10.6.0 → 10.7.0: LR-S01a `modelListJSON` overlay fields (`discovered`,
+    // `seated`, `enableCommand`, `capabilityUnknown`); LR-S01b optional
+    // `MenuJSON.localRuntime` + `completeness.localRuntime`; optional
+    // `DriverListJSON.Entry.localRuntimeSeats` (hosting-body pointer count).
+    static let contractVersion = "10.7.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,

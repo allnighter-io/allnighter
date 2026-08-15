@@ -235,6 +235,55 @@
       ],
       "type" : "object"
     },
+    "LocalRuntime" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "defaultBody" : {
+          "type" : "string"
+        },
+        "tags" : {
+          "items" : {
+            "$ref" : "#\/$defs\/LocalRuntimeTag"
+          },
+          "type" : "array"
+        }
+      },
+      "required" : [
+        "defaultBody",
+        "tags"
+      ],
+      "type" : "object"
+    },
+    "LocalRuntimeTag" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "capabilityUnknown" : {
+          "type" : "boolean"
+        },
+        "enableCommand" : {
+          "type" : "string"
+        },
+        "enabled" : {
+          "type" : "boolean"
+        },
+        "id" : {
+          "type" : "string"
+        },
+        "label" : {
+          "type" : "string"
+        },
+        "seated" : {
+          "type" : "boolean"
+        }
+      },
+      "required" : [
+        "id",
+        "label",
+        "enabled",
+        "seated"
+      ],
+      "type" : "object"
+    },
     "MenuAction" : {
       "additionalProperties" : false,
       "properties" : {
@@ -297,6 +346,9 @@
           "$ref" : "#\/$defs\/CollectionCompleteness"
         },
         "effectProfiles" : {
+          "$ref" : "#\/$defs\/CollectionCompleteness"
+        },
+        "localRuntime" : {
           "$ref" : "#\/$defs\/CollectionCompleteness"
         },
         "models" : {
@@ -592,6 +644,9 @@
     },
     "entitlement" : {
       "$ref" : "#\/$defs\/Entitlement"
+    },
+    "localRuntime" : {
+      "$ref" : "#\/$defs\/LocalRuntime"
     },
     "models" : {
       "items" : {

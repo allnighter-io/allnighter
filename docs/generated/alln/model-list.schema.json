@@ -100,6 +100,12 @@
         "capabilities" : {
           "$ref" : "#\/$defs\/ModelCapabilities"
         },
+        "capabilityUnknown" : {
+          "type" : "boolean"
+        },
+        "discovered" : {
+          "type" : "boolean"
+        },
         "displayName" : {
           "type" : "string"
         },
@@ -107,6 +113,9 @@
           "type" : "string"
         },
         "driverName" : {
+          "type" : "string"
+        },
+        "enableCommand" : {
           "type" : "string"
         },
         "enabled" : {
@@ -154,6 +163,9 @@
         },
         "role" : {
           "type" : "string"
+        },
+        "seated" : {
+          "type" : "boolean"
         },
         "stale" : {
           "type" : "boolean"

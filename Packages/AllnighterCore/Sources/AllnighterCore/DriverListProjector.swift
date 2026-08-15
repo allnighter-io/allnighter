@@ -20,6 +20,7 @@ public enum DriverListProjector {
             probeRecords.map { ($0.driverId, $0) })
         let onCount = Dictionary(grouping: models.filter(\.enabled), by: \.driverId)
             .mapValues(\.count)
+        let localRuntimeSeatCounts = localRuntimeSeatCountsByDriver(models: models)
 
         var entries: [DriverListJSON.Entry] = registry.all
             .filter { $0.kind == .headlessCLI }
@@ -78,6 +79,7 @@ public enum DriverListProjector {
                     modelsOn: onCount[manifest.id] ?? 0,
                     probeDetail: detail,
                     idleTimeoutSeconds: manifest.invoke?.timeoutSeconds,
+                    localRuntimeSeats: localRuntimeSeatCounts[manifest.id],
                     freshness: freshness
                 )
             }
@@ -89,6 +91,23 @@ public enum DriverListProjector {
         }
 
         return DriverListJSON(contractVersion: contractVersion, drivers: entries)
+    }
+
+    /// Enabled seated `ollama/` rows per hosting body — not in roster `modelsOn`.
+    private static func localRuntimeSeatCountsByDriver(models: [Model]) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for model in models where model.enabled {
+            guard isLocalRuntimeSeat(model) else { continue }
+            counts[model.driverId, default: 0] += 1
+        }
+        return counts
+    }
+
+    private static func isLocalRuntimeSeat(_ model: Model) -> Bool {
+        OpenCodeLocalSeatReadiness.isLocalOpenCodeSeat(
+            driverId: model.driverId, modelLabel: model.modelLabel)
+            || ClaudeLocalIsolation.isLocalSeat(
+                driverId: model.driverId, modelLabel: model.modelLabel)
     }
 
     private static func shortProbeDetail(_ status: ModelSetupStatus, vendorReset: Date?, driverId: String) -> String? {

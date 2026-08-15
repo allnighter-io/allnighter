@@ -35,6 +35,60 @@ public struct MenuJSON: Codable, Sendable, Equatable {
     /// when projected from a live registry. `nextAction` is set when the agent
     /// must run a command before spend (`alln detect` or `alln doctor --full --json`).
     public var benchTally: BenchTallyPayload?
+    /// LR-S01b — every discovered local tag (ruling 3). Absent when Ollama was
+    /// not observed on this list snapshot — not `"tags": []` fabrication.
+    public var localRuntime: LocalRuntime?
+
+    /// LR-S01 — LOCAL RUNTIME section on default `alln menu --json`.
+    public struct LocalRuntime: Codable, Sendable, Equatable {
+        /// Section default body for the next enable (`§0.2` / S02 `--body`).
+        public var defaultBody: String
+        public var tags: [Tag]
+
+        public struct Tag: Codable, Sendable, Equatable {
+            public var id: String
+            public var label: String
+            public var enabled: Bool
+            public var seated: Bool
+            public var enableCommand: String?
+            public var capabilityUnknown: Bool?
+
+            public init(
+                id: String,
+                label: String,
+                enabled: Bool,
+                seated: Bool,
+                enableCommand: String? = nil,
+                capabilityUnknown: Bool? = nil
+            ) {
+                self.id = id
+                self.label = label
+                self.enabled = enabled
+                self.seated = seated
+                self.enableCommand = enableCommand
+                self.capabilityUnknown = capabilityUnknown
+            }
+
+            private enum CodingKeys: String, CodingKey {
+                case id, label, enabled, seated, enableCommand, capabilityUnknown
+            }
+
+            public func encode(to encoder: Encoder) throws {
+                var c = encoder.container(keyedBy: CodingKeys.self)
+                try c.encode(id, forKey: .id)
+                try c.encode(label, forKey: .label)
+                try c.encode(enabled, forKey: .enabled)
+                try c.encode(seated, forKey: .seated)
+                try c.encodeIfPresent(enableCommand, forKey: .enableCommand)
+                try c.encodeIfPresent(capabilityUnknown, forKey: .capabilityUnknown)
+            }
+        }
+
+        public init(defaultBody: String, tags: [Tag]) {
+            self.defaultBody = defaultBody
+            self.tags = tags
+        }
+    }
 
     /// Wire shape for `BenchTally` — no ready/total ratio field by design.
     public struct BenchTallyPayload: Codable, Sendable, Equatable {
@@ -253,6 +307,25 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         public var models: CollectionCompleteness
         public var recipes: CollectionCompleteness
         public var effectProfiles: CollectionCompleteness
+        public var localRuntime: CollectionCompleteness?
+
+        public init(
+            actions: CollectionCompleteness,
+            commands: CollectionCompleteness,
+            teams: CollectionCompleteness,
+            models: CollectionCompleteness,
+            recipes: CollectionCompleteness,
+            effectProfiles: CollectionCompleteness,
+            localRuntime: CollectionCompleteness? = nil
+        ) {
+            self.actions = actions
+            self.commands = commands
+            self.teams = teams
+            self.models = models
+            self.recipes = recipes
+            self.effectProfiles = effectProfiles
+            self.localRuntime = localRuntime
+        }
     }
 
     public init(
@@ -276,7 +349,8 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         capacity: Capacity? = nil,
         update: ReleaseUpdateInfo? = nil,
         entitlement: EntitlementInfo? = nil,
-        benchTally: BenchTallyPayload? = nil
+        benchTally: BenchTallyPayload? = nil,
+        localRuntime: LocalRuntime? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.contractVersion = contractVersion
@@ -299,6 +373,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         self.update = update
         self.entitlement = entitlement
         self.benchTally = benchTally
+        self.localRuntime = localRuntime
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -306,7 +381,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
             detailTemplate, actions, commands, teams, teamInvocation, models, modelInvocation,
             blocked, recipes,
             effectProfiles,
-            defaults, completeness, capacity, update, entitlement, benchTally
+            defaults, completeness, capacity, update, entitlement, benchTally, localRuntime
     }
 
     /// Swift's synthesized `Encodable` writes `Optional` properties as explicit
@@ -336,6 +411,7 @@ public struct MenuJSON: Codable, Sendable, Equatable {
         try container.encodeIfPresent(update, forKey: .update)
         try container.encodeIfPresent(entitlement, forKey: .entitlement)
         try container.encodeIfPresent(benchTally, forKey: .benchTally)
+        try container.encodeIfPresent(localRuntime, forKey: .localRuntime)
     }
 }
 

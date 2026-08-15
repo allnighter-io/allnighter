@@ -170,30 +170,33 @@ public enum ModelListProjector {
         // very command the user runs to confirm it exists. Bench filtering is
         // already applied upstream via `benchOnly`.
         let menuModels = MenuCatalog.project(modelEntries: entries, detailed: true).models
+        let menuModelsById = Dictionary(uniqueKeysWithValues: menuModels.map { ($0.id, $0) })
         let byId = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
-        let reconciled: [ModelListJSON.Entry] = menuModels.compactMap { row in
-            guard let base = byId[row.id] else { return nil }
+        let reconciled: [ModelListJSON.Entry] = entries.map { base in
+            guard let row = menuModelsById[base.id], let mergedBase = byId[base.id] else {
+                return base
+            }
             return ModelListJSON.Entry(
                 id: row.id,
                 displayName: row.displayName,
-                modelLabel: base.modelLabel,
+                modelLabel: mergedBase.modelLabel,
                 driverId: row.driverId,
-                driverName: base.driverName,
-                role: base.role,
-                origin: base.origin,
+                driverName: mergedBase.driverName,
+                role: mergedBase.role,
+                origin: mergedBase.origin,
                 enabled: row.enabled,
                 ready: row.ready,
-                status: base.status,
+                status: mergedBase.status,
                 state: row.enabled ? "onBench" : "available",
-                capabilities: base.capabilities,
-                headlessTrust: base.headlessTrust,
-                stale: base.stale,
-                resolvesTo: base.resolvesTo,
-                readiness: base.readiness,
-                discovered: base.discovered,
-                seated: base.seated,
-                enableCommand: base.enableCommand,
-                capabilityUnknown: base.capabilityUnknown
+                capabilities: mergedBase.capabilities,
+                headlessTrust: mergedBase.headlessTrust,
+                stale: mergedBase.stale,
+                resolvesTo: mergedBase.resolvesTo,
+                readiness: mergedBase.readiness,
+                discovered: mergedBase.discovered,
+                seated: mergedBase.seated,
+                enableCommand: mergedBase.enableCommand,
+                capabilityUnknown: mergedBase.capabilityUnknown
             )
         }
         var payload = ModelListJSON(

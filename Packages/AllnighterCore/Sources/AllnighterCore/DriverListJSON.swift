@@ -19,6 +19,9 @@ public struct DriverListJSON: Codable, Sendable, Equatable {
         public var probeDetail: String?
         /// Manifest `invoke.timeoutSeconds` when the driver declares an invoke block.
         public var idleTimeoutSeconds: Int?
+        /// LR-S01b — enabled seated local rows for this body (`§2.4` pointer count).
+        /// Omitted when zero — the non-hosting body shows no pointer.
+        public var localRuntimeSeats: Int?
         /// PF-S01 — how old this row's own probe evidence is, and the command
         /// that actually refreshes it. Defaults to the honest "never checked"
         /// state so existing call sites that don't compute it don't fabricate one.

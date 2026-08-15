@@ -905,6 +905,7 @@ public enum ContractSchema {
             "update": ref("ReleaseUpdate"),
             "entitlement": ref("Entitlement"),
             "benchTally": ref("BenchTally"),
+            "localRuntime": ref("LocalRuntime"),
         ], required: [
             "schemaVersion", "contractVersion", "contractHash", "catalogRevision",
             "truncated", "detailTemplate", "actions", "commands", "teams", "models",
@@ -960,7 +961,16 @@ public enum ContractSchema {
                 "models": ref("CollectionCompleteness"),
                 "recipes": ref("CollectionCompleteness"),
                 "effectProfiles": ref("CollectionCompleteness"),
+                "localRuntime": ref("CollectionCompleteness"),
             ], required: ["actions", "commands", "teams", "models", "recipes", "effectProfiles"]),
+            "LocalRuntime": obj([
+                "defaultBody": str,
+                "tags": arr(ref("LocalRuntimeTag")),
+            ], required: ["defaultBody", "tags"]),
+            "LocalRuntimeTag": obj([
+                "id": str, "label": str, "enabled": bool, "seated": bool,
+                "enableCommand": str, "capabilityUnknown": bool,
+            ], required: ["id", "label", "enabled", "seated"]),
             "ModelCapabilities": obj([
                 "laneTags": arr(str), "capabilityTags": arr(str), "strengthRank": int,
             ], required: ["laneTags", "capabilityTags", "strengthRank"]),
