@@ -74,15 +74,12 @@ final class ContractExportTests: XCTestCase {
         }
     }
 
-    /// Set `ALLNIGHTER_REGENERATE_CONTRACTS=1` to rewrite `docs/generated/alln/`.
+    /// Set `ALLNIGHTER_REGENERATE_CONTRACTS=1` to rewrite `docs/generated/alln/`
+    /// and the `team_run.json` fixture `contractVersion` (`ContractExport.write`).
     func testRegenerateCheckedInArtifactsWhenRequested() throws {
         guard ProcessInfo.processInfo.environment["ALLNIGHTER_REGENERATE_CONTRACTS"] == "1" else {
             throw XCTSkip("set ALLNIGHTER_REGENERATE_CONTRACTS=1 to regenerate")
         }
-        let dir = repoRoot.appendingPathComponent(ContractExport.generatedDir)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        for artifact in try ContractExport.artifacts() {
-            try artifact.contents.write(to: dir.appendingPathComponent(artifact.filename), atomically: true, encoding: .utf8)
-        }
+        _ = try ContractExport.write(from: repoRoot.path)
     }
 }

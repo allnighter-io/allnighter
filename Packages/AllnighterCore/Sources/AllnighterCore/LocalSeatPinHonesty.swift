@@ -57,8 +57,12 @@ public enum LocalSeatPinHonesty {
         return sentence
     }
 
-    public static func unavailableRefusal(pinId: String, pinDisplayName: String) -> String {
-        "\(pinDisplayName) is unavailable. Run alln menu --json to pick another model."
+    public static func unavailableRefusal(
+        pinId: String,
+        pinDisplayName: String,
+        policy: ModelFallbackPolicy
+    ) -> String {
+        "\(pinDisplayName) is unavailable. The \(policy.rawValue) policy pins \(pinId), so Allnighter will not substitute another model. Run alln menu --json to pick another model."
     }
 
     public static func lookupPin(

@@ -200,8 +200,13 @@ import Foundation
 /// `models delete` unregisters only tags that seat's OpenCode mint added.
 /// `SubstitutionResolver` refuses local/cloud swaps (Mac defaults / Auto).
 /// Same contract 10.9.0.
+///
+/// **1.1.18 → 1.1.19 (unfiltered-suite regressions).** Disabled exactOnly
+/// seats name the policy and the pinned model id. A held write-lock root
+/// authorizes that sibling tree after the empty default allow-list.
+/// Same contract 10.9.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.18"
+    public static let binaryVersion = "1.1.19"
 }
 
 /// `alln version` / `alln --version` machine contract.

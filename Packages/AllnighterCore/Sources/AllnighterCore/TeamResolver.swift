@@ -198,11 +198,15 @@ public enum TeamResolver {
             )
         }
 
-        func preferredUnavailableRefusal(preferred: String) -> String {
+        func preferredUnavailableRefusal(
+            preferred: String,
+            policy: ModelFallbackPolicy
+        ) -> String {
             let pin = lookupPreferredPin(preferred)
             return LocalSeatPinHonesty.unavailableRefusal(
                 pinId: preferred,
-                pinDisplayName: pin?.displayName ?? preferred
+                pinDisplayName: pin?.displayName ?? preferred,
+                policy: policy
             )
         }
 
@@ -235,7 +239,8 @@ public enum TeamResolver {
                     seatingReason: model.reason)
                 claim(model.model, capabilityOnly: scoutSpec.preferredModelId == nil)
             } else if let pref = scoutSpec.preferredModelId {
-                disable(scoutSpec, scoutSkillName, preferredUnavailableRefusal(preferred: pref))
+                disable(scoutSpec, scoutSkillName, preferredUnavailableRefusal(
+                    preferred: pref, policy: scoutSpec.fallbackPolicy))
             } else {
                 disable(scoutSpec, scoutSkillName, "no ready model for scout in lane \(team.lane.rawValue)")
             }
@@ -280,7 +285,8 @@ public enum TeamResolver {
                     catalogModels: catalogModels
                 ) else {
                     if let preferred = row.preferredModelId {
-                        disable(row, skillName, preferredUnavailableRefusal(preferred: preferred))
+                        disable(row, skillName, preferredUnavailableRefusal(
+                            preferred: preferred, policy: row.fallbackPolicy))
                     } else {
                         disable(row, skillName, "no ready model matches \(row.fallbackPolicy.rawValue)")
                     }
@@ -339,7 +345,8 @@ public enum TeamResolver {
                     skillName: leadName, preferred: preferred, substitute: pick.model))
             }
         } else if let preferred = lead.preferredModelId {
-            requiredBlock = requiredBlock ?? preferredUnavailableRefusal(preferred: preferred)
+            requiredBlock = requiredBlock ?? preferredUnavailableRefusal(
+                preferred: preferred, policy: lead.fallbackPolicy)
         }
 
         // Self-fusion / admission warnings (honest, never an estimate).

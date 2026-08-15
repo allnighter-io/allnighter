@@ -34,7 +34,7 @@ All ladder slices are **IMPLEMENTED**:
 | S05c | `854ec69c` |
 | S07 | `39597ca9` |
 
-Contract **10.9.0**. `binaryVersion` **1.1.18** (**unpublished**).
+Contract **10.9.0**. `binaryVersion` **1.1.19** (**unpublished**).
 
 **The packet is not closed.** Do not mark it closed. Do not archive it.
 
@@ -1026,7 +1026,21 @@ now apply `LocalSeatPinHonesty.sameSide` so Mac Team Control, Threads, and
 `testAutoNeverPicksLocalForCloudTierDefault`. Law SSOT list now includes
 `SubstitutionResolver`.
 
-Contract stays **10.9.0**. `binaryVersion` **1.1.18**.
+Contract stays **10.9.0**. `binaryVersion` **1.1.19**.
+
+**P3 — unfiltered-suite regressions (2026-08-15).** The PM's filtered
+blast-radius run missed all three. They were caught only by the unfiltered
+suite (`4250` tests):
+
+1. `team_run.json` still said `10.8.0` after the 10.9.0 bump. Regenerated
+   via `ContractExport.write` (not a hand-edit). The regenerate test now
+   calls `write` so the fixture stays in lock-step.
+2. Empty default OpenCode allow-roots made a *held* sibling write lock a
+   no-op (`OpenCodePermissionPolicyLockGatingTests`). Source fix: a held
+   write-lock root authorizes that tree.
+3. `88bccd04` replaced the disabled-seat refusal with a model-only
+   sentence. Restore policy + pin id (`exactOnly`, `model_gpt_sol`) in
+   the same plain-English voice.
 
 ---
 
