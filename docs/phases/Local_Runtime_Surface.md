@@ -1,6 +1,6 @@
 # Local Runtime Surface — make the local seats we already built reachable
 
-Status: **READY FOR IMPLEMENTATION.** Founder-ruled 2026-08-14. Successor to
+Status: **S00 RECORDED — packet proceeds to LR-S01.** Founder-ruled 2026-08-14. Successor to
 packet 1 ([`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md),
 archived 2026-08-13) — not a reopening of it.
 Owner: unassigned (`ModelCatalog` discovery wiring + Mac CLI strip)
@@ -62,8 +62,8 @@ never the default; it was that **off currently means invisible.**
 | `ModelDiscoveryRegistry.provider(for:)` | **0 production call sites.** Tests only. |
 | `OllamaLocalSeatEnablePolicy.assessExplicitEnable()` | **0 production call sites.** Tests only. |
 | `alln models enable <id>` | `ModelCatalog.setEnabled(id, true)` on an **existing** id. No `--body`. Never calls the enable policy. Cannot mint a seat from a tag. |
-| `alln models add --driver <body> --model-label ollama/<tag>` | The **manual** seating path (`ClaudeLocalIsolation.seatingExample`). Documented; **not executed during this audit** — verify in S00. |
-| `alln models --json` | 43 seats, **0 local**. |
+| `alln models add --driver <body> --model-label ollama/<tag>` | The **manual** seating path (`ClaudeLocalIsolation.seatingExample`). **Executed in S00** — see §10. One Claude Code custom seat kept on this host. |
+| `alln models --json` | Pre-S00: 43 seats, **0 local**. Post-S00: 44 seats, **1 local** (`custom_claude_code_qwen38_27b_local`). |
 | `alln menu --json` actions | `drivers`, `models`, `run`, `teams duplicate`, `teams edit`. No local, no `sweep`. |
 | `alln opencode-local status` | `wired: true`, `enabledProviders: ["opencode-go","ollama"]`, `ollamaTagsObserved: **false**`, `ollamaModelIds` = 6 tags — **missing `qwen3.8:27b-mlx` pulled the same day**. A frozen snapshot. |
 | Mac app | `grep -rl -i ollama Apps/AllnighterMac/Sources/` → **nothing.** Zero Ollama concept. |
@@ -460,14 +460,14 @@ Firewall and Second Mac still do not block this ladder.
 | --- | --- |
 | **Truth owner** | `/api/tags` for what exists on disk; `ModelCatalog` for what is seated. Neither answers for the other. `opencode.json` answers only for what the OpenCode process will accept, and only after a merge this packet owns. |
 | **Lie-prone** | Cached `opencode-local status`; leftover serve; discovered tag as a runnable seat; `readiness: Available` on a non-seat; `state: available` read as "Available"; ready dot on a runtime that cannot execute; Claude local `costUSD` / `contextWindow: 200000` / `provider: firstParty`; offer predicate false-on-nil painted "not recommended"; GUI affordance with no CLI twin; default `menu --json` omitting every off local tag while `completeness.models.complete` is true; doctor listing unseated tags as Available seats; Teams silently picking a local seat via inherited driver caps; persisting a discovered seat as `.custom` so `verify` will take it; the §2.4 pointer drifting into a selectable roster entry or into the body's model count (ruling 5). |
-| **Missing proof** | S00 audit; CLI A/D on S01; B dry-run on S02; chrome + Mac A/D on S05. |
+| **Missing proof** | CLI A/D on S01; B dry-run on S02; chrome + Mac A/D on S05. S00 recorded in §10. |
 
 ---
 
 ## 9. Done when
 
-- [ ] S00 recorded: four questions answered; packet stopped only if custom
-      Claude-local add→verify→enable cannot mint an honest row
+- [x] S00 recorded: four questions answered; packet proceeds to LR-S01
+      (custom Claude-local add→verify→enable minted an honest row; §10)
 - [ ] A newly pulled completion tag appears in `alln models --json` **and**
       default `alln menu --json` `localRuntime` **and** the Mac section, with
       no setup re-run and no `models add`
@@ -495,6 +495,216 @@ Firewall and Second Mac still do not block this ladder.
       immutable R2 prefix (`Public_Release.md` § Version bump law). One bump
       if S01–S03 ship together; bump again if a later slice ships separately.
 - [ ] Promote keepable law; archive this packet
+
+---
+
+## 10. LR-S00 catalog-path audit (2026-08-14)
+
+Dogfood host, one tag, one body. No live inference. Seat **kept**.
+
+**Packet proceeds to LR-S01.** Question (1) passed on Claude Code. Question (4)
+did **not** pick the local seat, so the §0.5 label guard is **not** landed in
+this slice (stays on S02).
+
+### Path executed
+
+```text
+alln models add --driver claude_code --name "Qwen3.8 27B local" --model-label ollama/qwen3.8:27b-mlx --json
+alln models verify custom_claude_code_qwen38_27b_local --json
+alln models enable custom_claude_code_qwen38_27b_local --json
+```
+
+`verify` is local-evidence only for `ollama/` + Claude Code (binary + `/api/tags`);
+it did not spawn Claude Code or send tokens.
+
+```json
+{
+  "driverId" : "claude_code",
+  "id" : "custom_claude_code_qwen38_27b_local",
+  "label" : "ollama/qwen3.8:27b-mlx",
+  "status" : "recognized"
+}
+```
+
+Minted id: `custom_claude_code_qwen38_27b_local`. Origin `.custom`, forced
+off-bench at add, enabled after verify. OpenCode add **not** run (one tag,
+one body).
+
+### (1) Honest row? **YES — packet does not stop.**
+
+Command: `alln models --json` (row extracted; catalog now 44).
+
+```json
+{
+  "capabilities": {
+    "capabilityTags": ["code", "planner", "review", "security", "design", "copy", "localContext"],
+    "laneTags": ["code", "design", "copy", "signal"],
+    "strengthRank": 40
+  },
+  "displayName": "Qwen3.8 27B local",
+  "driverId": "claude_code",
+  "driverName": "Claude Code",
+  "enabled": true,
+  "id": "custom_claude_code_qwen38_27b_local",
+  "modelLabel": "ollama/qwen3.8:27b-mlx",
+  "origin": "custom",
+  "readiness": "Available",
+  "ready": true,
+  "role": "answerer",
+  "stale": true,
+  "state": "onBench",
+  "status": "ready"
+}
+```
+
+| Field | Honest? |
+| --- | --- |
+| `driverId` | Yes — `claude_code` (body), not `ollama_local` |
+| `origin` | Yes — `custom` (createCustom persist) |
+| `modelLabel` | Yes — `ollama/qwen3.8:27b-mlx` |
+| `readiness` | Yes — **Available**. Tag is pulled, Ollama reachable, row is **seated**. Not a false Available on an unseated overlay tag. |
+| `ready` / `status` | Yes on `models --json` (`true` / `ready`) |
+
+Inherited richest Claude Code capability + all four lane tags at
+`unratedModelRank` 40. Identity fields are true; the inheritance is the
+ruling-11 seam tested in (4).
+
+Related split (not a (1) fail): default `alln menu --json` lists the same id
+as `ready: false`, `status: "notChecked"`, `blockedReason: "Source not checked"`.
+Menu does not observe Ollama today (§0.3). That split explains (3) and (4).
+
+### (2) `--model` dry-run resolve the body? **YES.**
+
+```text
+alln run "LR-S00 resolution only; do not execute" --model custom_claude_code_qwen38_27b_local --dry-run --json
+```
+
+```json
+{
+  "canStart" : true,
+  "counts" : { "blockedWorkers" : 0, "readyWorkers" : 1, "resolvedSourceIds" : 1, "seatCount" : 1 },
+  "modelId" : "custom_claude_code_qwen38_27b_local",
+  "resolvedModelLabel" : "ollama/qwen3.8:27b-mlx",
+  "resolvedPinModelId" : "custom_claude_code_qwen38_27b_local",
+  "teamPresetId" : "default_chat",
+  "writePolicy" : "mutating"
+}
+```
+
+Pin resolved. Label is the Ollama tag. Body is the catalog `driverId`
+`claude_code`. `canStart: true`. No tokens sent.
+
+### (3) Explicit `--seat` / `preferredModelId`? **Not a lane-tag refuse.**
+
+`--seat` on Doc Review (1 crew slot):
+
+```text
+alln run "LR-S00 explicit seat pin; do not execute" --team code_doc_review --seat custom_claude_code_qwen38_27b_local --dry-run --json
+```
+
+```json
+{
+  "blockedReason" : "seat 1 (custom_claude_code_qwen38_27b_local): not ready — check `alln doctor` / `alln menu --json`",
+  "canStart" : false,
+  "seats" : [
+    { "driverId" : "codex", "family" : "gpt", "modelId" : "model_gpt_sol", "reason" : "band+unusedFamily", "skillId" : "doc_reviewer", "stage" : "answer" },
+    { "driverId" : "cursor_agent", "family" : "claude", "modelId" : "model_cursor_fable", "reason" : "band+unusedFamily", "skillId" : "doc_reviewer", "stage" : "plan" }
+  ],
+  "teamPresetId" : "code_doc_review"
+}
+```
+
+Refused **not ready** (`TeamExplicitSeats` ready-set — the same
+`notChecked` menu path). Did **not** hit `seatIncompatible` / lane tags.
+`--seat` on `code_spec_review` (5 crew slots) failed earlier on count
+mismatch (`got 1`) — not informative about the local seat.
+
+`preferredModelId` (temp team `custom_lr_s00_pin`, duplicated from
+`code_doc_review`, then deleted):
+
+```text
+alln teams duplicate code_doc_review --id custom_lr_s00_pin --name "LR-S00 preferredModelId pin" --json
+# agentSpecs[0].preferredModelId + lead.preferredModelId = custom_claude_code_qwen38_27b_local
+alln teams edit custom_lr_s00_pin --file <edit.json> --json
+alln run "LR-S00 preferredModelId pin; do not execute" --team custom_lr_s00_pin --dry-run --json
+alln teams delete custom_lr_s00_pin --json
+```
+
+```json
+{
+  "canStart" : true,
+  "seats" : [
+    { "driverId" : "claude_code", "family" : "claude", "modelId" : "model_opus", "reason" : "reuseFamily", "skillId" : "doc_reviewer", "stage" : "answer" },
+    { "driverId" : "claude_code", "family" : "claude", "modelId" : "model_fable", "reason" : "band+unusedFamily", "skillId" : "doc_reviewer", "stage" : "plan" }
+  ],
+  "teamPresetId" : "custom_lr_s00_pin",
+  "warnings" : [
+    "Doc Reviewer: preferred custom_claude_code_qwen38_27b_local unavailable; resolved to Opus 5."
+  ]
+}
+```
+
+The pin was **accepted** (not a lane-tag refuse) and then treated as
+**unavailable**; resolver substituted Opus 5. Same ready-set split as `--seat`.
+
+### (4) Unpinned capability-staffed Team pick it? **NO — guard not landed here.**
+
+Commands (all `--dry-run --json`; no `--model` / `--seat`):
+
+```text
+alln run "LR-S00 unpinned team; do not execute" --team code_doc_review --dry-run --json
+alln run "LR-S00 unpinned team; do not execute" --team code_spec_review --dry-run --json
+alln run "LR-S00 unpinned team; do not execute" --team code_spec_review_max --dry-run --json
+alln run "LR-S00 unpinned team; do not execute" --team code_gui_bug_hunt --dry-run --json
+alln run "LR-S00 unpinned team; do not execute" --team code_plan --dry-run --json
+alln run "LR-S00 unpinned team; do not execute" --team fusion --dry-run --json
+alln run "LR-S00 unpinned team; do not execute" --dry-run --json
+```
+
+| Team | canStart | seats | picked local? |
+| --- | --- | --- | --- |
+| `code_doc_review` | true | `model_gpt_sol`, `model_cursor_fable` | no |
+| `code_spec_review` | true | Sol, Cursor Fable, Grok 4.6, Kimi K3, GLM-5.2, Fable | no |
+| `code_spec_review_max` | true | 10: Grok 4.6, Sol, Cursor Fable, Kimi K3, GLM-5.2, Qwen 3.8 Max, DeepSeek V4 Pro, Cursor Opus, Opus 5, Fable | no |
+| `code_gui_bug_hunt` | true | 10 (same paid mix, no local id) | no |
+| `code_plan` | true | 8 paid | no |
+| `fusion` | true | Gemini, Kimi K2.7, DeepSeek V4 Pro, Opus 5 | no |
+| Default Team (`default_chat`) | true | `modelId` / `resolvedPinModelId` = `model_fable` | no |
+
+`code_spec_review_max` excerpt (`canStart: true`, local id absent):
+
+```json
+{
+  "canStart" : true,
+  "counts" : { "seatCount" : 10 },
+  "seats" : [
+    { "modelId" : "model_grok_46" },
+    { "modelId" : "model_gpt_sol" },
+    { "modelId" : "model_cursor_fable" },
+    { "modelId" : "model_kimi_k3" },
+    { "modelId" : "model_opencode_glm_5_2" },
+    { "modelId" : "model_qwen_38_max" },
+    { "modelId" : "model_opencode_deepseek_v4_pro" },
+    { "modelId" : "model_cursor_opus" },
+    { "modelId" : "model_opus" },
+    { "modelId" : "model_fable" }
+  ]
+}
+```
+
+Not the live ruling-11 regression (a Team **picking** the local seat). The
+row is still auto-staff-eligible **if** it ever enters the run ready-set:
+inherited Code lane tags, `allowsAutomaticSubstitution` is id-set-only, origin
+`.custom` is not a local guard. That is why §0.5 still binds the label guard
+on **S02** (or here, only if (4) had been yes).
+
+### Disposition
+
+- Seat **kept**: `custom_claude_code_qwen38_27b_local` (honest Claude Code
+  custom row; founder wants that seat).
+- No `models delete`.
+- No code in this slice.
+- **Next: LR-S01.** Do not start it from this record.
 
 ---
 
