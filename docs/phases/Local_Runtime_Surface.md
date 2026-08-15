@@ -34,7 +34,7 @@ All ladder slices are **IMPLEMENTED**:
 | S05c | `854ec69c` |
 | S07 | `39597ca9` |
 
-Contract **10.9.0**. `binaryVersion` **1.1.15** (**unpublished**).
+Contract **10.9.0**. `binaryVersion` **1.1.16** (**unpublished**).
 
 **The packet is not closed.** Do not mark it closed. Do not archive it.
 
@@ -527,7 +527,7 @@ Firewall and Second Mac still do not block this ladder.
 | --- | --- |
 | **Truth owner** | `/api/tags` for what exists on disk; `ModelCatalog` for what is seated. Neither answers for the other. `opencode.json` answers only for what the OpenCode process will accept, and only after a merge this packet owns. |
 | **Lie-prone** | Cached `opencode-local status`; leftover serve; discovered tag as a runnable seat; `readiness: Available` on a non-seat; `state: available` read as "Available"; ready dot on a runtime that cannot execute; Claude local `costUSD` / `contextWindow: 200000` / `provider: firstParty`; offer predicate false-on-nil painted "not recommended"; GUI affordance with no CLI twin; default `menu --json` omitting every off local tag while `completeness.models.complete` is true; doctor listing unseated tags as Available seats; Teams silently picking a local seat via inherited driver caps; persisting a discovered seat as `.custom` so `verify` will take it; the §2.4 pointer drifting into a selectable roster entry or into the body's model count (ruling 5). |
-| **Missing proof** | Live Works Test A (never run). Mac pixels (never looked at). Visual_Proof_Gate unsatisfied (`gui_proof.sh` environment-wide timeout). OpenCode `--model` dry-run not recorded. 1.1.15 unpublished. Packet not closed. S00 recorded in §10. |
+| **Missing proof** | Live Works Test A (never run). Mac pixels (never looked at). Visual_Proof_Gate unsatisfied (`gui_proof.sh` environment-wide timeout). OpenCode `--model` dry-run not recorded. 1.1.16 unpublished. Packet not closed. S00 recorded in §10. |
 
 ---
 
@@ -541,9 +541,9 @@ Firewall and Second Mac still do not block this ladder.
       **Blocker:** Works Test A has never been run live. No pixel of the Mac
       section has been looked at. Visual_Proof_Gate unsatisfied.
 - [ ] Doctor does not call that tag an Available seat until it is seated
-      **Blocker:** same as Works Test A — never run live. S01a fixture
-      (`testProjectorOverlaysDiscoveredNotSeatedAndOmitsAvailable`) covers
-      the models projector; dogfood doctor not recorded tonight.
+      **Fixture now green** (`testPulledUnseatedTagsAreInventoryNotReadiness`,
+      `testReadinessListsSeatedLabelsOnly`). **Blocker:** live Works Test A
+      still not re-run on the 1.1.16 binary (1.1.15 reproduced the lie).
 - [x] `alln models enable <candidateID> --body <body>` mints a
       `.discovered` seated row through `assessExplicitEnable`; OpenCode
       merge + leftover reclaim happen on `--body opencode`
@@ -587,7 +587,7 @@ Firewall and Second Mac still do not block this ladder.
       `AllnighterVersionIdentity.binaryVersion` — do not overwrite an
       immutable R2 prefix (`Public_Release.md` § Version bump law). One bump
       if S01–S03 ship together; bump again if a later slice ships separately.
-      **Blocker:** `binaryVersion` is **1.1.15 unpublished**. Floor docs now
+      **Blocker:** `binaryVersion` is **1.1.16 unpublished**. Floor docs now
       match identity (`scripts/public-floor.sh sync`). No
       `rebuild_cli.sh` / ship this turn.
 - [ ] Promote keepable law; archive this packet
@@ -602,7 +602,7 @@ Firewall and Second Mac still do not block this ladder.
 2. **Screen Recording grant.** `scripts/gui_proof.sh` is broken
    environment-wide until a human runs `bash scripts/gui_proof_grant.sh`
    and clicks through System Settings.
-3. **Permission to run `rebuild_cli.sh` at closeout.** 1.1.15 is
+3. **Permission to run `rebuild_cli.sh` at closeout.** 1.1.16 is
    unpublished. This turn did not run it.
 4. **Whether to spawn `.claude/agents/layout-watcher.md` for the sighted
    pass.** `scripts/check_gui_proof.sh` itself prescribes spawning it
@@ -956,6 +956,43 @@ default `alln menu --json` `localRuntime`, and `alln drivers --json`
 **Founder question (not implemented):** `AGENTS.md` first-routing table still
 links vocab `§Local Ollama readiness`; the promoted heading is now
 `§Local runtime`. Update the router on archive, or keep the old anchor label?
+
+### Live dogfood — 1.1.15 binary, 2026-08-15
+
+Two honesty defects on the rebuilt 1.1.15 CLI. Both shipped in **1.1.16**.
+Contract stays **10.9.0** (no wire change: doctor check names and
+`models delete` `ModelListJSON` are unchanged; unregister disclosures go to
+stderr, same as enable).
+
+**DEFECT 1 — doctor still called an unseated pulled tag Available.**
+`ollama pull smollm2:135m` then `alln doctor --json` painted
+`source.ollama_local.readiness` as `smollm2:135m: Available; …` for a tag
+that was not seated. Cause was already in §0.3: `readinessDetail` walked
+every `/api/tags` name as `ollama/<tag>` plus catalog `localSeatLabels`.
+§3 rule 8 and §9 Done-when required seated-only; no prior slice landed it.
+`alln models --json` already omitted `readiness` on overlay rows.
+
+Fix: `OllamaLocalDoctorReport.readinessDetail` walks **seated labels only**.
+`source.ollama_local.models` still lists pulled tag names (inventory).
+Fixture: `OllamaLocalDoctorReportTests.testPulledUnseatedTagsAreInventoryNotReadiness`,
+`testReadinessListsSeatedLabelsOnly`.
+
+**DEFECT 2 — delete did not unregister `opencode.json`.**
+`alln models enable <id> --body opencode` registers the tag (S02b).
+`alln models delete <seated-id>` left it behind. Live: after deleting the
+seat, `opencode-local status` reported `ollamaTagsExtraInConfig: ['smollm2:135m']`,
+`inSync: false`; the PM had to hand-clean the real config.
+
+Fix: `LocalRuntimeSeatDelete.delete` is the inverse of S02b merge. Deleting
+a seated local row unregisters that tag when no remaining OpenCode seat
+still needs it, and discloses `Unregistered from opencode.json: <tag>.` on
+stderr. Tests pass a fixture `opencodeConfigURL`; XCTest without an override
+refuses the real `~/.config/opencode/opencode.json` and still deletes the
+catalog row. Fixture: `LocalRuntimeSurfaceDeleteTests`.
+
+Unregistering is the right symmetry — not skipped. Remaining OpenCode seat
+for the same tag keeps the entry (no silent wipe). Claude-only remaining
+seats do not keep a tag OpenCode no longer needs.
 
 ---
 

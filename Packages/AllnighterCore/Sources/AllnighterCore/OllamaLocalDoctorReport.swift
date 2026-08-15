@@ -132,14 +132,15 @@ public enum OllamaLocalDoctorReport {
         )
     }
 
+    /// Per seated catalog label only. Pulled `/api/tags` names belong on
+    /// `source.ollama_local.models` — they are inventory, not readiness.
     static func readinessDetail(
         from snapshot: OllamaLocalRuntimeObserver.Snapshot,
         localSeatLabels: [String]
     ) -> String {
         var seen = Set<String>()
         var labels: [String] = []
-        let fromTags = snapshot.localTags.map { catalogLabelPrefix + $0.name }
-        for label in fromTags + localSeatLabels {
+        for label in localSeatLabels {
             guard isOllamaBackedSeat(modelLabel: label),
                   let tag = OpenCodeLocalSeatReadiness.ollamaTag(from: label)
             else { continue }

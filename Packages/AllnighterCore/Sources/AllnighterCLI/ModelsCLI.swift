@@ -196,7 +196,10 @@ enum ModelsCLI {
             usage("delete <custom-model-id>"); return
         }
         do {
-            try ModelCatalog.deleteCustom(id)
+            let outcome = try LocalRuntimeSeatDelete.delete(id: id)
+            for line in outcome.disclosures {
+                FileHandle.standardError.write(Data((line + "\n").utf8))
+            }
             emitList(opts, runtime)
         } catch let error as ModelCatalogError {
             emitModelError(error)

@@ -99,7 +99,7 @@ Promoted from archived `docs/archive/phases/OpenCode_Local_Ollama_Seats.md`
 (2026-08-13); seat definition amended 2026-08-14 (LR-S07). Code SSOT:
 `OllamaLocalRuntimeClient`, `OllamaLocalDoctorReport`, `OllamaLocalModelDiscoveryProvider`,
 `ModelDiscoveryProvider`, `ModelCatalog`, `LocalRuntimeSeatMint`,
-`ModelCatalog.saveDiscovered`, `LocalSeatPinHonesty`, `LocalRuntimeDefaultBody`,
+`ModelCatalog.saveDiscovered`, `LocalRuntimeSeatDelete`, `LocalSeatPinHonesty`, `LocalRuntimeDefaultBody`,
 `LocalRuntimePointerPresenter`, `LocalRuntimeAdvisory`, `ClaudeLocalIsolation`.
 Help: `opencode_local_setup`, `claude_local_isolation`, `loop` §local-dev.
 

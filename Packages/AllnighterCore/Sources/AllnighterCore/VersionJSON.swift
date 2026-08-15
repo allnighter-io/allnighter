@@ -185,8 +185,14 @@ import Foundation
 /// **1.1.14 → 1.1.15 (menu localRuntime + drivers pointer).** Default
 /// `alln menu --json` carries `localRuntime` (LR-S01b ruling 3); `alln drivers
 /// `--json` gains optional `localRuntimeSeats`. Contract 10.7.0.
+///
+/// **1.1.15 → 1.1.16 (doctor seated-only readiness + delete unregister).**
+/// `source.ollama_local.readiness` lists seated catalog labels only; pulled
+/// tags stay on `source.ollama_local.models`. `alln models delete` unregisters
+/// the tag from `opencode.json` when no remaining OpenCode seat needs it and
+/// discloses the removal. Same contract 10.9.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.15"
+    public static let binaryVersion = "1.1.16"
 }
 
 /// `alln version` / `alln --version` machine contract.

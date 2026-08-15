@@ -36,7 +36,10 @@ final class OllamaLocalModelsReadinessTests: XCTestCase {
 
     func testReadinessWordMatchesDoctorCheck() {
         let snap = pulledSnapshot(resident: false)
-        let doctor = OllamaLocalDoctorReport.checks(from: snap)
+        let doctor = OllamaLocalDoctorReport.checks(
+            from: snap,
+            localSeatLabels: [localClaude.modelLabel]
+        )
             .first { $0.name == OllamaLocalDoctorReport.readinessCheckName }?
             .detail
         let word = OllamaLocalDoctorReport.readinessWord(

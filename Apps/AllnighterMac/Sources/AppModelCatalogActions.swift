@@ -21,7 +21,7 @@ extension AppModel {
     }
 
     func deleteCustomModel(modelId: String) throws {
-        try ModelCatalog.deleteCustom(modelId)
+        _ = try LocalRuntimeSeatDelete.delete(id: modelId)
         reloadModelsFromCatalog()
     }
 }
