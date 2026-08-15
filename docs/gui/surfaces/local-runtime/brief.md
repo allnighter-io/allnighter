@@ -90,9 +90,30 @@ lives on the run grid, not here.
 - **Seated, enabled on / off** — catalog row bound to one body. `Available` /
   `Unavailable` apply here only.
 - **capability-unknown** — `/api/tags` had no `capabilities` field. Still
-  visible. Not dropped. No name heuristic.
+  visible. Not dropped. No name heuristic. The **title** is still derived from
+  the tag (`OllamaLocalDisplayName`); "no name heuristic" means we do not
+  guess capability from the name.
 - **Removed tag** — `ollama rm`: tag leaves the discovered list; a seated row
   becomes Unavailable, not deleted.
+
+**Row title.** Always derive a readable display name from the Ollama tag
+(`gpt-oss:20b` → `GPT-OSS 20B`, `qwen3.8:27b-mlx` → `Qwen3.8 27B`). Keep the
+raw tag on the secondary line (`ollama/<tag>`). Do not use a catalog `--name`
+as the title — a user who pulls three models must not get two raw tags and
+one audit nickname.
+
+**ON toggle.** Always accent (`--accent`). Amber means the tag is enabled.
+The neither-state install chrome does **not** restyle the switch; an earlier
+white-vs-amber split across fixtures was accidental environment tint, not a
+"enabled but no body can host it" signal.
+
+**Repeated advisory.** Per-row when the sentence is actually about that
+model (G1 failed, a served window like `32K`, capability-unknown plus G1
+unknown). When every visible row would print the same sentence (typical
+cold tags: window unobserved, or G1 never run), lift it once to
+`sharedAdvisory` under the list. Repeating "Allnighter will know this
+model's context size after it runs once." three times is noise, not
+information.
 
 ---
 
@@ -307,7 +328,7 @@ bash scripts/gui_proof_seal.sh local-runtime <slug> <fixture> [<fixture>...]
 | `local-runtime-neither` | `needs OpenCode or Claude Code`. **No ready dot.** Install action visible. |
 | `local-runtime-pointer-host` | Hosting body card shows one non-selectable `Ollama · N models`. N excluded from that card's model total. |
 | `local-runtime-pointer-other` | Non-hosting body: **no** pointer (not a zero, not "disabled"). |
-| `local-runtime-advisories` | §2.2 honest unknowns on-row (G1 unknown / window unobserved). No "text-fakes", no "too small for Code." |
+| `local-runtime-advisories` | Mixed §2.2 paths on-row: G1-failed string, observed window as `32K` (not `32768`), capability-unknown. No "text-fakes", no "too small for Code." `64K` is the automatic-Code floor so it is not an on-row advisory; the formatter is proven in Core tests. |
 | `local-runtime-unobserved` | Ollama down: section does not say "0 models" / "no tags." Seated rows Unavailable. No ready dot. |
 | `local-runtime-selector-open` | Section selector via `alPopover`, on-screen, not clipped. Compose-tier capture if the popover is a native overlay. |
 

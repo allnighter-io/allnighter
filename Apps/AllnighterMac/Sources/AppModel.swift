@@ -992,21 +992,27 @@ final class AppModel {
     // MARK: - Local runtime (LR-S05)
 
     var localRuntimeSurface: LocalRuntimeSurfacePresenter.Snapshot {
-        let defs = ModelCatalog.list()
+        var defs = ModelCatalog.list()
         let body = localRuntimeDefaultBody
         #if DEBUG
         let snapshot: OllamaLocalRuntimeObserver.Snapshot?
         let g1: Bool?
+        let g1ByTag: [String: Bool]
         if GUIFixture.isActive {
-            snapshot = GUIFixture.seededOllamaSnapshot(scenario: GUIFixture.active ?? "")
-            g1 = GUIFixture.seededLocalRuntimeG1Passed(scenario: GUIFixture.active ?? "")
+            let scenario = GUIFixture.active ?? ""
+            defs = GUIFixture.overlayLocalRuntimeDefinitions(defs, scenario: scenario)
+            snapshot = GUIFixture.seededOllamaSnapshot(scenario: scenario)
+            g1 = GUIFixture.seededLocalRuntimeG1Passed(scenario: scenario)
+            g1ByTag = GUIFixture.seededLocalRuntimeG1ByTag(scenario: scenario)
         } else {
             snapshot = ollamaLocalSnapshot
             g1 = nil
+            g1ByTag = [:]
         }
         #else
         let snapshot = ollamaLocalSnapshot
         let g1: Bool? = nil
+        let g1ByTag: [String: Bool] = [:]
         #endif
         return LocalRuntimeSurfacePresenter.build(
             registry: registry,
@@ -1016,7 +1022,8 @@ final class AppModel {
             ollamaLocal: snapshot,
             defaultBody: body,
             isLoading: isDetecting && snapshot == nil,
-            g1Passed: g1
+            g1Passed: g1,
+            g1PassedByTag: g1ByTag
         )
     }
 

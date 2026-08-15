@@ -42,6 +42,7 @@ struct TeamReadinessView: View {
                     proxy.scrollTo(Self.localRuntimeSectionID, anchor: .top)
                 }
             }
+            .onAppear { scrollPointerFixtureIfNeeded(proxy) }
         }
         .background(ALColor.base)
         .onAppear { seedSelection() }
@@ -51,6 +52,25 @@ struct TeamReadinessView: View {
                 seedSelection()
             }
         }
+    }
+
+    private func scrollPointerFixtureIfNeeded(_ proxy: ScrollViewProxy) {
+        #if DEBUG
+        let target: String?
+        switch GUIFixture.active {
+        case "local-runtime-pointer-host":
+            target = "cli-opencode"
+        case "local-runtime-pointer-other":
+            target = "cli-claude_code"
+        default:
+            target = nil
+        }
+        if let target {
+            DispatchQueue.main.async {
+                proxy.scrollTo(target, anchor: .center)
+            }
+        }
+        #endif
     }
 
     private func seedSelection() {
@@ -206,6 +226,7 @@ struct TeamReadinessView: View {
                     localRuntimePointer: model.localRuntimePointer(for: card.driverId),
                     onPointerTap: { localRuntimeFocusTick += 1 },
                     onTap: { selectedId = card.driverId })
+                .id("cli-\(card.driverId)")
             }
         }
     }

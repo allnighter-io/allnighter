@@ -55,6 +55,9 @@ public enum LocalRuntimeSurfacePresenter {
     public var emptyObserved: Bool
     public var showsInstallAction: Bool
     public var installDriverId: String?
+    /// Set when every visible row would print the same advisory. Per-row
+    /// `TagRow.advisory` is then nil so the column is not three copies of one sentence.
+    public var sharedAdvisory: String?
     public var tags: [TagRow]
 
     public init(
@@ -71,6 +74,7 @@ public enum LocalRuntimeSurfacePresenter {
       emptyObserved: Bool,
       showsInstallAction: Bool,
       installDriverId: String? = nil,
+      sharedAdvisory: String? = nil,
       tags: [TagRow]
     ) {
       self.sectionTitle = sectionTitle
@@ -86,6 +90,7 @@ public enum LocalRuntimeSurfacePresenter {
       self.emptyObserved = emptyObserved
       self.showsInstallAction = showsInstallAction
       self.installDriverId = installDriverId
+      self.sharedAdvisory = sharedAdvisory
       self.tags = tags
     }
   }
@@ -99,7 +104,8 @@ public enum LocalRuntimeSurfacePresenter {
     ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil,
     defaultBody: String? = nil,
     isLoading: Bool = false,
-    g1Passed: Bool? = nil
+    g1Passed: Bool? = nil,
+    g1PassedByTag: [String: Bool] = [:]
   ) -> Snapshot {
     let modelList = ModelListProjector.build(
       registry: registry,
@@ -130,12 +136,24 @@ public enum LocalRuntimeSurfacePresenter {
       observed: observed,
       neither: neither
     )
-    let tags = tagRows(
+    let rawTags = tagRows(
       menu: menu.localRuntime,
       modelEntries: modelList.models,
       snapshot: ollamaLocal,
-      g1Passed: g1Passed
+      g1Passed: g1Passed,
+      g1PassedByTag: g1PassedByTag
     )
+    let shared = collapsedAdvisory(from: rawTags)
+    let tags: [TagRow]
+    if shared != nil {
+      tags = rawTags.map { row in
+        var copy = row
+        copy.advisory = nil
+        return copy
+      }
+    } else {
+      tags = rawTags
+    }
     let installTarget = neither ? firstMissingBody(from: probeRecords) : nil
 
     return Snapshot(
@@ -152,6 +170,7 @@ public enum LocalRuntimeSurfacePresenter {
       emptyObserved: observed && (tagCount == 0),
       showsInstallAction: neither,
       installDriverId: installTarget,
+      sharedAdvisory: shared,
       tags: tags
     )
   }
@@ -220,44 +239,113 @@ public enum LocalRuntimeSurfacePresenter {
     registry.manifest(id: driverId)?.displayName ?? driverId
   }
 
+  /// Collapse only when every row would print the same sentence. Mixed
+  /// G1 / window / unknown lines stay per-row — those are per-model facts.
+  private static func collapsedAdvisory(from tags: [TagRow]) -> String? {
+    guard tags.count >= 2 else { return nil }
+    let reasons = tags.map(\.advisory)
+    guard let first = reasons.first, let first else { return nil }
+    return reasons.allSatisfy({ $0 == first }) ? first : nil
+  }
+
   private static func tagRows(
     menu: MenuJSON.LocalRuntime?,
     modelEntries: [ModelListJSON.Entry],
     snapshot: OllamaLocalRuntimeObserver.Snapshot?,
-    g1Passed: Bool?
+    g1Passed: Bool?,
+    g1PassedByTag: [String: Bool]
   ) -> [TagRow] {
-    guard let menu else { return [] }
     let entriesById = Dictionary(uniqueKeysWithValues: modelEntries.map { ($0.id, $0) })
-    let visibleTags = Dictionary(
-      uniqueKeysWithValues: (snapshot?.localTags ?? []).map { ($0.name, $0) }
-    )
     let residents = Dictionary(
       uniqueKeysWithValues: (snapshot?.residentModels ?? []).map { ($0.name, $0) }
     )
-    return menu.tags.map { tag in
-      let entry = entriesById[tag.id]
-      let tagName = OpenCodeLocalSeatReadiness.ollamaTag(from: tag.label)
-        ?? OpenCodeLocalSeatReadiness.ollamaTag(from: entry?.modelLabel ?? "")
-      let observedTag = tagName.flatMap { visibleTags[$0] }
-      let resident = tagName.flatMap { residents[$0] }
-      let advisory = LocalRuntimeAdvisory.reason(
+    let observed = snapshot != nil
+    if let menu {
+      return menu.tags.map { tag in
+        let entry = entriesById[tag.id]
+        let tagName = OpenCodeLocalSeatReadiness.ollamaTag(from: tag.label)
+          ?? OpenCodeLocalSeatReadiness.ollamaTag(from: entry?.modelLabel ?? "")
+        return makeTagRow(
+          id: tag.id,
+          tagName: tagName,
+          modelLabel: entry?.modelLabel ?? tag.label,
+          enabled: tag.enabled,
+          seated: tag.seated,
+          readiness: entry?.readiness,
+          capabilityUnknown: tag.capabilityUnknown == true,
+          observed: observed,
+          residents: residents,
+          g1Passed: g1Passed,
+          g1PassedByTag: g1PassedByTag
+        )
+      }
+    }
+    // Unobserved: menu.localRuntime is absent. Seated local rows still paint
+    // Unavailable — not "0 models" / "no tags".
+    return modelEntries.compactMap { entry -> TagRow? in
+      guard entry.seated == true,
+            LocalRuntimePointerPresenter.isLocalRuntimeSeat(
+              driverId: entry.driverId, modelLabel: entry.modelLabel)
+      else { return nil }
+      let tagName = OpenCodeLocalSeatReadiness.ollamaTag(from: entry.modelLabel)
+      return makeTagRow(
+        id: entry.id,
+        tagName: tagName,
+        modelLabel: entry.modelLabel,
+        enabled: entry.enabled,
+        seated: true,
+        readiness: entry.readiness,
+        capabilityUnknown: entry.capabilityUnknown == true,
+        observed: false,
+        residents: [:],
         g1Passed: g1Passed,
-        servedContextWindow: resident?.servedContextWindow,
-        tagObservedInPS: resident != nil
-      )
-      let display = entry?.displayName
-        ?? tagName
-        ?? tag.label.replacingOccurrences(of: "ollama/", with: "")
-      return TagRow(
-        id: tag.id,
-        displayName: display,
-        modelLabel: entry?.modelLabel ?? tag.label,
-        enabled: tag.enabled,
-        seated: tag.seated,
-        readiness: entry?.readiness,
-        advisory: advisory,
-        capabilityUnknown: tag.capabilityUnknown == true
+        g1PassedByTag: g1PassedByTag
       )
     }
+  }
+
+  private static func makeTagRow(
+    id: String,
+    tagName: String?,
+    modelLabel: String,
+    enabled: Bool,
+    seated: Bool,
+    readiness: String?,
+    capabilityUnknown: Bool,
+    observed: Bool,
+    residents: [String: OllamaLocalRuntimeObserver.ResidentModel],
+    g1Passed: Bool?,
+    g1PassedByTag: [String: Bool]
+  ) -> TagRow {
+    let resident = tagName.flatMap { residents[$0] }
+    let tagG1: Bool?
+    if let tagName, let explicit = g1PassedByTag[tagName] {
+      tagG1 = explicit
+    } else {
+      tagG1 = g1Passed
+    }
+    let advisory = LocalRuntimeAdvisory.reason(
+      g1Passed: tagG1,
+      servedContextWindow: resident?.servedContextWindow,
+      tagObservedInPS: resident != nil
+    )
+    let rawTag = tagName
+      ?? modelLabel.replacingOccurrences(of: "ollama/", with: "")
+    let paintedReadiness: String?
+    if !observed, seated {
+      paintedReadiness = readiness ?? OllamaLocalDoctorReport.unavailableWord
+    } else {
+      paintedReadiness = readiness
+    }
+    return TagRow(
+      id: id,
+      displayName: OllamaLocalDisplayName.from(tag: rawTag),
+      modelLabel: modelLabel,
+      enabled: enabled,
+      seated: seated,
+      readiness: paintedReadiness,
+      advisory: advisory,
+      capabilityUnknown: capabilityUnknown
+    )
   }
 }

@@ -7,7 +7,7 @@ public enum LocalRuntimeAdvisory {
     "This model did not use tools correctly in our test. It may struggle with coding work. You can still turn it on."
   public static let g1Unknown = "Allnighter has not tested this model."
   public static let windowUnobserved =
-    "Allnighter will know this model context size after it runs once."
+    "Allnighter will know this model's context size after it runs once."
 
   public static func formatContextSize(_ tokens: Int) -> String {
     if tokens >= 1024 && tokens % 1024 == 0 {

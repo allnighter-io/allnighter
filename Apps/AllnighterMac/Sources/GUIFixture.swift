@@ -374,7 +374,8 @@ enum GUIFixture {
         switch scenario {
         case "readiness-cursor-ready", "readiness-cursor-trust", "readiness-cursor-keychain":
             return patchCursorBench(base)
-        case "local-runtime-pointer-host", "local-runtime-pointer-other":
+        case "local-runtime-pointer-host", "local-runtime-pointer-other",
+             "local-runtime-unobserved":
             return seedHostingBodyPointerModels(base)
         default:
             return nil
@@ -382,25 +383,56 @@ enum GUIFixture {
     }
 
     private static func seedHostingBodyPointerModels(_ base: [Model]) -> [Model] {
-        var out = base
-        let locals: [(tag: String, name: String)] = [
-            ("qwen3.8:27b-mlx", "Qwen3.8 27B"),
-            ("gpt-oss:20b", "gpt-oss 20B"),
-            ("qwen3:8b", "Qwen3 8B"),
-        ]
-        for local in locals {
+        var out = base.filter { !LocalRuntimePointerPresenter.isLocalRuntimeSeat($0) }
+        for local in fixtureHostedLocalTags {
             let id = OllamaLocalModelDiscoveryProvider.seatedID(
-                tag: local.tag, bodyDriverId: "opencode")
+                tag: local, bodyDriverId: "opencode")
             out.append(Model(
                 id: id,
-                displayName: local.name,
-                modelLabel: "ollama/\(local.tag)",
+                displayName: OllamaLocalDisplayName.from(tag: local),
+                modelLabel: "ollama/\(local)",
                 driverId: "opencode",
                 role: .answerer,
                 enabled: true
             ))
         }
         return out
+    }
+
+    private static let fixtureHostedLocalTags = [
+        "qwen3.8:27b-mlx", "gpt-oss:20b", "qwen3:8b",
+    ]
+
+    /// Isolate LOCAL RUNTIME catalog rows from the live `--name` audit seats.
+    static func overlayLocalRuntimeDefinitions(
+        _ base: [ModelDefinition],
+        scenario: String
+    ) -> [ModelDefinition] {
+        switch scenario {
+        case "local-runtime-unobserved",
+             "local-runtime-pointer-host",
+             "local-runtime-pointer-other":
+            let stripped = base.filter { !LocalRuntimePointerPresenter.isLocalRuntimeSeat($0) }
+            let now = Date(timeIntervalSince1970: 1_754_000_000)
+            let seeded = fixtureHostedLocalTags.map { tag in
+                ModelDefinition(
+                    id: OllamaLocalModelDiscoveryProvider.seatedID(
+                        tag: tag, bodyDriverId: "opencode"),
+                    displayName: OllamaLocalDisplayName.from(tag: tag),
+                    modelLabel: "ollama/\(tag)",
+                    driverId: "opencode",
+                    role: .answerer,
+                    origin: .discovered,
+                    defaultEnabled: true,
+                    capabilities: ModelCapabilities(),
+                    createdAt: now,
+                    updatedAt: now
+                )
+            }
+            return stripped + seeded
+        default:
+            return base
+        }
     }
 
     private static func patchCursorBench(_ base: [Model]) -> [Model] {
@@ -500,7 +532,15 @@ enum GUIFixture {
 
     /// A fixed, deterministic window size for proof captures so the same fixture
     /// always renders to the same frame.
-    static let captureWindowSize = NSSize(width: 1100, height: 720)
+    static var captureWindowSize: NSSize {
+        let id = active ?? ""
+        if id == "local-runtime-pointer-host"
+            || id == "local-runtime-pointer-other"
+            || id == "local-runtime-unobserved" {
+            return NSSize(width: 1100, height: 1100)
+        }
+        return NSSize(width: 1100, height: 720)
+    }
 
     static func openScreenRecordingSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
@@ -980,8 +1020,9 @@ enum GUIFixture {
         case "local-runtime-advisories":
             tagsJSON = """
             {"models":[
-              {"name":"qwen2.5-coder:7b","capabilities":["completion","tools"]},
-              {"name":"qwen2.5-coder:1.5b","capabilities":["completion"]}
+              {"name":"gpt-oss:20b","capabilities":["completion","tools"]},
+              {"name":"qwen3:8b","capabilities":["completion"]},
+              {"name":"llama3.1:8b"}
             ]}
             """
         default:
@@ -996,7 +1037,7 @@ enum GUIFixture {
         guard let tags = OllamaLocalRuntimeObserver.parseTags(Data(tagsJSON.utf8)) else { return nil }
         let residents: [OllamaLocalRuntimeObserver.ResidentModel]
         if scenario == "local-runtime-advisories" {
-            residents = [.init(name: "qwen2.5-coder:7b", servedContextWindow: 4096)]
+            residents = [.init(name: "qwen3:8b", servedContextWindow: 32_768)]
         } else {
             residents = []
         }
@@ -1011,6 +1052,14 @@ enum GUIFixture {
     static func seededLocalRuntimeG1Passed(scenario: String) -> Bool? {
         guard scenario.hasPrefix("local-runtime-") else { return nil }
         return scenario == "local-runtime-advisories" ? nil : true
+    }
+
+    static func seededLocalRuntimeG1ByTag(scenario: String) -> [String: Bool] {
+        guard scenario == "local-runtime-advisories" else { return [:] }
+        return [
+            "gpt-oss:20b": false,
+            "qwen3:8b": true,
+        ]
     }
 
     private static func localRuntimeProbeRecords(scenario: String, now: Date) -> [ToolProbeRecord] {
@@ -1086,6 +1135,10 @@ enum GUIFixture {
     static func seededToolStatuses(for models: [Model], now: Date) -> [ToolProbeRecord] { [] }
     static func seededOllamaSnapshot(scenario: String) -> OllamaLocalRuntimeObserver.Snapshot? { nil }
     static func seededLocalRuntimeG1Passed(scenario: String) -> Bool? { nil }
+    static func seededLocalRuntimeG1ByTag(scenario: String) -> [String: Bool] { [:] }
+    static func overlayLocalRuntimeDefinitions(
+        _ base: [ModelDefinition], scenario: String
+    ) -> [ModelDefinition] { base }
     static var defersCaptureUntilLocalRuntimeSection: Bool { false }
     static func captureAndExitIfRequested() {}
 }

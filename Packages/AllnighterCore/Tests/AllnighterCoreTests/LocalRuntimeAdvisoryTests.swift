@@ -35,4 +35,18 @@ final class LocalRuntimeAdvisoryTests: XCTestCase {
       LocalRuntimeAdvisory.reason(g1Passed: true, servedContextWindow: 131_072, tagObservedInPS: true)
     )
   }
+
+  func testWindowUnobservedUsesPossessive() {
+    XCTAssertTrue(LocalRuntimeAdvisory.windowUnobserved.contains("model's context size"))
+    XCTAssertFalse(LocalRuntimeAdvisory.windowUnobserved.contains("this model context"))
+  }
+
+  func testContextSizeFormatsAsKNotRawTokens() {
+    XCTAssertEqual(LocalRuntimeAdvisory.formatContextSize(32_768), "32K")
+    XCTAssertEqual(LocalRuntimeAdvisory.formatContextSize(65_536), "64K")
+    XCTAssertEqual(LocalRuntimeAdvisory.formatContextSize(4_096), "4K")
+    XCTAssertEqual(LocalRuntimeAdvisory.formatContextSize(1000), "1000")
+    XCTAssertTrue(LocalRuntimeAdvisory.servedWindowBelowFloor(32_768).contains("32K"))
+    XCTAssertFalse(LocalRuntimeAdvisory.servedWindowBelowFloor(32_768).contains("32768"))
+  }
 }

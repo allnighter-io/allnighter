@@ -19,6 +19,13 @@ struct LocalRuntimeSectionView: View {
       if !surface.tags.isEmpty {
         tagList(surface)
       }
+      if let shared = surface.sharedAdvisory {
+        Text(shared)
+          .font(.system(size: 11.5))
+          .foregroundStyle(ALColor.textMuted)
+          .fixedSize(horizontal: false, vertical: true)
+          .padding(.top, 2)
+      }
       if let error = model.localRuntimeEnableError {
         Text(error)
           .font(.system(size: 11.5, design: .monospaced))
@@ -233,11 +240,34 @@ struct LocalRuntimeSectionView: View {
           set: { model.setLocalRuntimeTagEnabled(id: tag.id, enabled: $0) }
         ))
         .labelsHidden()
-        .toggleStyle(.switch)
-        .tint(ALColor.accent)
+        .toggleStyle(LocalRuntimeEnableSwitchStyle())
       }
     }
     .padding(.vertical, 8)
+  }
+}
+
+/// ON is always accent. The neither-state install button must not restyle
+/// the switch — amber means enabled, not "enabled with no host".
+private struct LocalRuntimeEnableSwitchStyle: ToggleStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    Button {
+      configuration.isOn.toggle()
+    } label: {
+      ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+        Capsule()
+          .fill(configuration.isOn ? ALColor.accent : ALColor.raised)
+        Circle()
+          .fill(ALColor.textPrimary)
+          .padding(2)
+      }
+      .frame(width: 36, height: 20)
+      .overlay {
+        Capsule().strokeBorder(ALColor.borderDefault, lineWidth: 1)
+      }
+    }
+    .buttonStyle(.plain)
+    .accessibilityValue(configuration.isOn ? "On" : "Off")
   }
 }
 
