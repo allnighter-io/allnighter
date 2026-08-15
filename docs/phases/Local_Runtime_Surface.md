@@ -1,10 +1,11 @@
 # Local Runtime Surface — make the local seats we already built reachable
 
-Status: **S00 RECORDED — packet proceeds to LR-S01.** Founder-ruled 2026-08-14. Successor to
-packet 1 ([`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md),
+Status: **ALL SLICES IMPLEMENTED — packet NOT closed.** Do not archive.
+Founder-ruled 2026-08-14. Successor to packet 1
+([`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md),
 archived 2026-08-13) — not a reopening of it.
 Owner: unassigned (`ModelCatalog` discovery wiring + Mac CLI strip)
-Updated: 2026-08-14
+Updated: 2026-08-14 (closeout hygiene)
 Created: 2026-08-14
 
 **One line:** packet 1 shipped a working local seat pipeline and never connected
@@ -14,6 +15,62 @@ or refresh a local model.
 **How to read this.** Implementing a slice: §0.1 rulings → §0.5 binds → your row
 in §4 → your test in §5. That is ~60 lines. §0.3 is verified code state — consult
 it when a slice surprises you; do not re-derive it. Everything else is reference.
+
+### Closeout state — 2026-08-14, PM verified. Not softened.
+
+All ladder slices are **IMPLEMENTED**:
+
+| Slice | Commit |
+| --- | --- |
+| S00 | `ff52f3f1` |
+| S01a | `d05c399b` |
+| S01b | `03d29d28` |
+| S02a | `7e71b7ec` |
+| S02b | `6e80ebdb` |
+| S04b | `1a133698` |
+| S03+S04 | `dd788af5` |
+| brief | `84a129ff` |
+| S05b | `b5154976` |
+| S05c | `854ec69c` |
+| S07 | `39597ca9` |
+
+Contract **10.9.0**. `binaryVersion` **1.1.15** (**unpublished**).
+
+**The packet is not closed.** Do not mark it closed. Do not archive it.
+
+`scripts/check.sh` **ran and failed** at the GUI visual proof gate, before
+reaching the Swift suite. It flagged 13 views as changed-without-fresh-proof.
+Only **two** are this packet's: `RootView.swift` and
+`LocalRuntimeSectionView.swift`. The other **eleven** are pre-existing debt
+(`AboutUpdatesView`, `AskAIPanel`, `BoostWindowView`, `CapacityStripView`,
+`DefaultModelView`, `ReadinessView`, `SetupViews`, `TeamControlView`,
+`TeamStudioView`, `UseFromCLIView`, `WorkspaceMode`). The GUI gate was already
+failing before this packet.
+
+**Disclose this:** the PM then re-ran `check.sh` once with
+`ALLNIGHTER_GUI_PROOF_WAIVER` set, purely to learn whether the Swift suite was
+green. That was a **diagnostic override**, **not** a closeout waiver. The visual
+gate remains **unsatisfied**. The re-run was refused anyway by a 45m wall
+cooldown, and the PM chose **not** to stack the `ALLNIGHTER_WALL_REASON`
+override on top of it.
+
+Instead a blast-radius filtered suite ran: **230 tests, 2 failures**, both the
+version-floor drift (`binaryVersion` 1.1.15 vs public floor docs still on
+1.1.14). Everything else green. Closeout hygiene later synced the floor via
+`scripts/public-floor.sh sync` (not hand-edited) and proved
+`VersionIdentityTests` green (`6 tests, 0 failures`), including
+`testPublicFloorDocsMatchVersionIdentity`.
+
+`scripts/gui_proof.sh` times out on **every** fixture including the
+pre-existing `ask-ai-open`, so it is broken **environment-wide**, not by this
+packet. Evidence: the app consumes `gui-proof-request.json` but writes neither
+the PNG nor `gui-proof-last-error.txt`; the `gui-proof-screen-recording.ok`
+marker is our own bookkeeping dated Jul 30, not macOS TCC truth, and the app
+has been rebuilt many times since. Likely fix is `bash scripts/gui_proof_grant.sh`,
+which needs a human to click through System Settings.
+
+**No pixel of the new surface has been looked at.** Works Test A has **never**
+been run live. Neither is claimed as proven.
 
 ---
 
@@ -412,10 +469,19 @@ closeout only.
 
 - Packet 1 already proved G3 mutate on both bodies. This packet does not
   re-claim that. Optional live B confirms the **wired** path.
-- Full `check.sh` is known-red on GUI visual-proof debt for
-  `CapacityStripView` and `RootView`. That red is **not** this packet and is
-  **not** waived here. Do not block S01–S04 on it. S05 has its own
-  Visual_Proof_Gate.
+- Works Test A has **never** been run live. No pixel of the Mac surface has
+  been looked at. Neither is claimed as proven.
+- `scripts/check.sh` ran and **failed** at the GUI visual proof gate (13
+  views changed-without-fresh-proof). Two are this packet (`RootView.swift`,
+  `LocalRuntimeSectionView.swift`). Eleven are pre-existing debt — the GUI
+  gate was already failing before this packet. See Closeout state.
+- The `ALLNIGHTER_GUI_PROOF_WAIVER` re-run was a **diagnostic override**,
+  **not** a closeout waiver. The visual gate remains **unsatisfied**. The
+  re-run was then refused by the 45m wall cooldown; `ALLNIGHTER_WALL_REASON`
+  was **not** stacked.
+- `scripts/gui_proof.sh` times out on every fixture (including pre-existing
+  `ask-ai-open`). Environment-wide; likely `bash scripts/gui_proof_grant.sh`
+  (human click-through).
 - Works Test B on Studio-class hardware remains unproven (packet 1 B).
   Out of scope.
 
@@ -461,7 +527,7 @@ Firewall and Second Mac still do not block this ladder.
 | --- | --- |
 | **Truth owner** | `/api/tags` for what exists on disk; `ModelCatalog` for what is seated. Neither answers for the other. `opencode.json` answers only for what the OpenCode process will accept, and only after a merge this packet owns. |
 | **Lie-prone** | Cached `opencode-local status`; leftover serve; discovered tag as a runnable seat; `readiness: Available` on a non-seat; `state: available` read as "Available"; ready dot on a runtime that cannot execute; Claude local `costUSD` / `contextWindow: 200000` / `provider: firstParty`; offer predicate false-on-nil painted "not recommended"; GUI affordance with no CLI twin; default `menu --json` omitting every off local tag while `completeness.models.complete` is true; doctor listing unseated tags as Available seats; Teams silently picking a local seat via inherited driver caps; persisting a discovered seat as `.custom` so `verify` will take it; the §2.4 pointer drifting into a selectable roster entry or into the body's model count (ruling 5). |
-| **Missing proof** | CLI A/D on S01; B dry-run on S02; chrome + Mac A/D on S05. S00 recorded in §10. |
+| **Missing proof** | Live Works Test A (never run). Mac pixels (never looked at). Visual_Proof_Gate unsatisfied (`gui_proof.sh` environment-wide timeout). OpenCode `--model` dry-run not recorded. 1.1.15 unpublished. Packet not closed. S00 recorded in §10. |
 
 ---
 
@@ -472,30 +538,83 @@ Firewall and Second Mac still do not block this ladder.
 - [ ] A newly pulled completion tag appears in `alln models --json` **and**
       default `alln menu --json` `localRuntime` **and** the Mac section, with
       no setup re-run and no `models add`
+      **Blocker:** Works Test A has never been run live. No pixel of the Mac
+      section has been looked at. Visual_Proof_Gate unsatisfied.
 - [ ] Doctor does not call that tag an Available seat until it is seated
-- [ ] `alln models enable <candidateID> --body <body>` mints a
+      **Blocker:** same as Works Test A — never run live. S01a fixture
+      (`testProjectorOverlaysDiscoveredNotSeatedAndOmitsAvailable`) covers
+      the models projector; dogfood doctor not recorded tonight.
+- [x] `alln models enable <candidateID> --body <body>` mints a
       `.discovered` seated row through `assessExplicitEnable`; OpenCode
       merge + leftover reclaim happen on `--body opencode`
+      (LR-S02a `7e71b7ec`, LR-S02b `6e80ebdb`; fixtures
+      `LocalRuntimeSurfaceS02aTests` / `LocalRuntimeSurfaceS02bTests`)
 - [ ] `alln run --model <seated-id> --dry-run` resolves on both bodies
       (this box is what makes a local model *usable*, not merely listed)
-- [ ] `opencode-local status` observes `/api/tags`; `opencode.json` is never
+      **Blocker:** live S00 dry-run was the Claude Code **custom** path only.
+      S04 fixture (`testDiscoveredSeatedIdListsAndResolvesExplicitModel`)
+      resolves a Claude Code `.discovered` id. OpenCode `--model` dry-run
+      not recorded tonight.
+- [x] `opencode-local status` observes `/api/tags`; `opencode.json` is never
       presented as the current tag list
+      (LR-S03 `dd788af5`; fixtures
+      `OpenCodeOllamaSetupTests.testStatusObservesLiveTagsAndReportsDrift`,
+      `testStatusInSyncWhenLiveMatchesConfig`,
+      `testStatusUnreachableIsUnobservedNotEmptyLiveList`)
 - [ ] Enabled `ollama/` seats are pin-able and appear on **no** OpenCode /
       Claude Code roster (ruling 5). The hosting body shows one non-selectable
       `Ollama · N models` pointer, mirrored by `drivers --json`
       `localRuntimeSeats`, counted in neither the roster nor `models[]`
+      **Blocker:** CLI half is fixture-green (S01b / S05c). Mac pointer and
+      roster exclusion have not been looked at. Visual_Proof_Gate
+      unsatisfied; `gui_proof.sh` times out environment-wide.
 - [ ] `LOCAL RUNTIME` ships all four installed-state rows; Visual_Proof_Gate
       + `alln chrome --json` for the labels
-- [ ] Automatic substitution never picks a local seat (label guard, including
+      **Blocker:** Visual_Proof_Gate unsatisfied. `gui_proof.sh` times out on
+      every fixture. No pixel looked at. layout-watcher never spawned.
+      `ChromeCatalogTests` covers the chrome labels in fixture only.
+- [x] Automatic substitution never picks a local seat (label guard, including
       origin-`.custom` ollama/ rows)
-- [ ] Every state in §5 D is visible on default `alln menu --json` (ruling 3)
+      (LR-S02a `testLocalSeatIsNeverAutomaticSubstituteIncludingCustomOrigin`,
+      `testUnpinnedTeamDoesNotAutoStaffLocalSeat`; S00 Q4 did not pick)
+- [x] Every state in §5 D is visible on default `alln menu --json` (ruling 3)
       — not only on `models --json` or `menu --detailed`
+      (LR-S01b fixtures: `testMenuLocalRuntimeListsEveryDiscoveredTagWithDefaultBody`,
+      `testMenuTierOneOmitsOverlayButLocalRuntimeStillNamesIt`. Mac column
+      of the D table is **not** in this box and is **not** proven.)
 - [x] Vocabulary promoted; `Project_Laws.md` §Local Ollama seats amended (LR-S07)
 - [ ] CLI behavior change published as a **new**
       `AllnighterVersionIdentity.binaryVersion` — do not overwrite an
       immutable R2 prefix (`Public_Release.md` § Version bump law). One bump
       if S01–S03 ship together; bump again if a later slice ships separately.
+      **Blocker:** `binaryVersion` is **1.1.15 unpublished**. Floor docs now
+      match identity (`scripts/public-floor.sh sync`). No
+      `rebuild_cli.sh` / ship this turn.
 - [ ] Promote keepable law; archive this packet
+      **Blocker:** packet is **not** closed. Do not archive.
+
+### Blocked on founder
+
+1. **Tier C vs D** for the Mac surface. Packet §4 names GUI Workflow
+   **Tier C**. `docs/gui/GUI_Workflow.md` says escalate to D when the work
+   touches starting, killing, or routing agent runs / workers. The enable
+   toggle seats a model a later run can pin — founder picks the tier.
+2. **Screen Recording grant.** `scripts/gui_proof.sh` is broken
+   environment-wide until a human runs `bash scripts/gui_proof_grant.sh`
+   and clicks through System Settings.
+3. **Permission to run `rebuild_cli.sh` at closeout.** 1.1.15 is
+   unpublished. This turn did not run it.
+4. **Whether to spawn `.claude/agents/layout-watcher.md` for the sighted
+   pass.** `scripts/check_gui_proof.sh` itself prescribes spawning it
+   after `gui_proof.sh` (step 1 of the fail text). No pixel has been
+   looked at; the watcher was not spawned.
+5. **Paid-pin substitution law** (§10 LR-S04b). Local-pin fallback is
+   loud (`LOCAL PIN SUBSTITUTED:`). The buried
+   `preferred <id> unavailable; resolved to Opus 5` warning still fires
+   for a **paid** preferred pin a sensor calls unavailable
+   (`TeamResolverTests.testPreferredUnavailableFallsBackAndWarns`). If
+   the general rule is also wrong — never silently reseat any explicit
+   pin — say so. This packet did not rewrite it.
 
 ---
 
@@ -813,15 +932,9 @@ total, and are not a `models[]` entry. The non-hosting body shows nothing.
 
 Proof: `LocalRuntimeSurfaceS05cTests`.
 
-Visual Proof Gate captures (layout-watcher pending):
-
-- `docs/qa/gui/_captures/local-runtime-both.png`
-- `docs/qa/gui/_captures/local-runtime-opencode-only.png`
-- `docs/qa/gui/_captures/local-runtime-claude-only.png`
-- `docs/qa/gui/_captures/local-runtime-neither.png`
-- `docs/qa/gui/_captures/local-runtime-advisories.png`
-- `docs/qa/gui/_captures/local-runtime-unobserved.png`
-- `docs/qa/gui/_captures/local-runtime-selector-open.png`
+Visual Proof Gate captures listed at S05c land — **none exist**.
+`docs/qa/gui/_captures/local-runtime-*.png` is empty. layout-watcher was
+never spawned. Visual_Proof_Gate is **unsatisfied**. See Closeout state.
 
 Fixture proof: `LocalRuntimeAdvisoryTests`, `LocalRuntimeSurfacePresenterTests`,
 `ChromeCatalogTests`.
