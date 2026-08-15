@@ -1,0 +1,8 @@
+# surface: local-runtime
+# fixtures: local-runtime-both local-runtime-opencode-only local-runtime-claude-only local-runtime-neither local-runtime-advisories local-runtime-unobserved local-runtime-pointer-host local-runtime-pointer-other local-runtime-selector-open
+# watcher: PASS
+# sealed: 2026-08-15
+# Binds ONLY the explicitly reviewed views below to their exact content
+# hash. Re-editing any of them changes its hash and invalidates this
+# proof — re-render and re-seal.
+c6bef10975cb21aecfc9646297bca282e0a355e2  Apps/AllnighterMac/Sources/LocalRuntimeSectionView.swift

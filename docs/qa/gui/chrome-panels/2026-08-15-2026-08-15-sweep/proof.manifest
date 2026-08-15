@@ -1,0 +1,10 @@
+# surface: chrome-panels
+# fixtures: ask-ai-open ask-ai-done studio-boost-window capacity-strip capacity-strip-calm capacity-strip-refreshing
+# watcher: PASS
+# sealed: 2026-08-15
+# Binds ONLY the explicitly reviewed views below to their exact content
+# hash. Re-editing any of them changes its hash and invalidates this
+# proof — re-render and re-seal.
+61a4742706240b43108177668f8ce2685b2313d6  Apps/AllnighterMac/Sources/AskAIPanel.swift
+8c3afbda5a98863df96ec0f68b65338cae47cd30  Apps/AllnighterMac/Sources/BoostWindowView.swift
+ae6c20ae384ba767d1a89bbd94599d5d557601d6  Apps/AllnighterMac/Sources/CapacityStripView.swift

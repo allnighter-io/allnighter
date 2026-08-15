@@ -1,0 +1,10 @@
+# surface: home-surfaces
+# fixtures: home-trial-chip home-keep-going-chip keep-going-sheet command-palette projects-rail
+# watcher: PASS
+# sealed: 2026-08-15
+# Binds ONLY the explicitly reviewed views below to their exact content
+# hash. Re-editing any of them changes its hash and invalidates this
+# proof — re-render and re-seal.
+aca6a72a4bfc0c8b366a5241c69b009e073e341b  Apps/AllnighterMac/Sources/HomeView.swift
+c23e63f0a29be0d5c28208620af78c11686d4f5c  Apps/AllnighterMac/Sources/RootView.swift
+d9a6a5ef570b098297786a618c5d3b46bd36680c  Apps/AllnighterMac/Sources/WorkspaceMode.swift

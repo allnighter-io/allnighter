@@ -1,0 +1,13 @@
+# surface: studio-setup
+# fixtures: doctor-open-mixed readiness-cold readiness-mixed readiness-cursor-ready readiness-cursor-trust readiness-cursor-keychain readiness-cursor-not-checked readiness-muse-needs-login studio-clis settings-use-from-cli studio-default-model team-open-ready team-open-mixed studio-teams-code studio-team-editor studio-worker-editor settings-plan
+# watcher: PASS
+# sealed: 2026-08-15
+# Binds ONLY the explicitly reviewed views below to their exact content
+# hash. Re-editing any of them changes its hash and invalidates this
+# proof — re-render and re-seal.
+3b356c40548d4a0d837672538f18abedf55ee44e  Apps/AllnighterMac/Sources/SetupViews.swift
+48717bfd2f320d7c96e042c841611ba1e3b6ec04  Apps/AllnighterMac/Sources/ReadinessView.swift
+3ff35e913031baeced03251463d05f18e1fd27a0  Apps/AllnighterMac/Sources/TeamStudioView.swift
+e985c680fc9fd09af18bc75a0dcec25de3994fca  Apps/AllnighterMac/Sources/TeamControlView.swift
+3dd7a8e1acfd901fd0d24e89c7c12fb9bdbeb018  Apps/AllnighterMac/Sources/DefaultModelView.swift
+574bd7d411d8a5f31efaea54ff4517853287eb69  Apps/AllnighterMac/Sources/UseFromCLIView.swift
