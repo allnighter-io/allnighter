@@ -11,6 +11,10 @@ Created: 2026-08-14
 it to a command or a screen. A user with Ollama installed cannot find, enable,
 or refresh a local model.
 
+**How to read this.** Implementing a slice: §0.1 rulings → §0.5 binds → your row
+in §4 → your test in §5. That is ~60 lines. §0.3 is verified code state — consult
+it when a slice surprises you; do not re-derive it. Everything else is reference.
+
 ---
 
 ## 0. Standing
@@ -26,6 +30,12 @@ or refresh a local model.
 4. **ON-by-default is dropped**, explicitly conditional on ruling 3. Founder:
    *"If you ensure Visible always even for agents then I don't really care about
    ON by default."*
+5. **No local seats on the OpenCode / Claude Code rosters.** Founder: *"I would
+   not have Ollama seats appear under OpenCode or Claude. I think that is
+   confusing."* Instead the hosting body carries **one non-selectable pointer
+   row** naming the count (§2.4). A pointer is a cross-reference; a roster entry
+   is a seat. Same pixels, opposite meaning — an implementer who blurs them
+   re-creates the confusion this ruling removes.
 
 **Therefore packet 1's `defaultEnabled = false` STANDS.** This packet reverses
 no promoted law. `OllamaLocalModelDiscoveryProvider`'s *"discover all local
@@ -37,10 +47,8 @@ never the default; it was that **off currently means invisible.**
 - **Default body when both are installed: `opencode`.** Nothing to fail closed,
   no fake meters to suppress, and already wired in `opencode.json` on the
   dogfood host. A section-level selector makes a wrong default one click.
-- **Vocabulary lands in this packet**, not a follow-up. JSON field names are
-  decided in **LR-S01**, not parked in LR-S07. S07 is promotion into
-  `Product_Vocabulary.md` / `Project_Laws.md`, not the first time the words
-  exist.
+- **Vocabulary lands in this packet.** JSON field names are decided in LR-S01;
+  S07 only promotes them into `Product_Vocabulary.md` / `Project_Laws.md`.
 
 ### 0.3 What exists today — verified 2026-08-14, not read from a doc
 
@@ -121,20 +129,17 @@ warm 0.6s. Ollama 0.32.12. Larger tags on larger machines are unmeasured
 
 ### 0.5 Implementer binds
 
-Do not rebuild from a ladder that treated Team auto-staff as an entry gate,
-put leftover-serve reclaim in OCL-S05, poured `ollama/` chips onto READY
-body cards, or treated `models --json` as ruling 3.
+Four earlier drafts of this ladder were wrong. Do not reintroduce them:
 
-1. S00 is a catalog-path audit, not a live G3 re-prove and not a Team-auto-staff
-   gate. Stop the packet only if custom Claude-local add→verify→enable cannot
-   mint an honest row. Visibility still ships if Teams refuse an unpinned local
-   seat (packet 1 ruling 11 — expected).
-2. Leftover `opencode serve` reclaim (`OpenCodeLeftoverServeReclaim`) is on
-   the S02 enable/refresh path. A status-only S03 does not make Test B green.
-3. LOCAL RUNTIME is its own class, never a READY body row. Seated locals are
-   pin-able. They are not extra OpenCode / Claude Code roster chips.
-4. Ruling 3 is not satisfied by `alln models --json` alone. `alln menu --json`
-   is the agent front door.
+1. **S00 is a catalog-path audit** — not a live G3 re-prove, not a
+   Team-auto-staff gate. Stop the packet only if custom Claude-local
+   add→verify→enable cannot mint an honest row. Teams refusing an unpinned
+   local seat is packet 1 ruling 11 working, not a blocker.
+2. **Leftover `opencode serve` reclaim is on S02**, not OCL-S05. A status-only
+   S03 does not make Test B green.
+3. **LOCAL RUNTIME is its own class**, never a READY body row (ruling 5, §2.4).
+4. **Ruling 3 is not satisfied by `alln models --json` alone.**
+   `alln menu --json` is the agent front door.
 
 **Decided from this tree (not founder; not UNDECIDED):**
 
@@ -215,10 +220,32 @@ does not include `completion`. S01 extends `LocalTag`. Absence of a
 capabilities field is not "not a completion model" — stay visible,
 capability-unknown. No name heuristic (`*embed*`).
 
-### 2.4 Grouping
+### 2.4 The hosting-body pointer (ruling 5)
 
-LOCAL RUNTIME is the list. Do not pour tags onto OpenCode / Claude Code
-roster cards. S06 is out of the closeout.
+LOCAL RUNTIME is the only list. The body card gets **one row**, and only the
+body currently hosting seats gets it:
+
+```text
+OpenCode                                                         ●
+  Big Pickle   DeepSeek V4 Pro   GLM-5.2   MiniMax M3   …
+  ── Ollama · 3 models  →                     (jumps to LOCAL RUNTIME)
+```
+
+| Rule | Why |
+| --- | --- |
+| Only on the hosting body | The other card has zero local seats. *"Ollama: not enabled"* is noise. |
+| Counts **enabled seated** rows for that body | Discovered-not-enabled tags are hosted by nothing yet. |
+| Not selectable, not in the card's model total, not a `models[]` entry | It is a link. Counting it re-creates ruling 5's confusion. |
+| CLI twin required | `alln drivers --json` carries `localRuntimeSeats: <n>` on that body's row. A GUI-only pointer **fails Test D** (ruling 3). |
+
+Wording is `Ollama · N models`, not "Ollama Enabled" — count-first matches
+every other card, and *enabled* is ambiguous about whether the runtime, the
+body, or the models are meant.
+
+Both bodies may show the row if a user hand-seated the same tag twice via
+`models add`. That falls out of "show when count > 0"; no special case.
+
+S06 (namespace grouping of paid roster cards) stays dropped.
 
 ---
 
@@ -256,11 +283,11 @@ roster cards. S06 is out of the closeout.
 | Id | Intent | Code? |
 | --- | --- | --- |
 | **LR-S00** | Catalog-path audit. Documented add→verify→enable on **one** already-pulled tag, Claude Code body first (`--name` required). Inspect `alln models --json` + `alln run --model <id> --dry-run`. OpenCode add if cheap. **Four questions — do not collapse.** (1) Does the custom path mint an honest row? (2) Does dry-run resolve the body? (3) Does explicit `--seat` / `preferredModelId` accept it, or refuse on lane tags? Record; do not halt visibility. (4) Does a capability-staffed Team **without** a pin pick it? If yes, land the §0.5 label guard **in this slice** before S02. **Stop the packet only if (1) fails on Claude Code.** Do not re-run packet 1 G3. One tag, one body — do not staff three local seats. | None unless (4) forces the guard |
-| **LR-S01** | Wire the overlay. Decide JSON words (rule 2). Parse `/api/tags` capabilities (§2.3). `alln models --json` lists overlay tags as **not seated**, `readiness` omitted or not `Available`, each with the S02 enable command string. Default `alln menu --json` carries `localRuntime` (§0.5). Menu must observe Ollama (today it does not). `ModelListProjector` + `MenuCatalog.project` as named above. **Ruling 3 — agent half.** Prove CLI A + D. Contract + `AllnighterVersionIdentity.binaryVersion` bump. | Core/CLI |
+| **LR-S01** | Wire the overlay. Decide JSON words (rule 2). Parse `/api/tags` capabilities (§2.3). `alln models --json` lists overlay tags as **not seated**, `readiness` omitted or not `Available`, each with the S02 enable command string. Default `alln menu --json` carries `localRuntime` (§0.5). Menu must observe Ollama (today it does not). `ModelListProjector` + `MenuCatalog.project` as named above. `alln drivers --json` gains `localRuntimeSeats` per body (§2.4 CLI twin). **Ruling 3 — agent half.** Prove CLI A + D. Contract + `AllnighterVersionIdentity.binaryVersion` bump. | Core/CLI |
 | **LR-S02** | Minting enable (§0.5 grammar). `assessExplicitEnable` → print `disclosures` → persist `origin: .discovered` seated id → `setEnabled(seated, true)` → rule 7. OpenCode body: `OpenCodeOllamaProviderMerge.merge` + `OpenCodeLeftoverServeReclaim.reclaim`. Claude Code body: no `opencode.json` write. Prove Test B dry-run. | Core/CLI |
 | **LR-S03** | `opencode-local status` re-reads `/api/tags` and reports drift vs `opencode.json` (`ollamaTagsObserved` can be true). Does not replace the S02 write. | Core/CLI |
-| **LR-S04** | Pin-ability: an **enabled** seated id resolves `--model` / human pick. **Not** extra READY-row chips. If S02 already did this, say so and skip. | Core |
-| **LR-S05** | Mac `LOCAL RUNTIME` (§2.1), selector write (§0.5), advisory reasons (§2.2), four installed-state rows. Same overlay/projector as CLI — do not walk doctor tags as seats. **Ruling 1, 2 — the human half.** GUI Workflow **Tier C**: first deliverable `docs/gui/surfaces/local-runtime/brief.md`. Close with Visual_Proof_Gate (render + layout-watcher). `alln chrome --json` projects the section labels. Prove Mac A + D. | GUI |
+| **LR-S04** | Pin-ability: an **enabled** seated id resolves `--model` / human pick. **Not** extra READY-row chips (ruling 5). If S02 already did this, say so and skip. | Core |
+| **LR-S05** | Mac `LOCAL RUNTIME` (§2.1), the hosting-body pointer row (§2.4, ruling 5), selector write (§0.5), advisory reasons (§2.2), four installed-state rows. Same overlay/projector as CLI — do not walk doctor tags as seats. **Ruling 1, 2 — the human half.** GUI Workflow **Tier C**: first deliverable `docs/gui/surfaces/local-runtime/brief.md`. Close with Visual_Proof_Gate (render + layout-watcher). `alln chrome --json` projects the section labels. Prove Mac A + D. | GUI |
 | **LR-S07** | Promote §6 into `Product_Vocabulary.md` and amend `Project_Laws.md` §Local Ollama seats: seat = body-bound catalog row, not a pulled tag. Help: `opencode_local_setup`, `claude_local_isolation`. | Docs |
 
 **LR-S06 dropped.** Namespace grouping of paid body cards is not the defect.
@@ -344,6 +371,10 @@ call live `/v1` from XCTest.
 - observed G1 fail: visible, enableable, reason states the fail
 - neither body installed: no ready-to-run mark on the runtime row;
   enable command names the missing body
+- ruling 5: a seated local model appears in NO body roster; the hosting
+  body's `Ollama · N models` pointer is not selectable, is absent from that
+  body's `models[]`, and is excluded from its model count
+- the non-hosting body shows no pointer at all (not a zero, not "disabled")
 - ollama rm <tag> (dogfood): tag leaves the discovered list; a seated
   row for that tag becomes Unavailable (law) — not deleted
 - Ollama down: every seated local row is Unavailable; discovered list
@@ -359,6 +390,7 @@ call live `/v1` from XCTest.
 | tag name / `ollama/<tag>` | `alln models --json` row **and** `menu --json` `localRuntime` |
 | off / on | `enabled` + discovered/seated fields from S01 |
 | body (`via OpenCode` / `via Claude Code`) | seated `driverId` + section default |
+| hosting-body pointer `Ollama · N models` (§2.4) | `drivers --json` `localRuntimeSeats: N` on that body |
 | advisory reason | same string or same enum, not GUI-only prose |
 | neither-body empty | models + menu both say the bodies are missing |
 | enable / install affordance | per-row command, not a tooltip |
@@ -427,7 +459,7 @@ Firewall and Second Mac still do not block this ladder.
 | | |
 | --- | --- |
 | **Truth owner** | `/api/tags` for what exists on disk; `ModelCatalog` for what is seated. Neither answers for the other. `opencode.json` answers only for what the OpenCode process will accept, and only after a merge this packet owns. |
-| **Lie-prone** | Cached `opencode-local status`; leftover serve; discovered tag as a runnable seat; `readiness: Available` on a non-seat; `state: available` read as "Available"; ready dot on a runtime that cannot execute; Claude local `costUSD` / `contextWindow: 200000` / `provider: firstParty`; offer predicate false-on-nil painted "not recommended"; GUI affordance with no CLI twin; default `menu --json` omitting every off local tag while `completeness.models.complete` is true; doctor listing unseated tags as Available seats; Teams silently picking a local seat via inherited driver caps; persisting a discovered seat as `.custom` so `verify` will take it. |
+| **Lie-prone** | Cached `opencode-local status`; leftover serve; discovered tag as a runnable seat; `readiness: Available` on a non-seat; `state: available` read as "Available"; ready dot on a runtime that cannot execute; Claude local `costUSD` / `contextWindow: 200000` / `provider: firstParty`; offer predicate false-on-nil painted "not recommended"; GUI affordance with no CLI twin; default `menu --json` omitting every off local tag while `completeness.models.complete` is true; doctor listing unseated tags as Available seats; Teams silently picking a local seat via inherited driver caps; persisting a discovered seat as `.custom` so `verify` will take it; the §2.4 pointer drifting into a selectable roster entry or into the body's model count (ruling 5). |
 | **Missing proof** | S00 audit; CLI A/D on S01; B dry-run on S02; chrome + Mac A/D on S05. |
 
 ---
@@ -447,8 +479,10 @@ Firewall and Second Mac still do not block this ladder.
       (this box is what makes a local model *usable*, not merely listed)
 - [ ] `opencode-local status` observes `/api/tags`; `opencode.json` is never
       presented as the current tag list
-- [ ] Enabled `ollama/` seats are pin-able; they are not extra chips on
-      READY body roster rows
+- [ ] Enabled `ollama/` seats are pin-able and appear on **no** OpenCode /
+      Claude Code roster (ruling 5). The hosting body shows one non-selectable
+      `Ollama · N models` pointer, mirrored by `drivers --json`
+      `localRuntimeSeats`, counted in neither the roster nor `models[]`
 - [ ] `LOCAL RUNTIME` ships all four installed-state rows; Visual_Proof_Gate
       + `alln chrome --json` for the labels
 - [ ] Automatic substitution never picks a local seat (label guard, including
