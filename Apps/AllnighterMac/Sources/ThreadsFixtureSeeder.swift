@@ -107,13 +107,27 @@ struct ThreadsFixtureSeeder {
         mk("pr-un-1", "Token bucket vs sliding window", 900, project: nil)
     }
 
-    /// The 4 row states side by side: Draft (quiet dotted, no bold/amber) · Running
-    /// (blue) · Replied/unread (the only amber, bold). Pending's neutral dot needs an
-    /// armed item bound to a thread (production path), so it isn't seeded here.
+    /// The 4 founder row states side by side: Draft (quiet dotted, no bold/amber) ·
+    /// Pending (neutral filled dot) · Running (blue) · Replied/unread (the only amber,
+    /// bold). Pending's dot is driven by an ARMED item in the live `PendingStore` (GUI
+    /// state, not a thread fact) — staged here the same way, through the real store, so
+    /// the fixture actually exercises the production `armedPending` read path
+    /// (`HomeView.refreshArmedPending`) instead of only 3 of the 4 states.
     private func seedFixtureThreadStates() {
         let base = Date()
         // Draft — created via "+", never sent. Nothing has happened: dotted ring only.
         _ = try? store.create(id: "st-draft", title: "Testing this out", now: base.addingTimeInterval(-30))
+        // Pending — an armed Pending item queued against this thread (neutral dot).
+        if (try? store.create(id: "st-pending", title: "Follow up on the uploader fix", now: base.addingTimeInterval(-90))) != nil {
+            let item = PendingItem(
+                id: "st-pending-item", threadId: "st-pending", title: "Follow up on the uploader fix",
+                kind: .workerChat, status: .pending,
+                createdAt: base.addingTimeInterval(-90), updatedAt: base.addingTimeInterval(-90),
+                submittedAt: base.addingTimeInterval(-90), origin: .gui,
+                prompt: "Follow up on the uploader fix", target: PendingTarget(), policy: PendingPolicy()
+            )
+            try? PendingStore().save(item)
+        }
         // Running — a mutating run in flight (blue, the only motion).
         if (try? store.create(id: "st-running", title: "Rate-limit the public API", now: base.addingTimeInterval(-120))) != nil {
             let t = ThreadTurn(id: "st-running-t", threadId: "st-running", kind: .mutatingRun, status: .running,
@@ -126,6 +140,10 @@ struct ThreadsFixtureSeeder {
                                createdAt: base, completedAt: base, author: .worker)
             _ = try? store.appendTurn(t, toThreadId: "st-replied", now: base)
         }
+        // The rail is project-grouped now (PRJ-S14) — an unbound thread never appears
+        // under any group, and RootView seeds a sample ProjectsViewModel for this
+        // fixture, so bind every seeded thread or the rail renders empty.
+        bindAllToFixtureProject(["st-draft", "st-pending", "st-running", "st-replied"])
         reload()
     }
 
@@ -148,6 +166,8 @@ struct ThreadsFixtureSeeder {
             _ = try? store.appendTurn(turn("rail-build2-t", "rail-build2", .mutatingRun, .done), toThreadId: "rail-build2", now: base)
         }
         _ = try? store.create(id: "rail-chat", title: "Token bucket vs sliding window", now: base.addingTimeInterval(-900))
+        // Project-grouped rail (PRJ-S14) — bind or these never appear (see home-thread-states).
+        bindAllToFixtureProject(["rail-design", "rail-build", "rail-build2", "rail-chat"])
         reload()
     }
 
@@ -170,6 +190,10 @@ struct ThreadsFixtureSeeder {
             _ = try? store.setPinned(threadId: "th2-archived", pinned: true, now: base)
             _ = try? store.archiveThread(threadId: "th2-archived")
         }
+        // Project-grouped rail (PRJ-S14) — bind or these never appear (see home-thread-states).
+        // th2-archived stays hidden from the group either way (isArchived), but still binds
+        // so it's a real project thread if the Archive rail ever needs it.
+        bindAllToFixtureProject(["th2-pinned", "th2-unread", "th2-archived"])
         reload()
     }
 
@@ -253,6 +277,10 @@ struct ThreadsFixtureSeeder {
             )
         }
 
+        // Project-grouped rail (PRJ-S14) — bind or these never appear (see home-thread-states).
+        bindAllToFixtureProject([
+            "unr-idle", "unr-reply", "unr-attention", "unr-running", "unr-running-unread", "unr-selected",
+        ])
         reload()
         if let selected = threads().first(where: { $0.id == "unr-selected" }) {
             select(selected)
@@ -273,6 +301,8 @@ struct ThreadsFixtureSeeder {
                 now: base.addingTimeInterval(TimeInterval(-index * 120))
             )
         }
+        // Project-grouped rail (PRJ-S14) — bind or these never appear (see home-thread-states).
+        bindAllToFixtureProject(titles.indices.map { "fixture-\($0)" })
         reload()
     }
 
@@ -807,6 +837,20 @@ struct ThreadsFixtureSeeder {
         _ = try? store.appendTurn(escalation, toThreadId: id, now: base)
         reload()
         setSelectedThreadId(id)
+    }
+
+    /// The rail is project-grouped (PRJ-S14) — a thread with no `projectId` matching a
+    /// project the sidebar actually knows about never appears under any group
+    /// (`ThreadsPresenter.projectSections`'s `known` set). RootView seeds
+    /// `ProjectsViewModel` with `ProjectsViewModel.sampleProjects()` (id `prj_halo`,
+    /// display name "halo-app") for every rail fixture, so every seeded thread must
+    /// bind to that same id or it's silently invisible — not a presenter bug, a
+    /// missing-half-of-the-fixture bug. Same fixture project `seedFixtureProjectsRail`
+    /// and `seedFixtureLoopsAttentionRail` already use.
+    private func bindAllToFixtureProject(_ threadIds: [String], projectId: String = "prj_halo") {
+        for id in threadIds {
+            _ = try? store.bindProject(threadId: id, projectId: projectId)
+        }
     }
 
     private func relayFixtureSeatIds() -> (pm: String, dev: String) {

@@ -481,6 +481,19 @@ struct RootView: View {
             #endif
     }
 
+    #if DEBUG
+    /// The rail is project-grouped now (PRJ-S14) — `HomeSidebar` only ever renders
+    /// `ThreadsPresenter.projectSections`, so a fixture that seeds threads but never
+    /// seeds `ProjectsViewModel` falls back to the founder's real disk projects, under
+    /// which none of the seeded (unbound) fixture threads can ever match and the rail
+    /// renders "No conversations" everywhere. These fixtures seed their own threads
+    /// bound to `prj_halo` (`ThreadsFixtureSeeder.bindAllToFixtureProject`) — they need
+    /// the matching sample `ProjectsViewModel` too, same as `opensProjectsRail`.
+    private static let seedsSampleProjectsForHomeRail: Set<String> = [
+        "home-rail", "home-rail-th2", "home-rail-unr", "home-thread-states", "home-with-threads",
+    ]
+    #endif
+
     private func handleWorkspaceAppear() {
         GlobalHotKey.enable()
         #if DEBUG
@@ -517,7 +530,8 @@ struct RootView: View {
             if GUIFixture.opensHomeWorkspace {
                 model.applyDevBenchScenario(GUIFixture.active ?? "home-with-threads")
             }
-            if GUIFixture.opensProjectsRail || GUIFixture.opensRelayLaunch {
+            if GUIFixture.opensProjectsRail || GUIFixture.opensRelayLaunch
+                || Self.seedsSampleProjectsForHomeRail.contains(GUIFixture.active ?? "") {
                 projects.seedForProof(ProjectsViewModel.sampleProjects(), active: "prj_halo")
                 threads.currentProjectId = "prj_halo"
             }

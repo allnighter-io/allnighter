@@ -541,6 +541,13 @@ private struct ProjectThreadRow: View {
     /// 4-state leading dot. Color is earned: amber ONLY for a replied/unread thread,
     /// blue ONLY for a live run; a draft is a quiet dotted ring (nothing has happened),
     /// pending is a neutral filled dot, idle is empty.
+    ///
+    /// `displayState` collapses to a single case (running beats ordinary unread, since a
+    /// live run is the more urgent single-state signal) — but that must not make an
+    /// unread reply on a running thread invisible. A running thread that ALSO has an
+    /// ordinary unread reply (not the amber needsYou case, which already wins the state
+    /// outright) gets an amber ring around the blue dot — running stays the primary
+    /// color, unread rides along as a secondary mark. Composed, not a new state.
     @ViewBuilder private var stateDot: some View {
         switch state {
         case .draft:
@@ -549,7 +556,16 @@ private struct ProjectThreadRow: View {
         case .pending:
             Circle().fill(ALColor.textMuted).frame(width: 7, height: 7)
         case .running:
-            Circle().fill(ALPalette.blue500).frame(width: 7, height: 7)
+            if row.railAttention == .ordinaryUnread {
+                ZStack {
+                    Circle().strokeBorder(ALPalette.amber300, lineWidth: 1.5).frame(width: 9, height: 9)
+                    Circle().fill(ALPalette.blue500).frame(width: 7, height: 7)
+                }
+                .accessibilityLabel("Running, unread")
+            } else {
+                Circle().fill(ALPalette.blue500).frame(width: 7, height: 7)
+                    .accessibilityLabel("Running")
+            }
         case .replied:
             Circle().fill(ALColor.accent).frame(width: 7, height: 7)
         case .idle:
