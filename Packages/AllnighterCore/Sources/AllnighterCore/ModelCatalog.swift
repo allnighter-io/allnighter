@@ -131,11 +131,52 @@ public enum ModelCatalog {
 
     private static let bundledAuthority: (catalog: LoadedCatalog, overlay: CatalogOverlay) = {
         do {
-            return (try CatalogLoader.bundled(), try CatalogOverlayLoader.bundled())
+            return try loadBundledAuthority()
         } catch {
             abortBundledCatalog("bundled authority failed: \(error)")
         }
     }()
+
+    /// Flat CLI sidecar first (`ExecutableResource`). Then the Xcode-wrapped
+    /// `.app` layout (`Foo.bundle/Contents/Resources/…`) so the Mac proof
+    /// harness and Debug Dock app do not `exit(1)` after finding the wrapper.
+    static func loadBundledAuthority() throws -> (catalog: LoadedCatalog, overlay: CatalogOverlay) {
+        do {
+            return (try CatalogLoader.bundled(), try CatalogOverlayLoader.bundled())
+        } catch {
+            if let catalog = loadHostWrappedCatalog(),
+               let overlay = loadHostWrappedOverlay() {
+                return (catalog, overlay)
+            }
+            throw error
+        }
+    }
+
+    private static func loadHostWrappedCatalog() -> LoadedCatalog? {
+        let data = HostSidecarBundle.data(
+            bundleName: ExecutableResource.agentOSCLIBundleName,
+            resourceFile: "catalog.json",
+            subdirectory: "Catalog"
+        ) ?? HostSidecarBundle.data(
+            bundleName: ExecutableResource.agentOSCLIBundleName,
+            resourceFile: "catalog.json"
+        )
+        guard let data else { return nil }
+        return try? CatalogLoader.decode(data)
+    }
+
+    private static func loadHostWrappedOverlay() -> CatalogOverlay? {
+        let data = HostSidecarBundle.data(
+            bundleName: ExecutableResource.allnighterCoreBundleName,
+            resourceFile: "catalog_overlay.json",
+            subdirectory: "Catalog"
+        ) ?? HostSidecarBundle.data(
+            bundleName: ExecutableResource.allnighterCoreBundleName,
+            resourceFile: "catalog_overlay.json"
+        )
+        guard let data else { return nil }
+        return try? CatalogOverlayLoader.decode(data)
+    }
 
     /// Bench policy + caliber for built-in ids. Derived from `catalog_overlay.json`.
     public static var builtInCapabilities: [String: ModelCapabilities] {
@@ -573,6 +614,9 @@ public enum ModelCatalog {
 
         """
         FileHandle.standardError.write(Data(message.utf8))
+        // `open` discards stderr. Fixture mode must never die with neither a
+        // PNG nor last-error — `gui_proof.sh` treats that as a mute timeout.
+        GUIProofHarnessIO.writeLastError(message)
         Foundation.exit(1)
     }
 

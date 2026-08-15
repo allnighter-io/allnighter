@@ -17,6 +17,7 @@ APP="$DERIVED/Build/Products/Debug/Allnighter.app"
 LOG="$DERIVED/last-build.log"
 DEV_ROOT="$HOME/Library/Developer/Allnighter"
 REQ="$DEV_ROOT/gui-proof-request.json"
+ERR="$DEV_ROOT/gui-proof-last-error.txt"
 MARKER="$DEV_ROOT/gui-proof-screen-recording.ok"
 
 if ! command -v xcodegen >/dev/null 2>&1; then
@@ -52,7 +53,7 @@ fi
 
 pkill -x Allnighter 2>/dev/null || true
 sleep 0.5
-rm -f "$DERIVED/gui-proof-last-error.txt"
+rm -f "$ERR" "$DERIVED/gui-proof-last-error.txt"
 
 printf '%s\n' '{"fixture":"proof-grant"}' >"$REQ"
 

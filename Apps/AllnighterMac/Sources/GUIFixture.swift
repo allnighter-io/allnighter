@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Darwin
 import AllnighterCore
 import AllnighterEngine
 @preconcurrency import ScreenCaptureKit
@@ -23,22 +24,9 @@ import AllnighterEngine
 ///   the primary window's content view (no TCC, no separate windows). See policy
 ///   in `docs/gui/Visual_Proof_Gate.md`.
 enum GUIFixture {
-    private static let devRoot: URL = FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Developer/Allnighter", isDirectory: true)
-
-    static let proofRequestURL = devRoot.appendingPathComponent("gui-proof-request.json")
-    static let grantMarkerURL = devRoot.appendingPathComponent("gui-proof-screen-recording.ok")
-
-    static var lastErrorURL: URL {
-        buildRoot.appendingPathComponent("gui-proof-last-error.txt")
-    }
-
-    private static var buildRoot: URL {
-        if let dir = ProcessInfo.processInfo.environment["ALLNIGHTER_BUILD_DIR"], !dir.isEmpty {
-            return URL(fileURLWithPath: dir, isDirectory: true)
-        }
-        return devRoot.appendingPathComponent("Build", isDirectory: true)
-    }
+    static var proofRequestURL: URL { GUIProofHarnessIO.requestURL }
+    static var grantMarkerURL: URL { GUIProofHarnessIO.grantMarkerURL }
+    static var lastErrorURL: URL { GUIProofHarnessIO.lastErrorURL }
 
     private struct ProofRequest: Codable {
         var fixture: String
@@ -53,7 +41,17 @@ enum GUIFixture {
     static func bootstrap() {
         guard !didBootstrap else { return }
         didBootstrap = true
+        // XCTest links this module; do not consume the developer's request file
+        // or rewrite ~/Library/Developer/Allnighter grant bookkeeping.
+        let env = ProcessInfo.processInfo.environment
+        if env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil {
+            return
+        }
+        atexit {
+            GUIFixture.noteAbnormalExitIfNeeded()
+        }
         loadProofRequestIfNeeded()
+        syncGrantMarkerWithTCC()
     }
 
     /// The active fixture name, or nil on every normal launch.
@@ -503,11 +501,22 @@ enum GUIFixture {
     }
 
     static func writeGrantMarker() {
-        let body = "granted-at=\(ISO8601DateFormatter().string(from: Date()))\n"
-            + "bundle=\(Bundle.main.bundleIdentifier ?? "unknown")\n"
-            + "path=\(Bundle.main.bundlePath)\n"
-        try? FileManager.default.createDirectory(at: devRoot, withIntermediateDirectories: true)
-        try? body.write(to: grantMarkerURL, atomically: true, encoding: .utf8)
+        syncGrantMarker(preflightGranted: true)
+    }
+
+    /// Live TCC probe. The `.ok` file is bookkeeping only — delete it when
+    /// `CGPreflightScreenCaptureAccess` is currently false so a Jul-dated
+    /// marker cannot outlive a revoked grant.
+    static func syncGrantMarkerWithTCC() {
+        syncGrantMarker(preflightGranted: CGPreflightScreenCaptureAccess())
+    }
+
+    static func syncGrantMarker(preflightGranted: Bool) {
+        GUIProofHarnessIO.writeGrantMarker(
+            granted: preflightGranted,
+            bundleIdentifier: Bundle.main.bundleIdentifier ?? "unknown",
+            bundlePath: Bundle.main.bundlePath
+        )
     }
 
     // MARK: - Proof request (Launch Services path)
@@ -520,15 +529,41 @@ enum GUIFixture {
 
         defer { try? FileManager.default.removeItem(at: proofRequestURL) }
 
-        guard let data = try? Data(contentsOf: proofRequestURL),
-              let req = try? JSONDecoder().decode(ProofRequest.self, from: data),
+        guard let data = try? Data(contentsOf: proofRequestURL) else {
+            failProofSync("could not read proof request at \(proofRequestURL.path)")
+            return
+        }
+        guard let req = try? JSONDecoder().decode(ProofRequest.self, from: data),
               !req.fixture.isEmpty
         else {
-            log("could not read proof request at \(proofRequestURL.path)")
+            failProofSync("proof request JSON is invalid at \(proofRequestURL.path)")
             return
         }
         sessionFixture = req.fixture
         sessionOutput = req.output
+    }
+
+    /// Last-chance write when the process dies without a PNG or last-error.
+    /// `Foundation.exit` skips `applicationWillTerminate`; atexit does not.
+    nonisolated static func noteAbnormalExitIfNeeded() {
+        guard sessionFixture != nil || ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_FIXTURE"]?.isEmpty == false else {
+            return
+        }
+        if sessionFixture == "proof-grant"
+            || ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_FIXTURE"] == "proof-grant" {
+            return
+        }
+        if let out = sessionOutput ?? ProcessInfo.processInfo.environment["ALLNIGHTER_GUI_PROOF_OUT"],
+           !out.isEmpty,
+           let attrs = try? FileManager.default.attributesOfItem(atPath: out),
+           let size = attrs[.size] as? NSNumber, size.intValue > 0 {
+            return
+        }
+        if let existing = try? String(contentsOf: lastErrorURL, encoding: .utf8),
+           !existing.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return
+        }
+        failProofSync("app exited before writing the capture PNG (silent fixture exit)")
     }
 
     // MARK: - Seeded health (DESIGNER MOCK — never a real launch)
@@ -666,9 +701,12 @@ enum GUIFixture {
     /// If a proof output path is set, resize, capture, write PNG, terminate.
     @MainActor
     static func captureAndExitIfRequested() {
-        guard isActive, !isGrantSession,
-              let out = proofOutputPath, !out.isEmpty
-        else { return }
+        guard isActive, !isGrantSession else { return }
+        guard let out = proofOutputPath, !out.isEmpty else {
+            failProof("proof request has no output path")
+            NSApp.terminate(nil)
+            return
+        }
 
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(500))
@@ -679,6 +717,16 @@ enum GUIFixture {
 
             let useScreenRecordingCapture = needsNativeOverlays || isTCCProbe
             if useScreenRecordingCapture {
+                syncGrantMarkerWithTCC()
+                if !CGPreflightScreenCaptureAccess() {
+                    failProof("""
+                    Screen Recording is not granted for this bundle (CGPreflightScreenCaptureAccess is false). \
+                    The gui-proof-screen-recording.ok marker is bookkeeping, not TCC truth. \
+                    \(screenRecordingInstructions)
+                    """)
+                    NSApp.terminate(nil)
+                    return
+                }
                 if needsNativeOverlays {
                     await waitForOverlayWindows(timeout: 4)
                 } else {
@@ -863,8 +911,11 @@ enum GUIFixture {
 
     @MainActor
     private static func failProof(_ message: String) {
-        try? FileManager.default.createDirectory(at: buildRoot, withIntermediateDirectories: true)
-        try? message.write(to: lastErrorURL, atomically: true, encoding: .utf8)
+        failProofSync(message)
+    }
+
+    nonisolated private static func failProofSync(_ message: String) {
+        GUIProofHarnessIO.writeLastError(message)
         log("ERROR: \(message)")
     }
 

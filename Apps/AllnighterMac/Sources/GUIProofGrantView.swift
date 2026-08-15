@@ -97,7 +97,7 @@ struct GUIProofGrantView: View {
 
     private func refreshGrant() {
         granted = CGPreflightScreenCaptureAccess()
-        if granted { GUIFixture.writeGrantMarker() }
+        GUIFixture.syncGrantMarker(preflightGranted: granted)
     }
 }
 

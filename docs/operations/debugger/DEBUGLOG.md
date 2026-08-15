@@ -1,5 +1,38 @@
 # Debug Log
 
+## 2026-08-15 — GUI proof harness silent exit (no PNG, no last-error)
+
+Tier: T3 (standing tool defect — Visual Proof Gate blocked for every surface)
+
+Symptom / repro: `scripts/gui_proof.sh <any fixture>` prints
+`timed out waiting for capture` and writes no PNG. Same on pre-existing
+`ask-ai-open`. `scripts/gui_proof_grant.sh` builds, then the grant window
+never appears. App consumes `gui-proof-request.json` and exits. No
+`gui-proof-last-error.txt`, no crash report.
+
+Truth owner: `ModelCatalog.bundledAuthority` + `GUIFixture.bootstrap`.
+The Mac `.app` ships SPM sidecars as wrapped bundles
+(`Foo.bundle/Contents/Resources/catalog.json`). `ExecutableResource.data`
+only reads the flat CLI layout (`Foo.bundle/catalog.json`). First
+`AppConfig.loadConfiguration()` after bootstrap → `Foundation.exit(1)`.
+`open` discards stderr; `exit(1)` skips `applicationWillTerminate`.
+`gui_proof.sh` only printed the grant hint when last-error existed, so
+the mute path hid its own fix. `gui-proof-screen-recording.ok` is
+bookkeeping dated Jul 30 — not TCC truth.
+
+Lie-prone layer: "timed out" / "run gui_proof_grant.sh" / a stale `.ok`
+file standing in for `CGPreflightScreenCaptureAccess`.
+
+Fix identity: `HostSidecarBundle` wrapped-layout fallback in
+`ModelCatalog`; every fixture exit writes
+`~/Library/Developer/Allnighter/gui-proof-last-error.txt`; grant marker
+deleted when live preflight is false.
+
+Proof: `scripts/swift-test.sh --filter 'GUIProofHarnessIOTests|HostSidecarBundleTests'`;
+`bash scripts/gui_proof.sh ask-ai-open`.
+
+---
+
 ## 2026-08-14 — `alln` SIGTRAPs on PATH (argv[0] catalog lookup)
 
 Tier: T3 (total CLI outage; 1.1.11 regression)

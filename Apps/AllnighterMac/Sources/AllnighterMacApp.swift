@@ -30,6 +30,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        #if DEBUG
+        GUIFixture.noteAbnormalExitIfNeeded()
+        #endif
         guard !Self.isTesting else { return }
         // CWB-S00a: reap any leftover capacity probe PGIDs on graceful quit.
         CapacityProbe.terminateAllForProcessShutdown()

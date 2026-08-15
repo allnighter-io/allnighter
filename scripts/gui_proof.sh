@@ -25,7 +25,8 @@ SCHEME="AllnighterMac"
 APP="$DERIVED/Build/Products/Debug/Allnighter.app"
 LOG="$DERIVED/last-build.log"
 REQ="$DEV_ROOT/gui-proof-request.json"
-ERR="$DERIVED/gui-proof-last-error.txt"
+# Must match GUIProofHarnessIO — not DerivedData. `open` cannot pass ALLNIGHTER_BUILD_DIR.
+ERR="$DEV_ROOT/gui-proof-last-error.txt"
 MARKER="$DEV_ROOT/gui-proof-screen-recording.ok"
 
 CAPTURE_DIR="$ROOT/docs/qa/gui/_captures"
@@ -94,7 +95,16 @@ open -n -g "$APP"
 deadline=$(( $(date +%s) + 30 ))
 while [ ! -s "$OUT" ] && [ ! -s "$ERR" ]; do
   if [ "$(date +%s)" -ge "$deadline" ]; then
+    if [ ! -s "$ERR" ]; then
+      printf '%s\n' "timed out waiting for capture; the app wrote neither a PNG nor last-error (silent fixture exit). App: $APP" >"$ERR"
+    fi
     echo "✗ timed out waiting for capture" >&2
+    if [ -s "$ERR" ]; then
+      cat "$ERR" >&2
+    fi
+    echo "" >&2
+    echo "  If Screen Recording is missing: bash scripts/gui_proof_grant.sh" >&2
+    echo "  App: $APP" >&2
     pkill -x Allnighter 2>/dev/null || true
     exit 1
   fi
