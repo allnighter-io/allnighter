@@ -112,11 +112,12 @@ public enum LocalRuntimeSurfacePresenter {
     )
     let menu = MenuCatalog.project(
       modelEntries: modelList.models,
-      ollamaLocal: ollamaLocal
+      ollamaLocal: ollamaLocal,
+      defaultBody: defaultBody
     )
     let installed = installedBodies(from: probeRecords)
     let resolvedDefault = defaultBody ?? menu.localRuntime?.defaultBody
-      ?? OllamaLocalModelDiscoveryProvider.defaultEnableBodyDriverId
+      ?? LocalRuntimeDefaultBody.resolved()
     let defaultLabel = bodyLabel(resolvedDefault, registry: registry)
     let observed = menu.localRuntime != nil
     let tagCount = menu.localRuntime?.tags.count

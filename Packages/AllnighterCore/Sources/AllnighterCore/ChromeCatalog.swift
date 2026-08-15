@@ -233,6 +233,7 @@ public enum ChromeCatalog {
                     "Harness: \(ChromeCopy.localRuntimeViaClaudeCode)",
                     "Neither bodies: \(ChromeCopy.localRuntimeNeedsBody)",
                     "Unobserved: \(ChromeCopy.localRuntimeUnobserved)",
+                    "Pointer: \(ChromeCopy.localRuntimePointerLabel(count: 3))",
                 ]
             ),
         ]

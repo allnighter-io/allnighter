@@ -39,9 +39,11 @@ enum AppSetupModel {
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
             .map { manifest in
             let rec = toolStatuses.first { $0.driverId == manifest.id }
-            let seats = models.filter { $0.driverId == manifest.id }.map {
-                SetupCardModel.WorkerSeat(id: $0.id, name: $0.displayName, modelLabel: $0.modelLabel, isPlanWriter: $0.canWritePlan)
-            }
+            let seats = models
+                .filter { $0.driverId == manifest.id && !LocalRuntimePointerPresenter.isLocalRuntimeSeat($0) }
+                .map {
+                    SetupCardModel.WorkerSeat(id: $0.id, name: $0.displayName, modelLabel: $0.modelLabel, isPlanWriter: $0.canWritePlan)
+                }
             let route = "via " + manifest.id.replacingOccurrences(of: "_", with: "-")
             let state: SetupCardState
             var shim: String?

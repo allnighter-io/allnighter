@@ -33,6 +33,33 @@ final class LocalRuntimeSurfacePresenterTests: XCTestCase {
     XCTAssertEqual(surface.harnessLine, ChromeCopy.localRuntimeViaBoth)
     XCTAssertEqual(surface.tags.count, 3)
     XCTAssertTrue(surface.tags.allSatisfy { !$0.enabled })
+    XCTAssertEqual(surface.defaultBody, "opencode")
+  }
+
+  func testPersistedDefaultBodyDoesNotRemintSeatedRows() throws {
+    let snapshot = try snapshotFromPayload()
+    let seated = ModelDefinition(
+      id: OllamaLocalModelDiscoveryProvider.seatedID(tag: "qwen3.8:27b-mlx", bodyDriverId: "opencode"),
+      displayName: "Qwen seated",
+      modelLabel: "ollama/qwen3.8:27b-mlx",
+      driverId: "opencode",
+      role: .answerer,
+      origin: .discovered,
+      defaultEnabled: true,
+      capabilities: ModelCapabilities()
+    )
+    let surface = LocalRuntimeSurfacePresenter.build(
+      registry: registry,
+      probeRecords: readyProbeRecords(),
+      parkedDriverIds: [],
+      definitions: [seated],
+      now: now,
+      ollamaLocal: snapshot,
+      defaultBody: "claude_code"
+    )
+    XCTAssertEqual(surface.defaultBody, "claude_code")
+    let row = try XCTUnwrap(surface.tags.first { $0.seated })
+    XCTAssertEqual(row.id, seated.id)
   }
 
   func testOpenCodeOnlyOmitsSelector() throws {
@@ -135,6 +162,7 @@ final class LocalRuntimeSurfacePresenterTests: XCTestCase {
     let json = ChromeCatalog.project(screen: ChromeScreen.settingsCLIs.rawValue)
     let row = json.actions.first { $0.id == "local_runtime" }
     XCTAssertEqual(row?.controlLabel, ChromeCopy.localRuntimeSection)
+    XCTAssertTrue(row?.facts.contains(where: { $0.contains(ChromeCopy.localRuntimePointerLabel(count: 3)) }) == true)
   }
 
   // MARK: - Helpers

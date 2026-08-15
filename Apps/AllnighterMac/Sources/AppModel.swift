@@ -52,7 +52,8 @@ final class AppModel {
 
     // LR-S05 — local runtime overlay (same snapshot path as `alln menu --json`).
     private(set) var ollamaLocalSnapshot: OllamaLocalRuntimeObserver.Snapshot?
-    var localRuntimeSessionDefaultBody: String?
+    /// Persisted default body for the next local enable (LR-S05c). Not a remint.
+    private(set) var localRuntimeDefaultBody: String = LocalRuntimeDefaultBody.resolved()
     private(set) var localRuntimeEnablingTagId: String?
     private(set) var localRuntimeEnableError: String?
 
@@ -992,7 +993,7 @@ final class AppModel {
 
     var localRuntimeSurface: LocalRuntimeSurfacePresenter.Snapshot {
         let defs = ModelCatalog.list()
-        let body = localRuntimeSessionDefaultBody
+        let body = localRuntimeDefaultBody
         #if DEBUG
         let snapshot: OllamaLocalRuntimeObserver.Snapshot?
         let g1: Bool?
@@ -1030,9 +1031,37 @@ final class AppModel {
         )
     }
 
-    func setLocalRuntimeSessionDefaultBody(_ driverId: String) {
+    func setLocalRuntimeDefaultBody(_ driverId: String) {
         guard OllamaLocalSeatEnablePolicy.allowedBodies.contains(driverId) else { return }
-        localRuntimeSessionDefaultBody = driverId
+        do {
+            try LocalRuntimeDefaultBody.save(driverId)
+            localRuntimeDefaultBody = driverId
+        } catch {
+            localRuntimeEnableError = error.localizedDescription
+        }
+    }
+
+    /// Hosting-body pointer from `drivers --json` `localRuntimeSeats`.
+    func localRuntimePointer(for driverId: String) -> LocalRuntimePointerPresenter.Row? {
+        driverListJSON.drivers.first { $0.driverId == driverId }.flatMap { entry in
+            LocalRuntimePointerPresenter.row(
+                driverId: entry.driverId,
+                localRuntimeSeats: entry.localRuntimeSeats
+            )
+        }
+    }
+
+    func rosterModelNames(for driverId: String) -> [String] {
+        LocalRuntimePointerPresenter.rosterDisplayNames(models: models, driverId: driverId)
+    }
+
+    private var driverListJSON: DriverListJSON {
+        DriverListProjector.build(
+            registry: registry,
+            probeRecords: toolStatuses,
+            models: models,
+            parkedDriverIds: parkedDriverIds
+        )
     }
 
     func setLocalRuntimeTagEnabled(id: String, enabled: Bool) {
@@ -1048,8 +1077,7 @@ final class AppModel {
                     if ModelCatalog.get(id) != nil {
                         try ModelCatalog.setEnabled(id, true)
                     } else {
-                        let body = self.localRuntimeSessionDefaultBody
-                            ?? OllamaLocalModelDiscoveryProvider.defaultEnableBodyDriverId
+                        let body = self.localRuntimeDefaultBody
                         _ = try LocalRuntimeSeatMint.enable(
                             candidateID: id,
                             bodyDriverId: body,

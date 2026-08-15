@@ -351,6 +351,10 @@ enum GUIFixture {
         case "readiness-cursor-ready", "readiness-cursor-trust",
              "readiness-cursor-keychain", "readiness-cursor-not-checked":
             return "cursor_agent"
+        case "local-runtime-pointer-host":
+            return "opencode"
+        case "local-runtime-pointer-other":
+            return "claude_code"
         default: return nil
         }
     }
@@ -364,9 +368,33 @@ enum GUIFixture {
         switch scenario {
         case "readiness-cursor-ready", "readiness-cursor-trust", "readiness-cursor-keychain":
             return patchCursorBench(base)
+        case "local-runtime-pointer-host", "local-runtime-pointer-other":
+            return seedHostingBodyPointerModels(base)
         default:
             return nil
         }
+    }
+
+    private static func seedHostingBodyPointerModels(_ base: [Model]) -> [Model] {
+        var out = base
+        let locals: [(tag: String, name: String)] = [
+            ("qwen3.8:27b-mlx", "Qwen3.8 27B"),
+            ("gpt-oss:20b", "gpt-oss 20B"),
+            ("qwen3:8b", "Qwen3 8B"),
+        ]
+        for local in locals {
+            let id = OllamaLocalModelDiscoveryProvider.seatedID(
+                tag: local.tag, bodyDriverId: "opencode")
+            out.append(Model(
+                id: id,
+                displayName: local.name,
+                modelLabel: "ollama/\(local.tag)",
+                driverId: "opencode",
+                role: .answerer,
+                enabled: true
+            ))
+        }
+        return out
     }
 
     private static func patchCursorBench(_ base: [Model]) -> [Model] {
@@ -460,6 +488,8 @@ enum GUIFixture {
         ("local-runtime-advisories", "CLIs — LOCAL RUNTIME (§2.2 advisories)"),
         ("local-runtime-unobserved", "CLIs — LOCAL RUNTIME (Ollama unobserved)"),
         ("local-runtime-selector-open", "CLIs — LOCAL RUNTIME (body selector open)"),
+        ("local-runtime-pointer-host", "CLIs — hosting-body Ollama pointer"),
+        ("local-runtime-pointer-other", "CLIs — non-hosting body has no pointer"),
     ]
 
     /// A fixed, deterministic window size for proof captures so the same fixture
@@ -911,7 +941,8 @@ enum GUIFixture {
     private static func localRuntimeStatus(fixture: String, driverId: String) -> ModelSetupStatus {
         switch fixture {
         case "local-runtime-both", "local-runtime-advisories", "local-runtime-unobserved",
-             "local-runtime-selector-open":
+             "local-runtime-selector-open", "local-runtime-pointer-host",
+             "local-runtime-pointer-other":
             if driverId == "opencode" || driverId == "claude_code" { return .ready(version: "1.0.0") }
         case "local-runtime-opencode-only":
             if driverId == "opencode" { return .ready(version: "1.0.0") }

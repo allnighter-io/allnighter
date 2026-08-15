@@ -496,6 +496,7 @@ struct RootView: View {
                 let benchScenario: String
                 if let active = GUIFixture.active, active.hasPrefix("local-runtime-") {
                     benchScenario = active
+                    studioCLIFocusDriverId = GUIFixture.readinessFocusDriverId(for: active)
                 } else {
                     benchScenario = GUIFixture.active == "studio-clis" ? "readiness-mixed" : "team-open-ready"
                 }

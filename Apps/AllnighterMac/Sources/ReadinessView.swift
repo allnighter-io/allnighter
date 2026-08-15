@@ -12,6 +12,7 @@ struct TeamReadinessView: View {
     var onAddSource: () -> Void = {}
 
     @State private var selectedId: String?
+    @State private var localRuntimeFocusTick = 0
 
     private var cards: [SetupCardModel] { model.setupCards }
 
@@ -25,14 +26,22 @@ struct TeamReadinessView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                summaryLine
-                localRuntimeSection
-                bodyColumns
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                    summaryLine
+                    localRuntimeSection
+                        .id(Self.localRuntimeSectionID)
+                    bodyColumns
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .onChange(of: localRuntimeFocusTick) { _, _ in
+                withAnimation {
+                    proxy.scrollTo(Self.localRuntimeSectionID, anchor: .top)
+                }
+            }
         }
         .background(ALColor.base)
         .onAppear { seedSelection() }
@@ -140,8 +149,10 @@ struct TeamReadinessView: View {
     // Grouped CLI list (CLI-setup redesign §1): Needs attention → Ready → Dormant,
     // sharing CLIStatusRow with the CLI dropdown. Selectable (amber focus ring).
     // Roster is machine-recognized only — never catalog notInstalled/notChecked.
+    private static let localRuntimeSectionID = "local-runtime"
+
     private func onModelNames(for driverId: String) -> [String] {
-        model.models.filter { $0.enabled && $0.driverId == driverId }.map(\.displayName)
+        model.rosterModelNames(for: driverId)
     }
     private var attentionCards: [SetupCardModel] {
         let base = CLISetupGrouping.attentionCards(from: rosterCards, onModelNames: onModelNames(for:))
@@ -192,6 +203,8 @@ struct TeamReadinessView: View {
                 CLIStatusRow(
                     card: card, onModels: onModelNames(for: card.driverId), kind: kind,
                     interactive: true, selected: card.driverId == selectedId,
+                    localRuntimePointer: model.localRuntimePointer(for: card.driverId),
+                    onPointerTap: { localRuntimeFocusTick += 1 },
                     onTap: { selectedId = card.driverId })
             }
         }
@@ -251,6 +264,7 @@ struct BenchRepairPanel: View {
         _ = model.models   // observe roster changes so the list refreshes after a toggle
         return ModelCatalog.list(driverId: card.driverId)
             .filter(OpenCodeModelGate.visibleInCLIRoster)
+            .filter { !LocalRuntimePointerPresenter.isLocalRuntimeSeat($0) }
             .sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
     }
 

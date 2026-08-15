@@ -121,7 +121,8 @@ public enum ModelListProjector {
                 discovered = true
                 seated = false
                 enableCommand = OllamaLocalModelDiscoveryProvider.enableCommand(
-                    candidateID: def.id)
+                    candidateID: def.id,
+                    bodyDriverId: LocalRuntimeDefaultBody.resolved())
                 capabilityUnknown = observedTag?.capabilityUnknown == true ? true : nil
             } else if localOllamaSeat {
                 seated = true

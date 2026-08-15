@@ -90,7 +90,7 @@ struct LocalRuntimeSectionView: View {
 
   private func bodyOption(_ driverId: String, label: String, selected: Bool) -> some View {
     Button {
-      model.setLocalRuntimeSessionDefaultBody(driverId)
+      model.setLocalRuntimeDefaultBody(driverId)
       bodySelectorOpen = false
     } label: {
       HStack {

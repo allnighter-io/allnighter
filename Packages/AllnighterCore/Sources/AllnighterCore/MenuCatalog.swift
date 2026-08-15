@@ -21,7 +21,8 @@ public enum MenuCatalog {
         update: ReleaseUpdateInfo? = nil,
         entitlement: EntitlementInfo? = nil,
         benchTally: MenuJSON.BenchTallyPayload? = nil,
-        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil
+        ollamaLocal: OllamaLocalRuntimeObserver.Snapshot? = nil,
+        defaultBody: String? = nil
     ) -> MenuJSON {
         let teamList = (teams ?? TeamCatalog.all.filter { !$0.isLabTeam })
             .sorted { $0.id < $1.id }
@@ -189,7 +190,9 @@ public enum MenuCatalog {
         )
 
         let localRuntimePayload = projectLocalRuntime(
-            modelEntries: allModelEntries, snapshot: ollamaLocal)
+            modelEntries: allModelEntries,
+            snapshot: ollamaLocal,
+            defaultBody: defaultBody)
 
         let completeness = MenuJSON.Completeness(
             actions: .init(count: actions.count, complete: true),
@@ -563,9 +566,11 @@ public enum MenuCatalog {
 
     private static func projectLocalRuntime(
         modelEntries: [ModelListJSON.Entry],
-        snapshot: OllamaLocalRuntimeObserver.Snapshot?
+        snapshot: OllamaLocalRuntimeObserver.Snapshot?,
+        defaultBody: String? = nil
     ) -> MenuJSON.LocalRuntime? {
         guard let snapshot, snapshot.ollamaVersion != nil else { return nil }
+        let resolvedDefault = resolvedDefaultBody(defaultBody)
         let candidates = OllamaLocalModelDiscoveryProvider.result(
             from: snapshot, discoveredAt: snapshot.observedAt).candidates
         let tags: [MenuJSON.LocalRuntime.Tag] = candidates.map { candidate in
@@ -589,8 +594,9 @@ public enum MenuCatalog {
                 label: candidate.modelLabel,
                 enabled: false,
                 seated: false,
-                enableCommand: overlay?.enableCommand
-                    ?? OllamaLocalModelDiscoveryProvider.enableCommand(candidateID: candidate.id),
+                enableCommand: OllamaLocalModelDiscoveryProvider.enableCommand(
+                    candidateID: overlay?.id ?? candidate.id,
+                    bodyDriverId: resolvedDefault),
                 capabilityUnknown: overlay?.capabilityUnknown
             )
         }.sorted { lhs, rhs in
@@ -600,16 +606,25 @@ public enum MenuCatalog {
             return lhs.label < rhs.label
         }
         return MenuJSON.LocalRuntime(
-            defaultBody: OllamaLocalModelDiscoveryProvider.defaultEnableBodyDriverId,
+            defaultBody: resolvedDefault,
             tags: tags
         )
+    }
+
+    private static func resolvedDefaultBody(_ override: String?) -> String {
+        if let override, OllamaLocalSeatEnablePolicy.allowedBodies.contains(override) {
+            return override
+        }
+        return LocalRuntimeDefaultBody.resolved()
     }
 
     private static func localRuntimeTagRevision(
         modelEntries: [ModelListJSON.Entry],
         snapshot: OllamaLocalRuntimeObserver.Snapshot?
     ) -> [String] {
-        guard let runtime = projectLocalRuntime(modelEntries: modelEntries, snapshot: snapshot) else {
+        guard let runtime = projectLocalRuntime(
+            modelEntries: modelEntries, snapshot: snapshot
+        ) else {
             return []
         }
         return runtime.tags.map {

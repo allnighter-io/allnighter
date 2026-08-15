@@ -764,9 +764,7 @@ struct BenchHealthPopover: View {
     }
 
     private func onModelNames(for driverId: String) -> [String] {
-        model.models
-            .filter { $0.enabled && $0.driverId == driverId }
-            .map(\.displayName)
+        model.rosterModelNames(for: driverId)
     }
 
     var body: some View {
@@ -807,6 +805,7 @@ struct BenchHealthPopover: View {
                 CLIStatusRow(
                     card: card, onModels: onModelNames(for: card.driverId), kind: kind,
                     interactive: true,
+                    localRuntimePointer: model.localRuntimePointer(for: card.driverId),
                     onTap: { onSelectCLI(card.driverId) })
             }
         }
@@ -1001,6 +1000,8 @@ struct CLIStatusRow: View {
     let kind: CLIStatusGroup
     var interactive: Bool = false
     var selected: Bool = false
+    var localRuntimePointer: LocalRuntimePointerPresenter.Row? = nil
+    var onPointerTap: (() -> Void)? = nil
     var onTap: () -> Void = {}
     @State private var hover = false
 
@@ -1059,22 +1060,56 @@ struct CLIStatusRow: View {
         switch kind {
         case .ready:
             ChipRow(items: onModels)
+            if let localRuntimePointer { pointerRow(localRuntimePointer) }
         case .attention:
             Text(attentionReason)
                 .font(.system(size: 12)).foregroundStyle(ALColor.textMuted)
                 .fixedSize(horizontal: false, vertical: true)
+            if let localRuntimePointer { pointerRow(localRuntimePointer) }
         case .dormant:
             Text("No models on — dormant")
                 .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(ALColor.textFaint)
+            if let localRuntimePointer { pointerRow(localRuntimePointer) }
         case .parked:
             Text("Parked — ignored until on bench")
                 .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(ALColor.textFaint)
+            if let localRuntimePointer { pointerRow(localRuntimePointer) }
         case .rateLimited:
             Text("Rate limited — out of capacity")
                 .font(.system(size: 11.5, weight: .medium, design: .monospaced))
                 .foregroundStyle(ALColor.textFaint)
+            if let localRuntimePointer { pointerRow(localRuntimePointer) }
+        }
+    }
+
+    @ViewBuilder
+    private func pointerRow(_ pointer: LocalRuntimePointerPresenter.Row) -> some View {
+        let label = HStack(spacing: 8) {
+            Rectangle()
+                .fill(ALColor.borderSubtle)
+                .frame(width: 14, height: 1)
+            Text(pointer.label)
+                .font(.system(size: 11.5, design: .monospaced))
+                .foregroundStyle(ALColor.textFaint)
+            Image(systemName: "arrow.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundStyle(ALColor.textFaint)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(pointer.label)
+        .accessibilityHint("Shows LOCAL RUNTIME")
+        .accessibilityAddTraits(.isStaticText)
+
+        if let onPointerTap {
+            Button(action: onPointerTap) { label }
+                .buttonStyle(.plain)
+                .accessibilityRemoveTraits(.isButton)
+                .accessibilityAddTraits(.isLink)
+        } else {
+            label
         }
     }
 

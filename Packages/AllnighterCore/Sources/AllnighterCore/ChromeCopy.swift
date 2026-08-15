@@ -42,4 +42,9 @@ public enum ChromeCopy {
     public static let localRuntimeUnobserved =
         "Ollama not observed on this snapshot — local tags are unavailable."
     public static let localRuntimeViaSelector = "via"
+
+    public static func localRuntimePointerLabel(count: Int) -> String {
+        let noun = count == 1 ? "model" : "models"
+        return "\(localRuntimeOllama) · \(count) \(noun)"
+    }
 }

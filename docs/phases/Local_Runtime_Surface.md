@@ -800,6 +800,19 @@ Settings › CLIs ships `LocalRuntimeSectionView` bound to
 rows, tag toggles (off by default), §2.2 advisories, distinct Ollama reachable dot.
 Out of scope here: body-selector persist (LR-S05c), hosting-body pointer rows.
 
+### LR-S05c — persisted default body + hosting-body pointer (2026-08-14)
+
+Section selector writes **one** persisted default body (`local_runtime.json` via
+`LocalRuntimeDefaultBody`). It applies to the next enable only — seated ids are
+not reminted; there is no "switch every enabled seat" verb.
+
+OpenCode / Claude Code cards consume `drivers --json` `localRuntimeSeats` as
+one non-selectable `Ollama · N models` pointer on the hosting body only.
+Enabled seated local rows stay off the body roster, out of the card's model
+total, and are not a `models[]` entry. The non-hosting body shows nothing.
+
+Proof: `LocalRuntimeSurfaceS05cTests`.
+
 Visual Proof Gate captures (layout-watcher pending):
 
 - `docs/qa/gui/_captures/local-runtime-both.png`
