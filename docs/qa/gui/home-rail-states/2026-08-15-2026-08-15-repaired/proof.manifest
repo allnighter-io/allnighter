@@ -1,0 +1,9 @@
+# surface: home-rail-states
+# fixtures: home-rail home-rail-th2 home-rail-unr home-rail-loops-attention home-thread-states home-with-threads home-trial-chip home-keep-going-chip keep-going-sheet command-palette projects-rail
+# watcher: PASS
+# sealed: 2026-08-15
+# Binds ONLY the explicitly reviewed views below to their exact content
+# hash. Re-editing any of them changes its hash and invalidates this
+# proof — re-render and re-seal.
+687289a858d0dfbe613351da82fd84e895202cbc  Apps/AllnighterMac/Sources/HomeView.swift
+4adde901ab7074937184dcf97ead182516ca6b43  Apps/AllnighterMac/Sources/RootView.swift
