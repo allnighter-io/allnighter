@@ -43,8 +43,19 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
         /// OCL-S04 — local Ollama seats only. Exactly `Available` |
         /// `Unavailable` from `OllamaLocalDoctorReport.readinessWord` for this
         /// seat (reachable + this tag pulled). Omitted on paid seats so their
-        /// JSON shape does not change when Ollama is down.
+        /// JSON shape does not change when Ollama is down. Omitted on
+        /// discovered-not-seated overlay rows — law Available is seated-only.
         public var readiness: String?
+        /// LR-S01a — `/api/tags` showed this local tag and §2.3 did not hide
+        /// it. Distinct from `state` and `readiness`. Omitted on paid rows.
+        public var discovered: Bool?
+        /// LR-S01a — a `ModelCatalog` row bound to one body. Law Available
+        /// applies here only. Omitted on paid rows.
+        public var seated: Bool?
+        /// S02 enable string on overlay rows only. Not list-level `nextActions`.
+        public var enableCommand: String?
+        /// `/api/tags` had no `capabilities` field. Still visible. Omitted unless true.
+        public var capabilityUnknown: Bool?
 
         public init(
             id: ModelID,
@@ -62,7 +73,11 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             headlessTrust: HeadlessTrustPolicy? = nil,
             stale: Bool = ProbeFreshnessDisclosure.unknownModel.stale,
             resolvesTo: String? = nil,
-            readiness: String? = nil
+            readiness: String? = nil,
+            discovered: Bool? = nil,
+            seated: Bool? = nil,
+            enableCommand: String? = nil,
+            capabilityUnknown: Bool? = nil
         ) {
             self.id = id
             self.displayName = displayName
@@ -80,12 +95,16 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             self.stale = stale
             self.resolvesTo = resolvesTo
             self.readiness = readiness
+            self.discovered = discovered
+            self.seated = seated
+            self.enableCommand = enableCommand
+            self.capabilityUnknown = capabilityUnknown
         }
 
         private enum CodingKeys: String, CodingKey {
             case id, displayName, modelLabel, driverId, driverName, role, origin
             case enabled, ready, status, state, capabilities, headlessTrust, stale, resolvesTo
-            case readiness
+            case readiness, discovered, seated, enableCommand, capabilityUnknown
         }
 
         public func encode(to encoder: Encoder) throws {
@@ -106,6 +125,12 @@ public struct ModelListJSON: Codable, Sendable, Equatable {
             try c.encode(stale, forKey: .stale)
             try c.encodeIfPresent(resolvesTo, forKey: .resolvesTo)
             try c.encodeIfPresent(readiness, forKey: .readiness)
+            try c.encodeIfPresent(discovered, forKey: .discovered)
+            try c.encodeIfPresent(seated, forKey: .seated)
+            try c.encodeIfPresent(enableCommand, forKey: .enableCommand)
+            if capabilityUnknown == true {
+                try c.encode(true, forKey: .capabilityUnknown)
+            }
         }
     }
 

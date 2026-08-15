@@ -21,7 +21,11 @@ public enum ModelListProjector {
         let recordsByDriver = Dictionary(uniqueKeysWithValues:
             probeRecords.map { ($0.driverId, $0) })
         let manifestIDs = Set(registry.all.map(\.id))
-        if definitions.isEmpty {
+        let overlayDefs = overlayDefinitions(
+            from: ollamaLocal, seated: definitions, now: now)
+        let overlayIDs = Set(overlayDefs.map(\.id))
+        let allDefinitions = definitions + overlayDefs
+        if allDefinitions.isEmpty {
             let catalogCount = ModelCatalog.list(driverId: driverId).count
             let (counsel, nextActions) = AgentFrontDoor.emptyModelsCounsel(
                 benchOnly: benchOnly, driverId: driverId, catalogCount: catalogCount)
@@ -35,8 +39,12 @@ public enum ModelListProjector {
         }
         let resolved = ModelCatalog.resolvedModels(registry: registry)
         let enabledMap = Dictionary(uniqueKeysWithValues: resolved.map { ($0.id, $0.enabled) })
-        let entries = definitions.sorted { $0.id < $1.id }.map { def -> ModelListJSON.Entry in
-            let enabled = enabledMap[def.id] ?? def.defaultEnabled
+        let visibleTags = ollamaLocal.map { snap in
+            Dictionary(uniqueKeysWithValues: snap.localTags.map { ($0.name, $0) })
+        } ?? [:]
+        let entries = allDefinitions.sorted { $0.id < $1.id }.map { def -> ModelListJSON.Entry in
+            let isOverlay = overlayIDs.contains(def.id)
+            let enabled = isOverlay ? false : (enabledMap[def.id] ?? def.defaultEnabled)
             let driverMissing = !manifestIDs.contains(def.driverId)
             let parked = parkedDriverIds.contains(def.driverId)
             let record = recordsByDriver[def.driverId]
@@ -46,7 +54,12 @@ public enum ModelListProjector {
                     driverId: def.driverId, modelLabel: def.modelLabel)
             let ready: Bool
             let status: String
-            if driverMissing {
+            if isOverlay {
+                // Overlay is visibility, not a seat. Never driverMissing on
+                // ollama_local — that source is not a body manifest.
+                ready = false
+                status = "notChecked"
+            } else if driverMissing {
                 ready = false
                 status = "driverMissing"
             } else if parked {
@@ -86,15 +99,40 @@ public enum ModelListProjector {
             }
             let driverName = registry.manifest(id: def.driverId)?.displayName ?? def.driverId
             let headlessTrust = registry.manifest(id: def.driverId)?.setup?.headlessTrust
+            let tag = OpenCodeLocalSeatReadiness.ollamaTag(from: def.modelLabel)
+            let observedTag = tag.flatMap { visibleTags[$0] }
             let readiness: String?
-            if let snap = ollamaLocal,
-               OllamaLocalDoctorReport.isOllamaBackedSeat(modelLabel: def.modelLabel) {
+            if isOverlay {
+                readiness = nil
+            } else if localOllamaSeat, let snap = ollamaLocal {
+                // Law Available is per seated row only (§3 rule 2).
                 readiness = OllamaLocalDoctorReport.readinessWord(
                     from: snap,
                     modelLabel: def.modelLabel
                 )
             } else {
                 readiness = nil
+            }
+            let discovered: Bool?
+            let seated: Bool?
+            let enableCommand: String?
+            let capabilityUnknown: Bool?
+            if isOverlay {
+                discovered = true
+                seated = false
+                enableCommand = OllamaLocalModelDiscoveryProvider.enableCommand(
+                    candidateID: def.id)
+                capabilityUnknown = observedTag?.capabilityUnknown == true ? true : nil
+            } else if localOllamaSeat {
+                seated = true
+                discovered = ollamaLocal == nil ? nil : (observedTag?.isCompletionCandidate == true)
+                enableCommand = nil
+                capabilityUnknown = nil
+            } else {
+                discovered = nil
+                seated = nil
+                enableCommand = nil
+                capabilityUnknown = nil
             }
             return ModelListJSON.Entry(
                 id: def.id,
@@ -108,11 +146,15 @@ public enum ModelListProjector {
                 ready: ready,
                 status: status,
                 state: enabled ? "onBench" : "available",
-                capabilities: ModelCatalog.capabilities(def.id),
+                capabilities: isOverlay ? ModelCapabilities() : ModelCatalog.capabilities(def.id),
                 headlessTrust: headlessTrust,
                 stale: ProbeFreshnessDisclosure.forModel(record, driverId: def.driverId, now: now).stale,
                 resolvesTo: def.resolvedPinId,
-                readiness: readiness
+                readiness: readiness,
+                discovered: discovered,
+                seated: seated,
+                enableCommand: enableCommand,
+                capabilityUnknown: capabilityUnknown
             )
         }
         // Selection identity/state share MenuCatalog records (MR-S05 / Law 2).
@@ -147,7 +189,11 @@ public enum ModelListProjector {
                 headlessTrust: base.headlessTrust,
                 stale: base.stale,
                 resolvesTo: base.resolvesTo,
-                readiness: base.readiness
+                readiness: base.readiness,
+                discovered: base.discovered,
+                seated: base.seated,
+                enableCommand: base.enableCommand,
+                capabilityUnknown: base.capabilityUnknown
             )
         }
         var payload = ModelListJSON(
@@ -163,5 +209,26 @@ public enum ModelListProjector {
             payload.nextActions = nextActions
         }
         return payload
+    }
+
+    /// Discovered-not-seated tags from the list's existing snapshot. Never
+    /// calls async `discover()` (second socket). Never persists.
+    static func overlayDefinitions(
+        from snapshot: OllamaLocalRuntimeObserver.Snapshot?,
+        seated: [ModelDefinition],
+        now: Date
+    ) -> [ModelDefinition] {
+        let seatedTags = Set(seated.compactMap {
+            OpenCodeLocalSeatReadiness.ollamaTag(from: $0.modelLabel)
+        })
+        let seatedIDs = Set(seated.map(\.id))
+        return OllamaLocalModelDiscoveryProvider.result(from: snapshot, discoveredAt: now)
+            .candidates
+            .filter { candidate in
+                guard !seatedIDs.contains(candidate.id) else { return false }
+                guard let tag = OpenCodeLocalSeatReadiness.ollamaTag(from: candidate.modelLabel)
+                else { return true }
+                return !seatedTags.contains(tag)
+            }
     }
 }

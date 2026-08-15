@@ -21,10 +21,23 @@ public enum OllamaLocalRuntimeObserver {
 
     public struct LocalTag: Sendable, Equatable {
         public let name: String
+        /// Declared `/api/tags` `capabilities`. `nil` means the field was
+        /// absent or unparseable — capability-unknown, not "not completion".
+        public let capabilities: [String]?
 
-        public init(name: String) {
+        public init(name: String, capabilities: [String]? = nil) {
             self.name = name
+            self.capabilities = capabilities
         }
+
+        /// Hide only when capabilities are declared and omit `completion`.
+        /// Absence of the field stays visible (Local Runtime Surface §2.3).
+        public var isCompletionCandidate: Bool {
+            guard let capabilities else { return true }
+            return capabilities.contains("completion")
+        }
+
+        public var capabilityUnknown: Bool { capabilities == nil }
     }
 
     public struct ResidentModel: Sendable, Equatable {
@@ -183,9 +196,17 @@ public enum OllamaLocalRuntimeObserver {
                   let name = modelName(obj)
             else { continue }
             if isRemoteTag(obj) { continue }
-            tags.append(LocalTag(name: name))
+            tags.append(LocalTag(name: name, capabilities: parseCapabilities(obj)))
         }
         return tags
+    }
+
+    /// `nil` when the field is missing or not a JSON array — unobserved, not empty.
+    /// A present array (including `[]`) is a declared set.
+    static func parseCapabilities(_ obj: [String: Any]) -> [String]? {
+        guard obj.keys.contains("capabilities") else { return nil }
+        guard let raw = obj["capabilities"] as? [Any] else { return nil }
+        return raw.compactMap { $0 as? String }
     }
 
     /// Resident models. Served context is top-level `context_length` only.

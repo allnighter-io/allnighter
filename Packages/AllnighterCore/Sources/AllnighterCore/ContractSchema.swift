@@ -452,6 +452,10 @@ public enum ContractSchema {
                 "stale": bool,
                 "resolvesTo": nullable("string"),
                 "readiness": enumStr(["Available", "Unavailable"]),
+                "discovered": bool,
+                "seated": bool,
+                "enableCommand": str,
+                "capabilityUnknown": bool,
             ], required: [
                 "id", "displayName", "modelLabel", "driverId", "driverName", "role", "origin",
                 "enabled", "ready", "status", "state", "capabilities", "stale",

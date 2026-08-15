@@ -706,6 +706,34 @@ on **S02** (or here, only if (4) had been yes).
 - No code in this slice.
 - **Next: LR-S01.** Do not start it from this record.
 
+### LR-S01a — field names + Q3 (2026-08-14)
+
+S01a ships the `alln models --json` overlay only. Menu / drivers / persist / bump stay on S01b.
+
+**JSON words** (S01 owns them; promote in S07). Distinct fields — never inside `state` or `readiness`:
+
+| Field | Meaning | Encode |
+| --- | --- | --- |
+| `discovered` | `/api/tags` showed this local tag and §2.3 did not hide it | bool, omit on paid rows |
+| `enabled` | existing catalog word — the user turned it on | already required |
+| `seated` | a `ModelCatalog` row bound to one body (`seatedID` or a custom add). This is what law means by seat | bool, omit on paid rows |
+| `enableCommand` | S02 string `alln models enable <candidateID> --body opencode` | overlay rows only |
+| `capabilityUnknown` | `/api/tags` had no `capabilities` field (or it was unparseable). Still visible | `true` only; omit otherwise |
+
+`readiness: "Available"` remains seated-only. Overlay rows omit `readiness`. List-level `nextActions` stay empty-list-only.
+
+**Q3 — would S01b (menu observing Ollama) fix the Opus 5 silent substitute?**
+
+No. It needs its own slice.
+
+The hypothesis that `MenuCLI` → `modelListJSON(observeOllamaReadiness: false)` is what `TeamExplicitSeats` reads is **false as a causal chain**. Those two paths do not share that flag.
+
+- Default `alln menu --json` *does* call `ModelsCLI.modelListJSON` with the default `false`, so the seated local row paints `notChecked` / "Source not checked". **S01b will fix that paint.**
+- Dry-run `alln run --dry-run` (what S00 ran) takes `runtime.readyModels` from `ToolRuntime.readyModels`, which calls `BenchReadiness.readyModels` **without** `ollamaLocal` (default `nil`). `isLocallyReady` on a nil snapshot is unobserved → not ready. `TeamExplicitSeats` / `TeamResolver` then treat the pin as unavailable and substitute Opus 5.
+- Foreground `RunService.run` is a different ready-set: `readyModels()` is every enabled model, and `sourceReadyModelIds()` *does* observe Ollama. The S00 substitute was the dry-run path.
+
+S01b's job (menu `localRuntime`, observe Ollama on that builder, `drivers --json` pointer, contract bump) does not pass a snapshot into `ToolRuntime.readyModels`. Wire that snapshot on a later slice — not here.
+
 ---
 
 ## AGENTS.md routing

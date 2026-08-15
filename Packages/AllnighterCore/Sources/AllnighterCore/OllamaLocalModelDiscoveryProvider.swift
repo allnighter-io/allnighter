@@ -68,7 +68,9 @@ public struct OllamaLocalModelDiscoveryProvider: ModelDiscoveryProvider {
                 discoveredAt: discoveredAt
             )
         }
-        let candidates = snapshot.localTags.map { candidate(for: $0.name, discoveredAt: discoveredAt) }
+        let candidates = snapshot.localTags
+            .filter(\.isCompletionCandidate)
+            .map { candidate(for: $0.name, discoveredAt: discoveredAt) }
         var diagnostics: [ModelCatalogDiagnostic] = []
         if candidates.isEmpty {
             diagnostics.append(
@@ -106,6 +108,16 @@ public struct OllamaLocalModelDiscoveryProvider: ModelDiscoveryProvider {
     public static func candidateID(tag: String) -> ModelID {
         let slug = slugify(tag)
         return String("discovered_ollama_\(slug)".prefix(64))
+    }
+
+    /// Packet §0.2 default body. S02 reads `--body`; S01a only prints the string.
+    public static let defaultEnableBodyDriverId = "opencode"
+
+    public static func enableCommand(
+        candidateID: ModelID,
+        bodyDriverId: String = defaultEnableBodyDriverId
+    ) -> String {
+        "alln models enable \(candidateID) --body \(bodyDriverId)"
     }
 
     public static func seatedID(tag: String, bodyDriverId: String) -> ModelID {
