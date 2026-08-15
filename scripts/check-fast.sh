@@ -76,8 +76,10 @@ if ! command -v alln >/dev/null 2>&1 || ! alln menu --json >/dev/null 2>&1; then
   bash "$ROOT/scripts/rebuild_cli.sh"
 fi
 
-echo "==> check GUI visual proof gate"
-bash "$ROOT/scripts/check_gui_proof.sh"
+# GUI visual proof gate moved to scripts/check.sh (runs AFTER the Swift/Mac
+# test phases so a GUI-proof failure never prevents tests from being
+# measured — docs/gui/Visual_Proof_Gate.md §D "tests after the gate, not
+# before"). Do not reintroduce it here as a hard-stop.
 
 echo "==> check SwiftUI Observation state rules"
 bash "$ROOT/scripts/check_swiftui_state.sh"

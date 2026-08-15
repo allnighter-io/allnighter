@@ -400,9 +400,23 @@ if [[ "$ran_any" == false ]]; then
   echo "check: no Swift targets yet (docs-only bootstrap OK)"
 fi
 
+# GUI Visual Proof Gate — deliberately runs AFTER every test phase above, and
+# non-fatally (`|| gui_proof_status=$?`), so a GUI-proof failure can never
+# prevent the Swift/Mac suites from being measured. It still fails the wall
+# overall: see the deferred exit after the timing footer below.
+# docs/gui/Visual_Proof_Gate.md §D "tests after the gate, not before".
+echo "==> check GUI visual proof gate"
+gui_proof_status=0
+bash "$ROOT/scripts/check_gui_proof.sh" || gui_proof_status=$?
+
 elapsed=$((SECONDS - CHECK_STARTED_AT))
 # Integer tenths avoid nested-quote awk: `"$(awk "BEGIN {… \"%.1f\", …}")"` toggles
 # quotes so bash brace-expands `{printf…, expr}` into two failed awks; printf then
 # reuses the format and prints the footer twice (real Ns + spurious 0s / 0.0m).
 mins_tenths=$((elapsed * 10 / 60))
 printf 'check: done in %ds (%d.%dm wall)\n' "$elapsed" "$((mins_tenths / 10))" "$((mins_tenths % 10))"
+
+if [[ "$gui_proof_status" -ne 0 ]]; then
+  echo "check: GUI visual proof gate FAILED (see '==> check GUI visual proof gate' above) — wall fails despite any passing tests." >&2
+  exit "$gui_proof_status"
+fi

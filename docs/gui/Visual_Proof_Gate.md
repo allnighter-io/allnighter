@@ -2,7 +2,7 @@
 
 Status: **Standing GUI law** (promoted from phases 2026-07-26)
 Owner: GUI workflow + Mac app native proof harness
-Updated: 2026-07-26
+Updated: 2026-08-15 — S06 diff-scoped gate + ratchet (see § below)
 
 Closed phase packet history: was `docs/phases/GUI_Visual_Proof_Gate.md`
 (moved here — no separate archive copy).
@@ -146,10 +146,15 @@ Captures land at a stable path during iteration:
 docs/qa/gui/_captures/<fixture>.png      (overwritten each run; git-ignored)
 ```
 
-After a watcher PASS, seal the packet — this is what the wall checks:
+After a watcher PASS, seal the packet — this is what the wall checks. Name
+BOTH the fixtures rendered AND the exact view files those fixtures reviewed
+(never "everything that happens to be dirty" — see § Seal only what was
+reviewed below):
 
 ```text
-bash scripts/gui_proof_seal.sh <surface> <slug> <fixture> [<fixture>...]
+bash scripts/gui_proof_seal.sh <surface> <slug> \
+    --fixtures <fixture> [<fixture>...] \
+    --views <file> [<file>...]
 ```
 
 ```text
@@ -221,8 +226,8 @@ verdict: P1 breakage (blocks) and P2 notes (advisory).
 ### 5. Seal Or Block
 
 - Watcher PASS (no P1): seal it — `bash scripts/gui_proof_seal.sh <surface>
-  <slug> <fixture>...` — paste the verdict into the packet's `watcher.md`, then
-  say `fixed` with the closeout language above.
+  <slug> --fixtures <fixture>... --views <file>...` — paste the verdict into
+  the packet's `watcher.md`, then say `fixed` with the closeout language above.
 - Watcher FAIL (P1): not fixed. Fix and re-render until PASS.
 - Capture/fixture broken: `blocked on visual proof harness`, never `fixed`.
 
@@ -325,7 +330,8 @@ accessibility assertions are NOT planned here at all — CLI/Core tests own trut
 
 ### S05 - Meta-Gate
 
-Status: Done 2026-06-16
+Status: Done 2026-06-16. Superseded in its exact mechanics by S06 below — read
+S06 for current behavior; this entry is kept for history.
 
 `scripts/check_gui_proof.sh` (wired into `scripts/check.sh`) fails the wall when a
 visible SwiftUI surface changed without a proof packet or an explicit waiver:
@@ -350,6 +356,109 @@ layout-watcher PASS remains the real check; this makes producing one mandatory.
 
 Exit gate (met): a visible GUI change without a packet or waiver fails
 `bash scripts/check.sh`.
+
+### S06 - Diff-Scoped Gate + Ratchet (fixed 4 real incidents, 2026-08-15)
+
+Status: Done 2026-08-15.
+
+S05's "changed since `scripts/.gui_proof_baseline`" scope was a fixed commit
+from the gate's introduction (2026-06-16). Months later that baseline is
+thousands of commits behind HEAD, so "changed since baseline" had quietly
+become "differs from a stale snapshot of the whole repo" — in practice,
+nearly the whole repo. Four concrete incidents on 2026-08-14/15 forced a
+rework:
+
+1. A CLI-only packet (zero GUI edits) was blocked by `BoostWindowView` debt
+   left behind by an unrelated packet.
+2. Running `gui_proof_seal.sh` after reviewing ONE surface bound ALL ~67
+   visible views into that packet's manifest as `watcher: PASS` — silently
+   attesting unreviewed views, some with real P1 bugs. Caught by accident;
+   the seal had to be deleted.
+3. The gate ran inside `check-fast.sh`, which runs before `swift test` in
+   `check.sh` and hard-stops on any non-zero exit. While any view lacked
+   proof, nobody could get a full Swift-suite result at all.
+4. Commit `dcec8b0f` (a 24-line mechanical string refactor across 9 view
+   files, wiring SwiftUI chrome labels to a copy SSOT) invalidated 9 content
+   hashes at once and blocked every later closeout until someone froze them
+   into `DEBT.manifest`.
+
+**A. Block on the diff, report the repo.** `ALLNIGHTER_GUI_PROOF_BASE`
+now defaults to `HEAD` — i.e. your diff is your own uncommitted change
+(staged + unstaged + untracked), not "everything since some ancient
+baseline". Only a visible view *your diff* touches can fail *your* run. A
+change that touches no view under `Apps/AllnighterMac/Sources` exits 0
+immediately: "no visible GUI surface in your diff". Repo-wide pre-existing
+debt (any current view whose content isn't covered by a proof/waiver,
+whether or not it's in your diff) is still computed and printed every run —
+names + count — so nobody has to go spelunking to find out what's owed, but
+it never gates an unrelated change. `scripts/.gui_proof_baseline` (the old
+grandfather SHA) is no longer read by the gate; CI still overrides
+`ALLNIGHTER_GUI_PROOF_BASE` explicitly (e.g. `origin/main`) for full-PR
+scope, since CI has no uncommitted state of its own to diff against `HEAD`.
+
+**B. Ratchet.** Repo-wide debt (the same full scan used for the report
+above) is compared against a persisted ceiling: `scripts/.gui_proof_debt_baseline`
+— a single integer, committed. If the current count ever exceeds it, the
+whole gate fails with a `RATCHET FAILED` message, *even on an empty diff* —
+this is a backstop against debt sneaking in some way other than an honest
+diff (a bypassed local gate, a manual manifest edit, a force-push). The
+ceiling only ever moves **down**: `scripts/gui_proof_seal.sh` tightens it
+automatically whenever a seal reduces total debt below the current ceiling;
+nothing in this gate ever raises it. Raising it is a deliberate, reviewed
+edit to that one file, same as raising any other budget in this repo (see
+`scripts/check-fast.sh`'s `AGENTS.md` byte budget for the same pattern).
+
+**C. Seal only what was reviewed.** `gui_proof_seal.sh` no longer
+auto-binds "every view that differs from `BASE`" into the sealed packet —
+that is exactly the mechanism that caused incident 2. It now requires an
+explicit `--views <file>...` list; only those files are bound as `watcher:
+PASS`. We looked at whether `GUIFixture.swift`'s capture path (in-process
+main-window bitmap / ScreenCaptureKit composite) could emit a sidecar
+listing which SwiftUI view types actually mounted during a fixture render —
+it cannot without new Swift instrumentation (SwiftUI does not expose a
+mounted-view-identity hook, and this fix's scope was scripts-only). So the
+fallback in the original ask is what shipped: any OTHER view that changed in
+the same diff but was **not** named in `--views` is never marked proven — if
+it isn't already covered by some other proof, it's recorded into
+`docs/qa/gui/DEBT.manifest` at its current hash and printed loudly as
+collateral debt. It still gates the current run if it's genuinely in your
+diff (the diff-scoped check in `check_gui_proof.sh` runs independently of
+what any seal decided). Nothing is ever silently upgraded to proven.
+
+**D. Tests after the gate, not before.** The gate call moved out of
+`check-fast.sh` (which runs first in `check.sh` and hard-stops the whole
+wall on any non-zero exit) and into `check.sh` directly, positioned after
+every Swift/Mac test phase. Its exit code is captured non-fatally
+(`bash scripts/check_gui_proof.sh || gui_proof_status=$?`) so the Swift
+suite, the structural works test, the contract-export check, and the Mac
+`xcodebuild test` phase all run and report **regardless of GUI gate state**.
+`check.sh` still fails the wall overall if the gate failed — that check is
+deferred to the very end, after the timing footer, so a red GUI gate is
+never hidden, it just no longer prevents the rest of the wall from being
+measured.
+
+Config surface for `scripts/check_gui_proof.sh` / `scripts/gui_proof_seal.sh`
+/ `scripts/gui_proof_waive.sh`:
+
+```text
+ALLNIGHTER_GUI_PROOF_BASE            diff base (default HEAD; CI: origin/main)
+ALLNIGHTER_GUI_PROOF_WAIVER          one-shot bypass, non-empty reason (local only)
+ALLNIGHTER_GUI_PROOF_ROOT            override repo root       (works-tests only)
+ALLNIGHTER_GUI_PROOF_SRC_DIR         override gated source dir (works-tests only)
+ALLNIGHTER_GUI_PROOF_PACKET_ROOT     override proof packet root (works-tests only)
+ALLNIGHTER_GUI_PROOF_DEBT_BASELINE   override the ratchet ceiling file (works-tests only)
+```
+
+Proof: `scripts/works-test-gui-proof-gate.sh` — a throwaway temp-git-repo
+harness (never touches the real checkout's `Apps/` or `docs/qa/gui/`) proving
+all four of A-D plus the check.sh ordering, run with `bash
+scripts/works-test-gui-proof-gate.sh`.
+
+Exit gate (met): a repo with pre-existing debt and a change touching no view
+passes; a change touching one view requires only that view; sealing one
+surface never marks an unrelated changed-but-unreviewed view as proven; the
+ratchet rejects a debt increase even on an empty diff; the Swift/Mac test
+phases in `check.sh` run and report even when the gate is red.
 
 ## Tauri Revisit Trigger
 
@@ -445,9 +554,12 @@ harness`, never `fixed`.
 - [x] Team dropdown pilot rendered, caught (FAIL), fixed, and re-verified (PASS).
 - [x] Debugger binds GUI-visible bugs to the layout gate.
 - [x] GUI proof meta-gate (`scripts/check_gui_proof.sh`) is wired into
-  `bash scripts/check.sh` (S05).
+  `bash scripts/check.sh` (S05), running after the Swift/Mac test phases,
+  diff-scoped, with a repo-wide debt ratchet (S06).
 
 ## Open Questions
 
-None blocking. All build items (S00-S05) are done. Golden pixel diffs stay
-deferred until a watcher miss proves they are needed.
+None blocking. All build items (S00-S06) are done. Golden pixel diffs stay
+deferred until a watcher miss proves they are needed. A future slice could
+revisit "sealing only what was reviewed" if `GUIFixture.swift` grows a real
+mounted-view sidecar — see S06 §C for why that's out of scope today.

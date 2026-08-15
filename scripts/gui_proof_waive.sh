@@ -9,14 +9,14 @@
 # Usage:
 #   bash scripts/gui_proof_waive.sh "<reason>" <file>...
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT="${ALLNIGHTER_GUI_PROOF_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 cd "$ROOT"
 
 [ "$#" -ge 2 ] || { echo 'usage: gui_proof_waive.sh "<reason>" <file>...' >&2; exit 2; }
 reason="$1"; shift
 [ -n "$reason" ] || { echo "waive: reason must be non-empty" >&2; exit 2; }
 
-PACKET_ROOT="docs/qa/gui"
+PACKET_ROOT="${ALLNIGHTER_GUI_PROOF_PACKET_ROOT:-docs/qa/gui}"
 man="$PACKET_ROOT/WAIVERS.manifest"
 mkdir -p "$PACKET_ROOT"
 [ -f "$man" ] || printf '# GUI proof waivers — non-visible changes to view files.\n# <hash>  <path>  # <reason> (<date>)\n' > "$man"
