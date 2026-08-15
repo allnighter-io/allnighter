@@ -757,9 +757,14 @@ private struct HomeMarketingEmptyState: View {
         .padding(.top, 4)
     }
 
-    /// Single row — no wrap (FLCS short-bench bar).
+    /// Wraps onto additional rows as the ready-model count grows instead of
+    /// compressing every chip into one row — a fixed single-row `HStack` here
+    /// squeezed chips down to icon+dot with no label once ~8 CLIs were ready
+    /// (P1: unreadable/indistinguishable chips). Each chip keeps its natural,
+    /// fully-readable size; `FlowLayout` (`UseFromCLIView.swift`) is the same
+    /// primitive already used for the CLI setup chip row.
     private func benchChips(_ cards: [SetupCardModel]) -> some View {
-        HStack(spacing: 8) {
+        FlowLayout(spacing: 8) {
             ForEach(cards) { card in
                 benchChip(card)
             }

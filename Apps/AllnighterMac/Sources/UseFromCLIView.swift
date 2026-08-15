@@ -1036,7 +1036,10 @@ private struct WidthReader: View {
 
 // MARK: - Flow layout (CLI chip wrap)
 
-private struct FlowLayout: Layout {
+/// Wraps chip rows onto multiple lines at each chip's natural size instead of
+/// compressing them to fit one row — shared with `HomeMarketingEmptyState`
+/// (`HomeView.swift`) so the Home bench-chip row wraps the same way.
+struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
