@@ -351,10 +351,11 @@ public enum TeamResolver {
     /// blocked) once the capable pool is exhausted.
     ///
     /// **Automatic substitution law:** Ready ≠ automatic substitute.
-    /// `ModelCatalog.neverAutomaticSubstituteIds` (e.g. Cursor Sol) are never
-    /// chosen by broad policies — only by explicit preferred / ordered fallback.
-    /// Broad fills also stay on the preferred model's home driver when one was
-    /// declared (Claude→Claude, Codex→Codex, Cursor→Cursor, …).
+    /// `ModelCatalog.neverAutomaticSubstituteIds` (e.g. Cursor Sol) and any
+    /// `ollama/` local seat (label helpers, including origin-`.custom`) are
+    /// never chosen by broad policies — only by explicit preferred / ordered
+    /// fallback. Broad fills also stay on the preferred model's home driver
+    /// when one was declared (Claude→Claude, Codex→Codex, Cursor→Cursor, …).
     static func selectModel(
         preferredModelId: String?,
         fallbackModelIds: [String] = [],
@@ -389,7 +390,7 @@ public enum TeamResolver {
             return preferredTags.allSatisfy { tags.contains($0) }
         }
         func laneOK(_ m: Model) -> Bool { caps(m.id).laneTags.contains(lane) }
-        func autoOK(_ m: Model) -> Bool { ModelCatalog.allowsAutomaticSubstitution(m.id) }
+        func autoOK(_ m: Model) -> Bool { ModelCatalog.allowsAutomaticSubstitution(m) }
         // Seating Law sort: band → preferred tags → unused family → unused driver → rank → id.
         // Sonnet often absent on a full bench after Lead claimed claude — intended.
         func strongest(_ models: [Model]) -> Model? {
@@ -527,7 +528,7 @@ public enum TeamResolver {
         func laneOK(_ m: Model) -> Bool { capabilities(m.id).laneTags.contains(lane) }
 
         var pool = ready.filter(laneOK).filter(hasTags)
-            .filter { ModelCatalog.allowsAutomaticSubstitution($0.id) }
+            .filter { ModelCatalog.allowsAutomaticSubstitution($0) }
         // Reserve the Lead's model for the Lead — but only if alternatives remain
         // (a one-model bench must still produce a worker).
         if let r = reserveModelId, pool.contains(where: { $0.id != r }) {

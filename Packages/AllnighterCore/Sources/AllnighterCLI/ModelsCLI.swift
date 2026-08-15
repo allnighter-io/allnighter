@@ -92,10 +92,30 @@ enum ModelsCLI {
     private static func runEnable(_ args: [String], _ runtime: ToolRuntime) {
         let opts = Options(args)
         guard let id = opts.positional.first else {
-            usage("enable <model-id>"); return
+            usage("enable <model-id> [--body claude_code|opencode]"); return
         }
         do {
-            try ModelCatalog.setEnabled(id, true)
+            if let body = opts.value("body") {
+                let now = Date()
+                let snapshot = OllamaLocalDoctorReport.snapshotIfAllowed(
+                    transport: nil,
+                    observedAt: now,
+                    isTestHost: AllnighterSupportRoot.isRunningUnderTestHost
+                )
+                let assessment = try LocalRuntimeSeatMint.enable(
+                    candidateID: id,
+                    bodyDriverId: body,
+                    snapshot: snapshot,
+                    now: now
+                )
+                // Policy already writes the strings (including nil-G1). Do not
+                // invent a fail line. stderr keeps `--json` ModelListJSON intact.
+                for line in assessment.disclosures {
+                    FileHandle.standardError.write(Data((line + "\n").utf8))
+                }
+            } else {
+                try ModelCatalog.setEnabled(id, true)
+            }
             emitList(opts, runtime)
         } catch let error as ModelCatalogError {
             emitModelError(error)

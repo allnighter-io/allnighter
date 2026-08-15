@@ -24,8 +24,34 @@ public enum ModelCatalog {
     /// True when this model may be picked by broad automatic policies
     /// (`.strongestReady` / `.anyReady` / `.laneCapable` fills, need-row
     /// diversity). Explicit preferred / ordered fallback ids still win.
+    ///
+    /// A local Ollama seat (`ollama/` label) is never an automatic
+    /// substitute — including origin-`.custom` S00 rows. Do not extend
+    /// `neverAutomaticSubstituteIds` for this; that set cannot express
+    /// every local seat. Explicit `--model` / `--seat` / `preferredModelId`
+    /// still resolve.
     public static func allowsAutomaticSubstitution(_ modelId: String) -> Bool {
-        !neverAutomaticSubstituteIds.contains(modelId)
+        if neverAutomaticSubstituteIds.contains(modelId) { return false }
+        if let def = get(modelId), isLocalAutomaticSubstitute(def) { return false }
+        return true
+    }
+
+    /// Label-aware twin. Prefer this when the `Model` is already in hand so a
+    /// fixture seat that is not on disk is still guarded.
+    public static func allowsAutomaticSubstitution(_ model: Model) -> Bool {
+        if neverAutomaticSubstituteIds.contains(model.id) { return false }
+        return !isLocalAutomaticSubstitute(driverId: model.driverId, modelLabel: model.modelLabel)
+    }
+
+    /// Packet §0.5 / rule 7 — named helpers, not origin and not the Sol id set.
+    public static func isLocalAutomaticSubstitute(_ def: ModelDefinition) -> Bool {
+        isLocalAutomaticSubstitute(driverId: def.driverId, modelLabel: def.modelLabel)
+    }
+
+    public static func isLocalAutomaticSubstitute(driverId: String, modelLabel: String) -> Bool {
+        OllamaLocalDoctorReport.isOllamaBackedSeat(modelLabel: modelLabel)
+            || ClaudeLocalIsolation.isLocalSeat(driverId: driverId, modelLabel: modelLabel)
+            || OpenCodeLocalSeatReadiness.isLocalOpenCodeSeat(driverId: driverId, modelLabel: modelLabel)
     }
 
     /// Expand a claimed model id to every id that counts as the same seat for
@@ -458,6 +484,18 @@ public enum ModelCatalog {
         updated.modelSmokeDetail = smoke.detail
         try updateCustom(updated)
         return smoke
+    }
+
+    /// Persist a seated discovered local row. Distinct from `saveCustom` —
+    /// do not rebase `.discovered` onto `.custom` to reuse `verify`.
+    public static func saveDiscovered(_ def: ModelDefinition) throws {
+        guard def.origin == .discovered else { throw ModelCatalogError.builtInImmutable }
+        guard CatalogIDValidator.isValid(def.id) else { throw ModelCatalogError.idInvalid }
+        if builtIns.contains(where: { $0.id == def.id }) { throw ModelCatalogError.idCollision }
+        if CatalogFileIO.loadOne(id: def.id, kind: .model, root: CatalogRoots.models, as: ModelDefinition.self) != nil {
+            throw ModelCatalogError.idCollision
+        }
+        try CatalogFileIO.save(def, id: def.id, kind: .model, root: CatalogRoots.models)
     }
 
     public static func updateCustom(_ model: ModelDefinition) throws {

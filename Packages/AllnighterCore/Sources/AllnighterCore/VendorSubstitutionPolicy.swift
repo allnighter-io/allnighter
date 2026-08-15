@@ -138,7 +138,7 @@ public enum VendorSubstitutionPolicy {
             model.id != failedModelId
                 && !visited.contains(model.driverId)
                 && !coolingSourceIds.contains(model.driverId)
-                && ModelCatalog.allowsAutomaticSubstitution(model.id)
+                && ModelCatalog.allowsAutomaticSubstitution(model)
         }
         guard !pool.isEmpty else { return nil }
 

@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 10.7.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.8.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -332,12 +332,13 @@ Output schema: `catalogValidateJSON`.
 
 ### `alln models enable`
 
-Enable a model on the Bench.
+Enable a model on the Bench. `--body` mints a discovered local tag onto claude_code or opencode.
 
 Arguments:
-- `model-id` (required) — Model id to enable.
+- `model-id` (required) — Seated model id, or a discovered candidate id with --body.
 
 Flags:
+- `--body <bodyDriverId>` — Mint a live overlay candidate onto this agent body (claude_code|opencode). Omit to enable an existing seated id. Refuses when the id is already seated.
 - `--json` — Return refreshed ModelListJSON.
 
 Output schema: `modelListJSON`.

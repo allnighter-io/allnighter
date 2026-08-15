@@ -80,7 +80,9 @@ public extension ContractRegistry {
     // `seated`, `enableCommand`, `capabilityUnknown`); LR-S01b optional
     // `MenuJSON.localRuntime` + `completeness.localRuntime`; optional
     // `DriverListJSON.Entry.localRuntimeSeats` (hosting-body pointer count).
-    static let contractVersion = "10.7.0"
+    // 10.7.0 → 10.8.0: LR-S02a `models enable --body claude_code|opencode`
+    // mints a discovered seated id from the live overlay.
+    static let contractVersion = "10.8.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -451,9 +453,12 @@ public extension ContractRegistry {
             outputSchema: .catalogValidateJSON
         ),
         CommandSpec(
-            "models enable", summary: "Enable a model on the Bench.", milestone: .m1,
-            args: [ArgSpec("model-id", required: true, summary: "Model id to enable.")],
-            flags: [FlagSpec("json", summary: "Return refreshed ModelListJSON.")],
+            "models enable", summary: "Enable a model on the Bench. `--body` mints a discovered local tag onto claude_code or opencode.", milestone: .m1,
+            args: [ArgSpec("model-id", required: true, summary: "Seated model id, or a discovered candidate id with --body.")],
+            flags: [
+                FlagSpec("body", takesValue: true, valueType: "bodyDriverId", summary: "Mint a live overlay candidate onto this agent body (claude_code|opencode). Omit to enable an existing seated id. Refuses when the id is already seated."),
+                FlagSpec("json", summary: "Return refreshed ModelListJSON."),
+            ],
             outputSchema: .modelListJSON
         ),
         CommandSpec(

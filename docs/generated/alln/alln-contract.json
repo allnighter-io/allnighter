@@ -1307,7 +1307,7 @@
         {
           "name" : "model-id",
           "required" : true,
-          "summary" : "Model id to enable."
+          "summary" : "Seated model id, or a discovered candidate id with --body."
         }
       ],
       "effects" : {
@@ -1325,6 +1325,12 @@
       ],
       "flags" : [
         {
+          "name" : "body",
+          "summary" : "Mint a live overlay candidate onto this agent body (claude_code|opencode). Omit to enable an existing seated id. Refuses when the id is already seated.",
+          "takesValue" : true,
+          "valueType" : "bodyDriverId"
+        },
+        {
           "name" : "json",
           "summary" : "Return refreshed ModelListJSON.",
           "takesValue" : false
@@ -1338,7 +1344,7 @@
       "name" : "models enable",
       "outputSchema" : "modelListJSON",
       "spendsQuota" : false,
-      "summary" : "Enable a model on the Bench.",
+      "summary" : "Enable a model on the Bench. `--body` mints a discovered local tag onto claude_code or opencode.",
       "visibility" : "public"
     },
     {
@@ -6786,7 +6792,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "10.7.0",
+  "contractVersion" : "10.8.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

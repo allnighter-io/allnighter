@@ -707,6 +707,16 @@ on **S02** (or here, only if (4) had been yes).
 - No code in this slice.
 - **Next: LR-S01.** Do not start it from this record.
 
+### LR-S02a — minting enable, Claude Code body (2026-08-14)
+
+`alln models enable <candidateID> --body claude_code` resolves the candidate from
+the live overlay, prints `assessExplicitEnable` disclosures (nil G1 is the
+existing "has not passed G1" line), persists `origin: .discovered` via
+`ModelCatalog.saveDiscovered`, then `setEnabled`. `enable <seated-id>` with no
+`--body` is unchanged. `--body` on an already-seated id refuses. Rule 7 guards
+on the `ollama/` label (named helpers), not `neverAutomaticSubstituteIds`, so
+the S00 `.custom` seat is covered. OpenCode merge + leftover reclaim stay S02b.
+
 ### LR-S01a — field names + Q3 (2026-08-14)
 
 S01a ships the `alln models --json` overlay only. Menu / drivers / persist / bump stay on S01b.
