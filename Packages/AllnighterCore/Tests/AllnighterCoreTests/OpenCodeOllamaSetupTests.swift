@@ -390,6 +390,130 @@ final class OpenCodeOllamaSetupTests: XCTestCase {
         XCTAssertTrue(names.contains("opencode-local status"))
     }
 
+    func testStatusObservesLiveTagsAndReportsDrift() throws {
+        let dir = try scratchDir()
+        let config = dir.appendingPathComponent("opencode.json")
+        let json = """
+            {
+              "enabled_providers": ["opencode-go", "ollama"],
+              "provider": {
+                "ollama": {
+                  "npm": "@ai-sdk/openai-compatible",
+                  "name": "Ollama (local)",
+                  "options": { "baseURL": "http://localhost:11434/v1" },
+                  "models": {
+                    "qwen2.5:0.5b": { "name": "qwen2.5:0.5b" },
+                    "stale-tag": { "name": "stale-tag" }
+                  }
+                }
+              }
+            }
+            """
+        try Data(json.utf8).write(to: config)
+        let transport = SetupFixtureTransport(bodies: [
+            #"{"version":"0.32.6"}"#,
+            #"{"models":[{"name":"qwen2.5:0.5b"},{"name":"qwen2.5-coder:7b"}]}"#,
+            #"{"models":[]}"#,
+        ])
+
+        let status = try OpenCodeOllamaSetup.status(
+            configURL: config,
+            transport: transport,
+            now: now,
+            isTestHost: true
+        )
+
+        XCTAssertTrue(status.ollamaTagsObserved)
+        XCTAssertFalse(status.ollamaUnreachable)
+        XCTAssertEqual(status.ollamaModelIds, ["qwen2.5:0.5b", "stale-tag"])
+        XCTAssertEqual(status.ollamaLiveTagIds, ["qwen2.5-coder:7b", "qwen2.5:0.5b"])
+        XCTAssertEqual(status.ollamaTagsInSync, false)
+        XCTAssertEqual(status.ollamaTagsMissingFromConfig, ["qwen2.5-coder:7b"])
+        XCTAssertEqual(status.ollamaTagsExtraInConfig, ["stale-tag"])
+        XCTAssertTrue(status.message.contains("live tags missing from opencode.json"))
+        XCTAssertTrue(status.message.contains("opencode.json tags not in live"))
+        XCTAssertFalse(status.wrote)
+        XCTAssertEqual(
+            transport.requestedPaths,
+            ["/api/version", "/api/tags", "/api/ps"]
+        )
+        let root = try OpenCodeOllamaProviderMerge.parseRoot(Data(contentsOf: config))
+        let models = try XCTUnwrap(
+            ((root["provider"] as? [String: Any])?["ollama"] as? [String: Any])?["models"] as? [String: Any]
+        )
+        XCTAssertNotNil(models["stale-tag"])
+        XCTAssertNil(models["qwen2.5-coder:7b"])
+    }
+
+    func testStatusInSyncWhenLiveMatchesConfig() throws {
+        let dir = try scratchDir()
+        let config = dir.appendingPathComponent("opencode.json")
+        let json = """
+            {
+              "provider": {
+                "ollama": {
+                  "npm": "@ai-sdk/openai-compatible",
+                  "options": { "baseURL": "http://localhost:11434/v1" },
+                  "models": {
+                    "qwen2.5:0.5b": { "name": "qwen2.5:0.5b" }
+                  }
+                }
+              }
+            }
+            """
+        try Data(json.utf8).write(to: config)
+        let transport = SetupFixtureTransport(bodies: [
+            #"{"version":"0.32.6"}"#,
+            #"{"models":[{"name":"qwen2.5:0.5b"}]}"#,
+            #"{"models":[]}"#,
+        ])
+
+        let status = try OpenCodeOllamaSetup.status(
+            configURL: config,
+            transport: transport,
+            now: now,
+            isTestHost: true
+        )
+
+        XCTAssertTrue(status.ollamaTagsObserved)
+        XCTAssertEqual(status.ollamaTagsInSync, true)
+        XCTAssertTrue(status.ollamaTagsMissingFromConfig.isEmpty)
+        XCTAssertTrue(status.ollamaTagsExtraInConfig.isEmpty)
+        XCTAssertTrue(status.message.contains("matches opencode.json"))
+    }
+
+    func testStatusUnreachableIsUnobservedNotEmptyLiveList() throws {
+        let dir = try scratchDir()
+        let config = dir.appendingPathComponent("opencode.json")
+        let json = """
+            {
+              "provider": {
+                "ollama": {
+                  "models": { "qwen2.5:0.5b": { "name": "qwen2.5:0.5b" } }
+                }
+              }
+            }
+            """
+        try Data(json.utf8).write(to: config)
+        let transport = SetupFixtureTransport(error: URLError(.cannotConnectToHost))
+
+        let status = try OpenCodeOllamaSetup.status(
+            configURL: config,
+            transport: transport,
+            now: now,
+            isTestHost: true
+        )
+
+        XCTAssertFalse(status.ollamaTagsObserved)
+        XCTAssertTrue(status.ollamaUnreachable)
+        XCTAssertNil(status.ollamaLiveTagIds)
+        XCTAssertNil(status.ollamaTagsInSync)
+        XCTAssertTrue(status.ollamaTagsMissingFromConfig.isEmpty)
+        XCTAssertTrue(status.ollamaTagsExtraInConfig.isEmpty)
+        XCTAssertTrue(status.message.contains("unobserved"))
+        XCTAssertFalse(status.message.contains("missing from opencode.json"))
+    }
+
     // MARK: - Helpers
 
     private func scratchDir() throws -> URL {

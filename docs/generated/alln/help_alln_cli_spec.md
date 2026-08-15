@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 10.8.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.9.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -164,7 +164,7 @@ Flags:
 
 ### `alln opencode-local status`
 
-Report whether OpenCode's config already has the local Ollama provider and whether ollama is on enabled_providers when that allowlist exists. Reads only; never contacts Ollama.
+Report OpenCode's local Ollama wiring in opencode.json and compare model keys to a live /api/tags read. Read-only — never writes opencode.json or repairs drift.
 
 Flags:
 - `--json` — Structured status report.

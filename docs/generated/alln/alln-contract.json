@@ -708,8 +708,8 @@
       "name" : "opencode-local status",
       "outputSchema" : "none",
       "spendsQuota" : false,
-      "summary" : "Report whether OpenCode's config already has the local Ollama provider and whether ollama is on enabled_providers when that allowlist exists. Reads only; never contacts Ollama.",
-      "trigger" : "Use to see if OpenCode is already wired for local Ollama before running setup.",
+      "summary" : "Report OpenCode's local Ollama wiring in opencode.json and compare model keys to a live \/api\/tags read. Read-only — never writes opencode.json or repairs drift.",
+      "trigger" : "Use to see if OpenCode is wired for local Ollama and whether opencode.json is stale vs what Ollama currently serves.",
       "visibility" : "public"
     },
     {
@@ -6792,7 +6792,7 @@
       "visibility" : "public"
     }
   ],
-  "contractVersion" : "10.8.0",
+  "contractVersion" : "10.9.0",
   "doctorChecks" : [
     {
       "meaning" : "CLI binary reports version.",

@@ -635,8 +635,10 @@ public enum HelpTopicRegistry {
             `ps -p <pid> -o command=` first and never stops `alln serve`.
 
             This does not seat models on the Allnighter bench and does not configure \
-            Claude-local. `alln opencode-local status` still reads opencode.json only \
-            and never contacts Ollama.
+            Claude-local. `alln opencode-local status` re-reads `/api/tags` and \
+            reports drift vs opencode.json — it never writes opencode.json. Run \
+            `alln opencode-local setup` or `alln models enable … --body opencode` \
+            to merge live tags.
 
             After seating, `alln models` / `alln doctor` show local readiness per \
             seat: Available or Unavailable (Ollama reachable and that tag pulled). \

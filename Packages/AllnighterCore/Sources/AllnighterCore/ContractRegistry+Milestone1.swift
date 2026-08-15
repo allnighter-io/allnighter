@@ -82,7 +82,10 @@ public extension ContractRegistry {
     // `DriverListJSON.Entry.localRuntimeSeats` (hosting-body pointer count).
     // 10.7.0 → 10.8.0: LR-S02a `models enable --body claude_code|opencode`
     // mints a discovered seated id from the live overlay.
-    static let contractVersion = "10.8.0"
+    // 10.8.0 → 10.9.0: LR-S03 `opencode-local status` observes `/api/tags`
+    // and reports drift vs opencode.json (`ollamaLiveTagIds`, `ollamaTagsInSync`,
+    // `ollamaTagsMissingFromConfig`, `ollamaTagsExtraInConfig`).
+    static let contractVersion = "10.9.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -300,9 +303,9 @@ public extension ContractRegistry {
         ),
         CommandSpec(
             "opencode-local status",
-            summary: "Report whether OpenCode's config already has the local Ollama provider and whether ollama is on enabled_providers when that allowlist exists. Reads only; never contacts Ollama.",
+            summary: "Report OpenCode's local Ollama wiring in opencode.json and compare model keys to a live /api/tags read. Read-only — never writes opencode.json or repairs drift.",
             milestone: .m1,
-            trigger: "Use to see if OpenCode is already wired for local Ollama before running setup.",
+            trigger: "Use to see if OpenCode is wired for local Ollama and whether opencode.json is stale vs what Ollama currently serves.",
             example: "alln opencode-local status --json",
             antiExample: "Do NOT treat this as a model catalog or a capacity reading — it only inspects opencode.json.",
             flags: [

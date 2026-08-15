@@ -99,8 +99,12 @@ public enum OpenCodeOllamaSetup {
         public var enabledProviders: [String]?
         public var ollamaBaseURL: String?
         public var ollamaModelIds: [String]?
+        public var ollamaLiveTagIds: [String]?
         public var ollamaTagsObserved: Bool
         public var ollamaUnreachable: Bool
+        public var ollamaTagsInSync: Bool?
+        public var ollamaTagsMissingFromConfig: [String]
+        public var ollamaTagsExtraInConfig: [String]
         public var leftoverServeAction: String?
         public var leftoverServePID: Int?
         public var undoCommand: String
@@ -316,10 +320,21 @@ public enum OpenCodeOllamaSetup {
 
     public static func status(
         configURL: URL,
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        transport: (any OllamaLocalRuntimeClient.Transport)? = nil,
+        now: Date = Date(),
+        isTestHost: Bool = AllnighterSupportRoot.isRunningUnderTestHost
     ) throws -> Report {
         let original = try readOptionalJSON(at: configURL, fileManager: fileManager)
         let inspection = OpenCodeOllamaProviderMerge.inspect(original.root)
+        let tags = tagsForRegistration(
+            snapshot: OllamaLocalDoctorReport.snapshotIfAllowed(
+                transport: transport,
+                observedAt: now,
+                isTestHost: isTestHost
+            )
+        )
+        let drift = tagDrift(live: tags, configIds: inspection.ollamaModelIds ?? [])
         return report(
             action: "status",
             configURL: configURL,
@@ -331,11 +346,15 @@ public enum OpenCodeOllamaSetup {
                 addedEnabledProvider: false
             ),
             inspection: inspection,
-            tags: .skipped,
+            tags: tags,
+            drift: drift,
             leftover: .notAttempted,
-            message: original.existed
-                ? (inspection.wired ? "OpenCode is wired for local Ollama" : "OpenCode is not fully wired for local Ollama")
-                : "no opencode.json at \(configURL.path)"
+            message: statusMessage(
+                configExisted: original.existed,
+                inspection: inspection,
+                tags: tags,
+                drift: drift
+            )
         )
     }
 
@@ -537,6 +556,77 @@ public enum OpenCodeOllamaSetup {
         }
     }
 
+    private struct TagDrift: Equatable, Sendable {
+        var liveIds: [String]?
+        var inSync: Bool?
+        var missingFromConfig: [String]
+        var extraInConfig: [String]
+
+        static let unobserved = TagDrift(
+            liveIds: nil,
+            inSync: nil,
+            missingFromConfig: [],
+            extraInConfig: []
+        )
+    }
+
+    private static func tagDrift(
+        live: TagsForRegistration,
+        configIds: [String]
+    ) -> TagDrift {
+        guard live.observed else { return .unobserved }
+        let liveSet = Set(live.ids)
+        let configSet = Set(configIds)
+        let missing = live.ids.filter { !configSet.contains($0) }.sorted()
+        let extra = configIds.filter { !liveSet.contains($0) }.sorted()
+        return TagDrift(
+            liveIds: live.ids.sorted(),
+            inSync: missing.isEmpty && extra.isEmpty,
+            missingFromConfig: missing,
+            extraInConfig: extra
+        )
+    }
+
+    private static func statusMessage(
+        configExisted: Bool,
+        inspection: OpenCodeOllamaProviderMerge.Inspection,
+        tags: TagsForRegistration,
+        drift: TagDrift
+    ) -> String {
+        var parts: [String] = []
+        if configExisted {
+            parts.append(
+                inspection.wired
+                    ? "OpenCode is wired for local Ollama"
+                    : "OpenCode is not fully wired for local Ollama"
+            )
+        } else {
+            parts.append("no opencode.json at config path")
+        }
+        if tags.unreachable {
+            parts.append("Ollama unobserved — live tag list not compared")
+        } else if tags.observed {
+            if let inSync = drift.inSync, inSync {
+                parts.append("live /api/tags matches opencode.json model keys")
+            } else {
+                if !drift.missingFromConfig.isEmpty {
+                    parts.append(
+                        "live tags missing from opencode.json: \(drift.missingFromConfig.joined(separator: ", "))"
+                    )
+                }
+                if !drift.extraInConfig.isEmpty {
+                    parts.append(
+                        "opencode.json tags not in live /api/tags: \(drift.extraInConfig.joined(separator: ", "))"
+                    )
+                }
+                if drift.missingFromConfig.isEmpty, drift.extraInConfig.isEmpty {
+                    parts.append("live /api/tags observed — run `alln opencode-local setup` or enable with --body opencode to merge")
+                }
+            }
+        }
+        return parts.joined(separator: "; ")
+    }
+
     private static func report(
         action: String,
         configURL: URL,
@@ -545,6 +635,7 @@ public enum OpenCodeOllamaSetup {
         merge: OpenCodeOllamaProviderMerge.Result,
         inspection: OpenCodeOllamaProviderMerge.Inspection,
         tags: TagsForRegistration,
+        drift: TagDrift = .unobserved,
         leftover: OpenCodeLeftoverServeReclaim.Outcome = .notAttempted,
         message: String
     ) -> Report {
@@ -562,8 +653,12 @@ public enum OpenCodeOllamaSetup {
             enabledProviders: inspection.enabledProviders,
             ollamaBaseURL: inspection.ollamaBaseURL,
             ollamaModelIds: inspection.ollamaModelIds,
+            ollamaLiveTagIds: drift.liveIds,
             ollamaTagsObserved: tags.observed,
             ollamaUnreachable: tags.unreachable,
+            ollamaTagsInSync: drift.inSync,
+            ollamaTagsMissingFromConfig: drift.missingFromConfig,
+            ollamaTagsExtraInConfig: drift.extraInConfig,
             leftoverServeAction: leftover.action,
             leftoverServePID: leftover.pid,
             undoCommand: undoCommand,

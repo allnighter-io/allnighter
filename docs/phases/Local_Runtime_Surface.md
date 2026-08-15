@@ -764,7 +764,32 @@ S01b's job (menu `localRuntime`, observe Ollama on that builder, `drivers --json
 
 **Founder question (not implemented):** the same buried warning still fires for a *paid* preferred pin that a sensor calls unavailable (`TeamResolverTests.testPreferredUnavailableFallsBackAndWarns`). If the general rule is also wrong — never silently reseat any explicit pin — say so; this slice did not rewrite it.
 
-Contract stays 10.8.0; `binaryVersion` 1.1.15. No wire change.
+Contract stays 10.9.0; `binaryVersion` 1.1.15. No wire change.
+
+### LR-S03 — `opencode-local status` observes `/api/tags` (2026-08-14)
+
+`OpenCodeOllamaSetup.status` re-reads `/api/tags` via the same observer as setup
+(read-only — never writes `opencode.json`). `ollamaTagsObserved` can be true;
+`ollamaLiveTagIds` vs `ollamaModelIds` reports drift (`ollamaTagsInSync`,
+`ollamaTagsMissingFromConfig`, `ollamaTagsExtraInConfig`). Ollama unreachable →
+unobserved, never an empty live list. Merge + reclaim stay on S02b enable/setup.
+Fixture proof: `OpenCodeOllamaSetupTests.testStatusObservesLiveTagsAndReportsDrift`,
+`testStatusInSyncWhenLiveMatchesConfig`, `testStatusUnreachableIsUnobservedNotEmptyLiveList`.
+Contract 10.8.0 → 10.9.0; `binaryVersion` 1.1.15.
+
+### LR-S04 — pin-ability (2026-08-14) **SKIPPED — already works**
+
+No new code. Evidence:
+
+- S02a/S02b mint `.discovered` seated ids; `ModelCatalog.list()` /
+  `get()` / `resolvedModels()` include them (`mergedDefinitions` loads disk;
+  `materialize` keeps non-built-in rows whose `driverId` is installed).
+- S00 Q2: `alln run --model <custom-local-id> --dry-run` resolved (custom path).
+- S04b: seated+enabled local enters `BenchReadiness.readyModels` when Ollama is
+  observed; `preferredModelId` resolves to the local seat
+  (`LocalRuntimeSurfaceS04bTests.testS00Q3PinnedLocalResolvesWhenOllamaObserved`).
+- This slice adds `--model` choke-point proof for `.discovered` origin:
+  `LocalRuntimeSurfaceS04Tests.testDiscoveredSeatedIdListsAndResolvesExplicitModel`.
 
 ---
 

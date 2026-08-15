@@ -108,7 +108,20 @@ enum OpenCodeLocalCLI {
             print("ollama baseURL: \(url)")
         }
         if let models = report.ollamaModelIds, !models.isEmpty {
-            print("ollama models: \(models.joined(separator: ", "))")
+            print("ollama models (opencode.json): \(models.joined(separator: ", "))")
+        }
+        if let live = report.ollamaLiveTagIds {
+            print("ollama tags (live /api/tags): \(live.joined(separator: ", "))")
+        } else if report.ollamaUnreachable {
+            print("ollama tags (live): unobserved")
+        }
+        if let inSync = report.ollamaTagsInSync, !inSync {
+            if !report.ollamaTagsMissingFromConfig.isEmpty {
+                print("drift — missing from opencode.json: \(report.ollamaTagsMissingFromConfig.joined(separator: ", "))")
+            }
+            if !report.ollamaTagsExtraInConfig.isEmpty {
+                print("drift — extra in opencode.json: \(report.ollamaTagsExtraInConfig.joined(separator: ", "))")
+            }
         }
         if !report.addedModelIds.isEmpty {
             print("added models: \(report.addedModelIds.joined(separator: ", "))")
