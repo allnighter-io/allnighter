@@ -244,6 +244,41 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertNil(r.resolvedModelId)
     }
 
+    func testRequestedNeverCrossesLocalCloudBoundary() throws {
+        let ids = try persistLocalPairForSubstitution()
+        defer { teardownLocalSubstitutionCatalog() }
+        var s = DefaultModelSettings.fresh
+        s.tiers.assign(ids.a, to: .frontier)
+        s.tiers.assign(ids.b, to: .frontier)
+
+        let localToCloud = SubstitutionResolver.resolveRequested(
+            modelId: ids.a, settings: s, readyModelIds: ["model_fable"])
+        XCTAssertNil(localToCloud.resolvedModelId)
+        XCTAssertEqual(localToCloud.blockedReason, .shelfEmpty)
+
+        let cloudToLocal = SubstitutionResolver.resolveRequested(
+            modelId: "model_fable", settings: s, readyModelIds: [ids.a])
+        XCTAssertNil(cloudToLocal.resolvedModelId)
+        XCTAssertEqual(cloudToLocal.blockedReason, .shelfEmpty)
+
+        let localToLocal = SubstitutionResolver.resolveRequested(
+            modelId: ids.a, settings: s, readyModelIds: [ids.b])
+        XCTAssertEqual(localToLocal.resolvedModelId, ids.b)
+        XCTAssertTrue(localToLocal.substituted)
+    }
+
+    func testAutoNeverPicksLocalForCloudTierDefault() throws {
+        let ids = try persistLocalPairForSubstitution()
+        defer { teardownLocalSubstitutionCatalog() }
+        var s = DefaultModelSettings.fresh
+        s.tiers.assign(ids.a, to: .frontier)
+
+        let r = SubstitutionResolver.resolveAuto(settings: s, readyModelIds: [ids.a])
+        XCTAssertNil(r.resolvedModelId)
+        XCTAssertEqual(r.blockedReason, .shelfEmpty)
+        XCTAssertEqual(r.requestedModelId, "model_fable")
+    }
+
     // MARK: - Tier + bench parity
 
     func testAssignToTierEnablesOffBenchModel() throws {
@@ -334,5 +369,38 @@ final class DefaultModelSettingsTests: XCTestCase {
             "model_fable", "model_gpt_sol", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
             "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
         ])
+    }
+
+    // MARK: - Local catalog fixtures (SubstitutionResolver same-side)
+
+    private func persistLocalPairForSubstitution() throws -> (a: ModelID, b: ModelID) {
+        let base = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dms-local-\(UUID().uuidString)", isDirectory: true)
+        CatalogRoots.overrideForTesting(
+            teams: base.appendingPathComponent("teams", isDirectory: true),
+            skills: base.appendingPathComponent("skills", isDirectory: true),
+            models: base.appendingPathComponent("models", isDirectory: true)
+        )
+        ModelCatalog.overrideRosterForTesting(
+            fileURL: base.appendingPathComponent("model_roster.json")
+        )
+        let now = Date(timeIntervalSince1970: 1_754_000_000)
+        let a = try persistLocal(tag: "qwen3.8:27b-mlx", at: now)
+        let b = try persistLocal(tag: "gpt-oss:20b", at: now)
+        return (a, b)
+    }
+
+    private func persistLocal(tag: String, at now: Date) throws -> ModelID {
+        var seat = OllamaLocalModelDiscoveryProvider.candidate(for: tag, discoveredAt: now)
+        seat.driverId = "claude_code"
+        seat.id = OllamaLocalModelDiscoveryProvider.seatedID(tag: tag, bodyDriverId: "claude_code")
+        seat.origin = .discovered
+        try ModelCatalog.saveDiscovered(seat)
+        return seat.id
+    }
+
+    private func teardownLocalSubstitutionCatalog() {
+        CatalogRoots.resetTestingOverrides()
+        ModelCatalog.resetTestingOverrides()
     }
 }

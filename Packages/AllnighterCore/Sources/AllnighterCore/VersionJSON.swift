@@ -195,8 +195,13 @@ import Foundation
 /// **1.1.16 → 1.1.17 (local/cloud substitution boundary).** Automatic
 /// substitution never crosses local and cloud seats in either direction.
 /// Same-side fallback keeps one honesty disclosure. Same contract 10.9.0.
+///
+/// **1.1.17 → 1.1.18 (delete ownership + SubstitutionResolver same-side).**
+/// `models delete` unregisters only tags that seat's OpenCode mint added.
+/// `SubstitutionResolver` refuses local/cloud swaps (Mac defaults / Auto).
+/// Same contract 10.9.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.17"
+    public static let binaryVersion = "1.1.18"
 }
 
 /// `alln version` / `alln --version` machine contract.

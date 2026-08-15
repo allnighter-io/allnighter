@@ -1,8 +1,7 @@
 import XCTest
 @testable import AllnighterCore
 
-/// Delete of a seated local row unregisters that tag from a fixture
-/// `opencode.json` when no remaining OpenCode seat needs it.
+/// Delete unregisters only tags this seat's OpenCode mint added.
 /// Never opens a socket. Never touches `~/.config/opencode/opencode.json`.
 final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
     private var modelsRoot: URL!
@@ -39,6 +38,22 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
         }
         """
 
+    private let wiredWithoutNewTagJSON = """
+        {
+          "enabled_providers": ["opencode-go", "ollama"],
+          "provider": {
+            "ollama": {
+              "npm": "@ai-sdk/openai-compatible",
+              "name": "Ollama (local)",
+              "options": { "baseURL": "http://localhost:11434/v1" },
+              "models": {
+                "qwen3.8:27b-mlx": { "name": "qwen3.8:27b-mlx" }
+              }
+            }
+          }
+        }
+        """
+
     override func setUp() {
         super.setUp()
         let base = FileManager.default.temporaryDirectory
@@ -63,8 +78,12 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
     }
 
     func testDeleteUnregistersTagAndDiscloses() throws {
-        try Data(wiredBothTagsJSON.utf8).write(to: opencodeConfig)
-        let seatedID = try persistDiscovered(tag: "smollm2:135m", body: "opencode")
+        try Data(wiredWithoutNewTagJSON.utf8).write(to: opencodeConfig)
+        let seatedID = try mintOpenCode(tag: "smollm2:135m")
+        XCTAssertEqual(
+            ModelCatalog.get(seatedID)?.addedOpenCodeModelIds,
+            ["smollm2:135m"]
+        )
 
         let outcome = try LocalRuntimeSeatDelete.delete(
             id: seatedID,
@@ -81,9 +100,28 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
         XCTAssertEqual(configModelIds(), ["qwen3.8:27b-mlx"])
     }
 
-    func testDeleteKeepsTagWhenAnotherOpenCodeSeatNeedsIt() throws {
+    func testPreexistingTagSurvivesSeatDelete() throws {
         try Data(wiredBothTagsJSON.utf8).write(to: opencodeConfig)
+        let before = try Data(contentsOf: opencodeConfig)
         let seatedID = try persistDiscovered(tag: "smollm2:135m", body: "opencode")
+
+        let outcome = try LocalRuntimeSeatDelete.delete(
+            id: seatedID,
+            opencodeConfigURL: opencodeConfig,
+            isTestHost: true
+        )
+
+        XCTAssertNil(ModelCatalog.get(seatedID))
+        XCTAssertTrue(outcome.unregisteredTags.isEmpty)
+        XCTAssertTrue(outcome.disclosures.isEmpty)
+        XCTAssertEqual(try Data(contentsOf: opencodeConfig), before)
+        XCTAssertEqual(configModelIds(), ["qwen3.8:27b-mlx", "smollm2:135m"])
+    }
+
+    func testDeleteKeepsTagWhenAnotherOpenCodeSeatNeedsIt() throws {
+        try Data(wiredWithoutNewTagJSON.utf8).write(to: opencodeConfig)
+        let seatedID = try mintOpenCode(tag: "smollm2:135m")
+        XCTAssertEqual(ModelCatalog.get(seatedID)?.addedOpenCodeModelIds, ["smollm2:135m"])
         let custom = try ModelCatalog.createCustom(
             driverId: "opencode",
             displayName: "smollm2 custom",
@@ -110,12 +148,13 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
             opencodeConfigURL: opencodeConfig,
             isTestHost: true
         )
-        XCTAssertEqual(last.unregisteredTags, ["smollm2:135m"])
-        XCTAssertEqual(configModelIds(), ["qwen3.8:27b-mlx"])
+        XCTAssertTrue(last.unregisteredTags.isEmpty)
+        XCTAssertEqual(configModelIds(), ["qwen3.8:27b-mlx", "smollm2:135m"])
     }
 
-    func testClaudeSeatDeleteUnregistersWhenNoOpenCodeSeatRemains() throws {
+    func testClaudeSeatDeleteLeavesOpenCodeConfigByteIdentical() throws {
         try Data(wiredBothTagsJSON.utf8).write(to: opencodeConfig)
+        let before = try Data(contentsOf: opencodeConfig)
         let seatedID = try persistDiscovered(tag: "smollm2:135m", body: "claude_code")
 
         let outcome = try LocalRuntimeSeatDelete.delete(
@@ -124,8 +163,57 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
             isTestHost: true
         )
 
-        XCTAssertEqual(outcome.unregisteredTags, ["smollm2:135m"])
-        XCTAssertEqual(configModelIds(), ["qwen3.8:27b-mlx"])
+        XCTAssertNil(ModelCatalog.get(seatedID))
+        XCTAssertTrue(outcome.unregisteredTags.isEmpty)
+        XCTAssertTrue(outcome.disclosures.isEmpty)
+        XCTAssertEqual(try Data(contentsOf: opencodeConfig), before)
+        XCTAssertEqual(configModelIds(), ["qwen3.8:27b-mlx", "smollm2:135m"])
+    }
+
+    func testSetupRegisteredTagSurvivesSeatDelete() throws {
+        let emptyProviderJSON = """
+        {
+          "enabled_providers": ["opencode-go", "ollama"],
+          "provider": {
+            "ollama": {
+              "npm": "@ai-sdk/openai-compatible",
+              "name": "Ollama (local)",
+              "options": { "baseURL": "http://localhost:11434/v1" }
+            }
+          }
+        }
+        """
+        try Data(emptyProviderJSON.utf8).write(to: opencodeConfig)
+        let receiptURL = opencodeDir.appendingPathComponent("setup-receipt.json")
+        let transport = DeleteSetupTransport(bodies: [
+            #"{"version":"0.32.12"}"#,
+            tagsPayload,
+            #"{"models":[]}"#,
+        ])
+        let setup = try OpenCodeOllamaSetup.apply(
+            configURL: opencodeConfig,
+            receiptURL: receiptURL,
+            now: now,
+            dryRun: false,
+            transport: transport,
+            isTestHost: true
+        )
+        XCTAssertTrue(setup.addedModelIds.contains("smollm2:135m"))
+        XCTAssertTrue((configModelIds() ?? []).contains("smollm2:135m"))
+
+        let seatedID = try mintOpenCode(tag: "smollm2:135m")
+        XCTAssertNil(ModelCatalog.get(seatedID)?.addedOpenCodeModelIds)
+
+        let outcome = try LocalRuntimeSeatDelete.delete(
+            id: seatedID,
+            opencodeConfigURL: opencodeConfig,
+            setupReceiptURL: receiptURL,
+            isTestHost: true
+        )
+
+        XCTAssertNil(ModelCatalog.get(seatedID))
+        XCTAssertTrue(outcome.unregisteredTags.isEmpty)
+        XCTAssertTrue((configModelIds() ?? []).contains("smollm2:135m"))
     }
 
     func testNonLocalDeleteDoesNotTouchOpenCodeConfig() throws {
@@ -167,7 +255,8 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
     }
 
     func testTestHostWithoutOverrideRefusesRealConfigAndStillDeletesSeat() throws {
-        let seatedID = try persistDiscovered(tag: "smollm2:135m", body: "opencode")
+        try Data(wiredWithoutNewTagJSON.utf8).write(to: opencodeConfig)
+        let seatedID = try mintOpenCode(tag: "smollm2:135m")
 
         let outcome = try LocalRuntimeSeatDelete.delete(
             id: seatedID,
@@ -184,35 +273,11 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
     }
 
     func testEnableThenDeleteIsSymmetricOnFixtureConfig() throws {
-        let wiredWithoutNewTagJSON = """
-        {
-          "enabled_providers": ["opencode-go", "ollama"],
-          "provider": {
-            "ollama": {
-              "npm": "@ai-sdk/openai-compatible",
-              "name": "Ollama (local)",
-              "options": { "baseURL": "http://localhost:11434/v1" },
-              "models": {
-                "qwen3.8:27b-mlx": { "name": "qwen3.8:27b-mlx" }
-              }
-            }
-          }
-        }
-        """
         try Data(wiredWithoutNewTagJSON.utf8).write(to: opencodeConfig)
-        let candidateID = OllamaLocalModelDiscoveryProvider.candidateID(tag: "smollm2:135m")
-        _ = try LocalRuntimeSeatMint.enable(
-            candidateID: candidateID,
-            bodyDriverId: "opencode",
-            snapshot: snapshotFromPayload(),
-            now: now,
-            opencodeConfigURL: opencodeConfig,
-            isTestHost: true
-        )
+        let seatedID = try mintOpenCode(tag: "smollm2:135m")
         XCTAssertTrue((configModelIds() ?? []).contains("smollm2:135m"))
+        XCTAssertEqual(ModelCatalog.get(seatedID)?.addedOpenCodeModelIds, ["smollm2:135m"])
 
-        let seatedID = OllamaLocalModelDiscoveryProvider.seatedID(
-            tag: "smollm2:135m", bodyDriverId: "opencode")
         let outcome = try LocalRuntimeSeatDelete.delete(
             id: seatedID,
             opencodeConfigURL: opencodeConfig,
@@ -223,6 +288,19 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    private func mintOpenCode(tag: String) throws -> ModelID {
+        let candidateID = OllamaLocalModelDiscoveryProvider.candidateID(tag: tag)
+        _ = try LocalRuntimeSeatMint.enable(
+            candidateID: candidateID,
+            bodyDriverId: "opencode",
+            snapshot: snapshotFromPayload(),
+            now: now,
+            opencodeConfigURL: opencodeConfig,
+            isTestHost: true
+        )
+        return OllamaLocalModelDiscoveryProvider.seatedID(tag: tag, bodyDriverId: "opencode")
+    }
 
     private func persistDiscovered(tag: String, body: String) throws -> ModelID {
         var seat = OllamaLocalModelDiscoveryProvider.candidate(for: tag, discoveredAt: now)
@@ -248,5 +326,25 @@ final class LocalRuntimeSurfaceDeleteTests: XCTestCase {
               let root = try? OpenCodeOllamaProviderMerge.parseRoot(data)
         else { return nil }
         return OpenCodeOllamaProviderMerge.inspect(root).ollamaModelIds
+    }
+}
+
+private final class DeleteSetupTransport: OllamaLocalRuntimeClient.Transport, @unchecked Sendable {
+    private var bodies: [String]
+
+    init(bodies: [String]) {
+        self.bodies = bodies
+    }
+
+    func data(for request: URLRequest) throws -> (Data, URLResponse) {
+        let url = request.url!
+        let body = bodies.isEmpty ? "{}" : bodies.removeFirst()
+        let response = HTTPURLResponse(
+            url: url,
+            statusCode: 200,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        return (Data(body.utf8), response)
     }
 }

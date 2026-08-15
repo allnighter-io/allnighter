@@ -65,7 +65,10 @@ public enum LocalRuntimeSeatMint {
                 serveReclaimTable: serveReclaimTable,
                 isTestHost: isTestHost
             )
-            disclosures.append(contentsOf: sync)
+            disclosures.append(contentsOf: sync.disclosures)
+            if !sync.addedModelIds.isEmpty {
+                seat.addedOpenCodeModelIds = sync.addedModelIds
+            }
         }
         seat.origin = .discovered
         try ModelCatalog.saveDiscovered(seat)
@@ -81,13 +84,18 @@ public enum LocalRuntimeSeatMint {
 
     // MARK: - OpenCode body (LR-S02b)
 
+    private struct OpenCodeSync: Equatable, Sendable {
+        var disclosures: [String]
+        var addedModelIds: [String]
+    }
+
     private static func syncOpenCodeConfig(
         snapshot: OllamaLocalRuntimeObserver.Snapshot?,
         configURLOverride: URL?,
         fileManager: FileManager,
         serveReclaimTable: OpenCodeLeftoverServeReclaim.Table?,
         isTestHost: Bool
-    ) throws -> [String] {
+    ) throws -> OpenCodeSync {
         let configURL = try OpenCodeOllamaSetup.resolveConfigURL(
             override: configURLOverride,
             isTestHost: isTestHost
@@ -118,7 +126,10 @@ public enum LocalRuntimeSeatMint {
                 isTestHost: isTestHost
             )
         )
-        return opencodeSyncDisclosures(merge: merge, leftover: leftover)
+        return OpenCodeSync(
+            disclosures: opencodeSyncDisclosures(merge: merge, leftover: leftover),
+            addedModelIds: merge.addedModelIds
+        )
     }
 
     /// Observed `/api/tags` names only — never guess when Ollama is unreachable.

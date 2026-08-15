@@ -34,7 +34,7 @@ All ladder slices are **IMPLEMENTED**:
 | S05c | `854ec69c` |
 | S07 | `39597ca9` |
 
-Contract **10.9.0**. `binaryVersion` **1.1.16** (**unpublished**).
+Contract **10.9.0**. `binaryVersion` **1.1.18** (**unpublished**).
 
 **The packet is not closed.** Do not mark it closed. Do not archive it.
 
@@ -617,6 +617,10 @@ Firewall and Second Mac still do not block this ladder.
 
 ## 10. LR-S00 catalog-path audit (2026-08-14)
 
+Closeout Code Audit (2026-08-15): **P1** delete owns only mint-added
+`opencode.json` tags; **P2** `SubstitutionResolver` same-side local/cloud
+guard. Full record at the end of this section (`### Closeout Code Audit P1/P2`).
+
 Dogfood host, one tag, one body. No live inference. Seat **kept**.
 
 **Packet proceeds to LR-S01.** Question (1) passed on Claude Code. Question (4)
@@ -886,7 +890,7 @@ Contract stays 10.9.0; `binaryVersion` 1.1.15. No wire change.
 
 Founder ruling (2026-08-15): "NEVER substitute a CLOUD with a LOCAL seat and vise versa. They are so different it is not just about capability but also about speed."
 
-Promoted to `docs/operations/Project_Laws.md` §Local and cloud seats. This is a product invariant, not a packet detail. Contract stays 10.9.0. `binaryVersion` 1.1.17.
+Promoted to `docs/operations/Project_Laws.md` §Local and cloud seats. This is a product invariant, not a packet detail. Contract stays 10.9.0. `binaryVersion` 1.1.18.
 
 S00 Q3 was local-out: a pinned free local model silently resolved to Opus 5. The ollama-label guard from `7e71b7ec` only stopped a local seat being substituted in. Both directions now refuse when the only candidate would cross. Same-side (cloud to cloud, local to local) still proceeds, with one honesty disclosure. The refusal names the asked-for model, says it is unavailable, and points at `alln menu --json`. User intent, not a sensor veto — same refuse-class as the write lock and parked drivers.
 
@@ -997,9 +1001,32 @@ stderr. Tests pass a fixture `opencodeConfigURL`; XCTest without an override
 refuses the real `~/.config/opencode/opencode.json` and still deletes the
 catalog row. Fixture: `LocalRuntimeSurfaceDeleteTests`.
 
-Unregistering is the right symmetry — not skipped. Remaining OpenCode seat
-for the same tag keeps the entry (no silent wipe). Claude-only remaining
-seats do not keep a tag OpenCode no longer needs.
+**Corrected 2026-08-15 (closeout P1):** unregister only tags that seat's mint
+persisted on `addedOpenCodeModelIds` — the same ownership `OpenCodeOllamaSetup.undo`
+uses (`receipt.addedModelIds`). A pre-existing tag, a setup-receipt-owned tag,
+or a Claude-body delete must leave `opencode.json` alone.
+
+### Closeout Code Audit P1/P2 (2026-08-15)
+
+Recorded in packet §10.
+
+**P1 — delete ownership.** Enable persists `merge.addedModelIds` on the seated
+row. Delete unregisters only those ids, and only when no remaining OpenCode
+seat needs the tag and the setup receipt does not own it. Claude-body delete
+is a no-op on `opencode.json` (byte-identical). Replaced
+`testClaudeSeatDeleteUnregistersWhenNoOpenCodeSeatRemains` with
+`testClaudeSeatDeleteLeavesOpenCodeConfigByteIdentical`. Required fixture:
+`testSetupRegisteredTagSurvivesSeatDelete` (setup registers → seat → delete →
+tag remains).
+
+**P2 — SubstitutionResolver same-side.** `resolveAuto` / `resolveRequested`
+now apply `LocalSeatPinHonesty.sameSide` so Mac Team Control, Threads, and
+`defaults` cannot cross the local/cloud boundary. Proof:
+`DefaultModelSettingsTests.testRequestedNeverCrossesLocalCloudBoundary`,
+`testAutoNeverPicksLocalForCloudTierDefault`. Law SSOT list now includes
+`SubstitutionResolver`.
+
+Contract stays **10.9.0**. `binaryVersion` **1.1.18**.
 
 ---
 

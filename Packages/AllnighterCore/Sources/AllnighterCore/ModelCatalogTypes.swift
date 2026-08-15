@@ -32,6 +32,10 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
     /// AgentOS ModelSmokeStatus raw value for custom models. nil = built-in / legacy (treated as trusted).
     public var modelSmokeStatus: String?  // "recognized"|"unrecognized"|"unsupported"|"inconclusive"|"unverified"
     public var modelSmokeDetail: String?
+    /// Tags `LocalRuntimeSeatMint` actually added to `opencode.json` (`merge.addedModelIds`).
+    /// Delete unregisters only these. Nil/empty = this seat never owned a config key
+    /// (pre-existing tag, setup receipt, Claude-body, or a row minted before this field).
+    public var addedOpenCodeModelIds: [String]?
 
     public init(
         id: ModelID,
@@ -50,7 +54,8 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         createdAt: Date? = nil,
         updatedAt: Date? = nil,
         modelSmokeStatus: String? = nil,
-        modelSmokeDetail: String? = nil
+        modelSmokeDetail: String? = nil,
+        addedOpenCodeModelIds: [String]? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -69,6 +74,7 @@ public struct ModelDefinition: Codable, Sendable, Equatable, Identifiable {
         self.updatedAt = updatedAt
         self.modelSmokeStatus = modelSmokeStatus
         self.modelSmokeDetail = modelSmokeDetail
+        self.addedOpenCodeModelIds = addedOpenCodeModelIds
     }
 }
 

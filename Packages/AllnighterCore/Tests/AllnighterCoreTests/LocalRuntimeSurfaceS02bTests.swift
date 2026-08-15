@@ -91,6 +91,7 @@ final class LocalRuntimeSurfaceS02bTests: XCTestCase {
         let persisted = try XCTUnwrap(ModelCatalog.get(seatedID))
         XCTAssertEqual(persisted.origin, .discovered)
         XCTAssertEqual(persisted.driverId, "opencode")
+        XCTAssertEqual(persisted.addedOpenCodeModelIds, ["qwen3.8:27b-mlx"])
         XCTAssertTrue(ModelCatalog.isEnabled(seatedID))
 
         let root = try OpenCodeOllamaProviderMerge.parseRoot(Data(contentsOf: opencodeConfig))
@@ -143,6 +144,7 @@ final class LocalRuntimeSurfaceS02bTests: XCTestCase {
             tag: "qwen3.8:27b-mlx", bodyDriverId: "claude_code")
         XCTAssertEqual(ModelCatalog.get(seatedID)?.origin, .discovered)
         XCTAssertEqual(ModelCatalog.get(seatedID)?.driverId, "claude_code")
+        XCTAssertNil(ModelCatalog.get(seatedID)?.addedOpenCodeModelIds)
     }
 
     // MARK: - Helpers

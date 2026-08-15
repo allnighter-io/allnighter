@@ -120,6 +120,13 @@ public enum OpenCodeOllamaSetup {
         AllnighterSupportRoot.config.appendingPathComponent("opencode_ollama_setup.json")
     }
 
+    /// Model ids this setup receipt added. Empty when no receipt exists or it
+    /// cannot be read — absence is not ownership.
+    public static func ownedAddedModelIds(receiptURL: URL? = nil) -> [String] {
+        let url = receiptURL ?? defaultReceiptURL
+        return (try? loadReceipt(at: url))?.addedModelIds ?? []
+    }
+
     public static func isRealDefaultConfig(_ url: URL) -> Bool {
         url.standardizedFileURL.path == defaultConfigURL.standardizedFileURL.path
     }

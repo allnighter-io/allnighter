@@ -122,7 +122,7 @@ a sensor is unhappy. Allnighter is refusing to hand the user a fundamentally
 different product than they asked for.
 
 Code SSOT: `TeamResolver.selectModel`, `LocalSeatPinHonesty`,
-`VendorSubstitutionPolicy`, `SeatReseat`.
+`VendorSubstitutionPolicy`, `SeatReseat`, `SubstitutionResolver`.
 
 ## Local Ollama seats
 

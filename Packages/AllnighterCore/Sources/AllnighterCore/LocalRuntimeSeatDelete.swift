@@ -2,10 +2,11 @@ import Foundation
 
 /// Delete a seated local row and keep `opencode.json` honest.
 ///
-/// `alln models enable <id> --body opencode` registers the tag. Delete is the
-/// inverse: unregister that tag when no remaining OpenCode seat still needs it,
-/// and disclose what was removed. Tests must pass `opencodeConfigURL` —
-/// production resolves the real path; XCTest refuses it.
+/// Inverse of S02b mint, matching `OpenCodeOllamaSetup.undo`: unregister only
+/// tags this seat's enable actually added (`addedOpenCodeModelIds`). Never
+/// unregister a pre-existing tag, a setup-receipt-owned tag, or anything for a
+/// Claude-body seat. Tests must pass `opencodeConfigURL` — production resolves
+/// the real path; XCTest refuses it.
 public enum LocalRuntimeSeatDelete {
     public struct Outcome: Equatable, Sendable {
         public var disclosures: [String]
@@ -20,6 +21,7 @@ public enum LocalRuntimeSeatDelete {
     public static func delete(
         id: ModelID,
         opencodeConfigURL: URL? = nil,
+        setupReceiptURL: URL? = nil,
         fileManager: FileManager = .default,
         isTestHost: Bool = AllnighterSupportRoot.isRunningUnderTestHost
     ) throws -> Outcome {
@@ -27,31 +29,32 @@ public enum LocalRuntimeSeatDelete {
             throw ModelCatalogError.notFound(id)
         }
         try ModelCatalog.deleteCustom(id)
-        guard let tag = OpenCodeLocalSeatReadiness.ollamaTag(from: existing.modelLabel) else {
-            return Outcome()
-        }
-        if remainingOpenCodeSeatNeeds(tag) {
-            return Outcome()
-        }
-        do {
-            let removed = try unregister(
-                tag: tag,
-                configURLOverride: opencodeConfigURL,
-                fileManager: fileManager,
-                isTestHost: isTestHost
-            )
-            guard removed else { return Outcome() }
-            return Outcome(
-                disclosures: ["Unregistered from opencode.json: \(tag)."],
-                unregisteredTags: [tag]
-            )
-        } catch {
-            return Outcome(
-                disclosures: [
+        guard existing.driverId == "opencode" else { return Outcome() }
+        let owned = existing.addedOpenCodeModelIds ?? []
+        guard !owned.isEmpty else { return Outcome() }
+        let receiptOwned = Set(OpenCodeOllamaSetup.ownedAddedModelIds(receiptURL: setupReceiptURL))
+        var unregistered: [String] = []
+        var disclosures: [String] = []
+        for tag in owned {
+            if remainingOpenCodeSeatNeeds(tag) { continue }
+            if receiptOwned.contains(tag) { continue }
+            do {
+                let removed = try unregister(
+                    tag: tag,
+                    configURLOverride: opencodeConfigURL,
+                    fileManager: fileManager,
+                    isTestHost: isTestHost
+                )
+                guard removed else { continue }
+                unregistered.append(tag)
+                disclosures.append("Unregistered from opencode.json: \(tag).")
+            } catch {
+                disclosures.append(
                     "Could not unregister \(tag) from opencode.json: \(describe(error))"
-                ]
-            )
+                )
+            }
         }
+        return Outcome(disclosures: disclosures, unregisteredTags: unregistered)
     }
 
     // MARK: - OpenCode config

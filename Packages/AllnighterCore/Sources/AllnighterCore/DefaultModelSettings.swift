@@ -279,7 +279,9 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
 }
 
 /// Resolves Auto and healthy substitution against the tiers + ready Bench. NEVER
-/// crosses tiers. Determinism comes from the user's intra-tier order, not rank.
+/// crosses tiers. Never crosses the local/cloud boundary (Project_Laws
+/// §Local and cloud seats). Determinism comes from the user's intra-tier order,
+/// not rank.
 public enum SubstitutionResolver {
     public enum BlockReason: String, Sendable, Equatable {
         /// No runnable model for the required slot → wait. Either the tier's ready
@@ -311,7 +313,9 @@ public enum SubstitutionResolver {
             return Resolution(resolvedModelId: nil, requestedModelId: nil, substituted: false, tier: tier, blockedReason: .tierEmpty)
         }
         if settings.allowHealthySubstitutions {
-            if let ready = members.first(where: { readyModelIds.contains($0) }) {
+            if let ready = members.first(where: {
+                readyModelIds.contains($0) && LocalSeatPinHonesty.sameSide(id: $0, id: tierDefault)
+            }) {
                 return Resolution(resolvedModelId: ready, requestedModelId: tierDefault,
                                   substituted: ready != tierDefault, tier: tier, blockedReason: nil)
             }
@@ -339,7 +343,9 @@ public enum SubstitutionResolver {
         guard let highest else {
             return Resolution(resolvedModelId: nil, requestedModelId: modelId, substituted: false, tier: nil, blockedReason: .unassigned)
         }
-        if let ready = settings.tiers[highest].first(where: { readyModelIds.contains($0) }) {
+        if let ready = settings.tiers[highest].first(where: {
+            readyModelIds.contains($0) && LocalSeatPinHonesty.sameSide(id: $0, id: modelId)
+        }) {
             return Resolution(resolvedModelId: ready, requestedModelId: modelId, substituted: true, tier: highest, blockedReason: nil)
         }
         return Resolution(resolvedModelId: nil, requestedModelId: modelId, substituted: false, tier: highest, blockedReason: .shelfEmpty)

@@ -9,8 +9,17 @@ public enum LocalSeatPinHonesty {
             driverId: model.driverId, modelLabel: model.modelLabel)
     }
 
+    public static func isLocalSeat(id: ModelID) -> Bool {
+        guard let def = ModelCatalog.get(id) else { return false }
+        return ModelCatalog.isLocalAutomaticSubstitute(def)
+    }
+
     public static func sameSide(_ a: Model, _ b: Model) -> Bool {
         isLocalSeat(a) == isLocalSeat(b)
+    }
+
+    public static func sameSide(id a: ModelID, id b: ModelID) -> Bool {
+        isLocalSeat(id: a) == isLocalSeat(id: b)
     }
 
     public static func filterSameSide(as pin: Model, in models: [Model]) -> [Model] {
