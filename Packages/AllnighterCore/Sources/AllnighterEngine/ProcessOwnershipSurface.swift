@@ -250,6 +250,9 @@ public struct ProcessOwnershipSurface: Sendable {
                 would = !terminal && !quietVendorPark
                     && ProcessOwnership.isReclaimable(in: dir, runCreatedAt: run.createdAt)
             }
+            let waitingWriteLock = !terminal
+                && (run.phase == .waitingForWriteLock
+                    || run.blocker?.resource == .repoWriteLock)
             rows.append(OwnershipProcessJSON(
                 id: run.id,
                 kind: "run",
@@ -257,7 +260,9 @@ public struct ProcessOwnershipSurface: Sendable {
                 identity: identity?.asRecord(),
                 identityAlive: alive,
                 wouldReconcile: would,
-                lane: laneState(forRoot: run.repoRoot, workId: run.id, now: now),
+                lane: laneState(
+                    forRoot: run.repoRoot, workId: run.id, now: now,
+                    isWriteLockWaiter: waitingWriteLock),
                 lastProgressAt: last,
                 heartbeatAgeSeconds: age,
                 lastActivityKind: run.lastActivityKind?.rawValue,
@@ -410,7 +415,9 @@ public struct ProcessOwnershipSurface: Sendable {
                 identity: identity?.asRecord(),
                 identityAlive: alive,
                 wouldReconcile: would,
-                lane: laneState(forRoot: relay.projectRoot, workId: relay.id, now: now)
+                lane: laneState(
+                    forRoot: relay.projectRoot, workId: relay.id, now: now,
+                    isWriteLockWaiter: relay.laneBlocked != nil)
                     ?? relay.laneBlocked.map { ticket in
                         OwnershipLaneJSON(
                             state: "ticket",
@@ -592,7 +599,12 @@ public struct ProcessOwnershipSurface: Sendable {
 
     // MARK: - Lane state helper
 
-    private func laneState(forRoot root: String?, workId: String, now: Date) -> OwnershipLaneJSON? {
+    private func laneState(
+        forRoot root: String?,
+        workId: String,
+        now: Date,
+        isWriteLockWaiter: Bool
+    ) -> OwnershipLaneJSON? {
         guard let root, !root.isEmpty else { return nil }
         let key = ExecutionLane.key(repoRoot: root)
         // Prefer the canonical path under AllnighterPaths (honors SUPPORT_DIR); also
@@ -608,7 +620,9 @@ public struct ProcessOwnershipSurface: Sendable {
                     heldSinceSeconds: max(0, now.timeIntervalSince(meta.acquiredAt))
                 )
             }
-            // Another holder owns the root — this work may be ticketed.
+            guard isWriteLockWaiter else {
+                return OwnershipLaneJSON(state: "none")
+            }
             let position = ExecutionLaneFlock.wouldBePosition(laneKey: key)
             return OwnershipLaneJSON(
                 state: "ticket",

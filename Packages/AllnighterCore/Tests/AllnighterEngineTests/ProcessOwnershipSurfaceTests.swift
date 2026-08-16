@@ -172,6 +172,75 @@ final class ProcessOwnershipSurfaceTests: HermeticSupportTestCase {
         XCTAssertTrue(table.contains("KIND"))
     }
 
+    func testPsTicketsOnlyWriteLockWaitersNotObservationalSiblings() throws {
+        let (support, runs, _, lanes, surface) = try tempTree()
+        defer { try? FileManager.default.removeItem(at: support) }
+        let root = "/tmp/repo-ticket-paint"
+        let holderId = "run-mutator"
+
+        var holder = nonTerminalRun(id: holderId, repoRoot: root)
+        holder.status = .running
+        holder.phase = .working
+        holder.mutating = true
+        holder.lastActivityAt = Date()
+        try runs.save(holder, models: [])
+        let liveIdentity = try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .detachedRunner))
+        try ProcessOwnership.writeOwnerIdentity(
+            liveIdentity, in: try runs.runDirectory(forRunId: holderId))
+
+        var observational = nonTerminalRun(id: "run-readonly", repoRoot: root)
+        observational.status = .running
+        observational.phase = .working
+        observational.mutating = false
+        observational.lastActivityAt = Date()
+        try runs.save(observational, models: [])
+        try ProcessOwnership.writeOwnerIdentity(
+            liveIdentity, in: try runs.runDirectory(forRunId: "run-readonly"))
+
+        var waiter = nonTerminalRun(id: "run-waiter", repoRoot: root)
+        waiter.status = .queued
+        waiter.phase = .waitingForWriteLock
+        waiter.mutating = true
+        waiter.blocker = RunBlocker(resource: .repoWriteLock, scopeRoot: root)
+        try runs.save(waiter, models: [])
+        try ProcessOwnership.writeOwnerIdentity(
+            liveIdentity, in: try runs.runDirectory(forRunId: "run-waiter"))
+
+        var killedWaiter = nonTerminalRun(id: "run-killed-waiter", repoRoot: root)
+        killedWaiter.status = .cancelled
+        killedWaiter.phase = .waitingForWriteLock
+        killedWaiter.endReason = .killed
+        killedWaiter.blocker = RunBlocker(resource: .repoWriteLock, scopeRoot: root)
+        try runs.save(killedWaiter, models: [])
+
+        let laneKey = ExecutionLane.key(repoRoot: root)
+        let safe = ExecutionLaneFlock.sanitizedDirectoryName(for: laneKey)
+        let laneDir = lanes.appendingPathComponent(safe, isDirectory: true)
+        try FileManager.default.createDirectory(at: laneDir, withIntermediateDirectories: true)
+        let meta = ExecutionLaneFlock.HolderMetadata(
+            identity: try XCTUnwrap(ProcessOwnership.OwnerIdentity.current(kind: .inProcess)),
+            kind: ExecutionLaneSite.mutatingRun.rawValue,
+            id: holderId,
+            acquiredAt: Date().addingTimeInterval(-40)
+        )
+        try CoreJSON.encode(meta).write(
+            to: laneDir.appendingPathComponent(ExecutionLaneFlock.holderFileName),
+            options: .atomic
+        )
+
+        let byId = Dictionary(
+            uniqueKeysWithValues: surface.list(includeHistory: true).processes
+                .filter { $0.kind == "run" }
+                .map { ($0.id, $0) }
+        )
+        XCTAssertEqual(try XCTUnwrap(byId[holderId]).lane?.state, "held")
+        XCTAssertEqual(try XCTUnwrap(byId["run-readonly"]).lane?.state, "none")
+        let waiterRow = try XCTUnwrap(byId["run-waiter"])
+        XCTAssertEqual(waiterRow.lane?.state, "ticket")
+        XCTAssertEqual(waiterRow.lane?.holderId, holderId)
+        XCTAssertEqual(try XCTUnwrap(byId["run-killed-waiter"]).lane?.state, "none")
+    }
+
     // MARK: - Project scope (Concurrent Invocation Isolation F1/F3)
 
     func testPsListScopedToProjectRootExcludesOtherProjectsAndUnresolvedRoots() throws {
