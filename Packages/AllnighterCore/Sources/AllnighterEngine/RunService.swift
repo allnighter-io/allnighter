@@ -1634,6 +1634,9 @@ public actor RunService {
         }
         timing.count(RunTimingKey.runStoreSaveCount, by: 1)
         run.timing = timing
+        if run.mutating, run.baselineHead == nil {
+            run.baselineHead = baselineHead
+        }
         // RLR-L2 (item 8): persist BEFORE emitting the status change, so a peer that
         // observes the `running` event can always round-trip the durable journal.
         try? runStore.save(run, models: models)

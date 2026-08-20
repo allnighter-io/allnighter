@@ -636,7 +636,8 @@
             "export",
             "showHistory",
             "showAnswer",
-            "inspectBlocker"
+            "inspectBlocker",
+            "stopStuckRun"
           ],
           "type" : "string"
         },
@@ -951,6 +952,41 @@
       },
       "required" : [
         "kind"
+      ],
+      "type" : "object"
+    },
+    "RepoActivity" : {
+      "additionalProperties" : false,
+      "properties" : {
+        "attribution" : {
+          "type" : "string"
+        },
+        "baseline" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        },
+        "changedDuringRunWindow" : {
+          "type" : "boolean"
+        },
+        "commits" : {
+          "items" : {
+            "$ref" : "#\/$defs\/RepoDeltaCommit"
+          },
+          "type" : "array"
+        },
+        "head" : {
+          "type" : [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required" : [
+        "changedDuringRunWindow",
+        "attribution",
+        "commits"
       ],
       "type" : "object"
     },
@@ -1559,6 +1595,16 @@
       "oneOf" : [
         {
           "$ref" : "#\/$defs\/PMTurn"
+        },
+        {
+          "type" : "null"
+        }
+      ]
+    },
+    "repoActivity" : {
+      "oneOf" : [
+        {
+          "$ref" : "#\/$defs\/RepoActivity"
         },
         {
           "type" : "null"

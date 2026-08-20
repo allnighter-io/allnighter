@@ -35,7 +35,7 @@
   "audit" : {
     "traceId" : "trace_run_20260720_1200"
   },
-  "contractVersion" : "10.9.0",
+  "contractVersion" : "10.10.0",
   "errors" : [
 
   ],

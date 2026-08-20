@@ -33,6 +33,16 @@ paths.
 
 `lane` means **craft** (Code/Design/Copy/Signal). It is never “a single run.”
 
+## Stuck vs landed (promoted 2026-08-20)
+
+| Term | Meaning |
+| --- | --- |
+| **Stuck** | A mutating job still shows `running` or holds the write-lock line, and `observation.lastActivityAt` has gone quiet. Silence is not a kill by itself. |
+| **Landed** | Git HEAD moved during that job's window. Supplementary and **not proven** — someone else on this Mac can commit too. |
+| **Stop the stuck job** | `alln kill <id>` of the silent holder, so the next job can start. Never skip a waiter because git moved. |
+
+Code SSOT: `StuckRunDisclosure`. Law: `docs/operations/Project_Laws.md` §Run ownership.
+
 ## Capacity vocabulary (promoted from the capacity packet, 2026-07-30)
 
 | Term | Meaning |

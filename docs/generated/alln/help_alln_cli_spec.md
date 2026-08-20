@@ -1,6 +1,6 @@
 # alln — Agent-Facing CLI Reference
 
-Generated from the contract registry (contractVersion 10.9.0, schemaVersion 1).
+Generated from the contract registry (contractVersion 10.10.0, schemaVersion 1).
 Do not hand-edit — run `alln dev export-contracts`.
 
 ## Commands (milestone 1)
@@ -2047,6 +2047,7 @@ the selected CLI.
 - `showHistory` — List recent runs.
 - `showAnswer` — Print the run's answer text (durable partial included) — retrieval for in-flight, killed, or failed runs whose work is in the record.
 - `inspectBlocker` — Inspect a sourced blocker, vendor wait, or attention-required stream exit; not a stream reattach.
+- `stopStuckRun` — Stop a silent mutating job whose files already landed so the per-root write-lock line can move. Never means the waiter already did the work.
 - `submitPending` — Submit a Draft item to Pending.
 - `runPending` — Run a Pending item now.
 - `showPending` — Show one Pending item.

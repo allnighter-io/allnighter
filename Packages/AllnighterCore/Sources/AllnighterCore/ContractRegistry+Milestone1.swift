@@ -85,7 +85,7 @@ public extension ContractRegistry {
     // 10.8.0 → 10.9.0: LR-S03 `opencode-local status` observes `/api/tags`
     // and reports drift vs opencode.json (`ollamaLiveTagIds`, `ollamaTagsInSync`,
     // `ollamaTagsMissingFromConfig`, `ollamaTagsExtraInConfig`).
-    static let contractVersion = "10.9.0"
+    static let contractVersion = "10.10.0"
 
     static let milestone1 = ContractRegistry(
         schemaVersion: 1,
@@ -1878,6 +1878,7 @@ public extension ContractRegistry {
         /// ORS: attention-required recovery after a stream budget/vendor/blocker exit.
         /// Must never be `showRun` (self-referential poll loop).
         NextActionKindSpec("inspectBlocker", summary: "Inspect a sourced blocker, vendor wait, or attention-required stream exit; not a stream reattach."),
+        NextActionKindSpec("stopStuckRun", summary: "Stop a silent mutating job whose files already landed so the per-root write-lock line can move. Never means the waiter already did the work."),
         NextActionKindSpec("submitPending", summary: "Submit a Draft item to Pending."),
         NextActionKindSpec("runPending", summary: "Run a Pending item now."),
         NextActionKindSpec("showPending", summary: "Show one Pending item."),

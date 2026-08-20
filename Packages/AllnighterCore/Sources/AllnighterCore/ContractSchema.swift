@@ -53,6 +53,7 @@ public enum ContractSchema {
             "stages": arr(ref("StageInfo")), "plan": nullableRef("Plan"),
             "designBoard": nullableRef("DesignBoard"),
             "repoDelta": nullableRef("RepoDelta"),
+            "repoActivity": nullableRef("RepoActivity"),
             "researchGitObservation": nullableRef("ResearchGitObservation"),
             "outcome": nullableRef("Outcome"),
             "usage": ref("Usage"), "warnings": arr(ref("Warning")),
@@ -196,6 +197,13 @@ public enum ContractSchema {
             "RepoDeltaCommit": obj([
                 "sha": str, "subject": str,
             ], required: ["sha", "subject"]),
+            "RepoActivity": obj([
+                "changedDuringRunWindow": bool,
+                "attribution": str,
+                "baseline": nullable("string"),
+                "head": nullable("string"),
+                "commits": arr(ref("RepoDeltaCommit")),
+            ], required: ["changedDuringRunWindow", "attribution", "commits"]),
             "ResearchGitObservation": obj([
                 "changed": bool, "baselineHead": nullable("string"), "head": nullable("string"),
                 "changedPaths": arr(str), "truncated": bool,
@@ -221,7 +229,7 @@ public enum ContractSchema {
             "Warning": obj(["code": nullable("string"), "message": str], required: ["message"]),
             "ErrorEnvelope": errorEnvelopeDef(),
             "NextAction": obj([
-                "kind": enumStr(["showArtifact", "showRun", "export", "showHistory", "showAnswer", "inspectBlocker"]), "command": str, "label": nullable("string"),
+                "kind": enumStr(["showArtifact", "showRun", "export", "showHistory", "showAnswer", "inspectBlocker", "stopStuckRun"]), "command": str, "label": nullable("string"),
             ], required: ["kind", "command"]),
             "Artifact": obj([
                 "path": nullable("string"),

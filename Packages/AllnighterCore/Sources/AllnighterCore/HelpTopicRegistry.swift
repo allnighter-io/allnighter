@@ -885,6 +885,32 @@ public enum HelpTopicRegistry {
             needsLiveCheck: true),
 
         HelpTopic(
+            id: "stuck_vs_landed", title: "Stuck job vs files already landed", audience: .both,
+            summary: "If files already landed in git but Allnighter still shows a job running or queued, that does not mean the job is done. Stop the stuck job so the line can move. Do not skip waiting work because git moved.",
+            bodyMarkdown: """
+            Allnighter's run status and git can disagree. A job can save files and still \
+            sit in `running` or hold the line for the next job. `running` is not progress — \
+            read `observation.lastActivityAt` on `alln show <id> --json`.
+
+            When HEAD moved during that job's window **and** the job has gone quiet, \
+            `alln show` says so in plain language and gives one action: \
+            `alln kill <id> --json`. That stops the stuck job so the next job can start. \
+            It does **not** mark waiting jobs as done, and it does not guess that a \
+            commit is the work you queued.
+
+            `repoActivity.attribution` is always `notProven` — someone else on this Mac \
+            can move git too. Never treat a commit as "the waiter already finished."
+            """,
+            aliases: [
+                "files already landed", "stuck in queue", "git log vs status",
+                "write lock stuck", "queued behind stuck", "stop the stuck job",
+                "tracker stale", "status tracking stale",
+            ],
+            relatedCommandNames: ["show", "kill", "ps"],
+            schemaRefs: ["teamRunJSON"],
+            needsLiveCheck: false),
+
+        HelpTopic(
             id: "artifact", title: "Team artifact (HTML receipt)", audience: .both,
             summary: "After a terminal team run, `alln artifact show <run-id|latest>` regenerates the private HTML team artifact and opens it (or prints the path). Use `alln artifact export --out` to copy the same HTML elsewhere.",
             bodyMarkdown: """

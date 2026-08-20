@@ -132,6 +132,9 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
     public var timing: RunTimingReport?
     /// Observed git delta for mutating runs (Field_Reports_1.md §FR3). `nil` for read-only runs.
     public var repoDelta: RepoDelta? = nil
+    /// HEAD at mutating execution start. Live `alln show` compares this to current
+    /// HEAD. Optional so legacy journals decode `nil` (fail closed — no window).
+    public var baselineHead: String? = nil
     /// CR-S02 — bounded pre/post Git observation for a research (read-only) run. `nil`
     /// for mutating runs (they carry `repoDelta`) and for runs recorded before CR-S02.
     /// `changed == true` is a surfaced research-write violation; files are never reset.
@@ -230,6 +233,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         repoRoot: String? = nil,
         timing: RunTimingReport? = nil,
         repoDelta: RepoDelta? = nil,
+        baselineHead: String? = nil,
         laneContextOnly: Bool? = nil,
         explicitModelIds: [String]? = nil,
         modelPinFacts: [ModelPinFact]? = nil,
@@ -273,6 +277,7 @@ public struct TeamRun: Codable, Sendable, Equatable, Identifiable {
         self.repoRoot = repoRoot
         self.timing = timing
         self.repoDelta = repoDelta
+        self.baselineHead = baselineHead
         self.laneContextOnly = laneContextOnly
         self.explicitModelIds = explicitModelIds
         self.modelPinFacts = modelPinFacts

@@ -1891,7 +1891,7 @@ struct AllnighterCLI {
                 manifests: manifests
             )
         }()
-        return .init(
+        var context = TeamRunJSONMapper.Context(
             reproduceCommand: repro,
             includeWorkerPromptSnapshots: full,
             runDirectory: runDir,
@@ -1900,6 +1900,8 @@ struct AllnighterCLI {
             artifactPath: artifactPath,
             ownerState: ownerState
         )
+        StuckRunDisclosureLive.attach(to: &context, run: run, store: store)
+        return context
     }
 
     /// ORS-S01b: one `alln show` read path — reconcile ownership, then resolve
@@ -2035,6 +2037,13 @@ struct AllnighterCLI {
                 // hand-off carries its reason here, and this is the command the
                 // hand-off tells the caller to come back to.
                 print("\n\(run.warnings.joined(separator: "\n"))")
+            }
+            let extraWarnings = trj.warnings.map(\.message).filter { !run.warnings.contains($0) }
+            if !extraWarnings.isEmpty {
+                print("\n\(extraWarnings.joined(separator: "\n"))")
+            }
+            if let stop = trj.nextActions.first(where: { $0.kind == .stopStuckRun }) {
+                print("→ \(stop.command)")
             }
             if let path = context.artifactPath {
                 print("\nArtifact: \(path)")
@@ -2377,8 +2386,10 @@ struct AllnighterCLI {
             pmTurnNotes: pmTurn.notes,
             ownerState: ownerState
         )
+        var mappedContext = context
+        StuckRunDisclosureLive.attach(to: &mappedContext, run: run, store: store)
         return TeamRunJSONMapper.map(
-            run, models: models, manifests: manifests, context: context
+            run, models: models, manifests: manifests, context: mappedContext
         )
     }
 
@@ -2390,7 +2401,7 @@ struct AllnighterCLI {
         writeLine: (String) -> Void
     ) -> RunCLI.StreamOutcome? {
         guard let cause = attentionCause(for: run) else { return nil }
-        let next = recoveryNextAction(for: cause, runId: run.id)
+        let next = recoveryNextAction(for: cause, runId: run.id, teamRunJSON: teamRunJSON)
         let message: String
         switch cause {
         case .sourcedBlocker:
@@ -2458,10 +2469,14 @@ struct AllnighterCLI {
     /// Recovery nextAction per attention cause. Never `showRun`.
     private static func recoveryNextAction(
         for cause: NDJSONStreamProjector.AttentionReason,
-        runId: String
+        runId: String,
+        teamRunJSON: TeamRunJSON? = nil
     ) -> TeamRunJSON.NextAction? {
         switch cause {
         case .sourcedBlocker:
+            if let stop = teamRunJSON?.nextActions.first(where: { $0.kind == .stopStuckRun }) {
+                return stop
+            }
             // Holder / FIFO ticket surface (same command as inspectBlocker catalog).
             return TeamRunJSON.NextAction(
                 kind: .inspectBlocker,

@@ -377,7 +377,9 @@ enum RunCLI {
                 pmTurnNotes: pmTurn.notes,
                 artifactPath: artifactPath
             )
-            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: context)
+            var mapped = context
+            StuckRunDisclosureLive.attach(to: &mapped, run: run, store: store)
+            let trj = TeamRunJSONMapper.map(run, models: runtime.models, manifests: runtime.registry.all, context: mapped)
             print(AllnighterCLI.jsonString(trj))
         } else {
             // A run that never produced an answer still has something to say — a
@@ -576,8 +578,10 @@ enum RunCLI {
                     pmTurn: pmTurn.pmTurn,
                     pmTurnNotes: pmTurn.notes
                 )
+                var mapped = context
+                StuckRunDisclosureLive.attach(to: &mapped, run: run, store: store)
                 let trj = TeamRunJSONMapper.map(
-                    run, models: runtime.models, manifests: runtime.registry.all, context: context
+                    run, models: runtime.models, manifests: runtime.registry.all, context: mapped
                 )
                 print(AllnighterCLI.jsonString(trj))
             } else if run.phase == .waitingForVendor,

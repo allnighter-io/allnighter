@@ -251,6 +251,13 @@ final class HelpTopicRegistryTests: XCTestCase {
         XCTAssertEqual(top("report"), "artifact")
     }
 
+    func testSearchRoutesStuckVsLandedQueries() {
+        func top(_ q: String) -> String? { HelpService.search(q).results.first?.topicId }
+        XCTAssertEqual(top("files already landed"), "stuck_vs_landed")
+        XCTAssertEqual(top("stuck in queue"), "stuck_vs_landed")
+        XCTAssertEqual(top("stop the stuck job"), "stuck_vs_landed")
+    }
+
     /// OMH-S01 — mutating OpenCode commit contract owns `incomplete_uncommitted`
     /// search (moved off headless-completion so operators find the commit rule).
     func testSearchRoutesOpenCodeMutatingCommitContract() {

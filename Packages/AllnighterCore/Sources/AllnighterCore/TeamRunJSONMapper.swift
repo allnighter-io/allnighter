@@ -31,6 +31,8 @@ public enum TeamRunJSONMapper {
         /// Ownership fact from the read path that reconciles process identity.
         /// Mapper never probes processes — default `.unknown` until a caller supplies it.
         public var ownerState: TeamRunJSON.Observation.OwnerState
+        /// Live git vs tracker split. Mapper never talks to git; the read path supplies it.
+        public var stuckDisclosure: StuckRunDisclosure.Result?
         public init(
             promptSource: TeamRunJSON.PromptSource = .init(kind: .positional),
             lane: String? = nil, type: String? = nil, effort: String? = nil,
@@ -40,7 +42,8 @@ public enum TeamRunJSONMapper {
             pmTurn: PMTurnJSON? = nil,
             pmTurnNotes: [String] = [],
             artifactPath: String? = nil,
-            ownerState: TeamRunJSON.Observation.OwnerState = .unknown
+            ownerState: TeamRunJSON.Observation.OwnerState = .unknown,
+            stuckDisclosure: StuckRunDisclosure.Result? = nil
         ) {
             self.promptSource = promptSource; self.lane = lane; self.type = type
             self.effort = effort
@@ -51,6 +54,7 @@ public enum TeamRunJSONMapper {
             self.pmTurnNotes = pmTurnNotes
             self.artifactPath = artifactPath
             self.ownerState = ownerState
+            self.stuckDisclosure = stuckDisclosure
         }
     }
 
@@ -195,6 +199,9 @@ public enum TeamRunJSONMapper {
                 TeamRunJSON.Warning(code: HostSandboxAdvice.code, message: advice.warningMessage),
                 at: 0)
         }
+        if let warning = context.stuckDisclosure?.warning {
+            runWarnings.insert(TeamRunJSON.Warning(message: warning), at: 0)
+        }
 
         var projectedAnswers = answers
         let answer = deriveAnswer(
@@ -224,6 +231,15 @@ public enum TeamRunJSONMapper {
             lastActivityAt: iso(run.lastActivityAt)
         )
 
+        var nextActions = terminalArtifactNextActions(
+            for: run,
+            answerContent: !(answer?.markdown ?? "").isEmpty
+                || projectedAnswers.contains { !($0.markdown ?? "").isEmpty }
+        )
+        if let stopId = context.stuckDisclosure?.stopRunId {
+            nextActions.insert(StuckRunDisclosure.stopAction(runId: stopId), at: 0)
+        }
+
         return TeamRunJSON(
             schemaVersion: 2,
             contractVersion: ContractRegistry.contractVersion,
@@ -233,15 +249,12 @@ public enum TeamRunJSONMapper {
             notes: context.pmTurnNotes,
             designBoard: designBoard,
             repoDelta: run.mutating ? run.repoDelta : nil,
+            repoActivity: context.stuckDisclosure?.repoActivity,
             researchGitObservation: run.mutating ? nil : run.researchGitObservation,
             outcome: run.status.isTerminal ? mapOutcome(run) : nil,
             stages: stages, plan: plan, usage: usage,
             warnings: runWarnings, errors: runErrors(run),
-            nextActions: terminalArtifactNextActions(
-                for: run,
-                answerContent: !(answer?.markdown ?? "").isEmpty
-                    || projectedAnswers.contains { !($0.markdown ?? "").isEmpty }
-            ),
+            nextActions: nextActions,
             artifact: artifactRef(for: run, path: context.artifactPath),
             audit: .init(traceId: "trace_\(run.id)"),
             observation: observation

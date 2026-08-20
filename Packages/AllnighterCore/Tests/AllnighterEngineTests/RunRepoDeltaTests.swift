@@ -72,6 +72,7 @@ final class RunRepoDeltaTests: HermeticSupportTestCase {
 
         guard case .success(let run) = result else { return XCTFail("run failed: \(result)") }
         let delta = try XCTUnwrap(run.repoDelta)
+        XCTAssertEqual(run.baselineHead, baselineHead)
         XCTAssertTrue(delta.changed)
         XCTAssertEqual(delta.baseline, baselineHead)
         XCTAssertNotEqual(delta.head, baselineHead)

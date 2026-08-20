@@ -179,6 +179,11 @@ Help: `opencode_local_setup`, `claude_local_isolation`, `loop` §local-dev.
   `alln run` reports failure, no later process may execute that request. Prove
   a host will claim before queuing, and refuse loudly — one typed terminal
   answer — when none will.
+- Git landing is not run completion. A commit in the repo never flips run
+  status, never frees the write lock, and never skips a waiter. When files
+  already landed and the job still looks stuck, `alln show` says so
+  (`repoActivity.attribution` is always `notProven`) and names `alln kill`
+  of that stuck job so the line can move. Code SSOT: `StuckRunDisclosure`.
 
 ## Product truth
 

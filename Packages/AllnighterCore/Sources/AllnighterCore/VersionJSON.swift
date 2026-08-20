@@ -205,8 +205,14 @@ import Foundation
 /// seats name the policy and the pinned model id. A held write-lock root
 /// authorizes that sibling tree after the empty default allow-list.
 /// Same contract 10.9.0.
+///
+/// **1.1.19 → 1.1.20 (stuck vs landed).** `contractVersion` additive minor
+/// (10.9.0 → 10.10.0): live `alln show` discloses unattributed git HEAD
+/// movement on a non-terminal mutating run (`repoActivity`) and, when that
+/// job is also silent, names `alln kill` so the write-lock line can move.
+/// Never auto-completes waiters from git.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.19"
+    public static let binaryVersion = "1.1.20"
 }
 
 /// `alln version` / `alln --version` machine contract.

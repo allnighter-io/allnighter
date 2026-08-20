@@ -25,6 +25,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
     public var notes: [String]
     public var designBoard: DesignBoard?
     public var repoDelta: RepoDelta?
+    /// Live, unattributed git window on a non-terminal mutating run. Supplementary
+    /// evidence only — never liveness, progress, or a reason to skip a waiter.
+    public var repoActivity: RepoActivity?
     /// CR-S02 — bounded pre/post Git observation for a research (read-only) run.
     /// Present only on research runs (mutating runs carry `repoDelta`). `changed == true`
     /// surfaces a research-write violation; Allnighter never resets the tree.
@@ -57,6 +60,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         notes: [String] = [],
         designBoard: DesignBoard? = nil,
         repoDelta: RepoDelta? = nil,
+        repoActivity: RepoActivity? = nil,
         researchGitObservation: ResearchGitObservation? = nil,
         outcome: Outcome? = nil,
         stages: [StageInfo],
@@ -80,6 +84,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         self.notes = notes
         self.designBoard = designBoard
         self.repoDelta = repoDelta
+        self.repoActivity = repoActivity
         self.researchGitObservation = researchGitObservation
         self.outcome = outcome
         self.stages = stages
@@ -95,7 +100,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, contractVersion, teamRun, agents, answers, answer, pmTurn, notes
-        case designBoard, repoDelta, researchGitObservation, outcome, stages, plan, usage, warnings, errors
+        case designBoard, repoDelta, repoActivity, researchGitObservation, outcome, stages, plan, usage, warnings, errors
         case nextActions, artifact, audit, observation
     }
 
@@ -112,6 +117,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         notes = try c.decodeIfPresent([String].self, forKey: .notes) ?? []
         designBoard = try c.decodeIfPresent(DesignBoard.self, forKey: .designBoard)
         repoDelta = try c.decodeIfPresent(RepoDelta.self, forKey: .repoDelta)
+        repoActivity = try c.decodeIfPresent(RepoActivity.self, forKey: .repoActivity)
         researchGitObservation = try c.decodeIfPresent(ResearchGitObservation.self, forKey: .researchGitObservation)
         outcome = try c.decodeIfPresent(Outcome.self, forKey: .outcome)
         stages = try c.decode([StageInfo].self, forKey: .stages)
@@ -142,6 +148,7 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
         try c.encode(notes, forKey: .notes)
         try c.encodeIfPresent(designBoard, forKey: .designBoard)
         try c.encodeIfPresent(repoDelta, forKey: .repoDelta)
+        try c.encodeIfPresent(repoActivity, forKey: .repoActivity)
         try c.encodeIfPresent(researchGitObservation, forKey: .researchGitObservation)
         try c.encodeIfPresent(outcome, forKey: .outcome)
         try c.encode(stages, forKey: .stages)
@@ -221,6 +228,31 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             try c.encode(ownerState, forKey: .ownerState)
             try c.encode(activityMode, forKey: .activityMode)
             try c.encode(lastActivityAt, forKey: .lastActivityAt)
+        }
+    }
+
+    /// Live git window on a non-terminal mutating run. Supplementary and
+    /// unattributed — never liveness, progress, or a skip-the-waiter signal.
+    public struct RepoActivity: Codable, Equatable, Sendable {
+        public var changedDuringRunWindow: Bool
+        /// Always `notProven`. Other local actors can move HEAD.
+        public var attribution: String
+        public var baseline: String?
+        public var head: String?
+        public var commits: [RepoDelta.CommitInfo]
+
+        public init(
+            changedDuringRunWindow: Bool,
+            attribution: String = StuckRunDisclosure.attributionNotProven,
+            baseline: String? = nil,
+            head: String? = nil,
+            commits: [RepoDelta.CommitInfo] = []
+        ) {
+            self.changedDuringRunWindow = changedDuringRunWindow
+            self.attribution = attribution
+            self.baseline = baseline
+            self.head = head
+            self.commits = commits
         }
     }
 
@@ -760,6 +792,9 @@ public struct TeamRunJSON: Codable, Equatable, Sendable {
             case showAnswer
             /// Attention-required recovery after a stream budget/vendor/blocker exit (ORS).
             case inspectBlocker
+            /// Stop a silent holder whose files already landed so the write-lock line can move.
+            /// Never inferred as "the waiter already did the work."
+            case stopStuckRun
         }
         public var kind: Kind
         public var command: String
