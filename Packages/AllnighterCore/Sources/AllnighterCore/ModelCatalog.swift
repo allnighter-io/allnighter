@@ -90,7 +90,7 @@ public enum ModelCatalog {
             return "kimi"
         case "model_opencode_muse_spark_13_contributor":
             return "muse"
-        case "model_gemini", "model_gemini_36", "model_gemini_37", "model_gemini_38", "model_gemini_pro":
+        case "model_gemini":
             return "gemini"
         case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
             return "cursor_native"

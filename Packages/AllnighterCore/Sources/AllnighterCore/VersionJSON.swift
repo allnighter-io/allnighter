@@ -215,8 +215,11 @@ import Foundation
 /// routes through OpenCode Go (`opencode-go/muse-spark-1.3-contributor`);
 /// the OpenRouter label OpenCode does not expose is retired. Same contract
 /// 10.10.0.
+/// **1.1.22 → 1.1.23 (Gemini 3.8 only).** Gemini catalog lists one seat:
+/// `model_gemini` as Gemini 3.8 Flash; 3.6/3.7 pins and Gemini Pro retired.
+/// Same contract 10.10.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.22"
+    public static let binaryVersion = "1.1.23"
 }
 
 /// `alln version` / `alln --version` machine contract.

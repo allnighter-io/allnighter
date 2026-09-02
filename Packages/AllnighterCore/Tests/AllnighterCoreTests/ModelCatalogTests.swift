@@ -35,7 +35,7 @@ final class ModelCatalogTests: XCTestCase {
         let registry = testRegistry()
         let models = ModelCatalog.resolvedModels(registry: registry)
         // Fable, Opus, Sonnet 5, GPT-5.6 Sol, GPT-5.6 Terra,
-        // Grok 4.5, Kimi K3, Kimi K2.7 Code, Cursor Auto, Composer 2.5, Cursor Grok 4.5, Gemini Flash.
+        // Grok 4.5, Kimi K3, Kimi K2.7 Code, Cursor Auto, Composer 2.5, Cursor Grok 4.5, Gemini 3.8 Flash.
         // Cursor Sol + Antigravity Opus stay default-off.
         // Terra medium seat was added default-on in eff7d44e (models: add Codex Terra
         // medium seat), taking the fresh-install count 10 → 11.
@@ -44,10 +44,11 @@ final class ModelCatalogTests: XCTestCase {
         // Antigravity Opus/Sonnet 4.6 re-added default-on for Claude quota harvest (15 → 17).
         // GPT-5.6 Luna added default-on on Economy bench (17 → 18).
         // Muse Spark 1.3 Contributor via OpenCode Go; 1.2 Muse CLI seats removed.
-        XCTAssertEqual(models.filter(\.enabled).count, 24)
+        // Gemini catalog is a single 3.8 Flash seat (`model_gemini`); older pins retired.
+        XCTAssertEqual(models.filter(\.enabled).count, 22)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
-        XCTAssertTrue(models.first { $0.id == "model_opencode_muse_spark_13_contributor" }?.enabled ?? false,
-                       "OpenRouter Muse is not Go inventory — it stays on-bench without a Go key")
+        XCTAssertFalse(models.first { $0.id == "model_opencode_muse_spark_13_contributor" }?.enabled ?? true,
+                       "OpenCode Go inventory stays off until Go auth connects")
         XCTAssertFalse(models.first { $0.id == "model_opencode_glm_5_2" }?.enabled ?? true,
                        "OpenCode Go inventory stays off until Go auth connects")
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")

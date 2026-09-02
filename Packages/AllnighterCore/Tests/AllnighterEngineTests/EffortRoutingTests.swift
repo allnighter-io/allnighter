@@ -88,11 +88,6 @@ final class EffortRoutingTests: XCTestCase {
         XCTAssertFalse(args.contains("--effort"))
     }
 
-    func testGeminiProMedRoutesToHighSinceNoMediumVariant() {
-        let pro = ModelCatalog.builtIns.first { $0.id == "model_gemini_pro" }!
-        XCTAssertEqual(pro.effortVariants?[.med], "Gemini 3.1 Pro (High)")
-    }
-
     func testConstantLabelWhenModelHasNoVariants() {
         let opus = Model(id: "model_opus", displayName: "Opus 5", modelLabel: "opus", driverId: "claude_code")
         XCTAssertEqual(opus.resolvedLabel(at: .high), "opus")

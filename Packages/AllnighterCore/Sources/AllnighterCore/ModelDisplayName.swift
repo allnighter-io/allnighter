@@ -60,7 +60,7 @@ public enum ModelDisplayName {
             return "grok"
         case "model_cursor_grok_45", "model_cursor_grok_46":
             return "cursor_agent"
-        case "model_gemini", "model_gemini_36", "model_gemini_37", "model_gemini_38", "model_gemini_pro", "model_agy_gptoss":
+        case "model_gemini", "model_agy_gptoss":
             return "antigravity"
         case "model_kimi_k3", "model_kimi_k27", "model_kimi_k27_hs":
             return "kimi"

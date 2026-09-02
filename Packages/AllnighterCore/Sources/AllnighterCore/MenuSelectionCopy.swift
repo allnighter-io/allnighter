@@ -445,24 +445,8 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Not full; model_cursor_composer_25"
         ),
         "model_gemini": Pair(
-            useWhen: "Latest Gemini Flash (catalog-resolved)",
-            dontUseWhen: "Need an exact generation; pin model_gemini_38, model_gemini_37, or model_gemini_36"
-        ),
-        "model_gemini_36": Pair(
-            useWhen: "Pin Gemini 3.6 Flash exactly",
-            dontUseWhen: "Want latest Flash; use model_gemini"
-        ),
-        "model_gemini_37": Pair(
-            useWhen: "Pin Gemini 3.7 Flash exactly",
-            dontUseWhen: "Want latest Flash; use model_gemini"
-        ),
-        "model_gemini_38": Pair(
             useWhen: "Gemini 3.8 Flash, Antigravity",
-            dontUseWhen: "Want latest Flash; use model_gemini"
-        ),
-        "model_gemini_pro": Pair(
-            useWhen: "Gemini 3.1 Pro, Antigravity",
-            dontUseWhen: "Not Flash; model_gemini"
+            dontUseWhen: "Not Gemini; other vendor seats"
         ),
         "model_agy_gptoss": Pair(
             useWhen: "GPT-OSS 120B, Antigravity",
