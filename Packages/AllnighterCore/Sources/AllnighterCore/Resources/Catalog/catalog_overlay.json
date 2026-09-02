@@ -351,6 +351,25 @@
         ],
         "strengthRank": 75
       },
+      "defaultOn": false
+    },
+    "model_gemini_38": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "design",
+          "image",
+          "copy",
+          "fast"
+        ],
+        "laneTags": [
+          "design",
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 76
+      },
       "defaultOn": true
     },
     "model_gemini_pro": {
@@ -674,7 +693,39 @@
           "copy",
           "signal"
         ],
+        "strengthRank": 88
+      },
+      "defaultOn": true
+    },
+    "model_opencode_glm_5_3": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
         "strengthRank": 91
+      },
+      "defaultOn": true
+    },
+    "model_opencode_glm_5_3_flash": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 70
       },
       "defaultOn": true
     },
@@ -739,6 +790,21 @@
           "signal"
         ],
         "strengthRank": 65
+      },
+      "defaultOn": true
+    },
+    "model_opencode_ox_alpha_free": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "fast"
+        ],
+        "laneTags": [
+          "code",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 45
       },
       "defaultOn": true
     }

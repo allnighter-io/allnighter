@@ -90,7 +90,7 @@ public enum ModelCatalog {
             return "kimi"
         case "model_muse_spark_12", "model_muse_spark_12_contributor":
             return "muse"
-        case "model_gemini", "model_gemini_36", "model_gemini_37", "model_gemini_pro":
+        case "model_gemini", "model_gemini_36", "model_gemini_37", "model_gemini_38", "model_gemini_pro":
             return "gemini"
         case "model_cursor_auto", "model_cursor_composer_25", "model_cursor_composer_25_fast":
             return "cursor_native"
@@ -99,10 +99,12 @@ public enum ModelCatalog {
             return "qwen"
         case "model_opencode_deepseek_v4_pro", "model_opencode_deepseek_v4_flash":
             return "deepseek"
-        case "model_opencode_glm_5_2":
+        case "model_opencode_glm_5_2", "model_opencode_glm_5_3", "model_opencode_glm_5_3_flash":
             return "glm"
         case "model_opencode_minimax_m3":
             return "minimax"
+        case "model_opencode_ox_alpha_free":
+            return "ox"
         default:
             if let def = get(modelId) {
                 return hostFamily(driverId: def.driverId)

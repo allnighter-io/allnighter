@@ -212,7 +212,7 @@ import Foundation
 /// job is also silent, names `alln kill` so the write-lock line can move.
 /// Never auto-completes waiters from git.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.20"
+    public static let binaryVersion = "1.1.21"
 }
 
 /// `alln version` / `alln --version` machine contract.

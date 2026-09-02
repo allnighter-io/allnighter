@@ -377,8 +377,16 @@ public enum MenuSelectionCopy {
             dontUseWhen: "OpenCode Go required"
         ),
         "model_opencode_glm_5_2": Pair(
-            useWhen: "GLM-5.2, OpenCode Go",
-            dontUseWhen: "OpenCode Go required"
+            useWhen: "GLM-5.2, OpenCode Go (prior gen)",
+            dontUseWhen: "Prefer GLM-5.3; model_opencode_glm_5_3"
+        ),
+        "model_opencode_glm_5_3": Pair(
+            useWhen: "GLM-5.3, OpenCode Go",
+            dontUseWhen: "Prefer GLM-5.3-Flash for speed; model_opencode_glm_5_3_flash"
+        ),
+        "model_opencode_glm_5_3_flash": Pair(
+            useWhen: "GLM-5.3-Flash, OpenCode Go",
+            dontUseWhen: "Prefer GLM-5.3 for max depth; model_opencode_glm_5_3"
         ),
         "model_opencode_qwen_37_max": Pair(
             useWhen: "Qwen 3.7 Max, OpenCode Go",
@@ -394,6 +402,10 @@ public enum MenuSelectionCopy {
         ),
         "model_opencode_qwen_37_plus": Pair(
             useWhen: "Qwen 3.7 Plus, OpenCode Go",
+            dontUseWhen: "OpenCode Go required"
+        ),
+        "model_opencode_ox_alpha_free": Pair(
+            useWhen: "Ox Alpha Free, OpenCode Go (limited-time free seat)",
             dontUseWhen: "OpenCode Go required"
         ),
         "model_grok_composer_25_fast": Pair(
@@ -438,14 +450,18 @@ public enum MenuSelectionCopy {
         ),
         "model_gemini": Pair(
             useWhen: "Latest Gemini Flash (catalog-resolved)",
-            dontUseWhen: "Need an exact generation; pin model_gemini_37 or model_gemini_36"
+            dontUseWhen: "Need an exact generation; pin model_gemini_38, model_gemini_37, or model_gemini_36"
         ),
         "model_gemini_36": Pair(
             useWhen: "Pin Gemini 3.6 Flash exactly",
             dontUseWhen: "Want latest Flash; use model_gemini"
         ),
         "model_gemini_37": Pair(
-            useWhen: "Gemini 3.7 Flash, Antigravity",
+            useWhen: "Pin Gemini 3.7 Flash exactly",
+            dontUseWhen: "Want latest Flash; use model_gemini"
+        ),
+        "model_gemini_38": Pair(
+            useWhen: "Gemini 3.8 Flash, Antigravity",
             dontUseWhen: "Want latest Flash; use model_gemini"
         ),
         "model_gemini_pro": Pair(

@@ -1426,7 +1426,7 @@ closed against recurrence.
    costs a `pkill -x Allnighter` at both ends of `scripts/gui_proof.sh`, which
    takes down the app serving the sandbox hand-off, for no information gain.
 7. **Protected branch + Code Owner: dropped as not applicable today.** The
-   remote exists (`github.com/MikeReining/allnighter`), but the working branch
+   remote exists (`github.com/allnighter-io/allnighter`), but the working branch
    carries ~588 unpushed commits, there is no PR flow and no CI job to require,
    and the repository has no `CODEOWNERS` or reviewed identity to assign.
    Branch protection would gate a path nothing currently travels. If Allnighter

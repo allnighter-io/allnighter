@@ -1,11 +1,11 @@
 # Local Runtime — Brief
 
-**Tier:** C as named by LR-S05 in `docs/phases/Local_Runtime_Surface.md`.
+**Tier:** C as named by LR-S05 in `docs/archive/phases/Local_Runtime_Surface.md`.
 **Escalation (flagged, not resolved):** see **Tier flag** below. Founder call.
 **Visual kit:** Settings › CLIs midnight page (`TeamStudioView` `.clis` /
 `TeamReadinessView`). Tokens: `docs/design-system/production.md`. No dedicated
 ui-kit specimen — packet §2.1 mockup is the visual target.
-**Behavioral owner:** `docs/phases/Local_Runtime_Surface.md` §0.1, §2.1–§2.4.
+**Behavioral owner:** `docs/archive/phases/Local_Runtime_Surface.md` §0.1, §2.1–§2.4.
 **Contract:** 10.9.0. GUI consumes shipped Core/CLI; it does not invent fields
 or walk sockets.
 

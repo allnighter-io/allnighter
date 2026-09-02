@@ -242,7 +242,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         tiers: TierMembership(
             frontier: [
                 "model_fable", "model_gpt_sol", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
-                "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_2",
+                "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_3",
             ],
             balanced: [
                 "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
@@ -255,7 +255,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
                 "model_cursor_composer_25", "model_cursor_auto", "model_gemini",
                 "model_opencode_big_pickle",
                 "model_opencode_minimax_m3", "model_opencode_deepseek_v4_flash",
-                "model_opencode_qwen_37_plus",
+                "model_opencode_glm_5_3_flash", "model_opencode_qwen_37_plus",
             ]))
 
     /// The tier's default model id (index 0), or nil when the tier is empty.
@@ -268,8 +268,11 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         let backfill: [(SubstitutionTier, ModelID)] = [
             (.frontier, "model_grok_46"),
             (.frontier, "model_cursor_grok_46"),
+            (.frontier, "model_opencode_glm_5_3"),
             (.economy, "model_agy_sonnet"),
             (.economy, "model_gpt_luna"),
+            (.economy, "model_opencode_ox_alpha_free"),
+            (.economy, "model_opencode_glm_5_3_flash"),
         ]
         for (tier, id) in backfill where !merged.tiers[tier].contains(id) {
             merged.tiers.assign(id, to: tier)

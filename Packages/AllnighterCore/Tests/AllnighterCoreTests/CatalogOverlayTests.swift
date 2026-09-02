@@ -17,7 +17,7 @@ final class CatalogOverlayTests: XCTestCase {
     func testPrimarySeatCaliberFollowsFounderOrdering() {
         let order = [
             "model_fable", "model_gpt_sol", "model_opus", "model_kimi_k3",
-            "model_cursor_grok_45", "model_opencode_glm_5_2",
+            "model_cursor_grok_45", "model_opencode_glm_5_3",
             "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro",
         ]
         let caps = ModelCatalog.builtInCapabilities
@@ -136,7 +136,7 @@ final class CatalogOverlayTests: XCTestCase {
         let agy = ModelCatalog.builtIns.filter { $0.driverId == "antigravity" }
         XCTAssertEqual(
             Set(agy.filter(\.defaultEnabled).map(\.id)),
-            ["model_gemini", "model_gemini_37", "model_agy_opus", "model_agy_sonnet"]
+            ["model_gemini", "model_gemini_38", "model_agy_opus", "model_agy_sonnet"]
         )
         XCTAssertEqual(agy.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
         XCTAssertEqual(agy.first { $0.id == "model_agy_sonnet" }?.displayName, "Sonnet 4.6 (Antigravity)")

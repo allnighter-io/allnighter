@@ -28,7 +28,7 @@ public enum OpenCodeModelGate {
     public static let goRecommendPrimaryTitle = "Get Go — $10/mo"
 
     public static let goConnectedDetail =
-        "Go is connected — DeepSeek V4 Pro/Flash, GLM-5.2, and the rest of the Go lineup are on the bench. Re-check reloads OpenCode’s local serve if it started before you subscribed."
+        "Go is connected — DeepSeek V4 Pro/Flash, GLM-5.3/Flash, and the rest of the Go lineup are on the bench. Re-check reloads OpenCode’s local serve if it started before you subscribed."
 
     public static let goConnectedPrimaryTitle = "See Go plans"
 

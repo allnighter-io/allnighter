@@ -48,9 +48,9 @@ final class ModelCatalogTests: XCTestCase {
         // Qwen Code CLI seat added default-on 2026-08-06 (27 → 28).
         // OpenCode Zen Big Pickle smoke seat added default-on 2026-08-10 (28 → 29).
         // OpenCode Go inventory seats default-off while locked (29 → 22). When Go
-        // auth connects, reconcile seeds all seven default-on Go seats (22 → 29).
-        // Gemini 3.7 Flash pin added default-on 2026-08-13 (24 → 25); 3.6 stays
-        // available/off-bench. `model_gemini` is the gemini_flash latest-pointer.
+        // auth connects, reconcile seeds all eight default-on Go seats (22 → 30).
+        // Gemini 3.8 Flash pin added default-on 2026-09-02; 3.7 moves off-bench.
+        // `model_gemini` is the gemini_flash latest-pointer.
         XCTAssertEqual(models.filter(\.enabled).count, 25)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_opencode_glm_5_2" }?.enabled ?? true,
@@ -144,13 +144,27 @@ final class ModelCatalogTests: XCTestCase {
     func testAntigravityProbeUsesGeminiFlashNotOpus() {
         XCTAssertEqual(
             ModelCatalog.probeModelLabel(driverId: "antigravity"),
-            "Gemini 3.7 Flash (Medium)"
+            "Gemini 3.8 Flash (Medium)"
         )
         XCTAssertNotEqual(
             ModelCatalog.probeModelLabel(driverId: "antigravity"),
             "Claude Opus 4.6 (Thinking)",
             "Opus is role=both so selectProbeLabel would pick it; smoke must stay on Gemini"
         )
+    }
+
+    func testOpenCodeGlm53ShipsWithGoLabel() throws {
+        let glm = try XCTUnwrap(ModelCatalog.get("model_opencode_glm_5_3"))
+        XCTAssertEqual(glm.displayName, "GLM-5.3")
+        XCTAssertEqual(glm.modelLabel, "opencode-go/glm-5.3")
+        XCTAssertTrue(OpenCodeModelGate.isGoCatalogSeat(glm))
+    }
+
+    func testOpenCodeGlm53FlashShipsWithGoLabel() throws {
+        let glm = try XCTUnwrap(ModelCatalog.get("model_opencode_glm_5_3_flash"))
+        XCTAssertEqual(glm.displayName, "GLM-5.3-Flash")
+        XCTAssertEqual(glm.modelLabel, "opencode-go/glm-5.3-flash")
+        XCTAssertTrue(OpenCodeModelGate.isGoCatalogSeat(glm))
     }
 
     func testOpenCodeGoInventoryHiddenAndRefusesEnable() throws {
@@ -194,6 +208,8 @@ final class ModelCatalogTests: XCTestCase {
         let models = ModelCatalog.resolvedModels(registry: testRegistry())
         for id in [
             "model_opencode_glm_5_2",
+            "model_opencode_glm_5_3",
+            "model_opencode_glm_5_3_flash",
             "model_opencode_deepseek_v4_pro",
             "model_opencode_deepseek_v4_flash",
         ] {

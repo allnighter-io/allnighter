@@ -20,10 +20,10 @@ dispatch queue:
 
 ```bash
 # Single-worker ask (chat / advisory review in the project root)
-alln run --model model_opencode_glm_5_2 --json "Review <file>: what invariant breaks if X?"
+alln run --model model_opencode_glm_5_3 --json "Review <file>: what invariant breaks if X?"
 
 # Or: confirm the worker is on the bench, then run
-alln models --json          # look for model_opencode_glm_5_2
+alln models --json          # look for model_opencode_glm_5_3
 alln menu --json
 ```
 
@@ -113,7 +113,7 @@ optimize for slice JSON turning green; optimize for **upheld findings → shippe
 
 **Not** "overnight batch." A **serial investigation** over hard invariant chunks.
 
-1. **One GLM review at a time** — seat a single `model_opencode_glm_5_2` run; do not
+1. **One GLM review at a time** — seat a single `model_opencode_glm_5_3` run; do not
    fan out parallel GLM workers against the same OpenCode serve.
 2. **Patient timeouts** — give the worker a long stall budget on hard reviews; GLM may
    reason a long time before writing via tools.
@@ -126,7 +126,7 @@ optimize for slice JSON turning green; optimize for **upheld findings → shippe
 ```text
 # HISTORICAL — non-runnable. scripts/run_cr_phase1.sh no longer exists on disk.
 # Kept only so agents do not invent a replacement paste from memory.
-# Live replacement: alln run --model model_opencode_glm_5_2 … (see §Live path).
+# Live replacement: alln run --model model_opencode_glm_5_3 … (see §Live path).
 #
 # PAIR_CR_PARALLEL=0 PAIR_CR_VERIFY=0 scripts/run_cr_phase1.sh Allnighter \
 #   11 14 15 18 19 21 16 17 22 12 23 20 24 25 13 26 27 28 29 30 31 32

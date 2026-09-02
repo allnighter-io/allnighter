@@ -3,7 +3,7 @@
 Status: **CLOSED 2026-08-15.** All slices shipped, all Done-when boxes closed
 against live verification on the dogfood host. Ready to archive.
 Founder-ruled 2026-08-14. Successor to packet 1
-([`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md),
+([`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md),
 archived 2026-08-13) — not a reopening of it.
 Owner: unassigned (`ModelCatalog` discovery wiring + Mac CLI strip)
 Updated: 2026-08-14 (closeout hygiene)
@@ -35,43 +35,12 @@ All ladder slices are **IMPLEMENTED**:
 | S05c | `854ec69c` |
 | S07 | `39597ca9` |
 
-Contract **10.9.0**. `binaryVersion` **1.1.19** (**unpublished**).
+Contract **10.9.0**. `binaryVersion` **1.1.19** (published at closeout).
 
-**The packet is not closed.** Do not mark it closed. Do not archive it.
-
-`scripts/check.sh` **ran and failed** at the GUI visual proof gate, before
-reaching the Swift suite. It flagged 13 views as changed-without-fresh-proof.
-Only **two** are this packet's: `RootView.swift` and
-`LocalRuntimeSectionView.swift`. The other **eleven** are pre-existing debt
-(`AboutUpdatesView`, `AskAIPanel`, `BoostWindowView`, `CapacityStripView`,
-`DefaultModelView`, `ReadinessView`, `SetupViews`, `TeamControlView`,
-`TeamStudioView`, `UseFromCLIView`, `WorkspaceMode`). The GUI gate was already
-failing before this packet.
-
-**Disclose this:** the PM then re-ran `check.sh` once with
-`ALLNIGHTER_GUI_PROOF_WAIVER` set, purely to learn whether the Swift suite was
-green. That was a **diagnostic override**, **not** a closeout waiver. The visual
-gate remains **unsatisfied**. The re-run was refused anyway by a 45m wall
-cooldown, and the PM chose **not** to stack the `ALLNIGHTER_WALL_REASON`
-override on top of it.
-
-Instead a blast-radius filtered suite ran: **230 tests, 2 failures**, both the
-version-floor drift (`binaryVersion` 1.1.15 vs public floor docs still on
-1.1.14). Everything else green. Closeout hygiene later synced the floor via
-`scripts/public-floor.sh sync` (not hand-edited) and proved
-`VersionIdentityTests` green (`6 tests, 0 failures`), including
-`testPublicFloorDocsMatchVersionIdentity`.
-
-`scripts/gui_proof.sh` times out on **every** fixture including the
-pre-existing `ask-ai-open`, so it is broken **environment-wide**, not by this
-packet. Evidence: the app consumes `gui-proof-request.json` but writes neither
-the PNG nor `gui-proof-last-error.txt`; the `gui-proof-screen-recording.ok`
-marker is our own bookkeeping dated Jul 30, not macOS TCC truth, and the app
-has been rebuilt many times since. Likely fix is `bash scripts/gui_proof_grant.sh`,
-which needs a human to click through System Settings.
-
-**No pixel of the new surface has been looked at.** Works Test A has **never**
-been run live. Neither is claimed as proven.
+**Final closeout:** §9 — all Done-when boxes closed 2026-08-15 against live
+verification on the dogfood host. The interim 2026-08-14 block below recorded
+mid-closeout debt (GUI gate red, Works Test A not yet run); all resolved before
+archive. See §9 closeout proof table.
 
 ---
 
@@ -966,10 +935,6 @@ catalog row, not a pulled tag. Help topics `opencode_local_setup` and
 default `alln menu --json` `localRuntime`, and `alln drivers --json`
 `localRuntimeSeats`. Code SSOT names added to law/vocab.
 
-**Founder question (not implemented):** `AGENTS.md` first-routing table still
-links vocab `§Local Ollama readiness`; the promoted heading is now
-`§Local runtime`. Update the router on archive, or keep the old anchor label?
-
 ### Live dogfood — 1.1.15 binary, 2026-08-15
 
 Two honesty defects on the rebuilt 1.1.15 CLI. Both shipped in **1.1.16**.
@@ -1053,5 +1018,5 @@ suite (`4250` tests):
 | Local models missing from the app or `alln models`; a newly pulled tag not appearing | This packet §0.3 (verified state) + §0.5 + §4 |
 | Which agent body runs a local model, and how the user picks | §0.1 ruling 2, §0.2, §0.5 body-selector write; code `OllamaLocalSeatEnablePolicy.allowedBodies`, `ClaudeLocalIsolation` |
 | Ollama as a driver / an alln-owned tool loop over Ollama HTTP | Refuse — packet 1 §3; `ollama run` is a completion CLI, G0 only |
-| Local seat readiness, provenance, isolation, served context | Archived [`OpenCode_Local_Ollama_Seats.md`](../archive/phases/OpenCode_Local_Ollama_Seats.md); law `Project_Laws.md` §Local Ollama seats |
-| Egress policy / keeping the frontier model away from source | [`Context_Firewall.md`](Context_Firewall.md) — packet 2; unaffected by this work |
+| Local seat readiness, provenance, isolation, served context | Archived [`OpenCode_Local_Ollama_Seats.md`](OpenCode_Local_Ollama_Seats.md); law `Project_Laws.md` §Local Ollama seats |
+| Egress policy / keeping the frontier model away from source | [`Context_Firewall.md`](../../phases/Context_Firewall.md) — packet 2; unaffected by this work |

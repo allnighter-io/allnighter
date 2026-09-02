@@ -258,6 +258,12 @@ model_opencode_qwen3_coder_next
 
 model_opencode_glm_5_2
   modelLabel: featherless/zai-org/GLM-5.2
+
+model_opencode_glm_5_3
+  modelLabel: opencode-go/glm-5.3
+
+model_opencode_glm_5_3_flash
+  modelLabel: opencode-go/glm-5.3-flash
 ```
 
 Model strings must match `opencode models` output for the user's configured

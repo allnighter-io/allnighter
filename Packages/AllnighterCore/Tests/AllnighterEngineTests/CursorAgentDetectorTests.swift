@@ -160,7 +160,7 @@ final class CursorAgentDetectorTests: XCTestCase {
                 return CommandResult(launchError: "unexpected")
             },
             shellPath: "/bin/zsh", home: "/tmp/home")
-        let r = await det.probe(manifest, model: "Gemini 3.7 Flash (Medium)", now: .init(timeIntervalSince1970: 0))
+        let r = await det.probe(manifest, model: "Gemini 3.8 Flash (Medium)", now: .init(timeIntervalSince1970: 0))
         guard case .rateLimited(let observation) = r.status else {
             return XCTFail("expected .rateLimited, got \(r.status)")
         }
