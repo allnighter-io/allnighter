@@ -353,8 +353,8 @@ public enum MenuSelectionCopy {
             dontUseWhen: "Prefer K3; model_kimi_k27_hs"
         ),
         "model_opencode_muse_spark_13_contributor": Pair(
-            useWhen: "Muse Spark 1.3 Contributor via OpenRouter",
-            dontUseWhen: "Not OpenCode Go; not muse CLI"
+            useWhen: "Muse Spark 1.3 Contributor via OpenCode Go",
+            dontUseWhen: "OpenCode Go subscription required; not muse CLI"
         ),
         "model_opencode_big_pickle": Pair(
             useWhen: "OpenCode Zen Big Pickle, free smoke/default",

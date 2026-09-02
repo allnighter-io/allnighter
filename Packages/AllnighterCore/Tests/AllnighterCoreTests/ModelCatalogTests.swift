@@ -43,7 +43,7 @@ final class ModelCatalogTests: XCTestCase {
         // Cursor Fable/Opus/Sonnet seats added default-on 2026-07-28 (12 → 15).
         // Antigravity Opus/Sonnet 4.6 re-added default-on for Claude quota harvest (15 → 17).
         // GPT-5.6 Luna added default-on on Economy bench (17 → 18).
-        // Muse Spark 1.2 seats removed; Muse Spark 1.3 Contributor via OpenCode (24 while Go locked).
+        // Muse Spark 1.3 Contributor via OpenCode Go; 1.2 Muse CLI seats removed.
         XCTAssertEqual(models.filter(\.enabled).count, 24)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
         XCTAssertTrue(models.first { $0.id == "model_opencode_muse_spark_13_contributor" }?.enabled ?? false,
@@ -252,18 +252,14 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertTrue(roster.enabledModelIds.contains("model_opencode_big_pickle"))
     }
 
-    func testOpenCodeMuseSpark13ContributorShipsWithOpenRouterLabel() throws {
-        OpenCodeModelGate.overrideGoConnectedForTesting(false)
-        defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
+    func testOpenCodeMuseSpark13ContributorShipsWithGoLabel() throws {
         let muse = try XCTUnwrap(ModelCatalog.get("model_opencode_muse_spark_13_contributor"))
         XCTAssertEqual(muse.displayName, "Muse Spark 1.3 Contributor (OpenCode)")
-        XCTAssertEqual(muse.modelLabel, "openrouter/meta/muse-spark-1.3-contributor")
+        XCTAssertEqual(muse.modelLabel, "opencode-go/muse-spark-1.3-contributor")
         XCTAssertEqual(muse.driverId, "opencode")
-        XCTAssertFalse(OpenCodeModelGate.isGoCatalogSeat(muse))
-        XCTAssertTrue(OpenCodeModelGate.visibleInCLIRoster(muse))
-        XCTAssertTrue(muse.defaultEnabled)
+        XCTAssertTrue(OpenCodeModelGate.isGoCatalogSeat(muse))
         XCTAssertEqual(ModelCatalog.modelFamily(muse.id), "muse")
-        XCTAssertTrue(ModelCatalog.isEnabled("model_opencode_muse_spark_13_contributor"))
+        XCTAssertTrue(muse.defaultEnabled)
     }
 
     func testCustomModelCRUD() throws {

@@ -232,7 +232,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// Frontier: Fable, Codex Sol, Kimi K3, Qwen 3.8 Max, OpenCode Go frontier seats. Balanced:
     /// everyday seats including Antigravity Opus 4.6 (separate Claude quota pool),
     /// Composer 2.5 (not the vendor "Fast" SKUs), and Muse Spark 1.3 Contributor
-    /// via OpenCode OpenRouter. Composer also spans Economy.
+    /// via OpenCode Go. Composer also spans Economy.
     /// Economy: Antigravity Sonnet 4.6, GPT-5.6 Luna, K2.7, Composer 2.5, Auto,
     /// Gemini, OpenCode Zen Big Pickle, and OpenCode Go economy seats.
     /// Vendor *Fast* model ids stay Unassigned — never tiered by default.

@@ -211,8 +211,12 @@ import Foundation
 /// movement on a non-terminal mutating run (`repoActivity`) and, when that
 /// job is also silent, names `alln kill` so the write-lock line can move.
 /// Never auto-completes waiters from git.
+/// **1.1.21 → 1.1.22 (Muse Spark 1.3 label).** Muse Spark 1.3 Contributor
+/// routes through OpenCode Go (`opencode-go/muse-spark-1.3-contributor`);
+/// the OpenRouter label OpenCode does not expose is retired. Same contract
+/// 10.10.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.21"
+    public static let binaryVersion = "1.1.22"
 }
 
 /// `alln version` / `alln --version` machine contract.
