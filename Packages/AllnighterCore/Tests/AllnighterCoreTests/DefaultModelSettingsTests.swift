@@ -19,7 +19,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.tiers.balanced, [
             "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini",
-            "model_muse_spark_12", "model_muse_spark_12_contributor",
+            "model_opencode_muse_spark_13_contributor",
             "model_opencode_qwen_37_max", "model_opencode_deepseek_v4_pro", "model_opencode_minimax_m3",
         ])
         XCTAssertEqual(s.tiers.economy, [
@@ -50,8 +50,10 @@ final class DefaultModelSettingsTests: XCTestCase {
     func testMergingMissingFreshTierMembersIsAdditive() {
         var saved = DefaultModelSettings.fresh
         saved.tiers.economy = saved.tiers.economy.filter { $0 != "model_agy_sonnet" }
+        saved.tiers.balanced = saved.tiers.balanced.filter { $0 != "model_opencode_muse_spark_13_contributor" }
         let merged = saved.mergingMissingFreshTierMembers()
         XCTAssertTrue(merged.tiers.economy.contains("model_agy_sonnet"))
+        XCTAssertTrue(merged.tiers.balanced.contains("model_opencode_muse_spark_13_contributor"))
         XCTAssertEqual(merged.tiers.frontier, saved.tiers.frontier)
         XCTAssertFalse(merged.tiers.balanced.contains("model_agy_sonnet"))
     }
@@ -327,7 +329,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(loaded.defaultTier, .balanced)
         XCTAssertFalse(loaded.allowHealthySubstitutions)
         XCTAssertEqual(loaded.tiers.frontier, ["model_opus", "model_gpt_sol", "model_grok_46", "model_cursor_grok_46", "model_opencode_glm_5_3"], "intra-tier dup normalized away; fresh frontier backfill additive")
-        XCTAssertEqual(loaded.tiers.balanced, ["model_opus", "model_sonnet"], "cross-tier membership preserved")
+        XCTAssertEqual(loaded.tiers.balanced, ["model_opus", "model_sonnet", "model_opencode_muse_spark_13_contributor"], "cross-tier membership preserved; fresh balanced backfill additive")
         XCTAssertNotNil(loaded.updatedAt)
     }
 

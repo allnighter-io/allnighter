@@ -43,16 +43,11 @@ final class ModelCatalogTests: XCTestCase {
         // Cursor Fable/Opus/Sonnet seats added default-on 2026-07-28 (12 → 15).
         // Antigravity Opus/Sonnet 4.6 re-added default-on for Claude quota harvest (15 → 17).
         // GPT-5.6 Luna added default-on on Economy bench (17 → 18).
-        // Muse Spark 1.2 seats added default-on 2026-08-05 (18 → 20).
-        // OpenCode Go seats added default-on 2026-08-05 (20 → 27).
-        // Qwen Code CLI seat added default-on 2026-08-06 (27 → 28).
-        // OpenCode Zen Big Pickle smoke seat added default-on 2026-08-10 (28 → 29).
-        // OpenCode Go inventory seats default-off while locked (29 → 22). When Go
-        // auth connects, reconcile seeds all eight default-on Go seats (22 → 30).
-        // Gemini 3.8 Flash pin added default-on 2026-09-02; 3.7 moves off-bench.
-        // `model_gemini` is the gemini_flash latest-pointer.
-        XCTAssertEqual(models.filter(\.enabled).count, 25)
+        // Muse Spark 1.2 seats removed; Muse Spark 1.3 Contributor via OpenCode (24 while Go locked).
+        XCTAssertEqual(models.filter(\.enabled).count, 24)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
+        XCTAssertTrue(models.first { $0.id == "model_opencode_muse_spark_13_contributor" }?.enabled ?? false,
+                       "OpenRouter Muse is not Go inventory — it stays on-bench without a Go key")
         XCTAssertFalse(models.first { $0.id == "model_opencode_glm_5_2" }?.enabled ?? true,
                        "OpenCode Go inventory stays off until Go auth connects")
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
@@ -255,6 +250,20 @@ final class ModelCatalogTests: XCTestCase {
         let roster = try XCTUnwrap(ModelRosterPersistence(fileURL: rosterURL).load())
         XCTAssertFalse(roster.enabledModelIds.contains("model_opencode_glm_5_2"))
         XCTAssertTrue(roster.enabledModelIds.contains("model_opencode_big_pickle"))
+    }
+
+    func testOpenCodeMuseSpark13ContributorShipsWithOpenRouterLabel() throws {
+        OpenCodeModelGate.overrideGoConnectedForTesting(false)
+        defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
+        let muse = try XCTUnwrap(ModelCatalog.get("model_opencode_muse_spark_13_contributor"))
+        XCTAssertEqual(muse.displayName, "Muse Spark 1.3 Contributor (OpenCode)")
+        XCTAssertEqual(muse.modelLabel, "openrouter/meta/muse-spark-1.3-contributor")
+        XCTAssertEqual(muse.driverId, "opencode")
+        XCTAssertFalse(OpenCodeModelGate.isGoCatalogSeat(muse))
+        XCTAssertTrue(OpenCodeModelGate.visibleInCLIRoster(muse))
+        XCTAssertTrue(muse.defaultEnabled)
+        XCTAssertEqual(ModelCatalog.modelFamily(muse.id), "muse")
+        XCTAssertTrue(ModelCatalog.isEnabled("model_opencode_muse_spark_13_contributor"))
     }
 
     func testCustomModelCRUD() throws {

@@ -87,5 +87,11 @@ final class ModelDisplayNameTests: XCTestCase {
                 modelId: "model_qwen_38_max",
                 driverId: "qwen"),
             "Qwen 3.8 Max")
+        XCTAssertEqual(
+            ModelDisplayName.format(
+                baseName: "Muse Spark 1.3 Contributor",
+                modelId: "model_opencode_muse_spark_13_contributor",
+                driverId: "opencode"),
+            "Muse Spark 1.3 Contributor (OpenCode)")
     }
 }

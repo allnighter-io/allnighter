@@ -352,13 +352,9 @@ public enum MenuSelectionCopy {
             useWhen: "Kimi K2.7 HighSpeed, plan-gated fast",
             dontUseWhen: "Prefer K3; model_kimi_k27_hs"
         ),
-        "model_muse_spark_12": Pair(
-            useWhen: "Muse Spark 1.2, Meta coding agent (medium)",
-            dontUseWhen: "Pin seat; model_muse_spark_12"
-        ),
-        "model_muse_spark_12_contributor": Pair(
-            useWhen: "Muse Spark 1.2 Contributor, lower-cost Meta seat",
-            dontUseWhen: "Pin seat; model_muse_spark_12_contributor"
+        "model_opencode_muse_spark_13_contributor": Pair(
+            useWhen: "Muse Spark 1.3 Contributor via OpenRouter",
+            dontUseWhen: "Not OpenCode Go; not muse CLI"
         ),
         "model_opencode_big_pickle": Pair(
             useWhen: "OpenCode Zen Big Pickle, free smoke/default",

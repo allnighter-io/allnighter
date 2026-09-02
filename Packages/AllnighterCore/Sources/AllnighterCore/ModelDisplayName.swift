@@ -64,7 +64,7 @@ public enum ModelDisplayName {
             return "antigravity"
         case "model_kimi_k3", "model_kimi_k27", "model_kimi_k27_hs":
             return "kimi"
-        case "model_muse_spark_12", "model_muse_spark_12_contributor":
+        case "model_opencode_muse_spark_13_contributor":
             return "muse"
         case "model_qwen_38_max",
              "model_opencode_qwen_38_max", "model_opencode_qwen_37_max", "model_opencode_qwen_37_plus":

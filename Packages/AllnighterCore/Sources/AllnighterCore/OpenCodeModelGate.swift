@@ -5,6 +5,10 @@ import Foundation
 /// Catalog Go seats use `opencode-go/…` labels (OpenCode’s Go provider ids). They stay
 /// off the bench until this Mac has an `opencode-go` API key in OpenCode’s auth store
 /// — the same signal OpenCode’s TUI uses after `/connect`.
+///
+/// OpenRouter seats (`openrouter/…`) are not Go. Allnighter does not collect an
+/// OpenRouter key; OpenCode already has it. Those seats follow Zen: default-on
+/// whenever OpenCode is on the bench.
 public enum OpenCodeModelGate {
     public static let driverId = "opencode"
     public static let goProviderID = "opencode-go"
@@ -67,10 +71,15 @@ public enum OpenCodeModelGate {
         def.driverId == driverId && isGoCatalogLabel(def.modelLabel)
     }
 
-    /// Repair / CLI model list: Zen + customs always; Go inventory only when connected.
+    /// Go inventory that must not pretend to be ready. Zen, OpenRouter, and
+    /// customs are never locked this way.
+    public static func isCatalogSeatLocked(_ def: ModelDefinition) -> Bool {
+        isGoCatalogSeat(def) && !isGoConnected()
+    }
+
+    /// Repair / CLI model list: Zen + OpenRouter + customs always; Go only when connected.
     public static func visibleInCLIRoster(_ def: ModelDefinition) -> Bool {
         guard def.driverId == driverId else { return true }
-        if isGoCatalogSeat(def) { return isGoConnected() }
-        return true
+        return !isCatalogSeatLocked(def)
     }
 }

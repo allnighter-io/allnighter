@@ -88,7 +88,7 @@ public enum ModelCatalog {
             return "grok"
         case "model_kimi_k3", "model_kimi_k27":
             return "kimi"
-        case "model_muse_spark_12", "model_muse_spark_12_contributor":
+        case "model_opencode_muse_spark_13_contributor":
             return "muse"
         case "model_gemini", "model_gemini_36", "model_gemini_37", "model_gemini_38", "model_gemini_pro":
             return "gemini"
@@ -349,8 +349,8 @@ public enum ModelCatalog {
 
     public static func isEnabled(_ id: ModelID) -> Bool {
         guard let def = get(id) else { return false }
-        // Fictional-until-connected Go inventory stays off until OpenCode auth has Go.
-        if OpenCodeModelGate.isGoCatalogSeat(def), !OpenCodeModelGate.isGoConnected() {
+        // Go inventory stays off until OpenCode auth has Go.
+        if OpenCodeModelGate.isCatalogSeatLocked(def) {
             return false
         }
         return enabledModelIDs(definitions: mergedDefinitions())[id] ?? def.defaultEnabled
@@ -358,7 +358,7 @@ public enum ModelCatalog {
 
     public static func setEnabled(_ id: ModelID, _ enabled: Bool) throws {
         guard let def = get(id) else { throw ModelCatalogError.notFound(id) }
-        if enabled, OpenCodeModelGate.isGoCatalogSeat(def), !OpenCodeModelGate.isGoConnected() {
+        if enabled, OpenCodeModelGate.isCatalogSeatLocked(def) {
             throw ModelCatalogError.invalid(
                 "OpenCode Go seats stay off until OpenCode has an opencode-go API key — subscribe, /connect, then Re-check")
         }
@@ -648,7 +648,7 @@ public enum ModelCatalog {
             .sorted { $0.id < $1.id }
             .map { def in
                 let onBench: Bool
-                if OpenCodeModelGate.isGoCatalogSeat(def), !OpenCodeModelGate.isGoConnected() {
+                if OpenCodeModelGate.isCatalogSeatLocked(def) {
                     onBench = false
                 } else {
                     onBench = enabled[def.id] ?? def.defaultEnabled
@@ -671,10 +671,7 @@ public enum ModelCatalog {
         let ids = definitions.filter { def in
             guard def.defaultEnabled else { return false }
             // Go seats only seed onto a fresh roster when OpenCode auth already has Go.
-            if OpenCodeModelGate.isGoCatalogSeat(def) {
-                return OpenCodeModelGate.isGoConnected()
-            }
-            return true
+            return !OpenCodeModelGate.isCatalogSeatLocked(def)
         }.map(\.id)
         return ModelRosterState(
             enabledModelIds: ids,
@@ -760,6 +757,7 @@ public enum ModelCatalog {
         for id in newcomers {
             guard let def = builtIns.first(where: { $0.id == id }),
                   def.defaultEnabled,
+                  !OpenCodeModelGate.isCatalogSeatLocked(def),
                   !roster.enabledModelIds.contains(id) else { continue }
             roster.enabledModelIds.append(id)
             changed = true

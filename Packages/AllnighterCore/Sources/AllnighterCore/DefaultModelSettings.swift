@@ -230,8 +230,9 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// substitution always has somewhere to go even when a user has only one or two
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
     /// Frontier: Fable, Codex Sol, Kimi K3, Qwen 3.8 Max, OpenCode Go frontier seats. Balanced:
-    /// everyday seats including Antigravity Opus 4.6 (separate Claude quota pool)
-    /// and Composer 2.5 (not the vendor "Fast" SKUs) spans Balanced + Economy.
+    /// everyday seats including Antigravity Opus 4.6 (separate Claude quota pool),
+    /// Composer 2.5 (not the vendor "Fast" SKUs), and Muse Spark 1.3 Contributor
+    /// via OpenCode OpenRouter. Composer also spans Economy.
     /// Economy: Antigravity Sonnet 4.6, GPT-5.6 Luna, K2.7, Composer 2.5, Auto,
     /// Gemini, OpenCode Zen Big Pickle, and OpenCode Go economy seats.
     /// Vendor *Fast* model ids stay Unassigned — never tiered by default.
@@ -247,7 +248,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
             balanced: [
                 "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini",
-                "model_muse_spark_12", "model_muse_spark_12_contributor",
+                "model_opencode_muse_spark_13_contributor",
                 "model_opencode_qwen_37_max", "model_opencode_deepseek_v4_pro", "model_opencode_minimax_m3",
             ],
             economy: [
@@ -269,6 +270,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
             (.frontier, "model_grok_46"),
             (.frontier, "model_cursor_grok_46"),
             (.frontier, "model_opencode_glm_5_3"),
+            (.balanced, "model_opencode_muse_spark_13_contributor"),
             (.economy, "model_agy_sonnet"),
             (.economy, "model_gpt_luna"),
             (.economy, "model_opencode_ox_alpha_free"),

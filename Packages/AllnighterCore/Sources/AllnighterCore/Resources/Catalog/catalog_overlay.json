@@ -482,42 +482,6 @@
       },
       "defaultOn": true
     },
-    "model_muse_spark_12": {
-      "caliber": {
-        "capabilityTags": [
-          "code",
-          "planner",
-          "review",
-          "design"
-        ],
-        "laneTags": [
-          "code",
-          "design",
-          "copy",
-          "signal"
-        ],
-        "strengthRank": 78
-      },
-      "defaultOn": true
-    },
-    "model_muse_spark_12_contributor": {
-      "caliber": {
-        "capabilityTags": [
-          "code",
-          "planner",
-          "review",
-          "design"
-        ],
-        "laneTags": [
-          "code",
-          "design",
-          "copy",
-          "signal"
-        ],
-        "strengthRank": 76
-      },
-      "defaultOn": true
-    },
     "model_opus": {
       "caliber": {
         "capabilityTags": [
@@ -805,6 +769,24 @@
           "signal"
         ],
         "strengthRank": 45
+      },
+      "defaultOn": true
+    },
+    "model_opencode_muse_spark_13_contributor": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "design"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 77
       },
       "defaultOn": true
     }
