@@ -248,7 +248,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
             balanced: [
                 "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
                 "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini",
-                "model_opencode_muse_spark_13_contributor",
+                "model_muse_spark_13_contributor",
                 "model_opencode_qwen_37_max", "model_opencode_deepseek_v4_pro", "model_opencode_minimax_m3",
             ],
             economy: [
@@ -270,7 +270,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
             (.frontier, "model_grok_46"),
             (.frontier, "model_cursor_grok_46"),
             (.frontier, "model_opencode_glm_5_3"),
-            (.balanced, "model_opencode_muse_spark_13_contributor"),
+            (.balanced, "model_muse_spark_13_contributor"),
             (.economy, "model_agy_sonnet"),
             (.economy, "model_gpt_luna"),
             (.economy, "model_opencode_ox_alpha_free"),

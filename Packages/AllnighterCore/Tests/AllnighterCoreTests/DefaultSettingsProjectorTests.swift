@@ -18,7 +18,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         "model_agy_opus", "model_agy_sonnet",
         "model_kimi_k3", "model_kimi_k27", "model_cursor_grok_45", "model_cursor_grok_46", "model_grok", "model_grok_46", "model_cursor_composer_25",
         "model_cursor_composer_25_fast", "model_gemini", "model_cursor_auto", "model_grok_composer_25_fast",
-        "model_opencode_muse_spark_13_contributor", "model_extra"
+        "model_muse_spark_13_contributor", "model_extra"
     ]) -> [ModelListJSON.Entry] {
         [
             entry("model_fable", "Fable 5", ready: ready.contains("model_fable")),
@@ -44,8 +44,8 @@ final class DefaultSettingsProjectorTests: XCTestCase {
             entry("model_cursor_composer_25_fast", "Composer 2.5 Fast", driver: "cursor_agent",
                   ready: ready.contains("model_cursor_composer_25_fast")),
             entry("model_gemini", "Gemini Flash", driver: "antigravity", ready: ready.contains("model_gemini")),
-            entry("model_opencode_muse_spark_13_contributor", "Muse Spark 1.3 Contributor (OpenCode)",
-                  driver: "opencode", ready: ready.contains("model_opencode_muse_spark_13_contributor")),
+            entry("model_muse_spark_13_contributor", "Muse Spark 1.3 Contributor",
+                  driver: "muse", ready: ready.contains("model_muse_spark_13_contributor")),
             entry("model_cursor_auto", "Cursor Auto", driver: "cursor", ready: ready.contains("model_cursor_auto")),
             entry("model_grok_composer_25_fast", "Grok Composer 2.5 Fast", driver: "grok", ready: ready.contains("model_grok_composer_25_fast")),
             entry("model_extra", "Zed Helper", ready: ready.contains("model_extra")),          // on + unassigned
@@ -74,7 +74,7 @@ final class DefaultSettingsProjectorTests: XCTestCase {
         XCTAssertEqual(balanced.members.map(\.id), [
             "model_gpt_terra", "model_opus", "model_agy_opus", "model_cursor_grok_45",
             "model_grok", "model_sonnet", "model_cursor_composer_25", "model_gemini",
-            "model_opencode_muse_spark_13_contributor"
+            "model_muse_spark_13_contributor"
         ])
         let gemini = balanced.members.first { $0.id == "model_gemini" }
         XCTAssertEqual(gemini?.tiers, ["balanced", "economy"])

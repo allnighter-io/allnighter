@@ -90,7 +90,13 @@ final class ModelDisplayNameTests: XCTestCase {
         XCTAssertEqual(
             ModelDisplayName.format(
                 baseName: "Muse Spark 1.3 Contributor",
-                modelId: "model_opencode_muse_spark_13_contributor",
+                modelId: "model_muse_spark_13_contributor",
+                driverId: "muse"),
+            "Muse Spark 1.3 Contributor")
+        XCTAssertEqual(
+            ModelDisplayName.format(
+                baseName: "Muse Spark 1.3 Contributor",
+                modelId: "model_muse_spark_13_contributor",
                 driverId: "opencode"),
             "Muse Spark 1.3 Contributor (OpenCode)")
     }

@@ -88,7 +88,7 @@ public enum ModelCatalog {
             return "grok"
         case "model_kimi_k3", "model_kimi_k27":
             return "kimi"
-        case "model_opencode_muse_spark_13_contributor":
+        case "model_muse_spark_13_contributor":
             return "muse"
         case "model_gemini":
             return "gemini"
@@ -292,6 +292,10 @@ public enum ModelCatalog {
         if driverId == "antigravity",
            let flash = defs.first(where: { $0.id == "model_gemini" }) {
             return flash.modelLabel
+        }
+        if driverId == "muse",
+           let spark = defs.first(where: { $0.id == "model_muse_spark_13_contributor" }) {
+            return spark.modelLabel
         }
         let enabledMap = enabledModelIDs(definitions: mergedDefinitions())
         let enabled = defs.filter { enabledMap[$0.id] == true }

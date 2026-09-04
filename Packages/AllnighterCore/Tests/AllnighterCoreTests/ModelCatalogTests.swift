@@ -43,12 +43,11 @@ final class ModelCatalogTests: XCTestCase {
         // Cursor Fable/Opus/Sonnet seats added default-on 2026-07-28 (12 → 15).
         // Antigravity Opus/Sonnet 4.6 re-added default-on for Claude quota harvest (15 → 17).
         // GPT-5.6 Luna added default-on on Economy bench (17 → 18).
-        // Muse Spark 1.3 Contributor via OpenCode Go; 1.2 Muse CLI seats removed.
+        // Muse Spark 1.3 Contributor via Muse Code CLI; 1.2 Muse seats removed.
         // Gemini catalog is a single 3.8 Flash seat (`model_gemini`); older pins retired.
-        XCTAssertEqual(models.filter(\.enabled).count, 22)
+        XCTAssertEqual(models.filter(\.enabled).count, 23)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
-        XCTAssertFalse(models.first { $0.id == "model_opencode_muse_spark_13_contributor" }?.enabled ?? true,
-                       "OpenCode Go inventory stays off until Go auth connects")
+        XCTAssertTrue(models.first { $0.id == "model_muse_spark_13_contributor" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_opencode_glm_5_2" }?.enabled ?? true,
                        "OpenCode Go inventory stays off until Go auth connects")
         XCTAssertEqual(models.first { $0.id == "model_agy_opus" }?.displayName, "Opus 4.6 (Antigravity)")
@@ -253,12 +252,12 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertTrue(roster.enabledModelIds.contains("model_opencode_big_pickle"))
     }
 
-    func testOpenCodeMuseSpark13ContributorShipsWithGoLabel() throws {
-        let muse = try XCTUnwrap(ModelCatalog.get("model_opencode_muse_spark_13_contributor"))
-        XCTAssertEqual(muse.displayName, "Muse Spark 1.3 Contributor (OpenCode)")
-        XCTAssertEqual(muse.modelLabel, "opencode-go/muse-spark-1.3-contributor")
-        XCTAssertEqual(muse.driverId, "opencode")
-        XCTAssertTrue(OpenCodeModelGate.isGoCatalogSeat(muse))
+    func testMuseSpark13ContributorShipsOnMuseDriver() throws {
+        let muse = try XCTUnwrap(ModelCatalog.get("model_muse_spark_13_contributor"))
+        XCTAssertEqual(muse.displayName, "Muse Spark 1.3 Contributor")
+        XCTAssertEqual(muse.modelLabel, "muse-spark-1.3-contributor")
+        XCTAssertEqual(muse.driverId, "muse")
+        XCTAssertFalse(OpenCodeModelGate.isGoCatalogSeat(muse))
         XCTAssertEqual(ModelCatalog.modelFamily(muse.id), "muse")
         XCTAssertTrue(muse.defaultEnabled)
     }

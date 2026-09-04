@@ -66,7 +66,7 @@ final class CLISetupGroupingTests: XCTestCase {
 
     func testNeedsLoginWithModelsOnBenchIsAttention() {
         let cards = [card("muse", state: .needsLogin)]
-        let onBench: (String) -> [String] = { $0 == "muse" ? ["Muse Spark 1.2"] : [] }
+        let onBench: (String) -> [String] = { $0 == "muse" ? ["Muse Spark 1.3 Contributor"] : [] }
 
         XCTAssertEqual(CLISetupGrouping.attentionCards(from: cards, onModelNames: onBench).map(\.driverId), ["muse"])
         XCTAssertTrue(CLISetupGrouping.dormantCards(from: cards, onModelNames: onBench).isEmpty)

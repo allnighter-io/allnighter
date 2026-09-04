@@ -695,7 +695,7 @@
       },
       "defaultOn": true
     },
-    "model_opencode_muse_spark_13_contributor": {
+    "model_muse_spark_13_contributor": {
       "caliber": {
         "capabilityTags": [
           "code",

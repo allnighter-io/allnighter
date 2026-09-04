@@ -222,11 +222,11 @@ import Foundation
 /// same streamRun path as real runs (fixes false `emptyAnswer` on Go seats);
 /// probe prefers GLM-5.3-Flash; flaky smoke no longer downgrades a prior ready.
 /// Same contract 10.10.0.
-/// **1.1.24 → 1.1.25 (free forever).** Entitlement gate removed — unlimited runs,
-/// no trial/daily cap, no checkout. `menu.entitlement` omitted.
+/// **1.1.25 → 1.1.26 (Muse Spark 1.3 on Muse CLI).** Muse Spark 1.3 Contributor
+/// routes through Muse Code (`muse-spark-1.3-contributor`); OpenCode Go seat retired.
 /// Same contract 10.10.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.25"
+    public static let binaryVersion = "1.1.26"
 }
 
 /// `alln version` / `alln --version` machine contract.
