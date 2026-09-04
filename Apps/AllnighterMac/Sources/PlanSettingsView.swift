@@ -40,6 +40,9 @@ struct PlanSettingsView: View {
     }
 
     private var headerBlurb: String {
+        if EntitlementPolicy.productIsFreeForever {
+            return "Unlimited runs. No trial, no daily cap, no checkout."
+        }
         if entitlement.status?.paid == true {
             return "Same product. No daily cap."
         }
@@ -55,10 +58,12 @@ struct PlanSettingsView: View {
                 .font(ALFont.sans(12, .semibold))
                 .foregroundStyle(ALColor.textSecondary)
             row("Plan", entitlement.status?.plan ?? "—")
-            if let remaining = entitlement.status.flatMap(EntitlementChrome.remainingRuns) {
+            if !EntitlementPolicy.productIsFreeForever,
+               let remaining = entitlement.status.flatMap(EntitlementChrome.remainingRuns) {
                 row("Runs left today", "\(remaining)")
             }
-            if let ends = entitlement.status?.trialEndsAt {
+            if !EntitlementPolicy.productIsFreeForever,
+               let ends = entitlement.status?.trialEndsAt {
                 row("Trial ends", ends)
             }
         }

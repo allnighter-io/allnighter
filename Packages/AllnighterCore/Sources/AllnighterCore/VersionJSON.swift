@@ -222,8 +222,11 @@ import Foundation
 /// same streamRun path as real runs (fixes false `emptyAnswer` on Go seats);
 /// probe prefers GLM-5.3-Flash; flaky smoke no longer downgrades a prior ready.
 /// Same contract 10.10.0.
+/// **1.1.24 → 1.1.25 (free forever).** Entitlement gate removed — unlimited runs,
+/// no trial/daily cap, no checkout. `menu.entitlement` omitted.
+/// Same contract 10.10.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.24"
+    public static let binaryVersion = "1.1.25"
 }
 
 /// `alln version` / `alln --version` machine contract.

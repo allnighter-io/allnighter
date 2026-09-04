@@ -94,6 +94,7 @@ public enum EntitlementChrome {
         now: Date = Date(),
         calendar: Calendar = Calendar(identifier: .gregorian)
     ) -> EntitlementHeaderChip {
+        if EntitlementPolicy.productIsFreeForever { return .none }
         guard let status, !status.paid, status.plan != "skipped" else { return .none }
         if status.plan == "trial", let end = parseISO(status.trialEndsAt) {
             let days = daysUntil(end, now: now, calendar: calendar)
@@ -109,6 +110,9 @@ public enum EntitlementChrome {
         now: Date = Date(),
         calendar: Calendar = Calendar(identifier: .gregorian)
     ) -> EntitlementPlanRow {
+        if EntitlementPolicy.productIsFreeForever {
+            return EntitlementPlanRow(subtitle: "Free forever", showsUpgrade: false)
+        }
         guard let status else {
             return EntitlementPlanRow(subtitle: "Checking…", showsUpgrade: false)
         }

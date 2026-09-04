@@ -31,58 +31,17 @@ final class EntitlementPresentationTests: XCTestCase {
         XCTAssertFalse(env.nextAction?.command.contains("http") ?? true)
     }
 
-    func testHeaderChipSilentDuringEarlyTrial() {
-        let end = now.addingTimeInterval(11 * 86400)
-        let status = BillingJSON(plan: "trial", paid: false, trialEndsAt: iso(end))
-        XCTAssertEqual(EntitlementChrome.headerChip(status: status, now: now, calendar: utc), .none)
-    }
-
-    func testHeaderChipLastThreeTrialDays() {
+    func testHeaderChipHiddenWhenProductIsFreeForever() {
         let end = now.addingTimeInterval(2 * 86400)
         let status = BillingJSON(plan: "trial", paid: false, trialEndsAt: iso(end))
-        XCTAssertEqual(
-            EntitlementChrome.headerChip(status: status, now: now, calendar: utc),
-            .trial(daysLeft: 2)
-        )
-        XCTAssertEqual(
-            EntitlementChrome.headerChip(status: status, now: now, calendar: utc).label,
-            "Trial · 2 days left"
-        )
-    }
-
-    func testHeaderChipKeepGoingAtCap() {
-        let status = BillingJSON(
-            plan: "free",
-            paid: false,
-            runsUsedToday: 3,
-            runsAllowedToday: 3,
-            tellHuman: EntitlementCopy.tellHuman
-        )
-        XCTAssertEqual(
-            EntitlementChrome.headerChip(status: status, now: now, calendar: utc),
-            .keepGoing
-        )
-        XCTAssertEqual(
-            EntitlementChrome.headerChip(status: status, now: now, calendar: utc).label,
-            "Keep going"
-        )
-    }
-
-    func testHeaderChipHiddenWhenPaid() {
-        let status = BillingJSON(plan: "monthly", paid: true)
         XCTAssertEqual(EntitlementChrome.headerChip(status: status, now: now, calendar: utc), .none)
-        XCTAssertEqual(
-            EntitlementChrome.planRow(status: status, now: now, calendar: utc).subtitle,
-            "Builder"
-        )
-        XCTAssertFalse(EntitlementChrome.planRow(status: status, now: now, calendar: utc).showsUpgrade)
     }
 
-    func testPlanRowFreeAtCap() {
+    func testPlanRowFreeForever() {
         let status = BillingJSON(plan: "free", paid: false, runsUsedToday: 3, runsAllowedToday: 3)
         let row = EntitlementChrome.planRow(status: status, now: now, calendar: utc)
-        XCTAssertEqual(row.subtitle, "Free · back tomorrow")
-        XCTAssertTrue(row.showsUpgrade)
+        XCTAssertEqual(row.subtitle, "Free forever")
+        XCTAssertFalse(row.showsUpgrade)
     }
 
     func testCheckoutTellHumanCarriesUrlAndNotACommand() {

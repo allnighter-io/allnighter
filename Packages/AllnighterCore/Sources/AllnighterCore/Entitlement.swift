@@ -17,6 +17,9 @@ import IOKit
 // MARK: - Constants
 
 public enum EntitlementPolicy {
+    /// Product ships free forever — no trial, daily cap, or checkout gate.
+    public static let productIsFreeForever = true
+
     public static let trialDurationDays = 14
     public static let freeRunsPerDay = 3
     public static let offlineGraceHours: Double = 72
@@ -396,6 +399,7 @@ public struct EntitlementGate: Sendable {
     }
 
     public func shouldSkipNetwork() -> Bool {
+        if EntitlementPolicy.productIsFreeForever { return true }
         if isTestHost { return true }
         let flag = env[EntitlementPolicy.skipEnvKey] ?? ""
         return flag == "1" || flag.lowercased() == "true"
@@ -403,6 +407,7 @@ public struct EntitlementGate: Sendable {
 
     /// Sync projection for `menu.entitlement`. Local file only — never starts a trial.
     public func menuProjection() -> EntitlementInfo? {
+        if EntitlementPolicy.productIsFreeForever { return nil }
         if shouldSkipNetwork() { return nil }
         guard var state = store.load() else { return nil }
         let now = clock()
@@ -421,6 +426,13 @@ public struct EntitlementGate: Sendable {
     }
 
     public func statusJSON() async -> BillingJSON {
+        if EntitlementPolicy.productIsFreeForever {
+            return BillingJSON(
+                plan: "free",
+                paid: false,
+                message: "Allnighter is free. No trial or daily run limit."
+            )
+        }
         if shouldSkipNetwork() {
             return BillingJSON(
                 plan: "skipped",
@@ -434,6 +446,9 @@ public struct EntitlementGate: Sendable {
     }
 
     public func checkoutJSON(plan: BillingCheckoutPlan) async -> Result<BillingJSON, EntitlementRefusal> {
+        if EntitlementPolicy.productIsFreeForever {
+            return .failure(EntitlementRefusal("Allnighter is free — no checkout needed."))
+        }
         if shouldSkipNetwork() {
             return .failure(EntitlementRefusal("Checkout skipped in test host."))
         }
@@ -466,6 +481,7 @@ public struct EntitlementGate: Sendable {
     /// only when admitting a counted free run.
     public func admitDispatch() async -> EntitlementDecision {
         if EntitlementAdmission.skipInnerDispatch { return .admit }
+        if EntitlementPolicy.productIsFreeForever { return .admit }
         if shouldSkipNetwork() { return .admit }
 
         var state = await refresh(force: false)
