@@ -218,8 +218,12 @@ import Foundation
 /// **1.1.22 → 1.1.23 (Gemini 3.8 only).** Gemini catalog lists one seat:
 /// `model_gemini` as Gemini 3.8 Flash; 3.6/3.7 pins and Gemini Pro retired.
 /// Same contract 10.10.0.
+/// **1.1.23 → 1.1.24 (OpenCode Go smoke).** OpenCode readiness smoke uses the
+/// same streamRun path as real runs (fixes false `emptyAnswer` on Go seats);
+/// probe prefers GLM-5.3-Flash; flaky smoke no longer downgrades a prior ready.
+/// Same contract 10.10.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.23"
+    public static let binaryVersion = "1.1.24"
 }
 
 /// `alln version` / `alln --version` machine contract.

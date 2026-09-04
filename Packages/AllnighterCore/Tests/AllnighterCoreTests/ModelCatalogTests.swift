@@ -128,7 +128,7 @@ final class ModelCatalogTests: XCTestCase {
         defer { OpenCodeModelGate.overrideGoConnectedForTesting(nil) }
         XCTAssertEqual(
             ModelCatalog.probeModelLabel(driverId: "opencode"),
-            "opencode-go/deepseek-v4-flash"
+            "opencode-go/glm-5.3-flash"
         )
         XCTAssertNotEqual(
             ModelCatalog.probeModelLabel(driverId: "opencode"),

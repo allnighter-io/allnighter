@@ -108,6 +108,29 @@ final class ProbeRecordMergeTests: XCTestCase {
         XCTAssertNil(applied.failureCode)
     }
 
+    func testRetainsReadyWhenProbeFailedButPriorPathStillExecutable() {
+        let path = "/Users/openclaw/.opencode/bin/opencode"
+        let prior = readyRecord(path: path)
+        let incoming = ToolProbeRecord(
+            driverId: "opencode",
+            status: .probeFailed(reason: "opencode smoke: emptyAnswer"),
+            invocation: .direct(path: path),
+            version: "1.18.27",
+            lastProbeAt: now,
+            lastDetectedAt: now
+        )
+
+        let applied = ProbeRecordMerge.apply(
+            incoming: incoming,
+            prior: prior,
+            isExecutable: { $0 == path }
+        )
+
+        XCTAssertEqual(applied.status, .ready(version: "1.18.16"))
+        XCTAssertEqual(applied.lastProbeAt, earlier)
+        XCTAssertEqual(applied.failureCode, ProbeRecordMerge.retainedReadyFailureCode)
+    }
+
     func testUpsertDoesNotDowngradeSiblingDrivers() {
         var records = [
             readyRecord(path: "/bin/opencode"),

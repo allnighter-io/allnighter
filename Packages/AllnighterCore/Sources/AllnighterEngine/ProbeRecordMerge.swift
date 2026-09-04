@@ -25,21 +25,33 @@ public enum ProbeRecordMerge {
         prior: ToolProbeRecord?,
         isExecutable: @Sendable (String) -> Bool = { FileManager.default.isExecutableFile(atPath: $0) }
     ) -> ToolProbeRecord {
-        guard case .notInstalled = incoming.status,
-              let prior,
-              case .ready = prior.status,
-              let path = prior.invocation?.resolvedPath,
-              isExecutable(path)
-        else {
-            return incoming
+        if shouldRetainReady(incoming: incoming, prior: prior, isExecutable: isExecutable) {
+            var kept = prior!
+            kept.lastDetectedAt = incoming.lastProbeAt
+            kept.failureCode = retainedReadyFailureCode
+            return kept
         }
-        // Keep the last positive observation. Do not advance lastProbeAt —
-        // this pass did not smoke. lastDetectedAt may advance: we verified
-        // the binary is still present.
-        var kept = prior
-        kept.lastDetectedAt = incoming.lastProbeAt
-        kept.failureCode = retainedReadyFailureCode
-        return kept
+        return incoming
+    }
+
+    /// A flaky or mismatched smoke pass must not erase a prior confirmed-ready
+    /// record when the executable is still on disk.
+    private static func shouldRetainReady(
+        incoming: ToolProbeRecord,
+        prior: ToolProbeRecord?,
+        isExecutable: @Sendable (String) -> Bool
+    ) -> Bool {
+        guard let prior, case .ready = prior.status,
+              let path = prior.invocation?.resolvedPath,
+              isExecutable(path) else {
+            return false
+        }
+        switch incoming.status {
+        case .notInstalled, .probeFailed:
+            return true
+        default:
+            return false
+        }
     }
 
     /// Upsert with the notInstalled-over-ready guard.

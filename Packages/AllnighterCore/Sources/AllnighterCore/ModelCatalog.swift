@@ -276,10 +276,11 @@ public enum ModelCatalog {
         // `opencode/big-pickle` 500s as ProviderModelNotFound (wrapped HTTP 500
         // UnknownError). Zen-only hosts keep the cheap Zen smoke.
         if driverId == "opencode" {
-            if OpenCodeModelGate.isGoConnected(),
-               let flash = defs.first(where: { $0.id == "model_opencode_deepseek_v4_flash" }) {
-                return flash.modelLabel
-            }
+        if OpenCodeModelGate.isGoConnected(),
+           let flash = defs.first(where: { $0.id == "model_opencode_glm_5_3_flash" })
+               ?? defs.first(where: { $0.id == "model_opencode_deepseek_v4_flash" }) {
+            return flash.modelLabel
+        }
             if let zen = defs.first(where: { $0.id == "model_opencode_big_pickle" }) {
                 return zen.modelLabel
             }
