@@ -222,11 +222,10 @@ import Foundation
 /// same streamRun path as real runs (fixes false `emptyAnswer` on Go seats);
 /// probe prefers GLM-5.3-Flash; flaky smoke no longer downgrades a prior ready.
 /// Same contract 10.10.0.
-/// **1.1.25 → 1.1.26 (Muse Spark 1.3 on Muse CLI).** Muse Spark 1.3 Contributor
-/// routes through Muse Code (`muse-spark-1.3-contributor`); OpenCode Go seat retired.
+/// **1.1.26 → 1.1.27 (parallel detect).** CLI probes run in parallel; Muse smoke is a one-word hi ping.
 /// Same contract 10.10.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.26"
+    public static let binaryVersion = "1.1.27"
 }
 
 /// `alln version` / `alln --version` machine contract.
