@@ -1544,7 +1544,7 @@ public actor RunService {
             : TeamRunAttachmentMapper.teamRunSeatPrompt(
                 basePrompt: baseAssembled,
                 deliveries: deliveries,
-                readsImages: manifest.canReadImages)
+                readsImages: model.canReadImages(manifest: manifest))
         if !assembled.contains(ProvenanceConvention.trailerMarker) {
             assembled += "\n\n" + ProvenanceConvention.commitTrailerAsk(displayName: model.displayName)
         }

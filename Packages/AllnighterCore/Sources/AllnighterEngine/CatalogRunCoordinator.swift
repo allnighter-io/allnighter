@@ -289,7 +289,7 @@ public actor CatalogRunCoordinator {
                     : TeamRunAttachmentMapper.teamRunSeatPrompt(
                         basePrompt: baseWorkerPrompt,
                         deliveries: deliveries,
-                        readsImages: manifest?.canReadImages ?? false)
+                        readsImages: model?.canReadImages(manifest: manifest) ?? false)
                 snapshots[agent.id] = workerPrompt
                 let workingDirectory = workerWorkingDirectories?[agent.id] ?? repoRoot
                 group.addTask {
@@ -337,7 +337,7 @@ public actor CatalogRunCoordinator {
                                     : TeamRunAttachmentMapper.teamRunSeatPrompt(
                                         basePrompt: baseWorkerPrompt,
                                         deliveries: deliveries,
-                                        readsImages: altManifest.canReadImages)
+                                        readsImages: alt.canReadImages(manifest: altManifest))
                                 result = await ProcessOwnership.$currentWorkerId.withValue(agent.id) {
                                     await runner.collect(WorkerInvocation(
                                         model: alt, manifest: altManifest, prompt: altPrompt, effort: effort,

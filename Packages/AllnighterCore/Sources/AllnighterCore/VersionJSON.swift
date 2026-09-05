@@ -224,8 +224,12 @@ import Foundation
 /// Same contract 10.10.0.
 /// **1.1.26 → 1.1.27 (parallel detect).** CLI probes run in parallel; Muse smoke is a one-word hi ping.
 /// Same contract 10.10.0.
+/// **1.1.27 → 1.1.28 (per-model vision).** Vision is declared per MODEL, not per
+/// driver: GLM-5.3-Flash and Muse Spark 1.3 Contributor are multimodal and now
+/// receive the image path block instead of the non-vision notice; text-only
+/// seats on the same drivers (GLM-5.3) are unchanged. Same contract 10.10.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.27"
+    public static let binaryVersion = "1.1.28"
 }
 
 /// `alln version` / `alln --version` machine contract.

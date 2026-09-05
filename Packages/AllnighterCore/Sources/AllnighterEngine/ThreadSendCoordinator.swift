@@ -443,7 +443,8 @@ public struct ThreadSendCoordinator: Sendable {
             )
         }
 
-        let manifest = models.first { $0.id == workerId }.flatMap { registry.manifest(for: $0) }
+        let sendModel = models.first { $0.id == workerId }
+        let manifest = sendModel.flatMap { registry.manifest(for: $0) }
         let hasPriorImage = seedResolver.hasPriorImageContext(thread: priorThread, attachmentStore: attachmentStore)
         let invokeProfile: ChatImageIntent.Profile
         if let manifest {
@@ -546,7 +547,7 @@ public struct ThreadSendCoordinator: Sendable {
             options: contextOptions
         )
 
-        let readsImages = manifest?.canReadImages ?? false
+        let readsImages = sendModel?.canReadImages(manifest: manifest) ?? false
         packet.includedAttachments = deliveries
         packet.text = try AttachmentDeliveryRenderer.protectedPrompt(
             baseText: packet.text,

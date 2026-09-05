@@ -61,6 +61,48 @@ final class TeamRunAttachmentDeliveryTests: XCTestCase {
                        "non-vision worker must NOT get a path block it can't use")
     }
 
+    /// Vision is a property of the MODEL, not of the CLI carrying it. GLM-5.3-Flash
+    /// and Muse Spark 1.3 are multimodal on drivers that also carry text-only seats,
+    /// so a seat that declares `readsImages` gets the real path block even though its
+    /// manifest says nothing — and its text-only driver sibling still gets the notice.
+    func testModelDeclaredVisionOverridesABlindDriverManifest() async {
+        let runner = DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(MockCommandRunner(scripts: [
+            "opencode": .init(stdout: "answer", exitCode: 0),
+            "gemini": .init(stdout: "# Plan", exitCode: 0)
+        ])))
+        let registry = DriverRegistry([
+            TestSupport.headlessManifest(id: "opencode", command: "opencode"),  // manifest says nothing
+            TestSupport.headlessManifest(id: "antigravity", command: "gemini")
+        ])
+        let coord = CatalogRunCoordinator(workerRunner: runner, registry: registry, idFactory: { UUID().uuidString })
+
+        let flashSeat = Agent(id: "flash#0", modelId: "model_flash", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let textSeat = Agent(id: "text#0", modelId: "model_text", instanceIndex: 0, skillId: nil, purpose: .answer)
+        let writer = Agent(id: "model_gemini#0", modelId: "model_gemini", instanceIndex: 0, skillId: "insight_writer", purpose: .plan)
+        let resolved = ResolvedTeamRun(
+            teamPresetId: "t", teamDisplayName: "Bug Hunt", lane: .code, outputKind: .plan,
+            effort: .med, scoutWorker: nil, answerWorkers: [flashSeat, textSeat], planWriter: writer, isRunnable: true)
+
+        var flash = TestSupport.worker("model_flash", driverId: "opencode")
+        flash.readsImages = true
+        let models = [
+            flash,
+            TestSupport.worker("model_text", driverId: "opencode"),
+            TestSupport.worker("model_gemini", driverId: "antigravity", role: .both)
+        ]
+
+        let run = await coord.run(
+            resolved: resolved, prompt: "look at this render", models: models,
+            runId: "r1", deliveries: [delivery()])
+
+        let flashSnap = run.workers.first { $0.id == "flash#0" }?.resolvedWorkerPromptSnapshot
+        XCTAssertTrue(flashSnap?.contains(".allnighter/attachments/thread_t/a1.png") == true,
+                      "a model-declared vision seat must get the real image path block")
+        let textSnap = run.workers.first { $0.id == "text#0" }?.resolvedWorkerPromptSnapshot
+        XCTAssertTrue(textSnap?.contains("does not support image viewing") == true,
+                      "a text-only sibling on the same driver must still get the notice")
+    }
+
     func testTextDeliveryIsReadByPathOnEverySeatRegardlessOfVision() async {
         let runner = DefaultWorkerRunner(streamingRunner: CommandRunnerAsStreaming(MockCommandRunner(scripts: [
             "claude": .init(stdout: "vision answer", exitCode: 0),
