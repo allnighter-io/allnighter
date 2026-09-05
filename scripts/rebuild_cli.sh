@@ -53,6 +53,32 @@ if [[ ! -x "$ALLN_BIN" ]]; then
   exit 1
 fi
 
+# Give the dogfood binary the SAME code identity as the shipped CLI. macOS keys
+# every TCC answer (Documents, Local Network, ...) to the code identity, and an
+# ad-hoc signature's identity IS its CDHash — which churns on every rebuild, so
+# each rebuild re-asks and no Allow ever sticks
+# (archived CLI_Install_Documents_TCC_Adhoc_Waive.md). Signing with the release
+# Developer ID + `com.allnighter.cli` gives dogfood a stable anchor, so an Allow
+# survives the next rebuild. Falls back to ad-hoc when the identity is absent
+# (CI, a fresh clone) — the build must not depend on a private key.
+SIGN_IDENTITY="${ALLN_SIGN_IDENTITY:-Developer ID Application: Happy Moose Apps Inc. (LP5YNK7A36)}"
+if [[ "${ALLNIGHTER_CLI_SKIP_SIGN:-}" == "1" ]]; then
+  echo "rebuild_cli: skip signing (ALLNIGHTER_CLI_SKIP_SIGN=1) — ad-hoc identity, TCC will re-ask"
+elif security find-identity -v -p codesigning 2>/dev/null | grep -qF "$SIGN_IDENTITY"; then
+  # No --timestamp: the designated requirement (identifier + team) is what TCC
+  # keys on, and a timestamp costs a network round trip on every rebuild.
+  codesign --force --options runtime --timestamp=none \
+    --sign "$SIGN_IDENTITY" \
+    --identifier com.allnighter.cli \
+    "$ALLN_BIN"
+  codesign --verify --strict "$ALLN_BIN" \
+    || { echo "rebuild_cli: codesign --verify failed for $ALLN_BIN" >&2; exit 1; }
+  echo "rebuild_cli: signed com.allnighter.cli ($SIGN_IDENTITY)"
+else
+  echo "rebuild_cli: signing identity not in Keychain, staying ad-hoc — TCC prompts will repeat" >&2
+  echo "  wanted: $SIGN_IDENTITY" >&2
+fi
+
 # Belt: leave a Documents/Desktop/Downloads checkout cwd before install-cli
 # so the foreground `alln` never inherits a protected folder (CLI_Install_Documents_CWD_TCC).
 PROBE_SCRATCH="$HOME/Library/Application Support/Allnighter/ProbeScratch"
