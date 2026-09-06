@@ -83,6 +83,24 @@ codesign --force --options runtime --timestamp \
 codesign --verify --deep --strict "$APP" || die "codesign --verify failed"
 codesign -dv --verbose=2 "$APP" 2>&1 | grep -E 'Authority=|Identifier=|TeamIdentifier=|Signature=' || true
 
+echo "build-dmg: notarize app ($NOTARY_PROFILE)"
+# The .app is notarized and stapled BEFORE it is packed, so the ticket lives
+# inside the bundle users copy to /Applications. Stapling only the DMG loses
+# the ticket on that copy: measured on installed 1.1.5 and 1.1.6, where
+# `stapler validate` said "does not have a ticket stapled to it" while the
+# published DMG validated fine. Gatekeeper then has to reach Apple on first
+# launch, which stalls or fails offline / behind a captive portal.
+# Two notary submissions is the Apple-documented cost of a stapled app inside
+# a stapled DMG — the DMG is a different artifact and needs its own ticket.
+APP_ZIP="$WORK/Allnighter-app.zip"
+rm -f "$APP_ZIP"
+ditto -c -k --keepParent "$APP" "$APP_ZIP"
+xcrun notarytool submit "$APP_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
+
+echo "build-dmg: staple app"
+xcrun stapler staple "$APP"
+xcrun stapler validate "$APP" || die "app staple did not validate"
+
 echo "build-dmg: package DMG"
 rm -rf "$STAGE"
 mkdir -p "$STAGE"
@@ -97,6 +115,16 @@ xcrun notarytool submit "$OUT" --keychain-profile "$NOTARY_PROFILE" --wait
 echo "build-dmg: staple"
 xcrun stapler staple "$OUT"
 xcrun stapler validate "$OUT"
+
+echo "build-dmg: verify stapled app inside the DMG"
+VERIFY_MNT="$WORK/verify-mnt"
+rm -rf "$VERIFY_MNT"
+mkdir -p "$VERIFY_MNT"
+hdiutil attach -nobrowse -quiet -mountpoint "$VERIFY_MNT" "$OUT"
+xcrun stapler validate "$VERIFY_MNT/Allnighter.app" \
+  || { hdiutil detach "$VERIFY_MNT" -quiet; die "app inside the DMG has no stapled ticket"; }
+spctl -a -vv "$VERIFY_MNT/Allnighter.app" 2>&1 | head -3
+hdiutil detach "$VERIFY_MNT" -quiet
 
 echo "build-dmg: OK"
 echo "  dmg:     $OUT"

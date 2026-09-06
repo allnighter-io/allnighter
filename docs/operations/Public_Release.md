@@ -30,6 +30,31 @@ or **version bump** (CLI, Mac app, or both):
    `scripts/ship-cli.sh <version> --upload`.
 5. **Approval:** explicit ship wording satisfies AGENTS.md “production deploy”
    — do not ask “should I upload?” after bump/push/release/publish.
+6. **“Latest” means both surfaces, notarized.** When the founder asks to *run*,
+   *install*, or *get on* the latest — not only when they say ship — deliver a
+   **notarized CLI and a notarized Mac app**, and install both locally.
+   Never hand them an ad-hoc `rebuild_cli.sh` binary as “latest”. macOS keys
+   every TCC answer to the code identity, and an ad-hoc signature’s identity
+   **is** its CDHash, so every rebuild is a new TCC client: Documents and Local
+   Network re-prompt forever and no Allow ever sticks (`1d407485`; archived
+   `CLI_Install_Documents_TCC_Adhoc_Waive.md`). `rebuild_cli.sh` now signs with
+   the release identity, but a *shipped* pair is still the answer to “latest”.
+   Sequence:
+   1. **CLI** — bump `AllnighterVersionIdentity.binaryVersion` if HEAD moved,
+      then `scripts/ship-cli.sh <version> --upload`.
+   2. **App** — bump `MARKETING_VERSION` in `Apps/AllnighterMac/project.yml`,
+      `scripts/public-floor.sh sync`, commit, then `scripts/build-dmg.sh`.
+   3. **Install both locally**, then verify **identity, not version**:
+      `codesign -dv` → `TeamIdentifier=LP5YNK7A36`, `spctl -a -vv` →
+      `source=Notarized Developer ID`, and `stapler validate` on the
+      **installed** `.app`.
+   4. **Publish the app** (§ Ship the Mac app steps 3–6) — assets before
+      `latest.json`, and keep the `cli` block.
+   **Why the app is not optional:** it compiles `AllnighterCore` into its own
+   binary and does **not** call the PATH `alln`, so shipping the CLI alone
+   leaves the app running old Core code. A matching version number proves
+   nothing — 1.1.5 sat at the same number through 57 Core/app commits. The
+   bundle’s **build date** is the freshness signal.
 
 ---
 
@@ -138,10 +163,15 @@ Founder said submit/publish/ship the Mac app. Bump only when they want a
    `Sources/Info.plist`.
 2. `scripts/build-dmg.sh`  
    Archives Release (arm64), strips the Apple Development profile, signs with
-   Developer ID + `AllnighterMac.DeveloperID.entitlements`, packs
-   `dist/Allnighter.dmg`, notarizes, staples. Proof in the script output:
+   Developer ID + `AllnighterMac.DeveloperID.entitlements`, **notarizes and
+   staples the `.app`**, packs `dist/Allnighter.dmg`, notarizes and staples the
+   DMG, then mounts the DMG and re-validates the staple on the app inside.
+   Two notary submissions is the documented cost: the DMG is a separate
+   artifact needing its own ticket, and a DMG-only staple is **lost the moment
+   the app is copied to /Applications** (measured on installed 1.1.5 and 1.1.6).
+   Proof in the script output:
    `Authority=Developer ID Application: Happy Moose Apps Inc.`, notary
-   `Accepted`, stapler `The validate action worked!`
+   `Accepted` twice, stapler `The validate action worked!` for app and DMG.
 3. Copy into the publish layout **without rewriting existing CLI bytes**:
 
    ```text
