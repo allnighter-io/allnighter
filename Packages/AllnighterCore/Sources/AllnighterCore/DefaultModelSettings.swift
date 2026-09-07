@@ -229,7 +229,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
     /// Fresh-install seed: ordered membership per tier across multiple CLIs so
     /// substitution always has somewhere to go even when a user has only one or two
     /// CLIs. Each tier's default (index 0) is on-by-default, so Auto works day-one.
-    /// Frontier: Fable, Codex Sol, Kimi K3, Qwen 3.8 Max, OpenCode Go frontier seats. Balanced:
+    /// Frontier: Fable, Codex Sol, Codex Astra, Kimi K3, Qwen 3.8 Max, OpenCode Go frontier seats. Balanced:
     /// everyday seats including Antigravity Opus 4.6 (separate Claude quota pool),
     /// Composer 2.5 (not the vendor "Fast" SKUs), and Muse Spark 1.3 Contributor
     /// via OpenCode Go. Composer also spans Economy.
@@ -242,7 +242,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
         allowHealthySubstitutions: true,
         tiers: TierMembership(
             frontier: [
-                "model_fable", "model_gpt_sol", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
+                "model_fable", "model_gpt_sol", "model_gpt_astra", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
                 "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_3",
             ],
             balanced: [
@@ -270,6 +270,7 @@ public struct DefaultModelSettings: Codable, Sendable, Equatable {
             (.frontier, "model_grok_46"),
             (.frontier, "model_cursor_grok_46"),
             (.frontier, "model_opencode_glm_5_3"),
+            (.frontier, "model_gpt_astra"),
             (.balanced, "model_muse_spark_13_contributor"),
             (.economy, "model_agy_sonnet"),
             (.economy, "model_gpt_luna"),

@@ -45,7 +45,8 @@ final class ModelCatalogTests: XCTestCase {
         // GPT-5.6 Luna added default-on on Economy bench (17 → 18).
         // Muse Spark 1.3 Contributor via Muse Code CLI; 1.2 Muse seats removed.
         // Gemini catalog is a single 3.8 Flash seat (`model_gemini`); older pins retired.
-        XCTAssertEqual(models.filter(\.enabled).count, 23)
+        // GPT-6 Astra added default-on as a Codex Sol/Terra/Luna sibling (23 → 24).
+        XCTAssertEqual(models.filter(\.enabled).count, 24)
         XCTAssertTrue(models.first { $0.id == "model_opencode_big_pickle" }?.enabled ?? false)
         XCTAssertTrue(models.first { $0.id == "model_muse_spark_13_contributor" }?.enabled ?? false)
         XCTAssertFalse(models.first { $0.id == "model_opencode_glm_5_2" }?.enabled ?? true,

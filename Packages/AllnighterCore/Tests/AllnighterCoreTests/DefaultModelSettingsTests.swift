@@ -10,9 +10,9 @@ final class DefaultModelSettingsTests: XCTestCase {
         XCTAssertEqual(s.defaultTier, .frontier)
         XCTAssertTrue(s.allowHealthySubstitutions)
         XCTAssertEqual(s.tierDefault(.frontier), "model_fable")
-        // Frontier: Fable + Codex Sol + Kimi K3. Cursor Sol is never seeded.
+        // Frontier: Fable + Codex Sol + Codex Astra + Kimi K3. Cursor Sol is never seeded.
         XCTAssertEqual(s.tiers.frontier, [
-            "model_fable", "model_gpt_sol", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
+            "model_fable", "model_gpt_sol", "model_gpt_astra", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
             "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_3",
         ])
         XCTAssertFalse(s.tiers.frontier.contains("model_cursor_gpt_sol"))
@@ -328,7 +328,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         let loaded = p.load()
         XCTAssertEqual(loaded.defaultTier, .balanced)
         XCTAssertFalse(loaded.allowHealthySubstitutions)
-        XCTAssertEqual(loaded.tiers.frontier, ["model_opus", "model_gpt_sol", "model_grok_46", "model_cursor_grok_46", "model_opencode_glm_5_3"], "intra-tier dup normalized away; fresh frontier backfill additive")
+        XCTAssertEqual(loaded.tiers.frontier, ["model_opus", "model_gpt_sol", "model_grok_46", "model_cursor_grok_46", "model_opencode_glm_5_3", "model_gpt_astra"], "intra-tier dup normalized away; fresh frontier backfill additive")
         XCTAssertEqual(loaded.tiers.balanced, ["model_opus", "model_sonnet", "model_muse_spark_13_contributor"], "cross-tier membership preserved; fresh balanced backfill additive")
         XCTAssertNotNil(loaded.updatedAt)
     }
@@ -368,7 +368,7 @@ final class DefaultModelSettingsTests: XCTestCase {
         let reset = try p.reset()
         XCTAssertEqual(reset.defaultTier, .frontier)
         XCTAssertEqual(reset.tiers.frontier, [
-            "model_fable", "model_gpt_sol", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
+            "model_fable", "model_gpt_sol", "model_gpt_astra", "model_kimi_k3", "model_grok_46", "model_cursor_grok_46", "model_qwen_38_max",
             "model_opencode_qwen_38_max", "model_opencode_deepseek_v4_pro", "model_opencode_glm_5_3",
         ])
     }

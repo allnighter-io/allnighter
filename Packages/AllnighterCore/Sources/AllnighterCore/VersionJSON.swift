@@ -228,8 +228,11 @@ import Foundation
 /// driver: GLM-5.3-Flash and Muse Spark 1.3 Contributor are multimodal and now
 /// receive the image path block instead of the non-vision notice; text-only
 /// seats on the same drivers (GLM-5.3) are unchanged. Same contract 10.10.0.
+/// **1.1.28 → 1.1.29 (GPT-6 Astra).** New Codex-driven catalog model
+/// `model_gpt_astra` ("gpt-6-astra"), a Sol/Terra/Luna sibling (no
+/// family/generation ladder). Same contract 10.10.0.
 public enum AllnighterVersionIdentity {
-    public static let binaryVersion = "1.1.28"
+    public static let binaryVersion = "1.1.29"
 }
 
 /// `alln version` / `alln --version` machine contract.

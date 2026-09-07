@@ -79,6 +79,28 @@
       },
       "defaultOn": true
     },
+    "model_gpt_astra": {
+      "caliber": {
+        "capabilityTags": [
+          "code",
+          "planner",
+          "review",
+          "security",
+          "design",
+          "image",
+          "copy",
+          "localContext"
+        ],
+        "laneTags": [
+          "code",
+          "design",
+          "copy",
+          "signal"
+        ],
+        "strengthRank": 89
+      },
+      "defaultOn": true
+    },
     "model_gpt_54": {
       "caliber": {
         "capabilityTags": [

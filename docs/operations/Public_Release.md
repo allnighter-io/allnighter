@@ -119,7 +119,7 @@ uploaded. `appVersion` must equal the app’s
 `Apps/AllnighterMac/project.yml`) or the running app will show an update
 forever.
 
-Current public floor (2026-08-14): CLI **1.1.28** + Mac app **1.1.6** (arm64
+Current public floor (2026-08-14): CLI **1.1.29** + Mac app **1.1.7** (arm64
 DMG). CLI payload is `alln-macos-universal.tar.gz` (binary + SPM resource
 bundles). Relocate-proof is a ship gate — a builder-local `version` check is
 not proof (`menu --json` loads the catalog; `version` does not). Universal CLI scratch is `$HOME/Library/Developer/Allnighter/CLI-universal`

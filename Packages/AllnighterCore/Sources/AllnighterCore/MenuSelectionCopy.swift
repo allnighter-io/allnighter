@@ -308,6 +308,10 @@ public enum MenuSelectionCopy {
             useWhen: "GPT-5.6 Sol, Codex (default)",
             dontUseWhen: "Not Cursor Sol; model_cursor_gpt_sol"
         ),
+        "model_gpt_astra": Pair(
+            useWhen: "GPT-6 Astra, Codex sibling seat",
+            dontUseWhen: "Not Sol; use model_gpt_sol"
+        ),
         "model_gpt_terra": Pair(
             useWhen: "GPT-5.6 Terra, Codex (medium)",
             dontUseWhen: "Not Sol; use model_gpt_sol"
@@ -401,7 +405,7 @@ public enum MenuSelectionCopy {
             dontUseWhen: "OpenCode Go required"
         ),
         "model_opencode_ox_alpha_free": Pair(
-            useWhen: "Ox Alpha Free, OpenCode Go (limited-time free seat)",
+            useWhen: "Ox Alpha Free, OpenCode Go (limited-time)",
             dontUseWhen: "OpenCode Go required"
         ),
         "model_grok_composer_25_fast": Pair(
